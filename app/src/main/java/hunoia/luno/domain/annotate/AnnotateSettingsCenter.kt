@@ -2,7 +2,6 @@ package hunoia.luno.domain.annotate
 
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.ToolStyle
-import hunoia.luno.annotate.model.ToolbarAnchor
 import hunoia.luno.annotate.store.AnnotatePreferences
 import hunoia.luno.annotate.store.AnnotateSettingsStore
 import hunoia.luno.config.ConfigProvider
@@ -43,23 +42,12 @@ internal object AnnotateSettingsMapper {
             val tool = ToolKind.entries.firstOrNull { it.name == key } ?: return@mapNotNull null
             tool to dto.toStyle()
         }.toMap(),
-        anchor = toAnchor(settings),
     )
 
     fun toSettings(preferences: AnnotatePreferences): AnnotateSettings = AnnotateSettings(
         styles = preferences.styles.mapKeys { (tool, _) -> tool.name }
             .mapValues { (_, style) -> style.toDto() },
-        // source: 两个比例都存过才算有效位置。
-        toolbarXFraction = preferences.anchor?.xFraction,
-        toolbarYFraction = preferences.anchor?.yFraction,
     )
-
-    /** 两个比例都存过才算有效位置。 */
-    private fun toAnchor(settings: AnnotateSettings): ToolbarAnchor? {
-        val x = settings.toolbarXFraction ?: return null
-        val y = settings.toolbarYFraction ?: return null
-        return ToolbarAnchor(x, y)
-    }
 }
 
 private fun AnnotateToolStyle.toStyle(): ToolStyle = ToolStyle(
@@ -67,6 +55,7 @@ private fun AnnotateToolStyle.toStyle(): ToolStyle = ToolStyle(
     strokeWidth = strokeWidth,
     textSize = textSize,
     mosaicCell = mosaicCell,
+    shapeFilled = shapeFilled,
 )
 
 private fun ToolStyle.toDto(): AnnotateToolStyle = AnnotateToolStyle(
@@ -74,4 +63,5 @@ private fun ToolStyle.toDto(): AnnotateToolStyle = AnnotateToolStyle(
     strokeWidth = strokeWidth,
     textSize = textSize,
     mosaicCell = mosaicCell,
+    shapeFilled = shapeFilled,
 )

@@ -234,6 +234,15 @@ fun StylePanel(
                         onClick = { document.clearAll() },
                     )
                 }
+                // 橡皮宽度：默认比画笔粗，独立滑杆便于精细擦除。
+                SizeSlider(
+                    label = stringResource(R.string.annotate_stroke_width),
+                    value = style.strokeWidth,
+                    valueRange = tool.sizeRange(),
+                    onValueChange = {
+                        document.updateStyle(tool, style.copy(strokeWidth = it))
+                    },
+                )
             }
 
             // SELECT 与 CROP 都显示选区操作（用户确认两面板共享）。
@@ -559,6 +568,7 @@ private fun ToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     ToolKind.TEXT -> textSize
     ToolKind.NUMBER -> textSize
     ToolKind.MOSAIC -> mosaicCell
+    ToolKind.ERASER -> strokeWidth
     else -> strokeWidth
 }
 
@@ -566,6 +576,7 @@ private fun ToolStyle.withPrimarySize(tool: ToolKind, value: Float): ToolStyle =
     ToolKind.TEXT -> copy(textSize = value)
     ToolKind.NUMBER -> copy(textSize = value)
     ToolKind.MOSAIC -> copy(mosaicCell = value)
+    ToolKind.ERASER -> copy(strokeWidth = value)
     else -> copy(strokeWidth = value)
 }
 
@@ -575,6 +586,8 @@ private fun ToolKind.sizeRange(): ClosedFloatingPointRange<Float> = when (this) 
     ToolKind.NUMBER -> 20f..80f
     ToolKind.MOSAIC -> 8f..48f
     ToolKind.HIGHLIGHT -> 4f..24f
+    // 橡皮默认更粗，允许覆盖更大面积。
+    ToolKind.ERASER -> 4f..40f
     // 其余线宽都是屏幕 dp（B9）。
     else -> 1f..16f
 }

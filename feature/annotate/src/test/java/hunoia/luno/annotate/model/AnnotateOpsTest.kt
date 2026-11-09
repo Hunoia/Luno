@@ -127,12 +127,6 @@ class AnnotateOpsTest {
     }
 
     @Test
-    fun `toolbar anchor is clamped to screen fractions`() {
-        val moved = AnnotateOps.moveToolbar(state(), ToolbarAnchor(1.4f, -0.2f))
-        assertEquals(ToolbarAnchor(1f, 0f), moved.toolbarAnchor)
-    }
-
-    @Test
     fun `element bounds include stroke width padding`() {
         val bounds = stroke(1).bounds()
         assertEquals(7f, bounds.left, 0.01f)
@@ -267,7 +261,6 @@ class AnnotateOpsTest {
         val s = AnnotateOps.applySettings(
             state(),
             styles = mapOf(ToolKind.PEN to ToolStyle(colorArgb = 0xFF0000FF, strokeWidth = 12f)),
-            anchor = null,
         )
 
         assertEquals(0xFF0000FF, s.styleFor(ToolKind.PEN).colorArgb)
@@ -279,16 +272,16 @@ class AnnotateOpsTest {
     }
 
     @Test
-    fun `apply settings clamps anchor and null keeps previous`() {
-        val moved = AnnotateOps.applySettings(
-            state(),
-            styles = emptyMap(),
-            anchor = ToolbarAnchor(-1f, 2f),
+    fun `apply settings does not touch content or undo history`() {
+        var s = AnnotateOps.addElement(state(), stroke(1))
+        val before = s.undoStack.size
+        s = AnnotateOps.applySettings(
+            s,
+            styles = mapOf(ToolKind.ERASER to ToolStyle(strokeWidth = 24f)),
         )
-        assertEquals(ToolbarAnchor(0f, 1f), moved.toolbarAnchor)
-
-        val kept = AnnotateOps.applySettings(moved, styles = emptyMap(), anchor = null)
-        assertEquals(moved.toolbarAnchor, kept.toolbarAnchor)
+        assertEquals(listOf(1L), s.elements.map { it.id })
+        assertEquals(before, s.undoStack.size)
+        assertEquals(24f, s.styleFor(ToolKind.ERASER).strokeWidth)
     }
 
     // ---- 马赛克涂抹笔刷（B4）----
@@ -452,23 +445,6 @@ class AnnotateOpsTest {
     }
 
     // ---- 双指缩放 / 平移（B7）----
-
-    @Test
-    fun `view transform clamps zoom and never touches undo history`() {
-        var s = AnnotateOps.addElement(state(), stroke(1))
-        val before = s.undoStack.size
-        s = AnnotateOps.setViewTransform(s, 99f, Pt(12f, -8f))
-        assertEquals(AnnotateOps.MAX_VIEW_ZOOM, s.viewZoom)
-        assertEquals(Pt(12f, -8f), s.viewPan)
-        assertEquals(before, s.undoStack.size)
-
-        s = AnnotateOps.setViewTransform(s, 0f, Pt(1f, 1f))
-        assertEquals(AnnotateOps.MIN_VIEW_ZOOM, s.viewZoom)
-
-        s = AnnotateOps.resetViewTransform(s)
-        assertEquals(1f, s.viewZoom)
-        assertEquals(Pt(0f, 0f), s.viewPan)
-    }
 
     @Test
     fun `contain fit applies zoom and clamps pan to image edges`() {

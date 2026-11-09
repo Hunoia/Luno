@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import hunoia.luno.annotate.model.AnnotateState
+import hunoia.luno.annotate.model.AnnotationElement
 import hunoia.luno.annotate.model.ContainFit
 import hunoia.luno.annotate.model.ElementKind
 import hunoia.luno.annotate.model.MosaicElement
@@ -87,32 +88,73 @@ object AnnotateVisuals {
  * 元素几何缓存（图片坐标）。
  *
  * 键是元素对象引用（`IdentityHashMap`）：元素不可变，撤销/替换会产生新实例，
- * 旧条目自然成为垃圾；草稿元素引用不变但点数在涨，按 `点数` 判失效重建。
+ * 旧条目自然成为垃圾；草稿元素引用不变但点数在涨，只追加新增点。
  * 条目数有上限，超了整体清空（极端场景退化为每帧重建，安全）。
  */
 class AnnotateGeometryCache {
 
-    private class StrokeEntry(val path: AndroidPath, val builtPoints: Int)
+    private class StrokeEntry(val path: AndroidPath, var builtPoints: Int)
     private class ShapeEntry(val path: AndroidPath)
-    private class MosaicEntry(val mask: AndroidPath, val builtPoints: Int, val builtRect: PxRect?)
+    private class MosaicEntry(
+        val mask: AndroidPath,
+        var builtPoints: Int,
+        var builtRect: PxRect?,
+    )
 
     private val strokes = IdentityHashMap<StrokeElement, StrokeEntry>()
     private val shapes = IdentityHashMap<ShapeElement, ShapeEntry>()
     private val mosaics = IdentityHashMap<MosaicElement, MosaicEntry>()
 
+    /** 元素列表引用不变时，图层标志位/包围盒可以复用（缩放时列表引用不变）。 */
+    private var flagsElements: List<AnnotationElement>? = null
+    private var flags: Int = 0
+    private var boundsElements: List<AnnotationElement>? = null
+    private var bounds: PxRect? = null
+
+    fun layerFlags(elements: List<AnnotationElement>): Int {
+        if (flagsElements === elements) return flags
+        var value = 0
+        for (element in elements) {
+            when {
+                element is StrokeElement && element.erase -> value = value or FLAG_ERASER
+                element is TextElement -> value = value or FLAG_TEXT
+            }
+        }
+        flagsElements = elements
+        flags = value
+        return value
+    }
+
+    /** 所有元素的图片坐标包围盒并集；无元素时 null。 */
+    fun layerBounds(elements: List<AnnotationElement>): PxRect? {
+        if (boundsElements === elements) return bounds
+        val union = elements
+            .map { it.bounds() }
+            .reduceOrNull { a, b -> a.union(b) }
+        boundsElements = elements
+        bounds = union
+        return union
+    }
+
     fun strokePath(element: StrokeElement): AndroidPath {
         val size = element.points.size
         val existing = strokes[element]
         if (existing != null && existing.builtPoints == size) return existing.path
+        // 草稿只追加点：沿已有路径继续 lineTo，避免整条重建成 O(n²)。
+        if (existing != null && size > existing.builtPoints) {
+            val points = element.points
+            for (i in existing.builtPoints until size) {
+                existing.path.lineTo(points[i].x, points[i].y)
+            }
+            existing.builtPoints = size
+            return existing.path
+        }
         ensureCapacity(strokes)
         val path = AndroidPath()
-        if (size > 0) {
-            val first = element.points.first()
-            path.moveTo(first.x, first.y)
-            for (i in 1 until size) {
-                val p = element.points[i]
-                path.lineTo(p.x, p.y)
-            }
+        val points = element.points
+        if (points.isNotEmpty()) {
+            path.moveTo(points[0].x, points[0].y)
+            for (i in 1 until points.size) path.lineTo(points[i].x, points[i].y)
         }
         strokes[element] = StrokeEntry(path, size)
         return path
@@ -174,59 +216,78 @@ class AnnotateGeometryCache {
     fun mosaicMask(element: MosaicElement, sanitized: MosaicElement): AndroidPath {
         val pointsSize = sanitized.points.size
         val rect = sanitized.rect?.normalized()
-        val existing = mosaics[element]
-        if (existing != null && existing.builtPoints == pointsSize && existing.builtRect == rect) {
-            return existing.mask
+        var existing = mosaics[element]
+        // 矩形变了或点数回退：无法增量修补，整体重建。
+        if (existing != null && (existing.builtRect != rect || pointsSize < existing.builtPoints)) {
+            existing = null
         }
+        if (existing != null && existing.builtPoints == pointsSize) return existing.mask
         ensureCapacity(mosaics)
-        val mask = AndroidPath()
-        if (sanitized.points.isNotEmpty()) {
-            val width = sanitized.width
-            if (sanitized.points.size == 1) {
-                val p = sanitized.points.first()
-                mask.addCircle(p.x, p.y, width / 2f, AndroidPath.Direction.CW)
-            } else {
-                val trail = AndroidPath().apply {
-                    val first = sanitized.points.first()
-                    moveTo(first.x, first.y)
-                    for (i in 1 until sanitized.points.size) {
-                        val p = sanitized.points[i]
-                        lineTo(p.x, p.y)
-                    }
+        if (existing == null) {
+            val mask = AndroidPath()
+            appendMosaicPoints(mask, sanitized, from = 0)
+            rect?.let { r ->
+                val fill = AndroidPath().apply {
+                    addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
                 }
-                val stroke = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-                    style = AndroidPaint.Style.STROKE
-                    strokeCap = AndroidPaint.Cap.ROUND
-                    strokeJoin = AndroidPaint.Join.ROUND
-                    strokeWidth = width
-                }
-                val filled = AndroidPath()
-                stroke.getFillPath(trail, filled)
-                mask.op(filled, AndroidPath.Op.UNION)
+                mask.op(fill, AndroidPath.Op.UNION)
             }
+            mosaics[element] = MosaicEntry(mask, pointsSize, rect)
+            return mask
         }
-        rect?.let { r ->
-            val fill = AndroidPath().apply {
-                addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
-            }
-            mask.op(fill, AndroidPath.Op.UNION)
+        // 同一矩形、只追加轨迹点：每段单独描边后并进 mask。
+        appendMosaicPoints(existing.mask, sanitized, from = existing.builtPoints)
+        existing.builtPoints = pointsSize
+        return existing.mask
+    }
+
+    /** 把 [from] 之后的新轨迹段并进 [mask]；首点用圆点补 round cap。 */
+    private fun appendMosaicPoints(mask: AndroidPath, element: MosaicElement, from: Int) {
+        val points = element.points
+        if (points.isEmpty()) return
+        val width = element.width
+        if (from == 0) {
+            val first = points.first()
+            mask.addCircle(first.x, first.y, width / 2f, AndroidPath.Direction.CW)
         }
-        mosaics[element] = MosaicEntry(mask, pointsSize, rect)
-        return mask
+        if (points.size < 2) return
+        val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            style = AndroidPaint.Style.STROKE
+            strokeCap = AndroidPaint.Cap.ROUND
+            strokeJoin = AndroidPaint.Join.ROUND
+            strokeWidth = width
+        }
+        val segment = AndroidPath()
+        val filled = AndroidPath()
+        for (i in maxOf(1, from) until points.size) {
+            val a = points[i - 1]
+            val b = points[i]
+            segment.reset()
+            segment.moveTo(a.x, a.y)
+            segment.lineTo(b.x, b.y)
+            filled.reset()
+            paint.getFillPath(segment, filled)
+            mask.op(filled, AndroidPath.Op.UNION)
+        }
     }
 
     fun clear() {
         strokes.clear()
         shapes.clear()
         mosaics.clear()
+        flagsElements = null
+        boundsElements = null
+        bounds = null
     }
 
     private fun <T> ensureCapacity(map: IdentityHashMap<T, *>) {
         if (map.size >= MAX_ENTRIES) map.clear()
     }
 
-    private companion object {
-        const val MAX_ENTRIES = 512
+    companion object {
+        private const val MAX_ENTRIES = 512
+        const val FLAG_ERASER = 1
+        const val FLAG_TEXT = 2
     }
 }
 
@@ -238,17 +299,45 @@ fun DrawScope.drawAnnotate(
     selectionOverride: PxRect? = null,
     scrimAroundImage: Boolean = false,
     geometryCache: AnnotateGeometryCache? = null,
+    /** 导出时限制可见区域（图片坐标），让 `saveLayer` 只分配裁剪区。 */
+    visibleImageRect: PxRect? = null,
+    /** SELECT 拖动中的元素：不复制 points，绘制时临时平移。 */
+    draftId: Long? = null,
+    draftOffset: Pt? = null,
 ) {
     val imageRect = fit.imageRectToView(PxRect.full(state.imageWidth, state.imageHeight))
     if (scrimAroundImage) {
         drawRect(color = AnnotateVisuals.CanvasGutter, size = size)
     }
     drawBaseImage(base, fit, imageRect)
-    drawAnnotationLayer(state, base, fit, imageRect, geometryCache ?: AnnotateGeometryCache())
+    drawAnnotationLayer(
+        state = state,
+        base = base,
+        fit = fit,
+        imageRect = imageRect,
+        cache = geometryCache ?: AnnotateGeometryCache(),
+        visibleImageRect = visibleImageRect,
+        draftId = draftId,
+        draftOffset = draftOffset,
+    )
     if (showSelection) {
         val selection = selectionOverride ?: state.selection
         if (selection != null) drawSelectionOverlay(selection, fit, imageRect)
     }
+}
+
+/**
+ * 预览专用：选区遮罩 + 手柄。放在世界层之外绘制，
+ * 这样 `graphicsLayer` 缩放不会把描边/手柄一起放大。
+ */
+fun DrawScope.drawAnnotateSelection(
+    state: AnnotateState,
+    fit: ContainFit,
+    selectionOverride: PxRect? = null,
+) {
+    val selection = selectionOverride ?: state.selection ?: return
+    val imageRect = fit.imageRectToView(PxRect.full(state.imageWidth, state.imageHeight))
+    drawSelectionOverlay(selection, fit, imageRect)
 }
 
 private fun DrawScope.drawBaseImage(
@@ -275,7 +364,7 @@ private fun DrawScope.drawBaseImage(
  *
  * 橡皮用 `PorterDuff.Mode.CLEAR`，必须隔离层才不会把底图擦成透明（计划 D4）；
  * 但**没有橡皮时省掉整帧的 `saveLayer`**。有橡皮时图层范围取所有元素包围盒的并集
- * （夹到图片内），比整图小；元素集中在局部时能省下可观的缓冲区分配。
+ * （夹到可见区），元素集中在局部时能省下可观的缓冲区分配。
  */
 private fun DrawScope.drawAnnotationLayer(
     state: AnnotateState,
@@ -283,20 +372,23 @@ private fun DrawScope.drawAnnotationLayer(
     fit: ContainFit,
     imageRect: PxRect,
     cache: AnnotateGeometryCache,
+    visibleImageRect: PxRect?,
+    draftId: Long?,
+    draftOffset: Pt?,
 ) {
-    if (state.elements.isEmpty()) return
-    val needsLayer = state.elements.any { it is StrokeElement && it.erase }
+    val elements = state.elements
+    if (elements.isEmpty()) return
+    val flags = cache.layerFlags(elements)
+    val needsLayer = flags and AnnotateGeometryCache.FLAG_ERASER != 0
+    val hasText = flags and AnnotateGeometryCache.FLAG_TEXT != 0
     // 文字用真实字宽绘制，模型层包围盒只是估算（多行高度可能超出），
-    // 有文字时退回避险：图层边界取整图，避免文字被 saveLayer 裁剪。
+    // 有文字时退回避险：图层边界取可见区，避免文字被 saveLayer 裁剪。
     val layerBounds = if (needsLayer) {
-        if (state.elements.any { it is TextElement }) {
-            Rect(imageRect.left, imageRect.top, imageRect.right, imageRect.bottom)
-        } else {
-            annotationLayerBounds(state, fit, imageRect)
-        }
+        annotationLayerBounds(state, fit, imageRect, cache, visibleImageRect, hasText, draftOffset)
     } else {
         null
     }
+    val paints = RenderPaints()
     if (layerBounds != null) drawContext.canvas.saveLayer(layerBounds, Paint())
     try {
         clipRect(
@@ -306,18 +398,30 @@ private fun DrawScope.drawAnnotationLayer(
             bottom = imageRect.bottom,
         ) {
             var numberCount = 0
-            for (element in state.elements) {
+            for (element in elements) {
                 when (element) {
                     // 文字保持视图坐标绘制（量字宽依赖 fit.scale），不进几何缓存。
-                    is TextElement -> drawTextElement(element, fit)
+                    is TextElement -> drawTextElement(element, fit, paints.text)
                     else -> drawWithImageTransform(fit) { canvas ->
-                        when (element) {
-                            is StrokeElement -> drawStrokeNative(canvas, element, cache)
-                            is ShapeElement -> drawShapeNative(canvas, element, cache)
-                            is MosaicElement -> drawMosaicNative(canvas, element, base, cache)
-                            // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
-                            is NumberElement -> drawNumberNative(canvas, element, numberCount + 1)
-                            is TextElement -> Unit
+                        val checkpoint = if (draftOffset != null && element.id == draftId) {
+                            canvas.save().also { canvas.translate(draftOffset.x, draftOffset.y) }
+                        } else {
+                            -1
+                        }
+                        try {
+                            when (element) {
+                                is StrokeElement -> drawStrokeNative(canvas, element, cache, paints.stroke)
+                                is ShapeElement ->
+                                    drawShapeNative(canvas, element, cache, paints.stroke, paints.fill)
+                                is MosaicElement ->
+                                    drawMosaicNative(canvas, element, base, cache, paints.mosaic)
+                                // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
+                                is NumberElement ->
+                                    drawNumberNative(canvas, element, numberCount + 1, paints.fill, paints.text)
+                                is TextElement -> Unit
+                            }
+                        } finally {
+                            if (checkpoint >= 0) canvas.restoreToCount(checkpoint)
                         }
                     }
                 }
@@ -329,29 +433,71 @@ private fun DrawScope.drawAnnotationLayer(
     }
 }
 
-/** 把所有元素包围盒合成一个视图坐标矩形，夹到图片范围内，作为 saveLayer 的边界。 */
+/** 绘制期内复用的原生 Paint：避免每元素每帧分配。 */
+private class RenderPaints {
+    val stroke = AndroidPaint()
+    val fill = AndroidPaint()
+    val text = AndroidPaint()
+    val mosaic = AndroidPaint()
+}
+
+/** 把所有元素包围盒合成一个视图坐标矩形，夹到可见区，作为 saveLayer 的边界。 */
 private fun annotationLayerBounds(
     state: AnnotateState,
     fit: ContainFit,
     imageRect: PxRect,
+    cache: AnnotateGeometryCache,
+    visibleImageRect: PxRect?,
+    hasText: Boolean,
+    draftOffset: Pt?,
 ): Rect {
-    val union = state.elements
-        .map { it.bounds() }
-        .reduceOrNull { a, b -> a.union(b) }
-    val clamped = union?.let { u ->
-        PxRect(
-            left = maxOf(u.left, imageRect.left),
-            top = maxOf(u.top, imageRect.top),
-            right = minOf(u.right, imageRect.right),
-            bottom = minOf(u.bottom, imageRect.bottom),
+    val visible = visibleImageRect ?: PxRect.full(state.imageWidth, state.imageHeight)
+    var imageBounds = if (hasText) {
+        visible
+    } else {
+        cache.layerBounds(state.elements)?.let { intersect(it, visible) } ?: visible
+    }
+    if (draftOffset != null) {
+        val shifted = PxRect(
+            left = imageBounds.left + draftOffset.x,
+            top = imageBounds.top + draftOffset.y,
+            right = imageBounds.right + draftOffset.x,
+            bottom = imageBounds.bottom + draftOffset.y,
         )
+        imageBounds = union(imageBounds, intersect(shifted, visible))
     }
-    if (clamped == null || clamped.right <= clamped.left || clamped.bottom <= clamped.top) {
-        return Rect(imageRect.left, imageRect.top, imageRect.right, imageRect.bottom)
+    if (imageBounds.right <= imageBounds.left || imageBounds.bottom <= imageBounds.top) {
+        val fallback = fit.imageRectToView(visible)
+        return Rect(fallback.left, fallback.top, fallback.right, fallback.bottom)
     }
-    val view = fit.imageRectToView(clamped)
-    return Rect(view.left, view.top, view.right, view.bottom)
+    val view = fit.imageRectToView(imageBounds)
+    // 夹到图片在视图里的范围，避免 layer 超出画布。
+    val clamped = PxRect(
+        left = maxOf(view.left, imageRect.left),
+        top = maxOf(view.top, imageRect.top),
+        right = minOf(view.right, imageRect.right),
+        bottom = minOf(view.bottom, imageRect.bottom),
+    )
+    return if (clamped.right <= clamped.left || clamped.bottom <= clamped.top) {
+        Rect(imageRect.left, imageRect.top, imageRect.right, imageRect.bottom)
+    } else {
+        Rect(clamped.left, clamped.top, clamped.right, clamped.bottom)
+    }
 }
+
+private fun intersect(a: PxRect, b: PxRect): PxRect = PxRect(
+    left = maxOf(a.left, b.left),
+    top = maxOf(a.top, b.top),
+    right = minOf(a.right, b.right),
+    bottom = minOf(a.bottom, b.bottom),
+)
+
+private fun union(a: PxRect, b: PxRect): PxRect = PxRect(
+    left = minOf(a.left, b.left),
+    top = minOf(a.top, b.top),
+    right = maxOf(a.right, b.right),
+    bottom = maxOf(a.bottom, b.bottom),
+)
 
 /** 进入图片坐标系绘制，画完恢复（保证后续 Compose 绘制不受影响）。 */
 private inline fun DrawScope.drawWithImageTransform(fit: ContainFit, block: (AndroidCanvas) -> Unit) {
@@ -370,20 +516,21 @@ private fun drawStrokeNative(
     canvas: AndroidCanvas,
     element: StrokeElement,
     cache: AnnotateGeometryCache,
+    paint: AndroidPaint,
 ) {
     if (element.points.isEmpty()) return
     val width = element.width * if (element.highlight) 1.6f else 1f
-    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-        style = AndroidPaint.Style.STROKE
-        strokeCap = AndroidPaint.Cap.ROUND
-        strokeJoin = AndroidPaint.Join.ROUND
-        strokeWidth = width
-        if (element.erase) {
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
-        } else {
-            color = element.colorArgb.toInt()
-            if (element.highlight) alpha = (255 * 0.38f).toInt()
-        }
+    paint.reset()
+    paint.isAntiAlias = true
+    paint.style = AndroidPaint.Style.STROKE
+    paint.strokeCap = AndroidPaint.Cap.ROUND
+    paint.strokeJoin = AndroidPaint.Join.ROUND
+    paint.strokeWidth = width
+    if (element.erase) {
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+    } else {
+        paint.color = element.colorArgb.toInt()
+        if (element.highlight) paint.alpha = (255 * 0.38f).toInt()
     }
     if (element.points.size == 1) {
         if (element.erase) return
@@ -398,6 +545,8 @@ private fun drawShapeNative(
     canvas: AndroidCanvas,
     element: ShapeElement,
     cache: AnnotateGeometryCache,
+    strokePaint: AndroidPaint,
+    fillPaint: AndroidPaint,
 ) {
     val path = cache.shapePath(element)
     val center = element.bounds.center
@@ -407,38 +556,38 @@ private fun drawShapeNative(
     }
     // 虚线（DASHED_LINE）：用虚线描边。
     if (element.kind == ElementKind.DASHED_LINE) {
-        val dashed = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-            style = AndroidPaint.Style.STROKE
-            strokeCap = AndroidPaint.Cap.ROUND
-            strokeWidth = element.width
-            color = element.colorArgb.toInt()
-            // 间距 = 5×线宽，间隙 = 线宽（与 moting 视觉一致）。
-            pathEffect = DashPathEffect(
-                floatArrayOf(element.width * 5f, element.width),
-                0f,
-            )
-        }
-        canvas.drawPath(path, dashed)
+        strokePaint.reset()
+        strokePaint.isAntiAlias = true
+        strokePaint.style = AndroidPaint.Style.STROKE
+        strokePaint.strokeCap = AndroidPaint.Cap.ROUND
+        strokePaint.strokeWidth = element.width
+        strokePaint.color = element.colorArgb.toInt()
+        // 间距 = 5×线宽，间隙 = 线宽（与 moting 视觉一致）。
+        strokePaint.pathEffect = DashPathEffect(
+            floatArrayOf(element.width * 5f, element.width),
+            0f,
+        )
+        canvas.drawPath(path, strokePaint)
         canvas.restoreToCount(checkpoint)
         return
     }
     // 半透明填充（alpha ≈ 14%）：仅闭合形状（开放路径填充会闭合产生错误图形）。
     if (element.filled && element.kind.isClosedShape()) {
-        val fill = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-            style = AndroidPaint.Style.FILL
-            color = element.colorArgb.toInt()
-            alpha = (255 * 0.14f).toInt()
-        }
-        canvas.drawPath(path, fill)
+        fillPaint.reset()
+        fillPaint.isAntiAlias = true
+        fillPaint.style = AndroidPaint.Style.FILL
+        fillPaint.color = element.colorArgb.toInt()
+        fillPaint.alpha = (255 * 0.14f).toInt()
+        canvas.drawPath(path, fillPaint)
     }
-    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-        style = AndroidPaint.Style.STROKE
-        strokeCap = AndroidPaint.Cap.ROUND
-        strokeJoin = AndroidPaint.Join.ROUND
-        strokeWidth = element.width
-        color = element.colorArgb.toInt()
-    }
-    canvas.drawPath(path, paint)
+    strokePaint.reset()
+    strokePaint.isAntiAlias = true
+    strokePaint.style = AndroidPaint.Style.STROKE
+    strokePaint.strokeCap = AndroidPaint.Cap.ROUND
+    strokePaint.strokeJoin = AndroidPaint.Join.ROUND
+    strokePaint.strokeWidth = element.width
+    strokePaint.color = element.colorArgb.toInt()
+    canvas.drawPath(path, strokePaint)
     canvas.restoreToCount(checkpoint)
 }
 
@@ -447,28 +596,30 @@ private fun drawNumberNative(
     canvas: AndroidCanvas,
     element: NumberElement,
     number: Int,
+    badgePaint: AndroidPaint,
+    textPaint: AndroidPaint,
 ) {
     if (number <= 0) return
     val radius = (element.textSize / 2f).coerceAtLeast(1f)
-    val badge = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-        style = AndroidPaint.Style.FILL
-        color = element.colorArgb.toInt()
-    }
-    val textPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-        style = AndroidPaint.Style.FILL
-        // 浅色底用深字、深色底用白字：调色板首位是白，白底白字会看不见。
-        color = if (isLightColor(element.colorArgb)) android.graphics.Color.BLACK
-        else android.graphics.Color.WHITE
-        // 数字字号占圆底约 60%，保持高对比。
-        textSize = (element.textSize * 0.6f).coerceAtLeast(1f)
-        typeface = Typeface.DEFAULT_BOLD
-        textAlign = AndroidPaint.Align.CENTER
-    }
+    badgePaint.reset()
+    badgePaint.isAntiAlias = true
+    badgePaint.style = AndroidPaint.Style.FILL
+    badgePaint.color = element.colorArgb.toInt()
+    textPaint.reset()
+    textPaint.isAntiAlias = true
+    textPaint.style = AndroidPaint.Style.FILL
+    // 浅色底用深字、深色底用白字：调色板首位是白，白底白字会看不见。
+    textPaint.color = if (isLightColor(element.colorArgb)) android.graphics.Color.BLACK
+    else android.graphics.Color.WHITE
+    // 数字字号占圆底约 60%，保持高对比。
+    textPaint.textSize = (element.textSize * 0.6f).coerceAtLeast(1f)
+    textPaint.typeface = Typeface.DEFAULT_BOLD
+    textPaint.textAlign = AndroidPaint.Align.CENTER
     val checkpoint = canvas.save()
     if (element.rotationRad != 0f) {
         canvas.rotate(rotationRadToDegrees(element.rotationRad), element.position.x, element.position.y)
     }
-    canvas.drawCircle(element.position.x, element.position.y, radius, badge)
+    canvas.drawCircle(element.position.x, element.position.y, radius, badgePaint)
     val baseline = element.position.y - (textPaint.ascent() + textPaint.descent()) / 2f
     canvas.drawText(number.toString(), element.position.x, baseline, textPaint)
     canvas.restoreToCount(checkpoint)
@@ -490,17 +641,17 @@ private fun drawMosaicNative(
     element: MosaicElement,
     base: BaseImage?,
     cache: AnnotateGeometryCache,
+    paint: AndroidPaint,
 ) {
     if (base == null) return
     val sanitized = element.sanitized()
     val mask = cache.mosaicMask(element, sanitized)
     if (mask.isEmpty) return
     val mosaic = base.mosaicImage(sanitized.cellSize)
-    val paint = AndroidPaint().apply {
-        isAntiAlias = false
-        isFilterBitmap = false
-        isDither = false
-    }
+    paint.reset()
+    paint.isAntiAlias = false
+    paint.isFilterBitmap = false
+    paint.isDither = false
     canvas.clipPath(mask)
     canvas.drawBitmap(mosaic, null, AndroidRectF(0f, 0f, base.width.toFloat(), base.height.toFloat()), paint)
 }
@@ -537,15 +688,19 @@ private fun addArrowWings(path: AndroidPath, start: Pt, end: Pt, width: Float) {
     path.lineTo(b.x, b.y)
 }
 
-private fun DrawScope.drawTextElement(element: TextElement, fit: ContainFit) {
+private fun DrawScope.drawTextElement(
+    element: TextElement,
+    fit: ContainFit,
+    paint: AndroidPaint,
+) {
     if (element.text.isEmpty()) return
     val p = fit.imageToView(element.position)
-    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-        color = element.colorArgb.toInt()
-        textSize = max(element.textSize * fit.scale, 1f)
-        typeface = Typeface.DEFAULT
-        style = AndroidPaint.Style.FILL
-    }
+    paint.reset()
+    paint.isAntiAlias = true
+    paint.color = element.colorArgb.toInt()
+    paint.textSize = max(element.textSize * fit.scale, 1f)
+    paint.typeface = Typeface.DEFAULT
+    paint.style = AndroidPaint.Style.FILL
     val canvas = drawContext.canvas.nativeCanvas
     val lines = element.text.split('\n')
     val metrics = paint.fontMetrics
@@ -628,8 +783,6 @@ private fun DrawScope.drawSelectionOverlay(
         )
     }
 }
-
-private fun Pt.asOffset(): Offset = Offset(x, y)
 
 /** 导出时按选区裁剪的像素尺寸，供宿主预分配位图 / 工具条显示。 */
 fun AnnotateState.exportPixelSize(): IntSize {

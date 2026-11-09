@@ -27,8 +27,7 @@ private val flushScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 /** 读取持久化偏好并应用到文档；没有 store / 读取失败都按默认值打开（不影响标注本身）。 */
 suspend fun restoreAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsStore?) {
     val preferences = store?.let { runCatching { it.load() }.getOrNull() } ?: AnnotatePreferences()
-    // 工具条位置只在当前会话内有效；旧版本保存的 anchor 不再恢复。
-    document.applySettings(styles = preferences.styles, anchor = null)
+    document.applySettings(styles = preferences.styles)
 }
 
 /** 立即把文档当前偏好写回 store（关闭 / 换底图时调用）。 */

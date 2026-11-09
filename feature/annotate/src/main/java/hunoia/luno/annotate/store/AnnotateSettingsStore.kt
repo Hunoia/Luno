@@ -2,7 +2,6 @@ package hunoia.luno.annotate.store
 
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.ToolStyle
-import hunoia.luno.annotate.model.ToolbarAnchor
 
 /**
  * 标注偏好的持久化端口。
@@ -15,8 +14,7 @@ interface AnnotateSettingsStore {
     suspend fun save(preferences: AnnotatePreferences)
 }
 
-/** 一份标注偏好：每工具风格 + 工具条比例位置。笔迹不落盘。 */
+/** 一份标注偏好：每工具风格。笔迹不落盘。 */
 data class AnnotatePreferences(
     val styles: Map<ToolKind, ToolStyle> = emptyMap(),
-    val anchor: ToolbarAnchor? = null,
 )

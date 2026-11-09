@@ -16,16 +16,11 @@ data class AnnotateState(
     /** 橡皮的矩形擦模式（审计 C1）：仅 ERASER 下生效，切走工具时复位。 */
     val eraserRect: Boolean = false,
     val styles: Map<ToolKind, ToolStyle> = DEFAULT_STYLES,
-    val toolbarAnchor: ToolbarAnchor? = null,
     /**
      * SELECT 工具当前点中的元素（B5）。只影响画布上的选中框与工具条删除按钮，
      * 不是笔迹内容，不进撤销历史；元素被删/撤销掉时自动失效。
      */
     val selectedElementId: Long? = null,
-    /** 双指缩放倍数（B7）：1 = 适应屏幕，不持久化、不进撤销。 */
-    val viewZoom: Float = 1f,
-    /** 缩放后的视图平移，单位是视图像素；已按可移动范围夹取。 */
-    val viewPan: Pt = Pt(0f, 0f),
     val undoStack: List<List<AnnotationElement>> = emptyList(),
     val redoStack: List<List<AnnotationElement>> = emptyList(),
 ) {
@@ -43,6 +38,8 @@ data class AnnotateState(
                 ToolKind.NUMBER -> ToolStyle(colorArgb = 0xFFFF3B30, textSize = 40f, strokeWidth = 3f)
                 // 形状默认仅描边，不填充。
                 ToolKind.SHAPE -> ToolStyle(shapeFilled = false)
+                // 橡皮默认比画笔粗：擦除需要覆盖面积。
+                ToolKind.ERASER -> ToolStyle(strokeWidth = 12f)
                 else -> ToolStyle()
             }
         }
@@ -195,24 +192,6 @@ object AnnotateOps {
         )
     }
 
-    /** 双指缩放/平移（B7）。只改视图，不动元素、不进撤销历史。 */
-    fun setViewTransform(state: AnnotateState, zoom: Float, pan: Pt): AnnotateState =
-        state.copy(
-            viewZoom = zoom.coerceIn(MIN_VIEW_ZOOM, MAX_VIEW_ZOOM),
-            viewPan = pan,
-        )
-
-    /** 「适应屏幕」：重置缩放与平移。 */
-    fun resetViewTransform(state: AnnotateState): AnnotateState =
-        state.copy(viewZoom = 1f, viewPan = Pt(0f, 0f))
-
-    /** 适应按钮循环：安全区域适配 ↔ 全屏适配。 */
-    fun toggleViewZoom(state: AnnotateState, safeZoom: Float = MIN_VIEW_ZOOM): AnnotateState {
-        val safe = safeZoom.coerceIn(MIN_VIEW_ZOOM, 1f)
-        val target = if (state.viewZoom <= safe + 0.001f) 1f else safe
-        return state.copy(viewZoom = target, viewPan = Pt(0f, 0f))
-    }
-
     /** 选区先归一化再 clamp；过小视为清除。 */
     fun setSelection(state: AnnotateState, rect: PxRect?): AnnotateState {
         val clamped = rect
@@ -238,21 +217,14 @@ object AnnotateOps {
     fun updateStyle(state: AnnotateState, tool: ToolKind, style: ToolStyle): AnnotateState =
         state.copy(styles = state.styles + (tool to style))
 
-    fun moveToolbar(state: AnnotateState, anchor: ToolbarAnchor): AnnotateState =
-        state.copy(toolbarAnchor = anchor.sanitized())
-
     /**
-     * 应用持久化偏好（打开标注时）：只覆盖传入的工具风格与工具条位置。
-     * 偏好不是笔迹，不进撤销历史；位置为 null 时保留当前值。
+     * 应用持久化偏好（打开标注时）：只覆盖传入的工具风格。
+     * 偏好不是笔迹，不进撤销历史。
      */
     fun applySettings(
         state: AnnotateState,
         styles: Map<ToolKind, ToolStyle>,
-        anchor: ToolbarAnchor?,
-    ): AnnotateState = state.copy(
-        styles = state.styles + styles,
-        toolbarAnchor = anchor?.sanitized() ?: state.toolbarAnchor,
-    )
+    ): AnnotateState = state.copy(styles = state.styles + styles)
 
     /**
      * 关闭穿透后换底图。笔迹坐标不变（D6「保留」路径）；选区按新尺寸重新 clamp。
@@ -278,9 +250,6 @@ object AnnotateOps {
             elements = kept,
             selection = newSelection,
             selectedElementId = state.selectedElementId?.takeIf { id -> kept.any { it.id == id } },
-            // 换底图后旧视口没有意义，回到适应屏幕。
-            viewZoom = 1f,
-            viewPan = Pt(0f, 0f),
             undoStack = if (keepElements) state.undoStack else emptyList(),
             redoStack = if (keepElements) state.redoStack else emptyList(),
         )

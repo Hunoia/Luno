@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -51,7 +53,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateOps
@@ -86,6 +87,7 @@ import hunoia.luno.annotate.render.AnnotateGeometryCache
 import hunoia.luno.annotate.render.AnnotateVisuals
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.drawAnnotate
+import hunoia.luno.annotate.render.drawAnnotateSelection
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -114,7 +116,8 @@ fun AnnotateCanvas(
     /** 裁剪态“恢复整图”请求：宿主自增 token，画布据此重置裁剪窗口。 */
     cropResetToken: Int = 0,
 ) {
-    val density = LocalDensity.current.density
+    val localDensity = LocalDensity.current
+    val density = localDensity.density
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
 
     // contain 基准（不含双指视图变换）；缩放/平移只影响预览，导出永远 identity。
@@ -134,14 +137,11 @@ fun AnnotateCanvas(
     }
 
     val state = document.state
-    val fit = remember(baseFit, state.viewZoom, state.viewPan) {
-        baseFit?.withViewTransform(state.viewZoom, state.viewPan)
-    }
     val tool = state.activeTool
     val style = state.styleFor(tool)
-    // 指针手势块只在 tool 变化时重建；fit 随缩放变化，用 rememberUpdatedState
-    // 让每次新手势读到最新视图变换，而不会在手势中途重启 pointerInput。
-    val latestFit by rememberUpdatedState(fit)
+    // 视图变换不参与组合：捏合时只更新 graphicsLayer 与手势读取，
+    // 避免每帧重组内容/重绘世界层。
+    fun currentViewFit(): ContainFit? = baseFit?.let { document.viewTransform.applyTo(it) }
     // 直接捕获 style 会拿到旧颜色/线宽；用 rememberUpdatedState 让绘制始终读最新风格。
     val currentStyle by rememberUpdatedState(style)
     // 文字编辑始终用「文字」工具的风格：编辑中切到马赛克/画笔不应改掉字色。
@@ -149,6 +149,9 @@ fun AnnotateCanvas(
     val currentTextStyle by rememberUpdatedState(textStyle)
 
     var draft by remember { mutableStateOf<AnnotationElement?>(null) }
+    // SELECT 拖动位移：不复制元素 points（长笔迹拖动会每帧复制整条列表），
+    // 绘制时临时平移，抬手才 commit 一次。
+    var draftOffset by remember { mutableStateOf<Pt?>(null) }
     // 笔迹草稿的点列表：手势期间只追加（O(1)），不复制整条列表。
     // 旧实现每个 MOVE 都 `points = points + p`，5000 点的笔迹累计复制 ~千万引用，
     // GC 压力直接掉帧（审计 B1）。StrokeElement 挂的是这份活列表，
@@ -215,6 +218,7 @@ fun AnnotateCanvas(
     LaunchedEffect(document) {
         // 单实例复用（Activity singleTask 换图）：旧文档的草稿/编辑器不能带到新文档上。
         draft = null
+        draftOffset = null
         draftPoints.clear()
         draftSelection = null
         cropWindow = null
@@ -265,17 +269,18 @@ fun AnnotateCanvas(
 
     // 裁剪窗口是视图坐标；图片缩放/平移时，导出 selection 必须跟随窗口同步。
     // cropWindow 在调整大小时只是临时预览，因此不把它作为 effect key，避免拖动中提交 selection。
-    LaunchedEffect(tool, state.viewZoom, state.viewPan) {
-        if (tool == ToolKind.CROP) {
-            if (state.viewZoom < cropMinZoom) {
+    LaunchedEffect(tool) {
+        if (tool != ToolKind.CROP) return@LaunchedEffect
+        snapshotFlow { document.viewTransform }.collect { transform ->
+            if (transform.zoom < cropMinZoom) {
                 document.setViewTransform(cropMinZoom, Pt(0f, 0f))
-                return@LaunchedEffect
+                return@collect
             }
             val currentBase = baseFit
             val window = cropWindow
             if (currentBase != null && window != null) {
                 document.setSelection(
-                    currentBase.withViewTransform(state.viewZoom, state.viewPan)
+                    currentBase.withViewTransform(transform.zoom, transform.pan)
                         .viewRectToImage(window),
                 )
             }
@@ -304,11 +309,19 @@ fun AnnotateCanvas(
         centroid: Offset,
         zoomFactor: Float,
     ) {
-        val current = document.state
-        val oldFit = base.withViewTransform(current.viewZoom, current.viewPan)
+        // 每次调用时读最新状态：工具/裁剪下限可能在捏合过程中变化（如刚切到 CROP），
+        // 闭包捕获旧值会用错缩放下限或裁剪窗口。
+        val currentTool = document.state.activeTool
+        val currentCropMinZoom = cropMinZoom
+        val currentCropWindow = cropWindow
+        val transform = document.viewTransform
+        val oldFit = base.withViewTransform(transform.zoom, transform.pan)
         val focus = oldFit.viewToImage(previousCentroid.asPt())
-        val newZoom = (current.viewZoom * zoomFactor)
-            .coerceIn(if (tool == ToolKind.CROP) cropMinZoom else AnnotateOps.MIN_VIEW_ZOOM, AnnotateOps.MAX_VIEW_ZOOM)
+        val newZoom = (transform.zoom * zoomFactor)
+            .coerceIn(
+                if (currentTool == ToolKind.CROP) currentCropMinZoom else AnnotateOps.MIN_VIEW_ZOOM,
+                AnnotateOps.MAX_VIEW_ZOOM,
+            )
         val newScale = base.scale * newZoom
         // 让双指中心下的图片点跟住当前双指中心：同时完成缩放与平移。
         val centeredX = (base.viewWidth - base.imageWidth * newScale) / 2f
@@ -317,14 +330,14 @@ fun AnnotateCanvas(
             x = centroid.x - focus.x * newScale - centeredX,
             y = centroid.y - focus.y * newScale - centeredY,
         )
-        val clamped = if (tool == ToolKind.CROP) {
-            clampPanToCropWindow(base, newZoom, pan, cropWindow)
+        val clamped = if (currentTool == ToolKind.CROP) {
+            clampPanToCropWindow(base, newZoom, pan, currentCropWindow)
         } else {
             base.clampPan(newZoom, pan)
         }
         document.setViewTransform(newZoom, clamped)
-        if (tool == ToolKind.CROP) {
-            cropWindow?.let { window ->
+        if (currentTool == ToolKind.CROP) {
+            currentCropWindow?.let { window ->
                 document.setSelection(
                     base.withViewTransform(newZoom, clamped).viewRectToImage(window),
                 )
@@ -356,6 +369,7 @@ fun AnnotateCanvas(
                                 viewTransformGeneration += 1
                                 // 丢掉正在进行的单指草稿：缩放不应留下半截笔迹。
                                 draft = null
+                                draftOffset = null
                                 draftPoints.clear()
                                 draftErase = null
                                 lastCentroid = centroid
@@ -375,7 +389,7 @@ fun AnnotateCanvas(
             }
             .pointerInput(document, tool, density) {
                 awaitEachGesture {
-                    val currentFit = latestFit ?: return@awaitEachGesture
+                    val currentFit = currentViewFit() ?: return@awaitEachGesture
                     // consumed 的 down（落在文字输入框上）不再当作画布手势，
                     // 否则点输入框内部会被父层当成新的落字点。
                     val down = awaitFirstDown(requireUnconsumed = true)
@@ -495,18 +509,22 @@ fun AnnotateCanvas(
                                 hovered != null -> {
                                     document.selectElement(hovered.id)
                                     draft = hovered
+                                    draftOffset = Pt(0f, 0f)
                                     drag(down.id) { change ->
                                         moved = true
                                         val p = currentFit.viewToImage(change.position.asPt())
-                                        draft = hovered.translated(
+                                        draftOffset = Pt(
                                             p.x - startImage.x,
                                             p.y - startImage.y,
                                         )
                                         change.consume()
                                     }
-                                    val finished = draft
+                                    val offset = draftOffset
                                     draft = null
-                                    if (moved && finished != null) document.replace(finished)
+                                    draftOffset = null
+                                    if (moved && offset != null) {
+                                        document.replace(hovered.translated(offset.x, offset.y))
+                                    }
                                 }
 
                                 // 3) 空白处拖出导出选区；SELECT 不是多标注框选工具。
@@ -549,7 +567,7 @@ fun AnnotateCanvas(
 
                             if (handle != null) {
                                 val oldWindow = window
-                                val startZoom = document.state.viewZoom
+                                val startZoom = document.viewTransform.zoom
                                 val startFit = currentFit
                                 var nextWindow = oldWindow
                                 val released = drag(down.id) { change ->
@@ -619,17 +637,17 @@ fun AnnotateCanvas(
                                         moved = true
                                         val dx = change.position.x - last.x
                                         val dy = change.position.y - last.y
-                                        val pan = document.state.viewPan + Pt(dx, dy)
+                                        val pan = document.viewTransform.pan + Pt(dx, dy)
                                         val clamped = clampPanToCropWindow(
                                             base,
-                                            document.state.viewZoom,
+                                            document.viewTransform.zoom,
                                             pan,
                                             window,
                                         )
-                                        document.setViewTransform(document.state.viewZoom, clamped)
+                                        document.setViewTransform(document.viewTransform.zoom, clamped)
                                         document.setSelection(
                                             base.withViewTransform(
-                                                document.state.viewZoom,
+                                                document.viewTransform.zoom,
                                                 clamped,
                                             ).viewRectToImage(window),
                                         )
@@ -797,17 +815,39 @@ fun AnnotateCanvas(
                 }
             },
     ) {
+        // 背景（图片外留白）：放在世界层之外，缩放时不会露出未绘制区域。
         Canvas(Modifier.fillMaxSize()) {
-            val currentFit = fit ?: return@Canvas
+            drawRect(color = AnnotateVisuals.CanvasGutter, size = size)
+        }
+        // 世界层：底图 + 标注按 baseFit 绘制一次；缩放/平移只改 layer 变换。
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = document.viewTransform.zoom
+                    scaleY = document.viewTransform.zoom
+                    translationX = document.viewTransform.pan.x
+                    translationY = document.viewTransform.pan.y
+                    clip = true
+                },
+        ) {
+            val currentBase = baseFit ?: return@Canvas
             drawAnnotate(
                 state = displayState,
                 base = base,
-                fit = currentFit,
-                showSelection = showSelection,
-                selectionOverride = draftSelection,
-                scrimAroundImage = base != null,
+                fit = currentBase,
+                showSelection = false,
                 geometryCache = geometryCache,
+                draftId = if (draftOffset != null) draft?.id else null,
+                draftOffset = draftOffset,
             )
+        }
+        // 视图层：选区/裁剪/选中框/矩形擦预览。位置跟随缩放，但线宽/手柄保持屏幕尺寸。
+        Canvas(Modifier.fillMaxSize()) {
+            val currentFit = currentViewFit() ?: return@Canvas
+            if (showSelection) {
+                drawAnnotateSelection(displayState, currentFit, draftSelection)
+            }
             if (tool == ToolKind.CROP) {
                 cropWindow?.let { window ->
                     // 裁剪框外压暗；调整完成后裁剪框与选区内容同步放大。
@@ -871,7 +911,18 @@ fun AnnotateCanvas(
             displayState.selectedElementId
                 ?.let { id -> displayState.elements.firstOrNull { it.id == id } }
                 ?.let { element ->
-                    val box = elementBounds(element, currentFit)
+                    val offset = draftOffset
+                    val rawBox = elementBounds(element, currentFit)
+                    val box = if (offset != null && element.id == draft?.id) {
+                        PxRect(
+                            rawBox.left + offset.x,
+                            rawBox.top + offset.y,
+                            rawBox.right + offset.x,
+                            rawBox.bottom + offset.y,
+                        )
+                    } else {
+                        rawBox
+                    }
                     if (box.width > 0.5f || box.height > 0.5f) {
                         val rot = element.rotationRadOf()
                         val gap = ROTATE_HANDLE_GAP_DP * density / currentFit.scale
@@ -916,8 +967,10 @@ fun AnnotateCanvas(
         }
 
         val currentEditor = editor
-        if (currentEditor != null && fit != null) {
-            val viewPos = fit.imageToView(currentEditor.position)
+        // 只在编辑中读取视图变换：未编辑时捏合不应让整个 Canvas 组合失效。
+        val editorFit = if (currentEditor != null) currentViewFit() else null
+        if (currentEditor != null && editorFit != null) {
+            val viewPos = editorFit.imageToView(currentEditor.position)
             val focusRequester = remember { FocusRequester() }
             var hadFocus by remember { mutableStateOf(false) }
             // 编辑器位置由 handle 拖动维护：editor 状态每次 move 更新，
@@ -946,7 +999,7 @@ fun AnnotateCanvas(
                                     accX += dragAmount.x
                                     accY += dragAmount.y
                                     val currentEditorNow = editorState.value ?: return@detectDragGestures
-                                    val currentFitNow = latestFit ?: return@detectDragGestures
+                                    val currentFitNow = currentViewFit() ?: return@detectDragGestures
                                     editor = currentEditorNow.copy(
                                         position = Pt(
                                             x = (startPos.x + accX / currentFitNow.scale)
@@ -983,7 +1036,11 @@ fun AnnotateCanvas(
                         },
                     textStyle = TextStyle(
                         color = Color(textStyle.colorArgb),
-                        fontSize = (textStyle.textSize * fit.scale / density).sp,
+                        // 图片像素 → 视图 px → sp；toSp() 会带上系统字体缩放，
+                        // 与画布上按 fit.scale 绘制的字号对齐。
+                        fontSize = with(localDensity) {
+                            (textStyle.textSize * editorFit.scale).toSp()
+                        },
                     ),
                     cursorBrush = SolidColor(Color.White),
                     // 多行（D3）：回车换行。结束编辑走旁边的 ✓ 按钮——

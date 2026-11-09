@@ -32,6 +32,9 @@ suspend fun Context.exportAnnotated(
         withContext(Dispatchers.Default) { AnnotateExporter.renderCropped(state, base) }
     } catch (e: CancellationException) {
         throw e
+    } catch (e: OutOfMemoryError) {
+        // 大图导出可能在 createBitmap/saveLayer 处 OOM：按失败处理，不让进程崩掉。
+        null
     } catch (e: Exception) {
         null
     }
