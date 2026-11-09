@@ -19,7 +19,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.gridpanel.LocalGridPanelClose
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.panel.AppGridContent
 import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.quickaccess.query.AppSearch

@@ -1,5 +1,6 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.core.domain.QueryParam
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -30,9 +31,6 @@ internal fun JsonObject.str(key: String, default: String = ""): String =
 
 internal fun JsonObject.bool(key: String, default: Boolean = false): Boolean =
     this[key]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: default
-
-internal fun JsonObject.intOrNull(key: String): Int? =
-    this[key]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
 
 internal fun JsonObject.long(key: String, default: Long): Long =
     this[key]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: default

@@ -59,7 +59,9 @@ interface LinkPorts {
 class LinkDispatcher(private val ports: LinkPorts) {
 
     /** 未指定具体浏览器时，胶囊/规则列表上显示的名字。 */
-    private val BROWSER_LABEL = "浏览器"
+    private companion object {
+        const val BROWSER_LABEL = "浏览器"
+    }
 
     /** 规则的目标应用显示名；包名解析失败（已卸载）回退显示包名本身。 */
     fun targetOf(context: Context, rule: LinkDispatchRule): LinkTarget? {
@@ -212,19 +214,9 @@ class LinkDispatcher(private val ports: LinkPorts) {
 
     /** 系统分享面板（既有剪贴板胶囊点击行为）。 */
     fun share(context: Context, url: String) {
-        shareText(context, url)
-    }
-
-    /** 一次分享多条链接（识屏卡片的「分享全部」）：每条一行。 */
-    fun shareAll(context: Context, urls: List<String>) {
-        if (urls.isEmpty()) return
-        shareText(context, urls.joinToString("\n"))
-    }
-
-    private fun shareText(context: Context, text: String) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_TEXT, url)
         }
         startExternalIntent(context, Intent.createChooser(send, null))
     }

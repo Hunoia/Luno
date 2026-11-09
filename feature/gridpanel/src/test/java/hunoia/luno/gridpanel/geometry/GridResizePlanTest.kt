@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.action.gridpanel
+package hunoia.luno.gridpanel.geometry
 
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.planGridResize

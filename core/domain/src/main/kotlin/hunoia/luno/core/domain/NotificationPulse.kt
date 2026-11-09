@@ -15,7 +15,6 @@ data class NotificationPulse(
     /** 默认 NotificationManager.IMPORTANCE_DEFAULT = 3（契约层不依赖 Android）。 */
     val importance: Int = DEFAULT_IMPORTANCE,
     val key: String? = null,
-    val groupKey: String? = null,
     val channelId: String? = null,
     val category: String? = null,
 ) {

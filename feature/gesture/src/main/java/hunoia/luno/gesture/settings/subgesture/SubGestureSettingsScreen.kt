@@ -22,8 +22,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
@@ -39,7 +37,6 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.input.LunoTextSlider
 import androidx.compose.foundation.layout.Arrangement
 import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsUiEvent

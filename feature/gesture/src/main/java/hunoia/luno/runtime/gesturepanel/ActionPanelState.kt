@@ -1,10 +1,7 @@
 package hunoia.luno.runtime.gesturepanel
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -19,14 +16,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import hunoia.luno.action.model.Action
-
-@Composable
-fun rememberActionPanelState(): ActionPanelState {
-    val coroutineScope = rememberCoroutineScope()
-    return remember {
-        ActionPanelState(coroutineScope)
-    }
-}
 
 class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideState() {
 

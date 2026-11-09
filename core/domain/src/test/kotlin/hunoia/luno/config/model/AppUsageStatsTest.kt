@@ -1,5 +1,6 @@
 package hunoia.luno.config.model
 
+import hunoia.luno.core.domain.AppLaunchSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

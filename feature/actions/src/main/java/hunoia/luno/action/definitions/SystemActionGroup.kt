@@ -12,9 +12,9 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeOff
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
-import hunoia.luno.action.model.AudioStream
-import hunoia.luno.action.model.SettingsPage
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.SettingsPage
+import hunoia.luno.core.domain.VolumeDirection
 import hunoia.luno.action.model.enumValueOr
 import hunoia.luno.action.model.icon
 import hunoia.luno.action.model.label

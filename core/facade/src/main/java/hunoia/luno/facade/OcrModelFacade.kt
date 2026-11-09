@@ -47,7 +47,4 @@ data class OcrModelUiState(
     val socModel: String = "",
     val pp: PpModelUiState = PpModelUiState(),
     val importing: Boolean = false,
-) {
-    /** GPU 模型是否已就绪（未就绪时识屏直接返回空结果，由界面提示导入）。 */
-    val ppReady: Boolean get() = pp.state is OcrModelState.Ready
-}
+)

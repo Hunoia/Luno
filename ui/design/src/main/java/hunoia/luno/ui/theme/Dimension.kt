@@ -1,6 +1,5 @@
 package hunoia.luno.ui.theme
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.CapsuleShape
@@ -53,7 +52,6 @@ val CapsuleSmoothing = CornerSmoothing.Small
 
 // Shape instances（四角色见 §2.1.1）
 // 小角也用同一几何家族，只换档位，不另开一套圆弧形状。
-val ExtraSmallShape: Shape = SquircleShape(ShapeExtraSmall, ContainerSmoothing)
 val SmallShape: Shape = SquircleShape(ShapeSmall, ContainerSmoothing)
 val MediumShape: Shape = SquircleShape(ShapeMedium, ContainerSmoothing)
 val LargeShape: Shape = SquircleShape(ShapeLarge, ContainerSmoothing)
@@ -168,11 +166,6 @@ val DistanceTrackHeight = 16.dp
 val DistanceStrokeWidth = 4.dp
 
 // Haze 背后模糊半径见 Backdrop.kt 的 HazeBlurRadius。
-
-// Timeline（条件树 / 步骤流共用的时间线语言）
-val TimelineRailX = 13.dp
-val TimelineRailWidth = 2.dp
-val TimelineBadgeSize = 26.dp
 
 // 语义动效 token（ui-guidelines.md §2.4）：页面禁止再写裸 tween(数字)。
 const val MotionPageEnter = 200

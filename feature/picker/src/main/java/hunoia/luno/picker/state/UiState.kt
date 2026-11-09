@@ -8,7 +8,7 @@ import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.model.qualifiedNameWithIntents

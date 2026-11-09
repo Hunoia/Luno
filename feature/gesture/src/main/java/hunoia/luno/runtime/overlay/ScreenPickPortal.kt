@@ -105,7 +105,6 @@ object PortalLayout {
     const val CardMaxHeightDp = 320f
     const val CardEstimatedHeightDp = 96f
     const val CardRadiusDp = 18f
-    const val SlotRadiusDp = 18f
 
     /** 槽位矩形：底部居中一行，左右夹在屏内，底部让开导航栏 inset。 */
     fun slotRects(

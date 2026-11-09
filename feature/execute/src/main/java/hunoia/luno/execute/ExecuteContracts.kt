@@ -4,14 +4,16 @@ import android.content.Context
 import android.net.Uri
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
-import hunoia.luno.action.model.QueryParam
+import hunoia.luno.core.domain.QueryParam
+import hunoia.luno.core.domain.ActionMetadata
+import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.core.domain.StoredAction
 /**
- * 执行口的对外契约（Phase 2 `:feature:execute`）。
+ * 执行口的对外契约（`:feature:execute`）。
  *
  * 执行口只做 Execute：找定义 → 校验参数 → 查能力闸 → 调执行。它不认识 Trigger（手势、
  * 面板、自动化），也不认识宿主实现 —— 一切需要的能力都由这里定义的端口从 `:app` 注入。
@@ -24,12 +26,6 @@ interface ExecuteEnvironment {
 
     /** 当前前台包名；读不到返回 null。 */
     fun currentPackageName(): String?
-
-    /** 当前是否停在桌面（「小窗当前应用」等动作要提前收口）。 */
-    fun nowInLauncher(): Boolean
-
-    /** 请求解除被冻结/禁用的应用；结果回调在主线程。 */
-    fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
 }
 
 /**
@@ -55,7 +51,6 @@ interface SurfaceHost {
 
     /** 临时隐藏触发钮（触发钮才隐藏；非手势链路无触发钮）。 */
     fun hideGestureButton(buttonId: String, delayMs: Long)
-    fun hideGestureButtons(target: ButtonTarget, buttonIds: List<String>, delayMs: Long)
 
     /** 切到最近访问的非黑名单应用。 */
     suspend fun previousApp()
@@ -118,16 +113,7 @@ interface ExecuteMessages {
     fun failureText(reason: ActionFailure): String
     fun capabilityText(capability: Capability): String
     fun showToast(text: String)
-    fun showLongToast(text: String)
 }
-
-/**
- * 动作元数据视图：契约已下沉 `hunoia.luno.core.domain.ActionMetadata`（architecture §1.4），
- * 这里保留同包别名，供执行口内部与旧调用点引用。
- *
- * 展示元件（名称、图标、参数编辑器）仍在 `:feature:actions`，不进执行口。
- */
-typealias ActionMetadata = hunoia.luno.core.domain.ActionMetadata
 
 /** 动作目录端口：typeId → 元数据。实现方在 `:feature:actions`。 */
 fun interface ActionCatalog {
@@ -148,12 +134,6 @@ class ActionMappingException(
     val unsupported: Boolean,
     message: String? = null,
 ) : Exception(message)
-
-/**
- * 启动参数：契约已下沉 `hunoia.luno.core.domain`（`LaunchSpec`），此处保留同包别名，
- * 供执行口内部与旧调用点引用。
- */
-typealias LaunchSpec = hunoia.luno.core.domain.LaunchSpec
 
 /**
  * 一次分发调用：`ActionRequest` 是唯一输入，其余是触发侧在提交前补好的上下文。

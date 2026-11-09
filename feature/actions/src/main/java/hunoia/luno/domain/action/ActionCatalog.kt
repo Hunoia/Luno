@@ -16,8 +16,4 @@ object ActionCatalog {
 
     fun pickerDefinitions(excluded: Set<String> = ActionDefinitions.pickerExcludedTypeIds()): List<ActionDefinition> =
         ActionDefinitions.pickerDefinitions(excluded)
-
-    /** 搜索面板动作索引：与选择页同源（picker 默认排除集）。 */
-    fun searchDefinitions(): List<ActionDefinition> =
-        ActionDefinitions.pickerDefinitions()
 }

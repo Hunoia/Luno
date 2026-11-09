@@ -98,7 +98,8 @@ internal fun LunoRowBase(
     val inDividedCard = LocalInDividedCard.current
     // 分割线左起点：有 leading 时越过图标（对齐文字列），否则对齐行内边距
     // （ListItemStartPadding + 图标 + LeadingContentEndPadding，均为 16dp）。
-    val hasLeading = leading != null || textIcon != null || icon != null || iconBitmap != null
+    val hasLeading = leading != null || textIcon != null || icon != null ||
+        iconBitmap != null || iconModel != null
     val dividerStartInset = RowInnerPadding + (if (hasLeading) RowIconSize + 16.dp else 0.dp)
 
     val background by animateColorAsState(

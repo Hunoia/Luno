@@ -56,7 +56,7 @@ import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.ExtraLargeShape
 
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import kotlinx.coroutines.flow.collectLatest
@@ -120,7 +120,6 @@ internal fun QuickAppLauncherRoot(
             ),
         exit = fadeOut(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
     ) {
-        // 全屏 scrim：面板外的点击落在这里被消费（只关面板，不传透下层应用），
         // 全屏 scrim：面板外点击只关面板，不传透下层应用。
         Box(
             modifier = Modifier
@@ -215,7 +214,7 @@ private fun QuickAppLauncherContent(
     val screenWidthPx = remember(orientation) { with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() } }
     val panelWidthDp = with(density) {
         (screenWidthPx * state.launcherSettings.layout(
-            LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE,
+            orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE,
         ).panelWidthFraction).toDp()
     }
     var gridAtTop by remember { mutableStateOf(true) }
@@ -283,7 +282,7 @@ private fun QuickAppLauncherContent(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = PanelPaddingHorizontal, vertical = PanelPaddingVertical)) {
-                        val landscape = LocalConfiguration.current.orientation ==
+                        val landscape = orientation ==
                             android.content.res.Configuration.ORIENTATION_LANDSCAPE
                         val geo = state.launcherSettings.layout(landscape)
                         val contentHeightFraction = geo.contentHeightFraction

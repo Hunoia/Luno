@@ -17,6 +17,7 @@ import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.MotionFadeOut
 
 /** 指针窗口宿主：由无障碍服务实现（成员全部来自 [hunoia.luno.runtime.GestureHost]）。 */
 interface PointerOverlayHost : androidx.lifecycle.LifecycleOwner,
@@ -104,7 +105,7 @@ class PointerOverlay(private val host: PointerOverlayHost) {
         }
         view.animate()
             .alpha(0f)
-            .setDuration(120L)
+            .setDuration(MotionFadeOut.toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction { runCatching { host.context.windowManager().removeViewImmediate(view) } }
             .start()

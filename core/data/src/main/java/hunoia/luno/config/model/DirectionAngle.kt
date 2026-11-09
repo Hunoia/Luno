@@ -6,6 +6,31 @@ import kotlin.math.abs
 import kotlin.math.atan2
 
 /**
+ * 方向角度布局的通用外壳：具体配置类型只保留 `@Serializable` 的 `boundaries` 形状，
+ * 算法统一委托到本接口，避免 [GestureButtonAngle] / [SubGestureAngle] 各抄一份。
+ */
+interface DirectionLayout {
+    val boundaries: List<Float>
+
+    val count: Int get() = boundaries.size
+
+    fun directionOf(offset: Offset): Int = directionSlotOf(boundaries, offset)
+
+    fun slotWidthDegrees(index: Int): Float = sectorWidthDegrees(boundaries, index)
+
+    fun slotCenterDegrees(index: Int): Float = sectorCenterDegrees(boundaries, index)
+
+    fun zeroWidthSlots(): Set<Int> = zeroWidthSlots(boundaries)
+
+    /** 改方向数后的边界；数量不变时返回原列表（调用方据此返回自身）。 */
+    fun boundariesWithCount(count: Int): List<Float> {
+        if (count == boundaries.size) return boundaries
+        val anchor = sectorCenterAngle(boundaries, 0)
+        return evenBoundaries(count, anchor - 0.5f / count)
+    }
+}
+
+/**
  * 方向角度布局的公共数学：扇区数量 1..8，角度归一化到 [0,1)，0 = 正右、逆时针为正。
  *
  * 布局是一串**扇区起点**：槽 i 覆盖 [boundaries[i], boundaries[i+1])；

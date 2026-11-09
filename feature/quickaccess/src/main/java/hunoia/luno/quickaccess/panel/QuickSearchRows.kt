@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quickaccess.R
@@ -113,6 +115,12 @@ internal fun rowPreview(text: String, limit: Int = 120): String =
  * 足够用（剪贴匹配只看前 64 字，历史是 contains 匹配，前缀不丢命中）。
  */
 internal fun backfillText(text: String, limit: Int = MAX_QUERY_CHARS): String = text.take(limit)
+
+/** 回填输入框：与 [backfillText] 同口径地截断，并把光标放到末尾。 */
+internal fun queryFieldValue(text: String): TextFieldValue {
+    val value = backfillText(text)
+    return TextFieldValue(value, TextRange(value.length))
+}
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
  *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）；
  *  [menu] 锚定在行尾图钉按钮处（长按弹菜单，见调用方）。

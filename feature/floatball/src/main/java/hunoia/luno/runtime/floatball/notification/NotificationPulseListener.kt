@@ -58,9 +58,8 @@ class NotificationPulseListener : NotificationListenerService() {
         }
         updateActiveCache(add = pulse)
         val key = pulse.key
-        // 无标题 / 正文的通知仍会改变「当前是否存在」，胶囊不弹但要刷新快照。
+        // 无标题 / 正文的通知仍会改变「当前是否存在」，胶囊不弹。
         if (key == null || (pulse.title.isBlank() && pulse.text.isBlank())) {
-            NotificationPulseHub.fireStateChanged()
             return
         }
         val postedAt = sbn.postTime
@@ -113,14 +112,12 @@ class NotificationPulseListener : NotificationListenerService() {
     override fun onListenerDisconnected() {
         synchronized(activeLock) { activeCache = emptyList() }
         NotificationContentIntents.clear()
-        NotificationPulseHub.fireStateChanged()
         super.onListenerDisconnected()
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
         refreshActiveCache()
-        NotificationPulseHub.fireStateChanged()
         reapplyHiding()
     }
 
@@ -251,7 +248,6 @@ class NotificationPulseListener : NotificationListenerService() {
             clearable = isClearable,
             importance = if (hasRanking) ranking.importance else NotificationPulse.DEFAULT_IMPORTANCE,
             key = key,
-            groupKey = groupKey,
             channelId = notification.channelId,
             category = notification.category,
         ).also { pulse ->
@@ -265,10 +261,6 @@ class NotificationPulseListener : NotificationListenerService() {
         /** 通知栏当前快照，只在监听器已连接时有值。 */
         @Volatile
         private var activeCache: List<NotificationPulse> = emptyList()
-
-        fun activePulses(): List<NotificationPulse> = synchronized(activeLock) {
-            activeCache.toList()
-        }
 
         /** 当前连接中的监听器实例：胶囊用它确认通知在延迟后仍留在通知栏。 */
         @Volatile

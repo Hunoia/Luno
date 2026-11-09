@@ -10,7 +10,19 @@ import os
 import re
 import sys
 
-ROOT = "app/src/main/java/hunoia/luno"
+ROOT_GLOBS = (
+    "app/src/main/**/*.kt",
+    "app/src/test/**/*.kt",
+    "build-logic/src/main/**/*.kt",
+    "capability/*/src/main/**/*.kt",
+    "capability/*/src/test/**/*.kt",
+    "core/*/src/main/**/*.kt",
+    "core/*/src/test/**/*.kt",
+    "feature/*/src/main/**/*.kt",
+    "feature/*/src/test/**/*.kt",
+    "ui/*/src/main/**/*.kt",
+    "ui/*/src/test/**/*.kt",
+)
 SKIP = {
     "getValue",
     "setValue",
@@ -45,12 +57,13 @@ def scan(path):
 def main():
     write = "-w" in sys.argv
     total = 0
-    for path in sorted(glob.glob(ROOT + "/**/*.kt", recursive=True)):
+    paths = sorted({path for pattern in ROOT_GLOBS for path in glob.glob(pattern, recursive=True)})
+    for path in paths:
         unused = scan(path)
         if not unused:
             continue
         for lineno, line in unused:
-            print(f"{os.path.relpath(path, ROOT)}:{lineno}: {line.strip()}")
+            print(f"{os.path.relpath(path)}:{lineno}: {line.strip()}")
         total += len(unused)
         if write:
             text = open(path, encoding="utf-8").read()

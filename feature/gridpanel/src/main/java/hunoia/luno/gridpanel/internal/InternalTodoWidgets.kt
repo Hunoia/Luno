@@ -35,11 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -305,25 +301,11 @@ private fun TodoCheckCircle(
     ) {
         if (pending) {
             Canvas(Modifier.size(circleSize)) {
-                val w = strokeWidth.toPx()
-                val inset = w / 2f
-                drawArc(
-                    color = onCard.copy(alpha = 0.25f),
-                    startAngle = 0f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = Size(size.width - w, size.height - w),
-                    style = Stroke(width = w, cap = StrokeCap.Round),
-                )
-                drawArc(
-                    color = accent,
-                    startAngle = -90f,
-                    sweepAngle = 360f * progress,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = Size(size.width - w, size.height - w),
-                    style = Stroke(width = w, cap = StrokeCap.Round),
+                drawConfirmRing(
+                    progress = progress,
+                    accent = accent,
+                    track = onCard.copy(alpha = 0.25f),
+                    strokeWidth = strokeWidth.toPx(),
                 )
             }
         } else {

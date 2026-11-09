@@ -50,6 +50,10 @@ import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.toMarkColor
+import hunoia.luno.ui.theme.MotionFadeOut
+import hunoia.luno.ui.theme.MotionPress
+import hunoia.luno.ui.theme.MotionReturn
+import hunoia.luno.ui.theme.MotionSettle
 import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
@@ -235,8 +239,6 @@ class FloatBallWindow(
         return BubbleAnchor(left, top, left + ballPx, top + ballPx)
     }
 
-    fun isAttached(): Boolean = view != null
-
     /** 球上徽标：只在气泡隐藏时显示；[badge] 为 null / 不可见时清空。 */
     internal fun setBadge(badge: BadgeState?) {
         val tv = badgeView ?: return
@@ -402,7 +404,7 @@ class FloatBallWindow(
         applyBallTouchFlags(current, wm, hidden = true)
         current.animate()
             .alpha(0f)
-            .setDuration(HIDE_FADE_MS)
+            .setDuration(MotionFadeOut.toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction { context.removeWindow(current) }
             .start()
@@ -451,7 +453,7 @@ class FloatBallWindow(
             applyBallTouchFlags(current, wm, hidden = true)
             current.animate()
                 .alpha(0f)
-                .setDuration(HIDE_FADE_MS)
+                .setDuration(MotionFadeOut.toLong())
                 .setInterpolator(DecelerateInterpolator())
                 .withEndAction { settleBallWindowAlpha(current, wm) }
                 .start()
@@ -485,7 +487,7 @@ class FloatBallWindow(
             .alpha(if (idled) FloatBallDefaults.IdleDimAlpha else 1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(250L)
+            .setDuration(MotionReturn.toLong())
             .setInterpolator(OvershootInterpolator(1.2f))
     }
 
@@ -628,7 +630,7 @@ class FloatBallWindow(
         visualAnimator?.cancel()
         target.animate()
             .alpha(0f)
-            .setDuration(150L)
+            .setDuration(MotionFadeOut.toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 transferring = false
@@ -722,15 +724,12 @@ class FloatBallWindow(
     /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
     fun lpOriginYPx(): Int = lpOriginY
 
-    /** 当前键盘让位量（px）。 */
-    fun currentImeLiftPx(): Float = imeLiftPx
-
     private fun settleToEdge(targetX: Float) {
         val fromX = posX
         if (kotlin.math.abs(targetX - fromX) < 0.5f) return
         cancelSettle()
         settleAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 220L
+            duration = MotionSettle.toLong()
             interpolator = DecelerateInterpolator()
             addUpdateListener { animator ->
                 val t = animator.animatedValue as Float
@@ -827,7 +826,7 @@ class FloatBallWindow(
             .scaleY(scale)
             .alpha(alpha)
             .translationX(shiftPx)
-            .setDuration(if (pressed) 120L else 240L)
+            .setDuration(if (pressed) MotionPress.toLong() else MotionSettle.toLong())
             .setInterpolator(DecelerateInterpolator())
     }
 
@@ -931,8 +930,5 @@ class FloatBallWindow(
 
         /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
         const val IME_LIFT_ANIM_MS = 220L
-
-        /** 软隐藏/摘窗的淡出时长：短促收掉，不拖泥带水。 */
-        const val HIDE_FADE_MS = 150L
     }
 }

@@ -1806,7 +1806,17 @@ private fun SelectionActionBar(
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val barW = with(density) { (button * 6 + gap * 5 + pad * 2).toPx() }
+    val actions = listOf(
+        Triple(Icons.Default.TextFields, R.string.screen_pick_extract_text, PickSelectionAction.Ocr),
+        Triple(Icons.Default.Brush, R.string.screen_pick_annotate_image, PickSelectionAction.Annotate),
+        Triple(Icons.Default.ContentCopy, R.string.screen_pick_copy_image, PickSelectionAction.Copy),
+        Triple(Icons.Default.Search, R.string.screen_pick_portal_search, PickSelectionAction.Search),
+        Triple(Icons.Default.Share, R.string.screen_pick_share_image, PickSelectionAction.Share),
+        Triple(Icons.Default.SaveAlt, R.string.screen_pick_save_image, PickSelectionAction.Save),
+    )
+    val barW = with(density) {
+        (button * actions.size + gap * (actions.size - 1) + pad * 2).toPx()
+    }
     val barH = with(density) { (button + pad * 2).toPx() }
     val marginPx = with(density) { margin.toPx() }
     val screenW = DensityProvider.screenWidthPx.toFloat()
@@ -1833,30 +1843,12 @@ private fun SelectionActionBar(
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PickActionIcon(
-            icon = Icons.Default.TextFields,
-            contentDescription = stringResource(R.string.screen_pick_extract_text),
-        ) { onAction(PickSelectionAction.Ocr) }
-        PickActionIcon(
-            icon = Icons.Default.Brush,
-            contentDescription = stringResource(R.string.screen_pick_annotate_image),
-        ) { onAction(PickSelectionAction.Annotate) }
-        PickActionIcon(
-            icon = Icons.Default.ContentCopy,
-            contentDescription = stringResource(R.string.screen_pick_copy_image),
-        ) { onAction(PickSelectionAction.Copy) }
-        PickActionIcon(
-            icon = Icons.Default.Search,
-            contentDescription = stringResource(R.string.screen_pick_portal_search),
-        ) { onAction(PickSelectionAction.Search) }
-        PickActionIcon(
-            icon = Icons.Default.Share,
-            contentDescription = stringResource(R.string.screen_pick_share_image),
-        ) { onAction(PickSelectionAction.Share) }
-        PickActionIcon(
-            icon = Icons.Default.SaveAlt,
-            contentDescription = stringResource(R.string.screen_pick_save_image),
-        ) { onAction(PickSelectionAction.Save) }
+        actions.forEach { (icon, labelRes, action) ->
+            PickActionIcon(
+                icon = icon,
+                contentDescription = stringResource(labelRes),
+            ) { onAction(action) }
+        }
     }
 }
 

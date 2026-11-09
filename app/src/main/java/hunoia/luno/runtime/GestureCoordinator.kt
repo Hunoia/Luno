@@ -301,29 +301,17 @@ class GestureCoordinator(
             buttonHideRuntime.hideTemporarily(listOf(buttonId), delayMs)
         }
 
-        override fun hideGestureButtons(
-            target: hunoia.luno.action.model.ButtonTarget,
-            buttonIds: List<String>,
-            delayMs: Long,
-        ) {
-            val allIds = runtimeSettingsStore.snapshot().gestureButtons.map { it.id }
-            buttonHideRuntime.hideTemporarily(
-                hunoia.luno.action.model.resolveButtonTargetIds(target, allIds, buttonIds),
-                delayMs,
-            )
-        }
-
         override suspend fun previousApp() {
             previousAppTracker.previousApp()
         }
 
-        override suspend fun launchApp(spec: hunoia.luno.execute.LaunchSpec): Boolean =
+        override suspend fun launchApp(spec: hunoia.luno.core.domain.LaunchSpec): Boolean =
             appLauncher.launch(spec)
 
         override suspend fun openUrl(
             url: String,
             miniWindow: Boolean,
-            queryParameters: List<hunoia.luno.action.model.QueryParam>,
+            queryParameters: List<hunoia.luno.core.domain.QueryParam>,
             anchor: Pair<Int, Int>?,
         ): Boolean = appLauncher.openUrl(url, miniWindow, queryParameters, anchor)
 
@@ -404,7 +392,11 @@ class GestureCoordinator(
             hideForMs: Long,
         ): hunoia.luno.core.domain.ActionResult {
             if (hideForMs > 0) {
-                hideGestureButtons(target, buttonIds, hideForMs)
+                val allIds = runtimeSettingsStore.snapshot().gestureButtons.map { it.id }
+                buttonHideRuntime.hideTemporarily(
+                    hunoia.luno.action.model.resolveButtonTargetIds(target, allIds, buttonIds),
+                    hideForMs,
+                )
                 return hunoia.luno.core.domain.ActionResult.Success()
             }
             val ok = runCatching {
@@ -714,7 +706,7 @@ class GestureCoordinator(
         }
 
         override fun onAction(
-            action: hunoia.luno.action.model.StoredAction,
+            action: hunoia.luno.core.domain.StoredAction,
             sourceButton: GestureButton?,
             touchPosition: Offset,
             decision: hunoia.luno.gesture.GestureDecision.Trigger?,
@@ -764,7 +756,7 @@ class GestureCoordinator(
     /** 手势决策唯一入口：记录后立即分发；仲裁/改写只改这里。 */
     private fun onGestureDecision(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
-        action: hunoia.luno.action.model.StoredAction,
+        action: hunoia.luno.core.domain.StoredAction,
         sourceButton: GestureButton?,
         touchPosition: Offset,
     ) {
@@ -820,7 +812,7 @@ class GestureCoordinator(
 
     /** 供 overlay 等场景直接执行一个已构造好的动作；key 原样透传，null = 生成新意图键。 */
     fun dispatchAction(
-        action: hunoia.luno.action.model.StoredAction,
+        action: hunoia.luno.core.domain.StoredAction,
         idempotencyKey: String? = null,
         origin: hunoia.luno.core.domain.DispatchOrigin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
         onSettled: ((typeId: String, result: hunoia.luno.core.domain.ActionResult) -> Unit)? = null,
@@ -847,7 +839,7 @@ class GestureCoordinator(
      * 砸进去 = 面板静默不弹；非面板动作立即转发。
      */
     fun forwardBallTap(
-        action: hunoia.luno.action.model.StoredAction,
+        action: hunoia.luno.core.domain.StoredAction,
         anchorX: Int,
         anchorY: Int,
         colorSpec: hunoia.luno.config.model.ColorSpec,

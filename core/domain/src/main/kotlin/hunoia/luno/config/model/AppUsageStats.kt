@@ -1,6 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.core.domain.AppLaunchSource
 import kotlinx.serialization.Serializable
 
 /**

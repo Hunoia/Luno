@@ -172,11 +172,7 @@ class PpOcrRecognizer(
         require(chars.size > 2) { "字典为空：${dictFile.name}" }
     }
 
-    /** crop：H*W*3 行主序 [0,255]（已 resize+pad 的文本行）。返回识别文本。 */
-    fun recognize(crop: FloatArray): String =
-        decodeSteps(runCtc(crop), chars, inputWidth).joinToString("") { it.text }
-
-    /** 预处理 + 推理，返回原始 logits（recognize / recognizeDetailed 共用）。 */
+    /** crop：H*W*3 行主序 [0,255]。返回解码字符及其 CTC 时间步（切段拼接去重用）。 */
     private fun runCtc(crop: FloatArray): FloatArray {
         val hw = inputHeight * inputWidth
         val chw = FloatArray(3 * hw)

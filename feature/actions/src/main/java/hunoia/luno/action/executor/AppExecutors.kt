@@ -5,7 +5,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.execute.LaunchSpec
+import hunoia.luno.core.domain.LaunchSpec
 
 /**
  * 应用类执行器：只做「动作 → 端口调用」的翻译。

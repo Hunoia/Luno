@@ -29,8 +29,6 @@ class OpenPanelCounter(
         Events.subscribe(PanelDismissedEvent::class, onDismissed)
     }
 
-    val openCount: Int get() = count.get()
-
     val hasOpenPanels: Boolean get() = count.get() > 0
 
     /** 等到没有在屏面板或超时；返回是否等到全部退场。 */

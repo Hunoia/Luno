@@ -412,12 +412,10 @@ object ShizukuManager {
     private fun snapshot(): ShizukuStatus {
         val binderAlive = isBinderAlive()
         val permissionGranted = binderAlive && hasPermission()
-        val uid = if (binderAlive) runCatching { Shizuku.getUid() }.getOrNull() else null
 
         return ShizukuStatus(
             binderAlive = binderAlive,
             permissionGranted = permissionGranted,
-            uid = uid
         )
     }
 

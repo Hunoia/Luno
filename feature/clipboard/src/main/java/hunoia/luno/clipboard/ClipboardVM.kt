@@ -94,11 +94,7 @@ class ClipboardVM : ViewModel() {
     fun setQuery(query: String) = local.update { it.copy(query = query) }
 
     fun toggleSelectionMode() = local.update {
-        if (it.selectionMode) {
-            it.copy(selectionMode = false, selectedIds = emptySet())
-        } else {
-            it.copy(selectionMode = true, selectedIds = emptySet())
-        }
+        it.copy(selectionMode = !it.selectionMode, selectedIds = emptySet())
     }
 
     fun toggleSelected(id: String) = local.update {
@@ -110,19 +106,7 @@ class ClipboardVM : ViewModel() {
         it.copy(selectedIds = ids.toSet())
     }
 
-    fun clearSelection() = local.update { it.copy(selectedIds = emptySet()) }
-
     fun reveal(id: String) = local.update { it.copy(revealedIds = it.revealedIds + id) }
-
-    fun toggleReveal(id: String) = local.update {
-        it.copy(
-            revealedIds = if (id in it.revealedIds) {
-                it.revealedIds - id
-            } else {
-                it.revealedIds + id
-            },
-        )
-    }
 
     /** 点按条目：普通条目直接写回；敏感条目先显示，再点一次才进入二次确认。 */
     fun onEntryClick(entry: ClipboardEntry) {

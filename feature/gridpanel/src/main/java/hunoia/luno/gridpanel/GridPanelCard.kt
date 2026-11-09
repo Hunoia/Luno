@@ -153,20 +153,18 @@ fun GridPanelCard(
     val density = LocalDensity.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val marginPx = screenMarginPx
-    val gridPadDp = GridPadding
     val bandPx = with(density) { EdgeScrollBand.toPx() }
     val stepPx = with(density) { EdgeScrollStep.toPx() }
     val indicatorPx = with(density) { IndicatorHeight.toPx() }
     val gridPadPx = with(density) { GridPadding.toPx() }
     val targetPosX = (anchorX - metrics.cardW / 4f).coerceIn(
-        marginPx,
-        (metrics.screenW - metrics.cardW - marginPx).coerceAtLeast(marginPx),
+        screenMarginPx,
+        (metrics.screenW - metrics.cardW - screenMarginPx).coerceAtLeast(screenMarginPx),
     )
     val targetPosY = (anchorY - metrics.cardH / 4f).coerceIn(
-        insetsTop + marginPx,
-        (metrics.screenH - insetsBottom - metrics.cardH - marginPx)
-            .coerceAtLeast(insetsTop + marginPx),
+        insetsTop + screenMarginPx,
+        (metrics.screenH - insetsBottom - metrics.cardH - screenMarginPx)
+            .coerceAtLeast(insetsTop + screenMarginPx),
     )
     // 面板级缩放手柄：优先落在离屏边最远的角。拖动期间冻结起手角，尺寸变化
     // 不能把正在拖的手柄换到另一个角去。
@@ -187,7 +185,7 @@ fun GridPanelCard(
         screenHeight = metrics.screenH,
         insetsTop = insetsTop,
         insetsBottom = insetsBottom,
-        marginPx = marginPx,
+        marginPx = screenMarginPx,
     )
     // 转屏 / 改网格尺寸时卡片要挪位置：首帧直接对齐（别从 0 飞过来），之后平滑过渡。
     val posAnimX = remember { Animatable(targetPosX) }
@@ -317,7 +315,6 @@ fun GridPanelCard(
         )
         // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
         // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。
-        val density = LocalDensity.current
         val cardShape = remember(cornerPx, density) {
             containerShape(with(density) { cornerPx.toDp() })
         }
@@ -353,7 +350,7 @@ fun GridPanelCard(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = gridPadDp)
+                    .padding(horizontal = GridPadding)
                     // 底部与顶部预留块等高（IndicatorHeight）：进编辑态卡高不跳变，
                     // 卡面上下对称。
                     .padding(bottom = IndicatorHeight),
@@ -509,7 +506,7 @@ fun GridPanelCard(
                     },
                 )
                 .padding(16.dp),
-            enter = fadeIn(tween(hunoia.luno.ui.theme.MotionSwapOut)) + scaleIn(tween(hunoia.luno.ui.theme.MotionSwapOut), initialScale = 0.8f),
+            enter = fadeIn(tween(hunoia.luno.ui.theme.MotionCellIn)) + scaleIn(tween(hunoia.luno.ui.theme.MotionCellIn), initialScale = 0.8f),
             exit = fadeOut(tween(hunoia.luno.ui.theme.MotionCellOut)) + scaleOut(tween(hunoia.luno.ui.theme.MotionCellOut), targetScale = 0.8f),
         ) {
             FloatingActionButton(

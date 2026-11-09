@@ -53,10 +53,6 @@ android {
             }
         }
     }
-    testOptions {
-        // JVM 单测直接调用生产代码，其中 android.util.Log 需返回默认值而非抛 "not mocked"。
-        unitTests.isReturnDefaultValues = true
-    }
     buildTypes {
         release {
             isMinifyEnabled = true

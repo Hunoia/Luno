@@ -10,7 +10,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
 import hunoia.luno.execute.ActionMappingException
-import hunoia.luno.execute.ActionMetadata
+import hunoia.luno.core.domain.ActionMetadata
 
 /**
  * 执行口端口在 `:feature:actions` 的实现：动作目录与 StoredAction 映射。

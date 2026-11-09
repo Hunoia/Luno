@@ -3,6 +3,7 @@ package hunoia.luno.config.backup
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.BackupVersions
+import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.isSupported
 import org.junit.Assert.assertEquals
@@ -69,6 +70,19 @@ class BackupDomainRegistryTest {
 
         val empty = Backup()
         assertNotNull(BackupDomainRegistry.validate(empty, BackupDomain.GESTURE))
+    }
+
+    @Test
+    fun `empty check covers domains beyond the legacy field list`() {
+        Backup().isSupported()
+
+        assertTrue(BackupDomainRegistry.isEmpty(Backup()))
+        // 旧实现的 Backup.isEmpty 只看前 10 个段，只有习惯/待办/标注/剪贴板的备份会被误判为空。
+        assertFalse(
+            BackupDomainRegistry.isEmpty(
+                Backup(habitSchemaVersion = BackupVersions.HABIT, habitConfig = HabitConfig()),
+            ),
+        )
     }
 
     @Test

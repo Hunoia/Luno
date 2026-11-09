@@ -185,9 +185,6 @@ fun QuickSearchIndex.ensureMedia() {
     }
     }
 
-    /** 媒体是否已就绪（任一源试过）：search 只查内存，权限实时复查。 */
-fun QuickSearchIndex.mediaReady(): Boolean = audioTried || galleryTried || docsTried
-
 data class PermSnapshot(
     val contacts: Boolean,
     val calendar: Boolean,

@@ -31,6 +31,8 @@ import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.MotionFadeOut
+import hunoia.luno.ui.theme.MotionPanelIn
 import hunoia.luno.core.LOG_TAG
 
 /**
@@ -179,7 +181,7 @@ object GridPanelOverlay : OverlayPanelHost(
         wm.safeUpdateViewLayout(current, lp)
         current.animate()
             .alpha(0f)
-            .setDuration(150L)
+            .setDuration(MotionFadeOut.toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 // 能跑到这里 = 淡出完整播完（restore 会 cancel 本动画），lp alpha 安全收底。
@@ -232,7 +234,7 @@ object GridPanelOverlay : OverlayPanelHost(
         current.alpha = 0f
         current.animate()
             .alpha(1f)
-            .setDuration(170L)
+            .setDuration(MotionPanelIn.toLong())
             .setInterpolator(DecelerateInterpolator())
             .start()
         current.requestFocus()

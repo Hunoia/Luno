@@ -35,9 +35,6 @@ data class ClipboardEntry(
             ClipKind.IMAGE -> "i:${imagePath.orEmpty()}"
         }
 
-    /** 展示用文本：图片给一个空串，UI 走缩略图分支。 */
-    val searchText: String
-        get() = if (kind == ClipKind.TEXT) text else ""
 }
 
 @Serializable
@@ -164,12 +161,6 @@ fun ClipboardHistory.remove(id: String): ClipboardHistory =
 /** 清空全部历史（含固定项）；本来就空时原样返回（避免无意义写盘）。 */
 fun ClipboardHistory.cleared(): ClipboardHistory =
     if (entries.isEmpty()) this else ClipboardHistory()
-
-/** 切换固定；命中不存在时原样返回（幂等）。固定项同时置顶：固定后应立刻可见。 */
-fun ClipboardHistory.togglePinned(id: String): ClipboardHistory {
-    val target = entries.firstOrNull { it.id == id } ?: return this
-    return setPinned(id, !target.pinned)
-}
 
 /** 设置固定态；已是目标态时原样返回（幂等）。固定项同时置顶。 */
 fun ClipboardHistory.setPinned(id: String, pinned: Boolean): ClipboardHistory {

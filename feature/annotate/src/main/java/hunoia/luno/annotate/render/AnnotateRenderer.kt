@@ -38,7 +38,6 @@ import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -628,8 +627,6 @@ private fun DrawScope.drawSelectionOverlay(
         )
     }
 }
-
-private fun Pt.asOffset(): Offset = Offset(x, y)
 
 /** 导出时按选区裁剪的像素尺寸，供宿主预分配位图 / 工具条显示。 */
 fun AnnotateState.exportPixelSize(): IntSize {

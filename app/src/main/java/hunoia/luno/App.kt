@@ -47,8 +47,6 @@ class App : Application(), SingletonImageLoader.Factory {
 
     companion object {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-        val applicationScope: CoroutineScope get() = AppContext.applicationScope ?: scope
     }
 
     private var isProviderProcess = true

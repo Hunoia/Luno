@@ -41,8 +41,7 @@ object DispatchClient {
     /** 由 `:app` 注入：同进程内已就绪的兜底判断（服务进程自己查询时用）。 */
     @Volatile var localReady: () -> Boolean = { false }
 
-    /** 未连上时的重试间隔。 */
-    private const val RETRY_INTERVAL_MS = 2_000L
+    /** 未连上时的重试间隔由 [DispatchConnection] 统一决定。 */
 
     /** 提交（把动作交给 :service）的硬上限；正常是毫秒级。 */
     private const val HANDOFF_TIMEOUT_MS = 500L
@@ -69,7 +68,7 @@ object DispatchClient {
     private val _readyFlow = MutableStateFlow(false)
     val readyFlow: StateFlow<Boolean> = _readyFlow.asStateFlow()
 
-    private val connection = DispatchConnection(retryIntervalMs = RETRY_INTERVAL_MS)
+    private val connection = DispatchConnection()
 
     private val conn: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {

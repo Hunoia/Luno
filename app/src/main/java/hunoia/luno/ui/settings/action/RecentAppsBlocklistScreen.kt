@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.model.getIcon
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.ui.component.LunoSearchField

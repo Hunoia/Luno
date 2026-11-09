@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
@@ -93,9 +92,7 @@ object AppListRepository {
                 if (snapshot != null && snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
                     _state.value = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
                 }
-                val fresh = withContext(Dispatchers.IO) {
-                    AppCatalog.query(AppContext.get(), includeDisabled = true)
-                }
+                val fresh = AppCatalog.query(AppContext.get(), includeDisabled = true)
                 _state.value = fresh
             }
         }

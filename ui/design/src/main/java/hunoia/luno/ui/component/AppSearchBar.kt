@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.design.R
 import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.ExtraLargeShape
 
 @Composable
 fun AppSearchBar(

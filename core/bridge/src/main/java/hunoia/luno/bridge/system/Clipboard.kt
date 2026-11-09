@@ -20,14 +20,6 @@ fun readClipboardContentDetailed(context: Context): ClipboardContent? = runCatch
     clipboard.primaryClip?.toClipboardContent()
 }.getOrNull()
 
-/** 直接读纯文本（旧 API 形态，仅用于给 [ClipboardContent] 之外的历史导入场景兜底）。 */
-fun readClipboardText(context: Context): String? = runCatching {
-    val clipboard = context.getSystemService(ClipboardManager::class.java)
-        ?: return@runCatching null
-    if (!clipboard.hasPrimaryClip()) return@runCatching null
-    clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
-}.getOrNull()
-
 /**
  * 写文本到系统剪贴板。
  *

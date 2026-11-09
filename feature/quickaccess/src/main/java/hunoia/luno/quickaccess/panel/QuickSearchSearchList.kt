@@ -11,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quickaccess.query.SearchAction
@@ -89,7 +88,7 @@ internal fun QuickSearchSearchList(
                 text = h,
                 shape = segmentedShape(total - 1 - pos, total),
                 onClick = {
-                    onQueryChange(backfillText(h).let { TextFieldValue(it, TextRange(it.length)) })
+                    onQueryChange(queryFieldValue(h))
                 },
                 onLongClick = { onDeleteHistory(h) },
             )
@@ -114,9 +113,7 @@ internal fun QuickSearchSearchList(
                         text = setQuery,
                         shape = shape,
                         onClick = {
-                            onQueryChange(
-                                backfillText(setQuery).let { TextFieldValue(it, TextRange(it.length)) },
-                            )
+                            onQueryChange(queryFieldValue(setQuery))
                         },
                         onLongClick = { onMenuOpen(item) },
                         pinned = setQuery in pinnedSet,

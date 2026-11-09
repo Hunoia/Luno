@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.dispatcher.ActionDispatcher
-import hunoia.luno.action.model.QueryParam
+import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
@@ -15,7 +15,7 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
-import hunoia.luno.execute.LaunchSpec
+import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.ActionDispatchPort
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.AwaitableActionDispatch
@@ -181,14 +181,6 @@ object SurfaceActionRuntime {
         override fun currentPackageName(): String? =
             hunoia.luno.service.SideGestureService.current?.getCurrentPackageName()
                 ?.takeIf { it.isNotBlank() }
-
-        override fun nowInLauncher(): Boolean =
-            hunoia.luno.service.SideGestureService.current?.nowInLauncher() == true
-
-        override fun requestEnableDisabledPackage(
-            packageName: String,
-            onResult: (Boolean) -> Unit,
-        ) = enabler(context).request(packageName, onResult)
     }
 
     private fun surfaces(context: Context): SurfaceHost = object : SurfaceHost {
@@ -217,11 +209,6 @@ object SurfaceActionRuntime {
         override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = false
         override fun showPointer(): Boolean = false
         override fun hideGestureButton(buttonId: String, delayMs: Long) = Unit
-        override fun hideGestureButtons(
-            target: hunoia.luno.action.model.ButtonTarget,
-            buttonIds: List<String>,
-            delayMs: Long,
-        ) = Unit
 
         override suspend fun previousApp() = Unit
 

@@ -15,7 +15,7 @@
 # 用法：
 #   scripts/docs-worktree.sh init     # 首次创建 worktree + 安装 hooks
 #   scripts/docs-worktree.sh sync     # 拉取并 rebase docs 到基础分支
-#   scripts/docs-worktree.sh commit -m "docs: ..."   # 提交（单提交：已有则 amend）
+#   scripts/docs-worktree.sh commit -m "docs: ..."   # 提交（单提交：已有则 amend）并 rebase 到基础分支
 #   scripts/docs-worktree.sh snapshot [name]         # 给当前文档打快照 tag
 #   scripts/docs-worktree.sh squash   # 把已有多个 docs 提交压成 1 个
 #   scripts/docs-worktree.sh status
@@ -149,7 +149,19 @@ fi
 
 base="${LUNO_DOCS_BASE:-dev}"
 git -C "$wt" rev-parse --verify --quiet "$base" >/dev/null || base=main
-if ! git -C "$wt" rebase "$base" >/dev/null 2>/tmp/luno-docs-rebase.err; then
+
+# docs 分支约定只比 base 多 1 个文档提交。代码提交被 amend 后，旧的代码提交会
+# 残留在 docs 分支里，直接 rebase 会把旧代码重放到新 base 上并冲突；此时只重放
+# 最后一个文档提交。若更早的提交确实改了 docs，则仍走普通 rebase，不丢文档历史。
+rebase_docs() {
+    if git -C "$wt" log --format= --name-only "$base..HEAD~1" 2>/dev/null | grep -q '^docs/'; then
+        git -C "$wt" rebase "$base"
+    else
+        git -C "$wt" rebase --onto "$base" HEAD~1
+    fi
+}
+
+if ! rebase_docs >/dev/null 2>/tmp/luno-docs-rebase.err; then
     git -C "$wt" rebase --abort >/dev/null 2>&1 || true
     echo "docs 自动 rebase 失败，日志：/tmp/luno-docs-rebase.err" >&2
     cat /tmp/luno-docs-rebase.err >&2
@@ -249,8 +261,20 @@ cmd_sync() {
     fi
     local base
     base="$(base_ref)"
-    git -C "$DOCS_WT" rebase "$base"
+    rebase_docs_onto "$base"
     echo "docs rebased onto $base"
+}
+
+# 代码提交被 amend 后，docs 分支里会残留旧代码提交；直接 rebase 会重放旧代码
+# 并冲突。只有在 HEAD~1..base 不含 docs 文件时，才只重放最后一个文档提交。
+rebase_docs_onto() {
+    local base="$1"
+    if git -C "$DOCS_WT" merge-base --is-ancestor "$base" HEAD; then return 0; fi
+    if git -C "$DOCS_WT" log --format= --name-only "$base..HEAD~1" 2>/dev/null | grep -q '^docs/'; then
+        git -C "$DOCS_WT" rebase "$base"
+    else
+        git -C "$DOCS_WT" rebase --onto "$base" HEAD~1
+    fi
 }
 
 # docs 分支上相对 base 的提交数。
@@ -332,6 +356,16 @@ cmd_commit() {
             fi
         fi
     )
+
+    # 代码提交发生在文档提交之前时，post-commit 会因为 docs worktree 脏而跳过 rebase；
+    # 保存文档后在这里补一次，保证 docs 始终基于最新 base。
+    local base
+    base="$(base_ref)"
+    if ! rebase_docs_onto "$base"; then
+        git -C "$DOCS_WT" rebase --abort >/dev/null 2>&1 || true
+        die "docs rebase 到 $base 失败，请手工处理：$DOCS_WT"
+    fi
+    echo "docs: 已 rebase 到 $base"
 }
 
 cmd_status() {

@@ -76,7 +76,6 @@ fun QuickSearchIndex.search(
         ensureLoaded()
         // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在 Dispatchers.Default
         // 上。应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
-        // 应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
         // 引擎列表一次解析：标识直达、默认兜底、引擎行都复用同一份顺序，避免每次现拼。
         val engines = searchSettings.effectiveEngines()
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
@@ -386,18 +385,17 @@ fun matchClipPool(
     return hits.sortedWith(RANK_COMPARATOR).take(10)
 }
 
-
-    /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
-     *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
+/** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
+ *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
 private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSearchResult> =
-        results.sortedWith(RANK_COMPARATOR).map { it.result }
+    results.sortedWith(RANK_COMPARATOR).map { it.result }
 
-    /**
-     * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。
-     * 大小写不敏感。三种出口：引擎标识 → 只回引擎行；来源标识+内容 → 只在该源内搜；
-     * 裸标识（无空格或内容空）→ 列出该类近项。开关关闭/无数据 → null 回落全源。
-     * 命中与否由 [search] 以 SearchOutcome.directive 回报，面板不再单独判一次。
-     */
+/**
+ * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。
+ * 大小写不敏感。三种出口：引擎标识 → 只回引擎行；来源标识+内容 → 只在该源内搜；
+ * 裸标识（无空格或内容空）→ 列出该类近项。开关关闭/无数据 → null 回落全源。
+ * 命中与否由 [search] 以 SearchOutcome.directive 回报，面板不再单独判一次。
+ */
 private fun QuickSearchIndex.parseDirective(
         trimmed: String,
         libraryEntries: List<ActionLibraryEntry>,

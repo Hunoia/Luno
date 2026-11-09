@@ -27,7 +27,6 @@ data class UiState(
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
         binderAlive = false,
         permissionGranted = false,
-        uid = null,
     ),
     val runtimeStatus: HomeRuntimeStatus = HomeRuntimeStatusMapper.map(
         isAccessibilityEnabled = false,
@@ -36,7 +35,6 @@ data class UiState(
         shizukuStatus = ShizukuStatus(
             binderAlive = false,
             permissionGranted = false,
-            uid = null,
         ),
     ),
     val renameDialogTarget: RenameTarget? = null,

@@ -84,9 +84,3 @@ data class TouchFrame(
     val action: TouchAction,
     val points: List<TouchPoint>,
 )
-
-/** 一次输入事件及其（可选的）触摸帧结果。调试页据此同时展示原始事件与解析结果。 */
-data class TouchProbeSample(
-    val raw: RawInputEvent,
-    val frame: TouchFrame?,
-)

@@ -202,10 +202,13 @@ fun MediaControlCell(
     }
 
     if (sessions.isEmpty()) {
-        EmptyHintCell(
+        GrantHintCell(
+            icon = Icons.Default.MusicNote,
             text = stringResource(R.string.grid_panel_media_no_session),
             vertical = vertical,
-            modifier = modifier,
+            enabled = false,
+            onClick = {},
+            modifier = modifier.alpha(0.45f),
         )
         return
     }
@@ -680,59 +683,6 @@ internal fun GrantHintCell(
         ) {
             badge()
             label()
-        }
-    }
-}
-
-/** 有权限但无活跃会话的灰态提示；方向处理同 [GrantHintCell]。 */
-@Composable
-private fun EmptyHintCell(
-    text: String,
-    vertical: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val onCard = gridPanelOnCardColor
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .alpha(0.45f)
-            .padding(horizontal = if (vertical) 8.dp else 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        val label: @Composable () -> Unit = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = onCard,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = if (vertical) TextAlign.Center else TextAlign.Start,
-            )
-        }
-        val badge: @Composable () -> Unit = {
-            Icon(
-                imageVector = Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = onCard,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        if (vertical) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                badge()
-                label()
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                badge()
-                label()
-            }
         }
     }
 }

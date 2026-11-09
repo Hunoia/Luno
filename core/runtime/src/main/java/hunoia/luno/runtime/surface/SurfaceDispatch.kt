@@ -24,8 +24,6 @@ object SurfaceDispatch {
         this.dispatcher = dispatcher
     }
 
-    fun isInstalled(): Boolean = dispatcher != null
-
     /**
      * 提交一次 Surface 动作。`onSettled` 在主线程回调真实成败；
      * 未注入 Dispatcher 时按未送达处理，不静默吞掉。

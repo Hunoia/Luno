@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.collection.LruCache
 import hunoia.luno.core.AppContext
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.system.PackageChangeReceiver
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 object DisabledAppQuery {
 
@@ -100,9 +98,6 @@ object DisabledAppQuery {
         disabledCache = result.associateBy { it.packageName }
         return result
     }
-
-    suspend fun queryDisabledApplicationsOnIo(context: Context): List<AppInfo> =
-        withContext(Dispatchers.IO) { queryDisabledApplications(context) }
 
     fun queryQuickAppLauncherApps(context: Context): QuickAppLauncherAppList =
         AppCatalog.query(context, includeDisabled = true)

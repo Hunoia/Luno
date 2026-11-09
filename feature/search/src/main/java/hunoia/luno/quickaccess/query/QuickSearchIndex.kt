@@ -3,13 +3,8 @@ package hunoia.luno.quickaccess.query
 
 import android.content.Context
 import hunoia.luno.core.LunoLog as Log
-import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.config.model.SearchLaunch
-import hunoia.luno.config.model.effectiveLaunch
-import hunoia.luno.config.model.fillSearchQuery
-import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -176,50 +171,3 @@ class QuickSearchIndex(internal val context: Context) {
     }
 }
 
-/**
- * 把结果转回可交给 dispatcher 的 [hunoia.luno.action.model.StoredAction]。
- * 展示/直开类结果（联系人、媒体、开关等）由 [toSearchResult] 转成
- * [SearchAction]，不经过这里；这些分支仅为 when 穷尽保留。
- */
-fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
-    is QuickSearchResult.ActionDef -> stored
-    is QuickSearchResult.LibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to entry.id)
-    is QuickSearchResult.App -> hunoia.luno.core.domain.AppLaunchAction.stored(
-        packageName = appInfo.packageName,
-        className = appInfo.className,
-        miniWindow = appInfo.miniWindow,
-        userId = appInfo.userId,
-    )
-    is QuickSearchResult.Shortcut -> StoredAction.of(
-        "app.launchShortcut",
-        "data" to JsonSerializer.encodeToString(shortcut),
-    )
-    is QuickSearchResult.Url -> StoredAction.of("intent.openUrl", "url" to url)
-    is QuickSearchResult.EngineSearch -> when (val launch = engine.effectiveLaunch()) {
-        is SearchLaunch.Url -> StoredAction.of(
-            "intent.openUrl",
-            "url" to launch.template.fillSearchQuery(query),
-        )
-        is SearchLaunch.Chooser -> StoredAction.of(
-            "intent.openUrl",
-            "url" to launch.template.fillSearchQuery(query),
-        )
-        is SearchLaunch.Share -> StoredAction.of(
-            "intent.shareText",
-            "text" to launch.textTemplate.fillSearchQuery(query),
-        )
-        is SearchLaunch.ShareImage -> StoredAction.of(hunoia.luno.core.domain.NONE_TYPE_ID)
-        is SearchLaunch.Action -> launch.action.fillSearchQuery(query)
-    }
-    // Calc/联系人/媒体/日历/短信/通话 在 toSearchResult 里转成
-    // SearchAction.Open/Copy，由 Activity 直接执行。
-    is QuickSearchResult.Calc -> error("Calc is handled by QuickSearchActivity")
-    is QuickSearchResult.Contact -> error("Contact is handled by QuickSearchActivity")
-    is QuickSearchResult.AudioTrack -> error("AudioTrack is handled by QuickSearchActivity")
-    is QuickSearchResult.ImageVideo -> error("ImageVideo is handled by QuickSearchActivity")
-    is QuickSearchResult.DocFile -> error("DocFile is handled by QuickSearchActivity")
-    is QuickSearchResult.CalendarEvent -> error("CalendarEvent is handled by QuickSearchActivity")
-    is QuickSearchResult.SmsMsg -> error("SmsMsg is handled by QuickSearchActivity")
-    is QuickSearchResult.CallLogEntry -> error("CallLogEntry is handled by QuickSearchActivity")
-    is QuickSearchResult.ClipEntry -> error("ClipEntry is handled by QuickSearchActivity")
-}

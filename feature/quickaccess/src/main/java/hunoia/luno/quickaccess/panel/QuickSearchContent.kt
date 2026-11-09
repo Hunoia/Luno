@@ -87,11 +87,6 @@ private data class SearchSnapshot(
     val entries: List<hunoia.luno.core.domain.ActionLibraryEntry>,
     val usage: AppUsageStats,
     val search: QuickSearchSettings,
-    val contactsTick: Int,
-    val mediaTick: Int,
-    val calendarTick: Int,
-    val smsTick: Int,
-    val callsTick: Int,
     val clips: ClipPools,
 )
 /** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
@@ -237,8 +232,7 @@ internal fun QuickSearchContent(
             // entries（动作库条目参与匹配）、usage（启动统计影响使用分）；
             // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
-                query.text, entries, usageState.value, effectiveSearchSettings,
-                0, 0, 0, 0, 0, clipsState.value,
+                query.text, entries, usageState.value, effectiveSearchSettings, clipsState.value,
             )
         }.mapLatest { s ->
             val text = s.text
@@ -337,7 +331,7 @@ internal fun QuickSearchContent(
         // 退场纯淡出 200ms（缩放重采样尾段是糊的）。播完才调 onExitFinished 拆窗：提前拆会掐断结尾。
         if (closing) {
             keyboard?.hide()
-            panelAlpha.animateTo(0f, tween(hunoia.luno.ui.theme.MotionPageEnter))
+            panelAlpha.animateTo(0f, tween(hunoia.luno.ui.theme.MotionOverlayExit))
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "fadeDone=${System.currentTimeMillis()}")
             onExitFinished()
         }

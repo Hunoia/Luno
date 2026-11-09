@@ -5,16 +5,16 @@ import android.net.Uri
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
-import hunoia.luno.action.model.QueryParam
+import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
+import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
 import hunoia.luno.execute.ActionMappingException
-import hunoia.luno.execute.LaunchSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -93,7 +93,7 @@ class ActionResolver(
         // 映射层的受控异常（未知 typeId / 非法枚举参数）必须在这里转成结果：
         // 直接冒出会让 launch 协程异常、既没有提示还会连带崩进程。
         return try {
-            registry.execute(factory.fromStored(StoredAction(stored.typeId, params)), context)
+            registry.execute(factory.fromStored(stored), context)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: ActionMappingException) {
@@ -112,7 +112,7 @@ class ActionResolver(
 
     /** 必填文本参数为空直接判为参数无效。 */
     private fun hasBlankRequiredText(
-        definition: hunoia.luno.execute.ActionMetadata?,
+        definition: hunoia.luno.core.domain.ActionMetadata?,
         params: JsonObject,
     ): Boolean = definition?.requiredTextKeys.orEmpty().any { key ->
         (params[key] as? JsonPrimitive)?.contentOrNull?.isBlank() == true
@@ -129,10 +129,7 @@ data class ExecutorContext(
     val appContext: Context,
     val scope: CoroutineScope,
     val showToast: (String) -> Unit = {},
-    val showLongToast: (String) -> Unit = {},
     val currentPackageName: () -> String? = { null },
-    val nowInLauncher: () -> Boolean = { false },
-    val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
     /** 快速启动面板：锚点为触发触点（无触点路径由执行器退屏幕中心），面板侧再夹取屏内。 */
     val toggleQuickAppLauncher: (anchorX: Int, anchorY: Int) -> Unit = { _, _ -> },
     val showQuickSearch: () -> Unit = {},
@@ -145,8 +142,6 @@ data class ExecutorContext(
     val showVolumeScrub: (stepThresholdDp: Int?) -> Boolean = { false },
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
-    /** 触钮临时隐藏（按 target/buttonIds 选作用钮）：到期自动恢复，不碰 enabled 存量。 */
-    val hideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit = { _, _, _ -> },
     val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
     /** 启动应用（小窗等全局设置由实现侧读）。 */

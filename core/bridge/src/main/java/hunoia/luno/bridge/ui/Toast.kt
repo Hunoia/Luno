@@ -1,11 +1,9 @@
 package hunoia.luno.bridge.ui
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.StringRes
-import hunoia.luno.core.bridge.R
 import hunoia.luno.core.AppContext
 
 private val handler = Handler(Looper.getMainLooper())
@@ -33,15 +31,6 @@ private fun @receiver:StringRes Int.resolveText(): String? =
 private fun scheduleContinue(delayMs: Long, continueBlock: (() -> Unit)?) {
     if (delayMs > 0 && continueBlock != null) {
         handler.postDelayed(continueBlock, delayMs)
-    }
-}
-
-fun showVersionTooLowToast(context: Context, @StringRes placeholder: Int = 0) {
-    if (placeholder == 0) {
-        showToast(context.getString(R.string.os_version_too_low))
-    } else {
-        val name = context.getString(placeholder)
-        showToast(context.getString(R.string.os_version_too_low_placeholder, name))
     }
 }
 

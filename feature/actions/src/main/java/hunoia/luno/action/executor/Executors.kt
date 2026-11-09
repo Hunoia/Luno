@@ -258,7 +258,7 @@ class InternalExecutors : ActionExecutor {
         context.setFloatBallVisible(action.visible, action.hideForMs)
 
     /**
-     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.hideGestureButtons] 临时隐藏
+     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.setButtonsVisible] 临时隐藏
      *（ButtonHideRuntime 到期自动恢复，不碰 enabled 存量，按 target/buttonIds 选作用钮，
      * 原「隐藏触钮」动作语义）；否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
      * 即规则列表顺序=优先级。

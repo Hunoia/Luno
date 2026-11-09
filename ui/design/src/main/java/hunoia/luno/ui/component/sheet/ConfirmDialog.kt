@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -102,9 +101,44 @@ fun ConfirmDialogContent(
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
+    BottomDialogCard(onDismiss = onDismiss) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        text?.let { body ->
+            // 多行正文（如“无法保存”的原因清单）超长时内部滚动
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .heightIn(max = SheetListMaxHeight)
+                    .verticalScroll(rememberScrollState()),
+            )
+        }
+        SheetActionButtons(
+            onDismiss = onDismiss,
+            onConfirm = onConfirm,
+            confirmLabel = confirmLabel,
+            dismissLabel = dismissLabel,
+            destructive = destructive,
+        )
+    }
+}
+
+/** 底部锚定卡片：遮罩点按关闭、卡片本体吞掉点击；输入弹窗额外让 IME 顶起。 */
+@Composable
+private fun BottomDialogCard(
+    onDismiss: () -> Unit,
+    imePadding: Boolean = false,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .then(if (imePadding) Modifier.imePadding() else Modifier)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -125,31 +159,8 @@ fun ConfirmDialogContent(
                 )
                 .padding(LargeGutter),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            text?.let { body ->
-                // 多行正文（如“无法保存”的原因清单）超长时内部滚动
-                Text(
-                    text = body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .heightIn(max = SheetListMaxHeight)
-                        .verticalScroll(rememberScrollState()),
-                )
-            }
-            SheetActionButtons(
-                onDismiss = onDismiss,
-                onConfirm = onConfirm,
-                confirmLabel = confirmLabel,
-                dismissLabel = dismissLabel,
-                destructive = destructive,
-            )
-        }
+            content = content,
+        )
     }
 }
 
@@ -200,99 +211,50 @@ fun TextInputDialog(
         ),
     ) {
         // 遮罩点按关闭；卡片本体不响应遮罩点击（镜像 ConfirmDialog）。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                // 键盘上方：IME inset 撑开内容底边，卡片（BottomCenter）贴住键盘上沿。
-                .imePadding()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismissRequest,
-                ),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Column(
+        BottomDialogCard(onDismiss = onDismissRequest, imePadding = true) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
+                singleLine = true,
+                isError = isError,
+                shape = LargeShape,
                 modifier = Modifier
-                    .padding(horizontal = PageGutter, vertical = PageGutter)
                     .fillMaxWidth()
-                    .clip(ExtraLargeShape)
-                    .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .padding(LargeGutter),
-                verticalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
+                    .focusRequester(focusRequester),
+                keyboardOptions = keyboardOptions,
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+            )
+            // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动
+            if (supportingText.isNotEmpty()) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(
-                    value = textValue,
-                    onValueChange = { textValue = it },
-                    label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
-                    singleLine = true,
-                    isError = isError,
-                    shape = LargeShape,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    keyboardOptions = keyboardOptions,
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                )
-                // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动
-                if (supportingText.isNotEmpty()) {
-                    Text(
-                        text = supportingText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isError) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismissRequest) {
+                    Text(stringResource(R.string.cancel))
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                    verticalAlignment = Alignment.CenterVertically,
+                TextButton(
+                    onClick = { submit() },
+                    enabled = confirmEnabled,
                 ) {
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismissRequest) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                    TextButton(
-                        onClick = { submit() },
-                        enabled = confirmEnabled,
-                    ) {
-                        Text(stringResource(R.string.confirm))
-                    }
+                    Text(stringResource(R.string.confirm))
                 }
             }
         }
     }
-}
-
-@Composable
-fun CustomDialog(
-    title: String,
-    onDismissRequest: () -> Unit,
-    confirmLabel: String = stringResource(R.string.confirm),
-    dismissLabel: String = stringResource(R.string.cancel),
-    onConfirm: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
-) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
-        onDismissRequest = onDismissRequest,
-        title = { Text(title) },
-        text = { content() },
-        confirmButton = {
-            if (onConfirm != null) {
-                TextButton(onClick = { onConfirm() }) { Text(confirmLabel) }
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismissRequest) { Text(dismissLabel) } },
-    )
 }

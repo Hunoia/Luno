@@ -6,15 +6,14 @@ import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.bridge.system.AppIcons
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.ui.icon.rememberAppDrawable
 
 /**
  * AppInfo 的平台与 Compose 扩展。
  *
- * 数据类本身已下沉 `hunoia.luno.model`，这里用 typealias 保持既有引用（
- * `import hunoia.luno.quickaccess.model.AppInfo`）不漂移；配置层直接依赖 model 包。
+ * 数据类本身在 `:core:domain`，配置层直接依赖契约包；本文件只提供平台 / Compose 侧投影。
  */
-typealias AppInfo = hunoia.luno.core.domain.AppInfo
 
 val AppInfo.componentName: ComponentName get() = ComponentName.createRelative(packageName, className)
 

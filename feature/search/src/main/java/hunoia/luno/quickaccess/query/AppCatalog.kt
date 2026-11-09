@@ -102,7 +102,7 @@ object AppCatalog {
             // 有桌面入口的已经在主清单里；这里只补「无入口」的包。
             if (runCatching { pm.getLaunchIntentForPackage(pkg) }.getOrNull() != null) continue
             val label = runCatching { app.loadLabel(pm).toString() }.getOrDefault(pkg)
-            result.add(AppInfo(packageName = pkg, className = "", label = label, isSystem = true))
+            result.add(AppInfo(packageName = pkg, className = "", label = label))
         }
         return result
     }

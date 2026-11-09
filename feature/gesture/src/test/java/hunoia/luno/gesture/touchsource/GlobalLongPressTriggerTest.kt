@@ -25,7 +25,6 @@ class GlobalLongPressTriggerTest {
         val entries = mutableListOf<Entry>()
 
         val lastDelay: Long get() = entries.lastOrNull()?.delayMs ?: -1L
-        val lastCancelled: Boolean get() = entries.lastOrNull()?.cancelled == true
 
         override fun schedule(delayMs: Long, task: () -> Unit): Cancelable {
             val entry = Entry(delayMs, task)

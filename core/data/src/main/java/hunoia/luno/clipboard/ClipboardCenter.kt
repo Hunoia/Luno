@@ -53,15 +53,6 @@ object ClipboardCenter {
      */
     private var lastSeenKey: String? = null
 
-    /**
-     * 记录成功后的外部回调（自动化脉冲）。
-     *
-     * 归 `:core:data` 的剪贴板访问不该 import 自动化模块，所以由 `:app` 注入；
-     * 未注入时只记历史、不发脉冲。
-     */
-    @Volatile
-    var onRecorded: ((String) -> Unit)? = null
-
     /** 只读历史投影，避免 UI 直连配置存储。 */
     val history: Flow<ClipboardHistory> = ConfigProvider.clipboardHistory
 
@@ -246,7 +237,6 @@ object ClipboardCenter {
                 )
                 val maxEntries = settings?.maxEntries ?: ClipboardSettings().maxEntries
                 ConfigProvider.recordClipboardEntry(entry, maxEntries)?.let { pruneImages(it) }
-                onRecorded?.invoke(content.text)
             }
             is ClipboardContent.Image -> {
                 val name = ClipboardImageStore.save(AppContext.get(), content) ?: return

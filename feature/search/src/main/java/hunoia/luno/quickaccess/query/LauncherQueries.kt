@@ -8,7 +8,7 @@ import android.os.SystemClock
 import androidx.collection.LruCache
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 
 data class QuickAppLauncherAppList(
     val apps: List<AppInfo>,

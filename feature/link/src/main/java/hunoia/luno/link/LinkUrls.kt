@@ -94,9 +94,6 @@ object LinkUrls {
 
     private val PackagePrefixes = setOf("com", "org", "net", "androidx", "android", "kotlin", "java")
 
-    /** 文本里第一条可分发链接（胶囊/外部打开的单链接快路径）。 */
-    fun firstUrl(text: String): String? = extractUrls(text).firstOrNull()
-
     fun isDispatchable(url: String): Boolean {
         val scheme = schemeOf(url)?.lowercase() ?: return false
         if (scheme in BlockedSchemes) return false

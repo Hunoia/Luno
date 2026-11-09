@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
-import hunoia.luno.core.LunoLog
 import hunoia.luno.core.domain.IslandActionSpec
 import hunoia.luno.core.domain.IslandIntentKind
 import hunoia.luno.core.domain.IslandNotificationSpec

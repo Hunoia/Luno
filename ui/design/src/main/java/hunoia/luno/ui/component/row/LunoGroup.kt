@@ -159,7 +159,7 @@ fun LunoGroup(
         if (LocalListStyle.current == ListStyle.CardDivided) {
             CompositionLocalProvider(LocalInDividedCard provides true) {
                 Column(
-                    modifier = modifier
+                    modifier = Modifier
                         .fillMaxWidth()
                         .clip(containerShape(ContainerRadius))
                         .background(MaterialTheme.colorScheme.surfaceBright),

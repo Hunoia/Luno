@@ -268,8 +268,8 @@ internal fun rememberResumeTick(): Int {
 }
 
 /**
- * 亮度滑条：SCREEN_BRIGHTNESS（0..255），拖动中若自动亮度先切手动。
- * 需 WRITE_SETTINGS；部分 ROM 只认 float 档，两处都写、失败静默。
+ * 亮度滑条：SCREEN_BRIGHTNESS（0..255），按 γ≈2.2 在滑条位置与设置值之间换算。
+ * 需 WRITE_SETTINGS；只写标准 int 键（双写 float 键会与部分 ROM 的标度打架）。
  * 方向随占位走，未授权时「点此授权」在竖向窄格改竖排。
  */
 @Composable

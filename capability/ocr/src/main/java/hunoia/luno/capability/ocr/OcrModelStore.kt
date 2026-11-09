@@ -7,18 +7,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** PP-OCRv6 的 GPU 模型清单；只接受 GPU 包（原始 fp32 tflite），不再接受 AOT / JIT 包。 */
-data class AotModelManifest(
+data class OcrManifest(
     val kind: String,
     val soc: String?,
     val runtime: String?,
-    val qairt: String?,
-    val aiEdgeLitert: String?,
     val files: Map<String, String>,
 )
 
 /** 已导入模型的可展示信息（由 manifest + 实际目录大小推导）。 */
 data class OcrModelInfo(
-    val manifest: AotModelManifest,
+    val manifest: OcrManifest,
     val sizeBytes: Long,
     val fileCount: Int,
     val importedAt: Long,
@@ -117,7 +115,7 @@ object OcrModelStore {
         )
     }
 
-    fun parseManifest(file: File): AotModelManifest {
+    fun parseManifest(file: File): OcrManifest {
         val json = JSONObject(file.readText())
         val kind = json.optString("kind").trim()
         val soc = json.optString("soc").trim()
@@ -126,18 +124,16 @@ object OcrModelStore {
         val files = buildMap {
             filesJson.keys().forEach { name -> put(name, filesJson.optString(name).trim()) }
         }
-        return AotModelManifest(
+        return OcrManifest(
             kind = kind,
             soc = soc.ifBlank { null },
             runtime = json.optString("runtime").ifBlank { null },
-            qairt = json.optString("qairt").ifBlank { null },
-            aiEdgeLitert = json.optString("aiEdgeLitert").ifBlank { null },
             files = files,
         )
     }
 
     /** 校验 staging 目录：清单、白名单文件、逐文件 SHA-256、字典非空。 */
-    fun validateStaging(dir: File): AotModelManifest {
+    fun validateStaging(dir: File): OcrManifest {
         val manifestFile = File(dir, MANIFEST)
         require(manifestFile.isFile) { "缺少 manifest.json" }
         val manifest = parseManifest(manifestFile)

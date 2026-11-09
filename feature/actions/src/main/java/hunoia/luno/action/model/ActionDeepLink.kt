@@ -3,6 +3,7 @@ package hunoia.luno.action.model
 import android.net.Uri
 import android.util.Base64
 import hunoia.luno.core.domain.JsonSerializer
+import hunoia.luno.core.domain.StoredAction
 
 /**
  * 动作外部调用入口：

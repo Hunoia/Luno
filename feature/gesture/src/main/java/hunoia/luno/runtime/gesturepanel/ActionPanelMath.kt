@@ -111,7 +111,6 @@ internal fun actionPanelItemOffset(
     val countInLayer = plan.counts[layer]
     val radius = plan.radii[layer]
     val range = plan.ranges[layer]
-    val stepDegree = arcStepDegrees(radius, centerDistance)
     val normalizedCenter = ((sector.centerDegrees % 360f) + 360f) % 360f
     val radiansCenter = Math.toRadians(normalizedCenter.toDouble())
     val horizontal = kotlin.math.abs(kotlin.math.cos(radiansCenter)) >= kotlin.math.abs(kotlin.math.sin(radiansCenter))

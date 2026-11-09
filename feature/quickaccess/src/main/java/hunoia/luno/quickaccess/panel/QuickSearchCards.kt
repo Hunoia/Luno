@@ -33,9 +33,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shortcut
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,7 +49,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -188,9 +185,7 @@ internal fun QuickSearchGroupedCards(
                             HistoryChip(
                                 text = h,
                                 onClick = {
-                                    onQueryChange(
-                                        backfillText(h).let { TextFieldValue(it, TextRange(it.length)) },
-                                    )
+                                    onQueryChange(queryFieldValue(h))
                                 },
                                 onLongClick = { onDeleteHistory(h) },
                             )
@@ -252,9 +247,7 @@ private fun ResultGroupCard(
                             pinned = setQuery in pinnedSet,
                             onTogglePin = { onTogglePin(setQuery) },
                             onClick = {
-                                onQueryChange(
-                                    backfillText(setQuery).let { TextFieldValue(it, TextRange(it.length)) },
-                                )
+                                onQueryChange(queryFieldValue(setQuery))
                             },
                             onLongClick = { onMenuOpen(result) },
                         )

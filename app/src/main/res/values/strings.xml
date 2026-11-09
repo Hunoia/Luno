@@ -174,10 +174,6 @@
     <string name="home_section_data">数据管理</string>
     <string name="action_deep_link_not_found">动作不存在或已删除</string>
 
-    <!-- 动作编辑器 -->
-    <string name="action_capability_accessibility">无障碍</string>
-    <string name="action_capability_shizuku">Shizuku</string>
-
     <!-- 参数模板 -->
 
 

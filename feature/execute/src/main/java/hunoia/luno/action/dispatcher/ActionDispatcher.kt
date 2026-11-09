@@ -131,12 +131,7 @@ class ActionDispatcher(
             appContext = context,
             scope = scope,
             showToast = messages::showToast,
-            showLongToast = messages::showLongToast,
             currentPackageName = environment::currentPackageName,
-            nowInLauncher = { environment.nowInLauncher() },
-            requestEnableDisabledPackage = { packageName, onResult ->
-                environment.requestEnableDisabledPackage(packageName, onResult)
-            },
             toggleQuickAppLauncher = surfaces::toggleQuickAppLauncher,
             showQuickSearch = surfaces::showQuickSearch,
             showSpeechRecognition = surfaces::showSpeechRecognition,
@@ -147,7 +142,6 @@ class ActionDispatcher(
             hideGestureButton = { delayMs ->
                 if (buttonId != null) surfaces.hideGestureButton(buttonId, delayMs)
             },
-            hideGestureButtons = surfaces::hideGestureButtons,
             previousApp = surfaces::previousApp,
             touchPosition = call.touchPosition,
             launchApp = surfaces::launchApp,

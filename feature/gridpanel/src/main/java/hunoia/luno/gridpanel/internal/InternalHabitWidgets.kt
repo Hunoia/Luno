@@ -33,11 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -258,25 +253,11 @@ internal fun HabitHistoryCell(
                     val ring = (minOf(contentW, contentH) * 0.5f).coerceIn(40.dp, 64.dp)
                     val stroke = (ring.value * 0.07f).dp.coerceIn(3.dp, 5.dp)
                     Canvas(Modifier.size(ring)) {
-                        val w = stroke.toPx()
-                        val inset = w / 2f
-                        drawArc(
-                            color = onCard.copy(alpha = 0.25f),
-                            startAngle = 0f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            topLeft = Offset(inset, inset),
-                            size = Size(size.width - w, size.height - w),
-                            style = Stroke(width = w, cap = StrokeCap.Round),
-                        )
-                        drawArc(
-                            color = habitColor,
-                            startAngle = -90f,
-                            sweepAngle = 360f * progress,
-                            useCenter = false,
-                            topLeft = Offset(inset, inset),
-                            size = Size(size.width - w, size.height - w),
-                            style = Stroke(width = w, cap = StrokeCap.Round),
+                        drawConfirmRing(
+                            progress = progress,
+                            accent = habitColor,
+                            track = onCard.copy(alpha = 0.25f),
+                            strokeWidth = stroke.toPx(),
                         )
                     }
                 }

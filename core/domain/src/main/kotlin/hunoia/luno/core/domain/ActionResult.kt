@@ -9,10 +9,8 @@ enum class Capability {
 
 /** 一次执行的落定结果：成功 / 失败带因 / 需授权带去向。 */
 sealed interface ActionResult {
-    /** outputs: runRule 等复合动作回传的变量（目前只有 "return"）。 */
     data class Success(
         val message: String? = null,
-        val outputs: Map<String, String> = emptyMap(),
     ) : ActionResult
     data class Failed(
         val reason: ActionFailure,

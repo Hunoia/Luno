@@ -189,8 +189,8 @@ fun GridPanelLayer(
                 val item = raw.normalized(metrics.columns, metrics.rows)
                 val dragging = item.id == draggingId
                 val resizing = item.id == resizingId
-                val spanX = if (resizing) resizeSpanF?.x ?: item.spanX.toFloat() else item.spanX.toFloat()
-                val spanY = if (resizing) resizeSpanF?.y ?: item.spanY.toFloat() else item.spanY.toFloat()
+                val spanX = (if (resizing) resizeSpanF?.x else null) ?: item.spanX.toFloat()
+                val spanY = (if (resizing) resizeSpanF?.y else null) ?: item.spanY.toFloat()
                 val itemW = metrics.itemW(spanX)
                 val itemH = metrics.itemH(spanY)
                 // 内置部件按当前占位判横竖布局，要用 resize 中的实时 span，
@@ -376,12 +376,8 @@ fun GridPanelLayer(
                             // provider 按偏小尺寸画会裁内容。
                             // resize 期间 options 按 spanF 的整数格实时下发：跨整格才重建
                             // provider；连续跟手只走 Compose 尺寸 → onMeasure。
-                            val optionSpanX =
-                                (if (resizing) resizeSpanF?.x ?: spanX else spanX)
-                                    .roundToInt().coerceAtLeast(1).toFloat()
-                            val optionSpanY =
-                                (if (resizing) resizeSpanF?.y ?: spanY else spanY)
-                                    .roundToInt().coerceAtLeast(1).toFloat()
+                            val optionSpanX = spanX.roundToInt().coerceAtLeast(1).toFloat()
+                            val optionSpanY = spanY.roundToInt().coerceAtLeast(1).toFloat()
                             val maxWidthDp =
                                 (metrics.itemW(optionSpanX) / density.density).roundToInt()
                             val maxHeightDp =

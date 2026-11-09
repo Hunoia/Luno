@@ -1,20 +1,9 @@
 package hunoia.luno.ui.component
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
-import hunoia.luno.core.domain.Capability
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.actionTextCompose
-
-@get:StringRes
-val Capability.displayNameRes: Int
-    get() = when (this) {
-        Capability.Accessibility -> R.string.action_capability_accessibility
-        Capability.Shizuku -> R.string.action_capability_shizuku
-        Capability.None -> hunoia.luno.actions.R.string.action_none
-    }
 
 @Composable
 fun GestureButton.buttonTextCompose(): String {

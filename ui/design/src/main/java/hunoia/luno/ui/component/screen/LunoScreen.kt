@@ -58,42 +58,29 @@ fun LunoScreen(
     sheets: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val hazeState = rememberAppHazeState()
-    ClearFocusWhenImeHidden()
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentWindowInsets = WindowInsets(),
-            topBar = {
-                TopBar(
-                    title = title,
-                    onBack = onBack,
-                    actions = actions,
-                    postfixTitle = postfixTitle,
-                    scrollBehavior = scrollBehavior,
-                    hazeState = hazeState,
-                )
-            },
-        ) { padding ->
-            LunoColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding()
-                    .appHazeSource(hazeState)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .then(if (animateContent) Modifier.animateContentSize() else Modifier),
-                topPadding = padding.calculateTopPadding(),
-                verticalArrangement = Arrangement.spacedBy(contentSpacing),
-                contentPadding = contentPadding,
-                bottomPadding = bottomContentPadding,
-                content = { content() },
-            )
-        }
-        floatingContent?.invoke(this, hazeState)
-        dialogs()
-        sheets()
+    LunoScreenScaffold(
+        title = title,
+        modifier = modifier,
+        onBack = onBack,
+        actions = actions,
+        postfixTitle = postfixTitle,
+        floatingContent = floatingContent,
+        dialogs = dialogs,
+        sheets = sheets,
+    ) { padding, hazeState, scrollBehavior ->
+        LunoColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .appHazeSource(hazeState)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .then(if (animateContent) Modifier.animateContentSize() else Modifier),
+            topPadding = padding.calculateTopPadding(),
+            verticalArrangement = Arrangement.spacedBy(contentSpacing),
+            contentPadding = contentPadding,
+            bottomPadding = bottomContentPadding,
+            content = { content() },
+        )
     }
 }
 
@@ -121,37 +108,24 @@ fun LunoScreenPlain(
     sheets: @Composable () -> Unit = {},
     content: @Composable (topPadding: Dp, hazeState: HazeState) -> Unit,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val hazeState = rememberAppHazeState()
-    ClearFocusWhenImeHidden()
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentWindowInsets = WindowInsets(),
-            topBar = {
-                TopBar(
-                    title = title,
-                    onBack = onBack,
-                    actions = actions,
-                    showBackIcon = showBackIcon,
-                    postfixTitle = postfixTitle,
-                    scrollBehavior = scrollBehavior,
-                    hazeState = hazeState,
-                )
-            },
-        ) { padding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-            ) {
-                content(padding.calculateTopPadding(), hazeState)
-            }
+    LunoScreenScaffold(
+        title = title,
+        modifier = modifier,
+        onBack = onBack,
+        showBackIcon = showBackIcon,
+        actions = actions,
+        postfixTitle = postfixTitle,
+        floatingContent = { floatingContent?.invoke() },
+        dialogs = dialogs,
+        sheets = sheets,
+    ) { padding, hazeState, scrollBehavior ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+        ) {
+            content(padding.calculateTopPadding(), hazeState)
         }
-        floatingContent?.invoke()
-        dialogs()
-        sheets()
     }
 }
 
@@ -175,6 +149,53 @@ fun LunoScreenLazy(
     sheets: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
+    LunoScreenScaffold(
+        title = title,
+        modifier = modifier,
+        onBack = onBack,
+        actions = actions,
+        postfixTitle = postfixTitle,
+        floatingContent = { floatingContent?.invoke() },
+        dialogs = dialogs,
+        sheets = sheets,
+    ) { padding, hazeState, scrollBehavior ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .appHazeSource(hazeState)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            state = state,
+            verticalArrangement = Arrangement.spacedBy(contentSpacing),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = contentPadding,
+                end = contentPadding,
+                top = padding.calculateTopPadding(),
+                bottom = bottomContentPadding,
+            ),
+            content = { content() },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LunoScreenScaffold(
+    title: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    showBackIcon: Boolean = true,
+    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    postfixTitle: (@Composable () -> Unit)? = null,
+    floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
+    dialogs: @Composable () -> Unit = {},
+    sheets: @Composable () -> Unit = {},
+    content: @Composable (
+        padding: androidx.compose.foundation.layout.PaddingValues,
+        hazeState: HazeState,
+        scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior,
+    ) -> Unit,
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
     ClearFocusWhenImeHidden()
@@ -188,30 +209,16 @@ fun LunoScreenLazy(
                     title = title,
                     onBack = onBack,
                     actions = actions,
+                    showBackIcon = showBackIcon,
                     postfixTitle = postfixTitle,
                     scrollBehavior = scrollBehavior,
                     hazeState = hazeState,
                 )
             },
         ) { padding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding()
-                    .appHazeSource(hazeState)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                state = state,
-                verticalArrangement = Arrangement.spacedBy(contentSpacing),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = contentPadding,
-                    end = contentPadding,
-                    top = padding.calculateTopPadding(),
-                    bottom = bottomContentPadding,
-                ),
-                content = { content() },
-            )
+            content(padding, hazeState, scrollBehavior)
         }
-        floatingContent?.invoke()
+        floatingContent?.invoke(this, hazeState)
         dialogs()
         sheets()
     }

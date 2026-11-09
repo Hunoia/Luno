@@ -27,7 +27,4 @@ object ActionDefinitionRegistry {
         snapshot ?: definitions.values.toList().also { snapshot = it }
 
     fun byTypeId(typeId: String): ActionDefinition? = definitions[typeId]
-
-    val registeredTypeIds: Set<String>
-        get() = definitions.keys.toSet()
 }

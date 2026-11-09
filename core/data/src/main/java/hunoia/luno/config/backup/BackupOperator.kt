@@ -400,16 +400,11 @@ object BackupOperator {
         }
         ConfigProvider.restoreAll(backup)
         val verified = ConfigProvider.snapshotAll()
-        val mismatched = buildList {
-            backup.initialSettings?.let { if (verified.initialSettings != it) add("initialSettings") }
-            backup.advancedSettings?.let { if (verified.advancedSettings != it) add("advancedSettings") }
-            backup.gestureSettings?.let { if (verified.gestureSettings != it) add("gestureSettings") }
-            backup.actionSettings?.let { if (verified.actionSettings != it) add("actionSettings") }
-            backup.gestureButtons?.let { if (verified.gestureButtons != it) add("gestureButtons") }
-            backup.quickAppLauncherSettings?.let { if (verified.quickAppLauncherSettings != it) add("quickAppLauncherSettings") }
-            backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
-            backup.actionLibrarySettings?.let { if (verified.actionLibrarySettings != it) add("actionLibrarySettings") }
-            backup.quickSearchSettings?.let { if (verified.quickSearchSettings != it) add("quickSearchSettings") }
+        // 逐域比较注册表的快照投影：新增备份域时无需再往这里补一条手工字段。
+        val mismatched = BackupDomainRegistry.registeredDomains.mapNotNull { domain ->
+            val expected = BackupDomainRegistry.snapshot(backup, domain)
+            val actual = BackupDomainRegistry.snapshot(verified, domain)
+            domain.takeIf { expected != actual }?.name
         }
         if (mismatched.isNotEmpty()) {
             throw IllegalStateException("restore failed: mismatch after restoreAll: ${mismatched.joinToString()}")
@@ -423,15 +418,7 @@ object BackupOperator {
         }.getOrNull()
     }
 
-    private fun Backup.isEmpty(): Boolean {
-        return initialSettings == null && advancedSettings == null &&
-            gestureSettings == null && actionSettings == null &&
-            gestureButtons == null &&
-            quickAppLauncherSettings == null &&
-            subGestureSettings == null &&
-            actionLibrarySettings == null &&
-            quickSearchSettings == null
-    }
+    private fun Backup.isEmpty(): Boolean = BackupDomainRegistry.isEmpty(this)
 
     private fun scanZipEntries(zipFile: File): ByteArray? {
         var backupBytes: ByteArray? = null

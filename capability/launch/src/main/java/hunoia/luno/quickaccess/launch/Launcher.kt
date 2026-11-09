@@ -24,6 +24,7 @@ import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
 import hunoia.luno.bridge.system.AppIcons
+import hunoia.luno.bridge.system.shellQuote
 import hunoia.luno.shizuku.ShizukuManager
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -286,8 +287,6 @@ object Launcher {
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
     }
 
-    private fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
-
     private fun launchCloneViaLauncherApps(
         context: Context,
         packageName: String,
@@ -359,22 +358,6 @@ object Launcher {
         context.packageManager.getPackageInfo(MIUI_APP_MANAGER_PACKAGE, 0)
         true
     }.getOrDefault(false)
-
-    fun launchAppActivity(context: Context, packageName: String, className: String): Boolean {
-        return try {
-            val component = ComponentName.createRelative(packageName, className)
-            val intent = Intent().apply {
-                setComponent(component)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (context.packageManager.resolveActivity(intent, 0) == null) return false
-            context.startActivity(intent)
-            true
-        } catch (e: Exception) {
-            Log.e(LOG_TAG, "launchAppActivity failed", e)
-            false
-        }
-    }
 
     /**
      * 启动快捷方式：优先直接启动落库的显式 intent，失败再走 LauncherApps / Shizuku

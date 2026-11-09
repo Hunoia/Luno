@@ -70,6 +70,20 @@ class GridPanelItemLayoutTest {
     }
 
     @Test
+    fun `multi span item can land on first column`() {
+        // 2 格宽项从第 2 列拖到最左：目标被夹成 0，而不是因为整项中心进不了第 0 格。
+        val plan = GridPanelItemLayout.planReorder(
+            items = listOf(item("wide", 2, 0, w = 2)),
+            movingId = "wide",
+            targetX = 0,
+            targetY = 0,
+            columns = 4,
+            rows = 4,
+        )
+        assertEquals(0, plan!!.first().x)
+    }
+
+    @Test
     fun `plan reorder pins the moved item and pushes the blocker away`() {
         val items = listOf(item("blocker", 1, 0), item("moved", 0, 0))
         val plan = GridPanelItemLayout.planReorder(

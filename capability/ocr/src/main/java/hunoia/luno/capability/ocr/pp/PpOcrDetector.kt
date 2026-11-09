@@ -29,12 +29,6 @@ class PpOcrDetector(context: Context, modelFile: File) : Closeable {
         const val UNCLIP_RATIO = 1.6f
 
         /**
-         * fp32 导出的输出就是 0..1 的 sigmoid 概率，不需要还原系数（v5 int8 的
-         * DEQUANTIZE 偏移问题在 fp32 上不存在）。保留常量以便万一换回量化包。
-         */
-        const val PROB_SCALE = 1f
-
-        /**
          * 对概率图阈值化、找连通文本区域，返回 unclip 后的框（SIZE 空间坐标系）。
          */
         fun boxes(prob: FloatArray): List<Box> {
@@ -118,7 +112,7 @@ class PpOcrDetector(context: Context, modelFile: File) : Closeable {
         det.run()
         val prob = det.readOutput(0)
         for (i in prob.indices) {
-            prob[i] = (prob[i] * PROB_SCALE).coerceAtMost(1f)
+            prob[i] = prob[i].coerceAtMost(1f)
         }
         return prob
     }

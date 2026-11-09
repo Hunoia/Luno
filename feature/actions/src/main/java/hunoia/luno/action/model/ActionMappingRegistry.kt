@@ -32,8 +32,4 @@ object ActionMappingRegistry {
         decoders[typeId]?.decode(params) ?: throw UnknownActionTypeException(typeId)
 
     fun contains(typeId: String): Boolean = decoders.containsKey(typeId)
-
-    /** 只读快照，供测试校验内置映射完整性。 */
-    val registeredTypeIds: Set<String>
-        get() = decoders.keys.toSet()
 }

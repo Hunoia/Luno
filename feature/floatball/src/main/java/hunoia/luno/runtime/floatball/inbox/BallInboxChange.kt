@@ -14,7 +14,6 @@ internal data class BallInboxChange(
     val duplicate: Boolean = false,
     val currentChanged: Boolean = false,
 ) {
-    val hasNewItem: Boolean get() = added != null
     val isEmpty: Boolean get() = state.items.isEmpty()
     val changed: Boolean
         get() = added != null ||

@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.collection.LruCache
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.query.AppCatalog
 import hunoia.luno.quickaccess.query.AppQuery
@@ -40,10 +40,6 @@ object QuickLaunchFacade {
 
     fun queryShortcuts(context: Context): List<LauncherInfo> =
         ShortcutQuery.getAllAppsWithShortcut(context)
-
-    /** 按包名 + shortcutId 读取当前安装包里的静态快捷方式定义（用于刷新旧落库数据）。 */
-    fun findShortcut(context: Context, packageName: String, shortcutId: String?): LauncherInfo.ShortcutInfo? =
-        shortcutId?.let { ShortcutQuery.findShortcut(context, packageName, it) }
 
     fun resolveShortcutIconResourceId(context: Context, iconResource: android.content.Intent.ShortcutIconResource): Int =
         LauncherIconQuery.resolveShortcutIconResourceId(context, iconResource)
@@ -140,15 +136,6 @@ object QuickLaunchFacade {
             extras = extras,
         )
     }
-
-    suspend fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo): Boolean =
-        Launcher.launchShortcutWithFallback(
-            context = context,
-            packageName = shortcutInfo.packageName,
-            shortcutId = shortcutInfo.shortcutId,
-            intentUris = shortcutInfo.intents,
-            label = shortcutInfo.label,
-        )
 
     fun isLauncherPackage(context: Context, packageName: String): Boolean =
         LauncherEnvironment.isLauncherPackage(context, packageName)

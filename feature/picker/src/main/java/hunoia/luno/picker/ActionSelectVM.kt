@@ -9,7 +9,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.model.qualifiedName
 import hunoia.luno.picker.SaveOutcome
@@ -111,34 +111,33 @@ class ActionSelectVM(
      * 页满时不能报「保存成功」，否则用户看到的就是「添加没反应」；分别提示并回收 id。
      */
     fun commitWidget(provider: String, appWidgetId: Int, spanX: Int, spanY: Int) {
-        var result: GridPanelSaveResult? = null
-        viewModelScope.launch {
-            result = saveGridPanelWidget(
+        finishWithGridResult {
+            saveGridPanelWidget(
                 actionSelect = actionSelect,
                 provider = provider,
                 appWidgetId = appWidgetId,
                 spanX = spanX,
                 spanY = spanY,
             )
-        }.invokeOnCompletion { error ->
-            when {
-                error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)
-                error == null && result == GridPanelSaveResult.NoPanel -> toast(R.string.grid_panel_missing)
-                else -> toast(R.string.save_failure)
-            }
-            finish()
         }
     }
 
     /** 内置小部件选定 → 落盘 → 收页（无宿主/授权流程，直接存条目）。[params] 见 architecture §9.2。 */
     fun commitInternalWidget(widgetId: String, params: String? = null) {
-        var result: GridPanelSaveResult? = null
-        viewModelScope.launch {
-            result = saveGridPanelInternalWidget(
+        finishWithGridResult {
+            saveGridPanelInternalWidget(
                 actionSelect = actionSelect,
                 widgetId = widgetId,
                 params = params,
             )
+        }
+    }
+
+    /** 网格面板小部件落盘的统一收尾：页满/面板丢失不能报「保存成功」。 */
+    private fun finishWithGridResult(save: suspend () -> GridPanelSaveResult) {
+        var result: GridPanelSaveResult? = null
+        viewModelScope.launch {
+            result = save()
         }.invokeOnCompletion { error ->
             when {
                 error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)

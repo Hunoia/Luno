@@ -95,14 +95,6 @@ data class GridPanelItem(
         )
     }
 
-    /**
-     * 设置页提示「哪些项被丢弃」用的人类可读名字，取不到返回 null（调用方决定兜底文案）。
-     * 只有 typeId：真正的文案要 UI 层走 `actionText(...)` 注册表解析，这里给 typeId 而不编假名。
-     */
-    fun labelOrNull(): String? =
-        (kind as? Kind.Action)?.items?.firstOrNull()?.typeId?.takeIf { it.isNotBlank() }
-            ?: (kind as? Kind.AppWidget)?.provider?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
-            ?: (kind as? Kind.Internal)?.widgetId?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
 }
 
 /** 首个动作。[AppWidget] 项没有变体概念（点击由 provider 自己处理）。 */

@@ -1,5 +1,7 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.core.domain.StoredAction
+
 /**
  * `StoredAction → Action` 的稳定入口。
  *

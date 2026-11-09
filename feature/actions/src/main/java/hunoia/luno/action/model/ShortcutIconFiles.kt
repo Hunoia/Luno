@@ -3,6 +3,7 @@ package hunoia.luno.action.model
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import java.io.File
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
 
 /**

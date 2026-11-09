@@ -3,12 +3,12 @@ package hunoia.luno.quickaccess.query
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchEngine
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 
 /**
  * 搜索索引的原始结果。展示层通过 [toSearchResult] 转成 [SearchResult]，
- * 由 Activity 统一执行 [SearchAction]；Action 类结果也可经 [toConfigAction] 走 dispatcher。
+ * 由 Activity 统一执行 [SearchAction]。
  */
 sealed interface QuickSearchResult {
     val title: String

@@ -9,7 +9,7 @@ import coil3.imageLoader
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quickaccess.query.AppListRepository
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.query.AppSearch.sortApps
 import hunoia.luno.quickaccess.query.QuickAppLauncherAppList
 import hunoia.luno.quickaccess.QuickLaunchFacade
@@ -110,11 +110,8 @@ class QuickAppLauncherState(
      */
     fun reloadAppsIfLocaleChanged(): Boolean = AppListRepository.reloadIfLocaleChanged()
 
-    val visibleApps: List<AppInfo>
-        get() = appListState.apps
-
     val filteredApps: List<AppInfo> by derivedStateOf {
-        sortApps(visibleApps, usageStats, tokens)
+        sortApps(appListState.apps, usageStats, tokens)
     }
 
     fun addToken(token: String) {

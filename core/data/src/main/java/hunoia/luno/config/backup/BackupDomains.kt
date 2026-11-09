@@ -78,6 +78,12 @@ object BackupDomainRegistry {
         return handlers.containsKey(domain)
     }
 
+    /** 整机快照是否为空：逐域读取注册的 `isEmpty`，避免备份核心再维护一份段列表。 */
+    fun isEmpty(backup: Backup): Boolean {
+        ensureBuiltins()
+        return handlers.values.all { it.isEmpty(backup) }
+    }
+
     val registeredDomains: Set<BackupDomain>
         get() {
             ensureBuiltins()

@@ -24,14 +24,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shortcut
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quickaccess.R
@@ -174,7 +172,7 @@ internal fun QuickSearchEmptyList(
                     text = clipText,
                     shape = segmentedShape(total - 1 - pos, total),
                     onClick = {
-                        onQueryChange(backfillText(clipText).let { TextFieldValue(it, TextRange(it.length)) })
+                        onQueryChange(queryFieldValue(clipText))
                     },
                     onLongClick = { onMenuOpen(clipResult) },
                     pinned = clipText in pinnedSet,
@@ -199,7 +197,7 @@ internal fun QuickSearchEmptyList(
                     // clipSlotCount，否则历史最后一行会误拿整列底部的大圆角。
                     shape = segmentedShape(total - 1 - clipSlotCount - pos, total),
                     onClick = {
-                        onQueryChange(backfillText(h).let { TextFieldValue(it, TextRange(it.length)) })
+                        onQueryChange(queryFieldValue(h))
                     },
                     onLongClick = { onDeleteHistory(h) },
                 )
@@ -379,7 +377,7 @@ internal fun QuickSearchTriggerHints(
                     shape = segmentedShape(hintTotal - 1 - idx, hintTotal),
                     icon = h.third,
                     onClick = {
-                        onQueryChange(TextFieldValue(trigger, TextRange(trigger.length)))
+                        onQueryChange(queryFieldValue(trigger))
                     },
                 )
             }
@@ -390,7 +388,7 @@ internal fun QuickSearchTriggerHints(
                     shape = segmentedShape(hintTotal - 1 - hintSources.size - idx, hintTotal),
                     textIcon = e.first.firstOrNull()?.toString()?.let { TextIcon(it) },
                     onClick = {
-                        onQueryChange(TextFieldValue(trigger, TextRange(trigger.length)))
+                        onQueryChange(queryFieldValue(trigger))
                     },
                 )
             }

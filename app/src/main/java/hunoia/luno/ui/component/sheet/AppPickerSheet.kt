@@ -31,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.model.icon
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState

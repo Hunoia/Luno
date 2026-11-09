@@ -33,9 +33,6 @@ import kotlinx.coroutines.withContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.shortcutInfo
 
-internal fun List<StoredAction>.shortcutIconPaths(): List<String> =
-    flatMap { ShortcutIconFiles.iconPathsOf(it) }
-
 internal fun StoredAction.shortcutIconPaths(): List<String> = ShortcutIconFiles.iconPathsOf(this)
 
 internal fun tryDeleteShortcutIcons(old: StoredAction?, new: StoredAction?) {

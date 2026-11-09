@@ -49,7 +49,7 @@ import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quickaccess.R
 import coil3.compose.AsyncImage
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.ui.hapticTap
 
 /**

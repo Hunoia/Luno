@@ -12,14 +12,12 @@ object ShizukuFacade {
 
     suspend fun runShellCommand(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
         assertNotMainThread("shizuku.shell")
-        val startMs = System.currentTimeMillis()
         val result = ShizukuManager.executeShell(command)
         ShellCommandResult(
             success = result.isSuccess,
             exitCode = result.exitCode,
             output = result.stdout,
-            elapsedMs = System.currentTimeMillis() - startMs,
-            error = result.errorMessage.ifBlank { null }
+            error = result.errorMessage.ifBlank { null },
         )
     }
 }
@@ -35,7 +33,6 @@ data class ShellCommandResult(
     val success: Boolean,
     val exitCode: Int,
     val output: String,
-    val elapsedMs: Long,
     val error: String? = null,
 )
 
@@ -54,7 +51,6 @@ data class ShellResult(
 data class ShizukuStatus(
     val binderAlive: Boolean,
     val permissionGranted: Boolean,
-    val uid: Int?
 ) {
     val isReady: Boolean
         get() = binderAlive && permissionGranted

@@ -1039,31 +1039,6 @@ class FloatBallService : Service() {
             transientOverlayAllowed() &&
             sceneAllows(VisibilityTargets.CLIPBOARD_BALL)
 
-    private suspend fun onClipboardChanged() {
-        if (!clipboardBallAllowed()) {
-            // 诊断日志：区分「系统没回调」与「门控吞掉」。
-            Log.i(
-                TAG,
-                "clip changed but not allowed: switch=${settings.clipboardBall.enabled} " +
-                    "overlay=${canDrawOverlays()} gesture=$gestureEnabledSnapshot " +
-                    "panel=${visibility.panelCount} tempHide=${visibility.isTempHidden()} " +
-                    "lock=${isScreenLocked()}",
-            )
-            return
-        }
-        // 读取偶发失败（Shizuku binder 抖动）时短重试一次，减少漏检。
-        val info = readClipForBall() ?: run {
-            delay(CLIP_READ_RETRY_MS)
-            readClipForBall()
-        }
-        if (info == null) {
-            // 新 ROM 后台读取唯一路径是 Shizuku 桥；两者都拿不到就不弹。
-            Log.i(TAG, "clipboard ball: read unavailable (shizuku off or empty clip)")
-            return
-        }
-        if (onClipboardContent(info)) lastSeenClip = info
-    }
-
     /** 读剪贴板（剪贴板球专用）：统一走数据层剪贴板门面，避免两套 Shizuku 回退逻辑漂移。 */
     private suspend fun readClipForBall(): ClipboardContent? = ClipboardCenter.readCurrent()
 
@@ -1690,9 +1665,6 @@ class FloatBallService : Service() {
 
         /** 剪贴板兜底轮询间隔：亮屏期间读一次对比内容变化（监听器在 HyperOS 上不投递）。 */
         private const val CLIP_POLL_MS = 2_000L
-
-        /** 剪贴板读取失败时的短重试延时（Shizuku binder 抖动）。 */
-        private const val CLIP_READ_RETRY_MS = 250L
 
         /** 通知胶囊的「仍在通知栏」确认延时：一次性/立即撤回的通知不弹。 */
         private const val CAPSULE_SETTLE_MS = 300L

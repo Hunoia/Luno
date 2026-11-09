@@ -33,7 +33,7 @@ interface GestureOverlayCallbacks {
     fun onActionPanelVisibilityChanged(visible: Boolean)
 
     fun onAction(
-        action: hunoia.luno.action.model.StoredAction,
+        action: hunoia.luno.core.domain.StoredAction,
         sourceButton: GestureButton?,
         touchPosition: androidx.compose.ui.geometry.Offset,
         /** 触发这次动作的识别结果；面板点选等非直接触发为 null。 */

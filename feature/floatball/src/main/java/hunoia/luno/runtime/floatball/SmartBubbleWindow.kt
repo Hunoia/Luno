@@ -440,7 +440,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val newHeight = (anchor.bottom - anchor.top).coerceAtLeast(1)
         val newSideRight = anchor.centerX >= DensityProvider.screenWidthPx / 2
         val heightChanged = newHeight != pageHeightPx
-        val sideChanged = newSideRight != sideRight
         if (heightChanged) pageHeightPx = newHeight
         sideRight = newSideRight
         val newWidth = fixedCapsuleWidth()

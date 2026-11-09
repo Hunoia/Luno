@@ -1,6 +1,6 @@
 package hunoia.luno.config.repository
 
-import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.config.model.recordLaunch
 import hunoia.luno.config.store.SettingsStores
 

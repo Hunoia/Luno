@@ -5,7 +5,7 @@ import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
-import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
 import hunoia.luno.config.model.Backup
@@ -14,7 +14,6 @@ import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.record
-import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -80,8 +79,6 @@ object ConfigProvider {
         stores._gestureButtons.data.first().map { it.withResolvedName() }
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
-    suspend fun getQuickSearchSettings(): QuickSearchSettings =
-        stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
     suspend fun getClipboardSettings(): ClipboardSettings = stores._clipboardSettings.data.first()
     suspend fun getAutoBackup(): AutoBackupSettings = stores._autoBackup.data.first()
@@ -162,11 +159,6 @@ object ConfigProvider {
     ): ClipboardHistory? = runCatching {
         stores._clipboardHistory.updateData(transform)
     }.getOrNull()
-
-    suspend fun removeClipboardEntry(id: String) {
-        if (id.isBlank()) return
-        runCatching { stores._clipboardHistory.updateData { it.remove(id) } }
-    }
 
     suspend fun clearClipboardHistory() {
         runCatching { stores._clipboardHistory.updateData { it.cleared() } }

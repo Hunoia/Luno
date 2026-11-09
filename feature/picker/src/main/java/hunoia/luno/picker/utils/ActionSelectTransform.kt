@@ -26,27 +26,10 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.picker.UiState
 import hunoia.luno.ui.component.actionText
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.action.model.Action
-
-fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String {
-    return selectedItemLabel(item, subGestures, emptyList())
-}
-
-fun Context.selectedItemLabel(
-    item: Any,
-    subGestures: List<SubGesture>,
-    actionLibraryEntries: List<ActionLibraryEntry>,
-): String {
-    return when (item) {
-        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
-        is AppInfo -> item.label
-        is LauncherInfo.ShortcutInfo -> item.label
-        else -> ""
-    }
-}
 
 /**
  * 动作显示名：库引用 / 具名面板 / 子手势各自解析，其余走定义表。

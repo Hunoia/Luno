@@ -32,7 +32,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -123,7 +122,7 @@ internal fun QuickSearchField(
             result.data?.getStringArrayListExtra(
                 android.speech.RecognizerIntent.EXTRA_RESULTS,
             )?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }?.let { heard ->
-                onValueChange(TextFieldValue(heard, TextRange(heard.length)))
+                onValueChange(queryFieldValue(heard))
             }
         }
     }

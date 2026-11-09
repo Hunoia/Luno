@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
+import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.capability.launch.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
@@ -36,20 +38,36 @@ class DefaultAppLauncher(
     private val unfreezePackage: suspend (String) -> Boolean,
 ) : AppLauncher {
 
-    override suspend fun launch(spec: LaunchSpec): Boolean = AppLaunchBypass.launchWithAutoUnfreeze(
-        context = context,
-        packageName = spec.packageName,
-        className = spec.className,
-        miniWindow = spec.miniWindow,
-        miniWindowSettings = advancedSettings().miniWindowSettings(),
-        intentAction = spec.intentAction,
-        data = spec.data,
-        extras = spec.extras,
-        userId = spec.userId,
-        anchor = spec.anchor,
-        source = AppLaunchSource.ACTION_DISPATCH,
-        unfreezePackage = { _, pkg -> unfreezePackage(pkg) },
-    )
+    override suspend fun launch(spec: LaunchSpec): Boolean {
+        if (!ensureEnabled(spec.packageName)) return false
+        val launched = Launcher.launchApp(
+            context = context,
+            packageName = spec.packageName,
+            className = spec.className,
+            miniWindow = spec.miniWindow,
+            miniWindowSettings = advancedSettings().miniWindowSettings(),
+            intentAction = spec.intentAction,
+            data = spec.data,
+            extras = spec.extras,
+            userId = spec.userId,
+            anchor = spec.anchor,
+        )
+        if (launched) LaunchCapability.recordLaunch(spec.packageName, AppLaunchSource.ACTION_DISPATCH)
+        return launched
+    }
+
+    /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false。 */
+    private suspend fun ensureEnabled(packageName: String): Boolean {
+        val disabledApps = LaunchCapability.resolveDisabledState()
+        if (!disabledApps.isDisabled(packageName)) return true
+        if (!unfreezePackage(packageName)) {
+            showToast(R.string.enable_disabled_app_failed)
+            return false
+        }
+        disabledApps.markEnabled(packageName)
+        disabledApps.invalidateLauncherCache()
+        return true
+    }
 
     override suspend fun launchShortcut(dataJson: String): Boolean {
         val shortcut = runCatching {

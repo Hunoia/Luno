@@ -20,68 +20,38 @@ import hunoia.luno.domain.system.SystemUseCases
  * 轻量组装根：UI 只认门面接口，实现可在测试或后续拆分时替换。
  *
  * 不引入第三方 DI；默认实现按需解析（getter），避免仅引用组装根就提前初始化
- * DataStore / 运行态。测试可用 `overrideXxx` 注入替身。
+ * DataStore / 运行态。测试当前只替换 system 门面（见 AppGraphTest）。
  */
 object AppGraph : Facades {
 
-    private var backupOverride: BackupFacade? = null
     private var systemOverride: SystemFacade? = null
-    private var runtimeOverride: RuntimeFacade? = null
-    private var ocrModelsOverride: OcrModelFacade? = null
-    private var logsOverride: LogFacade? = null
-    private var linkSettingsOverride: LinkSettingsFacade? = null
-    private var clipboardOverride: ClipboardFacade? = null
 
     override val backup: BackupFacade
-        get() = backupOverride ?: BackupCenter
+        get() = BackupCenter
 
     override val system: SystemFacade
         get() = systemOverride ?: SystemUseCases
 
     override val runtime: RuntimeFacade
-        get() = runtimeOverride ?: RuntimeActions
+        get() = RuntimeActions
 
     /** OCR 模型管理（PP-OCRv6 GPU 包的导入/删除/状态）。 */
     override val ocrModels: OcrModelFacade
-        get() = ocrModelsOverride ?: OcrModelCenter
+        get() = OcrModelCenter
 
     /** 运行日志：设置页读取/导出，不暴露文件实现。 */
     override val logs: LogFacade
-        get() = logsOverride ?: LogCenter
+        get() = LogCenter
 
     /** 链接分发配置：页面只读快照流、只提交规则变换。 */
     override val linkSettings: LinkSettingsFacade
-        get() = linkSettingsOverride ?: LinkSettingsActions
+        get() = LinkSettingsActions
 
     /** 剪贴板写入敏感口径 + 图片 OCR 结果页。 */
     override val clipboard: ClipboardFacade
-        get() = clipboardOverride ?: ClipboardUseCases
-
-    fun overrideBackup(facade: BackupFacade?) {
-        backupOverride = facade
-    }
+        get() = ClipboardUseCases
 
     fun overrideSystem(facade: SystemFacade?) {
         systemOverride = facade
-    }
-
-    fun overrideRuntime(facade: RuntimeFacade?) {
-        runtimeOverride = facade
-    }
-
-    fun overrideOcrModels(facade: OcrModelFacade?) {
-        ocrModelsOverride = facade
-    }
-
-    fun overrideLogs(facade: LogFacade?) {
-        logsOverride = facade
-    }
-
-    fun overrideLinkSettings(facade: LinkSettingsFacade?) {
-        linkSettingsOverride = facade
-    }
-
-    fun overrideClipboard(facade: ClipboardFacade?) {
-        clipboardOverride = facade
     }
 }

@@ -103,37 +103,35 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                     val inputs = segments.map { seg ->
                         lineInput(bitmap, src.x0 + seg.x0, src.y0, seg.x1 - seg.x0, height, recW, recH)
                     }
-                    run {
-                        // 拼接去重：本段开头 [dropSrc] 由上一段完整看到；本段结尾 [dropTailSrc]
-                        // 只有半截字，交给下一段完整识别（末段不切尾）。两条合起来保证边界处
-                        // 每个字恰好由一侧完整出字，既不多字也不吃字。
-                        // CTC 时间步线性映射回输入宽度：x ≈ (step+0.5) × recW / T。
-                        val last = inputs.lastIndex
-                        val text = buildString {
-                            inputs.forEachIndexed { j, input ->
-                                val seg = segments[j]
-                                val headX = seg.dropSrc * recH.toFloat() / height
-                                val tailX = seg.dropTailSrc * recH.toFloat() / height
-                                val segWidthX = (seg.x1 - seg.x0) * recH.toFloat() / height
-                                rec.recognizeDetailed(input).forEach { ch ->
-                                    val afterHead = ch.x >= headX
-                                    val beforeTail = j == last || ch.x <= segWidthX - tailX
-                                    if (afterHead && beforeTail) append(ch.text)
-                                }
+                    // 拼接去重：本段开头 [dropSrc] 由上一段完整看到；本段结尾 [dropTailSrc]
+                    // 只有半截字，交给下一段完整识别（末段不切尾）。两条合起来保证边界处
+                    // 每个字恰好由一侧完整出字，既不多字也不吃字。
+                    // CTC 时间步线性映射回输入宽度：x ≈ (step+0.5) × recW / T。
+                    val last = inputs.lastIndex
+                    val text = buildString {
+                        inputs.forEachIndexed { j, input ->
+                            val seg = segments[j]
+                            val headX = seg.dropSrc * recH.toFloat() / height
+                            val tailX = seg.dropTailSrc * recH.toFloat() / height
+                            val segWidthX = (seg.x1 - seg.x0) * recH.toFloat() / height
+                            rec.recognizeDetailed(input).forEach { ch ->
+                                val afterHead = ch.x >= headX
+                                val beforeTail = j == last || ch.x <= segWidthX - tailX
+                                if (afterHead && beforeTail) append(ch.text)
                             }
-                        }.trim()
-                        if (text.isNotEmpty()) {
-                            blocks.add(
-                                OcrBlock(
-                                    text = text,
-                                    left = src.x0,
-                                    top = src.y0,
-                                    right = src.x1,
-                                    bottom = src.y1,
-                                    script = script,
-                                ),
-                            )
                         }
+                    }.trim()
+                    if (text.isNotEmpty()) {
+                        blocks.add(
+                            OcrBlock(
+                                text = text,
+                                left = src.x0,
+                                top = src.y0,
+                                right = src.x1,
+                                bottom = src.y1,
+                                script = script,
+                            ),
+                        )
                     }
                 }
                 // letterbox 的 640 位图每调用分配一张，用完即回收（lineInputs 内部各自回收）。

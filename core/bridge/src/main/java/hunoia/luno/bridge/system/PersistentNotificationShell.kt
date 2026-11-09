@@ -32,7 +32,7 @@ object PersistentNotificationShell {
         if (keys.isEmpty()) return emptyList()
 
         val script = keys.joinToString("\n") { key ->
-            "cmd notification get ${quote(key)}"
+            "cmd notification get ${shellQuote(key)}"
         }
         val output = ShizukuManager.executeShell(script, GET_MAX_CHARS)
         return parseRecords(output.stdout)
@@ -41,14 +41,14 @@ object PersistentNotificationShell {
     suspend fun snooze(key: String, durationMs: Long = SNOOZE_DURATION_MS): Boolean {
         if (key.isBlank()) return false
         val result = ShizukuManager.executeShell(
-            "cmd notification snooze --for $durationMs ${quote(key)}",
+            "cmd notification snooze --for $durationMs ${shellQuote(key)}",
         )
         return result.isSuccess
     }
 
     suspend fun unsnooze(key: String): Boolean {
         if (key.isBlank()) return false
-        val result = ShizukuManager.executeShell("cmd notification unsnooze ${quote(key)}")
+        val result = ShizukuManager.executeShell("cmd notification unsnooze ${shellQuote(key)}")
         return result.isSuccess
     }
 
@@ -182,7 +182,6 @@ object PersistentNotificationShell {
         return value.takeUnless { it == "null" }.orEmpty()
     }
 
-    private fun quote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
 
     private val RECORD_HEADER = Regex(
         "^NotificationRecord\\(0x[0-9a-fA-F]+: pkg=(\\S+) user=\\S+ id=(-?\\d+) tag=(\\S+) importance=\\d+ key=(\\S+)",

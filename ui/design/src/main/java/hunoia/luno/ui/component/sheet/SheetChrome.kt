@@ -1,13 +1,10 @@
 package hunoia.luno.ui.component.sheet
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -18,14 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.design.R
-import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SegmentedGap
-import hunoia.luno.ui.theme.SheetListMaxHeight
 
 @Composable
 fun SheetHeader(
@@ -46,36 +39,6 @@ fun SheetHeader(
             style = MaterialTheme.typography.titleLarge,
         )
         trailing?.invoke()
-    }
-}
-
-/**
- * Sheet 内「搜索框 + 限高列表」的公共骨架（统一横向留白、底部留白与行间距），
- * 在自己的 Column 里使用，列表内容通过 [content] 提供。
- */
-@Composable
-fun SheetSearchList(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = stringResource(R.string.search_hint_all),
-    content: LazyListScope.() -> Unit,
-) {
-    AppSearchBar(
-        query = query,
-        onQueryChange = onQueryChange,
-        modifier = modifier.fillMaxWidth().padding(horizontal = PageGutter),
-        placeholder = placeholder,
-    )
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = SheetListMaxHeight)
-            .padding(horizontal = PageGutter),
-        contentPadding = PaddingValues(bottom = ContentBottom),
-        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-    ) {
-        content()
     }
 }
 

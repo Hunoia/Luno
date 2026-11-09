@@ -44,6 +44,7 @@ import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
+import hunoia.luno.config.model.GridPanelOrientation
 import hunoia.luno.config.model.withOrientation
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.GridMetrics
@@ -53,8 +54,6 @@ import hunoia.luno.gridpanel.geometry.IndicatorHeight
 import hunoia.luno.gridpanel.geometry.gapFor
 import hunoia.luno.gridpanel.geometry.gridPanelCardHeight
 import hunoia.luno.gridpanel.geometry.keepCardHeightFraction
-import hunoia.luno.gridpanel.geometry.isLeft
-import hunoia.luno.gridpanel.geometry.isTop
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
@@ -240,40 +239,39 @@ fun GridPanelRoot(
         }
     }
 
+    /** 当前朝向面板的落盘单口：读最新配置、只改本朝向、统一失败日志。 */
+    fun updatePanel(
+        failureTag: String,
+        cleanupResources: Boolean = false,
+        transform: (GridPanelOrientation) -> GridPanelOrientation,
+    ) {
+        scope.launch {
+            runCatching {
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id)
+                        ?: return@updateActionSettings settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(
+                            latest.withOrientation(landscape, transform),
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "$failureTag: ${it.message}") }
+            if (cleanupResources) PanelResources.cleanup()
+        }
+    }
+
     fun commitPageItems(pageIndex: Int, next: List<GridPanelItem>) {
         val rebuilt = localItems.filter { it.pageIndex != pageIndex } + next
         localItems = rebuilt
         lastWritten = rebuilt
-        scope.launch {
-            runCatching {
-                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
-                    settings.copy(
-                        actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.withOrientation(landscape) { it.copy(items = rebuilt) },
-                        ),
-                    )
-                }
-            }.onFailure { Log.w(TAG, "grid panel commitPage failed: ${it.message}") }
-        }
+        updatePanel("grid panel commitPage failed") { it.copy(items = rebuilt) }
     }
 
     fun commitAllItems(next: List<GridPanelItem>, cleanupResources: Boolean = false) {
         localItems = next
         lastWritten = next
-        scope.launch {
-            runCatching {
-                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
-                    settings.copy(
-                        actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.withOrientation(landscape) { it.copy(items = next) },
-                        ),
-                    )
-                }
-            }.onFailure { Log.w(TAG, "grid panel commitAll failed: ${it.message}") }
-            if (cleanupResources) PanelResources.cleanup()
-        }
+        updatePanel("grid panel commitAll failed", cleanupResources) { it.copy(items = next) }
     }
 
     val view = LocalView.current
@@ -342,27 +340,14 @@ fun GridPanelRoot(
         localGeometry = localGeometry.copy(columnCount = cols, cardHeightFraction = newFracH)
         localItems = plan.items
         lastWritten = plan.items
-        scope.launch {
-            runCatching {
-                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id)
-                        ?: return@updateActionSettings settings
-                    settings.copy(
-                        actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.withOrientation(landscape) {
-                                it.copy(
-                                    items = plan.items,
-                                    geometry = it.geometry.copy(
-                                        columnCount = cols,
-                                        cardHeightFraction = newFracH,
-                                    ),
-                                )
-                            },
-                        ),
-                    )
-                }
-            }.onFailure { Log.w(TAG, "pinch column commit failed: ${it.message}") }
-            if (plan.dropped.isNotEmpty()) PanelResources.cleanup()
+        updatePanel("pinch column commit failed", cleanupResources = plan.dropped.isNotEmpty()) {
+            it.copy(
+                items = plan.items,
+                geometry = it.geometry.copy(
+                    columnCount = cols,
+                    cardHeightFraction = newFracH,
+                ),
+            )
         }
         Log.i(TAG, "pinch columns committed: $baseColumns -> $cols, heightFraction $newFracH")
     }
@@ -401,7 +386,7 @@ fun GridPanelRoot(
     val clampedMarginDp = geo.screenMarginDp.coerceIn(
         GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp,
     )
-    val screenMarginPx = with(LocalDensity.current) { clampedMarginDp.dp.toPx() }
+    val screenMarginPx = with(density) { clampedMarginDp.dp.toPx() }
     val cornerPx = rememberCardCornerPx(clampedMarginDp)
 
     // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
@@ -467,25 +452,13 @@ fun GridPanelRoot(
         panelResizeStartSize = null
         val finalGeo = localGeometry
         // 保留预览位置到面板关闭：尺寸落盘回流后不再跳回 anchor 推导位。
-        scope.launch {
-            runCatching {
-                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id)
-                        ?: return@updateActionSettings settings
-                    settings.copy(
-                        actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.withOrientation(landscape) { orientation ->
-                                orientation.copy(
-                                    geometry = orientation.geometry.copy(
-                                        cardWidthFraction = finalGeo.cardWidthFraction,
-                                        cardHeightFraction = finalGeo.cardHeightFraction,
-                                    ),
-                                )
-                            },
-                        ),
-                    )
-                }
-            }.onFailure { Log.w(TAG, "panel resize commit failed: ${it.message}") }
+        updatePanel("panel resize commit failed") {
+            it.copy(
+                geometry = it.geometry.copy(
+                    cardWidthFraction = finalGeo.cardWidthFraction,
+                    cardHeightFraction = finalGeo.cardHeightFraction,
+                ),
+            )
         }
         Log.i(
             TAG,

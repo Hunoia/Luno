@@ -1,7 +1,7 @@
 package hunoia.luno.quickaccess.query
 
 import hunoia.luno.config.model.AppUsageStats
-import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.core.domain.AppInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

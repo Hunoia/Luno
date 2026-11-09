@@ -19,4 +19,5 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.savedstate)
+    testImplementation(libs.junit)
 }

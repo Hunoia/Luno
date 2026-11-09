@@ -15,7 +15,7 @@ import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.domain.QuickToggleKind
 import android.content.Intent
 import android.provider.Settings
-import hunoia.luno.action.model.SettingsPage
+import hunoia.luno.core.domain.SettingsPage
 
 class SystemExecutors(
     private val audioController: AudioController,
