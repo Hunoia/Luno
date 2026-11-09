@@ -12,7 +12,6 @@ import hunoia.luno.bridge.system.dispatchMediaKeyEvent
 import hunoia.luno.bridge.system.toggleMute
 import hunoia.luno.bridge.system.volumeDown
 import hunoia.luno.bridge.system.volumeUp
-import hunoia.luno.shizuku.ShizukuFacade
 
 class AudioController(private val context: Context) {
 
@@ -88,22 +87,3 @@ class ClipboardController(private val context: Context) {
     }
 }
 
-data class ShellResult(
-    val success: Boolean,
-    val output: String,
-    val error: String?,
-    val exitCode: Int,
-)
-
-class ShellController {
-
-    suspend fun runCommand(command: String): ShellResult {
-        val result = ShizukuFacade.runShellCommand(command)
-        return ShellResult(
-            success = result.success,
-            output = result.output,
-            error = result.error,
-            exitCode = result.exitCode,
-        )
-    }
-}

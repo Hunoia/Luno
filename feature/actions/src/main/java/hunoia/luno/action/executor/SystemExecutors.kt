@@ -42,7 +42,7 @@ class SystemExecutors(
             }
             is Action.ClipboardRandomName -> executeRandomName(context)
             is Action.SpeechRecognize -> {
-                if (context.showSpeechRecognition()) ActionResult.Success()
+                if (context.surfaces.showSpeechRecognition()) ActionResult.Success()
                 else ActionResult.Failed(ActionFailure.Unsupported)
             }
             is Action.MediaPlayPause -> {
@@ -68,7 +68,7 @@ class SystemExecutors(
     }
 
     private suspend fun executeRandomName(context: ExecutorContext): ActionResult {
-        val appContext = context.appContext
+        val appContext = context.environment.appContext
         val name = clipboardController.generateRandomName()
         return when {
             name == null -> ActionResult.Failed(
@@ -84,7 +84,7 @@ class SystemExecutors(
     }
 
     private suspend fun executeFlashlight(context: ExecutorContext): ActionResult {
-        val appContext = context.appContext
+        val appContext = context.environment.appContext
         if (!FlashlightController.hasTorchUnit(appContext)) {
             return ActionResult.Failed(
                 reason = ActionFailure.ExecutionFailed,
@@ -119,8 +119,8 @@ class SystemExecutors(
         if (!QuickToggleController.canToggle(kind)) {
             return openToggleFallback(context, kind, silent = true)
         }
-        val current = QuickToggleController.isOn(context.appContext, kind)
-        if (current != null && QuickToggleController.setOn(context.appContext, kind, !current)) {
+        val current = QuickToggleController.isOn(context.environment.appContext, kind)
+        if (current != null && QuickToggleController.setOn(context.environment.appContext, kind, !current)) {
             return ActionResult.Success()
         }
         return openToggleFallback(context, kind, silent = false)
@@ -131,7 +131,7 @@ class SystemExecutors(
         kind: QuickToggleKind,
         silent: Boolean,
     ): ActionResult {
-        val appContext = context.appContext
+        val appContext = context.environment.appContext
         val opened = runCatching {
             appContext.startActivity(QuickToggleController.fallbackIntent(kind))
         }.isSuccess
@@ -157,7 +157,7 @@ class SystemExecutors(
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
-            context.appContext.startActivity(intent)
+            context.environment.appContext.startActivity(intent)
             true
         } catch (e: Exception) {
             false

@@ -148,5 +148,5 @@ object QuickToggleController {
     }
 
     private suspend fun shell(command: String): Boolean =
-        ShizukuFacade.isReady() && ShizukuFacade.runShellCommand(command).success
+        ShizukuFacade.isReady() && ShizukuFacade.runShellCommand(command).isSuccess
 }

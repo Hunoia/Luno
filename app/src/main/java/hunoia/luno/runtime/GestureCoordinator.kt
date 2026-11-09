@@ -448,7 +448,7 @@ class GestureCoordinator(
                 hunoia.luno.action.executor.AccessibilityExecutors(
                     hunoia.luno.action.controller.AccessibilityController(host.accessibilityService),
                 ),
-                hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
+                hunoia.luno.action.executor.ShellExecutor(),
                 hunoia.luno.action.executor.MiscActionExecutors(),
                 hunoia.luno.action.executor.InternalExecutors(),
             ),

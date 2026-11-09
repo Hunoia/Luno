@@ -25,7 +25,7 @@ class AppExecutors : ActionExecutor {
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.LaunchApp -> {
-                val ok = context.launchApp(
+                val ok = context.surfaces.launchApp(
                     LaunchSpec(
                         packageName = action.packageName,
                         className = action.className,
@@ -39,13 +39,13 @@ class AppExecutors : ActionExecutor {
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.AppDetails -> context.openAppDetails(action.packageName, action.userId)
-            is Action.Popup -> context.launchInPopup(
-                context.currentPackageName().orEmpty(),
+            is Action.AppDetails -> context.surfaces.openAppDetails(action.packageName, action.userId)
+            is Action.Popup -> context.surfaces.launchInPopup(
+                context.environment.currentPackageName().orEmpty(),
                 context.touchPosition,
             )
             is Action.LaunchShortcut -> {
-                if (context.launchShortcut(action.data)) {
+                if (context.surfaces.launchShortcut(action.data)) {
                     ActionResult.Success()
                 } else {
                     ActionResult.Failed(ActionFailure.InvalidParameter)

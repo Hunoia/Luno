@@ -53,14 +53,13 @@ import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.definitions.ParameterDefinition
-import hunoia.luno.action.controller.ShellController
-import hunoia.luno.action.controller.ShellResult
 import hunoia.luno.runtime.dispatch.ActivityOptions
 import hunoia.luno.core.domain.ActivityOptionItem
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.shizuku.ShizukuFacade
+import hunoia.luno.shizuku.ShellResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -155,7 +154,7 @@ fun ActionLibraryEditScreen(
                                 else -> {
                                     shellRunning = true
                                     scope.launch {
-                                        shellResult = ShellController().runCommand(command)
+                                        shellResult = ShizukuFacade.runShellCommand(command)
                                         shellRunning = false
                                     }
                                 }
@@ -408,7 +407,7 @@ private fun ShellResultCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = when {
                         loading -> MaterialTheme.colorScheme.onSurfaceVariant
-                        result?.success == true -> MaterialTheme.colorScheme.primary
+                        result?.isSuccess == true -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.error
                     },
                     modifier = Modifier.weight(1f),
@@ -428,10 +427,10 @@ private fun ShellResultCard(
             } else {
                 Text(
                     text = result?.let { res ->
-                        val raw = if (res.success) {
-                            res.output.ifBlank { res.error.orEmpty() }
+                        val raw = if (res.isSuccess) {
+                            res.stdout.ifBlank { res.stderr }
                         } else {
-                            res.error ?: res.output
+                            res.errorMessage.ifBlank { res.stdout.ifBlank { res.stderr } }
                         }
                         raw.takeIf { it.isNotBlank() }
                     } ?: stringResource(R.string.action_shell_no_output),

@@ -3,13 +3,13 @@ package hunoia.luno.action.executor
 import hunoia.luno.actions.R
 import hunoia.luno.action.controller.AccessibilityController
 import hunoia.luno.action.controller.IntentController
-import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.clipboard.ClipboardCenter
+import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -77,12 +77,12 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.ScreenPick -> {
                 // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
                 // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
-                val shown = context.showScreenPick()
+                val shown = context.surfaces.showScreenPick()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ScreenAnnotate -> {
                 // 截屏是异步的：这里只确认「已接管」，失败由宿主 toast，不打开空画布。
-                val shown = context.showScreenAnnotate()
+                val shown = context.surfaces.showScreenAnnotate()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
@@ -152,7 +152,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
-                val ok = context.openUrl(
+                val ok = context.surfaces.openUrl(
                     action.url,
                     action.miniWindow,
                     action.queryParameters,
@@ -171,7 +171,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                     intentController.shareText(text)
                 }
             }
-            is Action.ShareFile -> context.shareFile()
+            is Action.ShareFile -> context.surfaces.shareFile()
             is Action.Assist -> intentController.launchAssist()
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
@@ -198,19 +198,19 @@ class InternalExecutors : ActionExecutor {
             is Action.QuickAppLauncher -> {
                 // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。
                 val anchor = context.touchPosition ?: run {
-                    val dm = context.appContext.resources.displayMetrics
+                    val dm = context.environment.appContext.resources.displayMetrics
                     dm.widthPixels / 2 to dm.heightPixels / 2
                 }
-                context.toggleQuickAppLauncher(anchor.first, anchor.second)
+                context.surfaces.toggleQuickAppLauncher(anchor.first, anchor.second)
                 ActionResult.Success()
             }
             is Action.QuickSearch -> {
-                context.showQuickSearch()
+                context.surfaces.showQuickSearch()
                 ActionResult.Success()
             }
             is Action.GridPanel -> executeGridPanel(action, context)
             is Action.VolumeScrub -> {
-                if (context.showVolumeScrub(action.stepThresholdDp)) {
+                if (context.surfaces.showVolumeScrub(action.stepThresholdDp)) {
                     ActionResult.Success()
                 } else {
                     ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -218,11 +218,11 @@ class InternalExecutors : ActionExecutor {
             }
             is Action.Pointer -> {
                 // 已有会话时 begin 拒绝重复开启，按幂等成功收口。
-                context.showPointer()
+                context.surfaces.showPointer()
                 ActionResult.Success()
             }
             is Action.PreviousApp -> {
-                context.previousApp()
+                context.surfaces.previousApp()
                 ActionResult.Success()
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
@@ -235,15 +235,15 @@ class InternalExecutors : ActionExecutor {
      * 浮窗入口走注入的 `context.showGridPanel`，不直接摸浮窗。
      */
     private fun executeGridPanel(action: Action.GridPanel, context: ExecutorContext): ActionResult {
-        if (!context.gridPanelExists(action.panelId)) {
+        if (!context.surfaces.gridPanelExists(action.panelId)) {
             return ActionResult.Success()
         }
         // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。
         val anchor = context.touchPosition ?: run {
-            val dm = context.appContext.resources.displayMetrics
+            val dm = context.environment.appContext.resources.displayMetrics
             dm.widthPixels / 2 to dm.heightPixels / 2
         }
-        context.showGridPanel(action.panelId, anchor.first, anchor.second)
+        context.surfaces.showGridPanel(action.panelId, anchor.first, anchor.second)
         return ActionResult.Success()
     }
 
@@ -255,7 +255,7 @@ class InternalExecutors : ActionExecutor {
      * 失败吞掉报 Failed，不抛。
      */
     private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult =
-        context.setFloatBallVisible(action.visible, action.hideForMs)
+        context.surfaces.setFloatBallVisible(action.visible, action.hideForMs)
 
     /**
      * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.setButtonsVisible] 临时隐藏
@@ -264,10 +264,10 @@ class InternalExecutors : ActionExecutor {
      * 即规则列表顺序=优先级。
      */
     private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult =
-        context.setButtonsVisible(action.visible, action.target, action.buttonIds, action.hideForMs)
+        context.surfaces.setButtonsVisible(action.visible, action.target, action.buttonIds, action.hideForMs)
 }
 
-class ShellExecutor(private val shellController: ShellController) : ActionExecutor {
+class ShellExecutor : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf("shell.custom")
 
@@ -275,23 +275,23 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
         return when (action) {
             is Action.CustomCommand -> {
                 val command = action.command.trim()
-                val result = shellController.runCommand(command)
-                if (action.copyOutput && result.output.isNotBlank()) {
+                val result = ShizukuFacade.runShellCommand(command)
+                if (action.copyOutput && result.stdout.isNotBlank()) {
                     ClipboardCenter.copy(
-                        result.output,
-                        label = context.appContext.getString(R.string.action_shell_clipboard_label),
+                        result.stdout,
+                        label = context.environment.appContext.getString(R.string.action_shell_clipboard_label),
                     )
                 }
                 val message = if (action.showToast) {
-                    if (result.success) {
-                        result.output.ifBlank { "No output" }
+                    if (result.isSuccess) {
+                        result.stdout.ifBlank { "No output" }
                     } else {
-                        result.error ?: result.output.ifBlank { "Unknown error" }
+                        result.errorMessage.ifBlank { result.stdout.ifBlank { "Unknown error" } }
                     }.take(500)
                 } else {
                     null
                 }
-                if (result.success) ActionResult.Success(message) else ActionResult.Failed(ActionFailure.ExecutionFailed, message)
+                if (result.isSuccess) ActionResult.Success(message) else ActionResult.Failed(ActionFailure.ExecutionFailed, message)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

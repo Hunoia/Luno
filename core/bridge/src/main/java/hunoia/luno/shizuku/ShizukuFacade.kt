@@ -10,15 +10,9 @@ object ShizukuFacade {
 
     fun isReady(): Boolean = ShizukuManager.currentStatus().isReady
 
-    suspend fun runShellCommand(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
+    suspend fun runShellCommand(command: String): ShellResult = withContext(Dispatchers.IO) {
         assertNotMainThread("shizuku.shell")
-        val result = ShizukuManager.executeShell(command)
-        ShellCommandResult(
-            success = result.isSuccess,
-            exitCode = result.exitCode,
-            output = result.stdout,
-            error = result.errorMessage.ifBlank { null },
-        )
+        ShizukuManager.executeShell(command)
     }
 }
 
@@ -28,13 +22,6 @@ data class PackageResult(
     val packageName: String = "",
     val errorMessage: String = "",
 ) : Parcelable
-
-data class ShellCommandResult(
-    val success: Boolean,
-    val exitCode: Int,
-    val output: String,
-    val error: String? = null,
-)
 
 @Parcelize
 data class ShellResult(

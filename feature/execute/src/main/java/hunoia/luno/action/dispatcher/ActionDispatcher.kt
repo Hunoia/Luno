@@ -94,7 +94,7 @@ class ActionDispatcher(
             val ctx = buildContext(call, effective)
             // 点击只在触点路径有意义：没有触点就判参数无效。
             if (call.touchPosition == null && effective.typeId == "accessibility.tap") {
-                ctx.showToast(messages.failureText(ActionFailure.InvalidParameter))
+                messages.showToast(messages.failureText(ActionFailure.InvalidParameter))
                 return ExecuteSettlement(
                     call.request,
                     effective.typeId,
@@ -104,11 +104,11 @@ class ActionDispatcher(
             val result = resolver.resolveFromLibrary(effective, ctx)
             if (hunoia.luno.execute.BuildConfig.DEBUG) Log.i(LOG_TAG, "result=$result")
             when (result) {
-                is ActionResult.Failed -> ctx.showToast(
+                is ActionResult.Failed -> messages.showToast(
                     result.userMessage ?: messages.failureText(result.reason),
                 )
-                is ActionResult.RequiresCapability -> ctx.showToast(messages.capabilityText(result.capability))
-                is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
+                is ActionResult.RequiresCapability -> messages.showToast(messages.capabilityText(result.capability))
+                is ActionResult.Success -> result.message?.let { msg -> messages.showToast(msg) }
             }
             return ExecuteSettlement(call.request, effective.typeId, result)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -124,39 +124,13 @@ class ActionDispatcher(
         }
     }
 
-    private fun buildContext(call: ExecuteCall, effective: StoredAction): ExecutorContext {
-        val context = environment.appContext
-        val buttonId = call.sourceButtonId
-        return ExecutorContext(
-            appContext = context,
+    private fun buildContext(call: ExecuteCall, effective: StoredAction): ExecutorContext =
+        ExecutorContext(
+            environment = environment,
+            surfaces = surfaces,
+            messages = messages,
             scope = scope,
-            showToast = messages::showToast,
-            currentPackageName = environment::currentPackageName,
-            toggleQuickAppLauncher = surfaces::toggleQuickAppLauncher,
-            showQuickSearch = surfaces::showQuickSearch,
-            showSpeechRecognition = surfaces::showSpeechRecognition,
-            showGridPanel = surfaces::showGridPanel,
-            gridPanelExists = surfaces::gridPanelExists,
-            showVolumeScrub = surfaces::showVolumeScrub,
-            showPointer = surfaces::showPointer,
-            hideGestureButton = { delayMs ->
-                if (buttonId != null) surfaces.hideGestureButton(buttonId, delayMs)
-            },
-            previousApp = surfaces::previousApp,
             touchPosition = call.touchPosition,
-            launchApp = surfaces::launchApp,
-            openUrl = surfaces::openUrl,
-            launchShortcut = surfaces::launchShortcut,
-            openAppDetails = surfaces::openAppDetails,
-            launchInPopup = surfaces::launchInPopup,
-            shareFile = surfaces::shareFile,
-            showScreenPick = surfaces::showScreenPick,
-            showScreenAnnotate = surfaces::showScreenAnnotate,
-            openImageAnnotate = surfaces::openImageAnnotate,
-            showOcrSegmentText = surfaces::showOcrSegmentText,
-            showClipboardOcr = surfaces::showClipboardOcr,
-            setFloatBallVisible = surfaces::setFloatBallVisible,
-            setButtonsVisible = surfaces::setButtonsVisible,
+            sourceButtonId = call.sourceButtonId,
         )
-    }
 }

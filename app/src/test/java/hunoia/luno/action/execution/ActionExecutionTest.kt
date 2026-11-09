@@ -1,11 +1,18 @@
 package hunoia.luno.action.execution
 
 import android.content.ContextWrapper
+import android.net.Uri
 import hunoia.luno.action.model.Action
+import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
+import hunoia.luno.core.domain.LaunchSpec
+import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.execute.ExecuteEnvironment
+import hunoia.luno.execute.ExecuteMessages
+import hunoia.luno.execute.SurfaceHost
 import hunoia.luno.actions.LunoActionCatalog
 import hunoia.luno.actions.LunoActionFactory
 import kotlinx.coroutines.CancellationException
@@ -36,8 +43,60 @@ class ActionExecutionTest {
         }
     }
 
+    private class FakeEnvironment(private val context: ContextWrapper) : ExecuteEnvironment {
+        override val appContext: ContextWrapper = context
+        override fun currentPackageName(): String? = null
+    }
+
+    private class FakeSurfaceHost : SurfaceHost {
+        override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) = Unit
+        override fun showQuickSearch() = Unit
+        override fun showSpeechRecognition(): Boolean = false
+        override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) = Unit
+        override fun gridPanelExists(panelId: String): Boolean = true
+        override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = false
+        override fun showPointer(): Boolean = false
+        override fun hideGestureButton(buttonId: String, delayMs: Long) = Unit
+        override suspend fun previousApp() = Unit
+        override suspend fun launchApp(spec: LaunchSpec): Boolean = false
+        override suspend fun openUrl(
+            url: String,
+            miniWindow: Boolean,
+            queryParameters: List<QueryParam>,
+            anchor: Pair<Int, Int>?,
+        ): Boolean = false
+        override suspend fun launchShortcut(dataJson: String): Boolean = false
+        override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
+            ActionResult.Failed(ActionFailure.Unsupported)
+        override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
+            ActionResult.Failed(ActionFailure.Unsupported)
+        override fun shareFile(): ActionResult = ActionResult.Failed(ActionFailure.Unsupported)
+        override fun showScreenPick(): Boolean = false
+        override fun showScreenAnnotate(): Boolean = false
+        override fun openImageAnnotate(): Boolean = false
+        override fun showOcrSegmentText(text: String): Boolean = false
+        override suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult =
+            ActionResult.Failed(ActionFailure.Unsupported)
+        override suspend fun setFloatBallVisible(visible: Boolean?, hideForMs: Long): ActionResult =
+            ActionResult.Failed(ActionFailure.Unsupported)
+        override suspend fun setButtonsVisible(
+            visible: Boolean,
+            target: ButtonTarget,
+            buttonIds: List<String>,
+            hideForMs: Long,
+        ): ActionResult = ActionResult.Failed(ActionFailure.Unsupported)
+    }
+
+    private object FakeMessages : ExecuteMessages {
+        override fun failureText(reason: ActionFailure): String = ""
+        override fun capabilityText(capability: Capability): String = ""
+        override fun showToast(text: String) = Unit
+    }
+
     private fun executorContext() = ExecutorContext(
-        appContext = ContextWrapper(null),
+        environment = FakeEnvironment(ContextWrapper(null)),
+        surfaces = FakeSurfaceHost(),
+        messages = FakeMessages,
         scope = CoroutineScope(Job()),
     )
 

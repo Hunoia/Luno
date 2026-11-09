@@ -1,20 +1,18 @@
 package hunoia.luno.action.execution
 
-import android.content.Context
-import android.net.Uri
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ButtonTarget
-import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
 import hunoia.luno.execute.ActionMappingException
+import hunoia.luno.execute.ExecuteEnvironment
+import hunoia.luno.execute.ExecuteMessages
+import hunoia.luno.execute.SurfaceHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -122,70 +120,23 @@ class ActionResolver(
 /**
  * 执行器运行上下文：只携带执行真正需要的东西。
  *
+ * 宿主能力全部经 [environment] / [surfaces] / [messages] 端口读取，不再把同一组函数
+ * 复制成字段；新增一个端口只需改端口接口与实现。
+ *
  * 不持有配置模型（`config.model.*`）：需要全局设置时走端口（启动、面板、音量刮擦），
  * 这两条是 `execute → data / runtime` 禁令的落地方式。
  */
 data class ExecutorContext(
-    val appContext: Context,
+    val environment: ExecuteEnvironment,
+    val surfaces: SurfaceHost,
+    val messages: ExecuteMessages,
     val scope: CoroutineScope,
-    val showToast: (String) -> Unit = {},
-    val currentPackageName: () -> String? = { null },
-    /** 快速启动面板：锚点为触发触点（无触点路径由执行器退屏幕中心），面板侧再夹取屏内。 */
-    val toggleQuickAppLauncher: (anchorX: Int, anchorY: Int) -> Unit = { _, _ -> },
-    val showQuickSearch: () -> Unit = {},
-    val showSpeechRecognition: () -> Boolean = { false },
-    /** 网格面板：锚点为触发触点（无触点路径由执行器退屏幕中心），Activity 侧再夹取屏内。 */
-    val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },
-    /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */
-    val gridPanelExists: (panelId: String) -> Boolean = { true },
-    /** 音量刮擦 overlay：参数是每档位移阈值（dp），null = 用实现侧默认值。 */
-    val showVolumeScrub: (stepThresholdDp: Int?) -> Boolean = { false },
-    val showPointer: () -> Boolean = { false },
-    val hideGestureButton: (Long) -> Unit = {},
-    val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
-    /** 启动应用（小窗等全局设置由实现侧读）。 */
-    val launchApp: suspend (LaunchSpec) -> Boolean = { false },
-    /** 打开链接（含 Query 参数与小窗）。 */
-    val openUrl: suspend (url: String, miniWindow: Boolean, queryParameters: List<QueryParam>, anchor: Pair<Int, Int>?) -> Boolean =
-        { _, _, _, _ -> false },
-    /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
-    val launchShortcut: suspend (dataJson: String) -> Boolean = { false },
-    val openAppDetails: suspend (packageName: String, userId: Int) -> ActionResult = { _, _ ->
-        ActionResult.Failed(ActionFailure.Unsupported)
-    },
-    /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */
-    val launchInPopup: suspend (packageName: String, anchor: Pair<Int, Int>?) -> ActionResult = { _, _ ->
-        ActionResult.Failed(ActionFailure.Unsupported)
-    },
-    /** 分享文件：挑文件页（Activity）归 `:app`，执行口只声明「要分享文件」。 */
-    val shareFile: () -> ActionResult = { ActionResult.Failed(ActionFailure.Unsupported) },
-
-    /** 屏幕取点（transient Surface）。 */
-    val showScreenPick: () -> Boolean = { false },
-
-    /** 屏幕标注（a11y 浮层 + 截屏）。 */
-    val showScreenAnnotate: () -> Boolean = { false },
-
-    /** 图片编辑（系统图片选择器 → 全屏标注页）。 */
-    val openImageAnnotate: () -> Boolean = { false },
-
-    /** 剪贴板分词：把文本送进 OCR 结果页做分词视图。 */
-    val showOcrSegmentText: (String) -> Boolean = { false },
-
-    /** 剪贴板 OCR：解码图片并送 OCR 结果页识别；失败返回带因结果（含模型未就绪）。 */
-    val showClipboardOcr: suspend (Uri, String) -> ActionResult = { _, _ ->
-        ActionResult.Failed(ActionFailure.Unsupported)
-    },
-    /**
-     * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
-     * 配置写入与 FloatBallService 都归 `:app`。
-     */
-    val setFloatBallVisible: suspend (visible: Boolean?, hideForMs: Long) -> ActionResult =
-        { _, _ -> ActionResult.Failed(ActionFailure.Unsupported) },
-    /**
-     * 触钮显隐：`hideForMs > 0` 走临时隐藏（按 target/buttonIds 选作用钮），否则改 enabled 存量。
-     */
-    val setButtonsVisible: suspend (Boolean, ButtonTarget, List<String>, Long) -> ActionResult =
-        { _, _, _, _ -> ActionResult.Failed(ActionFailure.Unsupported) },
-)
+    /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
+    val sourceButtonId: String? = null,
+) {
+    /** 只对触发钮生效的临时隐藏；非手势链路没有来源按钮时静默跳过。 */
+    fun hideGestureButton(delayMs: Long) {
+        sourceButtonId?.let { surfaces.hideGestureButton(it, delayMs) }
+    }
+}

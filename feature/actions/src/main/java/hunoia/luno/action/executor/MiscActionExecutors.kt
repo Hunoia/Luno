@@ -25,7 +25,7 @@ class MiscActionExecutors : ActionExecutor {
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult = when (action) {
         is Action.ImageEdit -> {
-            val opened = context.openImageAnnotate()
+            val opened = context.surfaces.openImageAnnotate()
             if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
         }
         is Action.ClipboardSegment -> executeClipboardSegment(context)
@@ -43,10 +43,10 @@ class MiscActionExecutors : ActionExecutor {
         if (text.isNullOrBlank()) {
             return ActionResult.Failed(
                 reason = ActionFailure.InvalidParameter,
-                userMessage = context.appContext.getString(R.string.clipboard_no_text),
+                userMessage = context.environment.appContext.getString(R.string.clipboard_no_text),
             )
         }
-        val opened = context.showOcrSegmentText(text)
+        val opened = context.surfaces.showOcrSegmentText(text)
         return if (opened) ActionResult.Success()
         else ActionResult.Failed(ActionFailure.ExecutionFailed)
     }
@@ -60,9 +60,9 @@ class MiscActionExecutors : ActionExecutor {
         if (content !is ClipboardContent.Image) {
             return ActionResult.Failed(
                 reason = ActionFailure.InvalidParameter,
-                userMessage = context.appContext.getString(R.string.clipboard_no_image),
+                userMessage = context.environment.appContext.getString(R.string.clipboard_no_image),
             )
         }
-        return context.showClipboardOcr(content.uri, content.mimeType)
+        return context.surfaces.showClipboardOcr(content.uri, content.mimeType)
     }
 }

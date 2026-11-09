@@ -165,7 +165,7 @@ object SurfaceActionRuntime {
                 hunoia.luno.action.controller.AudioController(context),
                 hunoia.luno.action.controller.ClipboardController(context),
             ),
-            hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
+            hunoia.luno.action.executor.ShellExecutor(),
             hunoia.luno.action.executor.MiscActionExecutors(),
             hunoia.luno.action.executor.InternalExecutors(),
         ),
