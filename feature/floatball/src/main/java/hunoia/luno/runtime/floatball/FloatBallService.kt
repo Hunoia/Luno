@@ -59,7 +59,6 @@ import hunoia.luno.runtime.button.shouldShowSurface
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
-import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1166,14 +1165,7 @@ class FloatBallService : Service() {
         if (!clipboardBallAllowed()) return
         val info = readClipForBall()
         if (info == null || (info is ClipboardContent.Text && info.text.isBlank())) {
-            if (info == null && lastSeenClip == null && inboxState.items.isEmpty()) {
-                val s = ShizukuManager.currentStatus()
-                Log.i(
-                    TAG,
-                    "clipboard poll: read unavailable (shizuku alive=${s.binderAlive} " +
-                        "perm=${s.permissionGranted} or empty clip)",
-                )
-            }
+            // 轮询兜底每 2s 一次，空剪贴板是常态：不逐次落盘，否则一天数万条日志。
             return
         }
         val previous = lastSeenClip

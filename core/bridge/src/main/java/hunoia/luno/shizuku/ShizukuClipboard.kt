@@ -121,12 +121,12 @@ object ShizukuClipboard {
             else -> active.method.invoke(active.proxy, SHELL_PACKAGE, 0)
         } as? ClipData
         if (clip == null) {
-            Log.i(TAG, "shizuku clipboard: null clip (empty or denied)")
+            // 后台剪贴板轮询每 2s 读一次，空剪贴板是常态：不逐次落盘，否则一天数万条日志。
             return null
         }
         val content = clip.toClipboardContent()
         if (content == null) {
-            Log.i(TAG, "shizuku clipboard: unsupported item")
+            Log.w(TAG, "shizuku clipboard: unsupported item")
         }
         return content
     }
