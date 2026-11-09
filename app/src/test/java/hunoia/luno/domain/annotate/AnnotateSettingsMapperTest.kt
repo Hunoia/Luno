@@ -2,12 +2,11 @@ package hunoia.luno.domain.annotate
 
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.ToolStyle
-import hunoia.luno.annotate.model.ToolbarAnchor
 import hunoia.luno.annotate.store.AnnotatePreferences
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AnnotateToolStyle
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,46 +32,28 @@ class AnnotateSettingsMapperTest {
     }
 
     @Test
-    fun `every known tool and the anchor survive a round trip`() {
+    fun `every known tool and shape fill survive a round trip`() {
         val styles = ToolKind.entries.associateWith { tool ->
             ToolStyle(
                 colorArgb = 0xFF000000 or tool.ordinal.toLong(),
                 strokeWidth = tool.ordinal + 1f,
                 textSize = tool.ordinal + 10f,
                 mosaicCell = tool.ordinal + 20f,
+                shapeFilled = tool == ToolKind.SHAPE,
             )
         }
-        val anchor = ToolbarAnchor(0.25f, 0.75f)
 
-        val encoded = AnnotateSettingsMapper.toSettings(AnnotatePreferences(styles, anchor))
+        val encoded = AnnotateSettingsMapper.toSettings(AnnotatePreferences(styles))
         val decoded = AnnotateSettingsMapper.toPreferences(encoded)
 
         assertEquals(styles, decoded.styles)
-        assertEquals(anchor, decoded.anchor)
-    }
-
-    @Test
-    fun `anchor needs both fractions`() {
-        assertNull(AnnotateSettingsMapper.toPreferences(AnnotateSettings()).anchor)
-        assertNull(
-            AnnotateSettingsMapper.toPreferences(AnnotateSettings(toolbarXFraction = 0.5f)).anchor,
-        )
-        assertNull(
-            AnnotateSettingsMapper.toPreferences(AnnotateSettings(toolbarYFraction = 0.5f)).anchor,
-        )
-        assertEquals(
-            ToolbarAnchor(0.5f, 0.25f),
-            AnnotateSettingsMapper.toPreferences(
-                AnnotateSettings(toolbarXFraction = 0.5f, toolbarYFraction = 0.25f),
-            ).anchor,
-        )
+        assertTrue(decoded.styles.getValue(ToolKind.SHAPE).shapeFilled)
+        assertFalse(decoded.styles.getValue(ToolKind.PEN).shapeFilled)
     }
 
     @Test
     fun `settings without preferences are empty`() {
         assertTrue(AnnotateSettings().isEmpty())
-        assertTrue(!AnnotateSettings(toolbarXFraction = 0.5f).isEmpty())
-        assertTrue(!AnnotateSettings(toolbarYFraction = 0.5f).isEmpty())
         assertTrue(!AnnotateSettings(styles = mapOf("PEN" to AnnotateToolStyle())).isEmpty())
     }
 }

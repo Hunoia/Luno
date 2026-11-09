@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
@@ -665,7 +664,10 @@ class AnnotateOverlay(
         if (busy) return
         document?.commitPendingText()
         busy = true
+        // 面板是独立窗口：不清空/隐藏会被截进新底图。
         panel = OverlayPanel.None
+        stylePanelTool = null
+        hidePanel()
         scope.launch {
             val canvas = canvasView
             val toolbar = toolbarView
@@ -851,43 +853,5 @@ private fun AnnotatePanelContent(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ConfirmPanel(
-    title: String,
-    onCancel: () -> Unit,
-    actions: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
-) {
-    // 纵向堆叠：浮层工具条窗口是 WRAP_CONTENT，横向排三个 TextButton 在窄屏上会把
-    // 最后一个按钮挤成两行。每行占满面板宽度，点击区也更好按。
-    Column(
-        modifier = Modifier
-            .widthIn(min = 180.dp)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        )
-        actions()
-        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.annotate_cancel))
-        }
-    }
-}
-
-@Composable
-private fun ExportAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
     }
 }

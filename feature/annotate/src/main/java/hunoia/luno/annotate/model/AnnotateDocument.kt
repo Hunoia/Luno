@@ -13,6 +13,13 @@ class AnnotateDocument(initial: AnnotateState) {
     var state by mutableStateOf(initial)
         private set
 
+    /**
+     * 双指缩放/平移。与 [state] 分开存：捏合只更新这一项，
+     * 不会让内容绘制/工具条因文档快照变化而重组或重绘。
+     */
+    var viewTransform by mutableStateOf(AnnotateViewTransform())
+        private set
+
     /** 当前画布安全区域对应的适配缩放，仅用于工具条的适应按钮，不落入文档状态。 */
     var safeViewZoom by mutableStateOf(1f)
         private set
@@ -75,11 +82,11 @@ class AnnotateDocument(initial: AnnotateState) {
 
     /** 双指缩放/平移（B7），不进撤销。 */
     fun setViewTransform(zoom: Float, pan: Pt) {
-        state = AnnotateOps.setViewTransform(state, zoom, pan)
+        viewTransform = AnnotateViewTransform(zoom, pan).sanitized()
     }
 
     fun resetViewTransform() {
-        state = AnnotateOps.resetViewTransform(state)
+        viewTransform = viewTransform.reset()
     }
 
     fun updateSafeViewZoom(zoom: Float) {
@@ -88,7 +95,7 @@ class AnnotateDocument(initial: AnnotateState) {
 
     /** 适应按钮：安全区域适配 ↔ 全屏适配。 */
     fun toggleViewZoom() {
-        state = AnnotateOps.toggleViewZoom(state, safeViewZoom)
+        viewTransform = viewTransform.toggled(safeViewZoom)
     }
 
     fun setSelection(rect: PxRect?) {
@@ -117,17 +124,15 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.updateStyle(state, tool, style)
     }
 
-    fun moveToolbar(anchor: ToolbarAnchor) {
-        state = AnnotateOps.moveToolbar(state, anchor)
-    }
-
-    /** 打开标注时应用持久化偏好（每工具风格 + 工具条位置）；不进撤销历史。 */
-    fun applySettings(styles: Map<ToolKind, ToolStyle>, anchor: ToolbarAnchor?) {
-        state = AnnotateOps.applySettings(state, styles, anchor)
+    /** 打开标注时应用持久化偏好（每工具风格）；不进撤销历史。 */
+    fun applySettings(styles: Map<ToolKind, ToolStyle>) {
+        state = AnnotateOps.applySettings(state, styles)
     }
 
     fun replaceImage(width: Int, height: Int, keepElements: Boolean) {
         state = AnnotateOps.replaceImage(state, width, height, keepElements)
+        // 换底图后旧视口没有意义，回到适应屏幕。
+        viewTransform = viewTransform.reset()
     }
 
     fun exportCropRect(): PxRect = AnnotateOps.exportCropRect(state)

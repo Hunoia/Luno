@@ -35,11 +35,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
@@ -77,13 +73,13 @@ import hunoia.luno.annotate.store.observeAnnotateSettings
 import hunoia.luno.annotate.store.restoreAnnotateSettings
 import hunoia.luno.annotate.ui.AnnotateCanvas
 import hunoia.luno.annotate.ui.AnnotateToolbar
+import hunoia.luno.annotate.ui.ConfirmPanel
+import hunoia.luno.annotate.ui.ExportAction
 import hunoia.luno.annotate.ui.StylePanel
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.domain.annotate.AnnotateSettingsCenter
-import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
-import hunoia.luno.ui.theme.SubMinInteractiveSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -709,43 +705,5 @@ private fun AnnotateInlineCard(
         shadowElevation = 0.dp,
     ) {
         Column(content = content)
-    }
-}
-
-/** 确认卡：标题 + 动作区 + 「取消」，与浮层 ConfirmPanel 同款。 */
-@Composable
-private fun ConfirmPanel(
-    title: String,
-    onCancel: () -> Unit,
-    actions: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .widthIn(min = 180.dp)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        )
-        actions()
-        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(AnnotateR.string.annotate_cancel))
-        }
-    }
-}
-
-/** 导出动作图标按钮：内容描述即标签，触达区/图标尺寸用紧凑常量。 */
-@Composable
-private fun ExportAction(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
     }
 }

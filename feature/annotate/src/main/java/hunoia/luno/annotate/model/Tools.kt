@@ -65,11 +65,3 @@ data class ToolStyle(
     /** 形状是否半透明填充（SHAPE 工具）：新画的形状带填充 + 描边。 */
     val shapeFilled: Boolean = false,
 )
-
-/** 工具条位置：按屏幕比例存，跨分辨率恢复（同 Surface 位置规则）。 */
-data class ToolbarAnchor(val xFraction: Float, val yFraction: Float) {
-    fun sanitized(): ToolbarAnchor = ToolbarAnchor(
-        xFraction = xFraction.coerceIn(0f, 1f),
-        yFraction = yFraction.coerceIn(0f, 1f),
-    )
-}

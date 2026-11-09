@@ -70,10 +70,6 @@ data class ActionPanelEdit(
     val panelId: String,
 )
 
-@Keep
-@Serializable
-data object GridPanelList
-
 /** 网格面板属性编辑（名称/列数/宽高比）；项在面板内编辑。 */
 @Keep
 @Serializable

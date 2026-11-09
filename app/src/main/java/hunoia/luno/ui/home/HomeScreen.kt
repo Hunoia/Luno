@@ -114,7 +114,6 @@ fun HomeScreen(
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToActionPanels: () -> Unit = {},
-    onNavToGridPanels: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToLinkDispatch: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
@@ -370,9 +369,9 @@ fun HomeScreen(
 
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
-                                    onSearchEngineClick = onNavToSearchEngines,
-                                    onFloatBallClick = onNavToFloatBallSettings,
-                                    onLinkDispatchClick = onNavToLinkDispatch,
+                                    onHabitsClick = onNavToHabits,
+                                    onTodosClick = onNavToTodos,
+                                    onClipboardClick = onNavToClipboard,
                                 )
                             }
 
@@ -410,7 +409,11 @@ fun HomeScreen(
                             }
 
                 item(key = "data_transfer") {
-                    DataTransferGroup(onBackupSettingsClick = onNavToAutoBackup)
+                    DataTransferGroup(
+                        onBackupSettingsClick = onNavToAutoBackup,
+                        onActionSelectClick = onNavToActionSelect,
+                        onLogSettingsClick = onNavToLogSettings,
+                    )
                 }
                         }
 
@@ -423,20 +426,17 @@ fun HomeScreen(
                         MainTab.Settings -> ActionSettingsTab(
                             topPadding = topPadding,
                             onNavToActionPanels = onNavToActionPanels,
-                            onNavToGridPanels = onNavToGridPanels,
+                            onNavToSearchEngines = onNavToSearchEngines,
+                            onNavToFloatBallSettings = onNavToFloatBallSettings,
+                            onNavToLinkDispatch = onNavToLinkDispatch,
                             onNavToButtonVisibility = onNavToButtonVisibility,
                             onNavToMiniWindowSettings = onNavToMiniWindowSettings,
                             onNavToScreenPickSettings = onNavToScreenPickSettings,
-                            onNavToActionSelect = onNavToActionSelect,
                             onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
                             onNavToAccessibilityManager = onNavToAccessibilityManager,
                             onNavToPersistentNotificationSettings = onNavToPersistentNotificationSettings,
                             onNavToNotificationSettings = onNavToNotificationSettings,
                             onNavToStatusBarIconSettings = onNavToStatusBarIconSettings,
-                            onNavToLogSettings = onNavToLogSettings,
-                            onNavToClipboard = onNavToClipboard,
-                            onNavToHabits = onNavToHabits,
-                            onNavToTodos = onNavToTodos,
                         )
                     }
                 }

@@ -44,6 +44,7 @@ object AnnotateExporter {
                 base = base,
                 fit = ContainFit.identity(state.imageWidth, state.imageHeight),
                 showSelection = false,
+                visibleImageRect = crop,
             )
         }
         return out
