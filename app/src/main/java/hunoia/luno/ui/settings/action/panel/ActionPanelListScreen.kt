@@ -2,6 +2,7 @@ package hunoia.luno.ui.settings.action.panel
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,24 +22,27 @@ import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.screen.PanelCreateItem
 import hunoia.luno.ui.component.screen.PanelListRow
 import hunoia.luno.ui.component.screen.PanelListScreen
+import hunoia.luno.ui.component.screen.PanelListSection
 import hunoia.luno.ui.component.sheet.LunoSheet
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
- * 全局动作面板列表（决策 5：多个具名面板）。
+ * 全局面板列表（决策 5：多个具名面板）。
  *
- * 面板内容全局一份、可被多个触钮复用；动作选择页里一行一个面板，
+ * 动作面板与网格面板合并一页：内容全局一份、可被多个触钮复用；动作选择页里一行一个面板，
  * 触钮上配「动作面板」动作即引用其中一个。
  * 顶部挂「动作面板样式」全局配置入口（点击弹底部配置面板）。
- * 新增走右下角 FAB，删除在编辑页右上角。
+ * 新增走右下角 FAB（弹菜单选动作/网格面板），删除在编辑页右上角。
  */
 @Composable
 fun ActionPanelListScreen(
     onBack: () -> Unit,
-    onEditPanel: (String) -> Unit,
+    onEditActionPanel: (String) -> Unit,
+    onEditGridPanel: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val actionSettings by TuneConfig.action
@@ -46,32 +50,75 @@ fun ActionPanelListScreen(
     val gestureSettings by TuneConfig.gesture
         .collectAsStateWithLifecycle(initialValue = GestureSettings())
     val panels = actionSettings.actionPanels.panels
+    val gridPanels = actionSettings.actionGridPanels.panels
     var showStyle by remember { mutableStateOf(false) }
 
-    fun createPanel() {
+    fun createActionPanel() {
         scope.launch {
             val panel = hunoia.luno.config.model.ActionPanel.create()
             TuneConfig.updateAction { it.copy(actionPanels = it.actionPanels.withPanel(panel)) }
-            onEditPanel(panel.id)
+            onEditActionPanel(panel.id)
+        }
+    }
+
+    fun createGridPanel() {
+        scope.launch {
+            val panel = hunoia.luno.config.model.GridPanel.create()
+            TuneConfig.updateAction { it.copy(actionGridPanels = it.actionGridPanels.withPanel(panel)) }
+            onEditGridPanel(panel.id)
         }
     }
 
     PanelListScreen(
-        title = stringResource(R.string.action_panels),
+        title = stringResource(R.string.action_panel_list_group),
         onBack = onBack,
-        emptyHint = stringResource(R.string.action_panel_empty_hint),
-        addLabel = stringResource(R.string.add_action_panel),
-        rowIcon = Icons.Default.RadioButtonChecked,
-        rows = panels.map { panel ->
-            PanelListRow(
-                id = panel.id,
-                title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
-                subtitle = stringResource(R.string.action_panel_items_count, panel.items.size),
-            )
+        sections = listOf(
+            PanelListSection(
+                title = stringResource(R.string.action_panels),
+                emptyHint = stringResource(R.string.action_panel_empty_hint),
+                icon = Icons.Default.RadioButtonChecked,
+                rows = panels.map { panel ->
+                    PanelListRow(
+                        id = panel.id,
+                        title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
+                        subtitle = stringResource(R.string.action_panel_items_count, panel.items.size),
+                    )
+                },
+            ),
+            PanelListSection(
+                title = stringResource(R.string.grid_panels),
+                emptyHint = stringResource(R.string.grid_panel_empty_hint),
+                icon = Icons.Default.GridView,
+                rows = gridPanels.map { panel ->
+                    PanelListRow(
+                        id = panel.id,
+                        title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
+                        subtitle = stringResource(
+                            R.string.grid_panel_summary,
+                            panel.portrait.items.size, panel.portrait.geometry.columnCount,
+                        ),
+                    )
+                },
+            ),
+        ),
+        onEditPanel = { sectionIndex, row ->
+            when (sectionIndex) {
+                0 -> onEditActionPanel(row.id)
+                1 -> onEditGridPanel(row.id)
+            }
         },
-        onEditPanel = onEditPanel,
-        onCreate = { createPanel() },
-        listTitle = stringResource(R.string.action_panel_list_group),
+        createItems = listOf(
+            PanelCreateItem(
+                label = stringResource(R.string.add_action_panel),
+                icon = Icons.Default.RadioButtonChecked,
+                onClick = ::createActionPanel,
+            ),
+            PanelCreateItem(
+                label = stringResource(R.string.grid_panel_add),
+                icon = Icons.Default.GridView,
+                onClick = ::createGridPanel,
+            ),
+        ),
         header = {
             LunoGroup(title = stringResource(R.string.action_panel_style_group)) {
                 LunoSettingsRow(

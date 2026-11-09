@@ -10,17 +10,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -69,26 +66,23 @@ import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-/** 设置 tab：面板 / 动作 / 其他。 */
+/** 设置 tab：功能 / 动作 / 系统 / 外观。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionSettingsTab(
     topPadding: Dp,
     onNavToActionPanels: () -> Unit = {},
-    onNavToGridPanels: () -> Unit = {},
+    onNavToSearchEngines: () -> Unit = {},
+    onNavToFloatBallSettings: () -> Unit = {},
+    onNavToLinkDispatch: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
-    onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
-    onNavToLogSettings: () -> Unit = {},
-    onNavToClipboard: () -> Unit = {},
-    onNavToHabits: () -> Unit = {},
-    onNavToTodos: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -163,51 +157,55 @@ fun ActionSettingsTab(
             ),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
-            item(key = "panels") {
-                LunoGroup(title = stringResource(R.string.action_settings_panel_group)) {
-                    LunoSettingsRow(
-                        icon = Icons.Default.RadioButtonChecked,
-                        title = stringResource(R.string.action_panels),
-                        subtitle = stringResource(R.string.action_panel_count, actionSettings.actionPanels.panels.size),
-                        shape = segmentedShape(0, 3),
-                        onClick = onNavToActionPanels,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.GridView,
-                        title = stringResource(R.string.grid_panels),
-                        subtitle = stringResource(R.string.action_panel_count, actionSettings.actionGridPanels.panels.size),
-                        shape = segmentedShape(1, 3),
-                        onClick = onNavToGridPanels,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.ContentPaste,
-                        title = stringResource(R.string.clipboard_settings_entry),
-                        subtitle = stringResource(R.string.clipboard_settings_entry_hint),
-                        shape = segmentedShape(2, 3),
-                        onClick = onNavToClipboard,
+            item(key = "appearance") {
+                LunoGroup(title = stringResource(R.string.action_settings_appearance_group)) {
+                    ChoiceRow(
+                        title = stringResource(R.string.action_settings_list_style),
+                        options = listOf(
+                            stringResource(R.string.list_style_segmented),
+                            stringResource(R.string.list_style_card_divided),
+                        ),
+                        selectedIndex = advancedSettings.listStyle.ordinal,
+                        onSelect = { index ->
+                            scope.launch {
+                                TuneConfig.updateAdvanced {
+                                    it.copy(listStyle = ListStyle.entries[index])
+                                }
+                            }
+                        },
+                        shape = segmentedShape(0, 1),
                     )
                 }
             }
-            item(key = "habits") {
-                LunoGroup(title = stringResource(hunoia.luno.gridpanel.R.string.action_settings_habit_group)) {
+            item(key = "features") {
+                LunoGroup(title = stringResource(R.string.action_settings_feature_group)) {
                     LunoSettingsRow(
-                        icon = Icons.Default.CheckCircle,
-                        title = stringResource(hunoia.luno.gridpanel.R.string.habit_list_title),
-                        shape = segmentedShape(0, 3),
-                        onClick = onNavToHabits,
+                        icon = Icons.Default.RadioButtonChecked,
+                        title = stringResource(R.string.action_panel_list_group),
+                        subtitle = stringResource(
+                            R.string.action_panel_count,
+                            actionSettings.actionPanels.panels.size + actionSettings.actionGridPanels.panels.size,
+                        ),
+                        shape = segmentedShape(0, 4),
+                        onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
-                        icon = Icons.Default.Checklist,
-                        title = stringResource(hunoia.luno.gridpanel.R.string.todo_list_title),
-                        shape = segmentedShape(1, 3),
-                        onClick = onNavToTodos,
+                        icon = Icons.Default.Search,
+                        title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
+                        shape = segmentedShape(1, 4),
+                        onClick = onNavToSearchEngines,
                     )
                     LunoSettingsRow(
-                        icon = Icons.Default.NotificationsActive,
-                        title = stringResource(R.string.notification_display_settings_entry),
-                        subtitle = stringResource(R.string.notification_display_settings_entry_hint),
-                        shape = segmentedShape(2, 3),
-                        onClick = onNavToNotificationSettings,
+                        icon = Icons.Default.Adjust,
+                        title = stringResource(hunoia.luno.floatball.R.string.float_ball),
+                        shape = segmentedShape(2, 4),
+                        onClick = onNavToFloatBallSettings,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Link,
+                        title = stringResource(hunoia.luno.link.R.string.link_dispatch),
+                        shape = segmentedShape(3, 4),
+                        onClick = onNavToLinkDispatch,
                     )
                 }
             }
@@ -260,73 +258,42 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.font_scale_need_permission)
                         },
-                        shape = segmentedShape(0, 4),
+                        shape = segmentedShape(0, 6),
                         onClick = ::openFontScale,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.NotificationsOff,
                         title = stringResource(R.string.persistent_notification_settings_entry),
                         subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
-                        shape = segmentedShape(1, 4),
+                        shape = segmentedShape(1, 6),
                         onClick = onNavToPersistentNotificationSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VisibilityOff,
                         title = stringResource(R.string.status_bar_icons_entry),
                         subtitle = stringResource(R.string.status_bar_icons_entry_hint),
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(2, 6),
                         onClick = onNavToStatusBarIconSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Accessibility,
                         title = stringResource(R.string.a11y_settings_entry),
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        shape = segmentedShape(3, 4),
+                        shape = segmentedShape(3, 6),
                         onClick = onNavToAccessibilityManager,
                     )
-                }
-            }
-            item(key = "appearance") {
-                LunoGroup(title = stringResource(R.string.action_settings_appearance_group)) {
-                    ChoiceRow(
-                        title = stringResource(R.string.action_settings_list_style),
-                        subtitle = stringResource(R.string.action_settings_list_style_hint),
-                        options = listOf(
-                            stringResource(R.string.list_style_segmented),
-                            stringResource(R.string.list_style_card_divided),
-                        ),
-                        selectedIndex = advancedSettings.listStyle.ordinal,
-                        onSelect = { index ->
-                            scope.launch {
-                                TuneConfig.updateAdvanced {
-                                    it.copy(listStyle = ListStyle.entries[index])
-                                }
-                            }
-                        },
-                        shape = segmentedShape(0, 1),
-                    )
-                }
-            }
-            item(key = "permissions") {
-                LunoGroup(title = stringResource(R.string.action_settings_permissions_group)) {
                     LunoSettingsRow(
-                        icon = Icons.Default.Link,
-                        title = stringResource(hunoia.luno.actions.R.string.action_deep_links),
-                        shape = segmentedShape(0, 3),
-                        onClick = onNavToActionSelect,
+                        icon = Icons.Default.NotificationsActive,
+                        title = stringResource(R.string.notification_display_settings_entry),
+                        subtitle = stringResource(R.string.notification_display_settings_entry_hint),
+                        shape = segmentedShape(4, 6),
+                        onClick = onNavToNotificationSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VerifiedUser,
                         title = stringResource(R.string.perm_page_title),
-                        shape = segmentedShape(1, 3),
+                        shape = segmentedShape(5, 6),
                         onClick = onNavToPrivilegedPermissions,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.BugReport,
-                        title = stringResource(R.string.log_settings_title),
-                        subtitle = stringResource(R.string.log_settings_entry_hint),
-                        shape = segmentedShape(2, 3),
-                        onClick = onNavToLogSettings,
                     )
                 }
             }

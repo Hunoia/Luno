@@ -1,9 +1,11 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.BugReport
+import androidx.compose.material.icons.twotone.CheckCircle
+import androidx.compose.material.icons.twotone.Checklist
+import androidx.compose.material.icons.twotone.ContentPaste
 import androidx.compose.material.icons.twotone.Link
-import androidx.compose.material.icons.twotone.RadioButtonChecked
-import androidx.compose.material.icons.twotone.Search
 import androidx.compose.material.icons.twotone.SettingsBackupRestore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,9 +17,9 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 
 @Composable
 fun HomeSettingsGroup(
-    onSearchEngineClick: () -> Unit,
-    onFloatBallClick: () -> Unit,
-    onLinkDispatchClick: () -> Unit,
+    onHabitsClick: () -> Unit,
+    onTodosClick: () -> Unit,
+    onClipboardClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -26,32 +28,32 @@ fun HomeSettingsGroup(
     ) {
         LunoSegmentedGroup {
             item { shape -> LunoSettingsRow(
-            title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
-            icon = Icons.TwoTone.Search,
+            title = stringResource(hunoia.luno.gridpanel.R.string.habit_list_title),
+            icon = Icons.TwoTone.CheckCircle,
             shape = shape,
-            onClick = onSearchEngineClick,
+            onClick = onHabitsClick,
             ) }
             item { shape -> LunoSettingsRow(
-            title = stringResource(hunoia.luno.floatball.R.string.float_ball),
-            icon = Icons.TwoTone.RadioButtonChecked,
+            title = stringResource(hunoia.luno.gridpanel.R.string.todo_list_title),
+            icon = Icons.TwoTone.Checklist,
             shape = shape,
-            onClick = onFloatBallClick,
+            onClick = onTodosClick,
             ) }
             item { shape -> LunoSettingsRow(
-            title = stringResource(hunoia.luno.link.R.string.link_dispatch),
-            icon = Icons.TwoTone.Link,
+            title = stringResource(R.string.clipboard_settings_entry),
+            icon = Icons.TwoTone.ContentPaste,
             shape = shape,
-            onClick = onLinkDispatchClick,
+            onClick = onClipboardClick,
             ) }
         }
     }
 }
 
-/** 外部调用与系统授权已移到设置页底部。 */
-
 @Composable
 fun DataTransferGroup(
     onBackupSettingsClick: () -> Unit,
+    onActionSelectClick: () -> Unit,
+    onLogSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -64,6 +66,18 @@ fun DataTransferGroup(
             icon = Icons.TwoTone.SettingsBackupRestore,
             shape = shape,
             onClick = onBackupSettingsClick,
+            ) }
+            item { shape -> LunoSettingsRow(
+            title = stringResource(hunoia.luno.actions.R.string.action_deep_links),
+            icon = Icons.TwoTone.Link,
+            shape = shape,
+            onClick = onActionSelectClick,
+            ) }
+            item { shape -> LunoSettingsRow(
+            title = stringResource(R.string.log_settings_title),
+            icon = Icons.TwoTone.BugReport,
+            shape = shape,
+            onClick = onLogSettingsClick,
             ) }
         }
     }

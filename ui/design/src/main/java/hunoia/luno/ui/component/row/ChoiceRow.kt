@@ -64,6 +64,8 @@ fun ChoiceRow(
                             count = options.size,
                             index = index,
                         ),
+                        // 不画默认选中勾，仅用底色表达选中。
+                        icon = {},
                     ) {
                         Text(text = option, maxLines = 1)
                     }

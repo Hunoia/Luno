@@ -55,7 +55,6 @@ import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
-import hunoia.luno.ui.navigation.GridPanelList
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.HabitList
 import hunoia.luno.ui.navigation.HabitEdit
@@ -95,7 +94,6 @@ import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
-import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.gridpanel.habit.HabitEditScreen
 import hunoia.luno.gridpanel.habit.HabitListScreen
 import hunoia.luno.gridpanel.todo.TodoListScreen
@@ -205,7 +203,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
-                        onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
@@ -398,7 +395,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<ActionPanelList> {
                     ActionPanelListScreen(
                         onBack = { navController.popBackStack() },
-                        onEditPanel = { panelId -> navController.navigate(ActionPanelEdit(panelId)) },
+                        onEditActionPanel = { panelId -> navController.navigate(ActionPanelEdit(panelId)) },
+                        onEditGridPanel = { panelId -> navController.navigate(GridPanelEdit(panelId)) },
                     )
                 }
                 myComposable<ActionPanelEdit> {
@@ -406,12 +404,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         panelId = it.toRoute<ActionPanelEdit>().panelId,
                         onBack = { navController.popBackStack() },
                         onPickItem = { navController.navigate(it) },
-                    )
-                }
-                myComposable<GridPanelList> {
-                    GridPanelListScreen(
-                        onBack = { navController.popBackStack() },
-                        onEditPanel = { panelId -> navController.navigate(GridPanelEdit(panelId)) },
                     )
                 }
                 myComposable<GridPanelEdit> {
