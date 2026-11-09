@@ -17,9 +17,11 @@ import android.view.WindowManager
 import hunoia.luno.capability.launch.R
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
-import hunoia.luno.config.model.centeredOnTrigger
+import hunoia.luno.config.model.resolveTopLeft
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.bridge.ui.systemBarsSafeArea
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
@@ -577,17 +579,40 @@ internal object MiniWindowGeometry {
     }
 
     fun bounds(settings: WindowBounds, realSw: Int, realSh: Int, landscape: Boolean): Rect {
-        val comp = miuiFreeformCompensation(landscape)
+        val (winW, winH) = windowSize(settings, realSw, realSh, landscape)
         val left = (realSw * settings.x.coerceIn(0f, 1f)).roundToInt()
         val top = (realSh * settings.y.coerceIn(0f, 1f)).roundToInt()
-        val winW = (realSw * settings.width.coerceIn(0.2f, 1.5f) * comp).roundToInt()
-        val winH = (realSh * settings.height.coerceIn(0.2f, 1.5f) * comp).roundToInt()
         return Rect(left, top, left + winW, top + winH)
     }
 
+    /** 请求的 freeform 帧尺寸（已乘 MIUI 合成层补偿）。 */
+    private fun windowSize(
+        settings: WindowBounds,
+        realSw: Int,
+        realSh: Int,
+        landscape: Boolean,
+    ): Pair<Int, Int> {
+        val (visibleW, visibleH) = visibleWindowSize(settings, realSw, realSh)
+        val comp = miuiFreeformCompensation(landscape)
+        val winW = (visibleW * comp).roundToInt()
+        val winH = (visibleH * comp).roundToInt()
+        return winW to winH
+    }
+
+    /** 实际显示尺寸（未做合成层补偿）：定位必须用它，否则右侧/竖向会偏出触发点。 */
+    private fun visibleWindowSize(
+        settings: WindowBounds,
+        realSw: Int,
+        realSh: Int,
+    ): Pair<Float, Float> {
+        val w = realSw * settings.width.coerceIn(0.2f, 1.5f)
+        val h = realSh * settings.height.coerceIn(0.2f, 1.5f)
+        return w to h
+    }
+
     /**
-     * 选方向、按跟随开关把窗口中心挪到触发点、再换算成像素 bounds。
-     * 无触点或未开启跟随时保持配置里的固定位置。
+     * 选方向；跟随开关开着且有触点时按统一触发点定位（横向贴触发侧、竖向中心对准），
+     * 否则保持配置里的固定位置。尺寸两种模式一致。
      */
     fun resolveBounds(
         context: Context,
@@ -597,16 +622,27 @@ internal object MiniWindowGeometry {
         val size = realScreenSize(context)
         val landscape = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        var settings = miniWindowSettings.forOrientation(landscape)
+        val settings = miniWindowSettings.forOrientation(landscape)
         if (miniWindowSettings.followTrigger && anchor != null && size.x > 0 && size.y > 0) {
-            val gapPx = (miniWindowSettings.followTriggerGapDp * context.resources.displayMetrics.density)
-                .roundToInt()
-            settings = settings.centeredOnTrigger(
-                anchorXRatio = anchor.first.toFloat() / size.x,
-                anchorYRatio = anchor.second.toFloat() / size.y,
-                gapXRatio = gapPx.toFloat() / size.x,
-                gapYRatio = gapPx.toFloat() / size.y,
+            val (winW, winH) = windowSize(settings, size.x, size.y, landscape)
+            val (visibleW, visibleH) = visibleWindowSize(settings, size.x, size.y)
+            val safe = context.windowManager().systemBarsSafeArea()
+            val offset = miniWindowSettings.placement(landscape).resolveTopLeft(
+                anchorX = anchor.first,
+                anchorY = anchor.second,
+                widthPx = visibleW,
+                heightPx = visibleH,
+                screenWidthPx = size.x,
+                screenHeightPx = size.y,
+                safeTopPx = safe.top,
+                safeBottomPx = safe.bottom,
+                density = context.resources.displayMetrics.density,
+                // 小窗以中心对准触发点（面板才是 1/4）。
+                verticalAnchorFraction = 0.5f,
             )
+            val left = offset.x.roundToInt()
+            val top = offset.y.roundToInt()
+            return Rect(left, top, left + winW, top + winH)
         }
         return bounds(settings, size.x, size.y, landscape)
     }

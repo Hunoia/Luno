@@ -66,8 +66,8 @@ data class GridPanelGeometry(
     val columnCount: Int = GridPanelDefaults.ColumnCount,
     val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
     val cardHeightFraction: Float = GridPanelDefaults.CardHeightFraction,
-    /** 卡片离屏幕边缘的最小距离（dp）：影响位置 clamp 与卡片圆角（圆角 = 屏幕圆角 − 此值）。 */
-    val screenMarginDp: Float = GridPanelDefaults.ScreenMarginDp,
+    /** 跟随触发点的三个边距：横向贴触发侧，竖向跟随触发点（上下保留最小间距）。 */
+    val placement: SurfacePlacement = SurfacePlacement(),
 )
 
 /** 行数不设限：实际行数 = max(显示行数，占用行数) + [extraRows]（编辑态 [EditRowExtra]）。 */

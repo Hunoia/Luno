@@ -18,7 +18,9 @@ class PanelResizeTest {
         screenHeight = 1000f,
         insetsTop = 0,
         insetsBottom = 0,
-        marginPx = 10f,
+        sideMarginPx = 10f,
+        topGapPx = 10f,
+        bottomGapPx = 10f,
     )
 
     @Test
@@ -46,7 +48,9 @@ class PanelResizeTest {
         screenH = 1000f,
         insetsTop = 0,
         insetsBottom = 0,
-        screenMarginPx = 10f,
+        sideMarginPx = 10f,
+        topGapPx = 10f,
+        bottomGapPx = 10f,
         // 与渲染同一套几何（GridMetrics 用 columns=4, gap=10, pad=20, indicator=24）。
         // 高度连续跟手：top = 锚点 − 连续卡高，不再按行数量化。
         columns = 4,

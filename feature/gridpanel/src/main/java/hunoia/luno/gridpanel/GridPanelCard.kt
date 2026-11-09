@@ -80,6 +80,9 @@ import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.PanelBlurHost
 import hunoia.luno.gridpanel.ui.PageDotSlot
+import hunoia.luno.config.model.SurfacePlacement
+import hunoia.luno.config.model.coerced
+import hunoia.luno.config.model.resolveTopLeft
 import hunoia.luno.gridpanel.ui.ItemResizeHandle
 import hunoia.luno.gridpanel.ui.PageEllipsisDots
 import hunoia.luno.gridpanel.ui.PageEllipsisSize
@@ -116,9 +119,9 @@ fun GridPanelCard(
     showIndicator: Boolean,
     /** 当前生效的循环映射页数（编辑态 +1，见 Content）：真实页 = pagerIndex % mappingPages。 */
     mappingPages: Int,
-    /** 卡片离屏边距（px）。 */
-    screenMarginPx: Float,
-    /** 卡片圆角（px）= 屏幕圆角 − 离屏边距。 */
+    /** 跟随触发点的三个边距（dp）：横向贴触发侧，竖向跟随触发点。 */
+    placement: SurfacePlacement,
+    /** 卡片圆角（px）= 屏幕圆角 − 左右边距。 */
     cornerPx: Float,
     pagerState: PagerState,
     /** 卡片级几何（定位/卡面尺寸用，不含页差异）。 */
@@ -157,15 +160,23 @@ fun GridPanelCard(
     val stepPx = with(density) { EdgeScrollStep.toPx() }
     val indicatorPx = with(density) { IndicatorHeight.toPx() }
     val gridPadPx = with(density) { GridPadding.toPx() }
-    val targetPosX = (anchorX - metrics.cardW / 4f).coerceIn(
-        screenMarginPx,
-        (metrics.screenW - metrics.cardW - screenMarginPx).coerceAtLeast(screenMarginPx),
+    val safePlacement = placement.coerced()
+    val target = safePlacement.resolveTopLeft(
+        anchorX = anchorX,
+        anchorY = anchorY,
+        widthPx = metrics.cardW,
+        heightPx = metrics.cardH,
+        screenWidthPx = metrics.screenW.roundToInt(),
+        screenHeightPx = metrics.screenH.roundToInt(),
+        safeTopPx = insetsTop,
+        safeBottomPx = insetsBottom,
+        density = density.density,
     )
-    val targetPosY = (anchorY - metrics.cardH / 4f).coerceIn(
-        insetsTop + screenMarginPx,
-        (metrics.screenH - insetsBottom - metrics.cardH - screenMarginPx)
-            .coerceAtLeast(insetsTop + screenMarginPx),
-    )
+    val targetPosX = target.x
+    val targetPosY = target.y
+    val sideMarginPx = with(density) { safePlacement.sideMarginDp.dp.toPx() }
+    val topGapPx = with(density) { safePlacement.topGapDp.dp.toPx() }
+    val bottomGapPx = with(density) { safePlacement.bottomGapDp.dp.toPx() }
     // 面板级缩放手柄：优先落在离屏边最远的角。拖动期间冻结起手角，尺寸变化
     // 不能把正在拖的手柄换到另一个角去。
     var resizeCornerOverride by remember(panelId) { mutableStateOf<ResizeCorner?>(null) }
@@ -185,7 +196,9 @@ fun GridPanelCard(
         screenHeight = metrics.screenH,
         insetsTop = insetsTop,
         insetsBottom = insetsBottom,
-        marginPx = screenMarginPx,
+        sideMarginPx = sideMarginPx,
+        topGapPx = topGapPx,
+        bottomGapPx = bottomGapPx,
     )
     // 转屏 / 改网格尺寸时卡片要挪位置：首帧直接对齐（别从 0 飞过来），之后平滑过渡。
     val posAnimX = remember { Animatable(targetPosX) }

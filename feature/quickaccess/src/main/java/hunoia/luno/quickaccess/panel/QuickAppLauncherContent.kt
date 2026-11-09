@@ -54,11 +54,10 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.ExtraLargeShape
 
-import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.systemBarsSafeArea
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.domain.AppInfo
-import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.resolveTopLeft
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import kotlinx.coroutines.flow.collectLatest
 
@@ -132,7 +131,7 @@ internal fun QuickAppLauncherRoot(
                 ),
         ) {
             // 面板几何在 Compose 里换算（窗口全屏化后不再走窗口 params）。
-            // 位置跟随触发锚点（同网格面板）：锚点落在面板 25% 处，clamp 屏内（系统栏 insets + 离屏边距）。
+            // 位置跟随触发锚点（同网格面板）：横向贴触发侧，竖向锚在面板 25% 处并夹上下间距。
             val configuration = LocalConfiguration.current
             val density = LocalDensity.current
             val view = LocalView.current
@@ -141,30 +140,29 @@ internal fun QuickAppLauncherRoot(
                 ?: state.launcherSettings.layout(landscape)
             val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
             val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
-            val panelWidthPx = (screenWidthPx * layout.panelWidthFraction.coerceIn(0.65f, 1f)).roundToInt().coerceIn(1, screenWidthPx)
+            val panelWidthPx = (screenWidthPx * layout.effectivePanelWidthFraction()).roundToInt().coerceIn(1, screenWidthPx)
             // 与 Content 内实际渲染同口径：fraction 高度兜不住键盘+候选的最小内容时按最小内容算。
             val requiredHeightPx = with(density) {
                 requiredContentHeight(layout.keyHeightDp.dp, layout.candidateRows.coerceIn(1, 3), CandidateMinHeight)
                     .toPx().roundToInt()
             }
-            val panelHeightPx = (screenHeightPx * layout.contentHeightFraction.coerceIn(0.35f, 0.85f))
+            val panelHeightPx = (screenHeightPx * layout.effectiveContentHeightFraction())
                 .roundToInt().coerceAtLeast(requiredHeightPx).coerceAtMost(screenHeightPx)
-            // 系统栏余量按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
             // 系统栏安全区与悬浮球同源（:core:bridge），按 configuration 记忆：转屏后不沿用旧值。
             val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
-            val insetsTop = barSafeArea.top
-            val insetsBottom = barSafeArea.bottom
-            val marginPx = with(density) {
-                layout.screenMarginDp.coerceIn(GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp).dp.toPx()
-            }
-            val targetPosX = (anchorX - panelWidthPx / 4f).coerceIn(
-                marginPx,
-                (screenWidthPx - panelWidthPx - marginPx).coerceAtLeast(marginPx),
+            val target = layout.placement.resolveTopLeft(
+                anchorX = anchorX,
+                anchorY = anchorY,
+                widthPx = panelWidthPx.toFloat(),
+                heightPx = panelHeightPx.toFloat(),
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
+                safeTopPx = barSafeArea.top,
+                safeBottomPx = barSafeArea.bottom,
+                density = density.density,
             )
-            val targetPosY = (anchorY - panelHeightPx / 4f).coerceIn(
-                insetsTop + marginPx,
-                (screenHeightPx - insetsBottom - panelHeightPx - marginPx).coerceAtLeast(insetsTop + marginPx),
-            )
+            val targetPosX = target.x
+            val targetPosY = target.y
             // 首帧（重开）初值即目标，不飞入；已可见时再触发换锚点，弹簧平滑挪过去（同网格面板卡片）。
             val posAnimX = remember { Animatable(targetPosX) }
             val posAnimY = remember { Animatable(targetPosY) }
@@ -212,7 +210,7 @@ private fun QuickAppLauncherContent(
     val panelWidthDp = with(density) {
         (screenWidthPx * state.launcherSettings.layout(
             orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE,
-        ).panelWidthFraction).toDp()
+        ).effectivePanelWidthFraction()).toDp()
     }
     var gridAtTop by remember { mutableStateOf(true) }
     val gridState = rememberLazyGridState()
@@ -282,14 +280,17 @@ private fun QuickAppLauncherContent(
                         val landscape = orientation ==
                             android.content.res.Configuration.ORIENTATION_LANDSCAPE
                         val geo = state.launcherSettings.layout(landscape)
-                        val contentHeightFraction = geo.contentHeightFraction
+                        val contentHeightFraction = geo.effectiveContentHeightFraction()
                         val candidateRows = geo.candidateRows.coerceIn(1, 3)
                         val density = LocalDensity.current
-                        val screenHeightPx = DensityProvider.screenHeightPx
+                        val screenHeightPx = with(density) {
+                            configuration.screenHeightDp.dp.toPx().roundToInt()
+                        }
                         val panelHeightDp = with(density) { (screenHeightPx * contentHeightFraction).toDp() }
                         val keyHeight = geo.keyHeightDp.dp
                         val keyboardHeight = keyHeight * KeyboardRowCount + KeyboardGap * 2
-                        val minContentHeight = requiredContentHeight(keyHeight, candidateRows, CandidateMinHeight)
+                        val minContentHeight = requiredContentHeight(keyHeight, candidateRows, CandidateMinHeight) -
+                            PanelPaddingVertical * 2
                         val contentDp = (panelHeightDp - PanelPaddingVertical * 2)
                             .coerceAtLeast(minContentHeight)
                         val candidateHeight = contentDp - keyboardHeight - KeyboardGap

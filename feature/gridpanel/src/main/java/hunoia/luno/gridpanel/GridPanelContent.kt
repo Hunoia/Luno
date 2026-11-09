@@ -38,6 +38,7 @@ import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.ui.systemBarsSafeArea
 import hunoia.luno.bridge.ui.windowManager
+import hunoia.luno.config.model.coerced
 import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
@@ -380,11 +381,11 @@ fun GridPanelRoot(
         val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
         if (rows == m.rows) m else m.copy(rows = rows)
     }
-    val clampedMarginDp = geo.screenMarginDp.coerceIn(
-        GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp,
-    )
-    val screenMarginPx = with(density) { clampedMarginDp.dp.toPx() }
-    val cornerPx = rememberCardCornerPx(clampedMarginDp)
+    val placement = geo.placement.coerced()
+    val sideMarginPx = with(density) { placement.sideMarginDp.dp.toPx() }
+    val topGapPx = with(density) { placement.topGapDp.dp.toPx() }
+    val bottomGapPx = with(density) { placement.bottomGapDp.dp.toPx() }
+    val cornerPx = rememberCardCornerPx(placement.sideMarginDp)
 
     // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
     var panelResizeCorner by remember(panelId, landscape) {
@@ -428,7 +429,9 @@ fun GridPanelRoot(
             screenH = metrics.screenH,
             insetsTop = insetsTop,
             insetsBottom = insetsBottom,
-            screenMarginPx = screenMarginPx,
+            sideMarginPx = sideMarginPx,
+            topGapPx = topGapPx,
+            bottomGapPx = bottomGapPx,
             columns = metrics.columns,
             gridPad = metrics.gridPad,
             indicator = metrics.indicator,
@@ -585,7 +588,7 @@ fun GridPanelRoot(
             pageCount = pageCount,
             showIndicator = pageCount > 1 || editMode,
             mappingPages = mappingPages,
-            screenMarginPx = screenMarginPx,
+            placement = placement,
             cornerPx = cornerPx,
             pagerState = pagerState,
             metrics = metrics,

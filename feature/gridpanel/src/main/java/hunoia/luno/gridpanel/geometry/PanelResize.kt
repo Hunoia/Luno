@@ -29,7 +29,9 @@ fun resolvePanelResize(
     screenH: Float,
     insetsTop: Int,
     insetsBottom: Int,
-    screenMarginPx: Float,
+    sideMarginPx: Float,
+    topGapPx: Float,
+    bottomGapPx: Float,
     /** 渲染几何（列数与内边距/指示条/格间距 px）：算最小一行高度用。 */
     columns: Int,
     gridPad: Float,
@@ -48,9 +50,9 @@ fun resolvePanelResize(
     val anchorRight = startPos.x + startW
     val anchorBottom = startPos.y + startH
     val maxW = (if (corner.isLeft) {
-        anchorRight - screenMarginPx
+        anchorRight - sideMarginPx
     } else {
-        (screenW - screenMarginPx) - startPos.x
+        (screenW - sideMarginPx) - startPos.x
     }).coerceAtLeast(screenW * minWidthFraction)
     val newW = (startW + widthDelta).coerceIn(
         screenW * minWidthFraction,
@@ -62,9 +64,9 @@ fun resolvePanelResize(
     val minRowH = gridPad * 2 + indicator + cellW
     val minH = maxOf(screenH * minHeightFraction, minRowH)
     val maxH = (if (corner.isTop) {
-        anchorBottom - insetsTop - screenMarginPx
+        anchorBottom - insetsTop - topGapPx
     } else {
-        (screenH - insetsBottom - screenMarginPx) - startPos.y
+        (screenH - insetsBottom - bottomGapPx) - startPos.y
     }).coerceAtLeast(minH)
     val upperH = minOf(screenH * maxHeightFraction, maxH)
     val newH = if (upperH <= minH) upperH else (startH + heightDelta).coerceIn(minH, upperH)
@@ -109,12 +111,14 @@ fun choosePanelResizeCorner(
     screenHeight: Float,
     insetsTop: Int,
     insetsBottom: Int,
-    marginPx: Float,
+    sideMarginPx: Float,
+    topGapPx: Float,
+    bottomGapPx: Float,
 ): ResizeCorner {
-    val leftBound = marginPx
-    val rightBound = (screenWidth - marginPx).coerceAtLeast(leftBound)
-    val topBound = (insetsTop + marginPx).coerceAtLeast(0f)
-    val bottomBound = (screenHeight - insetsBottom - marginPx).coerceAtLeast(topBound)
+    val leftBound = sideMarginPx
+    val rightBound = (screenWidth - sideMarginPx).coerceAtLeast(leftBound)
+    val topBound = (insetsTop + topGapPx).coerceAtLeast(0f)
+    val bottomBound = (screenHeight - insetsBottom - bottomGapPx).coerceAtLeast(topBound)
     val leftGap = (cardLeft - leftBound).coerceAtLeast(0f)
     val rightGap = (rightBound - (cardLeft + cardWidth)).coerceAtLeast(0f)
     val topGap = (cardTop - topBound).coerceAtLeast(0f)

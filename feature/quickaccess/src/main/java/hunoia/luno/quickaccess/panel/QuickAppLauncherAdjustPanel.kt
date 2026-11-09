@@ -22,10 +22,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quickaccess.R
-import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -51,8 +51,14 @@ internal fun QuickAppLauncherAdjustPanel(
     val kd = pending.value.keyHeightDp.dp
     val minPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMinHeight)
     val maxPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMaxHeight)
-    val heightMin = (minPanel / screenH.dp).coerceIn(0.25f, 0.95f)
-    val heightMax = (maxPanel / screenH.dp).coerceIn(0.25f, 0.95f)
+    val heightMin = (minPanel / screenH.dp).coerceIn(
+        QuickLauncherGeometry.MinContentHeightFraction,
+        QuickLauncherGeometry.MaxContentHeightFraction,
+    )
+    val heightMax = (maxPanel / screenH.dp).coerceIn(
+        QuickLauncherGeometry.MinContentHeightFraction,
+        QuickLauncherGeometry.MaxContentHeightFraction,
+    )
 
     Column(modifier = Modifier.fillMaxWidth()) {
         LunoTextSlider(
@@ -69,16 +75,12 @@ internal fun QuickAppLauncherAdjustPanel(
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_panel_width),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
-            valueRange = 0.65f..1.0f,
+            valueRange = QuickLauncherGeometry.MinPanelWidthFraction..QuickLauncherGeometry.MaxPanelWidthFraction,
         )
-        LunoTextSlider(
-            value = pending.value.screenMarginDp,
-            onValueChange = { preview(pending.value.copy(screenMarginDp = it)) },
-            onValueChangeFinished = { commit() },
-            text = stringResource(R.string.quick_app_launcher_screen_margin),
-            valueDisplay = { "${it.toInt()}dp" },
-            valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
-            steps = 11,
+        SurfacePlacementSliders(
+            placement = pending.value.placement,
+            onPreview = { next -> preview(pending.value.copy(placement = next)) },
+            onCommit = { commit() },
         )
         LunoTextSlider(
             value = pending.value.candidateRows.toFloat(),

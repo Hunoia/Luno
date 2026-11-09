@@ -32,16 +32,16 @@ fun screenCornerRadiusPx(context: Context): Float {
 }
 
 /**
- * 卡片圆角（px）= 屏幕圆角 − 离屏边距，视觉上与屏幕圆角连续；夹到 [MinCardCorner] 下限。
+ * 卡片圆角（px）= 屏幕圆角 − 左右边距，视觉上与屏幕圆角连续；夹到 [MinCardCorner] 下限。
  */
 @Composable
-fun rememberCardCornerPx(screenMarginDp: Float): Float {
+fun rememberCardCornerPx(sideMarginDp: Float): Float {
     val context = LocalContext.current
     val density = LocalDensity.current
-    return remember(context, density, screenMarginDp) {
+    return remember(context, density, sideMarginDp) {
         val screen = screenCornerRadiusPx(context)
         val min = with(density) { MinCardCorner.toPx() }
-        (screen - with(density) { screenMarginDp.dp.toPx() }).coerceAtLeast(min)
+        (screen - with(density) { sideMarginDp.dp.toPx() }).coerceAtLeast(min)
     }
 }
 

@@ -33,41 +33,23 @@ data class MiniWindowSettings(
     val landscape: WindowBounds = DefaultLandscapeBounds,
     /** 从手势/触钮等带触点的入口打开时，以触发点为中心，而不是用固定 x/y。 */
     val followTrigger: Boolean = false,
-    /** 跟随触发位置时，窗口与屏幕边缘保留的最小间距。 */
-    val followTriggerGapDp: Int = AdvancedSettingsDefaults.MiniWindowFollowGapDp,
+    /** 跟随触发位置时，横 / 竖屏各自的三个边距。 */
+    val portraitPlacement: SurfacePlacement = SurfacePlacement(),
+    val landscapePlacement: SurfacePlacement = SurfacePlacement(),
 ) {
     fun forOrientation(landscape: Boolean): WindowBounds =
         if (landscape) this.landscape else portrait
 
+    fun placement(landscape: Boolean): SurfacePlacement =
+        if (landscape) landscapePlacement else portraitPlacement
+
     fun withOrientation(landscape: Boolean, bounds: WindowBounds): MiniWindowSettings =
         if (landscape) copy(landscape = bounds)
         else copy(portrait = bounds)
-}
 
-/**
- * 把窗口以触发点为中心放置，并夹取到屏幕内；尺寸不变。
- *
- * 传入比例坐标（0..1），[gapX]/[gapY] 是屏幕边缘间距的比例值。
- * 窗口比屏幕还大时优先保证左上角在屏内，右侧/底部允许超出。
- */
-fun WindowBounds.centeredOnTrigger(
-    anchorXRatio: Float,
-    anchorYRatio: Float,
-    gapXRatio: Float = 0f,
-    gapYRatio: Float = 0f,
-): WindowBounds {
-    fun place(center: Float, size: Float, gap: Float): Float {
-        val free = (1f - size).coerceAtLeast(0f)
-        val min = gap.coerceIn(0f, free)
-        val max = (free - gap).coerceAtLeast(0f).coerceAtLeast(min)
-        return (center - size / 2f).coerceIn(min, max)
-    }
-    val w = width.coerceIn(0.2f, 1.5f)
-    val h = height.coerceIn(0.2f, 1.5f)
-    return copy(
-        x = place(anchorXRatio, w, gapXRatio),
-        y = place(anchorYRatio, h, gapYRatio),
-    )
+    fun withPlacement(landscape: Boolean, placement: SurfacePlacement): MiniWindowSettings =
+        if (landscape) copy(landscapePlacement = placement)
+        else copy(portraitPlacement = placement)
 }
 
 /** 生效的小窗设置：未配置时用默认值。 */

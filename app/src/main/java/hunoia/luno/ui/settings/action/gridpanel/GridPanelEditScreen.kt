@@ -28,6 +28,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
@@ -142,7 +143,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).roundToInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
                     steps = 0,
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 5),
                 )
                 // 背景模糊：0 = 关闭；无级拖动、按 1dp 落盘。
                 var localBlur by remember(current.blurRadiusDp) {
@@ -159,28 +160,19 @@ fun GridPanelEditScreen(
                     },
                     valueRange = GridPanelDefaults.MinBlurRadiusDp..GridPanelDefaults.MaxBlurRadiusDp,
                     steps = 0,
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, 5),
                 )
-                // 离屏边距：纯外观（clamp + 圆角联动），无级拖动、按 1dp 落盘。
-                var pendingMargin by remember { mutableStateOf<Float?>(null) }
-                LunoTextSlider(
-                    value = current.orientation(isLandscape()).geometry.screenMarginDp,
-                    onValueChange = { value -> pendingMargin = value.roundToInt().toFloat() },
-                    onValueChangeFinished = {
-                        pendingMargin?.let { v ->
-                            update {
-                                it.withOrientation(isLandscape()) { o ->
-                                    o.copy(geometry = o.geometry.copy(screenMarginDp = v))
-                                }
+                // 跟随触发点的三个边距（横竖屏各存一份，这里编辑当前朝向）。
+                SurfacePlacementSliders(
+                    placement = current.orientation(isLandscape()).geometry.placement,
+                    shapeAt = { index -> segmentedShape(index + 2, 5) },
+                    onCommit = { next ->
+                        update {
+                            it.withOrientation(isLandscape()) { o ->
+                                o.copy(geometry = o.geometry.copy(placement = next))
                             }
                         }
-                        pendingMargin = null
                     },
-                    text = stringResource(R.string.grid_panel_screen_margin),
-                    valueDisplay = { "${it.roundToInt()}dp" },
-                    valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
-                    steps = 0,
-                    shape = segmentedShape(2, 3),
                 )
             }
         }

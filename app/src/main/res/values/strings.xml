@@ -103,9 +103,7 @@
     <string name="mini_window_settings_title">小窗设置</string>
     <string name="mini_window_settings_group">跟随触发位置</string>
     <string name="mini_window_follow_trigger">跟随触发位置</string>
-    <string name="mini_window_follow_trigger_hint">从手势、触钮、悬浮球或面板打开时，小窗以触发点为中心；无触点入口仍用固定位置</string>
-    <string name="mini_window_follow_gap">屏幕边距</string>
-    <string name="mini_window_follow_gap_value">%1$d dp</string>
+    <string name="mini_window_follow_trigger_hint">从手势、触钮、悬浮球或面板打开时，横向贴触发侧、竖向跟随触发点（保留上下间距）；无触点入口仍用固定位置</string>
     <string name="mini_window_position_size">位置与大小</string>
     <string name="mini_window_position_size_hint">分别调整竖屏与横屏的固定位置</string>
     <string name="screen_pick_settings_title">屏幕识别</string>
@@ -146,7 +144,6 @@
     <string name="grid_panel_empty_hint">还没有网格面板。添加后，动作里选「网格面板」即可在触点附近弹出。</string>
     <string name="grid_panel_summary">%1$d 项 · %2$d 列</string>
     <string name="grid_panel_delete_title">删除网格面板</string>
-    <string name="grid_panel_screen_margin">离屏边距</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_blur_radius">背景模糊</string>
     <string name="grid_panel_blur_off">关闭</string>
