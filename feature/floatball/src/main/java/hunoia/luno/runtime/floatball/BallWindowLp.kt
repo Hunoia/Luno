@@ -27,6 +27,10 @@ internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply 
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    // 贴物理屏边：默认 cutout 模式会把越入挖孔的窗口整体挪进安全区，
+    // 横屏挖孔在左侧时表现为球 / 胶囊离左边空一段（面板窗已显式 ALWAYS，所以它正常）。
+    layoutInDisplayCutoutMode =
+        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     width = ballPx
     height = ballPx
     gravity = Gravity.LEFT or Gravity.TOP
@@ -42,6 +46,8 @@ internal fun capsuleLayoutParams(bottomOffsetPx: Int) = WindowManager.LayoutPara
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    layoutInDisplayCutoutMode =
+        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     width = WindowManager.LayoutParams.WRAP_CONTENT
     height = WindowManager.LayoutParams.WRAP_CONTENT
     gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -56,6 +62,8 @@ internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.La
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    layoutInDisplayCutoutMode =
+        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     width = widthPx
     height = heightPx
     gravity = Gravity.LEFT or Gravity.TOP

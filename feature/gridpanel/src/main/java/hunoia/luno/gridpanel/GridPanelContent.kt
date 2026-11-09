@@ -2,7 +2,6 @@ package hunoia.luno.gridpanel
 
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
-import android.view.WindowInsets
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -37,6 +36,8 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.bridge.ui.systemBarsSafeArea
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
@@ -352,15 +353,11 @@ fun GridPanelRoot(
         Log.i(TAG, "pinch columns committed: $baseColumns -> $cols, heightFraction $newFracH")
     }
 
-    // 系统栏余量按 configuration 取：转屏（导航栏换边）后不能沿用首帧的值。
-    val insetsTop = remember(configuration) {
-        runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.statusBars()).top }
-            .getOrDefault(0)
-    }
-    val insetsBottom = remember(configuration) {
-        runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.navigationBars()).bottom }
-            .getOrDefault(0)
-    }
+    // 系统栏安全区与悬浮球同源（:core:bridge）：只避让可见状态栏 / 导航栏，左右贴物理边。
+    // 按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
+    val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
+    val insetsTop = barSafeArea.top
+    val insetsBottom = barSafeArea.bottom
 
     // 行数按页计算（页内占用各自撑）：一个 metrics 服务整个 pager，若占用取全部页的
     // 最大值，新加页/少内容页会和最满的页一样高。base metrics 只带可见行数（+编辑态

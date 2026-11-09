@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
+import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
+import hunoia.luno.bridge.ui.SystemBarsSafeArea
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
@@ -117,15 +119,29 @@ class FloatBallWindow(
     /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
     private var imeBottomPx = 0
 
-    /** 系统栏边界（px）。取不到时为 0，夹取退化为全屏。 */
-    private var bottomInsetPx = 0
+    /** 系统栏安全区（屏幕绝对坐标，只约束上下）。取不到时沿用上一次。 */
+    private var barSafeArea = SystemBarsSafeArea()
 
     /**
-     * LP 坐标系原点在屏幕上的 y：2038 悬浮窗以状态栏下沿为原点，按「y=0 是屏幕顶」
-     * 夹取会在屏幕底部裁掉状态栏高度；addView 后 getLocationOnScreen 实测，测出前按 0。
+     * LP 坐标系原点在屏幕上的 y：2038 悬浮窗通常以状态栏下沿为原点，但横屏状态下
+     * 状态栏可能只作为覆盖层压在屏幕上，此时原点为 0。用 getLocationOnScreen 实测，
+     * 测出前按 0；状态栏显隐会改变原点，因此不能只在挂窗 / 转屏时测一次。
      */
     private var lpOriginY = 0
 
+    /** insets 变化后的合并复测：事件值参考系随窗口位置漂移，只当触发信号。 */
+    private val remeasureSystemInsets = Runnable {
+        applySystemInsets()
+        remeasureLpOriginY()
+    }
+
+    /** 实测 LP 原点（布局原点随状态栏显隐 / 转屏变化），有变化才回写重建夹取。 */
+    private fun remeasureLpOriginY() {
+        postMeasureLpOriginY({ view }, { lpOriginY }) {
+            lpOriginY = it
+            applyWindowBounds()
+        }
+    }
 
     private var dragging = false
     private var pressed = false
@@ -206,6 +222,10 @@ class FloatBallWindow(
         // 转屏路径可能先由运行态观察者触发（早于 Service.onConfigurationChanged 的失效）：
         // 这里自己失效一次，避免按旧朝向的缓存宽高算贴边位。
         DensityProvider.invalidateMetrics()
+        // 安全区必须在算落点之前就位：否则新朝向的贴边 y 会被旧朝向的状态栏高度先
+        // 夹到新位置，安全区随后变小也不会回弹，留下一条假间距。
+        // 这里只读不夹：旧 posX 在新屏宽下夹出来的中间值没有意义。
+        barSafeArea = readBarSafeArea() ?: barSafeArea
         // 侧别必须按目标朝向自己那份落点判：旧朝向的像素 x 比新屏宽会在屏宽变化时
         // 翻转侧别（竖屏贴右 → 横屏变左）；y 同样取该朝向记忆值。
         cancelSettle()
@@ -215,14 +235,8 @@ class FloatBallWindow(
         // 静置外移量与侧别/屏宽耦合，旧朝向的 translationX 会在新朝向上表现为
         // 「偏离边缘 / 半颗球被裁」，必须按新位重摆。
         realignVisualAfterReposition()
-        // 横竖屏的状态栏高度不同（LP 原点随之变化），转屏后重测一次；导航栏同样重取。
-        view?.let { root ->
-            root.post { applySystemInsets() }
-            postMeasureLpOriginY({ view }, { lpOriginY }) {
-                lpOriginY = it
-                applyWindowBounds()
-            }
-        }
+        // LP 原点要等系统按新朝向重排后测才准，转屏后补测一次。
+        view?.post { remeasureLpOriginY() }
         return true
     }
 
@@ -320,8 +334,11 @@ class FloatBallWindow(
         // 位置漂移：球被抬升 → 窗口上移 → insets 变小 → 抬升量变小 → 循环，表现为
         // 键盘弹出后上下抖动。事件在这里只作为「立即轮询一次」的触发信号。
         root.setOnApplyWindowInsetsListener { v, insets ->
-            // 导航栏高度只在这里拿得到（attach 时 rootWindowInsets 还不存在）。
-            updateBottomInset(insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+            // 状态栏 / 导航栏尺寸变化同样会让窗口 LP 原点移动（横屏状态栏显隐尤其明显），
+            // 事件值是窗口参考系、会随球的位置漂移，不能直接采信：合并一拍后按绝对
+            // 参考系（currentWindowMetrics）复测安全区与 LP 原点。
+            handler.removeCallbacks(remeasureSystemInsets)
+            handler.postDelayed(remeasureSystemInsets, SYSTEM_INSETS_REMEASURE_MS)
             // IME 的 insets 值参考系会随窗口位置漂移，只当作「立即复测」的信号；
             // 隐藏（bottom 归零）同样要触发复测，否则只能等兜底轮询；
             // 但事件值只作信号，是否代表推播可用由服务侧按 ime>0 判定。
@@ -382,6 +399,7 @@ class FloatBallWindow(
         visualAnimator = null
         idleRunnable?.let(handler::removeCallbacks)
         idleRunnable = null
+        handler.removeCallbacks(remeasureSystemInsets)
         // 窗口既已摘除，交互/换位中的标志全部作废：淡出的 withEndAction 在 cancel 时
         // 不运行，transferring 残留 true 会把重挂后的 repositionTo 永久挡死。
         transferring = false
@@ -551,8 +569,16 @@ class FloatBallWindow(
         // ImeMargin 防贴键盘顶；ImeExtraLift 再抬高一段 —— 键盘上方通常是应用的输入栏/发送按钮。
         val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp)
         val overflow = (posY).roundToInt() + ballPx + marginPx - (screenHeightPx - imeBottomPx)
-        // 让位只作用于显示位置，基准 posY 不动；封顶在「球顶正好到 LP 原点」。
-        return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - lpOriginY))
+        // 让位只作用于显示位置，基准 posY 不动；封顶在球顶正好到安全区上界
+        // （横屏 LP 原点为 0 时，若按 LP 原点封顶，键盘会把球顶上状态栏）。
+        val minY = BallPlacement.bounds(
+            screenWidthPx,
+            screenHeightPx,
+            ballPx,
+            barSafeArea,
+            lpOriginY,
+        ).minY.roundToInt()
+        return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - minY))
     }
 
     // ---- 触摸 → 定位 ----
@@ -610,9 +636,9 @@ class FloatBallWindow(
     fun repositionTo(leftEdge: Boolean, yRatio: Float, onLanded: (() -> Unit)? = null): Boolean {
         if (dragging || transferring || pressed) return false
         val target = view ?: return false
+        val bounds = BallPlacement.bounds(screenWidthPx, screenHeightPx, ballPx, barSafeArea, lpOriginY)
         val targetX = BallPlacement.edgeX(leftEdge, screenWidthPx, ballPx)
-        val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
-        val targetY = (yRatio * screenHeightPx).coerceIn(lpOriginY.toFloat(), maxY.toFloat())
+        val targetY = (yRatio * screenHeightPx).coerceIn(bounds.minY, bounds.maxY)
         if (kotlin.math.abs(targetX - posX) < 0.5f && kotlin.math.abs(targetY - posY) < 0.5f) {
             scheduleIdle()
             onLanded?.invoke()
@@ -698,7 +724,7 @@ class FloatBallWindow(
     private fun savedEdgeX(landscape: Boolean): Float =
         BallPlacement.edgeX(settings.position(landscape).x, screenWidthPx, ballPx)
 
-    /** 贴边重吸附：x 吸到 [left] 侧边缘（完整球在屏内），y 不动。 */
+    /** 贴边重吸附：x 吸到 [left] 侧安全区边缘（完整球在屏内），y 不动。 */
     private fun snapToNearestEdge(left: Boolean = isOnLeft()) {
         if (screenWidthPx <= 0) return
         posX = BallPlacement.edgeX(left, screenWidthPx, ballPx)
@@ -834,18 +860,26 @@ class FloatBallWindow(
 
     private fun createLayoutParams() = ballLayoutParams(ballPx)
 
-    /** 叠加底栏边界的 best-effort。顶边不用它 —— 由 [lpOriginY] 实测更可靠。 */
+    /**
+     * 安全区复测：`currentWindowMetrics` 的 display 绝对坐标，与 IME 让位同源
+     * （`:core:bridge` 的 [systemBarsSafeAreaOrNull]）。不用小窗自己的 rootWindowInsets
+     * —— 那是「窗口被系统栏重叠的量」，参考系随窗口位置漂移。
+     */
     private fun applySystemInsets() {
-        runCatching {
-            val insets = view?.rootWindowInsets ?: return
-            updateBottomInset(insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
-        }.onFailure { Log.w(TAG, "insets unavailable: ${it.message}") }
+        updateBarSafeArea(readBarSafeArea() ?: return)
     }
 
-    /** 底栏边界变化时重夹一次：球不该停在导航栏下面。 */
-    private fun updateBottomInset(bottom: Int) {
-        if (bottom == bottomInsetPx) return
-        bottomInsetPx = bottom
+    /** 读屏幕绝对坐标的系统栏安全区；拿不到返回 null，由调用方沿用上一次的值。 */
+    private fun readBarSafeArea(): SystemBarsSafeArea? {
+        val next = wm.systemBarsSafeAreaOrNull()
+        if (next == null) Log.w(TAG, "system bar insets unavailable")
+        return next
+    }
+
+    /** 安全区变化时重夹一次：球不该停在状态栏 / 导航栏下面。 */
+    private fun updateBarSafeArea(next: SystemBarsSafeArea) {
+        if (next == barSafeArea) return
+        barSafeArea = next
         applyWindowBounds()
     }
 
@@ -855,10 +889,9 @@ class FloatBallWindow(
      */
     private fun applyWindowBounds() {
         val current = view ?: return
-        val maxX = max(0, screenWidthPx - ballPx)
-        val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
-        posX = posX.coerceIn(0f, maxX.toFloat())
-        posY = posY.coerceIn(lpOriginY.toFloat(), maxY.toFloat())
+        val bounds = BallPlacement.bounds(screenWidthPx, screenHeightPx, ballPx, barSafeArea, lpOriginY)
+        posX = posX.coerceIn(bounds.minX, bounds.maxX)
+        posY = posY.coerceIn(bounds.minY, bounds.maxY)
         // 显示位置 = 基准 − 让位，但不越过 LP 原点。
         val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
         writeBallPosition(current, wm, posX, displayY, lpOriginY)
@@ -930,5 +963,8 @@ class FloatBallWindow(
 
         /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
         const val IME_LIFT_ANIM_MS = 220L
+
+        /** 系统栏 insets 事件的合并复测延迟：躲开键盘动画期间的高频派发。 */
+        const val SYSTEM_INSETS_REMEASURE_MS = 32L
     }
 }

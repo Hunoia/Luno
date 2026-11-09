@@ -1,7 +1,6 @@
 package hunoia.luno.quickaccess.panel
 import hunoia.luno.ui.theme.*
 
-import android.view.WindowInsets
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
@@ -56,6 +55,8 @@ import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.ExtraLargeShape
 
 import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.bridge.ui.systemBarsSafeArea
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
@@ -149,14 +150,10 @@ internal fun QuickAppLauncherRoot(
             val panelHeightPx = (screenHeightPx * layout.contentHeightFraction.coerceIn(0.35f, 0.85f))
                 .roundToInt().coerceAtLeast(requiredHeightPx).coerceAtMost(screenHeightPx)
             // 系统栏余量按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
-            val insetsTop = remember(configuration) {
-                runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.statusBars()).top }
-                    .getOrDefault(0)
-            }
-            val insetsBottom = remember(configuration) {
-                runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.navigationBars()).bottom }
-                    .getOrDefault(0)
-            }
+            // 系统栏安全区与悬浮球同源（:core:bridge），按 configuration 记忆：转屏后不沿用旧值。
+            val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
+            val insetsTop = barSafeArea.top
+            val insetsBottom = barSafeArea.bottom
             val marginPx = with(density) {
                 layout.screenMarginDp.coerceIn(GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp).dp.toPx()
             }
