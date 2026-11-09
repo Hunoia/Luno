@@ -84,7 +84,6 @@
     <string name="action_settings_system_group">系统</string>
     <string name="action_settings_appearance_group">外观</string>
     <string name="action_settings_list_style">列表风格</string>
-    <string name="action_settings_list_style_hint">整组一张大卡，行间细线分割</string>
     <string name="list_style_segmented">分段式</string>
     <string name="list_style_card_divided">大卡分割线</string>
     <!-- 字体缩放（系统 font_scale） -->
@@ -428,9 +427,7 @@
 
     <string name="log_settings_group">记录设置</string>
     <string name="clipboard_settings_entry">剪贴板</string>
-    <string name="clipboard_settings_entry_hint">历史、固定、批量管理与导入导出</string>
     <string name="log_settings_title">运行日志</string>
-    <string name="log_settings_entry_hint">查看、清空或导出持久日志</string>
     <string name="log_settings_recording">记录到文件</string>
     <string name="log_settings_recording_hint">按进程分文件并自动轮转；logcat 始终输出全量</string>
     <string name="log_settings_level">日志级别</string>

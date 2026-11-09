@@ -76,7 +76,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
-import kotlin.math.min
 
 /** 工具条内联面板：浮层窗口是 NOT_FOCUSABLE，独立 Dialog 会抢焦点，只能同窗内联。 */
 private enum class OverlayPanel { None, Export, ConfirmExit }
