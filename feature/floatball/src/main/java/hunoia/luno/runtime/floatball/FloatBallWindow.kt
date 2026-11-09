@@ -123,22 +123,25 @@ class FloatBallWindow(
     private var barSafeArea = SystemBarsSafeArea()
 
     /**
-     * LP 坐标系原点在屏幕上的 y：2038 悬浮窗通常以状态栏下沿为原点，但横屏状态下
-     * 状态栏可能只作为覆盖层压在屏幕上，此时原点为 0。用 getLocationOnScreen 实测，
-     * 测出前按 0；状态栏显隐会改变原点，因此不能只在挂窗 / 转屏时测一次。
+     * LP 坐标系原点在屏幕上的 y。带 LAYOUT_IN_SCREEN 后应为 0；个别 ROM 仍以
+     * 状态栏下沿为原点，保留实测兜底。状态栏显隐会同时改原点与安全区，因此
+     * 变化时必须先测原点再读安全区，避免两段修正把球推得跳一下。
      */
     private var lpOriginY = 0
 
-    /** insets 变化后的合并复测：事件值参考系随窗口位置漂移，只当触发信号。 */
+    /** insets 变化后的合并复测：先测 LP 原点，再读安全区，最后只写一次窗口。
+     *  状态栏显隐会同时改变两者；先读安全区会用旧原点把球多推一次，表现为跳一下再回弹。 */
     private val remeasureSystemInsets = Runnable {
-        applySystemInsets()
-        remeasureLpOriginY()
+        postMeasureLpOriginY({ view }) { measured ->
+            lpOriginY = measured
+            applySystemInsets()
+        }
     }
 
-    /** 实测 LP 原点（布局原点随状态栏显隐 / 转屏变化），有变化才回写重建夹取。 */
+    /** 实测 LP 原点（布局原点随状态栏显隐 / 转屏变化），测完回写并重夹一次。 */
     private fun remeasureLpOriginY() {
-        postMeasureLpOriginY({ view }, { lpOriginY }) {
-            lpOriginY = it
+        postMeasureLpOriginY({ view }) { measured ->
+            lpOriginY = measured
             applyWindowBounds()
         }
     }
@@ -376,8 +379,8 @@ class FloatBallWindow(
             root.translationX = idleShiftPx()
         }
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
-        postMeasureLpOriginY({ view }, { lpOriginY }) {
-            lpOriginY = it
+        postMeasureLpOriginY({ view }) { measured ->
+            lpOriginY = measured
             applyWindowBounds()
         }
         return true

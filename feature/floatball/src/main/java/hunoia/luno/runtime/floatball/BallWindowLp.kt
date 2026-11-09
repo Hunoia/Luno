@@ -20,13 +20,18 @@ import kotlin.math.roundToInt
 /** 球窗 / 胶囊窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
 
 /** 球窗 LP：TYPE_APPLICATION_OVERLAY、ballPx 见方、LEFT|TOP。不加 LAYOUT_NO_LIMITS ——
- *  球必须完整在屏内，靠正常窗口边界 + 夹取就够。 */
+ *  球必须完整在屏内，靠正常窗口边界 + 夹取就够。
+ *
+ *  带 LAYOUT_IN_SCREEN：LP 坐标固定以物理屏左上角为原点，不随状态栏显隐在
+ *  「状态栏下沿 / 屏幕顶」之间切换 —— 否则状态栏一隐，系统把窗口整体上移，
+ *  下一帧复测原点再写回 LP，表现为球上下跳一下再回原位。 */
 @SuppressLint("RtlHardcoded")
 internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply {
     type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
     // 贴物理屏边：默认 cutout 模式会把越入挖孔的窗口整体挪进安全区，
     // 横屏挖孔在左侧时表现为球 / 胶囊离左边空一段（面板窗已显式 ALWAYS，所以它正常）。
     layoutInDisplayCutoutMode =
@@ -38,30 +43,15 @@ internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply 
     y = 0
 }
 
-/** 通知胶囊窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT（尺寸随内容自适应）、
- *  BOTTOM|CENTER_HORIZONTAL 重力（底部居中，换内容重排自动保持），y = 离屏底偏移。 */
-@SuppressLint("RtlHardcoded")
-internal fun capsuleLayoutParams(bottomOffsetPx: Int) = WindowManager.LayoutParams().apply {
-    type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    format = PixelFormat.TRANSLUCENT
-    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-    layoutInDisplayCutoutMode =
-        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-    width = WindowManager.LayoutParams.WRAP_CONTENT
-    height = WindowManager.LayoutParams.WRAP_CONTENT
-    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-    x = 0
-    y = bottomOffsetPx
-}
-
-/** 共享胶囊窗 LP：固定宽高（高 = 球尺寸），LEFT|TOP 手工按球的锚定边贴边。 */
+/** 共享胶囊窗 LP：固定宽高（高 = 球尺寸），LEFT|TOP 手工按球的锚定边贴边。
+ *  与球窗同样带 LAYOUT_IN_SCREEN，保证两窗 LP 原点一致。 */
 @SuppressLint("RtlHardcoded")
 internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.LayoutParams().apply {
     type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
     layoutInDisplayCutoutMode =
         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     width = widthPx
@@ -99,13 +89,11 @@ internal fun settleBallWindowAlpha(view: View, wm: WindowManager) {
 }
 
 /**
- * 实测 LP 坐标系原点在屏幕上的 y（2038 悬浮窗以状态栏下沿为原点）：窗口摆出来
- * 才知道真实屏幕落点。[currentView]/[currentKnown] 都传字段读取器，post 时取最新值，
- * 测得变化才回调。
+ * 实测 LP 坐标系原点在屏幕上的 y（LAYOUT_IN_SCREEN 下应为 0；部分 ROM 仍以状态栏下沿
+ * 为原点，作为兜底保留）。测得后总是回调；调用方自己判断是否需要重写窗口。
  */
 internal fun postMeasureLpOriginY(
     currentView: () -> View?,
-    currentKnown: () -> Int,
     onMeasured: (Int) -> Unit,
 ) {
     val target = currentView() ?: return
@@ -114,7 +102,7 @@ internal fun postMeasureLpOriginY(
         val location = IntArray(2)
         live.getLocationOnScreen(location)
         val measured = location[1] - ((live.layoutParams as? WindowManager.LayoutParams)?.y ?: 0)
-        if (measured != currentKnown()) onMeasured(measured)
+        onMeasured(measured)
     }
 }
 
