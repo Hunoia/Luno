@@ -15,6 +15,7 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.HABIT_REMINDER_CHANNEL_ID
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitDayState
+import hunoia.luno.config.model.HabitMaxSnoozeMinutes
 import hunoia.luno.config.model.NotificationDisplaySettings
 import hunoia.luno.config.model.NotificationKind
 import hunoia.luno.config.model.NotificationMode
@@ -68,9 +69,10 @@ object HabitReminderNotifier {
         day: Long,
         mode: NotificationMode,
         status: HabitReminderStatus?,
+        slotMinutes: Int = 0,
         autoExpandOverride: Boolean? = null,
     ) {
-        post(context, habit, day, mode, status, test = false, autoExpandOverride = autoExpandOverride)
+        post(context, habit, day, mode, status, slotMinutes, test = false, autoExpandOverride = autoExpandOverride)
     }
 
     /** 「发送测试通知」：用指定模式立即发一条，60 秒后自动收起，不写任何打卡。 */
@@ -81,7 +83,7 @@ object HabitReminderNotifier {
             name = app.getString(R.string.habit_reminder_test_name),
         )
         val day = java.time.LocalDate.now().toEpochDay()
-        post(context, habit, day, mode, status = null, test = true, autoExpandOverride = autoExpand)
+        post(context, habit, day, mode, status = null, slotMinutes = 0, test = true, autoExpandOverride = autoExpand)
     }
 
     /**
@@ -98,19 +100,48 @@ object HabitReminderNotifier {
         presenter.prewarmIslandAuth(CHANNEL_ID)
     }
 
+    /** 「+1」后未达标：静默刷新进度文案，不重新响铃 / 震动；岛模式下不重发，避免二次展开。 */
+    suspend fun refreshProgress(
+        context: Context,
+        habit: Habit,
+        day: Long,
+        status: HabitReminderStatus?,
+        slotMinutes: Int,
+    ) {
+        val app = context.applicationContext
+        val mode = HabitReminderScheduler.currentMode()
+        if (mode == NotificationMode.ISLAND) return
+        val notificationId = HabitReminderScheduler.notificationId(habit.id)
+        if (!isActive(app, notificationId)) return
+        createChannel(app)
+        postNotification(
+            app,
+            habit,
+            day,
+            status,
+            slotMinutes,
+            test = false,
+            mode = mode,
+            notificationId = notificationId,
+            wantLive = mode == NotificationMode.LIVE,
+            silent = true,
+        )
+    }
+
     private suspend fun post(
         context: Context,
         habit: Habit,
         day: Long,
         mode: NotificationMode,
         status: HabitReminderStatus?,
+        slotMinutes: Int,
         test: Boolean,
         autoExpandOverride: Boolean? = null,
     ) {
         val app = context.applicationContext
         createChannel(app)
         val notificationId = HabitReminderScheduler.notificationId(habit.id)
-        LunoLog.i(LOG_TAG, "habit reminder show: habit=${habit.id} day=$day mode=$mode test=$test id=$notificationId")
+        LunoLog.i(LOG_TAG, "habit reminder show: habit=${habit.id} day=$day slot=$slotMinutes mode=$mode test=$test id=$notificationId")
         if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) {
             LunoLog.w(LOG_TAG, "habit reminder skipped: notifications disabled")
             return
@@ -122,7 +153,7 @@ object HabitReminderNotifier {
                 // postNotification 内的 applyLiveUpdate 静默落回标准通知）。
                 when (
                     val result = presenter.publishIsland(
-                        islandSpec(app, habit, day, status, test, mode, notificationId, autoExpandOverride),
+                        islandSpec(app, habit, day, status, slotMinutes, test, mode, notificationId, autoExpandOverride),
                     )
                 ) {
                     IslandPublishResult.Posted -> {
@@ -132,16 +163,16 @@ object HabitReminderNotifier {
 
                     else -> {
                         LunoLog.w(LOG_TAG, "habit reminder island fallback to LIVE: id=$notificationId reason=$result")
-                        postNotification(app, habit, day, status, test, mode, notificationId, wantLive = true)
+                        postNotification(app, habit, day, status, slotMinutes, test, mode, notificationId, wantLive = true)
                     }
                 }
             }
 
             NotificationMode.LIVE ->
-                postNotification(app, habit, day, status, test, mode, notificationId, wantLive = true)
+                postNotification(app, habit, day, status, slotMinutes, test, mode, notificationId, wantLive = true)
 
             NotificationMode.STANDARD ->
-                postNotification(app, habit, day, status, test, mode, notificationId, wantLive = false)
+                postNotification(app, habit, day, status, slotMinutes, test, mode, notificationId, wantLive = false)
         }
     }
 
@@ -150,6 +181,7 @@ object HabitReminderNotifier {
         habit: Habit,
         day: Long,
         status: HabitReminderStatus?,
+        slotMinutes: Int,
         test: Boolean,
         mode: NotificationMode,
         notificationId: Int,
@@ -168,7 +200,7 @@ object HabitReminderNotifier {
         if (askExpand && !canFloat) {
             LunoLog.w(LOG_TAG, "island float probe says false, ignoring (known false-negative on HyperOS 4)")
         }
-        val doneIntentUri = actionIntentUri(app, habit.id, day, HabitReminderScheduler.ACTION_MARK_DONE)
+        val doneIntentUri = actionIntentUri(app, habit.id, day, slotMinutes, HabitReminderScheduler.ACTION_MARK_DONE)
         return IslandNotificationSpec(
             channelId = CHANNEL_ID,
             notificationId = notificationId,
@@ -207,7 +239,7 @@ object HabitReminderNotifier {
                 }
                 // 测试通知只有一个按钮：它就是「点击链路能不能走通」的探针。
                 if (!test) {
-                    snoozeActionUri(app, habit, day)?.let {
+                    snoozeActionUri(app, habit, day, slotMinutes)?.let {
                         add(
                             IslandActionSpec(
                                 key = ACTION_KEY_SNOOZE,
@@ -226,9 +258,27 @@ object HabitReminderNotifier {
         runCatching { ConfigProvider.getAdvancedSettings().notificationDisplay }
             .getOrDefault(NotificationDisplaySettings())
 
-    /** 展开态正文：状态 + 连续天数（[status] 为空 = 测试通知，调用方另有文案）。 */
+    /** 展开态正文：状态 + 连续天数；多次习惯显示今日进度。 */
     private fun statusText(app: Context, status: HabitReminderStatus?): String {
         if (status == null) return app.getString(R.string.habit_reminder_status_plain)
+        val target = status.target.coerceAtLeast(1)
+        if (target > 1) {
+            val done = status.count.coerceIn(0, target)
+            return when (status.state) {
+                HabitDayState.CHECKED,
+                HabitDayState.SKIPPED,
+                -> app.getString(R.string.habit_reminder_status_plain)
+
+                HabitDayState.INACTIVE ->
+                    app.getString(R.string.habit_reminder_status_progress_inactive, done, target)
+
+                HabitDayState.OVERDUE ->
+                    app.getString(R.string.habit_reminder_status_progress_overdue, done, target)
+
+                HabitDayState.DUE ->
+                    app.getString(R.string.habit_reminder_status_progress, done, target, status.streakDays)
+            }
+        }
         return when (status.state) {
             HabitDayState.CHECKED,
             HabitDayState.SKIPPED,
@@ -253,11 +303,18 @@ object HabitReminderNotifier {
         return runCatching { intent.toUri(Intent.URI_INTENT_SCHEME) }.getOrNull()
     }
 
-    private fun actionIntentUri(app: Context, habitId: String, day: Long, action: String): String? {
+    private fun actionIntentUri(
+        app: Context,
+        habitId: String,
+        day: Long,
+        slotMinutes: Int,
+        action: String,
+    ): String? {
         val intent = Intent(app, HabitReminderReceiver::class.java).apply {
             this.action = action
             putExtra(HabitReminderScheduler.EXTRA_HABIT_ID, habitId)
             putExtra(HabitReminderScheduler.EXTRA_DAY, day)
+            putExtra(HabitReminderScheduler.EXTRA_SLOT, slotMinutes)
         }
         return runCatching { intent.toUri(Intent.URI_INTENT_SCHEME) }.getOrNull()
     }
@@ -268,18 +325,28 @@ object HabitReminderNotifier {
         habit: Habit,
         day: Long,
         status: HabitReminderStatus?,
+        slotMinutes: Int,
         test: Boolean,
         mode: NotificationMode,
         notificationId: Int,
         wantLive: Boolean,
+        silent: Boolean = false,
     ) {
         val contentIntent = editPendingIntent(app, habit.id, test, notificationId)
-        val doneIntent = actionPendingIntent(app, habit.id, day, notificationId + 1, HabitReminderScheduler.ACTION_MARK_DONE)
-        val snoozeMinutes = habit.snoozeMinutes.coerceAtLeast(1)
+        val doneIntent = actionPendingIntent(
+            app,
+            habit.id,
+            day,
+            slotMinutes,
+            notificationId + 1,
+            HabitReminderScheduler.ACTION_MARK_DONE,
+        )
+        val snoozeMinutes = habit.snoozeMinutes.coerceIn(1, HabitMaxSnoozeMinutes)
         val snoozeIntent = actionPendingIntent(
             app,
             habit.id,
             day,
+            slotMinutes,
             notificationId + 2,
             HabitReminderScheduler.ACTION_SNOOZE,
             snoozeMinutes,
@@ -302,10 +369,12 @@ object HabitReminderNotifier {
             .setStyle(Notification.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)
             .setCategory(Notification.CATEGORY_REMINDER)
-            // 常驻提醒：直到「完成」「跳过今天」或当天 0 点由调度器统一收起；
-            // Android 16+ 升胶囊也要求 ongoing。
+            // 常驻提醒：直到完成当日目标或当天 0 点由调度器统一收起；
+            // Android 16+ 升胶囊也要求 ongoing。同一习惯多个时间槽重新 post 同一条，
+            // setOnlyAlertOnce(false) 保证后一个时间点仍然响铃 / 震动。
             .setOngoing(true)
-            .setOnlyAlertOnce(!test)
+            // 静默刷新（+1 未达标）不重新响铃；新的提醒槽正常响铃 / 震动。
+            .setOnlyAlertOnce(silent)
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(app, R.mipmap.ic_launcher),
@@ -353,6 +422,7 @@ object HabitReminderNotifier {
         app: Context,
         habitId: String,
         day: Long,
+        slotMinutes: Int,
         requestCode: Int,
         action: String,
         snoozeMinutes: Int? = null,
@@ -363,21 +433,37 @@ object HabitReminderNotifier {
             this.action = action
             putExtra(HabitReminderScheduler.EXTRA_HABIT_ID, habitId)
             putExtra(HabitReminderScheduler.EXTRA_DAY, day)
+            putExtra(HabitReminderScheduler.EXTRA_SLOT, slotMinutes)
             snoozeMinutes?.let { putExtra(HabitReminderScheduler.EXTRA_SNOOZE_MINUTES, it) }
         },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    /** 「推迟 N 分钟」按钮文案（N 来自习惯设置）。 */
+    /** 「推迟 N 分钟」按钮文案（N 来自习惯设置，支持到 6 小时）。 */
     private fun snoozeLabel(app: Context, habit: Habit): String =
-        app.getString(R.string.habit_reminder_snooze, habit.snoozeMinutes.coerceAtLeast(1))
+        formatSnoozeDuration(app, habit.snoozeMinutes)
 
-    private fun snoozeActionUri(app: Context, habit: Habit, day: Long): String? {
+    private fun formatSnoozeDuration(app: Context, minutes: Int): String {
+        val safe = minutes.coerceIn(1, HabitMaxSnoozeMinutes)
+        val hours = safe / 60
+        val rest = safe % 60
+        return when {
+            hours == 0 -> app.getString(R.string.habit_reminder_snooze_minutes, rest)
+            rest == 0 -> app.getString(R.string.habit_reminder_snooze_hours, hours)
+            else -> app.getString(R.string.habit_reminder_snooze_hours_minutes, hours, rest)
+        }
+    }
+
+    private fun snoozeActionUri(app: Context, habit: Habit, day: Long, slotMinutes: Int): String? {
         val intent = Intent(app, HabitReminderReceiver::class.java).apply {
             action = HabitReminderScheduler.ACTION_SNOOZE
             putExtra(HabitReminderScheduler.EXTRA_HABIT_ID, habit.id)
             putExtra(HabitReminderScheduler.EXTRA_DAY, day)
-            putExtra(HabitReminderScheduler.EXTRA_SNOOZE_MINUTES, habit.snoozeMinutes.coerceAtLeast(1))
+            putExtra(HabitReminderScheduler.EXTRA_SLOT, slotMinutes)
+            putExtra(
+                HabitReminderScheduler.EXTRA_SNOOZE_MINUTES,
+                habit.snoozeMinutes.coerceIn(1, HabitMaxSnoozeMinutes),
+            )
         }
         return runCatching { intent.toUri(Intent.URI_INTENT_SCHEME) }.getOrNull()
     }
@@ -453,6 +539,10 @@ object HabitReminderNotifier {
 data class HabitReminderStatus(
     val state: HabitDayState,
     val streakDays: Long,
+    /** 当天已完成次数；单次习惯 = 0 / 1。 */
+    val count: Int = 0,
+    /** 当天目标次数；1 表示单次习惯。 */
+    val target: Int = 1,
 )
 
 /** 配置里是否有任何类型会走 ISLAND（决定要不要做鉴权预热）。 */

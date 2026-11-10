@@ -174,10 +174,12 @@ object ConfigProvider {
         stores._habitConfig.updateData(transform)
     }
 
-    /** 部件打卡：只打卡不可取消；今天已打再调是幂等。写后按保留天数惰性裁剪。 */
-    suspend fun toggleHabit(habitId: String, day: Long) {
-        updateHabitConfig {
-            it.withCheck(habitId, day).pruneChecks(LocalDate.now().toEpochDay(), HabitHistoryRetentionDays)
+    /** 打卡 +1：未达标累加次数，达标移入完成集合；已完成再调是幂等。写后按保留天数惰性裁剪。 */
+    suspend fun incrementHabit(habitId: String, day: Long) {
+        updateHabitConfig { config ->
+            val target = config.habitById(habitId)?.safeDailyTarget ?: return@updateHabitConfig config
+            config.withIncrement(habitId, day, target)
+                .pruneChecks(LocalDate.now().toEpochDay(), HabitHistoryRetentionDays)
         }
     }
 

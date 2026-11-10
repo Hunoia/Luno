@@ -13,10 +13,10 @@ class HabitConfigTest {
     // ---------- 推迟 ----------
 
     @Test
-    fun `snooze default is one of the offered options`() {
+    fun `snooze default is within the selectable range`() {
         val habit = Habit(name = "cap")
         assertEquals(HabitDefaultSnoozeMinutes, habit.snoozeMinutes)
-        assertTrue(HabitSnoozeMinuteOptions.contains(HabitDefaultSnoozeMinutes))
+        assertTrue(habit.snoozeMinutes in HabitMinSnoozeMinutes..HabitMaxSnoozeMinutes)
     }
 
     // ---------- currentStreak ----------
@@ -277,5 +277,133 @@ class HabitConfigTest {
         val cfg = HabitConfig().withCheck(id, today).withCheck(id, today - 3)
         val pruned = cfg.pruneChecks(today, 90)
         assertTrue(pruned === cfg) // 无变化原样返回
+    }
+
+    // ---------- daily target / increment ----------
+
+    @Test
+    fun `safe daily target is clamped`() {
+        assertEquals(1, Habit(dailyTarget = 0).safeDailyTarget)
+        assertEquals(HabitMaxDailyTarget, Habit(dailyTarget = 999).safeDailyTarget)
+    }
+
+    @Test
+    fun `increment accumulates partial counts then completes`() {
+        val id = "h1"
+        var cfg = HabitConfig()
+        cfg = cfg.withIncrement(id, today, 3)
+        assertEquals(1, cfg.countOf(id, today, 3))
+        assertFalse(cfg.isChecked(id, today))
+        cfg = cfg.withIncrement(id, today, 3)
+        assertEquals(2, cfg.countOf(id, today, 3))
+        cfg = cfg.withIncrement(id, today, 3)
+        assertTrue(cfg.isChecked(id, today))
+        assertEquals(3, cfg.countOf(id, today, 3))
+        // 达标后只保留完成集合，不再留部分进度。
+        assertFalse(cfg.counts[id]?.containsKey(today) == true)
+    }
+
+    @Test
+    fun `increment on completed day is idempotent`() {
+        val id = "h1"
+        val cfg = HabitConfig().withCheck(id, today)
+        assertTrue(cfg.withIncrement(id, today, 3) === cfg)
+    }
+
+    @Test
+    fun `partial completion is not checked and does not start streak`() {
+        val id = "h1"
+        val cfg = HabitConfig().withIncrement(id, today, 3)
+        assertFalse(cfg.isChecked(id, today))
+        assertEquals(0L, currentStreak(cfg.checks[id].orEmpty(), today, 1))
+    }
+
+    @Test
+    fun `setting checked clears partial progress`() {
+        val id = "h1"
+        val cfg = HabitConfig().withIncrement(id, today, 3)
+        val filled = cfg.setChecked(id, today, true)
+        assertTrue(filled.isChecked(id, today))
+        assertFalse(filled.counts[id]?.containsKey(today) == true)
+    }
+
+    @Test
+    fun `without check clears partial progress`() {
+        val id = "h1"
+        val cfg = HabitConfig().withIncrement(id, today, 3)
+        val cleared = cfg.withoutCheck(id, today)
+        assertEquals(0, cleared.countOf(id, today, 3))
+        assertFalse(cleared.counts[id]?.containsKey(today) == true)
+    }
+
+    @Test
+    fun `prune drops old partial counts`() {
+        val id = "h1"
+        val cfg = HabitConfig().withIncrement(id, today - 91, 3)
+        val pruned = cfg.pruneChecks(today, 90)
+        assertTrue(id !in pruned.counts)
+    }
+
+    // ---------- reminders ----------
+
+    @Test
+    fun `reminder times are normalized sorted deduped and capped`() {
+        val times = (0..8).map { HabitReminderTime(hour = 23 - it, minute = it) }
+        val normalized = normalizeReminderTimes(times + HabitReminderTime(23, 0))
+        assertEquals(HabitMaxReminders, normalized.size)
+        assertEquals(normalized.sortedBy { it.minutesOfDay }, normalized)
+        assertEquals(normalized.distinctBy { it.minutesOfDay }.size, normalized.size)
+    }
+
+    @Test
+    fun `disabled reminders expose no times`() {
+        val habit = Habit(
+            reminderEnabled = false,
+            reminders = listOf(HabitReminderTime(8, 0)),
+        )
+        assertTrue(habit.reminderTimes.isEmpty())
+        assertTrue(habit.copy(reminderEnabled = true).reminderTimes.isNotEmpty())
+    }
+
+    // ---------- dots with progress ----------
+
+    @Test
+    fun `dots carry count and target for multi target habits`() {
+        val checks = setOf(today - 1)
+        val counts = mapOf(today to 1)
+        val dots = lastNDaysDots(checks, today, 1, 2, counts = counts, target = 3)
+        val todayDot = dots.last()
+        assertEquals(1, todayDot.count)
+        assertEquals(3, todayDot.target)
+        assertTrue(todayDot.isPartial)
+        assertEquals(1f / 3f, todayDot.progress, 0.0001f)
+        val yesterdayDot = dots.first()
+        assertEquals(3, yesterdayDot.count)
+        assertFalse(yesterdayDot.isPartial)
+        assertEquals(1f, yesterdayDot.progress, 0.0001f)
+    }
+
+    // ---------- 序列化 ----------
+
+    @Test
+    fun `config with counts and reminders round trips through json`() {
+        val habit = Habit(
+            id = "h1",
+            name = "喝水",
+            dailyTarget = 3,
+            reminderEnabled = true,
+            reminders = listOf(HabitReminderTime(8, 0), HabitReminderTime(20, 30)),
+        )
+        val config = HabitConfig(habits = listOf(habit))
+            .withIncrement("h1", today, 3)
+            .withCheck("h1", today - 1)
+        val json = kotlinx.serialization.json.Json.encodeToString(HabitConfig.serializer(), config)
+        val restored = kotlinx.serialization.json.Json.decodeFromString(HabitConfig.serializer(), json)
+        assertEquals(config, restored)
+        assertEquals(1, restored.countOf("h1", today, 3))
+        assertEquals(
+            listOf(HabitReminderTime(8, 0), HabitReminderTime(20, 30)),
+            restored.habits.first().reminderTimes,
+        )
     }
 }

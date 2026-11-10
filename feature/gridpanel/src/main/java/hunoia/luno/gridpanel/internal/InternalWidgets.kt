@@ -26,6 +26,8 @@ object InternalWidgetIds {
     const val APP_DRAWER = "internal.appDrawer"
     /** 习惯历史：近 N 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
     const val HABIT_HISTORY = "internal.habitHistory"
+    /** 习惯热力图：近 90 天热力格 + 连续天数（params 存 HabitWidgetParams）。 */
+    const val HABIT_HEATMAP = "internal.habitHeatmap"
     /** 代办列表：未完成项可勾选 + 未完成数（无 params）。 */
     const val TODO = "internal.todo"
 }

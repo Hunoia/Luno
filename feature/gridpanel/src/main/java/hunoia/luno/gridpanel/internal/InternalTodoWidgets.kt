@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +50,7 @@ import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoExtras
+import hunoia.luno.gridpanel.TodoReminderFormat
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlinx.coroutines.launch
@@ -267,6 +269,32 @@ private fun TodoRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        todo.reminder?.let { reminder ->
+            val past = reminder.isPast(System.currentTimeMillis())
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.Alarm,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = if (past) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    onCard.copy(alpha = 0.7f)
+                },
+            )
+            Spacer(Modifier.width(2.dp))
+            Text(
+                text = TodoReminderFormat.label(LocalContext.current, reminder),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (past) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    onCard.copy(alpha = 0.7f)
+                },
+                fontSize = 9.sp,
+                maxLines = 1,
+            )
+        }
     }
 }
 

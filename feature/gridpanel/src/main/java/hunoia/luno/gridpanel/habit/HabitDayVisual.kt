@@ -4,12 +4,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.gridpanel.R
@@ -138,6 +141,34 @@ internal fun HabitDayMarkIcon(
             path = path,
             color = color,
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+    }
+}
+
+/**
+ * 多次习惯的部分完成进度弧：从 12 点方向顺时针扫 [progress] × 360°。
+ * 点阵部件、编辑页日历与桌面部件共用同一视觉语义；满目标不画弧（实心 + 勾已表达）。
+ */
+@Composable
+internal fun HabitProgressArc(
+    progress: Float,
+    color: Color,
+    modifier: Modifier = Modifier,
+    strokeWidth: Dp = 2.dp,
+) {
+    val safe = progress.coerceIn(0f, 1f)
+    if (safe <= 0f || safe >= 1f) return
+    Canvas(modifier) {
+        val stroke = strokeWidth.toPx()
+        val inset = stroke / 2f
+        drawArc(
+            color = color,
+            startAngle = -90f,
+            sweepAngle = 360f * safe,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = Size((size.width - stroke).coerceAtLeast(0f), (size.height - stroke).coerceAtLeast(0f)),
+            style = Stroke(width = stroke, cap = StrokeCap.Round),
         )
     }
 }

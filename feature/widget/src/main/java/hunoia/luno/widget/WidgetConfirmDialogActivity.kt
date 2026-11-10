@@ -44,12 +44,16 @@ class WidgetConfirmDialogActivity : ComponentActivity() {
             return
         }
         val label = intent.getStringExtra(EXTRA_LABEL).orEmpty()
+        val count = intent.getIntExtra(EXTRA_COUNT, 0)
+        val target = intent.getIntExtra(EXTRA_TARGET, 1)
         setContent {
             SideGestureTheme {
                 ConfirmScreen(
                     kind = kind,
                     targetId = targetId,
                     label = label,
+                    count = count,
+                    target = target,
                     onFinished = { finish() },
                 )
             }
@@ -76,15 +80,26 @@ class WidgetConfirmDialogActivity : ComponentActivity() {
         private const val EXTRA_KIND = "kind"
         private const val EXTRA_ID = "id"
         private const val EXTRA_LABEL = "label"
+        private const val EXTRA_COUNT = "count"
+        private const val EXTRA_TARGET = "target"
 
         /** 部件点击 → 确认弹窗；[label] 是习惯名 / 待办文本，用于弹窗正文。 */
-        fun intent(context: Context, kind: ConfirmKind, targetId: String, label: String): Intent =
+        fun intent(
+            context: Context,
+            kind: ConfirmKind,
+            targetId: String,
+            label: String,
+            count: Int = 0,
+            target: Int = 1,
+        ): Intent =
             Intent().apply {
                 component = ComponentName(context, WidgetConfirmDialogActivity::class.java)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 putExtra(EXTRA_KIND, kind.value)
                 putExtra(EXTRA_ID, targetId)
                 putExtra(EXTRA_LABEL, label)
+                putExtra(EXTRA_COUNT, count)
+                putExtra(EXTRA_TARGET, target)
             }
     }
 }
@@ -94,6 +109,8 @@ private fun ConfirmScreen(
     kind: WidgetConfirmDialogActivity.ConfirmKind,
     targetId: String,
     label: String,
+    count: Int,
+    target: Int,
     onFinished: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -105,13 +122,22 @@ private fun ConfirmScreen(
             WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE -> R.string.widget_todo_complete_title
         },
     )
-    val message = stringResource(
-        when (kind) {
-            WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK -> R.string.widget_habit_check_message
-            WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE -> R.string.widget_todo_complete_message
-        },
-        label,
-    )
+    val message = when (kind) {
+        WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK -> {
+            if (target > 1) {
+                stringResource(
+                    R.string.widget_habit_check_message_progress,
+                    (count + 1).coerceAtMost(target),
+                    target,
+                    label,
+                )
+            } else {
+                stringResource(R.string.widget_habit_check_message, label)
+            }
+        }
+        WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE ->
+            stringResource(R.string.widget_todo_complete_message, label)
+    }
     ConfirmDialogContent(
         title = title,
         text = message,
@@ -136,7 +162,8 @@ private suspend fun confirmHabitCheck(context: Context, habitId: String) {
     val today = LocalDate.now().toEpochDay()
     val checks = config.checks[habit.id].orEmpty()
     if (!canCheck(checks, today, habit.interval, today)) return
-    HabitCenter.toggleHabit(habit.id, today)
+    // 多次习惯只 +1，不直接填满今日目标。
+    HabitCenter.incrementHabit(habit.id, today)
     WidgetSync.updateHabitWidgets(context)
 }
 

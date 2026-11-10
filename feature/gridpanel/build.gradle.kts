@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.material3)
     implementation(libs.material.icons.extended)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)

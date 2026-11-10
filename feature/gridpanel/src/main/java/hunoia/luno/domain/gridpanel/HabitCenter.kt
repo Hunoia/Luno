@@ -17,9 +17,9 @@ object HabitCenter {
 
     suspend fun getHabitConfig(): HabitConfig = ConfigProvider.getHabitConfig()
 
-    /** 部件打卡：只打卡不可取消；今天已打再调是幂等。 */
-    suspend fun toggleHabit(habitId: String, day: Long) =
-        ConfigProvider.toggleHabit(habitId, day)
+    /** 打卡 +1：未达标累加次数，达标移入完成集合；已完成再调是幂等。 */
+    suspend fun incrementHabit(habitId: String, day: Long) =
+        ConfigProvider.incrementHabit(habitId, day)
 
     /** 管理页补 / 改历史（近 7 天）：统一写入 / 清除。 */
     suspend fun setHabitCheck(habitId: String, day: Long, checked: Boolean) =

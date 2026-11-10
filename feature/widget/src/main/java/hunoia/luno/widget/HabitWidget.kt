@@ -2,9 +2,12 @@ package hunoia.luno.widget
 
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.util.TypedValue
 import android.content.Intent
-import android.graphics.Paint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,7 +91,7 @@ internal val WidgetOuterTop = 14.dp
  * `ColorSpec.toColor`），文字/背景走 `GlanceTheme.colors`（Material You 动态主题），
  * 点阵状态色复刻内置 `HabitDayVisual`（fill / border / mark），见 [HabitDayVisual]。
  * 数据源 [HabitCenter.habitConfig]（MultiProcess DataStore），经 domain 门面订阅；
- * 写回走 [HabitCenter.toggleHabit]（应用内状态变更，不走 Dispatcher，architecture §7.5）。
+ * 写回走 [HabitCenter.incrementHabit]（应用内状态变更，不走 Dispatcher，architecture §7.5）。
  */
 class HabitWidget : GlanceAppWidget() {
 
@@ -123,6 +126,8 @@ class HabitWidget : GlanceAppWidget() {
                 val habit = loaded.habitById(habitId)
                 val today = LocalDate.now().toEpochDay()
                 val checks = habit?.let { loaded.checks[it.id].orEmpty() }.orEmpty()
+                val counts = habit?.let { loaded.counts[it.id].orEmpty() }.orEmpty()
+                val target = habit?.safeDailyTarget ?: 1
                 val interval = habit?.interval ?: 1
                 val streak = habit?.let { currentStreak(checks, today, it.interval) } ?: 0L
                 // 未绑定（放置配置被取消 / 旧版本没写入 id）不能报「习惯已删除」。
@@ -137,6 +142,8 @@ class HabitWidget : GlanceAppWidget() {
                     context = context,
                     habit = habit,
                     checks = checks,
+                    counts = counts,
+                    target = target,
                     interval = interval,
                     today = today,
                     titleText = titleText,
@@ -148,7 +155,7 @@ class HabitWidget : GlanceAppWidget() {
 }
 
 /** 习惯色 → Glance ColorProvider：镜像 ui/design `ColorSpec.toColor`，主题角色映射 [ColorProviders]。 */
-private fun habitColor(habit: Habit, colors: ColorProviders): ColorProvider = when (habit.colorSpec.source) {
+internal fun habitColor(habit: Habit, colors: ColorProviders): ColorProvider = when (habit.colorSpec.source) {
     ColorSource.Custom -> ColorProvider(Color(habit.colorSpec.customColor))
     ColorSource.Theme -> themeColor(habit.colorSpec.themeKey, colors)
 }
@@ -173,15 +180,13 @@ private fun themeColor(key: ThemeColorKey, colors: ColorProviders): ColorProvide
     -> colors.surfaceVariant
 }
 
-/** 动态 ColorProvider 无法 apply alpha，这里用 getColor(context) 解析成具体 ARGB 再缩放。 */
-internal fun ColorProvider.alpha(context: Context, a: Float): ColorProvider =
-    ColorProvider(getColor(context).copy(alpha = a))
-
 @Composable
 private fun HabitContent(
     context: Context,
     habit: Habit?,
     checks: Set<Long>,
+    counts: Map<Long, Int>,
+    target: Int,
     interval: Int,
     today: Long,
     titleText: String,
@@ -223,6 +228,8 @@ private fun HabitContent(
                     context = context,
                     habit = habit,
                     checks = checks,
+                    counts = counts,
+                    target = target,
                     interval = interval,
                     today = today,
                     titleText = titleText,
@@ -237,6 +244,8 @@ private fun HabitBody(
     context: Context,
     habit: Habit,
     checks: Set<Long>,
+    counts: Map<Long, Int>,
+    target: Int,
     interval: Int,
     today: Long,
     titleText: String,
@@ -250,7 +259,14 @@ private fun HabitBody(
     // 标题行实际高度按 TextView 字体度量算（可能 > 20dp），避免把点阵区算高后底部裁切。
     val titleHeight = maxOf(singleLineTextHeight(context, titleSizeSp), 9.dp)
     val grid = habitGridGeometry(innerW, innerH, titleHeight)
-    val dots = lastNDaysDots(checks, today, interval, grid.cols * grid.rows)
+    val dots = lastNDaysDots(
+        checks = checks,
+        today = today,
+        interval = interval,
+        n = grid.cols * grid.rows,
+        counts = counts,
+        target = target,
+    )
     // Glance 的 TextView 没有 lineHeight 控制，单行高度 ≈ fontMetrics(top..bottom)，
     // 比 fontSize 大；按这个高度留位，避免点阵圆点底部被裁。
     val dateTextHeight = singleLineTextHeight(context, grid.dateSizeSp)
@@ -291,6 +307,7 @@ private fun HabitBody(
         Spacer(GlanceModifier.height(HabitTitleGap))
         // 点阵区域：今天可打卡 → 普通确认弹窗；已打卡 / 跳过 → 跳转习惯编辑页。
         val canCheckToday = canCheck(checks, today, interval, today)
+        val todayCount = if (today in checks) target else (counts[today] ?: 0)
         val gridDescription = context.getString(
             if (canCheckToday) R.string.widget_habit_check else R.string.widget_habit_edit,
             habit.name,
@@ -302,6 +319,8 @@ private fun HabitBody(
                     WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK,
                     habit.id,
                     habit.name,
+                    count = todayCount,
+                    target = target,
                 ),
             )
         } else {
@@ -362,12 +381,6 @@ private fun roleColor(
     HabitDayRole.NEUTRAL -> neutral
     HabitDayRole.ERROR -> error
     null -> null
-}
-
-private fun ColorProvider?.withAlpha(context: Context, a: Float): ColorProvider = when {
-    this == null -> ColorProvider(Color.Transparent)
-    a >= 1f -> this
-    else -> this.alpha(context, a)
 }
 
 private fun HabitDayMark.drawableRes(): Int = when (this) {
@@ -448,6 +461,17 @@ private fun HabitDotCell(
                     colorFilter = ColorFilter.tint(markTint),
                 )
             }
+            // 多次习惯的部分完成：白色进度弧 + 习惯色 tint，满目标由实心 + 勾表达。
+            if (dot.isPartial) {
+                val density = context.resources.displayMetrics.density
+                val dotPx = (dotSize.value * density).toInt().coerceAtLeast(4)
+                Image(
+                    provider = ImageProvider(progressArcCache.get(dot.progress, dotPx)),
+                    contentDescription = null,
+                    modifier = GlanceModifier.fillMaxSize(),
+                    colorFilter = ColorFilter.tint(habitColor),
+                )
+            }
         }
     }
 }
@@ -466,7 +490,7 @@ private fun HabitDayState.label(context: Context): String = context.getString(
 )
 
 /** 单行 TextView 高度（dp）：用 fontMetrics 的 top/bottom，含字体上下留白，比 fontSize 保守。 */
-private fun singleLineTextHeight(context: Context, sizeSp: Float): Dp {
+internal fun singleLineTextHeight(context: Context, sizeSp: Float): Dp {
     val metrics = context.resources.displayMetrics
     val paint = Paint().apply {
         textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp, metrics)
@@ -478,8 +502,40 @@ private fun singleLineTextHeight(context: Context, sizeSp: Float): Dp {
 /** epochDay → 月内日（与内置 HabitDotView 一致）。 */
 private fun dayOfMonthOf(epochDay: Long): Int = LocalDate.ofEpochDay(epochDay).dayOfMonth
 
+/** 部分完成进度弧的白色位图缓存：只按「像素尺寸 + 进度百分比」区分，tint 由 Glance 负责。 */
+private val progressArcCache = object : android.util.LruCache<String, Bitmap>(48) {
+    fun get(progress: Float, sizePx: Int): Bitmap {
+        val key = "$sizePx:${(progress.coerceIn(0f, 1f) * 1000).toInt()}"
+        get(key)?.let { return it }
+        val bitmap = drawProgressArc(progress, sizePx)
+        put(key, bitmap)
+        return bitmap
+    }
+}
+
+private fun drawProgressArc(progress: Float, sizePx: Int): Bitmap {
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val stroke = (sizePx * 0.12f).coerceAtLeast(2f)
+    val inset = stroke / 2f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = stroke
+        strokeCap = Paint.Cap.ROUND
+    }
+    canvas.drawArc(
+        RectF(inset, inset, sizePx - inset, sizePx - inset),
+        -90f,
+        360f * progress.coerceIn(0f, 1f),
+        false,
+        paint,
+    )
+    return bitmap
+}
+
 /** 打开 Luno 主界面（无目标习惯，进主页）。 */
-private fun openAppIntent(context: Context): Intent = Intent().apply {
+internal fun openAppIntent(context: Context): Intent = Intent().apply {
     component = ComponentName(context.packageName, HabitExtras.ACTIVITY_MAIN)
     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 }

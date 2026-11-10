@@ -58,14 +58,22 @@ fun HabitListScreen(
             item {
                 LunoGroup(title = stringResource(R.string.action_settings_habit_group)) {
                     config.habits.forEachIndexed { index, habit ->
-                        val streak = currentStreak(
-                            config.checks[habit.id].orEmpty(),
-                            today,
-                            habit.interval,
-                        )
+                        val checks = config.checks[habit.id].orEmpty()
+                        val streak = currentStreak(checks, today, habit.interval)
+                        val target = habit.safeDailyTarget
+                        val subtitle = if (target > 1) {
+                            stringResource(
+                                R.string.habit_today_progress,
+                                config.countOf(habit.id, today, target),
+                                target,
+                                streak,
+                            )
+                        } else {
+                            stringResource(R.string.habit_streak_summary, streak)
+                        }
                         LunoSettingsRow(
                             title = habit.name,
-                            subtitle = stringResource(R.string.habit_streak_summary, streak),
+                            subtitle = subtitle,
                             leading = {
                                 Box(
                                     Modifier

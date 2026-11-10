@@ -27,7 +27,7 @@ enum class NotificationMode {
 
 /** 受通用通知设置管理的通知类型（封闭枚举；加类型时改模型，不做旧配置兼容）。 */
 @Keep
-enum class NotificationKind { HABIT, BACKUP }
+enum class NotificationKind { HABIT, BACKUP, TODO }
 
 /**
  * 通用通知显示设置（D11：不做旧配置兼容；`habitReminderStyle` 直接替换为本模型）。

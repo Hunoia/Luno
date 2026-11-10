@@ -103,7 +103,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    // 测试通知用习惯提醒链路（当前唯一带按钮的类型）；非标准模式发完切最近任务看岛。
+    // 测试通知复用习惯提醒链路（与待办提醒同样带按钮）；非标准模式发完切最近任务看岛。
     val testMode = display.modeFor(NotificationKind.HABIT)
     val islandInUse = display.mode == NotificationMode.ISLAND ||
         display.overrides.values.any { it == NotificationMode.ISLAND }
@@ -138,6 +138,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                         when (kind) {
                             NotificationKind.HABIT -> R.string.notification_display_kind_habit
                             NotificationKind.BACKUP -> R.string.notification_display_kind_backup
+                            NotificationKind.TODO -> R.string.notification_display_kind_todo
                         },
                     ),
                     subtitle = stringResource(R.string.notification_display_override_hint),

@@ -17,6 +17,8 @@ private const val DayMillis = 86_400_000L
  * - [done]：是否已完成。
  * - [createdAt]：创建时刻（epoch millis），仅展示用。
  * - [completedAt]：完成时刻（epoch millis），供「完成 N 天后自动清理」；未完成为 null。
+ * - [reminder]：一次性提醒（墙钟）；null = 没设提醒。完成待办不清除它：
+ *   撤销完成时未来提醒要能恢复，过期提醒则只在界面上显示「已过期」。
  */
 @Serializable
 @Keep
@@ -26,6 +28,7 @@ data class TodoItem(
     val done: Boolean = false,
     val createdAt: Long = 0L,
     val completedAt: Long? = null,
+    val reminder: TodoReminder? = null,
 )
 
 /**
@@ -38,9 +41,17 @@ data class TodoItem(
 @Keep
 data class TodoConfig(
     val todos: List<TodoItem> = emptyList(),
+    /**
+     * 通知「推迟」后多久再提醒一次（分钟）：待办域全局设置，范围
+     * [TodoMinSnoozeMinutes]..[TodoMaxSnoozeMinutes]。只影响推迟重弹，不改原提醒时间。
+     */
+    val reminderSnoozeMinutes: Int = TodoDefaultSnoozeMinutes,
 ) {
 
     val pendingCount: Int get() = todos.count { !it.done }
+
+    fun withReminderSnoozeMinutes(minutes: Int): TodoConfig =
+        copy(reminderSnoozeMinutes = minutes.coerceIn(TodoMinSnoozeMinutes, TodoMaxSnoozeMinutes))
 
     fun todoById(id: String): TodoItem? = todos.firstOrNull { it.id == id }
 

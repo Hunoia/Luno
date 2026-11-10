@@ -26,4 +26,8 @@ object TodoCenter {
     suspend fun updateTodo(todo: TodoItem) = ConfigProvider.updateTodo(todo)
 
     suspend fun deleteTodo(todoId: String) = ConfigProvider.deleteTodo(todoId)
+
+    /** 待办域全局推迟时长（分钟）：只影响通知「推迟」后的重弹间隔，不改原提醒时间。 */
+    suspend fun setReminderSnoozeMinutes(minutes: Int) =
+        ConfigProvider.updateTodoConfig { it.withReminderSnoozeMinutes(minutes) }
 }

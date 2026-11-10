@@ -177,6 +177,23 @@ object PanelWidgetRegistry {
         )
         register(
             PanelWidget(
+                id = InternalWidgetIds.HABIT_HEATMAP,
+                labelRes = R.string.grid_panel_internal_habit_heatmap,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 2,
+                minSpanY = 2,
+            ) { scope ->
+                HabitHeatmapCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                    onReconfigure = scope.onReconfigure,
+                )
+            },
+        )
+        register(
+            PanelWidget(
                 id = InternalWidgetIds.TODO,
                 labelRes = R.string.grid_panel_internal_todo,
                 defaultSpanX = 2,

@@ -71,14 +71,30 @@ object WidgetSync {
         }
     }
 
-    /** 刷新全部习惯部件。 */
+    /** 刷新全部习惯部件（点阵 + 热力图）。 */
     internal suspend fun updateHabitWidgets(context: Context) {
         updateWidgets(context, HabitWidgetReceiver::class.java, HabitWidget())
+        updateWidgets(context, HeatmapWidgetReceiver::class.java, HeatmapWidget())
     }
 
     /** 刷新全部待办部件。 */
     internal suspend fun updateTodoWidgets(context: Context) {
         updateWidgets(context, TodoWidgetReceiver::class.java, TodoWidget())
+    }
+
+    /**
+     * 系统深浅色切换后主动重绘两块部件。
+     *
+     * 资源色 / DayNightColorProvider 正常情况下由宿主重新 apply RemoteViews 即时生效；
+     * 这里兜住不主动重绘的启动器，也保证固定色（如图片 tint）随本次重绘一起更新。
+     * 只在主进程调用（WorkManager 只在主进程自动初始化）。
+     */
+    fun refreshAll(context: Context) {
+        val app = context.applicationContext
+        AppContext.applicationScope?.launch {
+            updateHabitWidgets(app)
+            updateTodoWidgets(app)
+        }
     }
 
     /**
