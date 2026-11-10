@@ -11,6 +11,13 @@ import hunoia.luno.bridge.ui.BackgroundBlur
 import hunoia.luno.bridge.ui.BackgroundBlurHandle
 
 /**
+ * 模糊宿主状态：`Pending` = 还没挂上（入场最初几帧、尺寸未就绪），`Unavailable` = 确认本机挂不上。
+ * 卡片只对 `Unavailable` 提高不透明度兜底，`Pending` 不能当失败——否则面板一亮就从
+ * 近白的兜底色闪到正常透明度。
+ */
+enum class BlurState { Pending, Attached, Unavailable }
+
+/**
  * 区域模糊宿主：一块不可点击的 View，背景是 [BackgroundBlur] 的 drawable。
  *
  * 必须放在目标内容**下面**（父 Box 里先声明），它只负责绘制 blur；上层的
@@ -24,8 +31,8 @@ fun PanelBlurHost(
     cornerRadiusPx: Float,
     modifier: Modifier = Modifier,
     tint: Int = AndroidColor.TRANSPARENT,
-    /** 只有 drawable 真正 attach 成功才回调 true；卡片据此决定底色是否可透。 */
-    onActiveChanged: (Boolean) -> Unit = {},
+    /** 状态变化回传：调用方据此决定底色是否要兜底提高不透明度。 */
+    onStateChanged: (BlurState) -> Unit = {},
 ) {
     val controller = remember { BlurHostController() }
     DisposableEffect(controller) {
@@ -41,7 +48,7 @@ fun PanelBlurHost(
                 controller.bind(this)
             }
         },
-        update = { controller.update(enabled, radiusPx, cornerRadiusPx, tint, onActiveChanged) },
+        update = { controller.update(enabled, radiusPx, cornerRadiusPx, tint, onStateChanged) },
         modifier = modifier,
     )
 }
@@ -52,6 +59,11 @@ fun PanelBlurHost(
  */
 private class BlurHostController {
 
+    private companion object {
+        /** attach 最多试几次（每帧一次）；用完判定本机挂不上，交回调用方提高不透明度兜底。 */
+        const val MaxAttachAttempts = 3
+    }
+
     private var view: View? = null
     private var handle: BackgroundBlurHandle? = null
     private var enabled = false
@@ -60,8 +72,8 @@ private class BlurHostController {
     private var tint = AndroidColor.TRANSPARENT
     private var attachAttempts = 0
     private var disposed = false
-    private var active = false
-    private var onActiveChanged: (Boolean) -> Unit = {}
+    private var state = BlurState.Pending
+    private var onStateChanged: (BlurState) -> Unit = {}
 
     fun bind(target: View) {
         view = target
@@ -74,12 +86,14 @@ private class BlurHostController {
             override fun onViewDetachedFromWindow(v: View) {
                 handle?.detach()
                 handle = null
-                setActive(false)
+                setState(BlurState.Pending)
             }
         })
         // 尺寸/位置变化（卡片拖动、面板缩放）时刷新 blur region 的 bounds 与圆角。
+        // 尺寸从 0 变大是首次可 attach 的时机：清掉之前的空跑计数再试一次。
         target.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            apply(force = false)
+            if (handle == null) attachAttempts = 0
+            apply(force = handle == null)
         }
     }
 
@@ -88,13 +102,13 @@ private class BlurHostController {
         radiusPx: Int,
         cornerRadiusPx: Float,
         tint: Int,
-        onActiveChanged: (Boolean) -> Unit,
+        onStateChanged: (BlurState) -> Unit,
     ) {
         this.enabled = enabled
         this.radiusPx = radiusPx
         this.cornerRadiusPx = cornerRadiusPx
         this.tint = tint
-        this.onActiveChanged = onActiveChanged
+        this.onStateChanged = onStateChanged
         apply(force = false)
     }
 
@@ -102,8 +116,8 @@ private class BlurHostController {
         disposed = true
         handle?.detach()
         handle = null
-        active = false
-        onActiveChanged = {}
+        state = BlurState.Pending
+        onStateChanged = {}
         view = null
     }
 
@@ -113,27 +127,34 @@ private class BlurHostController {
         if (!enabled || radiusPx <= 0) {
             handle?.detach()
             handle = null
-            setActive(false)
+            setState(BlurState.Pending)
             return
         }
         if (!target.isAttachedToWindow) return
         if (handle == null) {
+            // 尺寸未就绪时 attach 必定失败，不计次、也不当作「挂不上」。
+            if (target.width <= 0 || target.height <= 0) return
             // attach 可能因 ViewRoot 尚未就绪而失败；限制次数，避免每帧反射。
-            if (!force && attachAttempts >= 3) return
+            if (!force && attachAttempts >= MaxAttachAttempts) return
             attachAttempts++
-            handle = BackgroundBlur.attach(target, radiusPx, cornerRadiusPx, tint) ?: return
-            setActive(true)
+            val attached = BackgroundBlur.attach(target, radiusPx, cornerRadiusPx, tint)
+            if (attached == null) {
+                if (attachAttempts >= MaxAttachAttempts) setState(BlurState.Unavailable)
+                return
+            }
+            handle = attached
+            setState(BlurState.Attached)
         }
         handle?.update(radiusPx, cornerRadiusPx, tint)
     }
 
-    /** 模糊状态只在真正变化时回调；post 到下一帧，避免在组合/测量期间写 Compose 状态。 */
-    private fun setActive(next: Boolean) {
-        if (active == next) return
-        active = next
+    /** 状态只在真正变化时回调；post 到下一帧，避免在组合/测量期间写 Compose 状态。 */
+    private fun setState(next: BlurState) {
+        if (state == next) return
+        state = next
         val target = view ?: return
         target.post {
-            if (!disposed && active == next) onActiveChanged(next)
+            if (!disposed && state == next) onStateChanged(next)
         }
     }
 }

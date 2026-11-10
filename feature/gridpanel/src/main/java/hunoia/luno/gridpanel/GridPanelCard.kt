@@ -79,6 +79,7 @@ import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.PanelBlurHost
+import hunoia.luno.gridpanel.ui.BlurState
 import hunoia.luno.gridpanel.ui.PageDotSlot
 import hunoia.luno.config.model.SurfacePlacement
 import hunoia.luno.config.model.coerced
@@ -298,13 +299,15 @@ fun GridPanelCard(
         inIndicatorBand(pointerNow.y)
     // 退场、拖拽隐去时把 blur 一起收掉，避免卡片已经看不见、背景还在糊。
     val blurActive = blurRadiusPx > 0 && !hiddenForDrag && appearance > 0.01f
-    // 模糊关闭（0dp）时透明度完全跟随设置；只有「开了模糊但实际挂不上」才提高不透明度兜底。
-    val blurAttached = remember(panelId) { mutableStateOf(false) }
+    // 模糊状态三态：**没挂上**不等于**挂不上**。只有确定挂不上（重试耗尽 / 隐藏 API 被拒）
+    // 才提高不透明度兜底；入场最初几帧只是还没 attach，用 fallback 会在面板一亮时把
+    // 卡片从 ~92% 闪到 75%（浅色主题 surfaceContainerHigh 接近白，读作「白色闪一下」）。
+    val blurState = remember(panelId) { mutableStateOf(BlurState.Pending) }
     val cardColor = gridPanelCardColor
     val cardBackgroundAlpha = when {
         blurRadiusPx <= 0 -> cardAlpha
-        blurAttached.value -> cardAlpha
-        else -> maxOf(cardAlpha, 0.92f)
+        blurState.value == BlurState.Unavailable -> maxOf(cardAlpha, 0.92f)
+        else -> cardAlpha
     }
 
     Box(
@@ -340,7 +343,7 @@ fun GridPanelCard(
             radiusPx = blurRadiusPx,
             cornerRadiusPx = cornerPx,
             modifier = Modifier.matchParentSize(),
-            onActiveChanged = { blurAttached.value = it },
+            onStateChanged = { blurState.value = it },
         )
         // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
         // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。

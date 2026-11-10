@@ -31,6 +31,16 @@
             android:name="hunoia.luno.domain.habit.IslandProbeReceiver"
             android:exported="true" />
 
+        <!-- 网格面板进出场探针：调动效/白闪时免手势触发。 -->
+        <receiver
+            android:name="hunoia.luno.domain.gridpanel.GridPanelProbeReceiver"
+            android:exported="true"
+            android:process=":service">
+            <intent-filter>
+                <action android:name="hunoia.luno.debug.GRID_PANEL_PROBE" />
+            </intent-filter>
+        </receiver>
+
         <!-- 形状软度画廊：adbd 拉起即可，不挂任何入口 UI。 -->
         <activity
             android:name="hunoia.luno.ui.theme.ShapeGalleryActivity"
