@@ -173,10 +173,6 @@ private fun themeColor(key: ThemeColorKey, colors: ColorProviders): ColorProvide
     -> colors.surfaceVariant
 }
 
-/** 动态 ColorProvider 无法 apply alpha，这里用 getColor(context) 解析成具体 ARGB 再缩放。 */
-internal fun ColorProvider.alpha(context: Context, a: Float): ColorProvider =
-    ColorProvider(getColor(context).copy(alpha = a))
-
 @Composable
 private fun HabitContent(
     context: Context,
@@ -362,12 +358,6 @@ private fun roleColor(
     HabitDayRole.NEUTRAL -> neutral
     HabitDayRole.ERROR -> error
     null -> null
-}
-
-private fun ColorProvider?.withAlpha(context: Context, a: Float): ColorProvider = when {
-    this == null -> ColorProvider(Color.Transparent)
-    a >= 1f -> this
-    else -> this.alpha(context, a)
 }
 
 private fun HabitDayMark.drawableRes(): Int = when (this) {

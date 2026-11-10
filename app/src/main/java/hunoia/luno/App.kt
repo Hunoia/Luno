@@ -2,6 +2,7 @@ package hunoia.luno
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -51,6 +52,9 @@ class App : Application(), SingletonImageLoader.Factory {
 
     private var isProviderProcess = true
 
+    /** 上次记录的夜间模式，用来过滤非深浅色配置变化（旋转 / 字体等）。 */
+    private var lastNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
+
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         isProviderProcess = base?.let { getProcessName() == it.packageName } ?: true
@@ -63,6 +67,7 @@ class App : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if (BuildConfig.DEBUG) enableStrictMode()
         AppContext.init(applicationContext, scope)
         LunoLog.i(
@@ -137,6 +142,21 @@ class App : Application(), SingletonImageLoader.Factory {
             }
 
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
+    }
+
+    /**
+     * 深浅色切换时主动重绘桌面部件：不依赖启动器是否重新 apply RemoteViews。
+     * 只在夜间模式真正变化时触发，旋转 / 字体缩放等配置变化直接跳过。
+     * 非主进程不刷新（WorkManager 只在主进程自动初始化）。
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val nightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        if (nightMode == lastNightMode) return
+        lastNightMode = nightMode
+        if (isProviderProcess) {
+            hunoia.luno.widget.WidgetSync.refreshAll(applicationContext)
+        }
     }
 
     override fun onTrimMemory(level: Int) {

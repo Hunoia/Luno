@@ -16,11 +16,15 @@
                 android:resource="@xml/habit_widget_info" />
         </receiver>
 
+        <!-- 部件弹窗统一独立 taskAffinity：NEW_TASK 启动时不会落进主页 task，
+             否则会把 MainActivity 一起带到前台，弹窗关闭后残留主页。
+             与 app 清单里透明 Activity 的处理一致。 -->
         <activity
             android:name=".HabitWidgetConfigActivity"
             android:exported="true"
             android:excludeFromRecents="true"
             android:label="@string/widget_habit_title"
+            android:taskAffinity="hunoia.luno.widget.habitconfig"
             android:theme="@style/WidgetDialogTheme"
             android:windowSoftInputMode="adjustNothing" />
 
@@ -33,6 +37,7 @@
             android:excludeFromRecents="true"
             android:finishOnTaskLaunch="true"
             android:label="@string/widget_todo_title"
+            android:taskAffinity="hunoia.luno.widget.todoedit"
             android:theme="@style/WidgetDialogTheme"
             android:windowSoftInputMode="adjustNothing" />
 
@@ -42,6 +47,7 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:finishOnTaskLaunch="true"
+            android:taskAffinity="hunoia.luno.widget.confirm"
             android:theme="@style/WidgetDialogTheme" />
 
         <!-- 待办桌面小部件（Glance）：无需配置，直接显示待办。 -->
