@@ -39,14 +39,16 @@ internal object InternalActionGroup : ActionGroup {
         ActionDefinition("internal.subGesture", "子手势", ActionCategory.SUB_GESTURE, Capability.None,
             icon = Icons.Default.Gesture),
         /**
-         * 动作面板：触发时弹弧形菜单让用户挑一个。`panelId` 必填——既不出现在
-         * `pickerDefinitions`（面板行按全局列表动态合成），也存不出空引用。
+         * 动作面板：触发时弹弧形菜单让用户挑一个。
+         * 必须落到具名面板：选择页/动作库都不列它（在 `dynamicEntryTypeIds` 里），
+         * 引用由「一行一个具名面板」的合成行带入，所以这里不靠 `required` 来挡——
+         * 与 `internal.gridPanel` 保持同一套排除理由（两套理由只会让加新面板类型时漏一处）。
          */
         ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.ACTION_PANEL, Capability.None,
             parameters = listOf(ParameterDefinition.Text(
                 key = ACTION_PANEL_PARAM_PANEL_ID,
                 label = "面板",
-                required = true,
+                required = false,
             )),
             icon = Icons.Default.RadioButtonChecked),
         /**

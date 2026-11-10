@@ -363,6 +363,34 @@ private fun SubGestureVibrationContent(
                 shape = segmentedShape(1, 2),
             )
         }
+        // 会话反馈：进入/按下/超时这类「不是某个方向」的节点，和上面四个方向振动分开成组。
+        // 进入分两档：手指还按着（触钮停留/滑动进、面板项长按点火）与抬手/无手指（触摸窗接管）。
+        LunoGroup(title = stringResource(R.string.vibration_group_session)) {
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubHoldFireVibrateChange(it) },
+                checked = gesture.holdFireVibrate,
+                title = stringResource(R.string.vibration_sub_hold_fire),
+                shape = segmentedShape(0, 4),
+            )
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubOverlayVibrateChange(it) },
+                checked = gesture.overlayVibrate,
+                title = stringResource(R.string.vibration_sub_overlay),
+                shape = segmentedShape(1, 4),
+            )
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubPressVibrateChange(it) },
+                checked = gesture.pressVibrate,
+                title = stringResource(R.string.vibration_sub_press),
+                shape = segmentedShape(2, 4),
+            )
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubTimeoutVibrateChange(it) },
+                checked = gesture.timeoutVibrate,
+                title = stringResource(R.string.vibration_sub_timeout),
+                shape = segmentedShape(3, 4),
+            )
+        }
     }
 }
 @Composable

@@ -93,7 +93,8 @@ class ActionSelectVM(
             val context = AppContext.get()
             ClipboardCenter.writeTextImmediate(link, context.getString(hunoia.luno.actions.R.string.action_deep_links))
             toast(R.string.action_deep_link_copied)
-            done()
+            // 只复制，不落盘：不能走 done()（= saveSettings），否则会空转写一次配置并多弹一条「保存成功」。
+            finish()
             return
         }
         when (obj) {

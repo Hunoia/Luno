@@ -54,13 +54,14 @@ internal suspend fun saveSettingsAction(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ): SaveOutcome {
-    // 单值语义：传 null 即「无动作」（删键/存 null），选别的传那一个。
-    val picked = getUiState().selectedRecord.action
+    // 单值语义：面板项把「无」当占位项，「没选」才是 null；其余槽位两者等价（归一成 null）。
+    val selection = getUiState().selectedRecord.rawSelection
+    val picked = selection?.takeIf { it.typeId != Action.NONE_TYPE_ID }
     if (actionSelect.actionPanelId.isNotBlank()) {
-        return saveActionPanelItem(actionSelect, picked)
+        return saveActionPanelItem(actionSelect, selection)
     }
     if (actionSelect.gridPanelId.isNotBlank()) {
-        return saveGridPanelItem(actionSelect, picked)
+        return saveGridPanelItem(actionSelect, selection)
     }
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
@@ -94,9 +95,11 @@ internal suspend fun saveSettingsAction(
 
 /**
  * 面板项落盘：`actionPanelItemIndex < 0` 是新增（追加），>=0 是替换该项的长按变体。
+ * 「无动作」是合法的**占位项**（新增时真落一条 `internal.none`）；编辑长按变体时
+ * 选「无」= 清掉变体（存一个 none 变体等于存了一个"没有"的长按）。
  * 返回 TargetMissing = 面板在选择期间被删（数据未写入），放弃添加不算失败。
  */
-private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
+private suspend fun saveActionPanelItem(actionSelect: ActionSelect, selection: StoredAction?): SaveOutcome {
     val panelId = actionSelect.actionPanelId
     val index = actionSelect.actionPanelItemIndex
     var outcome = SaveOutcome.Saved
@@ -105,14 +108,20 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
             outcome = SaveOutcome.TargetMissing
             return@updateAction settings
         }
+        if (selection == null) return@updateAction settings
         val items = when {
-            // 新增：选了「无动作」等于放弃本次添加，不改面板。
-            picked == null || picked.typeId == Action.NONE_TYPE_ID -> return@updateAction settings
-            // 改长按变体：变体本身不带变体（防止套娃）。
+            // 改长按变体：变体本身不带变体（防止套娃）；选「无」= 清掉变体。
             index >= 0 -> panel.items.mapIndexed { i, item ->
-                if (i == index) item.withLongPressVariant(picked.withoutVariantKey()) else item
+                if (i != index) {
+                    item
+                } else if (selection.typeId == Action.NONE_TYPE_ID) {
+                    item.withoutVariantKey()
+                } else {
+                    item.withLongPressVariant(selection.withoutVariantKey())
+                }
             }
-            else -> panel.items + picked
+            // 新增：「无」作为占位项落盘（面板里留一个什么都不做的扇区），否则就是那个动作。
+            else -> panel.items + selection.withoutVariantKey()
         }
         settings.copy(
             actionPanels = settings.actionPanels.withPanel(panel.copy(items = items))
@@ -125,9 +134,10 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
  * 网格面板项落盘：新增项落到 [ActionSelect.gridPanelPageIndex] 指定页的首个空位
  *（只在本页内扫，跨页不占位）。只进不出，无「替换已有项」分支，也无长按变体。
  */
-private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
-    // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
-    if (picked == null || picked.typeId == Action.NONE_TYPE_ID) return SaveOutcome.Saved
+private suspend fun saveGridPanelItem(actionSelect: ActionSelect, selection: StoredAction?): SaveOutcome {
+    // 没选 = 放弃本次操作，不改面板，也不当失败提示。
+    // 「无动作」是合法占位项（与动作面板一致）：想在网格里留一个什么都不做的格子。
+    if (selection == null) return SaveOutcome.Saved
     var outcome = SaveOutcome.PageFull
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
@@ -153,7 +163,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
                             x = free.x,
                             y = free.y,
                             pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
+                            kind = GridPanelItem.Kind.Action(listOf(selection.withoutVariantKey())),
                         ),
                     )
                 },
@@ -587,6 +597,7 @@ internal suspend fun loadDataBody(
             isPanelItemMode = actionSelect.actionPanelId.isNotBlank() || actionSelect.gridPanelId.isNotBlank(),
             currentGridPanelId = actionSelect.gridPanelId,
             currentActionPanelId = actionSelect.actionPanelId,
+            copyDeepLink = actionSelect.copyDeepLink,
         )
     }
     val action = when {

@@ -22,6 +22,7 @@ import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.R
+import hunoia.luno.gesture.SubGestureEntry
 import hunoia.luno.gesture.SubGestureResolvedActions
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
@@ -30,6 +31,8 @@ import hunoia.luno.runtime.pointer.PointerSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
@@ -98,7 +101,7 @@ class GestureSessionPipeline(
     init {
         Events.subscribe(BallTapActionEvent::class, ballTapSubscriber)
         // 长按变体是动作面板：按住到点火就直接重开下一层，不等抬手（手势会话接着用）。
-        actionPanelState.onLongPressPanel = { variant -> openNestedActionPanel(variant) }
+        actionPanelState.onLongPressCommit = { resolved -> commitPanelHold(resolved) }
         actionPanelState.longPressMs = initial.gestureSettings.actionPanelLongPressMs
     }
 
@@ -198,6 +201,8 @@ class GestureSessionPipeline(
             if (resolvedActions != null) {
                 handleSubGestureResolvedActions(resolvedActions)
             } else {
+                // 没出方向就松手：面板路的源按钮在这里就没有下一手了（否则会洩到下一次）。
+                actionPanelSourceButton = null
                 sideGestureState.cancel()
                 subGestureState.clear()
             }
@@ -274,6 +279,8 @@ class GestureSessionPipeline(
     fun onCancel() {
         dragInFlight = false
         if (subGestureState.isActive) {
+            // 取消（来电/系统抢焦点）：面板路的源按钮一并清，不让它洩到下一次会话。
+            actionPanelSourceButton = null
             subGestureState.onDragCancel()
             return
         }
@@ -306,9 +313,37 @@ class GestureSessionPipeline(
         touchPosition: Offset,
         decision: GestureDecision.Trigger? = null,
     ): Boolean {
-        if (subGestureState.tryEnterSubGesture(action, touchPosition)) return true
+        // 按「手指是否还按着」分两档振动：触钮停留/滑动进入时手指还在，触摸窗只是视觉；
+        // 抬手/悬浮球点按才让触摸窗真正接管，两者语义不能反。
+        when (subGestureState.tryEnterSubGesture(action, touchPosition, holdFire = dragInFlight)) {
+            SubGestureEntry.Entered -> return true
+            // 禁用 / 引用已删：在配置里都看得见，不能静默落到执行层变空操作。
+            SubGestureEntry.Disabled -> {
+                showToast(subGestureDisabledToast(action))
+                return true
+            }
+            SubGestureEntry.Missing -> {
+                showToast(R.string.sub_gesture_missing_toast)
+                return true
+            }
+            SubGestureEntry.Ignored -> Unit
+        }
         callbacks.onAction(action, sourceButton, touchPosition, decision)
         return false
+    }
+
+    /** 「子手势「X」已禁用」：名字取当前设置快照，没起名就用「子手势」。 */
+    private fun subGestureDisabledToast(action: StoredAction): String {
+        val context = hunoia.luno.core.AppContext.get()
+        val id = (action.params["id"] as? JsonPrimitive)
+            ?.contentOrNull
+            .orEmpty()
+        val name = settings.subGestureSettings.subGestures
+            .firstOrNull { it.id == id }
+            ?.name
+            ?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.sub_gesture)
+        return context.getString(R.string.sub_gesture_disabled_toast, name)
     }
 
     fun runGestureActions(
@@ -451,10 +486,48 @@ class GestureSessionPipeline(
         callbacks.onActionPanelOverlayChanged(false)
     }
 
+    /**
+     * 长按点火（不抬手）结算：面板引用 → 在同一触点重开下一层；子手势 → 直接进会话。
+     *
+     * 子手势这条路把面板视觉收掉但**不拆交互窗**：它是这次手势的触摸源，拆了就把
+     * 后续 MOVE/UP 丢给底层应用。收口交给子手势会话结束（协调器 onSubGestureModeChanged(false)）。
+     */
+    private fun commitPanelHold(resolved: StoredAction) {
+        if (resolved.actionPanelId() != null) {
+            openNestedActionPanel(resolved)
+            return
+        }
+        val touchPosition = actionPanelState.finger
+        actionPanelState.done()
+        val entry = subGestureState.tryEnterSubGesture(resolved, touchPosition, holdFire = true)
+        when (entry) {
+            SubGestureEntry.Entered -> Unit
+            SubGestureEntry.Disabled -> {
+                showToast(subGestureDisabledToast(resolved))
+                closePanelAfterFailedHold()
+            }
+            SubGestureEntry.Missing -> {
+                showToast(R.string.sub_gesture_missing_toast)
+                closePanelAfterFailedHold()
+            }
+            SubGestureEntry.Ignored -> closePanelAfterFailedHold()
+        }
+    }
+
+    /** 长按点火失败（禁用/已删/进不去）：面板已经 done，这里把交互窗一并收口。 */
+    private fun closePanelAfterFailedHold() {
+        actionPanelSourceButton = null
+        callbacks.onActionPanelOverlayChanged(false)
+    }
+
     fun handleSubGestureResolvedActions(resolvedActions: SubGestureResolvedActions) {
+        // 面板项长按直接进子手势时，面板的源按钮已不在 sideGestureState 里了，接着用捕获值。
+        val panelSource = actionPanelSourceButton
+        actionPanelSourceButton = null
+        val sourceButton = sideGestureState.button ?: panelSource
         val panelColor = resolvedActions.subGesture.colorSpec
             .takeUnless { it.isUnset }
-            ?: sideGestureState.button?.colorSpec
+            ?: sourceButton?.colorSpec
             ?: ColorSpec.Unset
         val touchPosition = resolvedActions.touchPosition.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: sideGestureState.finger.takeIf { it.x.isFinite() && it.y.isFinite() }
@@ -465,7 +538,7 @@ class GestureSessionPipeline(
             resolvedAction = resolvedActions.action,
             centerDegrees = resolvedActions.subGesture.angle.slotCenterDegrees(resolvedActions.direction),
             touchPosition = touchPosition,
-            sourceButton = sideGestureState.button,
+            sourceButton = sourceButton,
             decision = resolvedActions.decision,
             panelColor = panelColor,
             needsPanelOverlay = true,

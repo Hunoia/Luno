@@ -163,6 +163,10 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     fun onSubLongSlideVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideVibrate = value) }
     fun onSubSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(slideHoldVibrate = value) }
     fun onSubLongSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideHoldVibrate = value) }
+    fun onSubHoldFireVibrateChange(value: Boolean) = updateSubGesture { copy(holdFireVibrate = value) }
+    fun onSubOverlayVibrateChange(value: Boolean) = updateSubGesture { copy(overlayVibrate = value) }
+    fun onSubPressVibrateChange(value: Boolean) = updateSubGesture { copy(pressVibrate = value) }
+    fun onSubTimeoutVibrateChange(value: Boolean) = updateSubGesture { copy(timeoutVibrate = value) }
     fun onSubTriggerDistanceChange(value: Float) = updateSubGestureLive {
         val maxSlide = (longSlideTriggerDistance - MinGestureSlideDistanceGap)
             .coerceIn(MinSubGestureTriggerDistance, MaxSubGestureTriggerDistance)

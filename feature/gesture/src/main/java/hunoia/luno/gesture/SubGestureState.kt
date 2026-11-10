@@ -30,6 +30,23 @@ data class SubGestureResolvedActions(
     val decision: GestureDecision.Trigger,
 )
 
+/**
+ * 进入子手势会话的结果。
+ *
+ * `Disabled` / `Missing` 不能静默：两者在配置里都「看得见」——禁用是用户自己关的开关，
+ * 悬空引用是目标被删——送到执行层只会被当成 `Action.SubGesture` 空操作，表现为点了没反应。
+ */
+enum class SubGestureEntry {
+    /** 已进入会话。 */
+    Entered,
+    /** 目标子手势被禁用（开关关掉，但仍可选、可被引用）。 */
+    Disabled,
+    /** 引用的子手势已不存在。 */
+    Missing,
+    /** 不是子手势动作，或超过嵌套深度：静默忽略。 */
+    Ignored,
+}
+
 class SubGestureState(
     private val scope: CoroutineScope,
     private val subGestureSettings: SubGestureSettings,
@@ -57,13 +74,25 @@ class SubGestureState(
 
     val isActive: Boolean get() = activeSubGesture != null
 
-    fun tryEnterSubGesture(action: StoredAction, touchPosition: Offset): Boolean {
-        if (action.typeId != "internal.subGesture") return false
+    /**
+     * 进入子手势会话。
+     * @param holdFire 进入时**手指是否还按着**：true = 同一只手指继续拖（触钮停留/滑动进入、
+     *   面板项长按点火），触摸窗只做视觉；false = 手指已抬/无手指（面板项点选、悬浮球点按），
+     *   触摸窗才是触摸源。两种入口的振动各自可关（[SubGesture.holdFireVibrate] / [SubGesture.overlayVibrate]）。
+     */
+    fun tryEnterSubGesture(
+        action: StoredAction,
+        touchPosition: Offset,
+        holdFire: Boolean = false,
+    ): SubGestureEntry {
+        if (action.typeId != "internal.subGesture") return SubGestureEntry.Ignored
         val id = (action.params["id"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
-            ?: return false
-        val target = subGestureSettings.subGestures.firstOrNull { it.id == id && it.enabled }
-            ?: return false
-        if (subGestureDepth >= MAX_SUB_GESTURE_DEPTH) return false
+            ?: return SubGestureEntry.Ignored
+        val target = subGestureSettings.subGestures.firstOrNull { it.id == id }
+            ?: return SubGestureEntry.Missing
+        // 禁用 = 仍可选、可被引用，只在实际触发时说清楚（开关语义取「禁用」而不是「不存在」）。
+        if (!target.enabled) return SubGestureEntry.Disabled
+        if (subGestureDepth >= MAX_SUB_GESTURE_DEPTH) return SubGestureEntry.Ignored
         activeSubGesture = target
         origin = validOrUnspecified(touchPosition)
         finger = origin
@@ -73,12 +102,15 @@ class SubGestureState(
         directTriggered = false
         subGestureDepth += 1
         scheduleTimeout()
+        if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()
         onModeChanged(true, origin, target.captureRadius)
-        return true
+        return SubGestureEntry.Entered
     }
 
     fun onDragStart(offset: Offset): Boolean {
         if (!isActive) return false
+        // 触摸窗里再按下：会话级反馈（与方向动作的四个振动开关分开）。
+        activeSubGesture?.tryVibratePress()
         origin = validOrUnspecified(offset)
         finger = origin
         subGestureAccum = Offset.Zero
@@ -185,7 +217,10 @@ class SubGestureState(
         val ms = activeSubGesture?.timeoutMs ?: return
         timeoutJob = scope.launch {
             delay(ms)
+            // 超时自动收会话：先把子手势留下（clear 会清掉 activeSubGesture），再清。
+            val expired = activeSubGesture
             clear()
+            expired?.tryVibrateTimeout()
         }
     }
 

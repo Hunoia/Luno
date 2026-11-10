@@ -25,8 +25,11 @@ object ActionDefinitions {
         return ActionDefinitionRegistry.byTypeId(typeId)
     }
 
-    /** 不可在动作库中新建的类型：占位型，或必须引用具体实体的类型 */
-    private val libraryExcluded: Set<String> = setOf(
+    /**
+     * 选择页与动作库都**不列**的类型：占位型，或引用必须由动态具名行带入的类型。
+     * 两处共用同一套排除口径，避免加新类型时只改一处。
+     */
+    private val dynamicEntryTypeIds: Set<String> = setOf(
         Action.NONE_TYPE_ID,
         "internal.subGesture",
         ACTION_PANEL_TYPE_ID,
@@ -38,6 +41,9 @@ object ActionDefinitions {
         GRID_PANEL_TYPE_ID,
     )
 
+    /** 库新建页不能建的类型：动态具名行（占位/引用）只能从它们自己的入口产生。 */
+    private val libraryExcluded: Set<String> = dynamicEntryTypeIds
+
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }
 
     /**
@@ -47,6 +53,15 @@ object ActionDefinitions {
      */
     fun pickerExcludedTypeIds(): Set<String> = libraryExcluded
 
+    /**
+     * 选择页可列的动作 = 定义表 − [pickerExcludedTypeIds] − **有必填参数的类型**。
+     *
+     * 口径（不要拆开）：选择页只放「无参 / 参数有限（全可选）」的动作；**需要自由填写
+     * 参数的只进动作库**（库新建页能填任意参数，建好再以库引用一个条目选进来）。
+     * `app.launch`（必需 App）、`shell.custom`（必需命令）、`app.details` 就属于后者。
+     * 面板引用（`internal.actionPanel` / `internal.gridPanel`）同样不在列表里：
+     * 选择页按全局面板列表合成「一行一个具名面板」。
+     */
     fun pickerDefinitions(excluded: Set<String> = libraryExcluded): List<ActionDefinition> =
         definitions.filter { it.typeId !in excluded && it.parameters.none { p -> p.required } }
 

@@ -137,10 +137,10 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {
-            // 面板项模式：挑的是「面板里放什么」，不放置空入口。两种面板都合成「一行一个
-            // 具名面板」的引用行（动作面板项与网格面板项同一套规则，选择器不分叉）：
-            // 网格面板项可以就地切到另一个网格面板或弹弧形动作面板；动作面板项同理。
-            // 引用自己会让点选无效果（或原地重开自己），选择页阶段就过滤。
+            // 面板项模式：挑的是「面板里放什么」。两种面板完全同一套行：
+            // 1) 面板引用行（一行一个具名面板，排除自己）
+            // 2) 子手势行（含已禁用的：禁用的仍可选、可引用，触发时提示「已禁用」）
+            // 3) 「无」占位行（想留一个"什么都不做"的格子，而不是被迫放动作）
             // 小部件不走这里 —— 它不是动作，入口是顶部的「小部件」chip，不占列表行。
             if (state.isPanelItemMode) {
                 val selfIds = setOfNotNull(
@@ -157,11 +157,16 @@ internal fun assembleDataTransform(state: UiState): UiState {
                     .forEach { panel ->
                         add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
                     }
+                state.subGestures.forEach { gesture ->
+                    add(StoredAction.of("internal.subGesture", "id" to gesture.id))
+                }
+                add(StoredAction.of(Action.NONE_TYPE_ID))
                 return@apply
             }
             // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），
             // 这里额外合成一行而不碰 pickerExcluded —— 空集合会让整张定义表变可选。
-            if (none { it.typeId == Action.NONE_TYPE_ID }) {
+            // 复制 Deep Link 时不列：选「无」复制出指向 none 的链接没有意义。
+            if (!state.copyDeepLink && none { it.typeId == Action.NONE_TYPE_ID }) {
                 add(StoredAction.of(Action.NONE_TYPE_ID))
             }
             // 动作面板：一行一个具名面板，点哪行就把哪个 panelId 存进槽里。
@@ -172,8 +177,10 @@ internal fun assembleDataTransform(state: UiState): UiState {
             state.gridPanels.forEach { panel ->
                 add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
             }
+            // 子手势：不按启用过滤（禁用 = 可选可引用，只是触发时提示）；
+            // 「不能引用自己」仍成立（子手势编辑器里排除当前 id）。
             state.subGestures
-                .filter { gesture -> gesture.enabled && gesture.id != state.excludedSubGestureId }
+                .filter { gesture -> gesture.id != state.excludedSubGestureId }
                 .forEach { gesture ->
                     add(StoredAction.of("internal.subGesture", "id" to gesture.id))
                 }

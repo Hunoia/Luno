@@ -50,10 +50,10 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
     private var delayTriggerTypeChangedJob: Job? = null
 
     /**
-     * 长按结算出的是动作面板时的提前触发：面板导航不用等抬手，按住到点火就直接进下一层；
-     * 普通动作仍等抬手结算（抬手前还可能移开手指）。由管线注册。
+     * 长按结算出「导航类」动作（面板引用 / 子手势）时的提前触发：两者都是一次性导航，
+     * 点火即确定，不用等抬手；普通动作仍等抬手结算（抬手前还可能移开手指）。由管线注册。
      */
-    var onLongPressPanel: ((StoredAction) -> Unit)? = null
+    var onLongPressCommit: ((StoredAction) -> Unit)? = null
 
     /** 进入长按变体的等待时长（ms），由管线按 [GestureSettings][hunoia.luno.config.model.GestureSettings] 同步。 */
     var longPressMs: Long = GestureSettingsDefaults.ActionPanelLongPressMs
@@ -107,10 +107,12 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
                 ),
             )
             triggerType = TriggerType.LongPress
-            // 长按结算出来的是动作面板引用（变体或没有变体的本体）时直接触发：
-            // 点火即确定，再等抬手只是白等一段，而且按住就能往下一层选。
+            // 长按结算出来的是导航类动作（面板引用 / 子手势）时直接触发：
+            // 点火即确定，再等抬手只是白等一段，而且按住就能继续往下一层走。
             val resolved = selectedAction
-            if (resolved.actionPanelId() != null) onLongPressPanel?.invoke(resolved)
+            if (resolved.actionPanelId() != null || resolved.typeId == "internal.subGesture") {
+                onLongPressCommit?.invoke(resolved)
+            }
         }
     }
 

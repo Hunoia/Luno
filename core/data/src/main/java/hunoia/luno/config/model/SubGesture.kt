@@ -24,6 +24,19 @@ data class SubGesture(
     val longSlideVibrate: Boolean = true,
     val slideHoldVibrate: Boolean = true,
     val longSlideHoldVibrate: Boolean = true,
+    /**
+     * 四个「会话反馈」振动（与方向动作的上面四个开关分开，按手指状态区分）：
+     * - [holdFireVibrate]：**手指还按着**就进入会话时（触钮停留/滑动进入子手势、面板项长按点火），
+     *   触摸窗只做视觉、不是触摸源。
+     * - [overlayVibrate]：手指已经抬起（或无手指）才进入时（面板项点选、悬浮球点按），
+     *   这时触摸窗才真正成为触摸源，两段式的第一段反馈。
+     * - [pressVibrate]：子手势会话内按下（触摸窗里再按）时。
+     * - [timeoutVibrate]：会话空闲超时（[timeoutMs]）自动结束时。
+     */
+    val holdFireVibrate: Boolean = true,
+    val overlayVibrate: Boolean = true,
+    val pressVibrate: Boolean = true,
+    val timeoutVibrate: Boolean = true,
     val timeoutMs: Long = SubGestureTimeoutMs,
     val triggerDistance: Int = DensityProvider.dp2px(30f),
     val longSlideTriggerDistance: Int = DensityProvider.dp2px(96f),

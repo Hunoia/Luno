@@ -647,6 +647,14 @@ class GestureCoordinator(
             } else {
                 transientOverlayController.detachSubGestureOverlay()
                 Events.post(PanelDismissedEvent())
+                // 面板项长按点火直接进子手势：那时面板视觉已收但交互窗还挂着，它是这段手势的
+                // 触摸源。子手势会话一结束必须把它拆掉（否则全屏不可见窗会一直挡在应用上），
+                // 并把面板路的 Shown 配平。取消 / 超时 / 出方向都经过这里。
+                if (actionPanelOverlayEventPosted) {
+                    actionPanelOverlayEventPosted = false
+                    transientOverlayController.detachActionPanelOverlay()
+                    Events.post(PanelDismissedEvent())
+                }
             }
         }
 

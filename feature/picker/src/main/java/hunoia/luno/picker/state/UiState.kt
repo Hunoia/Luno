@@ -50,6 +50,8 @@ data class UiState(
 
     /** 传给 `ActionDefinitions.pickerDefinitions()` 的排除集。恒非空 —— 空集合会让过滤失效。 */
     val excludedTypeIds: Set<String> = emptySet(),
+    /** true = 只挑一个动作复制 Deep Link，不写任何配置（这类选择里「无动作」无意义）。 */
+    val copyDeepLink: Boolean = false,
 ) {
     /**
      * 单选：一个槽至多一个动作。内部仍是 List<Any>（应用/快捷方式/库条目类型不同，
@@ -62,17 +64,22 @@ data class UiState(
         val isEmpty: Boolean get() = list.isEmpty()
 
         /**
-         * 当前选中的动作（应用/快捷方式/库条目已收敛成 StoredAction）。`internal.none`
-         * 归一成 null：落盘就是删键/存 null，存 none 会让「空槽」与「显式选了无」分叉。
+         * 原始选择：「无动作」保留为 `internal.none`。
+         * 面板项可以把「无」当占位项落盘，落盘层需要能分清「选了无」和「没选」。
          */
-        val action: StoredAction? get() {
+        val rawSelection: StoredAction? get() {
             val value = list.singleOrNull() ?: return null
-            val stored = when (value) {
+            return when (value) {
                 is StoredAction -> value
                 else -> value.toStoredActionOrNull()
             }
-            return stored?.takeIf { it.typeId != Action.NONE_TYPE_ID }
         }
+
+        /**
+         * 当前选中的动作（应用/快捷方式/库条目已收敛成 StoredAction）。`internal.none`
+         * 归一成 null：落盘就是删键/存 null，存 none 会让「空槽」与「显式选了无」分叉。
+         */
+        val action: StoredAction? get() = rawSelection?.takeIf { it.typeId != Action.NONE_TYPE_ID }
 
         fun selectOne(action: StoredAction?): SelectedRecord =
             copy(list = listOfNotNull(action))

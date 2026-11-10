@@ -621,10 +621,11 @@ fun GridPanelRoot(
                         ) {
                             // 动作在 Kind.Action.items 里（面板项只进不出）；
                             // 小部件项没有可执行动作，点击由 provider 自己处理。
+                            // 「无」占位项：什么都不做（也不能关面板，否则等于点一下就没了）。
                             val action = (item.kind as? GridPanelItem.Kind.Action)
                                 ?.items
                                 ?.firstOrNull()
-                            if (action != null) {
+                            if (action != null && action.typeId != hunoia.luno.action.model.Action.NONE_TYPE_ID) {
                                 execute(action.withoutVariantKey(), center.x, center.y)
                             }
                         }
