@@ -31,5 +31,7 @@ data class ArcStyle(
     val itemGapPx: Int = ActionPanelStylesDefaults.ArcStyleItemGap,
     /** 弧线离原点的远近 / 铺开程度。不影响净间距。 */
     val spreadSpacing: Float = ActionPanelStylesDefaults.ArcStyleSpreadSpacing,
+    /** 扇菜单离屏幕左右/上下边缘的最小边距（与网格面板/快捷启动同一口径）。 */
+    val placement: SurfacePlacement = SurfacePlacement(),
 ) : ActionPanelStyle
 

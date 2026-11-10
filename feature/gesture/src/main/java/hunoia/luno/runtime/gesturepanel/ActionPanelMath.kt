@@ -3,29 +3,78 @@ package hunoia.luno.runtime.gesturepanel
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import hunoia.luno.config.model.ArcStyle
+import hunoia.luno.config.model.coerced
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-internal fun actionPanelOrigin(
-    parentSize: Size,
-    origin: Offset,
-    itemSizePx: Float
-): Offset {
-    if (parentSize.isEmpty()) return origin
-    val safePadding = itemSizePx * 0.55f
-    return Offset(
-        x = origin.x.coerceSafely(safePadding, parentSize.width - safePadding),
-        y = origin.y.coerceSafely(safePadding, parentSize.height - safePadding),
+/** 扇菜单的四个边距（px）：与网格面板/快捷启动的屏幕让位口径一致。 */
+internal data class ActionPanelInsets(
+    val leftPx: Float = 0f,
+    val topPx: Float = 0f,
+    val rightPx: Float = 0f,
+    val bottomPx: Float = 0f,
+)
+
+/** 样式里的 dp 边距 → 当前密度下的 px；越界值先夹到 0–60dp。 */
+internal fun ArcStyle.panelInsets(density: Float): ActionPanelInsets {
+    val coerced = placement.coerced()
+    return ActionPanelInsets(
+        leftPx = coerced.sideMarginDp * density,
+        topPx = coerced.topGapDp * density,
+        rightPx = coerced.sideMarginDp * density,
+        bottomPx = coerced.bottomGapDp * density,
     )
 }
 
-internal fun Offset.coerceInside(parentSize: Size, itemSizePx: Float): Offset {
-    val padding = itemSizePx / 2f
+/** 夹取区间上下界倒挂时（图标 + 边距比屏幕还大）退化为区间中点，避免把扇心推出屏外。 */
+private fun safeRange(minimumValue: Float, maximumValue: Float): Pair<Float, Float> {
+    if (minimumValue <= maximumValue) return minimumValue to maximumValue
+    val middle = (minimumValue + maximumValue) / 2f
+    return middle to middle
+}
+
+internal fun actionPanelOrigin(
+    parentSize: Size,
+    origin: Offset,
+    itemSizePx: Float,
+    insets: ActionPanelInsets = ActionPanelInsets(),
+): Offset {
+    if (parentSize.isEmpty()) return origin
+    val safePadding = itemSizePx * 0.55f
+    val (xMin, xMax) = safeRange(
+        insets.leftPx + safePadding,
+        parentSize.width - insets.rightPx - safePadding,
+    )
+    val (yMin, yMax) = safeRange(
+        insets.topPx + safePadding,
+        parentSize.height - insets.bottomPx - safePadding,
+    )
     return Offset(
-        x = x.coerceIn(padding, parentSize.width - padding),
-        y = y.coerceIn(padding, parentSize.height - padding)
+        x = origin.x.coerceIn(xMin, xMax),
+        y = origin.y.coerceIn(yMin, yMax),
+    )
+}
+
+internal fun Offset.coerceInside(
+    parentSize: Size,
+    itemSizePx: Float,
+    insets: ActionPanelInsets = ActionPanelInsets(),
+): Offset {
+    val padding = itemSizePx / 2f
+    val (xMin, xMax) = safeRange(
+        padding + insets.leftPx,
+        parentSize.width - padding - insets.rightPx,
+    )
+    val (yMin, yMax) = safeRange(
+        padding + insets.topPx,
+        parentSize.height - padding - insets.bottomPx,
+    )
+    return Offset(
+        x = x.coerceIn(xMin, xMax),
+        y = y.coerceIn(yMin, yMax),
     )
 }
 
@@ -45,12 +94,26 @@ internal fun arcStepDegrees(radius: Float, centerDistance: Float): Float {
     return Math.toDegrees(2.0 * kotlin.math.asin(ratio.toDouble())).toFloat()
 }
 
-/** 半径 [radius] 的弧上，在 [arcLength] 度内按 [centerDistance] 中心距最多能放几个。 */
-internal fun arcLayerCapacity(radius: Float, centerDistance: Float, arcLength: Int): Int {
-    if (radius <= 0f) return 1
+/**
+ * 弧接近整圆时为「闭合环」：首尾两项的角距不足一步，若仍按
+ * `floor(arc/step)+1` 容量 + `sweep/(count-1)` 分布，首尾会落在同一位置
+ * （360° 完全重合，355° 首尾中心距只剩十几 px）。
+ */
+internal fun isClosedArc(sweepDegrees: Float, stepDegrees: Float): Boolean =
+    sweepDegrees > 0f && stepDegrees > 0f && 360f - sweepDegrees < stepDegrees
+
+/**
+ * 半径 [radius] 的弧上，在 [arcLength] 度内按 [centerDistance] 中心距最多能放几个。
+ * 先取整再决定 `+1`：可用弧不足一步时只有 1 个位置，不能先 `coerceAtLeast(1)` 再加，
+ * 否则会声称能放 2 个（这正是加边距后图标部分重叠的来源）。
+ */
+internal fun arcLayerCapacity(radius: Float, centerDistance: Float, arcLength: Float): Int {
+    if (radius <= 0f || arcLength <= 0f) return 0
     val step = arcStepDegrees(radius, centerDistance)
     if (step <= 0f) return 1
-    return kotlin.math.floor(arcLength.toFloat() / step).toInt().coerceAtLeast(1) + 1
+    val fit = kotlin.math.floor(arcLength / step).toInt()
+    // 闭合环不重复计入首尾同一个角度。
+    return if (isClosedArc(arcLength, step)) fit.coerceAtLeast(1) else fit + 1
 }
 
 internal data class ActionPanelSector(
@@ -89,6 +152,7 @@ internal fun actionPanelItemOffset(
     spreadSpacing: Float,
     itemGapPx: Float,
     maxAngleDegrees: Float = 180f,
+    insets: ActionPanelInsets = ActionPanelInsets(),
 ): Offset {
     if (parentSize.isEmpty() || actionCount <= 0) return Offset.Zero
     val spacing = spreadSpacing.coerceIn(0.85f, 1.6f)
@@ -105,6 +169,7 @@ internal fun actionPanelItemOffset(
         centerDistance = centerDistance,
         spacing = spacing,
         maxAngleDegrees = maxAngleDegrees,
+        insets = insets,
     )
     val layer = plan.layerForIndex(index)
     val indexInLayer = plan.indexInLayer(index)
@@ -115,19 +180,21 @@ internal fun actionPanelItemOffset(
     val radiansCenter = Math.toRadians(normalizedCenter.toDouble())
     val horizontal = kotlin.math.abs(kotlin.math.cos(radiansCenter)) >= kotlin.math.abs(kotlin.math.sin(radiansCenter))
     val leftSide = horizontal && kotlin.math.cos(radiansCenter) < 0f
-    val angleDegree = if (countInLayer == 1) {
-        sector.centerDegrees
-    } else if (leftSide) {
+    val closed = isClosedArc(range.sweepDegrees, arcStepDegrees(radius, centerDistance))
+    val angleDegree = when {
+        // 只有一项时落在可用弧中点：中心方向放不下会先平移弧，仍用原中心会被 clamp 回屏边。
+        countInLayer == 1 -> range.startDegrees + range.sweepDegrees / 2f
+        // 闭合环按整圈均分，除 count；否则用两端点，除 count-1。
+        closed -> range.startDegrees + range.sweepDegrees * indexInLayer / countInLayer
         // 水平镜像：左侧从上到下排布，但不改变配置索引的内外层顺序。
-        range.endDegrees - range.sweepDegrees * indexInLayer / (countInLayer - 1)
-    } else {
-        range.startDegrees + range.sweepDegrees * indexInLayer / (countInLayer - 1)
+        leftSide -> range.endDegrees - range.sweepDegrees * indexInLayer / (countInLayer - 1)
+        else -> range.startDegrees + range.sweepDegrees * indexInLayer / (countInLayer - 1)
     }
     val radians = Math.toRadians(angleDegree.toDouble())
     val targetCenter = Offset(
         x = origin.x + cos(radians).toFloat() * radius,
         y = origin.y + sin(radians).toFloat() * radius,
-    ).coerceInside(parentSize, itemSizePx)
+    ).coerceInside(parentSize, itemSizePx, insets)
     return targetCenter - origin
 }
 
@@ -171,6 +238,7 @@ private fun adaptiveLayerPlan(
     centerDistance: Float,
     spacing: Float,
     maxAngleDegrees: Float,
+    insets: ActionPanelInsets,
 ): AdaptiveLayerPlan {
     val radiusFloor = itemSizePx * 1.35f * spacing
     val capacities = mutableListOf<Int>()
@@ -187,17 +255,27 @@ private fun adaptiveLayerPlan(
             radius = radius,
             itemSizePx = itemSizePx,
             maxAngleDegrees = maxAngleDegrees,
+            insets = insets,
         )
         val capacity = arcLayerCapacity(
             radius = radius,
             centerDistance = centerDistance,
-            arcLength = range.sweepDegrees.toInt(),
+            arcLength = range.sweepDegrees,
         )
+        // 该半径完全放不下（圆弧已在屏幕外）：停止外扩，避免把剩余图标堆到同一被夹取点。
+        if (capacity <= 0) break
         capacities += capacity
         radii += radius
         ranges += range
         capacityTotal += capacity
         layer++
+    }
+
+    if (capacities.isEmpty()) {
+        // 极端情况（屏幕/方向完全放不下）：退回一层堆叠，至少不漏动作、不越界崩溃。
+        capacities += actionCount
+        radii += radiusFloor
+        ranges += ActionPanelArcRange(sector.centerDegrees, sector.centerDegrees)
     }
 
     var layerCount = 1
@@ -216,6 +294,8 @@ private fun adaptiveLayerPlan(
         counts[index] = count
         remaining -= count
     }
+    // 层数用尽仍放不下时把余量压到最后一层（会重叠，但只发生在极端数量/极小屏）。
+    if (remaining > 0) counts[counts.lastIndex] += remaining
     return AdaptiveLayerPlan(counts, selectedRadii, ranges.take(layerCount))
 }
 
@@ -226,6 +306,7 @@ private fun actionPanelAvailableArcRange(
     radius: Float,
     itemSizePx: Float,
     maxAngleDegrees: Float,
+    insets: ActionPanelInsets,
 ): ActionPanelArcRange {
     val maximumSweep = maxAngleDegrees.coerceIn(90f, 360f)
     if (parentSize.isEmpty()) {
@@ -234,16 +315,64 @@ private fun actionPanelAvailableArcRange(
             centerDegrees + maximumSweep / 2f,
         )
     }
-    val positive = availableAngleSide(parentSize, origin, centerDegrees, radius, itemSizePx, 1f)
-    val negative = availableAngleSide(parentSize, origin, centerDegrees, radius, itemSizePx, -1f)
+    // 请求的方向在该半径上放不下（比如朝屏幕边缘展开、又加了边距）时，平移到最近的可用方向。
+    // 不平移就会得到 0 宽度弧，图标被 clamp 回同一点，表现为叠在一起。
+    val shift = nearestFittingOffset(parentSize, origin, centerDegrees, radius, itemSizePx, insets)
+        ?: return ActionPanelArcRange(centerDegrees, centerDegrees)
+    val effectiveCenter = centerDegrees + shift
+    val positive = availableAngleSide(parentSize, origin, effectiveCenter, radius, itemSizePx, insets, 1f)
+    val negative = availableAngleSide(parentSize, origin, effectiveCenter, radius, itemSizePx, insets, -1f)
     val availableTotal = (positive + negative).coerceAtLeast(0.001f)
     val availableSweep = min(positive + negative, maximumSweep)
     val negativeShare = negative / availableTotal
     return ActionPanelArcRange(
-        startDegrees = centerDegrees - availableSweep * negativeShare,
-        endDegrees = centerDegrees + availableSweep * (1f - negativeShare),
+        startDegrees = effectiveCenter - availableSweep * negativeShare,
+        endDegrees = effectiveCenter + availableSweep * (1f - negativeShare),
     )
 }
+
+/** 该半径、该方向上的点是否仍在「图标半径 + 边距」后的安全区内。 */
+private fun panelFits(
+    parentSize: Size,
+    origin: Offset,
+    centerDegrees: Float,
+    radius: Float,
+    itemSizePx: Float,
+    insets: ActionPanelInsets,
+    offsetDegrees: Float,
+): Boolean {
+    val padding = itemSizePx / 2f
+    val (xMin, xMax) = safeRange(padding + insets.leftPx, parentSize.width - padding - insets.rightPx)
+    val (yMin, yMax) = safeRange(padding + insets.topPx, parentSize.height - padding - insets.bottomPx)
+    val radians = Math.toRadians((centerDegrees + offsetDegrees).toDouble())
+    val x = origin.x + cos(radians).toFloat() * radius
+    val y = origin.y + sin(radians).toFloat() * radius
+    return x in xMin..xMax && y in yMin..yMax
+}
+
+/** 中心方向放不下时，从近到远找最近的可放方向（带符号，度）；整圈都放不下返回 null。 */
+private fun nearestFittingOffset(
+    parentSize: Size,
+    origin: Offset,
+    centerDegrees: Float,
+    radius: Float,
+    itemSizePx: Float,
+    insets: ActionPanelInsets,
+): Float? {
+    if (panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, 0f)) return 0f
+    for (delta in 1..180) {
+        if (panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, -delta.toFloat())) {
+            return -delta.toFloat()
+        }
+        if (panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, delta.toFloat())) {
+            return delta.toFloat()
+        }
+    }
+    return null
+}
+
+/** 弧从中心往外扫的采样步长：太小浪费算力，太大可能漏掉窄的可放区间。 */
+private const val ArcProbeStepDegrees = 5f
 
 private fun availableAngleSide(
     parentSize: Size,
@@ -251,22 +380,34 @@ private fun availableAngleSide(
     centerDegrees: Float,
     radius: Float,
     itemSizePx: Float,
+    insets: ActionPanelInsets,
     direction: Float,
 ): Float {
-    fun fits(offset: Float): Boolean {
-        val radians = Math.toRadians((centerDegrees + direction * offset).toDouble())
-        val x = origin.x + cos(radians).toFloat() * radius
-        val y = origin.y + sin(radians).toFloat() * radius
-        val padding = itemSizePx / 2f
-        return x in padding..(parentSize.width - padding) &&
-            y in padding..(parentSize.height - padding)
+    if (!panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, 0f)) return 0f
+    // 不能只测 180° 后二分：靠近屏幕边缘时圆弧会「穿出又穿回来」，180° 能放不代表中间都能放。
+    // 按 5° 扫出第一个不 fit 的区间，再在区间内二分收敛。
+    var lastFit = 0f
+    var firstFail = -1f
+    var probe = ArcProbeStepDegrees
+    while (probe <= 180f) {
+        if (panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, direction * probe)) {
+            lastFit = probe
+            probe += ArcProbeStepDegrees
+        } else {
+            firstFail = probe
+            break
+        }
     }
-    if (fits(180f)) return 180f
-    var low = 0f
-    var high = 180f
-    repeat(18) {
+    if (firstFail < 0f) return 180f
+    var low = lastFit
+    var high = firstFail
+    repeat(14) {
         val middle = (low + high) / 2f
-        if (fits(middle)) low = middle else high = middle
+        if (panelFits(parentSize, origin, centerDegrees, radius, itemSizePx, insets, direction * middle)) {
+            low = middle
+        } else {
+            high = middle
+        }
     }
     return low
 }
@@ -280,6 +421,7 @@ internal fun actionPanelContentBounds(
     spreadSpacing: Float,
     itemGapPx: Float,
     maxAngleDegrees: Float = 180f,
+    insets: ActionPanelInsets = ActionPanelInsets(),
 ): Rect {
     if (parentSize.isEmpty() || actionCount <= 0) return Rect(origin, Size.Zero)
     val halfItem = itemSizePx * 0.62f
@@ -299,6 +441,7 @@ internal fun actionPanelContentBounds(
             spreadSpacing = spreadSpacing,
             itemGapPx = itemGapPx,
             maxAngleDegrees = maxAngleDegrees,
+            insets = insets,
         )
         left = min(left, center.x - halfItem)
         top = min(top, center.y - halfItem)
@@ -308,12 +451,19 @@ internal fun actionPanelContentBounds(
     return Rect(left, top, right, bottom)
 }
 
-internal fun actionPanelPillPosition(parentSize: Size, actionBounds: Rect, itemSizePx: Float): Offset {
+internal fun actionPanelPillPosition(
+    parentSize: Size,
+    actionBounds: Rect,
+    itemSizePx: Float,
+    insets: ActionPanelInsets = ActionPanelInsets(),
+): Offset {
     val pillHeight = itemSizePx * 1.35f
     val margin = itemSizePx * 0.55f
     val gap = itemSizePx * 0.45f
-    val topY = margin
-    val bottomY = parentSize.height - pillHeight - margin
+    val (topY, bottomY) = safeRange(
+        margin + insets.topPx,
+        parentSize.height - pillHeight - margin - insets.bottomPx,
+    )
     val aboveY = actionBounds.top - gap - pillHeight
     val belowY = actionBounds.bottom + gap
     val aboveFits = aboveY >= topY

@@ -1,5 +1,6 @@
 package hunoia.luno.ui.settings.action.panel
 
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
@@ -27,6 +28,7 @@ import hunoia.luno.ui.component.screen.PanelListRow
 import hunoia.luno.ui.component.screen.PanelListScreen
 import hunoia.luno.ui.component.screen.PanelListSection
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -52,6 +54,8 @@ fun ActionPanelListScreen(
     val panels = actionSettings.actionPanels.panels
     val gridPanels = actionSettings.actionGridPanels.panels
     var showStyle by remember { mutableStateOf(false) }
+    // 样式项已超过一屏：内容滚动与 sheet 下滑由 LunoSheet 的 nestedScroll 衔接。
+    val styleScrollState = rememberScrollState()
 
     fun createActionPanel() {
         scope.launch {
@@ -133,7 +137,11 @@ fun ActionPanelListScreen(
     )
 
     if (showStyle) {
-        LunoSheet(onDismissRequest = { showStyle = false }, showDragHandle = true) {
+        LunoSheet(
+            onDismissRequest = { showStyle = false },
+            showDragHandle = true,
+            scrollState = OptimizedScrollState.Scroll(styleScrollState),
+        ) {
             ActionPanelStyleConfigContent(
                 currentStyle = actionSettings.actionPanelStyle,
                 actionPanelVibrate = gestureSettings.actionPanelVibrate,
@@ -143,6 +151,7 @@ fun ActionPanelListScreen(
                 onActionPanelVibrateChanged = { enabled ->
                     scope.launch { TuneConfig.updateGesture { it.copy(actionPanelVibrate = enabled) } }
                 },
+                scrollState = styleScrollState,
             )
         }
     }

@@ -28,6 +28,7 @@ import com.aaron.compose.ktx.toDp
 import com.aaron.compose.ktx.toPx
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
+import androidx.compose.ui.platform.LocalDensity
 
 @Composable
 internal fun AnimatedVisibilityScope.ArcActionPanel(
@@ -39,6 +40,11 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
     val itemSize = actionPanelStyle.itemSize.toDp()
     val actionCount = actionPanelState.actions.size
     val itemSizePx = itemSize.toPx()
+    val density = LocalDensity.current
+    // 边距滑杆只改 style，insets 随 placement/密度重算并参与每次布局。
+    val insets = remember(actionPanelStyle.placement, density) {
+        actionPanelStyle.panelInsets(density.density)
+    }
     var parentSize by remember { mutableStateOf(Size.Zero) }
     Box(modifier = modifier) {
         Box(
@@ -56,7 +62,7 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                     graphicsLayer {
                         if (parentSize.isEmpty()) return@graphicsLayer
                         val itemSizeHalf = itemSize.toPx() / 2f
-                        val panelOrigin = actionPanelOrigin(parentSize, origin, itemSize.toPx())
+                        val panelOrigin = actionPanelOrigin(parentSize, origin, itemSize.toPx(), insets)
                         val ox = panelOrigin.x
                         val oy = panelOrigin.y
                         translationX = ox - itemSizeHalf
@@ -68,13 +74,13 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
             val transition = transition
             actionPanelState.actions.fastForEachIndexed { index, action ->
                 key(index) {
-                    val panelOrigin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
+                    val panelOrigin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx, insets)
                     val sector = actionPanelSector(parentSize, panelOrigin, actionPanelState.centerDegrees, itemSizePx)
                     val displayIndex = actionPanelDisplayIndex(sector, actionCount, index)
                     val targetAnimOffset = remember(
                         parentSize, panelOrigin, sector, actionPanelState.actions.size,
                         displayIndex, actionPanelStyle.spreadSpacing, actionPanelStyle.itemGapPx,
-                        actionPanelStyle.maxAngleDegrees,
+                        actionPanelStyle.maxAngleDegrees, insets,
                     ) {
                         actionPanelItemOffset(
                             parentSize = parentSize,
@@ -86,6 +92,7 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                             spreadSpacing = actionPanelStyle.spreadSpacing,
                             itemGapPx = actionPanelStyle.itemGapPx.toFloat(),
                             maxAngleDegrees = actionPanelStyle.maxAngleDegrees,
+                            insets = insets,
                         )
                     }
                     ActionPanelSelectableItem(

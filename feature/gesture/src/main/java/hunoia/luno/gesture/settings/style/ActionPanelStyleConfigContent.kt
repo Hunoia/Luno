@@ -1,8 +1,13 @@
 package hunoia.luno.gesture.settings.style
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.runtime.Composable
@@ -11,26 +16,36 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gesture.R
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
+import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SurfacePlacementSliders
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 
-/** 动作面板样式参数：图标大小 / 图标间距 / 弧线铺开程度。全局一份，在动作设置里改。 */
+/** 样式项数量：5 个滑杆 + 3 个边距滑杆 + 1 个振动开关。 */
+private const val STYLE_ITEM_COUNT = 9
+
+/**
+ * 动作面板样式参数：图标大小 / 图标间距 / 弧线铺开程度 / 最大角度 / 屏幕边距。
+ * 全局一份，在动作设置里改。内容可滚动（边距项加进来后已超过一屏高度）。
+ */
 @Composable
 fun ActionPanelStyleConfigContent(
     currentStyle: ArcStyle,
     actionPanelVibrate: Boolean,
     onStyleChanged: (ArcStyle) -> Unit,
     onActionPanelVibrateChanged: (Boolean) -> Unit,
+    scrollState: ScrollState = rememberScrollState(),
 ) {
     val style = currentStyle
     val density = LocalDensity.current
@@ -40,15 +55,18 @@ fun ActionPanelStyleConfigContent(
     var spreadSpacing by remember(style.spreadSpacing) { mutableFloatStateOf(style.spreadSpacing) }
     var maxAngleDegrees by remember(style.maxAngleDegrees) { mutableFloatStateOf(style.maxAngleDegrees) }
 
-    // 普通 Column：LunoColumn 的 verticalScroll 会抢 ModalBottomSheet 的下滑关闭手势。
+    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
     Column(
         modifier = Modifier
-            .padding(PageGutter)
-            .padding(bottom = ContentBottom),
+            .fillMaxWidth()
+            .heightIn(max = maxHeight)
+            .verticalScroll(scrollState)
+            .padding(horizontal = PageGutter)
+            .padding(top = PageGutter, bottom = ContentBottom),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-        LunoSegmentedGroup {
-            item { shape -> LunoTextSlider(
+        LunoGroup {
+            LunoTextSlider(
                 value = itemSizeDp,
                 onValueChange = { itemSizeDp = it },
                 onValueChangeFinished = {
@@ -57,9 +75,9 @@ fun ActionPanelStyleConfigContent(
                 text = stringResource(R.string.action_panel_item_size),
                 valueDisplay = { "${it.roundToInt()}dp" },
                 valueRange = 40f..64f,
-                shape = shape,
-            ) }
-            item { shape -> LunoTextSlider(
+                shape = segmentedShape(0, STYLE_ITEM_COUNT),
+            )
+            LunoTextSlider(
                 value = appIconScale,
                 onValueChange = { appIconScale = it },
                 onValueChangeFinished = {
@@ -68,9 +86,9 @@ fun ActionPanelStyleConfigContent(
                 text = stringResource(R.string.action_panel_app_icon_size),
                 valueDisplay = { "${(it * 100).roundToInt()}%" },
                 valueRange = 0.6f..1.2f,
-                shape = shape,
-            ) }
-            item { shape -> LunoTextSlider(
+                shape = segmentedShape(1, STYLE_ITEM_COUNT),
+            )
+            LunoTextSlider(
                 value = itemGapDp,
                 onValueChange = { itemGapDp = it },
                 onValueChangeFinished = {
@@ -79,9 +97,9 @@ fun ActionPanelStyleConfigContent(
                 text = stringResource(R.string.action_panel_item_gap),
                 valueDisplay = { "${it.roundToInt()}dp" },
                 valueRange = 0f..24f,
-                shape = shape,
-            ) }
-            item { shape -> LunoTextSlider(
+                shape = segmentedShape(2, STYLE_ITEM_COUNT),
+            )
+            LunoTextSlider(
                 value = spreadSpacing,
                 onValueChange = { spreadSpacing = it },
                 onValueChangeFinished = {
@@ -90,9 +108,9 @@ fun ActionPanelStyleConfigContent(
                 text = stringResource(R.string.action_panel_spread_spacing),
                 valueDisplay = { "${(it * 100).roundToInt()}%" },
                 valueRange = 0.85f..1.35f,
-                shape = shape,
-            ) }
-            item { shape -> LunoTextSlider(
+                shape = segmentedShape(3, STYLE_ITEM_COUNT),
+            )
+            LunoTextSlider(
                 value = maxAngleDegrees,
                 onValueChange = { maxAngleDegrees = it },
                 onValueChangeFinished = {
@@ -101,15 +119,21 @@ fun ActionPanelStyleConfigContent(
                 text = stringResource(R.string.action_panel_max_angle),
                 valueDisplay = { "${it.roundToInt()}°" },
                 valueRange = 90f..360f,
-                shape = shape,
-            ) }
-            item { shape -> LunoSwitchRow(
+                shape = segmentedShape(4, STYLE_ITEM_COUNT),
+            )
+            // 扇菜单离屏幕左右 / 上下的最小边距，与网格面板、快捷启动同一套滑杆。
+            SurfacePlacementSliders(
+                placement = style.placement,
+                shapeAt = { index -> segmentedShape(5 + index, STYLE_ITEM_COUNT) },
+                onCommit = { next -> onStyleChanged(style.copy(placement = next)) },
+            )
+            LunoSwitchRow(
                 icon = Icons.Default.Vibration,
                 title = stringResource(R.string.action_panel_vibration),
                 checked = actionPanelVibrate,
                 onCheckedChange = onActionPanelVibrateChanged,
-                shape = shape,
-            ) }
+                shape = segmentedShape(8, STYLE_ITEM_COUNT),
+            )
         }
     }
 }

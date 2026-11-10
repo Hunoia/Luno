@@ -35,9 +35,10 @@ internal fun ActionPanelBackdrop(
     itemSizePx: Float,
     accentColor: Color,
     modifier: Modifier = Modifier,
+    insets: ActionPanelInsets = ActionPanelInsets(),
 ) {
     if (parentSize.isEmpty() || !actionPanelState.origin.isSpecified) return
-    val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
+    val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx, insets)
     val radius = itemSizePx * 5.8f
     // Brush 必须在 draw lambda 外构造：放在里面会随手指移动每帧新建 list + 3 个 Color
     val brush = remember(accentColor, origin, radius) {

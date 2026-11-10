@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
@@ -89,6 +90,11 @@ fun ActionPanelMenu(
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
+        val density = LocalDensity.current
+        // 与 ArcActionPanel 同一份边距：背景光晕、扇区与文字胶囊都用它定位。
+        val insets = remember((resolvedStyle as? ArcStyle)?.placement, density) {
+            (resolvedStyle as? ArcStyle)?.panelInsets(density.density) ?: ActionPanelInsets()
+        }
         val actionLibrarySettings by hunoia.luno.domain.action.ActionLibrary.settings
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
@@ -103,6 +109,7 @@ fun ActionPanelMenu(
                 parentSize = parentSize,
                 itemSizePx = itemSizePx,
                 accentColor = actionPanelAccentColor(actionPanelState.buttonColor),
+                insets = insets,
             )
 
             val selectedAction = actionPanelState.selectedAction
@@ -164,7 +171,7 @@ fun ActionPanelMenu(
                     actionPanelState.origin.isSpecified &&
                     !parentSize.isEmpty()
             if (canShowPill) {
-                val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
+                val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx, insets)
                 val sector = actionPanelSector(parentSize, origin, actionPanelState.centerDegrees, itemSizePx)
                 val actionBounds = actionPanelContentBounds(
                     parentSize = parentSize,
@@ -175,8 +182,9 @@ fun ActionPanelMenu(
                     spreadSpacing = resolvedStyle.spreadSpacing,
                     itemGapPx = resolvedStyle.itemGapPx.toFloat(),
                     maxAngleDegrees = resolvedStyle.maxAngleDegrees,
+                    insets = insets,
                 )
-                val pillPosition = actionPanelPillPosition(parentSize, actionBounds, itemSizePx)
+                val pillPosition = actionPanelPillPosition(parentSize, actionBounds, itemSizePx, insets)
                 val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
                 SelectedActionPill(
                     modifier = Modifier
