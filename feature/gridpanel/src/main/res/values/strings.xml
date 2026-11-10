@@ -10,6 +10,7 @@
     <string name="grid_panel_internal_clipboard">剪贴板</string>
     <string name="grid_panel_internal_app_drawer">应用抽屉</string>
     <string name="grid_panel_internal_habit_history">习惯历史</string>
+    <string name="grid_panel_internal_habit_heatmap">习惯热力图</string>
     <string name="grid_panel_internal_todo">待办</string>
     <string name="grid_panel_habit_empty">未配置习惯</string>
     <string name="grid_panel_habit_missing">习惯已删除</string>
@@ -67,6 +68,13 @@
     <string name="todo_list_title">待办</string>
     <string name="todo_save">保存</string>
     <string name="todo_text_hint">如：买牛奶、交电费</string>
+    <!-- 与 :feature:widget 的 widget_todo_complete_* 同文案（模块间同值镜像，见 architecture §7.5）。 -->
+    <string name="todo_complete_confirm_title">完成待办</string>
+    <string name="todo_complete_confirm_text">把「%1$s」标记为完成？</string>
+    <string name="todo_complete_confirm_action">完成</string>
+    <string name="todo_uncomplete_confirm_title">撤销完成</string>
+    <string name="todo_uncomplete_confirm_text">把「%1$s」恢复为未完成？</string>
+    <string name="todo_uncomplete_confirm_action">撤销</string>
     <string name="action_settings_habit_group">习惯</string>
     <string name="habit_add">新建习惯</string>
     <string name="habit_color">颜色</string>

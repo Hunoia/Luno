@@ -67,6 +67,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeGutter
@@ -79,6 +80,7 @@ import kotlinx.coroutines.launch
  * 代办管理列表：主设置 → 代办。
  * 数据源 [TodoCenter.todoConfig]；切换完成 / 增删改走 domain 门面（配置写入，不走 Action）。
  * 单列合并（未完成在前、完成在后置灰划线）；添加/编辑都在弹窗完成（无独立编辑页）。
+ * 完成 / 撤销完成都先走确认弹层，与桌面部件、面板内置待办同口径。
  */
 @Composable
 fun TodoListScreen(
@@ -92,6 +94,8 @@ fun TodoListScreen(
 
     var creating by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TodoItem?>(null) }
+    // 完成 / 撤销完成都先确认：与桌面部件、面板内置待办的确认口径一致。
+    var pendingToggle by remember { mutableStateOf<TodoItem?>(null) }
 
     // 待办部件的「标题 → 列表页」或「某条 → 编辑」请求：进入列表页后消费一次。
     // todoId 为空 = 只进列表页（不自动开弹窗）；非空 = 再打开该条编辑。
@@ -116,6 +120,39 @@ fun TodoListScreen(
                 contentDescription = stringResource(R.string.todo_add),
             )
         },
+        dialogs = {
+            // 同一时刻最多一个弹层（ui-guidelines §3.2-5）；确认后才写回完成态。
+            pendingToggle?.let { todo ->
+                ConfirmDialog(
+                    title = stringResource(
+                        if (todo.done) {
+                            R.string.todo_uncomplete_confirm_title
+                        } else {
+                            R.string.todo_complete_confirm_title
+                        },
+                    ),
+                    text = stringResource(
+                        if (todo.done) {
+                            R.string.todo_uncomplete_confirm_text
+                        } else {
+                            R.string.todo_complete_confirm_text
+                        },
+                        todo.text,
+                    ),
+                    confirmLabel = stringResource(
+                        if (todo.done) {
+                            R.string.todo_uncomplete_confirm_action
+                        } else {
+                            R.string.todo_complete_confirm_action
+                        },
+                    ),
+                    onDismissRequest = { pendingToggle = null },
+                    onConfirm = {
+                        scope.launch { TodoCenter.toggleTodo(todo.id, !todo.done) }
+                    },
+                )
+            }
+        },
     ) {
         if (config.todos.isEmpty()) {
             item {
@@ -131,9 +168,7 @@ fun TodoListScreen(
                         TodoListRow(
                             todo = todo,
                             shape = segmentedShape(index, all.size),
-                            onToggle = {
-                                scope.launch { TodoCenter.toggleTodo(todo.id, !todo.done) }
-                            },
+                            onToggle = { pendingToggle = todo },
                             onEdit = { editing = todo },
                         )
                     }
@@ -177,7 +212,7 @@ fun TodoListScreen(
     }
 }
 
-/** 一行代办：左圆点切换完成（单击）+ 文字（点行进编辑弹窗）；已完成 = 实心勾 + 置灰划线。 */
+/** 一行代办：左圆点切换完成（先确认）+ 文字（点行进编辑弹窗）；已完成 = 实心勾 + 置灰划线。 */
 @Composable
 private fun TodoListRow(
     todo: TodoItem,
@@ -214,7 +249,7 @@ private fun TodoListRow(
     }
 }
 
-/** 完成切换圆点：未完成 = 空心描边；已完成 = 实心主色 + 白勾。 */
+/** 完成切换圆点：未完成 = 空心描边；已完成 = 实心主色 + 白勾。点按只发切换请求，确认在列表页弹层。 */
 @Composable
 private fun TodoCheckToggle(
     done: Boolean,

@@ -339,7 +339,7 @@ private fun HabitDotView(
  * 打开选择页重新添加，新部件替换本项（位置不变）。无习惯可重选时仅提示。
  */
 @Composable
-private fun EmptyHabitCell(
+internal fun EmptyHabitCell(
     modifier: Modifier,
     configHasHabits: Boolean,
     enabled: Boolean,

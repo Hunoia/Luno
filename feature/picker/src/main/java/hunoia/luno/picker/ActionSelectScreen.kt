@@ -94,7 +94,7 @@ fun ActionSelectContent(
     ) { uiState ->
         val coroutineScope = rememberCoroutineScope()
 
-        // 习惯部件选择：指定目标习惯后落盘（params 见 architecture §9.2）。
+        // 习惯部件（历史 / 热力图）选择：指定目标习惯后落盘（params 见 architecture §9.2）。
         var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
         val habitConfig by HabitCenter.habitConfig
             .collectAsStateWithLifecycle(initialValue = HabitConfig())
@@ -328,7 +328,9 @@ fun ActionSelectContent(
                             widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
                             onSelectWidget = ::pickWidget,
                             onSelectInternalWidget = { id ->
-                                if (id == InternalWidgetIds.HABIT_HISTORY) {
+                                if (id == InternalWidgetIds.HABIT_HISTORY ||
+                                    id == InternalWidgetIds.HABIT_HEATMAP
+                                ) {
                                     pendingHabitWidgetId = id
                                 } else {
                                     vm.commitInternalWidget(id)

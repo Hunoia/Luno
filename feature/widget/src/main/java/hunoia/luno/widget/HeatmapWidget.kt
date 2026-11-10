@@ -8,7 +8,6 @@ import android.graphics.RectF
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -45,25 +44,21 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import hunoia.luno.config.model.Habit
-import hunoia.luno.config.model.HabitHistoryRetentionDays
 import hunoia.luno.config.model.canCheck
 import hunoia.luno.config.model.currentStreak
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.HabitExtras
+import hunoia.luno.gridpanel.habit.HabitHeatmapGeometry
+import hunoia.luno.gridpanel.habit.HabitHeatmapLevelAlpha
+import hunoia.luno.gridpanel.habit.HabitHeatmapMaxDays
+import hunoia.luno.gridpanel.habit.HabitHeatmapRows
 import hunoia.luno.gridpanel.habit.HabitTitleGap
+import hunoia.luno.gridpanel.habit.habitHeatmapFirstDay
+import hunoia.luno.gridpanel.habit.habitHeatmapGeometry
+import hunoia.luno.gridpanel.habit.habitHeatmapLevel
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-
-/** 热力图最多展示的天数：与打卡保留期一致。 */
-private const val HeatmapMaxDays = HabitHistoryRetentionDays
-
-/** 一列 7 天（GitHub 风格），最多 13 列 = 91 天。 */
-private const val HeatmapRows = 7
-private const val HeatmapMaxCols = 13
-
-/** 5 档完成度 → 上层白色位图的 alpha（tint 后即为习惯色深浅）。 */
-private val HeatmapLevelAlpha = intArrayOf(56, 102, 148, 194, 255)
 
 /** 单张热力位图的像素预算（约 288KB，ARGB_8888）；两张合计留足 RemoteViews 事务余量。 */
 private const val HeatmapBitmapPixelBudget = 72_000f
@@ -213,7 +208,7 @@ private fun HeatmapBody(
     val titleSizeSp = (innerW.value * 0.11f).coerceIn(10f, 14f)
     val titleHeight = maxOf(singleLineTextHeight(context, titleSizeSp), 9.dp)
     val gridHeight = (innerH - titleHeight - HabitTitleGap).coerceAtLeast(16.dp)
-    val geometry = heatmapGeometry(innerW, gridHeight)
+    val geometry = habitHeatmapGeometry(innerW, gridHeight)
     val habitColor = habitColor(habit, colors)
     val neutral = colors.onSurface
     val (baseBitmap, levelBitmap) = buildHeatmapBitmaps(
@@ -282,7 +277,7 @@ private fun HeatmapBody(
             Box(
                 modifier = GlanceModifier.size(
                     geometry.step * geometry.cols,
-                    geometry.step * HeatmapRows,
+                    geometry.step * HabitHeatmapRows,
                 ),
             ) {
                 // 底层：所有有效日期一格淡色（跳过 / 断签 / 未开始只剩这一层）。
@@ -304,28 +299,18 @@ private fun HeatmapBody(
     }
 }
 
-/** 热力图几何：7 行固定，列数 / 格径随可用区自适应。 */
-private data class HeatmapGeometry(
-    val cols: Int,
-    val step: Dp,
-)
-
-private fun heatmapGeometry(width: Dp, height: Dp): HeatmapGeometry {
-    val step = (height / HeatmapRows).coerceIn(4.dp, 18.dp)
-    val cols = (width / step).toInt().coerceIn(1, HeatmapMaxCols)
-    return HeatmapGeometry(cols = cols, step = step)
-}
-
 /**
  * 生成两张同尺寸白色位图：底层所有有效格（alpha 满），上层仅按完成度 1–5 档画。
  *
  * 位图尺寸按 dp × 缩放比计算：RemoteViews 经 Binder 传位图，单次事务约 1MB，
  * 大部件（13×7 格 @18dp）按屏幕 density 出图两张会直接超限。这里给每张图设像素预算，
  * 超预算时降采样、由 ImageView 平滑放大；小部件仍用满 density，格子保持清晰。
+ *
+ * 几何 / 分档收口在 `:feature:gridpanel` 的 `HabitHeatmapGeometry`（architecture §7.5）。
  */
 private fun buildHeatmapBitmaps(
     context: Context,
-    geometry: HeatmapGeometry,
+    geometry: HabitHeatmapGeometry,
     today: Long,
     checks: Set<Long>,
     counts: Map<Long, Int>,
@@ -333,13 +318,13 @@ private fun buildHeatmapBitmaps(
 ): Pair<Bitmap, Bitmap> {
     val requestedDensity = context.resources.displayMetrics.density
     val widthDp = (geometry.step.value * geometry.cols).coerceAtLeast(1f)
-    val heightDp = (geometry.step.value * HeatmapRows).coerceAtLeast(1f)
+    val heightDp = (geometry.step.value * HabitHeatmapRows).coerceAtLeast(1f)
     val budgetScale = sqrt(HeatmapBitmapPixelBudget / (widthDp * heightDp))
     val scale = minOf(requestedDensity, budgetScale).coerceAtLeast(1f)
     val stepPx = (geometry.step.value * scale).coerceAtLeast(1f)
     val cellPx = (stepPx * 0.72f).coerceAtLeast(1f)
     val widthPx = (stepPx * geometry.cols).roundToInt().coerceAtLeast(1)
-    val heightPx = (stepPx * HeatmapRows).roundToInt().coerceAtLeast(1)
+    val heightPx = (stepPx * HabitHeatmapRows).roundToInt().coerceAtLeast(1)
     val base = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
     val levels = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
     val baseCanvas = Canvas(base)
@@ -355,40 +340,22 @@ private fun buildHeatmapBitmaps(
     val radius = cellPx * 0.22f
     val inset = (stepPx - cellPx) / 2f
     // 最后一列 = 本周（周一开头）；今天落在真实星期行，未来格子留空。
-    val todayDow = LocalDate.ofEpochDay(today).dayOfWeek.value - 1
-    val firstDay = today - todayDow - (geometry.cols - 1) * HeatmapRows
-    val minDay = today - (HeatmapMaxDays - 1)
+    val firstDay = habitHeatmapFirstDay(today, geometry.cols)
+    val minDay = today - (HabitHeatmapMaxDays - 1)
     for (col in 0 until geometry.cols) {
-        for (row in 0 until HeatmapRows) {
-            val day = firstDay + col * HeatmapRows + row
+        for (row in 0 until HabitHeatmapRows) {
+            val day = firstDay + col * HabitHeatmapRows + row
             if (day > today || day < minDay) continue
             val left = col * stepPx + inset
             val top = row * stepPx + inset
             val rect = RectF(left, top, left + cellPx, top + cellPx)
             baseCanvas.drawRoundRect(rect, radius, radius, basePaint)
-            val level = heatmapLevel(day, checks, counts, target)
+            val level = habitHeatmapLevel(day, checks, counts, target)
             if (level > 0) {
-                levelPaint.alpha = HeatmapLevelAlpha[level - 1]
+                levelPaint.alpha = HabitHeatmapLevelAlpha[level - 1]
                 levelCanvas.drawRoundRect(rect, radius, radius, levelPaint)
             }
         }
     }
     return base to levels
-}
-
-/** 完成度 → 1–5 档；0 = 当天没有进度（底层淡色）。 */
-private fun heatmapLevel(
-    day: Long,
-    checks: Set<Long>,
-    counts: Map<Long, Int>,
-    target: Int,
-): Int {
-    val safeTarget = target.coerceAtLeast(1)
-    val count = when {
-        day in checks -> safeTarget
-        else -> counts[day] ?: 0
-    }
-    if (count <= 0) return 0
-    if (safeTarget == 1) return 5
-    return ((count.toFloat() / safeTarget) * 5f).roundToInt().coerceIn(1, 5)
 }
