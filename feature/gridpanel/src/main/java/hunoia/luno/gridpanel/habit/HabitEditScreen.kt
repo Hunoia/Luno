@@ -78,6 +78,8 @@ import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
+import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
+import hunoia.luno.gridpanel.ui.snoozeDurationLabel
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.HabitCalendarCellGap
@@ -344,7 +346,7 @@ fun HabitEditScreen(
                 )
             }
             if (state.showSnoozeDialog) {
-                HabitSnoozeDialog(
+                SnoozeDurationDialog(
                     initialMinutes = shownSnoozeMinutes,
                     onDismiss = { state.showSnoozeDialog = false },
                     onConfirm = { minutes ->

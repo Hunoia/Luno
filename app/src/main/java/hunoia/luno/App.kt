@@ -87,6 +87,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // 在这里订阅配置流才能保证「关提醒 / 打卡 / 删习惯」后立即撤销在屏通知与闹钟。
         if (isProviderProcess) {
             hunoia.luno.domain.habit.HabitReminderScheduler.startObserving(applicationContext)
+            // 待办提醒同理：配置流一变更（设 / 改 / 删 / 完成 / 撤销）就重排，
+            // 首次订阅同时负责「应用打开时补弹错过提醒」。
+            hunoia.luno.domain.todo.TodoReminderScheduler.startObserving(applicationContext)
         }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)

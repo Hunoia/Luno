@@ -15,7 +15,8 @@ object BackupVersions {
     const val ACTION = 2
     const val SEARCH = 1
     const val HABIT = 2
-    const val TODO = 1
+    /** 2：待办提醒（`TodoItem.reminder`）与全局推迟时长（`TodoConfig.reminderSnoozeMinutes`）。 */
+    const val TODO = 2
     const val ANNOTATE = 1
     const val CLIPBOARD = 1
 }

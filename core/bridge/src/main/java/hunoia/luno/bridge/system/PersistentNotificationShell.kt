@@ -1,7 +1,7 @@
 package hunoia.luno.bridge.system
 
-import hunoia.luno.config.model.HABIT_REMINDER_CHANNEL_ID
 import hunoia.luno.config.model.HiddenNotificationTarget
+import hunoia.luno.config.model.UserFacingReminderChannelIds
 import hunoia.luno.core.domain.PersistentNotificationEntry
 import hunoia.luno.shizuku.ShizukuManager
 
@@ -74,8 +74,8 @@ object PersistentNotificationShell {
     suspend fun snoozeAllOwnPersistent(packageName: String, durationMs: Long = SNOOZE_DURATION_MS): Int {
         val keys = listPersistent()
             .filter { it.packageName == packageName }
-            // 习惯提醒是面向用户的常驻通知，用户显式开启的提醒不能因「隐藏 Luno 通知」被收走。
-            .filterNot { it.channelId == HABIT_REMINDER_CHANNEL_ID }
+            // 习惯 / 待办提醒是面向用户的常驻通知，用户显式开启的提醒不能因「隐藏 Luno 通知」被收走。
+            .filterNot { it.channelId in UserFacingReminderChannelIds }
             .map { it.key }
         keys.forEach { snooze(it, durationMs) }
         return keys.size

@@ -6,6 +6,7 @@ import android.content.Intent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.domain.habit.HabitReminderScheduler
+import hunoia.luno.domain.todo.TodoReminderScheduler
 
 /**
  * 应用更新（`adb install -r` / 应用商店更新）后恢复常驻前台服务。
@@ -24,8 +25,9 @@ class PackageReplacedReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         Log.i(TAG, "package replaced: restoring services")
         ServiceAutoStart.restore(context)
-        // 包替换后 AlarmManager 里旧包闹钟被系统清空，重建习惯提醒。
+        // 包替换后 AlarmManager 里旧包闹钟被系统清空，重建习惯 / 待办提醒。
         HabitReminderScheduler.rescheduleAll(context)
+        TodoReminderScheduler.rescheduleAll(context)
     }
 
     private companion object {

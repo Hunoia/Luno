@@ -468,6 +468,12 @@
     <string name="habit_reminder_test_done">测试完成 · 已收起</string>
     <string name="habit_reminder_capsule">该打卡</string>
 
+    <string name="todo_reminder_channel">待办提醒</string>
+    <string name="todo_reminder_title">待办提醒</string>
+    <string name="todo_reminder_done">完成</string>
+    <string name="todo_reminder_capsule">该办了</string>
+    <string name="todo_reminder_share_content">【%1$s】%2$s</string>
+
     <string name="habit_reminder_perm_notification">通知权限</string>
     <string name="habit_reminder_perm_notification_on_hint">已允许 · 到点会弹出提醒</string>
     <string name="habit_reminder_perm_notification_off_hint">未允许 · 提醒不会显示，点按去开启</string>
@@ -493,6 +499,7 @@
     <string name="notification_display_override_hint">「默认」跟随全局呈现模式</string>
     <string name="notification_display_kind_habit">习惯提醒</string>
     <string name="notification_display_kind_backup">自动备份</string>
+    <string name="notification_display_kind_todo">待办提醒</string>
     <string name="notification_display_override_follow">默认</string>
     <string name="notification_display_island_group">超级岛</string>
     <string name="notification_display_island_auto_expand">自动展开大岛</string>

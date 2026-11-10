@@ -1,80 +1,61 @@
 package hunoia.luno.gridpanel.todo
 
-import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
+import hunoia.luno.gridpanel.TodoReminderFormat
+import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeGutter
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
-import hunoia.luno.ui.theme.PageGutter
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 
 /**
  * 代办管理列表：主设置 → 代办。
@@ -93,9 +74,10 @@ fun TodoListScreen(
     val all = pending + done
 
     var creating by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<TodoItem?>(null) }
+    var editingId by remember { mutableStateOf<String?>(null) }
     // 完成 / 撤销完成都先确认：与桌面部件、面板内置待办的确认口径一致。
     var pendingToggle by remember { mutableStateOf<TodoItem?>(null) }
+    var showSnoozeDialog by remember { mutableStateOf(false) }
 
     // 待办部件的「标题 → 列表页」或「某条 → 编辑」请求：进入列表页后消费一次。
     // todoId 为空 = 只进列表页（不自动开弹窗）；非空 = 再打开该条编辑。
@@ -106,7 +88,7 @@ fun TodoListScreen(
         val todoId = open.todoId ?: return@LaunchedEffect
         // 从持久层读最新配置（collectAsState 初始为空，find 会落空 → 误判新建）。
         val target = TodoCenter.getTodoConfig().todoById(todoId)
-        if (target != null) editing = target
+        if (target != null) editingId = target.id
     }
 
     LunoScreenLazy(
@@ -152,8 +134,30 @@ fun TodoListScreen(
                     },
                 )
             }
+            if (showSnoozeDialog) {
+                SnoozeDurationDialog(
+                    initialMinutes = config.reminderSnoozeMinutes,
+                    onDismiss = { showSnoozeDialog = false },
+                    onConfirm = { minutes ->
+                        scope.launch { TodoCenter.setReminderSnoozeMinutes(minutes) }
+                        showSnoozeDialog = false
+                    },
+                )
+            }
         },
     ) {
+        item {
+            LunoGroup {
+                LunoSettingsRow(
+                    title = stringResource(R.string.todo_reminder_setting),
+                    subtitle = TodoReminderFormat.snoozeDurationLabel(
+                        LocalContext.current,
+                        config.reminderSnoozeMinutes,
+                    ),
+                    onClick = { showSnoozeDialog = true },
+                )
+            }
+        }
         if (config.todos.isEmpty()) {
             item {
                 EmptyState(message = stringResource(R.string.todo_empty))
@@ -169,7 +173,7 @@ fun TodoListScreen(
                             todo = todo,
                             shape = segmentedShape(index, all.size),
                             onToggle = { pendingToggle = todo },
-                            onEdit = { editing = todo },
+                            onEdit = { editingId = todo.id },
                         )
                     }
                 }
@@ -179,40 +183,19 @@ fun TodoListScreen(
 
     if (creating) {
         TodoEditDialog(
-            isNew = true,
+            todoId = null,
             onDismiss = { creating = false },
-            onConfirm = { text ->
-                scope.launch {
-                    TodoCenter.addTodo(
-                        TodoItem(text = text, createdAt = System.currentTimeMillis()),
-                    )
-                    creating = false
-                }
-            },
         )
     }
-    editing?.let { todo ->
+    editingId?.let { id ->
         TodoEditDialog(
-            isNew = false,
-            initialText = todo.text,
-            onDismiss = { editing = null },
-            onConfirm = { text ->
-                scope.launch {
-                    TodoCenter.updateTodo(todo.copy(text = text))
-                    editing = null
-                }
-            },
-            onDelete = {
-                scope.launch {
-                    TodoCenter.deleteTodo(todo.id)
-                    editing = null
-                }
-            },
+            todoId = id,
+            onDismiss = { editingId = null },
         )
     }
 }
 
-/** 一行代办：左圆点切换完成（先确认）+ 文字（点行进编辑弹窗）；已完成 = 实心勾 + 置灰划线。 */
+/** 一行代办：左圆点切换完成（先确认）+ 文字（点行进编辑弹窗）+ 可选提醒徽标。 */
 @Composable
 private fun TodoListRow(
     todo: TodoItem,
@@ -246,6 +229,24 @@ private fun TodoListRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        // 已完成的待办不再显示闹钟：提醒已被取消，显示未来时间会误导用户。
+        todo.reminder?.takeIf { !todo.done }?.let { reminder ->
+            val past = reminder.isPast(System.currentTimeMillis(), ZoneId.systemDefault())
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Default.Alarm,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (past) scheme.error else scheme.primary,
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = TodoReminderFormat.label(LocalContext.current, reminder),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (past) scheme.error else scheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -286,123 +287,6 @@ private fun TodoCheckToggle(
                     .fillMaxSize()
                     .border(2.dp, scheme.onSurfaceVariant.copy(alpha = 0.5f), CircleShape),
             )
-        }
-    }
-}
-
-/** 添加 / 编辑代办弹窗：底部锚定（贴键盘上方）+ 自动弹键盘；编辑态额外提供删除。 */
-@Composable
-private fun TodoEditDialog(
-    isNew: Boolean,
-    initialText: String = "",
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-    onDelete: (() -> Unit)? = null,
-) {
-    // Dialog 是独立窗口且半透明：adjustResize 在这种窗口上不可靠（键盘盖住内容）。
-    // 改 ADJUST_NOTHING 让窗口不自动缩放/平移，改由 imePadding() 把内容顶到键盘上方。
-    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-    SideEffect {
-        dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-    }
-    // 按 initialText 复位：同一调用点切换新增/编辑目标时不能残留上次的输入。
-    // 光标放末尾（编辑预填后直接续写，而不是从最前插入）。
-    var textValue by rememberSaveable(initialText, stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(initialText, selection = TextRange(initialText.length)))
-    }
-    val trimmed = textValue.text.trim()
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    val curOnConfirm by rememberUpdatedState(onConfirm)
-
-    fun submit() {
-        if (trimmed.isEmpty()) return
-        keyboard?.hide()
-        curOnConfirm(trimmed)
-    }
-
-    // 自动聚焦：键盘随之弹出。
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            // 边到边：内容延伸到状态栏/导航栏区域，IME inset 才会派发下来（imePadding 才有值）。
-            decorFitsSystemWindows = false,
-        ),
-    ) {
-        // 遮罩点按关闭；卡片本体不响应遮罩点击（镜像 ConfirmDialog）。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                // 键盘上方：IME inset 撑开内容底边，卡片（BottomCenter）贴住键盘上沿。
-                .imePadding()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss,
-                ),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = PageGutter, vertical = PageGutter)
-                    .fillMaxWidth()
-                    .clip(ExtraLargeShape)
-                    .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .padding(LargeGutter),
-                verticalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
-                Text(
-                    text = stringResource(
-                        if (isNew) R.string.todo_create_title else R.string.todo_edit_title,
-                    ),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                OutlinedTextField(
-                    value = textValue,
-                    onValueChange = { textValue = it },
-                    singleLine = true,
-                    placeholder = { Text(stringResource(R.string.todo_text_hint)) },
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (onDelete != null) {
-                        TextButton(onClick = onDelete) {
-                            Text(
-                                text = stringResource(R.string.todo_delete),
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(hunoia.luno.design.R.string.cancel))
-                    }
-                    TextButton(
-                        onClick = { submit() },
-                        enabled = trimmed.isNotEmpty(),
-                    ) {
-                        Text(stringResource(R.string.todo_save))
-                    }
-                }
-            }
         }
     }
 }

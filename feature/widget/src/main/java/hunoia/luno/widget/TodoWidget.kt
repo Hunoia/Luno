@@ -42,6 +42,7 @@ import androidx.glance.unit.ColorProvider
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.TodoExtras
+import hunoia.luno.gridpanel.TodoReminderFormat
 
 /** 行高：镜像内置 TodoListCell 的 `TodoRowH`。 */
 private val TodoRowH = 32.dp
@@ -243,5 +244,22 @@ private fun TodoRowContent(
             ),
             maxLines = 1,
         )
+        todo.reminder?.let { reminder ->
+            val past = reminder.isPast(System.currentTimeMillis())
+            val tint = if (past) GlanceTheme.colors.error else onSurface.alpha(context, 0.65f)
+            Spacer(GlanceModifier.width(4.dp))
+            Image(
+                provider = ImageProvider(R.drawable.widget_alarm),
+                contentDescription = null,
+                modifier = GlanceModifier.size(12.dp),
+                colorFilter = ColorFilter.tint(tint),
+            )
+            Spacer(GlanceModifier.width(2.dp))
+            Text(
+                text = TodoReminderFormat.label(context, reminder),
+                style = TextStyle(color = tint, fontSize = 9.sp),
+                maxLines = 1,
+            )
+        }
     }
 }

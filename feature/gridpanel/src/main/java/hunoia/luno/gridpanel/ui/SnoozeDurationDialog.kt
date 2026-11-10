@@ -1,4 +1,4 @@
-package hunoia.luno.gridpanel.habit
+package hunoia.luno.gridpanel.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -27,49 +27,49 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.config.model.HabitMaxSnoozeMinutes
-import hunoia.luno.config.model.HabitMinSnoozeMinutes
 import hunoia.luno.gridpanel.R
+import hunoia.luno.gridpanel.TodoReminderFormat
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+/** 推迟时长下限（分钟）。 */
+internal const val SnoozeMinMinutes = 1
+
+/** 推迟时长上限（分钟）：6 小时。 */
+internal const val SnoozeMaxMinutes = 6 * 60
+
 /** 「推迟时长」文案（分钟 → 中文），通知按钮与编辑页共用。 */
 @Composable
-internal fun snoozeDurationLabel(minutes: Int): String {
-    val safe = minutes.coerceIn(HabitMinSnoozeMinutes, HabitMaxSnoozeMinutes)
-    val hours = safe / 60
-    val rest = safe % 60
-    return when {
-        hours == 0 -> stringResource(R.string.habit_snooze_duration_minutes, rest)
-        rest == 0 -> stringResource(R.string.habit_snooze_duration_hours, hours)
-        else -> stringResource(R.string.habit_snooze_duration_hours_minutes, hours, rest)
-    }
-}
+internal fun snoozeDurationLabel(minutes: Int): String =
+    TodoReminderFormat.snoozeDurationLabel(LocalContext.current, minutes)
 
 /**
  * 推迟时长选择：圆形分钟表盘（0–59 分、60 刻度、拖动 / 点按）+ 0–6 小时快捷档。
  *
  * 总范围 1 分钟 – 6 小时：小时为 0 时分钟至少 1，选 6 小时时分钟固定 0。
- * 表盘只负责分钟，小时由快捷档决定，两者组合成 [HabitMaxSnoozeMinutes] 以内的总时长。
+ * 表盘只负责分钟，小时由快捷档决定，两者组合成 [SnoozeMaxMinutes] 以内的总时长。
+ *
+ * 习惯编辑页与待办设置共用；具体「推迟」语义（通知按钮文案 / 调度）由调用方负责。
  */
 @Composable
-internal fun HabitSnoozeDialog(
+internal fun SnoozeDurationDialog(
     initialMinutes: Int,
     onDismiss: () -> Unit,
     onConfirm: (minutes: Int) -> Unit,
 ) {
     var total by remember {
-        mutableIntStateOf(initialMinutes.coerceIn(HabitMinSnoozeMinutes, HabitMaxSnoozeMinutes))
+        mutableIntStateOf(initialMinutes.coerceIn(SnoozeMinMinutes, SnoozeMaxMinutes))
     }
     val hour = total / 60
     val minute = total % 60
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.habit_snooze_dialog_title)) },
+        title = { Text(stringResource(R.string.snooze_dialog_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -93,7 +93,7 @@ internal fun HabitSnoozeDialog(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = stringResource(R.string.habit_snooze_hours_unit),
+                    text = stringResource(R.string.snooze_hours_unit),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -106,8 +106,8 @@ internal fun HabitSnoozeDialog(
                             selected = h == hour,
                             onClick = {
                                 total = when {
-                                    h == 6 -> HabitMaxSnoozeMinutes
-                                    h == 0 -> (total % 60).coerceAtLeast(HabitMinSnoozeMinutes)
+                                    h == 6 -> SnoozeMaxMinutes
+                                    h == 0 -> (total % 60).coerceAtLeast(SnoozeMinMinutes)
                                     else -> h * 60 + (total % 60)
                                 }
                             },
@@ -131,7 +131,7 @@ internal fun HabitSnoozeDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.habit_reminder_cancel))
+                Text(stringResource(hunoia.luno.design.R.string.cancel))
             }
         },
     )
@@ -237,7 +237,7 @@ private fun MinuteDial(
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else track,
             )
             Text(
-                text = stringResource(R.string.habit_snooze_minutes_unit),
+                text = stringResource(R.string.snooze_minutes_unit),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
