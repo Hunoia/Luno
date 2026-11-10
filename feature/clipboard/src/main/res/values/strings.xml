@@ -33,7 +33,7 @@
     <string name="clipboard_capacity">固定 %1$d 条 · 未固定 %2$d 条 / 上限 %3$d 条</string>
     <string name="clipboard_settings_group">记录设置</string>
     <string name="clipboard_record_enabled">记录剪贴板</string>
-    <string name="clipboard_record_enabled_hint">关闭后不再记录新内容，当前剪贴板仍可读取</string>
+    <string name="clipboard_record_enabled_hint">关闭后不再记录新内容</string>
     <string name="clipboard_max_entries">未固定条目上限</string>
     <string name="clipboard_max_entries_value">%1$d 条</string>
     <string name="clipboard_manage_group">数据</string>

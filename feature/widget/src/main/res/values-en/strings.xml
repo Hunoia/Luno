@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Habit widget -->
+    <string name="widget_habit_title">Habits</string>
+    <string name="widget_habit_heatmap_title">Habit heatmap</string>
+    <string name="widget_habit_streak">%1$s · %2$d days</string>
+    <!-- Unconfigured (config cancelled / old version without id) is separate from deleted: the missing state reuses the built-in panel wording (grid_panel_habit_missing), unconfigured cannot be called "deleted". -->
+    <string name="widget_habit_unconfigured">No habit selected</string>
+    <string name="widget_habit_missing">Habit deleted</string>
+    <string name="widget_habit_check">Check in "%1$s"</string>
+    <string name="widget_habit_edit">Edit "%1$s"</string>
+    <!-- Widget confirm dialog -->
+    <string name="widget_habit_check_title">Confirm check-in</string>
+    <string name="widget_habit_check_message">Check in "%1$s" today?</string>
+    <string name="widget_habit_check_message_progress">Check in "%3$s" for the %1$d/%2$d time today?</string>
+    <!-- Dot-matrix state copy: same as built-in habit_day_*. -->
+    <string name="widget_habit_day_checked">Checked</string>
+    <string name="widget_habit_day_due">Due</string>
+    <string name="widget_habit_day_skipped">Skipped</string>
+    <string name="widget_habit_day_overdue">Missed, can make up</string>
+    <string name="widget_habit_day_inactive">Not started</string>
+    <!-- Habit placement picker dialog -->
+    <string name="widget_habit_picker_title">Select habit</string>
+    <string name="widget_habit_picker_empty">No habits yet; create one in the app first</string>
+    <string name="widget_habit_picker_unnamed">Unnamed habit</string>
+
+    <!-- Todo widget -->
+    <string name="widget_todo_title">Todos · %1$d</string>
+    <string name="widget_todo_empty">No todos</string>
+    <string name="widget_todo_open_list">Open todo list</string>
+    <string name="widget_todo_add">Add todo</string>
+    <string name="widget_todo_open">Open "%1$s"</string>
+    <string name="widget_todo_complete">Complete "%1$s"</string>
+    <string name="widget_todo_complete_title">Complete todo</string>
+    <string name="widget_todo_complete_message">Mark "%1$s" as complete?</string>
+</resources>

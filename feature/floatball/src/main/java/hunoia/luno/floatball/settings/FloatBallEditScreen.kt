@@ -177,7 +177,6 @@ fun FloatBallEditScreen(
                 LunoGroup {
                     LunoSettingsRow(
                         title = stringResource(R.string.float_ball_permission_required),
-                        subtitle = stringResource(R.string.float_ball_permission_hint),
                         icon = Icons.AutoMirrored.Filled.OpenInNew,
                         shape = segmentedShape(0, 1),
                         onClick = {

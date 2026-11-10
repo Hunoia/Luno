@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_panel_missing">Panel no longer exists; go back and re-add</string>
+    <string name="grid_panel_add_item">Add panel item</string>
+    <string name="toast_accessibility_required">Accessibility service required</string>
+    <string name="grid_panel_internal_media">Media control</string>
+    <string name="grid_panel_internal_volume">Volume control</string>
+    <string name="grid_panel_internal_brightness">Brightness control</string>
+    <string name="grid_panel_internal_recents">Recent apps</string>
+    <string name="grid_panel_internal_clipboard">Clipboard</string>
+    <string name="grid_panel_internal_app_drawer">App drawer</string>
+    <string name="grid_panel_internal_habit_history">Habit history</string>
+    <string name="grid_panel_internal_habit_heatmap">Habit heatmap</string>
+    <string name="grid_panel_internal_todo">Todos</string>
+    <string name="grid_panel_habit_empty">No habit configured</string>
+    <string name="grid_panel_habit_missing">Habit deleted</string>
+    <string name="grid_panel_habit_missing_reselect">Habit deleted, tap to reselect</string>
+    <string name="grid_panel_habit_confirm_hint">Tap again to confirm check-in</string>
+    <string name="grid_panel_habit_edit_hint">Edit habit</string>
+    <string name="grid_panel_habit_title">%1$s · %2$d days</string>
+    <string name="habit_day_checked">Checked</string>
+    <string name="habit_day_due">Due</string>
+    <string name="habit_day_skipped">Skipped</string>
+    <string name="habit_day_overdue">Missed, can make up</string>
+    <string name="habit_day_inactive">Not started</string>
+    <string name="habit_day_cell_desc">%1$d/%2$d · %3$s</string>
+    <string name="grid_panel_todo_title">Todos · %1$d</string>
+    <string name="grid_panel_todo_desc">%1$d todos</string>
+    <string name="grid_panel_todo_empty">No todos</string>
+    <string name="grid_panel_todo_add">Add todo</string>
+    <string name="grid_panel_todo_open_list">Open todo list</string>
+    <string name="grid_panel_todo_complete">Mark complete</string>
+    <string name="grid_panel_todo_open">Open: %1$s</string>
+    <string name="app_drawer_disabled_app">This app is disabled</string>
+    <string name="grid_panel_clipboard_image">Image</string>
+    <string name="grid_panel_clipboard_empty">No clipboard history</string>
+    <string name="grid_panel_clipboard_copy">Copy</string>
+    <string name="grid_panel_clipboard_delete">Delete</string>
+    <string name="grid_panel_clipboard_clear">Clear all</string>
+    <string name="grid_panel_clipboard_more">More actions</string>
+    <string name="grid_panel_clipboard_copy_failed">Copy failed</string>
+    <string name="grid_panel_clipboard_pasted_via_clipboard">This field only supports paste; used the clipboard</string>
+    <string name="grid_panel_brightness_need_permission">Grant "Modify system settings" to adjust brightness; tap to authorize</string>
+    <string name="grid_panel_recents_empty">No recent app records</string>
+    <string name="grid_panel_media_need_permission">Grant notification access to control media; tap to authorize</string>
+    <string name="grid_panel_media_no_session">No media playing</string>
+    <string name="grid_panel_media_previous">Previous</string>
+    <string name="grid_panel_media_play_pause">Play / pause</string>
+    <string name="grid_panel_media_next">Next</string>
+    <string name="grid_panel_toggle_background">Toggle widget background</string>
+    <string name="toast_select_page_failed">Could not open the action selection page</string>
+    <string name="grid_panel_item_menu_delete">Delete</string>
+    <string name="grid_panel_item_resize">Resize</string>
+    <string name="grid_panel_resize">Resize panel</string>
+    <string name="grid_panel_pinch_columns">%1$d columns</string>
+    <string name="grid_panel_move_left">Move left one cell</string>
+    <string name="grid_panel_move_right">Move right one cell</string>
+    <string name="grid_panel_move_up">Move up one cell</string>
+    <string name="grid_panel_move_down">Move down one cell</string>
+    <string name="grid_panel_widget_failed">Widget load failed</string>
+    <string name="grid_panel_empty_items">Empty panel. Long-press blank space to edit and add items.</string>
+    <string name="grid_panel_empty_items_edit">This page is still empty. Tap "+" at the top-right to add an action or widget.</string>
+    <string name="todo_add">Add todo</string>
+    <string name="todo_create_title">New todo</string>
+    <string name="todo_delete">Delete todo</string>
+    <string name="todo_edit_title">Edit todo</string>
+    <string name="todo_empty">No todos yet; tap the top-right to create</string>
+    <string name="todo_list_title">Todos</string>
+    <string name="todo_save">Save</string>
+    <string name="todo_text_hint">e.g. Buy milk, pay electricity bill</string>
+    <!-- Same wording as :feature:widget's widget_todo_complete_* (same-value mirror across modules, see architecture §7.5). -->
+    <string name="todo_complete_confirm_title">Complete todo</string>
+    <string name="todo_complete_confirm_text">Mark "%1$s" as complete?</string>
+    <string name="todo_complete_confirm_action">Complete</string>
+    <string name="todo_uncomplete_confirm_title">Undo complete</string>
+    <string name="todo_uncomplete_confirm_text">Restore "%1$s" to incomplete?</string>
+    <string name="todo_uncomplete_confirm_action">Undo</string>
+
+    <!-- Todo reminders -->
+    <string name="todo_reminder_add">Add reminder</string>
+    <string name="todo_reminder_edit">Edit reminder</string>
+    <string name="todo_reminder_remove">Remove reminder</string>
+    <string name="todo_reminder_title">Todo reminder</string>
+    <string name="todo_reminder_pick_date">Date</string>
+    <string name="todo_reminder_month">%1$d/%2$d</string>
+    <string name="todo_reminder_pick_time">Time</string>
+    <string name="todo_reminder_confirm">OK</string>
+    <string name="todo_reminder_expired">Time has passed; choose a future time</string>
+    <string name="todo_reminder_expired_short">Expired</string>
+    <string name="todo_reminder_today">Today %1$s</string>
+    <string name="todo_reminder_tomorrow">Tomorrow %1$s</string>
+    <string name="todo_reminder_date">%1$d/%2$d %3$s</string>
+    <string name="todo_reminder_short_date">%1$d/%2$d %3$s</string>
+    <string name="todo_reminder_time">%1$02d:%2$02d</string>
+    <string name="todo_reminder_notification_body">Reminder · %1$s</string>
+    <string name="todo_reminder_overdue_body">Overdue · %1$s</string>
+    <string name="todo_reminder_dialog_status">Reminder time: %1$s</string>
+    <string name="todo_reminder_snooze_minutes">Snooze %1$d min</string>
+    <string name="todo_reminder_snooze_hours">Snooze %1$d h</string>
+    <string name="todo_reminder_snooze_hours_minutes">Snooze %1$d h %2$d min</string>
+    <string name="todo_reminder_setting">Snooze duration</string>
+    <string name="action_settings_habit_group">Habits</string>
+    <string name="habit_add">New habit</string>
+    <string name="habit_color">Color</string>
+    <string name="habit_create_title">New habit</string>
+    <string name="habit_delete">Delete habit</string>
+    <string name="habit_delete_confirm">Will delete this habit and all its check-in records; cannot be undone</string>
+    <string name="habit_check_confirm_title">Make up</string>
+    <string name="habit_check_confirm_text">Will fill %1$d/%2$d to the daily target.</string>
+    <string name="habit_check_confirm_action">Make up</string>
+    <string name="habit_uncheck_confirm_title">Undo check-in</string>
+    <string name="habit_uncheck_confirm_text">Will clear the check-in and progress for %1$d/%2$d; the streak may change.</string>
+    <string name="habit_uncheck_confirm_action">Undo check-in</string>
+    <string name="habit_edit_title">Edit habit</string>
+    <string name="habit_empty">No habits yet; tap the top-right to create</string>
+    <string name="habit_interval">Check-in frequency</string>
+    <string name="habit_interval_summary">Once every %1$d days</string>
+    <string name="habit_daily_target">Daily target</string>
+    <string name="habit_daily_target_summary">%1$d times per due day</string>
+    <string name="habit_list_title">Habits</string>
+    <string name="habit_name">Habit name</string>
+    <string name="habit_name_hint">e.g. Run, drink water</string>
+    <string name="habit_pick_empty">No habits yet; create one under "Settings → Habits"</string>
+    <string name="habit_pick_title">Select habit</string>
+    <string name="habit_recent_checks">Last 30 days</string>
+    <string name="habit_heatmap">Heatmap</string>
+    <string name="habit_heatmap_desc">Check-in heatmap for the last 90 days</string>
+    <string name="habit_streak_summary">%1$d-day streak</string>
+    <string name="habit_today_progress">Today %1$d/%2$d · %3$d-day streak</string>
+    <string name="habit_reminder">Reminder</string>
+    <string name="habit_reminder_enable">Enable reminder</string>
+    <string name="habit_reminder_time">Reminder time</string>
+    <string name="habit_reminder_time_value">%1$02d:%2$02d</string>
+    <string name="habit_reminder_cancel">Cancel</string>
+    <string name="habit_reminder_add">Add reminder time</string>
+    <string name="habit_reminder_delete">Delete reminder time</string>
+    <string name="habit_reminder_max">Up to 6 reminder times</string>
+    <string name="habit_snooze">Snooze duration</string>
+    <string name="snooze_dialog_title">Snooze duration</string>
+    <string name="snooze_hours_unit">h</string>
+    <string name="snooze_minutes_unit">min</string>
+    <string name="snooze_duration_minutes">%1$d min</string>
+    <string name="snooze_duration_hours">%1$d h</string>
+    <string name="snooze_duration_hours_minutes">%1$d h %2$d min</string>
+
+    <string-array name="habit_weekdays">
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+        <item>Sun</item>
+    </string-array>
+</resources>

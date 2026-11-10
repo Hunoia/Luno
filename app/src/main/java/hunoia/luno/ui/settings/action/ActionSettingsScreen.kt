@@ -260,14 +260,12 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.NotificationsOff,
                         title = stringResource(R.string.persistent_notification_settings_entry),
-                        subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
                         shape = segmentedShape(1, 6),
                         onClick = onNavToPersistentNotificationSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VisibilityOff,
                         title = stringResource(R.string.status_bar_icons_entry),
-                        subtitle = stringResource(R.string.status_bar_icons_entry_hint),
                         shape = segmentedShape(2, 6),
                         onClick = onNavToStatusBarIconSettings,
                     )

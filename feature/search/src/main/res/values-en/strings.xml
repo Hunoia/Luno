@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Search module strings (recall / row copy). Panel strings belong to :feature:quickaccess. -->
+    <string name="quick_search_calendar">Calendar</string>
+    <string name="quick_search_calls">Call log</string>
+    <string name="quick_search_clipboard">Clipboard</string>
+    <string name="quick_search_contacts">Contacts</string>
+    <string name="quick_search_engine_search">Search with %1$s</string>
+    <string name="quick_search_files">Files</string>
+    <string name="quick_search_group_actions">Actions</string>
+    <string name="quick_search_group_apps">Apps</string>
+    <string name="quick_search_group_shortcuts">Shortcuts</string>
+    <string name="quick_search_music">Music</string>
+    <string name="quick_search_sms">Messages</string>
+    <string name="search_action_app_details">App details</string>
+    <string name="search_action_copy">Copy</string>
+    <string name="search_action_copy_link">Copy link</string>
+    <string name="search_action_send_sms">Send message</string>
+    <string name="search_action_share">Share</string>
+    <string name="search_action_share_image">Share image</string>
+</resources>

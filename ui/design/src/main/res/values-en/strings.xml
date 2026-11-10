@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Design system common strings (D6): only generic strings referenced directly by the component library. -->
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="go_back">Back</string>
+    <string name="search_clear_cd">Clear</string>
+    <string name="search_hint_all">Search</string>
+    <string name="color_picker_theme_tab">Theme color</string>
+    <string name="custom">Custom</string>
+    <string name="color_picker_wheel">Hue &amp; saturation</string>
+    <string name="color_picker_value">Lightness</string>
+    <string name="color_picker_alpha">Opacity</string>
+    <string name="color_picker_copy">Copy color value</string>
+    <string name="color_picker_copied">Copied</string>
+    <string name="theme_color_on_surface">Text color</string>
+    <string name="theme_color_on_surface_variant">Secondary text</string>
+    <string name="theme_color_outline">Outline</string>
+    <string name="theme_color_outline_variant">Outline variant</string>
+    <string name="theme_color_primary">Primary</string>
+    <string name="theme_color_primary_container">Primary container</string>
+    <string name="theme_color_secondary">Secondary</string>
+    <string name="theme_color_secondary_container">Secondary container</string>
+    <string name="theme_color_surface">Surface</string>
+    <string name="theme_color_surface_container">Surface container</string>
+    <string name="theme_color_surface_container_high">Surface container high</string>
+    <string name="theme_color_surface_container_low">Surface container low</string>
+    <string name="theme_color_surface_variant">Surface variant</string>
+    <string name="theme_color_tertiary">Tertiary</string>
+    <string name="theme_color_tertiary_container">Tertiary container</string>
+    <string name="bottom">Bottom</string>
+    <string name="bottom_left">Bottom left</string>
+    <string name="bottom_right">Bottom right</string>
+    <string name="direction_any">Any direction</string>
+    <string name="left">Left</string>
+    <string name="right">Right</string>
+    <string name="top">Top</string>
+    <string name="top_left">Top left</string>
+    <string name="top_right">Top right</string>
+    <string name="delete">Delete</string>
+    <string name="reset">Reset</string>
+    <string name="no_matching_results">No matching results</string>
+    <string name="dispatch_service_not_ready">Gesture service not ready; action not executed</string>
+    <string name="close">Close</string>
+    <string name="save">Save</string>
+    <string name="more_options">More options</string>
+    <string name="copied">Copied</string>
+    <!-- The three margins for overlays following the trigger point (shared control for grid panel / quick launch / mini window). -->
+    <string name="surface_side_margin">Side margin</string>
+    <string name="surface_top_gap">Top gap</string>
+    <string name="surface_bottom_gap">Bottom gap</string>
+</resources>

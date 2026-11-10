@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="launch_assist_failed">Could not launch the system assistant; check that it is installed.</string>
+    <string name="invalid_url">Invalid link format</string>
+    <string name="launch_failed">Launch failed</string>
+    <string name="launch_no_handler">No app can handle this link</string>
+    <string name="goto_grant_notification_policy_access_permission">Please manually enable "DND access" to use the mute switch</string>
+</resources>

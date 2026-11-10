@@ -20,7 +20,7 @@
     <string name="restore_failed">恢复失败</string>
     <!-- 定时自动备份：入口行、设置子页、失败通知（成功保持静默） -->
     <string name="auto_backup_switch">定时自动备份</string>
-    <string name="auto_backup_switch_hint">每天一次、无条件执行；目录里只保留最近 7 份</string>
+    <string name="auto_backup_switch_hint">每天一次；目录只留最近 7 份</string>
     <string name="auto_backup_directory">备份目录</string>
     <string name="auto_backup_directory_unset">未选择目录</string>
     <string name="auto_backup_status">执行状态</string>
@@ -56,7 +56,7 @@
     <string name="pointer_group_start">起始位置</string>
     <string name="pointer_group_cursor">光标外观</string>
     <string name="pointer_follow_trigger">跟随触发位置</string>
-    <string name="pointer_follow_trigger_hint">按住触发用当前触点；抬手触发用指针窗首次点击。偏移按触发所在分区自动镜像</string>
+    <string name="pointer_follow_trigger_hint">按住用触点，抬手用指针窗首次点击</string>
     <string name="pointer_adjust_position">调整位置</string>
     <string name="pointer_follow_offset_summary">偏移 X %1$d%% / Y %2$d%%</string>
     <string name="pointer_initial_summary">初始 %1$d%% / %2$d%%</string>
@@ -111,7 +111,7 @@
     <string name="mini_window_settings_title">小窗设置</string>
     <string name="mini_window_settings_group">跟随触发位置</string>
     <string name="mini_window_follow_trigger">跟随触发位置</string>
-    <string name="mini_window_follow_trigger_hint">从手势、触钮、悬浮球或面板打开时，横向贴触发侧、竖向跟随触发点（保留上下间距）；无触点入口仍用固定位置</string>
+    <string name="mini_window_follow_trigger_hint">横贴触发侧，竖向跟随触发点；无触点用固定位置</string>
     <string name="mini_window_position_size">位置与大小</string>
     <string name="mini_window_position_size_hint">分别调整竖屏与横屏的固定位置</string>
     <string name="screen_pick_settings_title">屏幕识别</string>
@@ -122,14 +122,14 @@
     <string name="screen_pick_trigger_interval">触发间隔</string>
     <string name="screen_pick_trigger_interval_value">%1$d ms</string>
     <string name="screen_pick_global_long_press">全屏长按识屏</string>
-    <string name="screen_pick_global_long_press_hint">任意位置按住后拖动出卡，拖卡移动、松手保留；空白处拖动框选（需 Shizuku）</string>
+    <string name="screen_pick_global_long_press_hint">按住拖动出卡；空白处拖动框选（需 Shizuku）</string>
     <string name="screen_pick_drag_timeout">拖动窗口</string>
     <string name="screen_pick_drag_timeout_value">按住 %1$d ms 内拖动</string>
     <string name="screen_pick_drag_timeout_off">不限时</string>
     <string name="screen_pick_long_press_delay">长按时间</string>
     <string name="screen_pick_diag_group">诊断</string>
     <string name="screen_pick_diag_run">运行诊断</string>
-    <string name="screen_pick_diag_hint">识屏失灵时先跑一遍：检查开关、Shizuku 与触摸设备探测链路</string>
+    <string name="screen_pick_diag_hint">检查开关、Shizuku 与触摸设备链路</string>
     <string name="screen_pick_diag_running">诊断中…</string>
     <string name="screen_pick_diag_switch_ok">手势总开关与全屏长按识屏均已开启</string>
     <string name="screen_pick_diag_switch_off">开关未开：手势总开关与全屏长按识屏都要打开</string>
@@ -142,7 +142,7 @@
     <string name="screen_pick_slop">拖动容差</string>
     <string name="screen_pick_slop_value">%1$d dp</string>
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
-    <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
+    <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制仍需写相册</string>
     <string name="notification_blocklist">通知黑名单</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
@@ -208,7 +208,6 @@
     <!-- 链接分发 -->
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_pick_app_title">选择打开方式</string>
-    <string name="link_dispatch_pick_app_hint">选择一个应用打开这条链接</string>
     <string name="link_dispatch_pick_app_empty">没有找到能打开该链接的应用</string>
     <string name="link_dispatch_share_action">用系统分享面板发送</string>
     <string name="link_dispatch_select_title">选择链接</string>
@@ -327,7 +326,6 @@
     <!-- ===== 状态栏图标隐藏（写 Settings.Secure.icon_blacklist） ===== -->
     <string name="status_bar_icons_title">状态栏图标隐藏</string>
     <string name="status_bar_icons_entry">状态栏图标隐藏</string>
-    <string name="status_bar_icons_entry_hint">隐藏状态栏系统图标（信号 / WLAN / 蓝牙等）</string>
     <string name="status_bar_icons_common_group">常用图标</string>
     <string name="status_bar_icons_scope_hint">时钟、电池与通知图标不在此页控制</string>
     <string name="status_bar_icons_more_entry">更多图标（MIUI）</string>
@@ -335,9 +333,9 @@
     <string name="status_bar_icons_more_group">更多（MIUI）</string>
     <string name="status_bar_icons_actions_group">操作</string>
     <string name="status_bar_icons_show_all">显示全部图标</string>
-    <string name="status_bar_icons_show_all_hint">清空隐藏列表，等价于系统调节工具里全部打开</string>
+    <string name="status_bar_icons_show_all_hint">清空隐藏列表</string>
     <string name="status_bar_icons_open_tuner">打开系统界面调节工具</string>
-    <string name="status_bar_icons_open_tuner_hint">系统自带的同名开关页，与这里共用同一份设置</string>
+    <string name="status_bar_icons_open_tuner_hint">系统自带同名开关页</string>
     <string name="status_bar_icons_tuner_missing">这台设备没有系统调节工具入口</string>
     <string name="status_bar_icons_write_failed">写入失败：未获得「系统设置写入」权限</string>
     <string name="status_bar_icons_banner_shizuku">Shizuku 未运行，无法授予「系统设置写入」</string>
@@ -388,12 +386,11 @@
     <string name="status_bar_icon_stereo">音箱立体声</string>
     <string name="persistent_notification_settings_title">固定通知隐藏</string>
     <string name="persistent_notification_settings_entry">固定通知隐藏</string>
-    <string name="persistent_notification_settings_entry_hint">隐藏常驻通知与前台服务通知</string>
     <string name="persistent_notification_status_group">状态</string>
     <string name="persistent_notification_access_on">通知使用权已授</string>
     <string name="persistent_notification_access_off">通知使用权未授</string>
     <string name="persistent_notification_access_hint_on">胶囊与普通通知的隐藏可即时同步</string>
-    <string name="persistent_notification_access_hint_off">未授权：胶囊与普通通知的隐藏同步不可用；Luno 自身仍可用 Shizuku 兜底</string>
+    <string name="persistent_notification_access_hint_off">未授权：同步不可用，Luno 用 Shizuku 兜底</string>
     <string name="persistent_notification_shizuku_on">Shizuku 可用</string>
     <string name="persistent_notification_shizuku_off">Shizuku 不可用</string>
     <string name="persistent_notification_shizuku_hint_on">可读取通知栏列表并兜底隐藏</string>
@@ -411,7 +408,7 @@
     <string name="a11y_status_group">本应用状态</string>
     <string name="a11y_status_service_on">本服务已启用</string>
     <string name="a11y_status_service_off">本服务未启用</string>
-    <string name="a11y_status_service_hint">手势识别、动作执行、面板窗口的宿主；点击去系统设置</string>
+    <string name="a11y_status_service_hint">手势识别与动作执行的宿主；点击去设置</string>
     <string name="a11y_status_write_secure_on">系统设置写入已授权</string>
     <string name="a11y_status_write_secure_off">系统设置写入未授权</string>
     <string name="a11y_status_write_secure_hint">启停服务需要它；授权后开关即可用</string>
@@ -436,7 +433,7 @@
     <string name="clipboard_settings_entry">剪贴板</string>
     <string name="log_settings_title">运行日志</string>
     <string name="log_settings_recording">记录到文件</string>
-    <string name="log_settings_recording_hint">按进程分文件并自动轮转；logcat 始终输出全量</string>
+    <string name="log_settings_recording_hint">按进程分文件，自动轮转</string>
     <string name="log_settings_level">日志级别</string>
     <string name="log_settings_level_hint">只影响写入文件</string>
     <string name="log_settings_level_recording_off">记录已关闭</string>
@@ -501,7 +498,7 @@
     <string name="notification_display_settings_title">通知</string>
     <string name="notification_display_mode_group">呈现模式</string>
     <string name="notification_display_mode_row">提醒呈现方式</string>
-    <string name="notification_display_mode_hint">不可用时自动回退：超级岛 → 实时 → 标准；小米 HyperOS 上「实时」即系统超级岛</string>
+    <string name="notification_display_mode_hint">不支持时回退；HyperOS「实时」即超级岛</string>
     <string name="notification_display_mode_standard">标准</string>
     <string name="notification_display_mode_live">实时</string>
     <string name="notification_display_mode_island">超级岛</string>

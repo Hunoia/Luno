@@ -205,7 +205,7 @@ private fun AppPickerContent(
             subtitle = if (handlers.isEmpty()) {
                 stringResource(R.string.link_dispatch_pick_app_empty)
             } else {
-                stringResource(R.string.link_dispatch_pick_app_hint)
+                ""
             },
         ) {
             handlers.forEachIndexed { index, handler ->

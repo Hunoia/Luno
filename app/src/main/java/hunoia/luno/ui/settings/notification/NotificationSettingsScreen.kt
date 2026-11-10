@@ -130,7 +130,10 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             )
         }
 
-        LunoGroup(title = stringResource(R.string.notification_display_override_group)) {
+        LunoGroup(
+            title = stringResource(R.string.notification_display_override_group),
+            subtitle = stringResource(R.string.notification_display_override_hint),
+        ) {
             NotificationKind.entries.forEachIndexed { index, kind ->
                 val override = display.overrides[kind]
                 ChoiceRow(
@@ -141,7 +144,6 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                             NotificationKind.TODO -> R.string.notification_display_kind_todo
                         },
                     ),
-                    subtitle = stringResource(R.string.notification_display_override_hint),
                     options = listOf(
                         stringResource(R.string.notification_display_override_follow),
                         stringResource(R.string.notification_display_mode_standard),

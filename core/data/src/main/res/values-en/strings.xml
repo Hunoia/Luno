@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gesture_button">Gesture button</string>
+    <string name="restore_precheck_cannot_read_file">Cannot read backup file</string>
+    <string name="restore_precheck_invalid_format">Invalid backup format</string>
+    <string name="restore_precheck_empty_backup">Backup is empty</string>
+    <string name="restore_precheck_verification_failed">Restore verification failed</string>
+    <string name="restore_precheck_unsupported_version">Backup is from a newer app version; cannot restore</string>
+</resources>

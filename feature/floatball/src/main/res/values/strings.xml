@@ -19,7 +19,7 @@
     <string name="float_ball_capsule_enabled">通知到达时探头</string>
     <string name="float_ball_capsule_group">通知收件箱</string>
     <string name="float_ball_capsule_need_permission">需要通知使用权</string>
-    <string name="float_ball_capsule_need_permission_hint">点此前往系统设置授权，胶囊才能收到通知</string>
+    <string name="float_ball_capsule_need_permission_hint">点此授权，胶囊才能收到通知</string>
     <string name="float_ball_capsule_suppress_dismiss">滑掉后暂停重弹</string>
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
     <string name="float_ball_capsule_ttl">通知保留时长</string>
@@ -32,12 +32,11 @@
     <string name="float_ball_color">球颜色</string>
     <string name="float_ball_enabled">显示悬浮球</string>
     <string name="float_ball_follow_hand">跟手换边</string>
-    <string name="float_ball_follow_hand_subtitle">触钮碰哪侧，球就挪到哪侧，并沿用该侧记忆高度</string>
+    <string name="float_ball_follow_hand_subtitle">触钮碰哪侧，球就挪到哪侧</string>
     <string name="float_ball_idle_dim_delay">静置变暗缩小</string>
     <string name="float_ball_inbox_capacity">收件箱容量</string>
     <string name="float_ball_inbox_group">收件箱</string>
     <string name="float_ball_off">关闭</string>
-    <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_size">球大小</string>
     <string name="float_ball_tap_action">悬浮球单击动作</string>
