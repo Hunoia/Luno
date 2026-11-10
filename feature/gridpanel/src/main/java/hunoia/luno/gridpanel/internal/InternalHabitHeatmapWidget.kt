@@ -29,10 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -48,15 +44,10 @@ import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
-import hunoia.luno.gridpanel.habit.HabitHeatmapGeometry
-import hunoia.luno.gridpanel.habit.HabitHeatmapLevelAlpha
-import hunoia.luno.gridpanel.habit.HabitHeatmapMaxDays
-import hunoia.luno.gridpanel.habit.HabitHeatmapRows
+import hunoia.luno.gridpanel.habit.HabitHeatmapGrid
 import hunoia.luno.gridpanel.habit.HabitTitleGap
 import hunoia.luno.gridpanel.habit.HabitTitleHeight
-import hunoia.luno.gridpanel.habit.habitHeatmapFirstDay
 import hunoia.luno.gridpanel.habit.habitHeatmapGeometry
-import hunoia.luno.gridpanel.habit.habitHeatmapLevel
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.toColor
@@ -196,7 +187,7 @@ internal fun HabitHeatmapCell(
                 contentAlignment = Alignment.Center,
             ) {
                 if (!pending) {
-                    HeatmapGrid(
+                    HabitHeatmapGrid(
                         geometry = geometry,
                         today = today,
                         checks = checks,
@@ -224,51 +215,4 @@ internal fun HabitHeatmapCell(
     }
 }
 
-/** 热力格：底层所有有效日一格淡色，上层按完成度 1–5 档叠习惯色（未来 / 超保留期留空）。 */
-@Composable
-private fun HeatmapGrid(
-    geometry: HabitHeatmapGeometry,
-    today: Long,
-    checks: Set<Long>,
-    counts: Map<Long, Int>,
-    target: Int,
-    habitColor: Color,
-    baseColor: Color,
-) {
-    Canvas(
-        modifier = Modifier.size(
-            geometry.step * geometry.cols,
-            geometry.step * HabitHeatmapRows,
-        ),
-    ) {
-        val stepPx = geometry.step.toPx()
-        val cellPx = (stepPx * 0.72f).coerceAtLeast(1f)
-        val radius = CornerRadius(cellPx * 0.22f)
-        val inset = (stepPx - cellPx) / 2f
-        val cellSize = Size(cellPx, cellPx)
-        val firstDay = habitHeatmapFirstDay(today, geometry.cols)
-        val minDay = today - (HabitHeatmapMaxDays - 1)
-        for (col in 0 until geometry.cols) {
-            for (row in 0 until HabitHeatmapRows) {
-                val day = firstDay + col * HabitHeatmapRows + row
-                if (day > today || day < minDay) continue
-                val topLeft = Offset(col * stepPx + inset, row * stepPx + inset)
-                drawRoundRect(
-                    color = baseColor,
-                    topLeft = topLeft,
-                    size = cellSize,
-                    cornerRadius = radius,
-                )
-                val level = habitHeatmapLevel(day, checks, counts, target)
-                if (level > 0) {
-                    drawRoundRect(
-                        color = habitColor.copy(alpha = HabitHeatmapLevelAlpha[level - 1] / 255f),
-                        topLeft = topLeft,
-                        size = cellSize,
-                        cornerRadius = radius,
-                    )
-                }
-            }
-        }
-    }
-}
+

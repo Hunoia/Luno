@@ -123,6 +123,8 @@
     <string name="habit_pick_empty">还没有习惯，请先到「设置 → 习惯」新建</string>
     <string name="habit_pick_title">选择习惯</string>
     <string name="habit_recent_checks">近 30 天</string>
+    <string name="habit_heatmap">热力图</string>
+    <string name="habit_heatmap_desc">近 90 天打卡热力图</string>
     <string name="habit_streak_summary">连续 %1$d 天</string>
     <string name="habit_today_progress">今日 %1$d/%2$d · 连续 %3$d 天</string>
     <string name="habit_reminder">提醒</string>

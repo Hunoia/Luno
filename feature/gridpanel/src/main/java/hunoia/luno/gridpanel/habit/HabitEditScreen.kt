@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -515,6 +516,49 @@ fun HabitEditScreen(
                     state.showColorPicker = false
                     state.dialog = HabitEditDialog.Check(day, targetChecked)
                 },
+            )
+            HabitHeatmapCard(
+                habitId = habit.id,
+                color = shownColorSpec.toColor(),
+                config = config,
+                today = today,
+                target = shownTarget,
+            )
+        }
+    }
+}
+
+/**
+ * 近 90 天热力图：纯展示，不响应点击；颜色 / 目标用编辑中的草稿值即时预览。
+ *
+ * 与面板热力图部件共用 [HabitHeatmapGrid] 与同一套几何 / 分档；这里按可用宽度铺满
+ * （最多 13 列），窄屏自动减列，不做横向滚动。
+ */
+@Composable
+private fun HabitHeatmapCard(
+    habitId: String,
+    color: Color,
+    config: HabitConfig,
+    today: Long,
+    target: Int,
+) {
+    val description = stringResource(R.string.habit_heatmap_desc)
+    LunoGroup(title = stringResource(R.string.habit_heatmap)) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
+            contentAlignment = Alignment.Center,
+        ) {
+            HabitHeatmapGrid(
+                geometry = habitHeatmapGeometryFillWidth(maxWidth),
+                today = today,
+                checks = config.checks[habitId].orEmpty(),
+                counts = config.counts[habitId].orEmpty(),
+                target = target,
+                habitColor = color,
+                baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                modifier = Modifier.semantics { contentDescription = description },
             )
         }
     }

@@ -26,6 +26,26 @@ class HabitHeatmapGeometryTest {
     }
 
     @Test
+    fun `fill width spreads thirteen columns evenly across the available width`() {
+        // 编辑页：格径 = 宽度 / 列数，正好铺满。
+        val geometry = habitHeatmapGeometryFillWidth(288.dp)
+        assertEquals(13, geometry.cols)
+        assertEquals(288.dp / 13, geometry.step)
+        assertEquals(288.dp, geometry.step * geometry.cols)
+    }
+
+    @Test
+    fun `fill width drops columns instead of squeezing below the minimum step`() {
+        // 极窄：按最小步长算列数，仍保证格径 ≥ 4dp。
+        val narrow = habitHeatmapGeometryFillWidth(10.dp)
+        assertEquals(2, narrow.cols)
+        assertEquals(5.dp, narrow.step)
+        // 13 * 4dp 的临界宽度刚好 13 列；再窄一档就减列。
+        assertEquals(13, habitHeatmapGeometryFillWidth(52.dp).cols)
+        assertEquals(12, habitHeatmapGeometryFillWidth(51.9.dp).cols)
+    }
+
+    @Test
     fun `last column is the current week and today keeps its weekday row`() {
         val today = LocalDate.of(2026, 11, 10).toEpochDay() // 周二
         val cols = 13

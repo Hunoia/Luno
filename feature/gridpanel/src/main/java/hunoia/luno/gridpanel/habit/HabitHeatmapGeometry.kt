@@ -36,6 +36,15 @@ fun habitHeatmapGeometry(width: Dp, gridHeight: Dp): HabitHeatmapGeometry {
     return HabitHeatmapGeometry(cols = cols, step = step)
 }
 
+/** 编辑页展示用：固定铺满可用宽度，格径 = 宽度 / 列数（最多 13 列，极窄时减列）。 */
+fun habitHeatmapGeometryFillWidth(width: Dp): HabitHeatmapGeometry {
+    val cols = (width / MinHeatmapStep).toInt().coerceIn(1, HabitHeatmapMaxCols)
+    return HabitHeatmapGeometry(cols = cols, step = width / cols)
+}
+
+/** 铺满宽度时的最小格径：低于它宁可减少列数，避免格子挤成一条线。 */
+private val MinHeatmapStep = 4.dp
+
 /** 第一格（左上角）的日期：最后一列 = 本周，[today] 落在真实星期行。 */
 fun habitHeatmapFirstDay(today: Long, cols: Int): Long {
     val todayDow = LocalDate.ofEpochDay(today).dayOfWeek.value - 1
