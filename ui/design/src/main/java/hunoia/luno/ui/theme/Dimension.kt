@@ -12,9 +12,13 @@ import sv.lib.squircleshape.SquircleShape
 val MarkColorSize = 20.dp
 val MinItemHeightNoSecondary = 50.dp
 val MinInteractiveSize = 48.dp
+/**
+ * 紧凑命中区下限：密排自绘命中区（月历格、时间表盘刻度、多列网格）与卡片内纯图标工具条共用。
+ * 使用前提见 ui-guidelines §1.6（相邻命中区不重叠、边界可辨、存在替代入口）。
+ */
 val SubMinInteractiveSize = 36.dp
-// 卡片内纯图标工具条的紧凑尺寸：仅在内容空间受挤压时使用（见 ui-guidelines §4.8）
-val CompactToolbarHeight = 32.dp
+// 卡片内纯图标工具条的紧凑尺寸：仅在内容空间受挤压时使用（见 ui-guidelines §4.8，36–48dp 档）
+val CompactToolbarHeight = SubMinInteractiveSize
 val CompactControlIconSize = 20.dp
 val RowIconSize = 24.dp
 val BadgeIconSize = 16.dp
@@ -195,6 +199,11 @@ val FabSize = 64.dp
 
 // 习惯日历点阵：编辑页近 30 天日历与网格面板部件共用语义（命中区 48dp 见 §1.6）。
 val HabitDayCellMinHeight = 48.dp
+
+// 待办提醒弹窗：日期月历与时间表盘在**同一块区域**切换，高度固定，切换时卡片不改变高度。
+// 取两者较大者（月历 6 行 × 36dp + 月份头 + 星期行 ≈ 表盘 272 × 372dp 缩放后）。
+// 提醒视图不滚动，极小屏由 TodoReminderEditor 按屏幕高度再收一档。
+val ReminderPickerHeight = 320.dp
 val HabitDayCellPaddingVertical = 3.dp
 val HabitDayDotSize = 14.dp
 val HabitDayDotStroke = 1.5.dp

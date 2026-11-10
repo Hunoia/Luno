@@ -1,19 +1,15 @@
 package hunoia.luno.ui.component.sheet
 
-import android.view.WindowManager
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,29 +29,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 import hunoia.luno.design.R
-import hunoia.luno.ui.theme.ExtraLargeShape
-import hunoia.luno.ui.theme.LargeGutter
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetListMaxHeight
 
 /**
- * 底部确认弹窗：仍是 Dialog（带遮罩、点外部/返回关闭），只是对话框本体
- * 锚在屏幕底部（澎湃OS 样式），四角大圆角、四周留边；按钮为澎湃大按钮。
+ * 底部确认弹窗：Dialog（遮罩 + 点外部/返回关闭），本体锚在屏幕底部（澎湃OS 样式），
+ * 四角大圆角、四周留边；按钮为澎湃大按钮。
+ *
+ * 窗口与进出场动画由 [AnchoredDialog] 提供，这里只填内容。
  */
 @Composable
 fun ConfirmDialog(
@@ -68,28 +57,26 @@ fun ConfirmDialog(
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        ConfirmDialogContent(
+    AnchoredDialog(onDismiss = onDismissRequest) { dismiss ->
+        ConfirmCardContent(
             title = title,
             text = text,
             confirmLabel = confirmLabel,
             dismissLabel = dismissLabel,
             destructive = destructive,
-            onDismiss = onDismissRequest,
+            onDismiss = dismiss,
+            // 先执行动作再退场：动作立即生效，退场由弹层自己收尾（宿主别再同步卸载）。
             onConfirm = {
-                onDismissRequest()
                 onConfirm()
+                dismiss()
             },
         )
     }
 }
 
 /**
- * 确认弹窗内容（底部锚定卡片 + 取消/确认）：[ConfirmDialog] 与 desktop 部件确认 Activity
- * 共用，避免 Activity 里再套一层 Dialog 产生双窗口/双遮罩。
+ * 确认弹窗内容（底部锚定卡片 + 取消/确认）：独立 Activity 形态直接铺一屏（部件确认弹窗），
+ * 不再套一层 Compose `Dialog`，避免双窗口/双遮罩。
  */
 @Composable
 fun ConfirmDialogContent(
@@ -101,44 +88,9 @@ fun ConfirmDialogContent(
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
-    BottomDialogCard(onDismiss = onDismiss) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        text?.let { body ->
-            // 多行正文（如“无法保存”的原因清单）超长时内部滚动
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .heightIn(max = SheetListMaxHeight)
-                    .verticalScroll(rememberScrollState()),
-            )
-        }
-        SheetActionButtons(
-            onDismiss = onDismiss,
-            onConfirm = onConfirm,
-            confirmLabel = confirmLabel,
-            dismissLabel = dismissLabel,
-            destructive = destructive,
-        )
-    }
-}
-
-/** 底部锚定卡片：遮罩点按关闭、卡片本体吞掉点击；输入弹窗额外让 IME 顶起。 */
-@Composable
-private fun BottomDialogCard(
-    onDismiss: () -> Unit,
-    imePadding: Boolean = false,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
-) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (imePadding) Modifier.imePadding() else Modifier)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -146,22 +98,53 @@ private fun BottomDialogCard(
             ),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Column(
+        DialogCard {
+            ConfirmCardContent(
+                title = title,
+                text = text,
+                confirmLabel = confirmLabel,
+                dismissLabel = dismissLabel,
+                destructive = destructive,
+                onDismiss = onDismiss,
+                onConfirm = onConfirm,
+            )
+        }
+    }
+}
+
+/** 确认卡片内容：标题 + 可选多行正文（超长内部滚动）+ 取消/确认。 */
+@Composable
+private fun ColumnScope.ConfirmCardContent(
+    title: String,
+    text: String?,
+    confirmLabel: String,
+    dismissLabel: String,
+    destructive: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    text?.let { body ->
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .padding(horizontal = PageGutter, vertical = PageGutter)
-                .fillMaxWidth()
-                .clip(ExtraLargeShape)
-                .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                )
-                .padding(LargeGutter),
-            verticalArrangement = Arrangement.spacedBy(ListSpacing),
-            content = content,
+                .heightIn(max = SheetListMaxHeight)
+                .verticalScroll(rememberScrollState()),
         )
     }
+    SheetActionButtons(
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+        confirmLabel = confirmLabel,
+        dismissLabel = dismissLabel,
+        destructive = destructive,
+    )
 }
 
 /** 单字段输入：IME Done 等同确认；[confirmEnabled] 为 false 时确认禁用。 */
@@ -178,12 +161,6 @@ fun TextInputDialog(
     supportingText: String = "",
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
 ) {
-    // Dialog 是独立窗口且半透明：adjustResize 在这种窗口上不可靠（键盘盖住内容）。
-    // 改 ADJUST_NOTHING 让窗口不自动缩放/平移，改由 imePadding() 把内容顶到键盘上方。
-    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-    SideEffect {
-        dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-    }
     // 按 initialValue 复位：同一调用点切换目标（换引擎/换重命名对象）时不能残留上次的输入。
     // 光标放末尾（编辑预填后直接续写，而不是从最前插入）。
     var textValue by rememberSaveable(initialValue, stateSaver = TextFieldValue.Saver) {
@@ -193,67 +170,58 @@ fun TextInputDialog(
     val keyboard = LocalSoftwareKeyboardController.current
     val curOnConfirm by rememberUpdatedState(onConfirm)
 
-    fun submit() {
-        if (!confirmEnabled) return
-        keyboard?.hide()
-        curOnConfirm(textValue.text)
-    }
+    AnchoredDialog(onDismiss = onDismissRequest) { dismiss ->
+        fun submit() {
+            if (!confirmEnabled) return
+            keyboard?.hide()
+            curOnConfirm(textValue.text)
+            dismiss()
+        }
 
-    // 自动聚焦：键盘随之弹出。
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+        // 自动聚焦：键盘随之弹出。
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            // 边到边：内容延伸到状态栏/导航栏区域，IME inset 才会派发下来（imePadding 才有值）。
-            decorFitsSystemWindows = false,
-        ),
-    ) {
-        // 遮罩点按关闭；卡片本体不响应遮罩点击（镜像 ConfirmDialog）。
-        BottomDialogCard(onDismiss = onDismissRequest, imePadding = true) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { textValue = it },
+            label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
+            singleLine = true,
+            isError = isError,
+            shape = LargeShape,
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
+            keyboardOptions = keyboardOptions,
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+        )
+        // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动
+        if (supportingText.isNotEmpty()) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = supportingText,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isError) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = textValue,
-                onValueChange = { textValue = it },
-                label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
-                singleLine = true,
-                isError = isError,
-                shape = LargeShape,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-                keyboardOptions = keyboardOptions,
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-            )
-            // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动
-            if (supportingText.isNotEmpty()) {
-                Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isError) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = dismiss) {
+                Text(stringResource(R.string.cancel))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                verticalAlignment = Alignment.CenterVertically,
+            TextButton(
+                onClick = { submit() },
+                enabled = confirmEnabled,
             ) {
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismissRequest) {
-                    Text(stringResource(R.string.cancel))
-                }
-                TextButton(
-                    onClick = { submit() },
-                    enabled = confirmEnabled,
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+                Text(stringResource(R.string.confirm))
             }
         }
     }
