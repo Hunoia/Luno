@@ -15,7 +15,7 @@ step() { printf '\n== %s ==\n' "$1"; }
 step "Gradle 构建 + 单测（含 luno.arch 依赖门禁、Konsist 门禁）"
 # 本机内存紧：限制并发与 Kotlin daemon 堆，避免构建到一半被 OOM 杀掉。
 ./gradlew --max-workers=2 -Dkotlin.daemon.jvmargs=-Xmx1536m \
-    :app:assembleDebug testDebugUnitTest
+    :app:assembleDebug testDebugUnitTest :core:domain:test
 
 step "未使用 import"
 unused="$(python3 scripts/check_unused_imports.py)"
