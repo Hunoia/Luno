@@ -185,6 +185,8 @@ const val MotionCellIn = 120
 const val MotionCellOut = 100
 const val MotionPanelIn = 170
 const val MotionPanelOut = 140
+/** 面板出现 / 收口的位移距离（dp）：面板走位移而不是整层淡入淡出（ui-guidelines §3「面板」）。 */
+val PanelAppearSlide = 16.dp
 /** 双击确认窗口（ms）：面板内置习惯打卡 / 待办完成的倒计时时长，不随系统动画缩放改变。 */
 const val MotionConfirmCountdown = 1200
 

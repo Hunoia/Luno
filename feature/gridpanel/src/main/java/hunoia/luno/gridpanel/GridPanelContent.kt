@@ -60,6 +60,9 @@ import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.gridpanel.geometry.resolvePanelResize
+import hunoia.luno.gridpanel.internal.rememberAnimationScale
+import hunoia.luno.ui.theme.MotionPanelIn
+import hunoia.luno.ui.theme.MotionPanelOut
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
@@ -98,17 +101,23 @@ fun GridPanelRoot(
     /** 注册返回键处理器：组合先行消费（编辑态退编辑），未消费由浮窗关闭。 */
     onRegisterBackHandler: (((() -> Boolean)) -> Unit)? = null,
 ) {
-    // 进出场用一张 Animatable 管 alpha/scale：语义可证伪，不依赖服务进程里
-    // animate*AsState 的收敛。
+    // 进出场用一张 Animatable 管进度（位移/alpha 在 Card 里派生）：语义可证伪，不依赖
+    // 服务进程里 animate*AsState 的收敛。手写 Animatable 不会自动跟随系统动画缩放，
+    // 显式乘上它；缩放为 0 时直接落位，不播位移（ui-guidelines §5.2）。
     val appearance = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appearance.animateTo(1f, tween(hunoia.luno.ui.theme.MotionPanelIn)) }
+    val animScale = rememberAnimationScale()
+    val enterMillis = (MotionPanelIn * animScale).toInt().coerceAtLeast(1)
+    val exitMillis = (MotionPanelOut * animScale).toInt().coerceAtLeast(1)
+    LaunchedEffect(Unit) {
+        if (animScale > 0f) appearance.animateTo(1f, tween(enterMillis)) else appearance.snapTo(1f)
+    }
     fun closeWithAnim() {
         if (closing) return
         closing = true
         scope.launch {
-            appearance.animateTo(0f, tween(hunoia.luno.ui.theme.MotionStatusOut))
+            if (animScale > 0f) appearance.animateTo(0f, tween(exitMillis)) else appearance.snapTo(0f)
             onCloseAnimated()
         }
     }
@@ -191,7 +200,7 @@ fun GridPanelRoot(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.32f))
+                .background(Color.Black.copy(alpha = 0.32f * appearance.value))
                 .pointerInput(Unit) { detectTapGestures(onTap = { onClose() }) },
             contentAlignment = Alignment.Center,
         ) {
@@ -565,6 +574,8 @@ fun GridPanelRoot(
             .pointerInput(editMode) {
                 detectTapGestures(
                     onTap = {
+                        // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
+                        if (closing) return@detectTapGestures
                         if (editMode) {
                             exitEditMode()
                             suppressItemTapUntil =
@@ -574,7 +585,7 @@ fun GridPanelRoot(
                         }
                     },
                     onLongPress = {
-                        if (!editMode) {
+                        if (!editMode && !closing) {
                             view.hapticLongPress()
                             editMode = true
                         }
@@ -605,7 +616,7 @@ fun GridPanelRoot(
             itemActions = { pageIndex ->
                 GridItemActions(
                     onTap = { item, center ->
-                        if (!editMode &&
+                        if (!editMode && !closing &&
                             SystemClock.elapsedRealtime() >= suppressItemTapUntil
                         ) {
                             // 动作在 Kind.Action.items 里（面板项只进不出）；

@@ -91,9 +91,11 @@ import hunoia.luno.gridpanel.ui.pageDotSlots
 import hunoia.luno.gridpanel.ui.gridPanelCardColor
 import hunoia.luno.bridge.ui.hapticTick
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.theme.PanelAppearSlide
 import hunoia.luno.ui.theme.containerShape
 
 
@@ -174,6 +176,16 @@ fun GridPanelCard(
     )
     val targetPosX = target.x
     val targetPosY = target.y
+    // 出现 / 收口走位移（ui-guidelines §3「面板」）：首尾位置相同、只往触发锚点方向
+    // 偏移 [PanelAppearSlide]，因此半程就能看出「从手指落下处展开」，不是整层淡入淡出。
+    // 方向取「卡片中心 → 触发点」的单位向量；anchor 无意义（0,0）时就从左上滑出。
+    val appearSlidePx = with(density) { PanelAppearSlide.toPx() }
+    val appearDir = remember(targetPosX, targetPosY, anchorX, anchorY, metrics.cardW, metrics.cardH) {
+        val dx = anchorX - (targetPosX + metrics.cardW / 2f)
+        val dy = anchorY - (targetPosY + metrics.cardH / 2f)
+        val len = hypot(dx, dy).coerceAtLeast(1f)
+        Offset(dx / len, dy / len)
+    }
     val sideMarginPx = with(density) { safePlacement.sideMarginDp.dp.toPx() }
     val topGapPx = with(density) { safePlacement.topGapDp.dp.toPx() }
     val bottomGapPx = with(density) { safePlacement.bottomGapDp.dp.toPx() }
@@ -303,9 +315,13 @@ fun GridPanelCard(
                 with(density) { metrics.cardH.toDp() },
             )
             .graphicsLayer {
+                val remaining = 1f - appearance
                 alpha = if (hiddenForDrag) 0f else appearance
-                scaleX = 0.92f + 0.08f * appearance
+                // 缩放只做辅助（0.96 → 1），主体是向锚点收回 / 从锚点展开的位移。
+                scaleX = 0.96f + 0.04f * appearance
                 scaleY = scaleX
+                translationX = if (hiddenForDrag) 0f else appearDir.x * appearSlidePx * remaining
+                translationY = if (hiddenForDrag) 0f else appearDir.y * appearSlidePx * remaining
             }
             // 编辑态双指捏合调列数：只在卡面上生效，且要求两根手指，避免抢走单项拖拽。
             // 捏合命中区放外层（无 clip）：双指本就是全卡面，圆角外差几个像素无感。
