@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gesture.R
+import hunoia.luno.config.defaults.GestureSettingsDefaults
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
@@ -32,19 +33,21 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 
-/** 样式项数量：5 个滑杆 + 3 个边距滑杆 + 1 个振动开关。 */
-private const val STYLE_ITEM_COUNT = 9
+/** 样式项数量：6 个滑杆 + 3 个边距滑杆 + 1 个振动开关。 */
+private const val STYLE_ITEM_COUNT = 10
 
 /**
- * 动作面板样式参数：图标大小 / 图标间距 / 弧线铺开程度 / 最大角度 / 屏幕边距。
+ * 动作面板样式与手感：图标大小 / 图标间距 / 弧线铺开程度 / 最大角度 / 长按判定时间 / 屏幕边距。
  * 全局一份，在动作设置里改。内容可滚动（边距项加进来后已超过一屏高度）。
  */
 @Composable
 fun ActionPanelStyleConfigContent(
     currentStyle: ArcStyle,
     actionPanelVibrate: Boolean,
+    actionPanelLongPressMs: Long,
     onStyleChanged: (ArcStyle) -> Unit,
     onActionPanelVibrateChanged: (Boolean) -> Unit,
+    onActionPanelLongPressChanged: (Long) -> Unit,
     scrollState: ScrollState = rememberScrollState(),
 ) {
     val style = currentStyle
@@ -54,6 +57,9 @@ fun ActionPanelStyleConfigContent(
     var itemGapDp by remember(style.itemGapPx) { mutableFloatStateOf(with(density) { style.itemGapPx.toDp().value }) }
     var spreadSpacing by remember(style.spreadSpacing) { mutableFloatStateOf(style.spreadSpacing) }
     var maxAngleDegrees by remember(style.maxAngleDegrees) { mutableFloatStateOf(style.maxAngleDegrees) }
+    var longPressMs by remember(actionPanelLongPressMs) {
+        mutableFloatStateOf(actionPanelLongPressMs.toFloat())
+    }
 
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
     Column(
@@ -127,12 +133,30 @@ fun ActionPanelStyleConfigContent(
                 shapeAt = { index -> segmentedShape(5 + index, STYLE_ITEM_COUNT) },
                 onCommit = { next -> onStyleChanged(style.copy(placement = next)) },
             )
+            // 长按判定：按住多久算长按（也是「长按变体是面板时无需抬手」的点火时间）。
+            LunoTextSlider(
+                value = longPressMs,
+                onValueChange = { longPressMs = it },
+                onValueChangeFinished = {
+                    onActionPanelLongPressChanged(
+                        longPressMs.roundToInt().toLong().coerceIn(
+                            GestureSettingsDefaults.MinActionPanelLongPressMs,
+                            GestureSettingsDefaults.MaxActionPanelLongPressMs,
+                        ),
+                    )
+                },
+                text = stringResource(R.string.action_panel_long_press),
+                valueDisplay = { "${it.roundToInt()}ms" },
+                valueRange = GestureSettingsDefaults.MinActionPanelLongPressMs.toFloat()..
+                    GestureSettingsDefaults.MaxActionPanelLongPressMs.toFloat(),
+                shape = segmentedShape(8, STYLE_ITEM_COUNT),
+            )
             LunoSwitchRow(
                 icon = Icons.Default.Vibration,
                 title = stringResource(R.string.action_panel_vibration),
                 checked = actionPanelVibrate,
                 onCheckedChange = onActionPanelVibrateChanged,
-                shape = segmentedShape(8, STYLE_ITEM_COUNT),
+                shape = segmentedShape(9, STYLE_ITEM_COUNT),
             )
         }
     }

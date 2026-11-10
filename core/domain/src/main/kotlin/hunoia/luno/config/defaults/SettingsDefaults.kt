@@ -25,6 +25,11 @@ object AdvancedSettingsDefaults {
 object GestureSettingsDefaults {
 
     const val SubGestureTimeoutMs = 5000L
+    /** 动作面板内按住多久进入长按变体（ms）；可调，这只是默认值。 */
+    const val ActionPanelLongPressMs = 500L
+    /** 可调区间：低于 200ms 几乎一碰就是长按，高于 1200ms 形同不可用。 */
+    const val MinActionPanelLongPressMs = 200L
+    const val MaxActionPanelLongPressMs = 1200L
     const val PointerSensitivityX = 1.6f
     const val PointerSensitivityY = 1.6f
     const val PointerAcceleration = 0.8f

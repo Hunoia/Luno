@@ -137,21 +137,26 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {
-            // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列当前面板自身。
-            // 网格面板例外：面板项可以是面板类动作（就地切到另一个网格面板，或弹弧形
-            // 动作面板）；引用自己会让点击无效果，选择页阶段就过滤。
+            // 面板项模式：挑的是「面板里放什么」，不放置空入口。两种面板都合成「一行一个
+            // 具名面板」的引用行（动作面板项与网格面板项同一套规则，选择器不分叉）：
+            // 网格面板项可以就地切到另一个网格面板或弹弧形动作面板；动作面板项同理。
+            // 引用自己会让点选无效果（或原地重开自己），选择页阶段就过滤。
             // 小部件不走这里 —— 它不是动作，入口是顶部的「小部件」chip，不占列表行。
             if (state.isPanelItemMode) {
-                if (state.currentGridPanelId.isNotBlank()) {
-                    state.gridPanels
-                        .filter { it.id != state.currentGridPanelId }
-                        .forEach { panel ->
-                            add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
-                        }
-                    state.actionPanels.forEach { panel ->
+                val selfIds = setOfNotNull(
+                    state.currentGridPanelId.takeIf { it.isNotBlank() },
+                    state.currentActionPanelId.takeIf { it.isNotBlank() },
+                )
+                state.gridPanels
+                    .filterNot { it.id in selfIds }
+                    .forEach { panel ->
+                        add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
+                    }
+                state.actionPanels
+                    .filterNot { it.id in selfIds }
+                    .forEach { panel ->
                         add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
                     }
-                }
                 return@apply
             }
             // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），

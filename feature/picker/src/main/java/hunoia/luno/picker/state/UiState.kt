@@ -41,10 +41,12 @@ data class UiState(
      */
     val isPanelItemMode: Boolean = false,
     /**
-     * 网格面板项模式的当前面板 id：面板里可以再放面板动作，但自己不能引用自己。
-     * 非网格面板项场景为空。
+     * 面板项模式的当前面板 id：面板里可以再放面板动作，但自己不能引用自己。
+     * 动作面板项与网格面板项各用自己那个字段，另一个为空。
      */
     val currentGridPanelId: String = "",
+    /** 同 [currentGridPanelId]，动作面板项模式下的当前动作面板 id。 */
+    val currentActionPanelId: String = "",
 
     /** 传给 `ActionDefinitions.pickerDefinitions()` 的排除集。恒非空 —— 空集合会让过滤失效。 */
     val excludedTypeIds: Set<String> = emptySet(),

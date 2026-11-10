@@ -145,11 +145,15 @@ fun ActionPanelListScreen(
             ActionPanelStyleConfigContent(
                 currentStyle = actionSettings.actionPanelStyle,
                 actionPanelVibrate = gestureSettings.actionPanelVibrate,
+                actionPanelLongPressMs = gestureSettings.actionPanelLongPressMs,
                 onStyleChanged = { next ->
                     scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
                 },
                 onActionPanelVibrateChanged = { enabled ->
                     scope.launch { TuneConfig.updateGesture { it.copy(actionPanelVibrate = enabled) } }
+                },
+                onActionPanelLongPressChanged = { ms ->
+                    scope.launch { TuneConfig.updateGesture { it.copy(actionPanelLongPressMs = ms) } }
                 },
                 scrollState = styleScrollState,
             )

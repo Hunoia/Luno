@@ -20,6 +20,11 @@ data class InitialSettings(
 @Keep
 data class GestureSettings(
     val actionPanelVibrate: Boolean = true,
+    /**
+     * 动作面板内按住多久结算为长按变体（ms）。
+     * 也是「长按变体是面板时不必等抬手」的点火时间（见 `ActionPanelState`）。
+     */
+    val actionPanelLongPressMs: Long = GestureSettingsDefaults.ActionPanelLongPressMs,
     val pointer: Pointer = Pointer(),
 ) {
     /**

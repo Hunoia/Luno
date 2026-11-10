@@ -10,6 +10,7 @@ import hunoia.luno.core.domain.libraryEntryId
 import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
+import hunoia.luno.config.model.actionList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -74,16 +75,3 @@ private fun countReferences(
     }
     return counts
 }
-
-private fun GestureButton.actionList(): List<StoredAction> =
-    slideActions.actions.values +
-        slideHoldActions.actions.values +
-        longSlideActions.actions.values +
-        longSlideHoldActions.actions.values +
-        listOfNotNull(tapActions, doubleTapActions, longPressActions)
-
-private fun SubGesture.actionList(): List<StoredAction> =
-    slideActions.actions.values +
-        slideHoldActions.actions.values +
-        longSlideActions.actions.values +
-        longSlideHoldActions.actions.values

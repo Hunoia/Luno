@@ -2,7 +2,7 @@ package hunoia.luno.config.repository
 
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
-import hunoia.luno.core.domain.withLongPressVariant
+import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
@@ -70,6 +70,7 @@ fun DirectionActions.cleanActions(shouldRemove: (StoredAction) -> Boolean): Dire
  *
  * 变体（__longPress）是嵌在 params 里的独立 StoredAction，只滤本体会留下悬空引用：
  * 删条目后短按正常、长按静默无反应（分发器只记 DEBUG 日志）。
+ * 本体命中→整个槽置空；只有变体命中→只摘 `__longPress` 键，本体保留。
  *
  * 单值语义：命中即整个槽置空（返回 null = 删键），不是从列表里挑剩下的。
  */
@@ -77,6 +78,6 @@ fun StoredAction?.cleanOne(shouldRemove: (StoredAction) -> Boolean): StoredActio
     val action = this ?: return null
     if (shouldRemove(action)) return null
     val variant = action.longPressVariant() ?: return action
-    val kept = variant.takeUnless(shouldRemove) ?: return action
-    return action.withLongPressVariant(kept)
+    if (!shouldRemove(variant)) return action
+    return action.withoutVariantKey()
 }

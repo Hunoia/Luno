@@ -79,6 +79,7 @@
     <string name="action_panel_item_drag">拖动排序</string>
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
+    <string name="action_panel_delete_refs">有 %1$d 处引用它（面板项、触钮/子手势、悬浮球），删除后会一并清掉。</string>
 
     <!-- 悬浮球（2038 悬浮球触发方式） -->
     <string name="recent_apps_blocklist">最近应用黑名单</string>

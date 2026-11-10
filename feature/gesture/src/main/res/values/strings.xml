@@ -30,6 +30,7 @@
     <string name="action_panel_max_angle">最大展开角度</string>
     <string name="action_panel_spread_spacing">展开间距</string>
     <string name="action_panel_vibration">选中动作时振动</string>
+    <string name="action_panel_long_press">长按判定时间</string>
     <string name="button_visibility">显隐设置</string>
     <string name="button_visibility_system_group">系统</string>
     <string name="button_visibility_scene_group">场景</string>
@@ -117,4 +118,6 @@
     <string name="vibration_slide">滑动时振动</string>
     <string name="vibration_slide_hold">短滑停留时振动</string>
     <string name="vibration_tap">单击振动</string>
+    <!-- 面板项引用的面板已被删（嵌套面板空引用） -->
+    <string name="action_panel_missing">面板已不存在</string>
 </resources>

@@ -39,8 +39,4 @@ data class ActionPanelSettings(
 
     fun withoutPanel(id: String): ActionPanelSettings =
         copy(panels = panels.filterNot { it.id == id })
-
-    /** 引用该面板的动作数量（删面板前提示用）。 */
-    fun countReferences(predicate: (String) -> Boolean): Int =
-        panels.count { panel -> predicate(panel.id) }
 }

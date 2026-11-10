@@ -139,17 +139,28 @@ fun ActionPanelEditScreen(
         },
         dialogs = {
             if (showDeleteConfirm) {
+                // 引用数在弹窗打开时现查：引用可能刚在别的页面改过。
+                var referenceCount by remember { mutableStateOf(0) }
+                LaunchedEffect(showDeleteConfirm) {
+                    if (showDeleteConfirm) referenceCount = TuneConfig.countPanelReferences(panelId)
+                }
+                val deleteDesc = stringResource(
+                    R.string.action_panel_delete_desc,
+                    current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
+                )
                 ConfirmDialog(
                     onDismissRequest = { showDeleteConfirm = false },
                     title = stringResource(R.string.action_panel_delete_title),
-                    text = stringResource(
-                        R.string.action_panel_delete_desc,
-                        current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
-                    ),
+                    text = if (referenceCount > 0) {
+                        deleteDesc + "\n" + stringResource(R.string.action_panel_delete_refs, referenceCount)
+                    } else {
+                        deleteDesc
+                    },
                     destructive = true,
                     onConfirm = {
                         showDeleteConfirm = false
                         scope.launch {
+                            TuneConfig.cleanPanelReferences(panelId)
                             TuneConfig.updateAction { settings ->
                                 settings.copy(actionPanels = settings.actionPanels.withoutPanel(panelId))
                             }

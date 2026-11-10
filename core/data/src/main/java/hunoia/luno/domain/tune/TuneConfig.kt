@@ -1,6 +1,7 @@
 package hunoia.luno.domain.tune
 
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.repository.PanelCleaner
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureSettings
@@ -24,4 +25,12 @@ object TuneConfig {
 
     suspend fun updateAction(transform: suspend (ActionSettings) -> ActionSettings) =
         ConfigProvider.updateActionSettings(transform)
+
+    /** 引用该面板的处数（面板项 / 触钮槽 / 子手势槽 / 悬浮球）：删面板前提示用。 */
+    suspend fun countPanelReferences(panelId: String): Int =
+        PanelCleaner.countPanelReferences(panelId)
+
+    /** 删除引用清理：删面板后清掉各处指向它的动作（含长按变体）。 */
+    suspend fun cleanPanelReferences(deletedId: String) =
+        PanelCleaner.cleanPanelReferences(deletedId)
 }

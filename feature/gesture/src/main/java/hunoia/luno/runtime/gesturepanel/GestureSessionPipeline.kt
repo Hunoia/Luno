@@ -3,6 +3,7 @@ package hunoia.luno.runtime.gesturepanel
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
@@ -20,6 +21,7 @@ import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
 import hunoia.luno.gesture.GestureState
+import hunoia.luno.gesture.R
 import hunoia.luno.gesture.SubGestureResolvedActions
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
@@ -95,6 +97,9 @@ class GestureSessionPipeline(
 
     init {
         Events.subscribe(BallTapActionEvent::class, ballTapSubscriber)
+        // 长按变体是动作面板：按住到点火就直接重开下一层，不等抬手（手势会话接着用）。
+        actionPanelState.onLongPressPanel = { variant -> openNestedActionPanel(variant) }
+        actionPanelState.longPressMs = initial.gestureSettings.actionPanelLongPressMs
     }
 
     /** @return 主手势状态是否被重建（重建后旧会话作废，调用方要复位来源仲裁）。 */
@@ -102,6 +107,8 @@ class GestureSessionPipeline(
         val previous = settings
         settings = next
         pointer.onSettingsChanged(next.gestureSettings.pointer)
+        // 面板长按判定时间是行为参数，随配置即时生效（下次选中就按新值计时）。
+        actionPanelState.longPressMs = next.gestureSettings.actionPanelLongPressMs
         var recreated = false
         if (previous.buttons != next.buttons ||
             previous.advancedSettings != next.advancedSettings ||
@@ -210,15 +217,30 @@ class GestureSessionPipeline(
         }
         if (actionPanelState.visible) {
             val touchPosition = actionPanelState.finger
+            // 重开下一层要沿用当前面板的样式/颜色/扇区中心：这三个字段 done() 会清掉。
+            val style = actionPanelState.actionPanelStyle ?: currentSettings.actionPanelStyle
+            val colorSpec = actionPanelState.buttonColor
+            val centerDegrees = actionPanelState.centerDegrees
             val hitAction = actionPanelState.done()
             val panelSourceButton = actionPanelSourceButton
             actionPanelSourceButton = null
-            callbacks.onActionPanelOverlayChanged(false)
             val fromSubGesturePanel = subGestureState.subGestureDepth > 0
             if (fromSubGesturePanel) {
                 subGestureState.clear(notifyService = true)
             }
-            if (hitAction.typeId != Action.NONE_TYPE_ID) {
+            // 面板项 = 另一个动作面板：交互窗与主 overlay 都不重建，就在同一触点换内容。
+            // 拆窗再重开会在中间帧丢掉触摸窗口（点一下要按两次）。
+            val nestedPanel = hitAction.actionPanelId() != null
+            if (nestedPanel) {
+                if (openActionPanel(hitAction, centerDegrees, touchPosition, style, colorSpec, needsOverlay = false)) {
+                    actionPanelSourceButton = panelSourceButton
+                    return
+                }
+                // 目标面板已删/为空：不弹空壳，提示后按无动作收口（下面照常拆窗关面板）。
+                showToast(R.string.action_panel_missing)
+            }
+            callbacks.onActionPanelOverlayChanged(false)
+            if (!nestedPanel && hitAction.typeId != Action.NONE_TYPE_ID) {
                 val actionToRun: () -> Unit = {
                     when (hitAction.typeId) {
                         // 面板点选同样发生在 onUp 内，没有后续 UP 可清理状态，
@@ -308,19 +330,14 @@ class GestureSessionPipeline(
         // 所以这里不需要区分按住/非按住 —— 阈值到了就弹。
         val panelId = action.actionPanelId()
         if (panelId != null) {
-            val items = settings.actionPanels.firstOrNull { it.id == panelId }?.items.orEmpty()
-            if (items.isNotEmpty()) {
-                if (needsPanelOverlay) callbacks.onActionPanelOverlayChanged(true)
-                // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
-                // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
-                callbacks.onActionPanelVisibilityChanged(true)
-                actionPanelState.onDragStart(touchPosition)
-                actionPanelState.ready(centerDegrees, items, panelStyle, panelColor)
+            if (openActionPanel(action, centerDegrees, touchPosition, panelStyle, panelColor, needsPanelOverlay)) {
                 actionPanelSourceButton = sourceButton
                 onPanelStarted()
                 return
             }
-            // 面板被删或内容为空：按无动作处理，不弹空面板、不崩。
+            // 面板被删或内容为空：不弹空面板、不崩，但也不能静默——
+            // 否则从触钮/面板项点过来都只是「什么都没发生」。
+            showToast(R.string.action_panel_missing)
         }
         val fromSubGesture = subGestureState.subGestureDepth > 0
         val shouldDelayDirectSubGestureAction = fromSubGesture &&
@@ -387,6 +404,51 @@ class GestureSessionPipeline(
             needsPanelOverlay = true,
             onPanelStarted = { actionPanelSourceButton = null },
         )
+    }
+
+    /**
+     * 在 [touchPosition] 展开动作面板（含进场前置：交互窗 / 主 overlay 全屏）。
+     * @return false = 面板已被删或内容为空，调用方按无动作收口。
+     */
+    private fun openActionPanel(
+        action: StoredAction,
+        centerDegrees: Float,
+        touchPosition: Offset,
+        style: ActionPanelStyle,
+        colorSpec: ColorSpec,
+        needsOverlay: Boolean,
+    ): Boolean {
+        val panelId = action.actionPanelId() ?: return false
+        val items = settings.actionPanels.firstOrNull { it.id == panelId }?.items.orEmpty()
+        if (items.isEmpty()) return false
+        if (needsOverlay) callbacks.onActionPanelOverlayChanged(true)
+        // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏，
+        // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
+        callbacks.onActionPanelVisibilityChanged(true)
+        actionPanelState.onDragStart(touchPosition)
+        actionPanelState.ready(centerDegrees, items, style, colorSpec)
+        return true
+    }
+
+    /**
+     * 面板项的长按变体是动作面板：按住到点火就直接进下一层，不等抬手。
+     *
+     * 与 onUp 的重开路径同一套：先把当前面板结算掉（等价于抬手），再在同一只手指
+     * 的位置重开，手势会话继续用 —— 后面的 MOVE 就能直接选下一层。
+     * 失败（面板被删/为空）就按无动作收口，交互窗也必须拆，否则会一直抢触摸。
+     */
+    private fun openNestedActionPanel(variant: StoredAction) {
+        val touchPosition = actionPanelState.finger
+        val style = actionPanelState.actionPanelStyle ?: settings.actionPanelStyle
+        val colorSpec = actionPanelState.buttonColor
+        val centerDegrees = actionPanelState.centerDegrees
+        actionPanelState.done()
+        if (openActionPanel(variant, centerDegrees, touchPosition, style, colorSpec, needsOverlay = false)) {
+            return
+        }
+        actionPanelSourceButton = null
+        showToast(R.string.action_panel_missing)
+        callbacks.onActionPanelOverlayChanged(false)
     }
 
     fun handleSubGestureResolvedActions(resolvedActions: SubGestureResolvedActions) {

@@ -57,17 +57,20 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
 
         Box(
             modifier = Modifier
-                .run {
-                    val origin = remember(actionPanelState) { actionPanelState.origin }
-                    graphicsLayer {
-                        if (parentSize.isEmpty()) return@graphicsLayer
-                        val itemSizeHalf = itemSize.toPx() / 2f
-                        val panelOrigin = actionPanelOrigin(parentSize, origin, itemSize.toPx(), insets)
-                        val ox = panelOrigin.x
-                        val oy = panelOrigin.y
-                        translationX = ox - itemSizeHalf
-                        translationY = oy - itemSizeHalf
-                    }
+                .graphicsLayer {
+                    if (parentSize.isEmpty()) return@graphicsLayer
+                    val itemSizeHalf = itemSizePx / 2f
+                    // 原点直接读状态：不能 remember——同一个 ActionPanelState 跨多次开面板
+                    // 复用，记住首次的 origin 会让图标留在上一个面板的触发点（光晕/命中
+                    // 都按新原点算，只有图标位置不跟）。
+                    val panelOrigin = actionPanelOrigin(
+                        parentSize,
+                        actionPanelState.origin,
+                        itemSizePx,
+                        insets,
+                    )
+                    translationX = panelOrigin.x - itemSizeHalf
+                    translationY = panelOrigin.y - itemSizeHalf
                 }
                 .size(itemSize)
         ) {
