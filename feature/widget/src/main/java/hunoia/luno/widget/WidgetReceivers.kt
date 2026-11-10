@@ -29,6 +29,12 @@ class HabitWidgetReceiver : SyncWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = HabitWidget()
 }
 
+/** 习惯热力图桌面小部件接收器。 */
+class HeatmapWidgetReceiver : SyncWidgetReceiver() {
+
+    override val glanceAppWidget: GlanceAppWidget = HeatmapWidget()
+}
+
 /** 待办桌面小部件接收器。 */
 class TodoWidgetReceiver : SyncWidgetReceiver() {
 

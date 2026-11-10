@@ -453,11 +453,16 @@
 
     <string name="habit_reminder_channel">习惯提醒</string>
     <string name="habit_reminder_title">习惯提醒</string>
-    <string name="habit_reminder_done">完成</string>
-    <string name="habit_reminder_snooze">推迟 %1$d 分钟</string>
+    <string name="habit_reminder_done">+1</string>
+    <string name="habit_reminder_snooze_minutes">推迟 %1$d 分钟</string>
+    <string name="habit_reminder_snooze_hours">推迟 %1$d 小时</string>
+    <string name="habit_reminder_snooze_hours_minutes">推迟 %1$d 小时 %2$d 分钟</string>
     <string name="habit_reminder_status_due">连续 %1$d 天 · 今天待打卡</string>
     <string name="habit_reminder_status_overdue">连续 %1$d 天 · 已断签，可补打</string>
     <string name="habit_reminder_status_inactive">还没开始 · 今天开始第一天</string>
+    <string name="habit_reminder_status_progress">今日 %1$d/%2$d · 连续 %3$d 天</string>
+    <string name="habit_reminder_status_progress_overdue">今日 %1$d/%2$d · 已断签，可补打</string>
+    <string name="habit_reminder_status_progress_inactive">今天开始 · 今日 %1$d/%2$d</string>
     <string name="habit_reminder_status_plain">该打卡了</string>
     <string name="habit_reminder_share_content">【%1$s】%2$s</string>
     <string name="habit_reminder_test_done">测试完成 · 已收起</string>

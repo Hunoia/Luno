@@ -7,17 +7,43 @@ import java.util.UUID
 /** 打卡记录保留天数：早于 `today − retention` 的打卡日写时惰性裁剪，避免无限增长。 */
 const val HabitHistoryRetentionDays = 90
 
-/** 「推迟」可选档位（分钟），习惯编辑页与通知按钮文案共用。 */
-val HabitSnoozeMinuteOptions = listOf(10, 20, 30, 60)
-
 /** 「推迟」默认时长：30 分钟。 */
 const val HabitDefaultSnoozeMinutes = 30
+
+/** 「推迟」可选范围（分钟）：1 分钟 – 6 小时。 */
+const val HabitMinSnoozeMinutes = 1
+const val HabitMaxSnoozeMinutes = 6 * 60
+
+/** 单个习惯每日目标次数上限。 */
+const val HabitMaxDailyTarget = 20
+
+/** 单个习惯最多提醒时间数。 */
+const val HabitMaxReminders = 6
 
 /**
  * 习惯类型。v1 只开放 [BOOLEAN]；枚举预留，数值习惯后续再开。
  */
 @Keep
 enum class HabitType { BOOLEAN }
+
+/** 一个提醒时间（本地时区，24 小时制）。 */
+@Serializable
+@Keep
+data class HabitReminderTime(
+    val hour: Int = 20,
+    val minute: Int = 0,
+) {
+    /** 当天分钟数，便于排序 / 去重 / 调度。 */
+    val minutesOfDay: Int
+        get() = hour.coerceIn(0, 23) * 60 + minute.coerceIn(0, 59)
+}
+
+/** 排序 + 去重 + 限流到 [HabitMaxReminders]；编辑页、调度与通知共用同一口径。 */
+fun normalizeReminderTimes(times: List<HabitReminderTime>): List<HabitReminderTime> = times
+    .map { HabitReminderTime(it.hour.coerceIn(0, 23), it.minute.coerceIn(0, 59)) }
+    .distinctBy { it.minutesOfDay }
+    .sortedBy { it.minutesOfDay }
+    .take(HabitMaxReminders)
 
 /**
  * 一个习惯。打卡频率按「每 [interval] 日」滑动式判定（见 [habitDayState] / [currentStreak]）：
@@ -26,6 +52,8 @@ enum class HabitType { BOOLEAN }
  * 字段：
  * - [color]：ARGB 整数，来自 UI 的 `ColorSelection`（Theme 预设 / Custom）。
  * - [interval]：每 x 日，x ≥ 1；默认 1（每日）。
+ * - [dailyTarget]：应打卡日需要完成的次数，1..[HabitMaxDailyTarget]；与 [interval] 正交。
+ * - [reminders]：一天内的提醒时间，最多 [HabitMaxReminders] 个；[reminderEnabled] 是总开关。
  * - [createdAt]：创建时刻（epoch millis），仅展示用，不参与算法。
  */
 @Serializable
@@ -39,24 +67,34 @@ data class Habit(
     val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     val type: HabitType = HabitType.BOOLEAN,
     val interval: Int = 1,
-    /** 提醒：到「应打卡日」的 [reminderHour]:[reminderMinute] 常驻通知；默认关。 */
+    val dailyTarget: Int = 1,
+    /** 提醒总开关；关闭时保留 [reminders] 列表，重新打开即恢复。 */
     val reminderEnabled: Boolean = false,
-    val reminderHour: Int = 20,
-    val reminderMinute: Int = 0,
-    /** 提醒被「推迟」时重弹的间隔（分钟）；档位见 [HabitSnoozeMinuteOptions]。 */
+    val reminders: List<HabitReminderTime> = emptyList(),
+    /** 提醒被「推迟」时重弹的间隔（分钟），范围 [HabitMinSnoozeMinutes]..[HabitMaxSnoozeMinutes]。 */
     val snoozeMinutes: Int = HabitDefaultSnoozeMinutes,
     val createdAt: Long = 0L,
 ) {
     /** 渲染端统一入口：按 [colorSource] 解析，主题切换时实时跟随。 */
     val colorSpec: ColorSpec
         get() = ColorSpec(colorSource, colorThemeKey, color)
+
+    /** 实际参与调度的提醒时间（已排序 / 去重 / 限流）；总开关关闭时为空。 */
+    val reminderTimes: List<HabitReminderTime>
+        get() = if (reminderEnabled) normalizeReminderTimes(reminders) else emptyList()
+
+    /** 目标次数钳到合法范围。 */
+    val safeDailyTarget: Int
+        get() = dailyTarget.coerceIn(1, HabitMaxDailyTarget)
 }
 
 /**
- * 习惯配置域：习惯列表 + 打卡记录（布尔）。
+ * 习惯配置域：习惯列表 + 打卡记录。
  *
  * 键用 `epochDay`（`LocalDate.toEpochDay()`），每日 0 点边界，跨时区不歧义。
- * [checks] 是 `habitId -> 已打卡 epochDay 集合`；数值习惯的 `values` 留待后续扩展。
+ * - [checks]：`habitId -> 已完成 epochDay 集合`（达到当日目标）。
+ * - [counts]：`habitId -> epochDay -> 部分次数`；只存 `0 < count < target` 的进度，
+ *   达标后移入 [checks]。旧数据没有该字段时按 0 处理。
  *
  * 数据流：网格面板部件与管理页都经 `:core:data` 的 `ConfigProvider` 门面读写，
  * 不直接进 `ActionRequest`（应用内状态变更，非可执行 Action）。
@@ -66,44 +104,94 @@ data class Habit(
 data class HabitConfig(
     val habits: List<Habit> = emptyList(),
     val checks: Map<String, Set<Long>> = emptyMap(),
+    val counts: Map<String, Map<Long, Int>> = emptyMap(),
 ) {
 
     val hasHabits: Boolean get() = habits.isNotEmpty()
 
     fun habitById(id: String): Habit? = habits.firstOrNull { it.id == id }
 
-    /** 某习惯是否已在 [day] 打卡。 */
+    /** 某习惯是否已在 [day] 完成全部目标次数。 */
     fun isChecked(habitId: String, day: Long): Boolean = checks[habitId]?.contains(day) == true
 
-    /** 写入一次打卡（幂等：已在集合则原样返回，避免无意义写盘）。 */
+    /** 某习惯在 [day] 已完成的次数；已完成日直接返回目标次数。 */
+    fun countOf(habitId: String, day: Long, target: Int): Int {
+        val safeTarget = target.coerceIn(1, HabitMaxDailyTarget)
+        if (isChecked(habitId, day)) return safeTarget
+        return (counts[habitId]?.get(day) ?: 0).coerceIn(0, safeTarget)
+    }
+
+    /** 写入一次完成（幂等：已完成则原样返回，避免无意义写盘）。 */
     fun withCheck(habitId: String, day: Long): HabitConfig {
         val current = checks[habitId] ?: emptySet()
-        if (day in current) return this
-        return copy(checks = checks + (habitId to current + day))
+        val dayCounts = counts[habitId]
+        val hadPartial = dayCounts?.containsKey(day) == true
+        if (day in current && !hadPartial) return this
+        val nextChecks = if (day in current) checks else checks + (habitId to current + day)
+        val nextCounts = if (hadPartial) {
+            val remaining = dayCounts - day
+            if (remaining.isEmpty()) counts - habitId else counts + (habitId to remaining)
+        } else {
+            counts
+        }
+        return copy(checks = nextChecks, counts = nextCounts)
     }
 
-    /** 取消 / 改历史（管理页近 7 天）：未打卡则原样返回。 */
+    /** 取消 / 改历史：同时清除完成标记与部分次数；没有记录则原样返回。 */
     fun withoutCheck(habitId: String, day: Long): HabitConfig {
-        val current = checks[habitId] ?: return this
-        if (day !in current) return this
-        val next = current - day
-        return copy(checks = if (next.isEmpty()) checks - habitId else checks + (habitId to next))
+        val current = checks[habitId] ?: emptySet()
+        val dayCounts = counts[habitId] ?: emptyMap()
+        if (day !in current && day !in dayCounts) return this
+        val nextChecks = if (day in current) {
+            val remaining = current - day
+            if (remaining.isEmpty()) checks - habitId else checks + (habitId to remaining)
+        } else {
+            checks
+        }
+        val nextCounts = if (day in dayCounts) {
+            val remaining = dayCounts - day
+            if (remaining.isEmpty()) counts - habitId else counts + (habitId to remaining)
+        } else {
+            counts
+        }
+        return copy(checks = nextChecks, counts = nextCounts)
     }
 
-    /** 统一写入 / 清除：管理页补卡与改历史用。 */
+    /** 统一写入 / 清除：管理页补卡与改历史用。写入 = 直接填满当日目标。 */
     fun setChecked(habitId: String, day: Long, checked: Boolean): HabitConfig =
         if (checked) withCheck(habitId, day) else withoutCheck(habitId, day)
 
     /**
-     * 惰性裁剪：丢掉早于 `today − retentionDays` 的打卡记录（含习惯条目清空即移除键）。
+     * 打卡 +1：未达标写入部分次数，达标移入 [checks] 并清掉部分进度。
+     * 已完成日 / 不存在习惯由调用方先行判断；这里只做纯数据变换。
+     */
+    fun withIncrement(habitId: String, day: Long, target: Int): HabitConfig {
+        val safeTarget = target.coerceIn(1, HabitMaxDailyTarget)
+        if (isChecked(habitId, day)) return this
+        val current = counts[habitId]?.get(day) ?: 0
+        val next = (current + 1).coerceAtMost(safeTarget)
+        if (next >= safeTarget) return withCheck(habitId, day)
+        val dayCounts = (counts[habitId] ?: emptyMap()) + (day to next)
+        return copy(counts = counts + (habitId to dayCounts))
+    }
+
+    /**
+     * 惰性裁剪：丢掉早于 `today − retentionDays` 的打卡与部分进度（含习惯条目清空即移除键）。
      * 无变化原样返回（避免无意义写盘）。写时调用，存储有界（见 [HabitHistoryRetentionDays]）。
      */
     fun pruneChecks(today: Long, retentionDays: Int): HabitConfig {
         val cutoff = today - retentionDays.coerceAtLeast(0)
-        val pruned = checks
+        val prunedChecks = checks
             .mapValues { (_, days) -> days.filter { it >= cutoff }.toSet() }
             .filterValues { it.isNotEmpty() }
-        return if (pruned == checks) this else copy(checks = pruned)
+        val prunedCounts = counts
+            .mapValues { (_, days) -> days.filterKeys { it >= cutoff } }
+            .filterValues { it.isNotEmpty() }
+        return if (prunedChecks == checks && prunedCounts == counts) {
+            this
+        } else {
+            copy(checks = prunedChecks, counts = prunedCounts)
+        }
     }
 
     fun addHabit(habit: Habit): HabitConfig = copy(habits = habits + habit)
@@ -111,10 +199,11 @@ data class HabitConfig(
     fun updateHabit(habit: Habit): HabitConfig =
         copy(habits = habits.map { if (it.id == habit.id) habit else it })
 
-    /** 删除习惯并连带清理其打卡记录。 */
+    /** 删除习惯并连带清理其打卡记录与部分进度。 */
     fun deleteHabit(habitId: String): HabitConfig = copy(
         habits = habits.filterNot { it.id == habitId },
         checks = checks - habitId,
+        counts = counts - habitId,
     )
 }
 
@@ -164,7 +253,7 @@ fun currentStreak(checks: Set<Long>, today: Long, interval: Int): Long {
  */
 @Keep
 enum class HabitDayState {
-    /** 当天已打卡。 */
+    /** 当天已完成全部目标次数。 */
     CHECKED,
 
     /** 两个应打卡日之间的休整日：主色半透明，部件不可点。 */
@@ -181,7 +270,7 @@ enum class HabitDayState {
 }
 
 /**
- * [day] 的状态：取 `≤ day` 的最近打卡日 c，按 `day − c` 与 [interval] 比较。
+ * [day] 的状态：取 `≤ day` 的最近完成日 c，按 `day − c` 与 [interval] 比较。
  * 只向后看，因为历史可以补卡，未来的记录不该倒推历史；[today] 用于把「已过去的应打卡日」
  * 判为逾期（那天没打就是断签，不该在点阵里继续显示成待打卡）。
  */
@@ -189,7 +278,7 @@ fun habitDayState(checks: Set<Long>, day: Long, interval: Int, today: Long): Hab
     val safeInterval = interval.coerceAtLeast(1).toLong()
     var anchor: Long? = null
     for (c in checks) {
-        if (c <= day && (anchor == null || c > anchor!!)) anchor = c
+        if (c <= day && (anchor == null || c > anchor)) anchor = c
     }
     val last = anchor ?: return HabitDayState.INACTIVE
     val delta = day - last
@@ -202,8 +291,8 @@ fun habitDayState(checks: Set<Long>, day: Long, interval: Int, today: Long): Hab
 }
 
 /**
- * 部件层面某日可否打卡：已打 / 跳过日（提前打卡）不可点；应打卡、逾期（补打）与尚未开始可点。
- * 取消打卡与改历史不走这里，统一走编辑页（[HabitConfig.setChecked]）。
+ * 部件层面某日可否打卡：已完成 / 跳过日（提前打卡）不可点；应打卡、逾期（补打）与尚未开始可点。
+ * 部分完成仍处于应打卡 / 逾期状态，因此可以继续 +1。
  */
 fun canCheck(checks: Set<Long>, day: Long, interval: Int, today: Long): Boolean =
     when (habitDayState(checks, day, interval, today)) {
@@ -216,16 +305,42 @@ fun canCheck(checks: Set<Long>, day: Long, interval: Int, today: Long): Boolean 
 data class HabitDot(
     val day: Long,
     val state: HabitDayState,
-)
+    /** 当日已完成次数；已完成日 = [target]。 */
+    val count: Int = 0,
+    /** 当日目标次数；1 表示单次习惯。 */
+    val target: Int = 1,
+) {
+    /** 部分完成（未达标但已至少完成一次）。 */
+    val isPartial: Boolean
+        get() = target > 1 && count in 1 until target
 
-/** 最近 [n] 个自然日（含今天）的点阵，旧 → 新。 */
-fun lastNDaysDots(checks: Set<Long>, today: Long, interval: Int, n: Int): List<HabitDot> {
+    /** 完成进度 0..1；已完成日 = 1。 */
+    val progress: Float
+        get() = if (target <= 0) 0f else (count.toFloat() / target).coerceIn(0f, 1f)
+}
+
+/**
+ * 最近 [n] 个自然日（含今天）的点阵，旧 → 新。
+ * [counts] / [target] 用于渲染多次习惯的进度弧；单次习惯保持默认值即可。
+ */
+fun lastNDaysDots(
+    checks: Set<Long>,
+    today: Long,
+    interval: Int,
+    n: Int,
+    counts: Map<Long, Int> = emptyMap(),
+    target: Int = 1,
+): List<HabitDot> {
     val count = n.coerceAtLeast(1)
+    val safeTarget = target.coerceIn(1, HabitMaxDailyTarget)
     return (count - 1 downTo 0).map { off ->
         val day = today - off
+        val done = day in checks
         HabitDot(
             day = day,
             state = habitDayState(checks, day, interval, today),
+            count = if (done) safeTarget else (counts[day] ?: 0).coerceIn(0, safeTarget),
+            target = safeTarget,
         )
     }
 }

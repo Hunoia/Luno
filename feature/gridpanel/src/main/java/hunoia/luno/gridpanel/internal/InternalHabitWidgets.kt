@@ -57,6 +57,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.habit.HabitDayMarkIcon
 import hunoia.luno.gridpanel.habit.HabitDayPalette
+import hunoia.luno.gridpanel.habit.HabitProgressArc
 import hunoia.luno.gridpanel.habit.HabitTitleGap
 import hunoia.luno.gridpanel.habit.borderColor
 import hunoia.luno.gridpanel.habit.dotSize
@@ -77,7 +78,7 @@ import java.time.LocalDate
  * 习惯部件：历史（HabitHistoryCell）。
  *
  * 数据源 [HabitCenter.habitConfig]（JSON DataStore，MultiProcess），经 domain 门面订阅。
- * 打卡写回走 [HabitCenter.toggleHabit]——应用内状态变更，不走 Dispatcher（architecture §1.3）。
+ * 打卡写回走 [HabitCenter.incrementHabit]——应用内状态变更，不走 Dispatcher（architecture §1.3）。
  * 编辑态 [enabled] = false：部件点按让给层根拖拽。
  * 交互：标题点击拉起主应用对应编辑页；点阵区点击进入打卡确认（确认态隐藏点阵、
  * 只留中央倒计时环，窗口内再点打卡）。
@@ -144,7 +145,15 @@ internal fun HabitHistoryCell(
         val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)
         val contentH = (maxHeight - 20.dp).coerceAtLeast(24.dp)
         val grid = habitGridGeometry(contentW, contentH)
-        val dots = lastNDaysDots(checks, today, habit.interval, grid.cols * grid.rows)
+        val target = habit.safeDailyTarget
+        val dots = lastNDaysDots(
+            checks = checks,
+            today = today,
+            interval = habit.interval,
+            n = grid.cols * grid.rows,
+            counts = config.counts[habit.id].orEmpty(),
+            target = target,
+        )
         // sp → dp 需要 fontScale；圆点高度限制用实际日期文本高度，避免大字体下裁剪。
         val dateTextHeight = with(LocalDensity.current) { grid.dateSizeSp.sp.toDp() }
         val dotSize = grid.dotSize(dateTextHeight)
@@ -208,7 +217,7 @@ internal fun HabitHistoryCell(
                                     }
                                     pending -> {
                                         pending = false
-                                        scope.launch { HabitCenter.toggleHabit(habit.id, today) }
+                                        scope.launch { HabitCenter.incrementHabit(habit.id, today) }
                                     }
                                     else -> pending = true
                                 }
@@ -234,6 +243,8 @@ internal fun HabitHistoryCell(
                                     if (dot != null) {
                                         HabitDotView(
                                             state = dot.state,
+                                            count = dot.count,
+                                            target = dot.target,
                                             palette = palette,
                                             day = LocalDate.ofEpochDay(dot.day).dayOfMonth,
                                             dateSizeSp = grid.dateSizeSp,
@@ -269,6 +280,8 @@ internal fun HabitHistoryCell(
 @Composable
 private fun HabitDotView(
     state: HabitDayState,
+    count: Int,
+    target: Int,
     palette: HabitDayPalette,
     day: Int,
     dateSizeSp: Float,
@@ -277,6 +290,7 @@ private fun HabitDotView(
 ) {
     val visual = state.visual()
     val stateLabel = state.label()
+    val partial = target > 1 && count in 1 until target
     Column(
         modifier = modifier.fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -306,6 +320,14 @@ private fun HabitDotView(
                 color = visual.markTint(palette),
                 modifier = Modifier.size(dotSize * 0.7f),
             )
+            if (partial) {
+                HabitProgressArc(
+                    progress = count.toFloat() / target,
+                    color = palette.primary,
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = (dotSize.value * 0.12f).dp.coerceIn(1.5.dp, 3.dp),
+                )
+            }
         }
     }
 }

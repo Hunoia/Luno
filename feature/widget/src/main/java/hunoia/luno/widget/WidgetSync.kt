@@ -71,9 +71,10 @@ object WidgetSync {
         }
     }
 
-    /** 刷新全部习惯部件。 */
+    /** 刷新全部习惯部件（点阵 + 热力图）。 */
     internal suspend fun updateHabitWidgets(context: Context) {
         updateWidgets(context, HabitWidgetReceiver::class.java, HabitWidget())
+        updateWidgets(context, HeatmapWidgetReceiver::class.java, HeatmapWidget())
     }
 
     /** 刷新全部待办部件。 */
