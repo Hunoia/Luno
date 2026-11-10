@@ -47,6 +47,7 @@ import hunoia.luno.R
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.core.domain.AppInfo
+import hunoia.luno.core.domain.RecentApp
 import hunoia.luno.quickaccess.model.getIcon
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.ui.component.LunoSearchField
@@ -115,8 +116,10 @@ fun RecentAppsBlocklistScreen(
     // 配置可能是异步到达的：等 apps 与已选列表都就绪后再排一次，且只排一次。
     LaunchedEffect(apps, current) {
         if (!initialOrderApplied && apps.isNotEmpty()) {
-            val selectedPackages = current.toSet()
-            apps = apps.sortedByDescending { it.packageName in selectedPackages }
+            val selectedKeys = current.toSet()
+            apps = apps.sortedByDescending {
+                RecentApp.blockKey(it.packageName, it.userId) in selectedKeys
+            }
             initialOrderApplied = true
         }
     }
@@ -177,7 +180,9 @@ fun RecentAppsBlocklistScreen(
                 Box(modifier = Modifier.fillMaxSize()) {
                     // 列表是 hazeSource：底部搜索胶囊作为兄弟节点悬浮其上、采列表做毛玻璃
                     // （ui-guidelines §5，与动作选择页底栏同一层次关系）。
-                    val selectionFlags = filteredApps.map { it.packageName in selected }
+                    val selectionFlags = filteredApps.map {
+                        RecentApp.blockKey(it.packageName, it.userId) in selected
+                    }
                     val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
                     LazyColumn(
                         modifier = Modifier
@@ -197,6 +202,7 @@ fun RecentAppsBlocklistScreen(
                             item { EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results)) }
                         } else {
                             itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
+                                val blockKey = RecentApp.blockKey(item.packageName, item.userId)
                                 val iconKey = item.identity
                                 val icon = appIcons[iconKey]
                                 if (icon == null) {
@@ -212,15 +218,19 @@ fun RecentAppsBlocklistScreen(
                                     }
                                 }
                                 LunoSelectableRow(
-                                    title = item.label,
+                                    title = if (item.isClone) {
+                                        "${item.label} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
+                                    } else {
+                                        item.label
+                                    },
                                     subtitle = item.packageName,
                                     iconBitmap = icon,
-                                    selected = item.packageName in selected,
+                                    selected = blockKey in selected,
                                     onSelectedChange = { isSelected ->
                                         selected = if (isSelected) {
-                                            selected + item.packageName
+                                            selected + blockKey
                                         } else {
-                                            selected - item.packageName
+                                            selected - blockKey
                                         }
                                     },
                                     shape = selectedSegmentedShape(index, filteredApps.size, selectionFlags),

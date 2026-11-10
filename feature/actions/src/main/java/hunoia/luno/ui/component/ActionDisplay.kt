@@ -145,9 +145,19 @@ fun actionIcon(action: StoredAction): Any? {
         // RecentAppsHub 更新时要触发重组，否则图标停在首次组合那一刻的应用。
         val context = androidx.compose.ui.platform.LocalContext.current
         val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
-        val pkg = history.dropLast(1).lastOrNull()
-        return rememberAppDrawable("app/$pkg") {
-            pkg?.let { context.packageManager.getApplicationIcon(it) }
+        val foreground by hunoia.luno.runtime.environment.RecentAppsHub.foreground.collectAsState()
+        // 与 previousApp 同一口径：去掉当前前台那条，末尾就是会切到的那一项。
+        // 分身与主应用同包名，图标按 userId 取，避免总是画主应用。
+        val app = history.lastOrNull { it != foreground }
+        return rememberAppDrawable("previous/${app?.blockKey}") {
+            app?.let {
+                hunoia.luno.bridge.system.AppIcons.drawable(
+                    context,
+                    it.packageName,
+                    className = "",
+                    userId = it.userId,
+                )
+            }
         } ?: Icons.Default.SwapHoriz
     }
     val definition = ActionDefinitions.byTypeId(action.typeId)

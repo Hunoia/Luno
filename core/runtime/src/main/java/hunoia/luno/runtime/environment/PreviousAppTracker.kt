@@ -2,28 +2,42 @@ package hunoia.luno.runtime.environment
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
+import hunoia.luno.bridge.system.PackageChangeReceiver
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
+import hunoia.luno.core.domain.RecentApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import hunoia.luno.bridge.system.PackageChangeReceiver
-import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 
 private const val PREVIOUS_APP_HISTORY_MAX = 16
 
+/**
+ * 最近应用 / 上一个应用的唯一数据源。
+ *
+ * a11y 事件只给包名；同一个包可能同时有主应用与分身（只有 userId 不同），
+ * 所以新前台先按主用户记一条，再异步解析当前实例的 userId 回填：
+ * 历史按包名去重、保留**最近一次使用的实例**，黑名单按 `pkg#userId` 精确匹配。
+ */
 class PreviousAppTracker(
     private val context: Context,
-    private val packageManager: android.content.pm.PackageManager,
+    private val packageManager: PackageManager,
     private val scope: CoroutineScope,
-    private val startActivity: (Intent) -> Unit,
+    /** 统一启动口（`:app` 注入）：带 userId 直达分身实例。 */
+    private val launchPackage: suspend (RecentApp) -> Boolean,
+    /** 前台实例 userId 解析（仅当包有分身时才会真正查询任务栈，由 `:app` 注入）。 */
+    private val resolveUserId: suspend (String) -> Int,
     private val rootInActiveWindowPackageName: () -> String?,
     /** 自身包名：面板/设置等 overlay 窗口的 a11y 事件不入历史（否则部件会闪现本应用图标、
-     * 且 currPackageName 被置成本应用会破坏 previousApp 语义）。 */
+     * 且 currApp 被置成本应用会破坏 previousApp 语义）。 */
     private val ownPackageName: String,
 ) {
-    private val history = ArrayDeque<String>()
-    private var currPackageName: String? = null
+    private var history: List<RecentApp> = emptyList()
+    private var currApp: RecentApp? = null
+
+    /** 前台切换令牌：异步解析 userId 期间又切走了就丢弃结果，避免历史顺序错乱。 */
+    private var foregroundToken = 0
 
     /**
      * 可启动包名集合：一次 MAIN/LAUNCHER 全量解析（单次 Binder）在 IO 算好、包变化时刷新。
@@ -59,83 +73,87 @@ class PreviousAppTracker(
 
     /**
      * 黑名单更新：修剪已记录历史并重算 [RecentAppsHub]，改设置当下生效。
-     * 黑名单应用若正是当前前台，保留为 curr（只过滤「可切过去/可展示」的历史）。
+     * 按 `pkg#userId` 精确匹配：拉黑分身不影响同一包的主应用。
+     * 黑名单应用若正是当前前台，保留为竞态兜底，只过滤「可切过去/可展示」的历史。
      */
     fun onBlocklistChanged(next: Set<String>) {
         blocklist = next
-        if (history.removeAll(next)) {
-            RecentAppsHub.update(history.toList())
+        val filtered = history.filterNot { it.blockKey in next }
+        if (filtered.size != history.size) {
+            history = filtered
+            RecentAppsHub.update(history)
         }
     }
 
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        when (event?.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                val packageName = event.packageName?.toString()
-                if (packageName != null && packageName != ownPackageName) {
-                    RecentAppsHub.updateForeground(packageName)
-                }
-                if (packageName != null &&
-                    packageName != ownPackageName &&
-                    packageName !in blocklist &&
-                    hasLaunchIntent(packageName) &&
-                    currPackageName != packageName
-                ) {
-                    history.remove(packageName)
-                    history.addLast(packageName)
-                    while (history.size > PREVIOUS_APP_HISTORY_MAX) history.removeFirst()
-                    currPackageName = packageName
-                    RecentAppsHub.update(history.toList())
-                }
-            }
-            else -> Unit
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val packageName = event.packageName?.toString() ?: return
+        if (packageName == ownPackageName) return
+
+        val known = currApp
+        if (known?.packageName == packageName) {
+            // 同包名（同实例；主↔分身直接互切时 a11y 无法区分）：只刷新前台，不重复记历史。
+            RecentAppsHub.updateForeground(known)
+            return
+        }
+
+        val optimistic = RecentApp(packageName)
+        currApp = optimistic
+        RecentAppsHub.updateForeground(optimistic)
+        if (!hasLaunchIntent(packageName)) return
+
+        // 先按主用户入历史保证实时性；有分身时再解析实际实例并替换。
+        if (optimistic.blockKey !in blocklist) record(optimistic)
+        val token = ++foregroundToken
+        scope.launch {
+            val userId = runCatching { resolveUserId(packageName) }.getOrDefault(0)
+            if (token != foregroundToken) return@launch
+            val resolved = RecentApp(packageName, userId)
+            currApp = resolved
+            RecentAppsHub.updateForeground(resolved)
+            // 每个包只保留最近一次使用的实例；解析成被拉黑的分身时整条移出历史。
+            history = history.filterNot { it.packageName == packageName }
+            if (resolved.blockKey !in blocklist) history = history + resolved
+            history = history.takeLast(PREVIOUS_APP_HISTORY_MAX)
+            RecentAppsHub.update(history)
         }
     }
 
     suspend fun previousApp(): Boolean {
-        val current = currPackageName
-        if (current == null || history.isEmpty()) return false
+        val current = currApp ?: return false
+        if (history.isEmpty()) return false
 
-        // 历史末尾含当前前台，取目标时要去掉；但黑名单应用作前台时不入历史，
-        // 此时末尾就是真正的「上一个」。
-        val candidates = if (history.lastOrNull() == current) history.dropLast(1) else history.toList()
+        // 历史按包名去重：去掉当前前台那一条，末尾就是真正的「上一个」。
+        // 前台被拉黑时它不在历史里，此时历史末尾也是「上一个」。
+        val candidates = history.filterNot { it.packageName == current.packageName }
         val target = candidates.lastOrNull()
         if (target == null) {
-            if (currPackageNameError()) return queryLaunchIntentAndStart(current)
+            if (currPackageNameError()) return launchPackage(current)
             return false
         }
-        if (!queryLaunchIntentAndStart(target)) return false
-        history.remove(target)
-        history.addLast(target)
-        currPackageName = target
+        if (!launchPackage(target)) return false
+        record(target)
+        currApp = target
         return true
     }
 
     fun onRelease() {
         PackageChangeReceiver.unregister(context, onPackageChanged)
-        history.clear()
+        history = emptyList()
         RecentAppsHub.clear()
-        currPackageName = null
+        currApp = null
+        foregroundToken++
     }
 
-    private suspend fun queryLaunchIntentAndStart(packageName: String?): Boolean {
-        if (packageName.isNullOrEmpty()) return false
-        val intent = withContext(Dispatchers.IO) {
-            packageManager.getLaunchIntentForPackage(packageName)
-        } ?: return false
-        return try {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-            true
-        } catch (_: Exception) {
-            // 目标应用可能已被卸载，切换失败是预期结果
-            false
-        }
+    private fun record(app: RecentApp) {
+        history = (history.filterNot { it.packageName == app.packageName } + app)
+            .takeLast(PREVIOUS_APP_HISTORY_MAX)
+        RecentAppsHub.update(history)
     }
 
     private fun currPackageNameError(): Boolean {
         val pkgName = rootInActiveWindowPackageName()
-        return pkgName != currPackageName
+        return pkgName != currApp?.packageName
     }
 
     private fun hasLaunchIntent(packageName: String?): Boolean {

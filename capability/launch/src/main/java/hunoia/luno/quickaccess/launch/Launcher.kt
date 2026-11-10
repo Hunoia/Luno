@@ -533,6 +533,10 @@ object Launcher {
      * 当前前台实例的 userId。分身与主应用同包名，只能从系统任务列表确认实例；
      * 非分身包直接返回 0，避免每次 popup 都走 shell。
      */
+    /**
+     * 该包当前实例的 userId：优先可见任务，取不到再退回最近任务。
+     * 有分身且 Shizuku 就绪时才会执行 shell 查询，否则直接 0（主用户）。
+     */
     suspend fun currentUserIdForPackage(context: Context, packageName: String): Int =
         withContext(Dispatchers.IO) {
             if (!AppIcons.hasClone(context, packageName)) return@withContext 0
@@ -540,7 +544,9 @@ object Launcher {
             val output = runCatching {
                 ShizukuManager.executeShell("am stack list", maxChars = 200_000).stdout
             }.getOrNull() ?: return@withContext 0
-            parseVisibleTaskUserId(output, packageName) ?: 0
+            parseVisibleTaskUserId(output, packageName)
+                ?: parseRecentTaskUserId(output, packageName)
+                ?: 0
         }
 
     /**
@@ -550,6 +556,17 @@ object Launcher {
     internal fun parseVisibleTaskUserId(output: String, packageName: String): Int? {
         val regex = Regex(
             """taskId=\d+:\s+${Regex.escape(packageName)}/\S+.*?\buserId=(\d+)\s+visible=true\b""",
+        )
+        return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    }
+
+    /**
+     * 从 `am stack list` 里取该包最近使用任务的 userId（不要求 visible）。
+     * 输出按最近优先，第一个命中就是最近一次使用的实例；背景里的分身任务同样能命中。
+     */
+    internal fun parseRecentTaskUserId(output: String, packageName: String): Int? {
+        val regex = Regex(
+            """taskId=\d+:\s+${Regex.escape(packageName)}/\S+.*?\buserId=(\d+)\b""",
         )
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
     }

@@ -513,8 +513,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             return fromWindows
         }
 
-        val history = RecentAppsHub.history.value.lastOrNull()
-            ?: RecentAppsHub.foreground.value.takeIf { it.isNotBlank() }
+        val history = RecentAppsHub.history.value.lastOrNull()?.packageName
+            ?: RecentAppsHub.foreground.value?.packageName?.takeIf { it.isNotBlank() }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             hunoia.luno.core.LunoLog.i(
                 LOG_TAG,

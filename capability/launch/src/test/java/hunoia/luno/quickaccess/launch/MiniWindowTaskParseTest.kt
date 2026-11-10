@@ -50,4 +50,40 @@ class MiniWindowTaskParseTest {
 
         assertNull(Launcher.parseVisibleTaskUserId(output, "com.tencent.mobileqq"))
     }
+
+    @Test
+    fun `最近任务取第一个命中的 userId（背景里的分身）`() {
+        val output = """
+            RootTask id=2 bounds=[0,0][1200,2670] displayId=0 userId=999
+              taskId=93289: com.tencent.mm/com.tencent.mm.ui.LauncherUI bounds=[100,300][900,1500] userId=999 visible=false topActivity=ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}
+
+            RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+              taskId=93283: com.tencent.mm/com.tencent.mm.ui.LauncherUI bounds=[0,0][1200,2670] userId=0 visible=false topActivity=ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}
+        """.trimIndent()
+
+        assertEquals(999, Launcher.parseRecentTaskUserId(output, "com.tencent.mm"))
+    }
+
+    @Test
+    fun `最近任务主应用优先时取主用户`() {
+        val output = """
+            RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+              taskId=93283: com.tencent.mm/com.tencent.mm.ui.LauncherUI bounds=[0,0][1200,2670] userId=0 visible=false topActivity=ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}
+
+            RootTask id=2 bounds=[0,0][1200,2670] displayId=0 userId=999
+              taskId=93289: com.tencent.mm/com.tencent.mm.ui.LauncherUI bounds=[100,300][900,1500] userId=999 visible=false topActivity=ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}
+        """.trimIndent()
+
+        assertEquals(0, Launcher.parseRecentTaskUserId(output, "com.tencent.mm"))
+    }
+
+    @Test
+    fun `最近任务包名不匹配返回空`() {
+        val output = """
+            RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+              taskId=93283: com.tencent.mm/com.tencent.mm.ui.LauncherUI bounds=[0,0][1200,2670] userId=0 visible=false topActivity=ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}
+        """.trimIndent()
+
+        assertNull(Launcher.parseRecentTaskUserId(output, "com.tencent.mobileqq"))
+    }
 }

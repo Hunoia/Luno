@@ -60,14 +60,14 @@ fun RecentAppsCell(
     val capacity = (spanX * spanY).coerceAtLeast(1)
     // 过滤当前前台与本应用自身：前台不算「最近」（当前正在用它），本应用包名理论上
     // 已在源头过滤，这里再拦一道防御（面板窗口事件时序竞态下避免闪现本应用图标）。
-    val pkgs = remember(history, foreground, capacity) {
+    val apps = remember(history, foreground, capacity) {
         history.asSequence()
-            .filter { it != foreground && it != context.packageName }
+            .filter { it != foreground && it.packageName != context.packageName }
             .toList()
             .takeLast(capacity)
     }
     val onCard = gridPanelOnCardColor
-    if (pkgs.isEmpty()) {
+    if (apps.isEmpty()) {
         Row(
             modifier = modifier
                 .fillMaxSize()
@@ -99,33 +99,42 @@ fun RecentAppsCell(
             ) {
                 for (col in 0 until spanX) {
                     val index = row * spanX + col
-                    if (index >= pkgs.size) {
+                    if (index >= apps.size) {
                         Spacer(Modifier.weight(1f))
                         continue
                     }
-                    val pkg = pkgs[index]
+                    val app = apps[index]
                     // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 rememberAppDrawable）。
-                    val icon = rememberAppDrawable("app/$pkg") {
-                        context.packageManager.getApplicationIcon(pkg)
+                    // 分身与主应用同包名，图标按 userId 取（LauncherApps 会带分身角标）。
+                    val icon = rememberAppDrawable("app/${app.blockKey}") {
+                        hunoia.luno.bridge.system.AppIcons.drawable(
+                            context,
+                            app.packageName,
+                            className = "",
+                            userId = app.userId,
+                        )
                     }
                     // 磁贴没有文字：无障碍名用应用标签，首帧/查询失败回落包名。
-                    val appLabel = rememberAppLabel("label/$pkg", pkg) {
-                        context.packageManager.getApplicationInfo(pkg, 0)
+                    val appLabel = rememberAppLabel("label/${app.packageName}", app.packageName) {
+                        context.packageManager.getApplicationInfo(app.packageName, 0)
                             .let { context.packageManager.getApplicationLabel(it).toString() }
                     }
+                    val cloneLabel = stringResource(hunoia.luno.actions.R.string.app_clone_label)
+                    val description = if (app.userId == 0) appLabel else "$appLabel · $cloneLabel"
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(containerShape(ItemCorner * 0.5f))
-                            .semantics { contentDescription = appLabel }
+                            .semantics { contentDescription = description }
                             .then(
                                 if (enabled) {
                                     Modifier.clickable {
                                         // Surface 只构造动作；解冻、启动、统计统一走进程级 Dispatcher。
                                         hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
                                             action = hunoia.luno.core.domain.AppLaunchAction.stored(
-                                                packageName = pkg,
+                                                packageName = app.packageName,
+                                                userId = app.userId,
                                             ),
                                             origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                                         ) { launched -> if (launched) closePanel() }

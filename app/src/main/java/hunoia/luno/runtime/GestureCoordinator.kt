@@ -234,11 +234,37 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons(delayMs = 0L) },
     )
 
+    /** 启动能力库的默认实现（`:capability:launch`）：解冻与小窗设置由这里注入。 */
+    private val appLauncher: hunoia.luno.core.domain.AppLauncher =
+        hunoia.luno.launch.DefaultAppLauncher(
+            context = host.context.applicationContext,
+            advancedSettings = { runtimeSettingsStore.snapshot().advancedSettings },
+            unfreezePackage = { pkg ->
+                suspendCancellableCoroutine { cont ->
+                    host.requestEnableDisabledPackage(pkg) { ok -> if (cont.isActive) cont.resume(ok) }
+                }
+            },
+        )
+
     private val previousAppTracker = PreviousAppTracker(
         context = host.context,
         packageManager = host.context.packageManager,
         scope = host.coroutineScope,
-        startActivity = { host.context.startActivity(it) },
+        // 走统一启动口：历史里已带上前台实例的 userId，Shizuku 直达分身，
+        // 不再被 MIUI XSpace 拦成「主应用 / 分身」选择器。
+        launchPackage = { app ->
+            appLauncher.launch(
+                hunoia.luno.core.domain.LaunchSpec(
+                    packageName = app.packageName,
+                    userId = app.userId,
+                ),
+            )
+        },
+        // a11y 只给包名：成为前台时解析一次实际实例（仅分身包会查任务栈）。
+        resolveUserId = { packageName ->
+            hunoia.luno.quickaccess.launch.Launcher
+                .currentUserIdForPackage(host.context, packageName)
+        },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
         ownPackageName = host.context.packageName,
     )
@@ -253,18 +279,6 @@ class GestureCoordinator(
 
     private val executeEnvironment: hunoia.luno.execute.ExecuteEnvironment = LunoExecuteEnvironment(host)
     private val executeMessages = LunoExecuteMessages(host.context)
-
-    /** 启动能力库的默认实现（`:capability:launch`）：解冻与小窗设置由这里注入。 */
-    private val appLauncher: hunoia.luno.core.domain.AppLauncher =
-        hunoia.luno.launch.DefaultAppLauncher(
-            context = host.context.applicationContext,
-            advancedSettings = { runtimeSettingsStore.snapshot().advancedSettings },
-            unfreezePackage = { pkg ->
-                suspendCancellableCoroutine { cont ->
-                    host.requestEnableDisabledPackage(pkg) { ok -> if (cont.isActive) cont.resume(ok) }
-                }
-            },
-        )
 
     /** 执行口的 Surface 副作用端口：执行口只说要弹哪个面，窗口控制留在这里。 */
     private val executeSurfaces = object : hunoia.luno.execute.SurfaceHost {
