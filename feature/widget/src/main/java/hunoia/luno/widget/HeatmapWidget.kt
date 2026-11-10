@@ -42,7 +42,6 @@ import androidx.glance.semantics.semantics
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.canCheck
 import hunoia.luno.config.model.currentStreak

@@ -136,7 +136,6 @@
     <string name="habit_reminder_delete">删除提醒时间</string>
     <string name="habit_reminder_max">最多添加 6 个提醒时间</string>
     <string name="habit_snooze">推迟时长</string>
-    <string name="habit_snooze_hint">通知上点「推迟」后多久再提醒一次，可自选 1 分钟 – 6 小时</string>
     <string name="snooze_dialog_title">推迟时长</string>
     <string name="snooze_hours_unit">小时</string>
     <string name="snooze_minutes_unit">分钟</string>

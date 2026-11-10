@@ -34,5 +34,4 @@
     <string name="widget_todo_complete">完成「%1$s」</string>
     <string name="widget_todo_complete_title">完成待办</string>
     <string name="widget_todo_complete_message">把「%1$s」标记为完成？</string>
-    <string name="widget_todo_cancel">取消</string>
 </resources>
