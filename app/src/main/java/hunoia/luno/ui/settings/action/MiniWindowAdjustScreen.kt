@@ -1,35 +1,25 @@
 package hunoia.luno.ui.settings.action
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,9 +55,8 @@ import hunoia.luno.config.model.WindowBounds
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -76,13 +66,117 @@ private val HANDLE_TOLERANCE = 40.dp
 private val RECT_CORNER = 16.dp
 private val HANDLE_RADIUS = 7.dp
 
+/** 框内微调按钮：小圆钮跟随窗口框，只吃点击，拖动仍交给预览层。 */
+private val STEP_BUTTON = 34.dp
+private val STEP_BUTTON_ICON = 18.dp
+private val STEP_GAP = 4.dp
+private val STEP_MARGIN = 6.dp
+
 private enum class HitKind {
     None, Move, TopLeft, TopRight, BottomLeft, BottomRight, Top, Bottom, Left, Right
 }
 
+/** 微调方向：移动整框，或把某条边往外/往里推。 */
+private enum class StepKind {
+    MoveLeft, MoveRight, MoveUp, MoveDown,
+    LeftOut, LeftIn, RightOut, RightIn, TopOut, TopIn, BottomOut, BottomIn,
+}
+
+private data class StepSpec(val kind: StepKind, val center: Offset)
+
+/** 微调按钮布局 + 每边 dp 标注的避让内边距（按钮翻到框内时把标注往里推）。 */
+private data class StepLayout(
+    val specs: List<StepSpec>,
+    val leftLabelInset: Float,
+    val topLabelInset: Float,
+    val rightLabelInset: Float,
+    val bottomLabelInset: Float,
+)
+
+/**
+ * 四边中点各一对「外推 / 内收」小圆钮（优先框外，空间不足翻框内），
+ * 框中心一组四向移动钮。全部跟随窗口框与屏幕尺寸重算。
+ */
+private fun buildStepLayout(
+    px: Rect,
+    screenWidthPx: Int,
+    screenHeightPx: Int,
+    buttonPx: Float,
+    gapPx: Float,
+    marginPx: Float,
+    labelInsetPx: Float,
+    labelInsetShiftedPx: Float,
+): StepLayout {
+    if (screenWidthPx <= 0 || screenHeightPx <= 0 || px.width <= 0f || px.height <= 0f) {
+        return StepLayout(
+            specs = emptyList(),
+            leftLabelInset = labelInsetPx,
+            topLabelInset = labelInsetPx,
+            rightLabelInset = labelInsetPx,
+            bottomLabelInset = labelInsetPx,
+        )
+    }
+    val half = buttonPx / 2f
+    val offset = half + marginPx
+    val cx = (px.left + px.right) / 2f
+    val cy = (px.top + px.bottom) / 2f
+    val pairGap = (buttonPx + gapPx) / 2f
+    val specs = mutableListOf<StepSpec>()
+
+    // 左 / 右：一对按钮竖排。
+    val leftOutside = px.left >= buttonPx + marginPx * 2f
+    val leftX = if (leftOutside) px.left - offset else px.left + offset
+    specs += StepSpec(StepKind.LeftOut, Offset(leftX, cy - pairGap))
+    specs += StepSpec(StepKind.LeftIn, Offset(leftX, cy + pairGap))
+
+    val rightOutside = screenWidthPx - px.right >= buttonPx + marginPx * 2f
+    val rightX = if (rightOutside) px.right + offset else px.right - offset
+    specs += StepSpec(StepKind.RightOut, Offset(rightX, cy - pairGap))
+    specs += StepSpec(StepKind.RightIn, Offset(rightX, cy + pairGap))
+
+    // 上 / 下：一对按钮横排。
+    val topOutside = px.top >= buttonPx + marginPx * 2f
+    val topY = if (topOutside) px.top - offset else px.top + offset
+    specs += StepSpec(StepKind.TopOut, Offset(cx - pairGap, topY))
+    specs += StepSpec(StepKind.TopIn, Offset(cx + pairGap, topY))
+
+    val bottomOutside = screenHeightPx - px.bottom >= buttonPx + marginPx * 2f
+    val bottomY = if (bottomOutside) px.bottom + offset else px.bottom - offset
+    specs += StepSpec(StepKind.BottomOut, Offset(cx - pairGap, bottomY))
+    specs += StepSpec(StepKind.BottomIn, Offset(cx + pairGap, bottomY))
+
+    // 框中心：四向移动盘，跟随窗口框。
+    specs += StepSpec(StepKind.MoveLeft, Offset(cx - buttonPx - gapPx, cy))
+    specs += StepSpec(StepKind.MoveRight, Offset(cx + buttonPx + gapPx, cy))
+    specs += StepSpec(StepKind.MoveUp, Offset(cx, cy - buttonPx - gapPx))
+    specs += StepSpec(StepKind.MoveDown, Offset(cx, cy + buttonPx + gapPx))
+
+    return StepLayout(
+        specs = specs,
+        leftLabelInset = if (leftOutside) labelInsetPx else labelInsetShiftedPx,
+        topLabelInset = if (topOutside) labelInsetPx else labelInsetShiftedPx,
+        rightLabelInset = if (rightOutside) labelInsetPx else labelInsetShiftedPx,
+        bottomLabelInset = if (bottomOutside) labelInsetPx else labelInsetShiftedPx,
+    )
+}
+
+private fun StepKind.icon(): ImageVector = when (this) {
+    StepKind.MoveLeft, StepKind.LeftOut, StepKind.RightIn -> Icons.Default.KeyboardArrowLeft
+    StepKind.MoveRight, StepKind.LeftIn, StepKind.RightOut -> Icons.Default.KeyboardArrowRight
+    StepKind.MoveUp, StepKind.TopOut, StepKind.BottomIn -> Icons.Default.KeyboardArrowUp
+    StepKind.MoveDown, StepKind.TopIn, StepKind.BottomOut -> Icons.Default.KeyboardArrowDown
+}
+
+private fun StepKind.labelRes(): Int = when (this) {
+    StepKind.MoveLeft, StepKind.LeftOut, StepKind.RightIn -> R.string.mini_window_nudge_left
+    StepKind.MoveRight, StepKind.LeftIn, StepKind.RightOut -> R.string.mini_window_nudge_right
+    StepKind.MoveUp, StepKind.TopOut, StepKind.BottomIn -> R.string.mini_window_nudge_up
+    StepKind.MoveDown, StepKind.TopIn, StepKind.BottomOut -> R.string.mini_window_nudge_down
+}
+
 /**
  * 小窗位置/大小的调整界面。
- * 整屏接管：隐藏系统栏、无 TopBar，系统返回不可靠，出口只有预览底部的【完成】/【取消】。
+ * 整屏接管且无 TopBar：出口是顶部那排透明圆形按钮（取消 / 重置 / 确认）。
  * 预览铺满整屏，比例与运行时 `makeActivityOptions` 1:1 对应，无需缩放映射；拖拽同样 clamp 到 0..1。
  * 运行时按方向抵消 HyperOS 的 freeformScale（竖屏 0.7 / 横屏 0.56），两边预览都等于实际。
  * 不锁方向，编辑的是当前 [orientation] 那套；转屏重组会丢弃未保存改动。
@@ -97,10 +191,18 @@ fun MiniWindowAdjustContent(
 ) {
     val orientation = LocalConfiguration.current.orientation
     val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
-    // 命中半径在这里换算成 px：下面的拖拽回调不是 composable，拿不到 Density。
+    // 命中半径与微调按钮尺寸都在这里换算成 px：下面的拖拽回调不是 composable，拿不到 Density。
     val handleTolerancePx = with(LocalDensity.current) { HANDLE_TOLERANCE.toPx() }
+    val stepButtonPx = with(LocalDensity.current) { STEP_BUTTON.toPx() }
+    val stepGapPx = with(LocalDensity.current) { STEP_GAP.toPx() }
+    val stepMarginPx = with(LocalDensity.current) { STEP_MARGIN.toPx() }
+    val labelInsetPx = with(LocalDensity.current) { 20.dp.toPx() }
+    val labelInsetShiftedPx = with(LocalDensity.current) { 56.dp.toPx() }
 
-    var pending by remember(initial, isLandscape) { mutableStateOf(initial.forOrientation(isLandscape)) }
+    // 状态句柄必须稳定：配置异步到达时若换新 state，pointerInput 闭包仍握着旧的，
+    // 拖动会写进废弃状态（表现为窗口被打回初始大小）。转屏仍按 isLandscape 重置草稿。
+    var pending by remember { mutableStateOf(initial.forOrientation(isLandscape)) }
+    LaunchedEffect(initial, isLandscape) { pending = initial.forOrientation(isLandscape) }
     var screenPx by remember { mutableStateOf(IntSize.Zero) }
     var dragKind by remember { mutableStateOf(HitKind.None) }
     var grabNorm by remember { mutableStateOf(Offset.Zero) }
@@ -216,15 +318,87 @@ fun MiniWindowAdjustContent(
     fun defaultBounds(): WindowBounds =
         MiniWindowSettings().forOrientation(isLandscape)
 
-    fun nudge(dx: Float, dy: Float, dw: Float, dh: Float) {
+    fun moveBy(dx: Float, dy: Float) {
         pending = pending.copy(
-            x = (pending.x + dx).coerceIn(0f, 1f),
-            y = (pending.y + dy).coerceIn(0f, 1f),
-            // 上限 1.5：小窗允许比屏幕还宽，与运行时 coerceIn(0.2f, 1.5f) 对齐；
-            // 收紧成 1f 会让这段区间永远够不到。
-            width = (pending.width + dw).coerceAtLeast(MIN_SIZE).coerceAtMost(1.5f),
-            height = (pending.height + dh).coerceAtLeast(MIN_SIZE).coerceAtMost(1.5f),
+            x = (pending.x + dx).coerceIn(0f, (1f - pending.width).coerceAtLeast(0f)),
+            y = (pending.y + dy).coerceIn(0f, (1f - pending.height).coerceAtLeast(0f)),
         )
+    }
+
+    /** 微调一步：移动整框，或推某条边；复用 [applyDrag] 保证最小尺寸与夹取一致。 */
+    fun stepBy(kind: StepKind) {
+        when (kind) {
+            StepKind.MoveLeft -> moveBy(-STEP, 0f)
+            StepKind.MoveRight -> moveBy(STEP, 0f)
+            StepKind.MoveUp -> moveBy(0f, -STEP)
+            StepKind.MoveDown -> moveBy(0f, STEP)
+            StepKind.LeftOut -> pending = applyDrag(
+                pending,
+                HitKind.Left,
+                Offset(pending.x - STEP, 0f),
+                Offset.Zero,
+            )
+            StepKind.LeftIn -> pending = applyDrag(
+                pending,
+                HitKind.Left,
+                Offset(pending.x + STEP, 0f),
+                Offset.Zero,
+            )
+            StepKind.RightOut -> pending = applyDrag(
+                pending,
+                HitKind.Right,
+                Offset(pending.x + pending.width + STEP, 0f),
+                Offset.Zero,
+            )
+            StepKind.RightIn -> pending = applyDrag(
+                pending,
+                HitKind.Right,
+                Offset(pending.x + pending.width - STEP, 0f),
+                Offset.Zero,
+            )
+            StepKind.TopOut -> pending = applyDrag(
+                pending,
+                HitKind.Top,
+                Offset(0f, pending.y - STEP),
+                Offset.Zero,
+            )
+            StepKind.TopIn -> pending = applyDrag(
+                pending,
+                HitKind.Top,
+                Offset(0f, pending.y + STEP),
+                Offset.Zero,
+            )
+            StepKind.BottomOut -> pending = applyDrag(
+                pending,
+                HitKind.Bottom,
+                Offset(0f, pending.y + pending.height + STEP),
+                Offset.Zero,
+            )
+            StepKind.BottomIn -> pending = applyDrag(
+                pending,
+                HitKind.Bottom,
+                Offset(0f, pending.y + pending.height - STEP),
+                Offset.Zero,
+            )
+        }
+    }
+
+    /** 微调按钮不参与拖拽分类：按在按钮上拖动仍按「移动整框」处理。 */
+    fun isOnStep(offset: Offset): Boolean {
+        val layout = buildStepLayout(
+            px = rectPx(pending),
+            screenWidthPx = screenPx.width,
+            screenHeightPx = screenPx.height,
+            buttonPx = stepButtonPx,
+            gapPx = stepGapPx,
+            marginPx = stepMarginPx,
+            labelInsetPx = labelInsetPx,
+            labelInsetShiftedPx = labelInsetShiftedPx,
+        )
+        val hit = stepButtonPx / 2f + stepMarginPx
+        return layout.specs.any {
+            abs(offset.x - it.center.x) <= hit && abs(offset.y - it.center.y) <= hit
+        }
     }
 
     Box(
@@ -239,20 +413,27 @@ fun MiniWindowAdjustContent(
                 val tolerancePx = handleTolerancePx
                 detectDragGestures(
                     onDragStart = { offset ->
-                        val kind = hitKindAt(offset, tolerancePx)
-                        if (kind != HitKind.None) {
-                            dragKind = kind
-                            startRect = pending
-                            grabNorm = Offset(offset.x / w, offset.y / h)
+                        // 空白处也要快照：否则 onDrag 会拿页面刚打开时的 startRect 把窗口打回初始大小。
+                        // 空白处按下直接拖动整框（命中不到手柄/微调按钮时默认 Move）。
+                        dragKind = if (isOnStep(offset)) {
+                            HitKind.Move
+                        } else {
+                            hitKindAt(offset, tolerancePx).let {
+                                if (it == HitKind.None) HitKind.Move else it
+                            }
                         }
+                        startRect = pending
+                        grabNorm = Offset(offset.x / w, offset.y / h)
                     },
                     onDrag = { change, _ ->
-                        pending = applyDrag(
-                            startRect,
-                            dragKind,
-                            Offset(change.position.x / w, change.position.y / h),
-                            grabNorm,
-                        )
+                        if (dragKind != HitKind.None) {
+                            pending = applyDrag(
+                                startRect,
+                                dragKind,
+                                Offset(change.position.x / w, change.position.y / h),
+                                grabNorm,
+                            )
+                        }
                     },
                     onDragEnd = { dragKind = HitKind.None },
                     onDragCancel = { dragKind = HitKind.None },
@@ -261,6 +442,16 @@ fun MiniWindowAdjustContent(
     ) {
         val handleColor = MaterialTheme.colorScheme.primary
         val textMeasurer = rememberTextMeasurer()
+        val steps = buildStepLayout(
+            px = rectPx(pending),
+            screenWidthPx = screenPx.width,
+            screenHeightPx = screenPx.height,
+            buttonPx = stepButtonPx,
+            gapPx = stepGapPx,
+            marginPx = stepMarginPx,
+            labelInsetPx = labelInsetPx,
+            labelInsetShiftedPx = labelInsetShiftedPx,
+        )
         Canvas(modifier = Modifier.fillMaxSize()) {
             val px = rectPx(pending)
             drawRoundRect(
@@ -303,84 +494,56 @@ fun MiniWindowAdjustContent(
                     }
                 }
             }
-            val inset = 20.dp.toPx()
             val cx = (px.left + px.right) / 2f
             val cy = (px.top + px.bottom) / 2f
             val leftDp = (pending.x * screenPx.width / density).roundToInt()
             val topDp = (pending.y * screenPx.height / density).roundToInt()
             val rightDp = ((1f - pending.x - pending.width).coerceAtLeast(0f) * screenPx.width / density).roundToInt()
             val bottomDp = ((1f - pending.y - pending.height).coerceAtLeast(0f) * screenPx.height / density).roundToInt()
-            edgeLabel("${leftDp}dp", Offset(px.left + inset, cy), rotation = -90f)
-            edgeLabel("${topDp}dp", Offset(cx, px.top + inset))
-            edgeLabel("${rightDp}dp", Offset(px.right - inset, cy), rotation = 90f)
-            edgeLabel("${bottomDp}dp", Offset(cx, px.bottom - inset))
+            edgeLabel("${leftDp}dp", Offset(px.left + steps.leftLabelInset, cy), rotation = -90f)
+            edgeLabel("${topDp}dp", Offset(cx, px.top + steps.topLabelInset))
+            edgeLabel("${rightDp}dp", Offset(px.right - steps.rightLabelInset, cy), rotation = 90f)
+            edgeLabel("${bottomDp}dp", Offset(cx, px.bottom - steps.bottomLabelInset))
         }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                // 卡片背景按按钮实际占用收缩（wrapContent），不再撑满屏宽，横屏也居中贴合。
-                .widthIn(max = 460.dp)
-                .padding(12.dp)
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), LargeShape)
-                .background(Color(0xFF1C1B1F).copy(alpha = 0.92f), LargeShape)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-        ) {
-            Column(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+        // 框内微调：跟随窗口框与空间自由翻转，只吃点击；拖动由预览层接管（见 isOnStep）。
+        for (spec in steps.specs) {
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            (spec.center.x - stepButtonPx / 2f).roundToInt(),
+                            (spec.center.y - stepButtonPx / 2f).roundToInt(),
+                        )
+                    }
+                    .size(STEP_BUTTON)
+                    .background(Color.White.copy(alpha = 0.12f), CircleShape)
+                    .clickable { stepBy(spec.kind) },
+                contentAlignment = Alignment.Center,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ArrowGroup {
-                        StepButton(Icons.Default.KeyboardArrowLeft) { nudge(-STEP, 0f, 0f, 0f) }
-                        StepButton(Icons.Default.KeyboardArrowRight) { nudge(STEP, 0f, 0f, 0f) }
-                        StepButton(Icons.Default.KeyboardArrowUp) { nudge(0f, -STEP, 0f, 0f) }
-                        StepButton(Icons.Default.KeyboardArrowDown) { nudge(0f, STEP, 0f, 0f) }
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ArrowGroup {
-                        StepButton(Icons.Default.Remove) { nudge(0f, 0f, -STEP, 0f) }
-                        StepButton(Icons.Default.Add) { nudge(0f, 0f, STEP, 0f) }
-                    }
-                    ArrowGroup {
-                        StepButton(Icons.Default.Remove) { nudge(0f, 0f, 0f, -STEP) }
-                        StepButton(Icons.Default.Add) { nudge(0f, 0f, 0f, STEP) }
-                    }
-                }
+                Icon(
+                    imageVector = spec.kind.icon(),
+                    contentDescription = stringResource(spec.kind.labelRes()),
+                    tint = Color.White,
+                    modifier = Modifier.size(STEP_BUTTON_ICON),
+                )
             }
+        }
 
-            Row(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                StepButton(
-                    icon = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.mini_window_default),
-                    onClick = { pending = defaultBounds() },
-                )
-                Spacer(Modifier.width(8.dp))
-                StepButton(
-                    icon = Icons.Default.Close,
-                    contentDescription = stringResource(hunoia.luno.design.R.string.cancel),
-                    onClick = onCancel,
-                )
-                Spacer(Modifier.width(8.dp))
-                StepButton(
-                    icon = Icons.Default.Check,
-                    contentDescription = stringResource(R.string.mini_window_done),
-                    tint = handleColor,
-                    onClick = { onCommit(initial.withOrientation(isLandscape, pending)) },
-                )
-            }
+        Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+            AdjustTopBar(
+                onCancel = onCancel,
+                onReset = { pending = defaultBounds() },
+                onConfirm = { onCommit(initial.withOrientation(isLandscape, pending)) },
+                confirmTint = handleColor,
+            )
         }
     }
 }
 
 /**
  * 动作设置页「小窗」行的独立页面：自己读配置、自己落盘。
- * 整屏接管且无 TopBar，故不套 LunoScreen，出口是预览底部的【完成】/【取消】。
+ * 整屏接管且无 TopBar，出口是顶部那排透明圆形按钮。
  */
 @Composable
 fun MiniWindowAdjustScreen(
@@ -399,28 +562,3 @@ fun MiniWindowAdjustScreen(
         onCancel = onBack,
     )
 }
-
-@Composable
-private fun ArrowGroup(content: @Composable () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { content() }
-}
-
-@Composable
-private fun StepButton(
-    icon: ImageVector,
-    contentDescription: String? = null,
-    tint: Color = Color.White,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.background(Color.White.copy(alpha = 0.10f), CircleShape),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-        )
-    }
-}
-

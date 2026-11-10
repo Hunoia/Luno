@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import hunoia.luno.runtime.pointer.PointerCursor
+import hunoia.luno.ui.component.PointerCursor
 import kotlinx.coroutines.delay
 
 /**

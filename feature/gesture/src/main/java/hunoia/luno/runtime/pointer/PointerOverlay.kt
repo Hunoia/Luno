@@ -18,6 +18,7 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.MotionFadeOut
+import hunoia.luno.ui.component.PointerCursor
 
 /** 指针窗口宿主：由无障碍服务实现（成员全部来自 [hunoia.luno.runtime.GestureHost]）。 */
 interface PointerOverlayHost : androidx.lifecycle.LifecycleOwner,
@@ -42,7 +43,10 @@ class PointerOverlay(private val host: PointerOverlayHost) {
     ) {
         closeImmediately()
         val wm = host.context.windowManager()
-        val cursorPosition = mutableStateOf(pointerInitialPosition(settings))
+        // 跟随时先不画：首次 ACTION_DOWN 才是触发点，先闪一个初始位置会误导。
+        val cursorPosition = mutableStateOf<Offset?>(
+            if (settings.followTrigger) null else pointerInitialPosition(settings)
+        )
         val clickPulse = mutableStateOf(clickPulseKey)
         val composeView = ComposeView(host.context).apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -50,14 +54,19 @@ class PointerOverlay(private val host: PointerOverlayHost) {
             setOnTouchListener { view, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        lastTouch = Offset(event.rawX, event.rawY)
+                        val down = Offset(event.rawX, event.rawY)
+                        if (settings.followTrigger) {
+                            cursorPosition.value = pointerFollowPosition(down, settings)
+                        }
+                        lastTouch = down
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val current = Offset(event.rawX, event.rawY)
                         val previous = lastTouch
-                        if (previous != Offset.Unspecified) {
-                            cursorPosition.value = movePointerCursor(cursorPosition.value, current - previous, settings)
+                        val cursor = cursorPosition.value
+                        if (previous != Offset.Unspecified && cursor != null) {
+                            cursorPosition.value = movePointerCursor(cursor, current - previous, settings)
                         }
                         lastTouch = current
                         true
@@ -68,7 +77,11 @@ class PointerOverlay(private val host: PointerOverlayHost) {
                         close()
                         clickPulseKey += 1
                         clickPulse.value = clickPulseKey
-                        onPointerAction(target.x.toInt(), target.y.toInt())
+                        if (target == null) {
+                            onDismiss()
+                        } else {
+                            onPointerAction(target.x.toInt(), target.y.toInt())
+                        }
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
@@ -81,12 +94,14 @@ class PointerOverlay(private val host: PointerOverlayHost) {
             }
             setContent {
                 SideGestureTheme {
-                    PointerCursor(
-                        position = cursorPosition.value,
-                        modifier = Modifier,
-                        settings = settings,
-                        clickPulseKey = clickPulse.value,
-                    )
+                    cursorPosition.value?.let { position ->
+                        PointerCursor(
+                            position = position,
+                            modifier = Modifier,
+                            settings = settings,
+                            clickPulseKey = clickPulse.value,
+                        )
+                    }
                 }
             }
         }

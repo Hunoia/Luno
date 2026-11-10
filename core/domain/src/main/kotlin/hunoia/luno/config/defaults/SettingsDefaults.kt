@@ -28,7 +28,14 @@ object GestureSettingsDefaults {
     const val PointerSensitivityX = 1.6f
     const val PointerSensitivityY = 1.6f
     const val PointerAcceleration = 0.8f
+    const val PointerFollowTrigger = true
+    const val PointerInitialXRatio = 0.5f
     const val PointerInitialYRatio = 0.35f
+    /** 跟随偏移以「左下分区」为基准、按触发点半屏翻转；默认略高于手指。 */
+    const val PointerFollowOffsetXRatio = 0f
+    const val PointerFollowOffsetYRatio = -0.10f
+    const val PointerFollowOffsetMinRatio = -1f
+    const val PointerFollowOffsetMaxRatio = 1f
     const val PointerCursorSizeDp = 28
     const val PointerCursorAlpha = 0.9f
 }

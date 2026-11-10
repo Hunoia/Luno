@@ -23,8 +23,13 @@ data class GestureSettings(
     val pointer: Pointer = Pointer(),
 ) {
     /**
-     * 指针（光标）手感与外观：移动映射（灵敏度/加速）与绘制（大小/透明度），
-     * [initialYRatio] 是初始高度比例。
+     * 指针（光标）手感与外观：移动映射（灵敏度/加速）、起始位置与绘制（大小/透明度）。
+     *
+     * - [initialXRatio]/[initialYRatio]：不跟随时的初始落点，屏幕归一化比例。
+     * - [followTrigger]：有触发点时从触点附近出现；抬手触发的入口用 overlay 首次点击。
+     * - [followOffsetXRatio]/[followOffsetYRatio]：显示位置相对触发点的有符号偏移，
+     *   以「左下分区」为存储基准，运行时按触发点所在半屏翻转对应轴（见 `followPoint`）。
+     *   默认 (0, −10%)：下方触发时在手指上方，上方触发镜像到手指下方。
      */
     @Serializable
     @Keep
@@ -32,7 +37,11 @@ data class GestureSettings(
         val sensitivityX: Float = GestureSettingsDefaults.PointerSensitivityX,
         val sensitivityY: Float = GestureSettingsDefaults.PointerSensitivityY,
         val acceleration: Float = GestureSettingsDefaults.PointerAcceleration,
+        val followTrigger: Boolean = GestureSettingsDefaults.PointerFollowTrigger,
+        val initialXRatio: Float = GestureSettingsDefaults.PointerInitialXRatio,
         val initialYRatio: Float = GestureSettingsDefaults.PointerInitialYRatio,
+        val followOffsetXRatio: Float = GestureSettingsDefaults.PointerFollowOffsetXRatio,
+        val followOffsetYRatio: Float = GestureSettingsDefaults.PointerFollowOffsetYRatio,
         val cursorSizeDp: Int = GestureSettingsDefaults.PointerCursorSizeDp,
         val cursorAlpha: Float = GestureSettingsDefaults.PointerCursorAlpha,
     )

@@ -125,6 +125,16 @@ data object MiniWindowSettings
 @Serializable
 data object MiniWindowAdjust
 
+/** 指针设置页（起始位置 / 移动手感 / 光标外观）。 */
+@Keep
+@Serializable
+data object PointerSettings
+
+/** 指针位置调整页：[follow] 为 true 编辑跟随偏移，否则编辑初始落点。 */
+@Keep
+@Serializable
+data class PointerAdjust(val follow: Boolean)
+
 @Keep
 @Serializable
 data object FloatBallEdit

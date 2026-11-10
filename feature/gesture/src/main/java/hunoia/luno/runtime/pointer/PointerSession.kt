@@ -30,8 +30,6 @@ class PointerSession(
     var clickPulseKey: Int by mutableIntStateOf(0)
         private set
 
-    private var touchPosition: Offset = Offset.Unspecified
-
     fun onSettingsChanged(next: GestureSettings.Pointer) {
         settings = next
     }
@@ -40,15 +38,14 @@ class PointerSession(
         if (isActive) return false
         settings = pointerSettings
         if (!onStart(settings)) return false
-        position = pointerInitialPosition(settings)
-        touchPosition = fingerPos
+        // 按住类触发不抬手：直接用当前手指位作为触发点。
+        position = pointerStartPosition(settings, fingerPos)
         isActive = true
         return true
     }
 
     fun onDrag(dragAmount: Offset): Boolean {
         if (!isActive) return false
-        touchPosition += dragAmount
         position = movePointerCursor(position, dragAmount, settings)
         return true
     }
@@ -62,12 +59,10 @@ class PointerSession(
         if (click) {
             val target = position
             isActive = false
-            touchPosition = Offset.Unspecified
             clickPulseKey += 1
             onActionAt(target.x.roundToInt(), target.y.roundToInt())
         } else {
             isActive = false
-            touchPosition = Offset.Unspecified
             onEnd()
         }
     }

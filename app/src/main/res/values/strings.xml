@@ -50,9 +50,16 @@
     <string name="action_panel_list_group">面板</string>
     <!-- 指针（internal.pointer）：设置行 + 滑杆 -->
     <string name="pointer">指针</string>
-    <string name="pointer_hint">灵敏度 · 加速曲线 · 光标样式</string>
+    <string name="pointer_settings_title">指针</string>
+    <string name="pointer_hint">灵敏度 · 加速曲线 · 起始位置 · 光标样式</string>
     <string name="pointer_group_motion">移动手感</string>
+    <string name="pointer_group_start">起始位置</string>
     <string name="pointer_group_cursor">光标外观</string>
+    <string name="pointer_follow_trigger">跟随触发位置</string>
+    <string name="pointer_follow_trigger_hint">按住触发用当前触点；抬手触发用指针窗首次点击。偏移按触发所在分区自动镜像</string>
+    <string name="pointer_adjust_position">调整位置</string>
+    <string name="pointer_follow_offset_summary">偏移 X %1$d%% / Y %2$d%%</string>
+    <string name="pointer_initial_summary">初始 %1$d%% / %2$d%%</string>
     <string name="pointer_sensitivity_x_plain">X 灵敏度</string>
     <string name="pointer_sensitivity_y_plain">Y 灵敏度</string>
     <string name="pointer_acceleration_plain">加速曲线</string>
@@ -174,8 +181,10 @@
 
 
     <!-- 主页 -->
-    <string name="mini_window_default">默认</string>
-    <string name="mini_window_done">完成</string>
+    <string name="mini_window_nudge_left">左移</string>
+    <string name="mini_window_nudge_right">右移</string>
+    <string name="mini_window_nudge_up">上移</string>
+    <string name="mini_window_nudge_down">下移</string>
 
     <!-- 手势设置分组 -->
 

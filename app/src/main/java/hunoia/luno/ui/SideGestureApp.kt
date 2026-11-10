@@ -64,6 +64,8 @@ import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
 import hunoia.luno.ui.navigation.MiniWindowSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
+import hunoia.luno.ui.navigation.PointerAdjust
+import hunoia.luno.ui.navigation.PointerSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
@@ -87,6 +89,8 @@ import hunoia.luno.ui.settings.notification.NotificationSettingsScreen
 import hunoia.luno.ui.settings.statusbar.StatusBarIconSettingsScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.action.PointerAdjustScreen
+import hunoia.luno.ui.settings.action.PointerSettingsScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
 import hunoia.luno.link.settings.LinkDispatchEditScreen
 import hunoia.luno.link.settings.LinkDispatchSettingsScreen
@@ -204,6 +208,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
+                        onNavToPointerSettings = { navController.navigate(PointerSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
@@ -342,6 +347,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<PointerSettings> {
+                    PointerSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onAdjustPosition = { follow -> navController.navigate(PointerAdjust(follow)) },
+                    )
+                }
+                myComposable<PointerAdjust> {
+                    PointerAdjustScreen(
+                        follow = it.toRoute<PointerAdjust>().follow,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
                 myComposable<FloatBallEdit> {
                     FloatBallEditScreen(

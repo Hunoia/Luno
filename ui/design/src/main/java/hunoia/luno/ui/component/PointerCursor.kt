@@ -1,4 +1,4 @@
-package hunoia.luno.runtime.pointer
+package hunoia.luno.ui.component
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -32,6 +32,8 @@ fun PointerCursor(
     modifier: Modifier = Modifier,
     settings: GestureSettings.Pointer = GestureSettings.Pointer(),
     clickPulseKey: Int = 0,
+    /** 设置页静态预览不需要拖尾；运行时光标保留。 */
+    trailEnabled: Boolean = true,
 ) {
     val trail = remember { mutableStateListOf<Offset>() }
     var pulse by remember { mutableStateOf(0f) }
@@ -47,7 +49,8 @@ fun PointerCursor(
     LaunchedEffect(Unit) {
         entranceAnim.animateTo(1f, animationSpec = tween(durationMillis = 140, easing = LinearEasing))
     }
-    LaunchedEffect(renderedPosition) {
+    LaunchedEffect(renderedPosition, trailEnabled) {
+        if (!trailEnabled) return@LaunchedEffect
         if (renderedPosition.x.isFinite() && renderedPosition.y.isFinite()) {
             val last = trail.lastOrNull()
             if (last == null || (renderedPosition - last).getDistance() >= settings.cursorSizeDp * 0.22f) {
