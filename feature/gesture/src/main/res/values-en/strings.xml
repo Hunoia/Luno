@@ -125,6 +125,8 @@
     <string name="vibration_tap">Vibrate on tap</string>
     <!-- Referenced panel was deleted (nested panel empty reference) -->
     <string name="action_panel_missing">Panel no longer exists</string>
+    <!-- Recent apps scroll picker: history empty (after blocklist filter) means no window -->
+    <string name="recents_picker_empty">No recent apps</string>
     <!-- Sub-gesture referenced but disabled / deleted: say so instead of silently doing nothing -->
     <string name="sub_gesture_disabled_toast">Sub-gesture "%1$s" is disabled</string>
     <string name="sub_gesture_missing_toast">Sub-gesture no longer exists</string>

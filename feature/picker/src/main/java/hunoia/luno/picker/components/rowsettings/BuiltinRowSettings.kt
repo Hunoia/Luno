@@ -22,6 +22,7 @@ internal object BuiltinRowSettings {
 
     fun registerAll(register: (ActionRowSettingsDescriptor) -> Unit) {
         register(volumeScrub())
+        register(recentsPicker())
         register(floatBallVisibility())
         register(buttonsVisibility())
         register(
@@ -64,6 +65,39 @@ internal object BuiltinRowSettings {
                 valueDisplay = { "${it.toInt()}dp" },
                 valueRange = 4f..64f,
             )
+        },
+    )
+
+    private fun recentsPicker() = ActionRowSettingsDescriptor(
+        typeId = "internal.recentsPicker",
+        titleRes = R.string.row_dialog_recents_picker,
+        subtitle = { params, context ->
+            context.getString(
+                if (params.str("layout", RowSettingsDefaults.RecentsPickerLayout) == "HORIZONTAL") {
+                    R.string.row_settings_recents_layout_horizontal
+                } else {
+                    R.string.row_settings_recents_layout_vertical
+                },
+            )
+        },
+        canonicalize = { draft ->
+            buildJsonObject {
+                put(
+                    "layout",
+                    JsonPrimitive(draft.str("layout", RowSettingsDefaults.RecentsPickerLayout)),
+                )
+            }
+        },
+        editor = { scope ->
+            val layout = scope.draft.str("layout", RowSettingsDefaults.RecentsPickerLayout)
+            SettingChoiceRow(
+                title = stringResource(R.string.row_settings_recents_layout),
+                options = listOf(
+                    stringResource(R.string.row_settings_recents_layout_vertical),
+                    stringResource(R.string.row_settings_recents_layout_horizontal),
+                ),
+                selectedIndex = if (layout == "HORIZONTAL") 1 else 0,
+            ) { scope.setStr("layout", if (it == 1) "HORIZONTAL" else "VERTICAL") }
         },
     )
 

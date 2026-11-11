@@ -8,6 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class ActionMapperTest {
@@ -86,6 +87,51 @@ class ActionMapperTest {
         assertEquals("id", action.command)
         assertTrue(action.copyOutput)
         assertFalse(action.showToast)
+    }
+
+    @Test
+    fun `recents picker maps layout param with default`() {
+        val horizontal = ActionMapper.fromStored(
+            StoredAction(
+                "internal.recentsPicker",
+                buildJsonObject { put("layout", JsonPrimitive("HORIZONTAL")) },
+            ),
+        ) as Action.RecentsPicker
+        assertEquals(RecentsPickerLayout.HORIZONTAL, horizontal.layout)
+
+        // 未写 layout 落默认竖向；值存在却非法按枚举约定抛受控异常（不裸 valueOf 崩协程）。
+        val fallback = ActionMapper.fromStored(
+            StoredAction("internal.recentsPicker", JsonObject(emptyMap())),
+        ) as Action.RecentsPicker
+        assertEquals(RecentsPickerLayout.VERTICAL, fallback.layout)
+
+        try {
+            ActionMapper.fromStored(
+                StoredAction(
+                    "internal.recentsPicker",
+                    buildJsonObject { put("layout", JsonPrimitive("NOPE")) },
+                ),
+            )
+            fail("脏 layout 应抛 InvalidActionParameterException")
+        } catch (expected: InvalidActionParameterException) {
+            assertEquals("layout", expected.key)
+        }
+    }
+
+    @Test
+    fun `recents picker config decode falls back to vertical`() {
+        val horizontal = StoredAction(
+            "internal.recentsPicker",
+            buildJsonObject { put("layout", JsonPrimitive("HORIZONTAL")) },
+        )
+        assertEquals(RecentsPickerLayout.HORIZONTAL, horizontal.recentsPickerConfigOrDefault().layout)
+
+        val default = StoredAction("internal.recentsPicker", JsonObject(emptyMap()))
+        assertEquals(RecentsPickerLayout.VERTICAL, default.recentsPickerConfigOrDefault().layout)
+
+        // 非本动作类型读不到参数，也落默认。
+        val other = StoredAction("internal.volumeScrub", JsonObject(emptyMap()))
+        assertEquals(RecentsPickerLayout.VERTICAL, other.recentsPickerConfigOrDefault().layout)
     }
 
     @Test

@@ -13,6 +13,7 @@ class ActionRowSettingsRegistryTest {
     fun `all built-in configurable actions are registered`() {
         val expected = setOf(
             "internal.volumeScrub",
+            "internal.recentsPicker",
             "internal.floatBallVisibility",
             "internal.buttonsVisibility",
             "system.openSettings",

@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Widgets
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
 import hunoia.luno.action.model.ButtonTarget
+import hunoia.luno.action.model.RecentsPickerLayout
 import hunoia.luno.action.model.arrayOfStr
 import hunoia.luno.action.model.bool
 import hunoia.luno.action.model.enumValueOr
@@ -75,6 +77,10 @@ internal object InternalActionGroup : ActionGroup {
             icon = Icons.Default.Widgets),
         ActionDefinition("internal.pointer", "指针", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.TouchApp),
+        // 最近应用滚动选择器：触发方式（按住/抬手）由手势类型自动决定，
+        // 排列方向在动作选择页行尾设置按钮里配。
+        ActionDefinition("internal.recentsPicker", "最近应用滚动选择器", ActionCategory.GESTURE_TOOL, Capability.None,
+            icon = Icons.Default.FormatListBulleted),
         // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
         ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.APP, Capability.None,
@@ -121,6 +127,11 @@ internal object InternalActionGroup : ActionGroup {
             )
         }
         ActionMappingRegistry.register("internal.pointer") { Action.Pointer }
+        ActionMappingRegistry.register("internal.recentsPicker") { p ->
+            Action.RecentsPicker(
+                layout = p.enumValueOr("layout", RecentsPickerLayout.VERTICAL),
+            )
+        }
         ActionMappingRegistry.register("internal.previousApp") { Action.PreviousApp }
         ActionMappingRegistry.register("internal.clipboardSegment") { Action.ClipboardSegment }
         ActionMappingRegistry.register("internal.clipboardOcr") { Action.ClipboardOcr }

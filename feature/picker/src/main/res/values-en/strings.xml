@@ -31,6 +31,7 @@
     <string name="row_dialog_float_ball">Float ball visibility</string>
     <string name="row_dialog_open_settings">Open settings page</string>
     <string name="row_dialog_quick_toggle">Quick toggle</string>
+    <string name="row_dialog_recents_picker">Recent apps scroll picker</string>
     <string name="row_dialog_volume">Volume control</string>
     <string name="row_dialog_volume_scrub">Scrub volume</string>
     <string name="row_settings_buttons">Gesture buttons</string>
@@ -40,6 +41,9 @@
     <string name="row_settings_hide">Hide</string>
     <string name="row_settings_hide_duration">Gesture button hide duration</string>
     <string name="row_settings_hide_temporarily">Hide temporarily</string>
+    <string name="row_settings_recents_layout">Layout</string>
+    <string name="row_settings_recents_layout_horizontal">Horizontal</string>
+    <string name="row_settings_recents_layout_vertical">Vertical</string>
     <string name="row_settings_reset">Reset</string>
     <string name="row_settings_scope">Scope</string>
     <string name="row_settings_scope_all">All gesture buttons</string>

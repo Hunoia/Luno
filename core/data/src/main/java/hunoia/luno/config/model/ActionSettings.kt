@@ -33,3 +33,10 @@ data class ActionSettings(
 data class VolumeScrubConfig(
     val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
 )
+
+@Serializable
+@Keep
+data class RecentsPickerConfig(
+    val layout: hunoia.luno.action.model.RecentsPickerLayout =
+        hunoia.luno.action.model.RecentsPickerLayout.VERTICAL,
+)

@@ -186,6 +186,7 @@ class InternalExecutors : ActionExecutor {
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
+        "internal.recentsPicker",
         "internal.previousApp",
     )
 

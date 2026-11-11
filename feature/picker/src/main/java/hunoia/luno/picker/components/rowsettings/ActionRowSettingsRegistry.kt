@@ -18,6 +18,7 @@ object RowSettingsDefaults {
     const val ButtonsTarget = "ALL"
     const val AudioStream = "MUSIC"
     const val VolumeDirection = "UP"
+    const val RecentsPickerLayout = "VERTICAL"
 }
 
 /** 行设置编辑器的上下文：草稿 + 数据 + 写回函数。 */

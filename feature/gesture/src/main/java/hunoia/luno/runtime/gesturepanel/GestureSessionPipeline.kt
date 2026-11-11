@@ -2,6 +2,7 @@ package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.action.model.Action
+import hunoia.luno.action.model.recentsPickerConfigOrDefault
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionPanel
@@ -28,6 +29,7 @@ import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.pointer.PointerSession
+import hunoia.luno.runtime.recentspicker.RecentsPickerState
 import hunoia.luno.ui.theme.panelTeardownDelayMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -81,6 +83,7 @@ class GestureSessionPipeline(
 
     val actionPanelState: ActionPanelState = ActionPanelState(scope)
     private val volumeScrubState = VolumeScrubState(hunoia.luno.core.AppContext.get())
+    private val recentsPickerState = RecentsPickerState(scope)
     val pointer: PointerSession = PointerSession(
         initialSettings = initial.gestureSettings.pointer,
         onStart = { s -> callbacks.onPointerStart(s) },
@@ -157,6 +160,9 @@ class GestureSessionPipeline(
         // 吞掉（isLongPressCanceled 永不置位），抬手时 onUp 又先返回不 cancel，
         // 于是 job 在 250ms 后凭空触发默认长按动作。
         if (volumeScrubState.isActive) return
+        // 最近应用滚轮同样：滚轮窗口已在屏（抬手后由它自己接触摸），
+        // 不该再给主手势起长按 job 凭空触发动作。
+        if (recentsPickerState.isActive) return
         sideGestureState.onDragStart(offset, imePaddingProvider(), hint)
     }
 
@@ -179,6 +185,11 @@ class GestureSessionPipeline(
         }
         if (volumeScrubState.isActive) {
             volumeScrubState.onDrag(dragAmount)
+            return
+        }
+        if (recentsPickerState.isActive) {
+            // 按住类触发：管线继续喂拖动，滚轮实时跟随；抬手后 onUp 收成预览。
+            recentsPickerState.onDrag(dragAmount)
             return
         }
         if (actionPanelState.visible) {
@@ -222,6 +233,11 @@ class GestureSessionPipeline(
             volumeScrubState.onDragEnd()
             return
         }
+        if (recentsPickerState.isActive) {
+            // 按住类触发的松手：滚轮收成预览（不启动，等点选），窗口保留。
+            recentsPickerState.onDragEnd()
+            return
+        }
         if (actionPanelState.visible) {
             val touchPosition = actionPanelState.finger
             // 重开下一层要沿用当前面板的样式/颜色/扇区中心：这三个字段 done() 会清掉。
@@ -257,6 +273,9 @@ class GestureSessionPipeline(
                         // 面板点选指针同理：全屏指针窗接管（拖一次、松手点击、自动关）。
                         "internal.pointer" ->
                             callbacks.onPointerShow(settings.gestureSettings.pointer)
+                        // 面板点选最近应用滚轮：与手势路径同一条 state，直接开窗。
+                        "internal.recentsPicker" ->
+                            showRecentsPicker(hitAction, touchPosition)
                         else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition)
                     }
                 }
@@ -296,6 +315,12 @@ class GestureSessionPipeline(
         }
         if (volumeScrubState.isActive) {
             volumeScrubState.onDragCancel()
+            return
+        }
+        if (recentsPickerState.isActive) {
+            // 取消（来电/系统抢焦点）：清会话并收掉滚轮窗口。
+            recentsPickerState.onDragCancel()
+            callbacks.onRecentsPickerOverlayDismissed()
             return
         }
         if (actionPanelState.visible) {
@@ -381,6 +406,7 @@ class GestureSessionPipeline(
             action.typeId != "internal.subGesture" &&
             action.typeId != "internal.volumeScrub" &&
             action.typeId != "internal.pointer" &&
+            action.typeId != "internal.recentsPicker" &&
             action.typeId != Action.NONE_TYPE_ID
         if (shouldDelayDirectSubGestureAction) {
             subGestureState.clear(notifyService = true)
@@ -418,6 +444,13 @@ class GestureSessionPipeline(
                     callbacks.onPointerShow(settings.gestureSettings.pointer)
                 }
                 pointerStartedFromSubGesture = started && holdInFlight
+                false
+            }
+            "internal.recentsPicker" -> {
+                // 与 volumeScrub 同构：按住类触发的拖动途中激活 state 并开滚轮窗，
+                // 后续 MOVE 由 onMove 喂 [RecentsPickerState.onDrag]；抬手类触发的
+                // onUp 已过（dragInFlight=false），窗口照常开，滚动/点选由窗口直操。
+                showRecentsPicker(action, touchPosition)
                 false
             }
             Action.NONE_TYPE_ID -> false
@@ -577,6 +610,32 @@ class GestureSessionPipeline(
         ) {
             sideGestureState.cancel()
         }
+    }
+
+    /**
+     * 最近应用滚轮：构造列表 + 激活会话 + 开窗。空列表时提示并返回 false（不开窗）。
+     * 按住/抬手/面板点选共用这一条：状态在 [recentsPickerState]，后续 onMove/onUp 只认它。
+     */
+    private fun showRecentsPicker(storedAction: StoredAction, touchPosition: Offset): Boolean {
+        val config = storedAction.recentsPickerConfigOrDefault()
+        val apps = buildRecentsPickerApps()
+        if (apps.isEmpty()) {
+            showToast(R.string.recents_picker_empty)
+            return false
+        }
+        recentsPickerState.activate(apps, config.layout, touchPosition)
+        callbacks.onRecentsPickerOverlayRequested(recentsPickerState)
+        return true
+    }
+
+    /** 最近应用（旧→新，末尾最新）：过滤当前前台与自身包名；黑名单已在源头（PreviousAppTracker）过滤。 */
+    private fun buildRecentsPickerApps(): List<hunoia.luno.core.domain.RecentApp> {
+        val context = hunoia.luno.core.AppContext.get()
+        val history = hunoia.luno.runtime.environment.RecentAppsHub.history.value
+        val foreground = hunoia.luno.runtime.environment.RecentAppsHub.foreground.value
+        return history.asSequence()
+            .filter { it != foreground && it.packageName != context.packageName }
+            .toList()
     }
 
     private fun createGestureState(state: GesturePipelineSettings): GestureState {

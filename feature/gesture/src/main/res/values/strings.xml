@@ -125,6 +125,8 @@
     <string name="vibration_tap">单击振动</string>
     <!-- 面板项引用的面板已被删（嵌套面板空引用） -->
     <string name="action_panel_missing">面板已不存在</string>
+    <!-- 最近应用滚动选择器：历史为空（含黑名单过滤）时不开窗 -->
+    <string name="recents_picker_empty">没有最近应用</string>
     <!-- 子手势被引用但已禁用 / 已删：触发时说清楚，而不是静默无反应 -->
     <string name="sub_gesture_disabled_toast">子手势「%1$s」已禁用</string>
     <string name="sub_gesture_missing_toast">子手势已不存在</string>

@@ -30,6 +30,7 @@
     <string name="row_dialog_float_ball">悬浮球显隐</string>
     <string name="row_dialog_open_settings">打开设置页</string>
     <string name="row_dialog_quick_toggle">快捷开关</string>
+    <string name="row_dialog_recents_picker">最近应用滚动选择器</string>
     <string name="row_dialog_volume">音量控制</string>
     <string name="row_dialog_volume_scrub">滑动调音量</string>
     <string name="row_settings_buttons">触钮</string>
@@ -39,6 +40,9 @@
     <string name="row_settings_hide">隐藏</string>
     <string name="row_settings_hide_duration">隐藏触钮时长</string>
     <string name="row_settings_hide_temporarily">临时隐藏</string>
+    <string name="row_settings_recents_layout">排列</string>
+    <string name="row_settings_recents_layout_horizontal">横向</string>
+    <string name="row_settings_recents_layout_vertical">竖向</string>
     <string name="row_settings_reset">重置</string>
     <string name="row_settings_scope">作用范围</string>
     <string name="row_settings_scope_all">全部触钮</string>
