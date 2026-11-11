@@ -2,6 +2,7 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -82,7 +83,10 @@ fun TodoReminder.label(
     val kind = if (isPast(nowMillis, zone)) {
         TodoReminderLabelKind.OVERDUE
     } else {
-        when (day - LocalDate.now(zone).toEpochDay()) {
+        // 分类必须相对调用方传入的 nowMillis，而不是墙钟当下：否则固定时间注入的
+        // 测试 / 重放会在跨天后把「今天」误判成「其它日期」。
+        val nowDate = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        when (day - nowDate.toEpochDay()) {
             0L -> TodoReminderLabelKind.TODAY
             1L -> TodoReminderLabelKind.TOMORROW
             else -> TodoReminderLabelKind.DATE
