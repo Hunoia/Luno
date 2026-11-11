@@ -60,7 +60,6 @@ import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.gridpanel.geometry.resolvePanelResize
-import hunoia.luno.gridpanel.internal.rememberAnimationScale
 import hunoia.luno.ui.theme.MotionPanelIn
 import hunoia.luno.ui.theme.MotionPanelOut
 import hunoia.luno.gridpanel.ui.GridItemActions
@@ -101,23 +100,22 @@ fun GridPanelRoot(
     /** 注册返回键处理器：组合先行消费（编辑态退编辑），未消费由浮窗关闭。 */
     onRegisterBackHandler: (((() -> Boolean)) -> Unit)? = null,
 ) {
-    // 进出场用一张 Animatable 管进度（位移/alpha 在 Card 里派生）：语义可证伪，不依赖
-    // 服务进程里 animate*AsState 的收敛。手写 Animatable 不会自动跟随系统动画缩放，
-    // 显式乘上它；缩放为 0 时直接落位，不播位移（ui-guidelines §5.2）。
+    // 进出场用一张 Animatable 管进度（位移/缩放/alpha 在 Card 里派生）：语义可证伪，
+    // 不依赖服务进程里 animate*AsState 的收敛。时长直接传 MotionPanel*：Compose 的
+    // Recomposer 已把系统动画时长缩放注入 MotionDurationScale，tween 会自动跟随；
+    // 生产代码不得再自己读设置乘一遍（会双乘：0.5x 下 140ms → 35ms，退场只剩两帧，
+    // 表现就是「缩一下直接消失」）。系统关闭动画时 Compose 在首帧落位（ui-guidelines §5.2）。
     val appearance = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
-    val animScale = rememberAnimationScale()
-    val enterMillis = (MotionPanelIn * animScale).toInt().coerceAtLeast(1)
-    val exitMillis = (MotionPanelOut * animScale).toInt().coerceAtLeast(1)
     LaunchedEffect(Unit) {
-        if (animScale > 0f) appearance.animateTo(1f, tween(enterMillis)) else appearance.snapTo(1f)
+        appearance.animateTo(1f, tween(MotionPanelIn))
     }
     fun closeWithAnim() {
         if (closing) return
         closing = true
         scope.launch {
-            if (animScale > 0f) appearance.animateTo(0f, tween(exitMillis)) else appearance.snapTo(0f)
+            appearance.animateTo(0f, tween(MotionPanelOut))
             onCloseAnimated()
         }
     }

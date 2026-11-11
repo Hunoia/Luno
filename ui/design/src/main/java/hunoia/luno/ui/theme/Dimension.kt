@@ -197,6 +197,14 @@ const val MotionPanelIn = 170
 const val MotionPanelOut = 140
 /** 面板出现 / 收口的位移距离（dp）：面板走位移而不是整层淡入淡出（ui-guidelines §3「面板」）。 */
 val PanelAppearSlide = 16.dp
+/** 面板进退场的缩放起止档：进场 0.25→1，退场 1→0.25；缩放锚点落在触发点，缩放为主、位移为辅（ui-guidelines §5.1）。 */
+const val PanelAppearScale = 0.25f
+/**
+ * 面板进退场 alpha 的收口尾段比例：进度其余部分保持不透明，alpha 只在尾段收掉。
+ * 退场以缩放 / 位移为主体，alpha 仅用来避免移窗时的硬切（ui-guidelines §5.1）：
+ * 0.15 = 前 85% 进度保持不透明地缩回，末 15% 已经缩得很小，边缩边淡掉即可。
+ */
+const val PanelFadeTailFraction = 0.15f
 /** 双击确认窗口（ms）：面板内置习惯打卡 / 待办完成的倒计时时长，不随系统动画缩放改变。 */
 const val MotionConfirmCountdown = 1200
 

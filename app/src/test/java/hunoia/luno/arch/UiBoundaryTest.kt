@@ -51,6 +51,23 @@ class UiBoundaryTest {
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
+    @Test
+    fun `system animation scale is not applied twice`() {
+        // Compose 的 Recomposer 已把系统动画时长缩放注入 MotionDurationScale，tween/spring
+        // 会自动跟随；生产代码再读一次设置手乘就是双乘（0.5x 下时长变 1/4）。
+        val problems = productionFiles.flatMap { file ->
+            file.text.lines().mapIndexedNotNull { index, line ->
+                val code = line.substringBefore("//")
+                if ("ANIMATOR_DURATION_SCALE" in code) {
+                    "${file.repoPath()}:${index + 1} 手读系统动画缩放会与 Compose 双乘"
+                } else {
+                    null
+                }
+            }
+        }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
     /** 与搬迁前一致：app 只看 ui 包，feature / ui 模块全量。 */
     private fun isUiCode(file: KoFileDeclaration): Boolean =
         when {

@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
@@ -95,7 +96,9 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.theme.PanelAppearScale
 import hunoia.luno.ui.theme.PanelAppearSlide
+import hunoia.luno.ui.theme.PanelFadeTailFraction
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.component.PressFloatingActionButton
 
@@ -186,6 +189,14 @@ fun GridPanelCard(
         val dy = anchorY - (targetPosY + metrics.cardH / 2f)
         val len = hypot(dx, dy).coerceAtLeast(1f)
         Offset(dx / len, dy / len)
+    }
+    // 缩放锚点 = 触发点在卡面内的归一化位置（触发点落在卡外时夹到最近的边 / 角）：
+    // 进场从指尖处展开、退场缩回指尖，而不是绕卡片中心缩放（ui-guidelines §5.1）。
+    val appearOrigin = remember(targetPosX, targetPosY, anchorX, anchorY, metrics.cardW, metrics.cardH) {
+        TransformOrigin(
+            pivotFractionX = ((anchorX - targetPosX) / metrics.cardW).coerceIn(0f, 1f),
+            pivotFractionY = ((anchorY - targetPosY) / metrics.cardH).coerceIn(0f, 1f),
+        )
     }
     val sideMarginPx = with(density) { safePlacement.sideMarginDp.dp.toPx() }
     val topGapPx = with(density) { safePlacement.topGapDp.dp.toPx() }
@@ -319,9 +330,15 @@ fun GridPanelCard(
             )
             .graphicsLayer {
                 val remaining = 1f - appearance
-                alpha = if (hiddenForDrag) 0f else appearance
-                // 缩放只做辅助（0.96 → 1），主体是向锚点收回 / 从锚点展开的位移。
-                scaleX = 0.96f + 0.04f * appearance
+                // 退场以「缩回触发点 + 位移」为主体：缩放绕触发点走满全程（1 → PanelAppearScale），
+                // alpha 只在尾段收掉，既避免移窗硬切，也不让整层淡出盖过缩放（§5.1）。
+                alpha = if (hiddenForDrag) {
+                    0f
+                } else {
+                    (appearance / PanelFadeTailFraction).coerceIn(0f, 1f)
+                }
+                transformOrigin = appearOrigin
+                scaleX = PanelAppearScale + (1f - PanelAppearScale) * appearance
                 scaleY = scaleX
                 translationX = if (hiddenForDrag) 0f else appearDir.x * appearSlidePx * remaining
                 translationY = if (hiddenForDrag) 0f else appearDir.y * appearSlidePx * remaining
