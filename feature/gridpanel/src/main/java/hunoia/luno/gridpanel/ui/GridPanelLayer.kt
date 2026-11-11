@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,8 +65,10 @@ import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
 import hunoia.luno.gridpanel.widget.PanelAppWidgetView
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.component.pressScale
 import kotlin.math.roundToInt
 import hunoia.luno.bridge.ui.hapticLongPress
+import hunoia.luno.ui.component.PressIconButton
 
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
 private val ResizeHandleHit = 32.dp
@@ -282,12 +284,18 @@ fun GridPanelLayer(
                                 val contentGesture = if (editMode) {
                                     Modifier
                                 } else {
-                                    Modifier.combinedClickable(
-                                        onClick = { actions.onTap(item, itemCenter.value) },
-                                        onLongClick = {
-                                            view.hapticLongPress()
-                                        },
-                                    )
+                                    val cellInteractions = remember { MutableInteractionSource() }
+                                    Modifier
+                                        // 面板项无 ripple：点击反馈 = 按压缩放（§5.3）。
+                                        .pressScale(cellInteractions)
+                                        .combinedClickable(
+                                            interactionSource = cellInteractions,
+                                            indication = null,
+                                            onClick = { actions.onTap(item, itemCenter.value) },
+                                            onLongClick = {
+                                                view.hapticLongPress()
+                                            },
+                                        )
                                 }
                                 ActionItemCell(
                                     action = action,
@@ -354,7 +362,7 @@ fun GridPanelLayer(
                                 }
                                 // 左上角背景开关：编辑态才显示，切换 showBackground（实时落盘）。
                                 if (editMode) {
-                                    IconButton(
+                                    PressIconButton(
                                         onClick = { actions.onToggleBackground(item) },
                                         modifier = Modifier
                                             .align(Alignment.TopStart)

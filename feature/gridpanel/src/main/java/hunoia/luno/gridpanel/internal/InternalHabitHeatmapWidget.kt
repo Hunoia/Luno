@@ -2,8 +2,6 @@ package hunoia.luno.gridpanel.internal
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -49,6 +47,7 @@ import hunoia.luno.gridpanel.habit.HabitTitleGap
 import hunoia.luno.gridpanel.habit.HabitTitleHeight
 import hunoia.luno.gridpanel.habit.habitHeatmapGeometry
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
@@ -130,7 +129,7 @@ internal fun HabitHeatmapCell(
                     .fillMaxWidth()
                     .then(
                         if (enabled) {
-                            Modifier.clickable {
+                            Modifier.pressClickable {
                                 context.startActivity(HabitExtras.editIntent(context, habit.id))
                                 closePanel()
                             }
@@ -164,10 +163,7 @@ internal fun HabitHeatmapCell(
                     .semantics { contentDescription = confirmHint }
                     .then(
                         if (enabled) {
-                            Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
+                            Modifier.pressClickable {
                                 when {
                                     !canCheckToday -> {
                                         context.startActivity(HabitExtras.editIntent(context, habit.id))

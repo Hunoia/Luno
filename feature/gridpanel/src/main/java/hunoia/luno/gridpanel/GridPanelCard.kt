@@ -31,7 +31,6 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -98,6 +97,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.theme.PanelAppearSlide
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.component.PressFloatingActionButton
 
 
 /** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动。 */
@@ -541,7 +541,7 @@ fun GridPanelCard(
             enter = fadeIn(tween(hunoia.luno.ui.theme.MotionCellIn)) + scaleIn(tween(hunoia.luno.ui.theme.MotionCellIn), initialScale = 0.8f),
             exit = fadeOut(tween(hunoia.luno.ui.theme.MotionCellOut)) + scaleOut(tween(hunoia.luno.ui.theme.MotionCellOut), targetScale = 0.8f),
         ) {
-            FloatingActionButton(
+            PressFloatingActionButton(
                 onClick = onAdd,
                 // 加项是全卡唯一主操作，用 primary：内容色是固定浅灰，FAB 再用内容色
                 // 会变成全卡最亮的大白钮；深色方案下 primary 亮、onPrimary 暗，黑卡上看得见。

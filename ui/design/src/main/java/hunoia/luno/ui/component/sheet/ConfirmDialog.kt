@@ -18,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +39,7 @@ import hunoia.luno.design.R
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetListMaxHeight
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 底部确认弹窗：Dialog（遮罩 + 点外部/返回关闭），本体锚在屏幕底部（澎湃OS 样式），
@@ -214,10 +214,10 @@ fun TextInputDialog(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = dismiss) {
+            PressTextButton(onClick = dismiss) {
                 Text(stringResource(R.string.cancel))
             }
-            TextButton(
+            PressTextButton(
                 onClick = { submit() },
                 enabled = confirmEnabled,
             ) {

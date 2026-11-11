@@ -21,7 +21,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +61,7 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 剪贴板管理页：历史唯一来源 + 固定 / 删除 / 清空 / 搜索 / 批量 / 导入导出 / 图片 OCR。
@@ -131,20 +131,20 @@ fun ClipboardScreen(
         bottomContentPadding = FloatingContentBottom,
         actions = {
             if (state.selectionMode) {
-                IconButton(onClick = { vm.selectAll(visible.map { it.id }) }) {
+                PressIconButton(onClick = { vm.selectAll(visible.map { it.id }) }) {
                     Icon(
                         Icons.Default.SelectAll,
                         contentDescription = stringResource(R.string.clipboard_select_all),
                     )
                 }
-                IconButton(onClick = { vm.toggleSelectionMode() }) {
+                PressIconButton(onClick = { vm.toggleSelectionMode() }) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.clipboard_clear_selection),
                     )
                 }
             } else {
-                IconButton(onClick = { vm.toggleSelectionMode() }) {
+                PressIconButton(onClick = { vm.toggleSelectionMode() }) {
                     Icon(
                         Icons.Default.Checklist,
                         contentDescription = stringResource(R.string.clipboard_select),
@@ -332,10 +332,10 @@ private fun SelectionBar(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onPin) {
+            PressIconButton(onClick = onPin) {
                 Icon(Icons.Default.PushPin, contentDescription = stringResource(R.string.clipboard_pin_selected))
             }
-            IconButton(onClick = onDelete) {
+            PressIconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clipboard_delete_selected))
             }
         }
@@ -408,7 +408,7 @@ private fun ClipboardRow(
                 Checkbox(checked = selected, onCheckedChange = null)
             } else {
                 Box {
-                    IconButton(onClick = { menuOpen = true }) {
+                    PressIconButton(onClick = { menuOpen = true }) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
@@ -469,14 +469,14 @@ private fun MaxEntriesControls(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        IconButton(onClick = { onValueChange((value - 10).coerceAtLeast(min)) }, enabled = value > min) {
+        PressIconButton(onClick = { onValueChange((value - 10).coerceAtLeast(min)) }, enabled = value > min) {
             Text("−", style = MaterialTheme.typography.titleLarge)
         }
         Text(
             text = stringResource(R.string.clipboard_max_entries_value, value),
             style = MaterialTheme.typography.bodyLarge,
         )
-        IconButton(onClick = { onValueChange((value + 10).coerceAtMost(max)) }, enabled = value < max) {
+        PressIconButton(onClick = { onValueChange((value + 10).coerceAtMost(max)) }, enabled = value < max) {
             Text("+", style = MaterialTheme.typography.titleLarge)
         }
     }

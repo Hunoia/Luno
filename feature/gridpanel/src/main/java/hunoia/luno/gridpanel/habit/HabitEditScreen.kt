@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,11 +24,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -106,6 +103,9 @@ import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.roundToInt
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 习惯编辑：新增（habitId 空）或编辑。字段 = 名字 / 颜色 / 每 x 日 / 每日次数 /
@@ -242,7 +242,7 @@ fun HabitEditScreen(
         bottomContentPadding = ContentBottom,
         actions = {
             if (habit != null) {
-                IconButton(
+                PressIconButton(
                     onClick = {
                         state.showColorPicker = false
                         state.dialog = HabitEditDialog.Delete
@@ -470,7 +470,7 @@ fun HabitEditScreen(
                             state.showTimePicker = true
                         },
                         trailing = {
-                            IconButton(
+                            PressIconButton(
                                 onClick = {
                                     state.reminders = normalizeReminderTimes(
                                         shownReminders.filterIndexed { i, _ -> i != index },
@@ -583,12 +583,12 @@ private fun HabitTimePickerDialog(
         title = { Text(stringResource(R.string.habit_reminder_time)) },
         text = { TimePicker(state = timeState) },
         confirmButton = {
-            TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
+            PressTextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
                 Text(stringResource(hunoia.luno.design.R.string.confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            PressTextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.habit_reminder_cancel))
             }
         },
@@ -801,7 +801,7 @@ private fun DayDotCell(
                     Modifier
                 },
             )
-            .clickable(onClick = onClick)
+            .pressClickable(onClick = onClick)
             .semantics { contentDescription = cellDesc }
             .padding(vertical = HabitDayCellPaddingVertical),
         horizontalAlignment = Alignment.CenterHorizontally,

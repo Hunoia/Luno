@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -97,6 +96,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 两个宿主共用的标注画布：手势 → 文档，渲染 → [drawAnnotate]。
@@ -1097,7 +1097,7 @@ fun AnnotateCanvas(
                 )
                 // ✓ 完成按钮：浮层窗口 NOT_FOCUSABLE，无法依赖 IME 完成键，
                 // 按钮必须与编辑器同窗内联（画布同层）。
-                IconButton(
+                PressIconButton(
                     onClick = { commitText() },
                     modifier = Modifier.size(40.dp),
                 ) {

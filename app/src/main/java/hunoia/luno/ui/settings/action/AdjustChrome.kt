@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 整屏调整页（指针 / 小窗）的顶部按钮条：不画底、不加标题，
@@ -80,7 +80,7 @@ fun AdjustCircleButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    IconButton(
+    PressIconButton(
         onClick = onClick,
         modifier = modifier.background(Color.White.copy(alpha = 0.10f), CircleShape),
     ) {

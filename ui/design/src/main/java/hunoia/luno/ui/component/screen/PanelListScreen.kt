@@ -12,14 +12,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +32,7 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.component.PressFloatingActionButton
 
 /** 面板列表屏的一行：[id] 进编辑页，[title]/[subtitle] 展示。 */
 data class PanelListRow(
@@ -83,8 +81,7 @@ fun PanelListScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(end = 16.dp, bottom = 16.dp),
             ) {
-                CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                    FloatingActionButton(
+                    PressFloatingActionButton(
                         onClick = { showCreateMenu = true },
                         modifier = Modifier.size(64.dp),
                         shape = FloatingActionButtonDefaults.shape,
@@ -101,7 +98,6 @@ fun PanelListScreen(
                             contentDescription = createItems.firstOrNull()?.label.orEmpty(),
                         )
                     }
-                }
                 DropdownMenu(
                     expanded = showCreateMenu,
                     onDismissRequest = { showCreateMenu = false },

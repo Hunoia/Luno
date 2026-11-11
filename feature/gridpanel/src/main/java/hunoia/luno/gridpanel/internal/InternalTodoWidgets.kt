@@ -55,6 +55,7 @@ import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 代办部件：待办列表（仅未完成，可滚动）。
@@ -161,7 +162,7 @@ internal fun TodoListCell(
                         modifier = Modifier
                             .size(26.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = { openTodoDialog() })
+                            .pressClickable(onClick = { openTodoDialog() })
                             .semantics { contentDescription = addDesc },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -243,7 +244,7 @@ private fun TodoRow(
             .then(
                 if (enabled) {
                     Modifier
-                        .clickable(onClick = onOpen)
+                        .pressClickable(onClick = onOpen)
                         .semantics { contentDescription = openDesc }
                 } else {
                     Modifier
@@ -319,7 +320,7 @@ private fun TodoCheckCircle(
             .then(
                 if (enabled) {
                     Modifier
-                        .clickable(onClick = onClick)
+                        .pressClickable(onClick = onClick)
                         .semantics { contentDescription = completeDesc }
                 } else {
                     Modifier

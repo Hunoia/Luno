@@ -251,7 +251,6 @@ internal fun ResultRow(
                         icon = Icons.Default.MoreVert,
                         contentDescription = stringResource(R.string.more),
                         onClick = onLongClick ?: {},
-                        ripple = false,
                     )
                     anchor()
                 }

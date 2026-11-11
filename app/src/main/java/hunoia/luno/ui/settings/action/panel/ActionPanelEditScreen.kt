@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,6 +45,7 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 单个动作面板编辑器：改名 + 面板项增删排序 + 逐项设长按变体。
@@ -214,7 +214,7 @@ fun ActionPanelEditScreen(
                             },
                             trailing = {
                                 Row {
-                                    IconButton(
+                                    PressIconButton(
                                         onClick = {
                                             updateItems(
                                                 reorder.items.toMutableList()

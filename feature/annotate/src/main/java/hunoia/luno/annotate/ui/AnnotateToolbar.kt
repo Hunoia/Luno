@@ -45,9 +45,7 @@ import androidx.compose.material.icons.filled.Rectangle
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -72,6 +70,8 @@ import hunoia.luno.annotate.render.exportPixelSize
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.component.PressFilledIconButton
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 两个宿主共用的工具条内容。宿主只决定它停在哪、是否可拖拽：
@@ -421,11 +421,11 @@ private fun ToolButton(kind: ToolKind, selected: Boolean, onClick: () -> Unit) {
     val icon = iconFor(kind)
     val label = stringResource(labelFor(kind))
     if (selected) {
-        FilledIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+        PressFilledIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
             Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
         }
     } else {
-        IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+        PressIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
             Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
         }
     }
@@ -441,12 +441,12 @@ private fun CompactIconButton(
 ) {
     // [selected] 用实心态表示开关类动作（如矩形擦），与工具条选中工具同一视觉语言。
     if (selected && enabled) {
-        FilledIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+        PressFilledIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
             Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
         }
         return
     }
-    IconButton(
+    PressIconButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.size(SubMinInteractiveSize),
@@ -458,7 +458,7 @@ private fun CompactIconButton(
 @Composable
 private fun ColorSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
     val ring = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-    IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+    PressIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
         Surface(
             modifier = Modifier
                 .size(22.dp)

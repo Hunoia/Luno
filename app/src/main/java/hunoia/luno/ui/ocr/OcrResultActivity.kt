@@ -70,7 +70,6 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -154,6 +153,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 框选 / 长按 OCR 的结果页：透明 Activity + 底部卡片。
@@ -827,7 +827,7 @@ private fun ModeToggleIcon(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    IconButton(
+    PressIconButton(
         onClick = onClick,
         modifier = Modifier.size(CompactToolbarHeight),
     ) {
@@ -1423,7 +1423,7 @@ private fun EditAction(
     label: String,
     onClick: () -> Unit,
 ) {
-    IconButton(
+    PressIconButton(
         onClick = onClick,
         enabled = !pending,
         modifier = Modifier.size(SubMinInteractiveSize),
@@ -1459,7 +1459,7 @@ private fun ResultAction(
     enabled: Boolean = true,
 ) {
     // 图标按钮必须有 contentDescription；动作名同时作为无障碍标签。
-    IconButton(
+    PressIconButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.size(SubMinInteractiveSize),

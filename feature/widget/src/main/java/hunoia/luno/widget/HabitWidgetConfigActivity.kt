@@ -7,7 +7,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +44,7 @@ import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.pressClickable
 
 private const val TAG = "HabitWidgetConfig"
 
@@ -145,7 +145,7 @@ private fun HabitRow(habit: Habit, unnamed: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .pressClickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

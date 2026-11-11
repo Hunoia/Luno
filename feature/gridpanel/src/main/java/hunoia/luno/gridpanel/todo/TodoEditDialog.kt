@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,14 +35,12 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerLayoutType
 import androidx.compose.material3.rememberTimePickerState
@@ -108,6 +105,9 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.coroutines.resume
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 待办编辑弹窗（应用内列表页 / 面板部件 / 桌面部件共用）。
@@ -273,7 +273,7 @@ fun TodoEditDialog(
                 )
                 // 已完成的待办不提醒：隐藏闹钟入口。
                 if (existing?.done != true) {
-                    IconButton(onClick = ::enterReminder) {
+                    PressIconButton(onClick = ::enterReminder) {
                         Icon(
                             imageVector = Icons.Default.Alarm,
                             contentDescription = stringResource(
@@ -314,7 +314,7 @@ fun TodoEditDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(
+                        .pressClickable(
                             enabled = existing?.done != true,
                             onClick = ::enterReminder,
                         ),
@@ -531,7 +531,7 @@ private fun TodoDialogActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (deleteLabel != null) {
-            TextButton(onClick = onDelete) {
+            PressTextButton(onClick = onDelete) {
                 Text(
                     text = deleteLabel,
                     color = MaterialTheme.colorScheme.error,
@@ -539,10 +539,10 @@ private fun TodoDialogActions(
             }
         }
         Spacer(Modifier.weight(1f))
-        TextButton(onClick = onCancel) {
+        PressTextButton(onClick = onCancel) {
             Text(stringResource(hunoia.luno.design.R.string.cancel))
         }
-        TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+        PressTextButton(onClick = onConfirm, enabled = confirmEnabled) {
             Text(confirmLabel)
         }
     }
@@ -568,7 +568,7 @@ private fun TodoDatePicker(
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.ofEpochDay(selectedDay))) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
+            PressIconButton(
                 onClick = { visibleMonth = visibleMonth.minusMonths(1) },
                 enabled = visibleMonth > currentMonth,
                 modifier = Modifier.size(SubMinInteractiveSize),
@@ -590,7 +590,7 @@ private fun TodoDatePicker(
                 style = MaterialTheme.typography.titleMedium,
                 color = scheme.onSurface,
             )
-            IconButton(
+            PressIconButton(
                 onClick = { visibleMonth = visibleMonth.plusMonths(1) },
                 modifier = Modifier.size(SubMinInteractiveSize),
             ) {
@@ -661,7 +661,7 @@ private fun DayCell(
         modifier = Modifier
             .requiredSize(SubMinInteractiveSize)
             .clip(CircleShape)
-            .then(if (selectable) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(if (selectable) Modifier.pressClickable(onClick = onClick) else Modifier)
             .background(if (selected) scheme.primary else Color.Transparent),
         contentAlignment = Alignment.Center,
     ) {

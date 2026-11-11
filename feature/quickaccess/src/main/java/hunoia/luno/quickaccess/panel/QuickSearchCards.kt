@@ -3,8 +3,6 @@ package hunoia.luno.quickaccess.panel
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,11 +75,13 @@ import hunoia.luno.quickaccess.query.SOURCE_ENGINE
 import hunoia.luno.quickaccess.query.SOURCE_URL
 import hunoia.luno.ui.component.TextIconGlyph
 
+import hunoia.luno.ui.component.pressCombinedClickable
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.theme.containerShape
 import androidx.compose.material.icons.filled.PushPin
+import hunoia.luno.ui.component.pressClickable
 
 /** 卡内条数上限：排序靠前的胜出（Pin 已被置顶排在桶首）。 */
 private const val CardItemLimit = 8
@@ -329,7 +329,7 @@ private fun HistoryChip(
         modifier = Modifier
             .heightIn(min = 36.dp)
             .clip(containerShape(18.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .pressCombinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -364,7 +364,7 @@ private fun ClipChip(
         modifier = Modifier
             .heightIn(min = 36.dp)
             .clip(containerShape(18.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .pressCombinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -387,7 +387,7 @@ private fun ClipChip(
             modifier = Modifier
                 .size(28.dp)
                 .clip(containerShape(14.dp))
-                .clickable(onClick = onTogglePin),
+                .pressClickable(onClick = onTogglePin),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -417,7 +417,7 @@ private fun ResultChip(
         modifier = Modifier
             .heightIn(min = 36.dp)
             .clip(containerShape(18.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .pressCombinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -445,7 +445,7 @@ private fun ResultTile(
     Column(
         modifier = Modifier
             .width(72.dp)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .pressCombinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.buttonTextCompose
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -104,11 +104,7 @@ fun GesturePanel(
                                     modifier = Modifier
                                         .size(MarkColorSize)
                                         .background(color = markColor, shape = CircleShape)
-                                        .clickable(
-                                            indication = null,
-                                            interactionSource = null,
-                                            onClick = { onMarkColorClick(button) },
-                                        ),
+                                        .pressClickable(onClick = { onMarkColorClick(button) }),
                                 )
                             }
                         },
@@ -150,11 +146,7 @@ fun GesturePanel(
                                             color = gesture.colorSpec.toMarkColor(),
                                             shape = CircleShape,
                                         )
-                                        .clickable(
-                                            indication = null,
-                                            interactionSource = null,
-                                            onClick = { onMarkColorClick(gesture) },
-                                        ),
+                                        .pressClickable(onClick = { onMarkColorClick(gesture) }),
                                 )
                             }
                         },

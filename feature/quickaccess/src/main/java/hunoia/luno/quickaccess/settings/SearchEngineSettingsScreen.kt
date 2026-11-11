@@ -20,7 +20,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -76,6 +75,7 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.component.PressIconButton
 
 /** 导入预览：解析好待并入的引擎 + 标识冲突条数，确认后才写库。 */
 private data class ImportPreview(
@@ -220,7 +220,7 @@ fun SearchEngineSettingsScreen(
         floatingContent = addFab,
         actions = {
             var menuOpen by remember { mutableStateOf(false) }
-            IconButton(onClick = { menuOpen = true }) {
+            PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
@@ -371,7 +371,7 @@ fun SearchEngineSettingsScreen(
                             onClick = { onNavToEdit(engine.id) },
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = { deleteTarget = engine }) {
+                                    PressIconButton(onClick = { deleteTarget = engine }) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = stringResource(hunoia.luno.design.R.string.delete),

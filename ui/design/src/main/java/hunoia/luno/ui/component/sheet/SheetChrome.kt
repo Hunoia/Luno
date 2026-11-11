@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +17,8 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.component.PressButton
+import hunoia.luno.ui.component.PressTextButton
 
 @Composable
 fun SheetHeader(
@@ -49,7 +49,7 @@ private fun SheetActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Button(
+    PressButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = MinInteractiveSize),
         shape = LargeShape,
@@ -74,7 +74,7 @@ fun SheetSingleActionButton(
     destructive: Boolean = false,
     enabled: Boolean = true,
 ) {
-    Button(
+    PressButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = MinInteractiveSize),
@@ -137,10 +137,10 @@ fun SheetFooterActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
     ) {
-        TextButton(onClick = onDismissRequest) {
+        PressTextButton(onClick = onDismissRequest) {
             Text(dismissLabel)
         }
-        TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+        PressTextButton(onClick = onConfirm, enabled = confirmEnabled) {
             Text(confirmLabel)
         }
     }

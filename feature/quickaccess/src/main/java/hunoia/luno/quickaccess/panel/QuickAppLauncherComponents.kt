@@ -2,13 +2,9 @@ package hunoia.luno.quickaccess.panel
 import hunoia.luno.ui.theme.*
 
 import android.view.View
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,12 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -42,9 +36,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
+import hunoia.luno.ui.component.pressCombinedClickable
 import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quickaccess.R
 import coil3.compose.AsyncImage
@@ -77,7 +69,6 @@ internal sealed interface KeyboardKey {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun KeyboardRow(
     view: View,
@@ -91,24 +82,13 @@ internal fun KeyboardRow(
         val cellWidth = (maxWidth - KeyboardGap * (keys.size - 1)) / keys.size
         Row(horizontalArrangement = Arrangement.spacedBy(KeyboardGap), modifier = Modifier.fillMaxWidth()) {
             keys.forEach { key ->
-                val interactionSource = remember { MutableInteractionSource() }
-                val isPressed by interactionSource.collectIsPressedAsState()
-                val scale by animateFloatAsState(
-                    if (isPressed) PressScaleKey else 1f,
-                    animationSpec = spring(stiffness = Spring.StiffnessHigh),
-                    label = "keyScale"
-                )
                 Surface(
                     modifier = Modifier
                         .width(cellWidth)
                         .height(keyHeight)
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        }
                         .clip(MediumShape)
-                        .combinedClickable(
-                            interactionSource = interactionSource,
+                        // 键盘键命中最密：反馈统一走按压缩放（§5.3），长按清空/调整照旧。
+                        .pressCombinedClickable(
                             onClick = {
                                 view.hapticTap()
                                 when (key) {
@@ -150,7 +130,6 @@ internal fun KeyboardRow(
  * 同样**刻意不给「已禁用」加视觉区分**：禁用是罕见配置，为它加灰度或删除线会在常态下多一层
  * 噪音；[AppInfo] 的禁用状态只影响点击行为，不改外观。
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun AppItem(
     app: AppInfo,
@@ -162,26 +141,14 @@ internal fun AppItem(
     enabled: Boolean = true,
 ) {
     val context = LocalContext.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (isPressed) PressScaleApp else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessHigh),
-        label = "appScale"
-    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .then(
                 if (enabled) {
-                    Modifier.combinedClickable(
-                        interactionSource = interactionSource,
+                    Modifier.pressCombinedClickable(
                         onClick = { onClick() },
-                        onLongClick = { onLongPress() }
+                        onLongClick = { onLongPress() },
                     )
                 } else {
                     Modifier

@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +34,7 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.PressTextButton
 
 @Composable
 private fun PrivilegedPermission.title(): String = stringResource(
@@ -222,7 +222,7 @@ fun PrivilegedPermissionsScreen(
                         },
                         trailing = if (!granted && permission.shizukuGrantable) {
                             {
-                                TextButton(
+                                PressTextButton(
                                     onClick = { grantOne(permission) },
                                     enabled = !bulkBusy && busy == null,
                                 ) {

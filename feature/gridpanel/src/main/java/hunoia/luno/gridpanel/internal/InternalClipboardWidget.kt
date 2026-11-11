@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +69,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.component.PressIconButton
 
 /** 拖拽落点后等面板窗口真正摘掉的时间（退场动画 + 移除）。 */
 private const val PanelCloseSettleMs = 260L
@@ -267,7 +267,7 @@ private fun HistoryRow(
         }
         if (enabled) {
             Box {
-                IconButton(
+                PressIconButton(
                     onClick = { menuOpen = true },
                     modifier = Modifier.size(28.dp),
                 ) {

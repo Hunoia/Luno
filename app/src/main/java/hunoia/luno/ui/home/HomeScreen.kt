@@ -28,13 +28,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,6 +88,7 @@ import androidx.compose.material.icons.twotone.Settings
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.screen.HomeShell
 import hunoia.luno.ui.settings.action.ActionSettingsTab
+import hunoia.luno.ui.component.PressFloatingActionButton
 
 enum class MainTab(val icon: ImageVector) {
     Home(Icons.TwoTone.Home),
@@ -264,8 +263,7 @@ fun HomeScreen(
                                 }
                             },
                         ) {
-                            CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                                FloatingActionButton(
+                                PressFloatingActionButton(
                                     onClick = {
                                         // 隐藏态不吃点击。
                                         if (showAdd) showLibraryTypeMenu = true
@@ -295,7 +293,6 @@ fun HomeScreen(
                                         contentDescription = stringResource(hunoia.luno.actions.R.string.action_library_add),
                                     )
                                 }
-                            }
                         }
                         LibraryTypeMenu(
                             expanded = showLibraryTypeMenu,

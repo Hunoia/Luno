@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -17,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.design.R
 import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.component.PressIconButton
 
 @Composable
 fun AppSearchBar(
@@ -34,7 +34,7 @@ fun AppSearchBar(
         leadingIcon = { Icon(leadingIcon, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+                PressIconButton(onClick = { onQueryChange("") }) {
                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_clear_cd))
                 }
             }

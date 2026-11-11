@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +31,7 @@ import hunoia.luno.ui.theme.PageGutter
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
+import hunoia.luno.ui.component.PressTextButton
 
 /** 参数改在动作选择页行尾「设置」Sheet 里配的动作类型。 */
 val RowSettingsActionTypeIds: Set<String> = ActionRowSettingsRegistry.typeIds
@@ -96,7 +96,7 @@ fun ActionRowSettingsSheet(
             SheetHeader(
                 title = stringResource(descriptor.titleRes),
                 trailing = {
-                    TextButton(onClick = { draft = JsonObject(emptyMap()) }) {
+                    PressTextButton(onClick = { draft = JsonObject(emptyMap()) }) {
                         Text(stringResource(R.string.row_settings_reset))
                     }
                 },

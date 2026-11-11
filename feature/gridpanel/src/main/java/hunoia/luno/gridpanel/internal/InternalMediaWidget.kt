@@ -8,7 +8,6 @@ import android.media.session.PlaybackState
 import android.provider.Settings
 import hunoia.luno.core.LunoLog as Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,7 +27,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +56,8 @@ import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.bridge.system.NotificationAccess
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.pressClickable
 
 private const val TAG = "InternalMedia"
 
@@ -369,7 +369,7 @@ private fun SessionArtworkBox(
             // 封面缺失时的占位底衬：0.09 淡到几乎看不见，音符图标形同悬空；
             // 提到 0.18 才是一块「托得住」的底板。
             .background(gridPanelOnCardColor.copy(alpha = 0.18f))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.pressClickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -420,19 +420,19 @@ private fun TransportKeys(
         )
     }
     val keys: @Composable () -> Unit = {
-        IconButton(
+        PressIconButton(
             onClick = { transport.skipToPrevious() },
             enabled = enabled,
             modifier = Modifier.size(metrics.keySize),
             content = { icon("prev") },
         )
-        IconButton(
+        PressIconButton(
             onClick = { if (playing) transport.pause() else transport.play() },
             enabled = enabled,
             modifier = Modifier.size(metrics.keySize),
             content = { icon("play") },
         )
-        IconButton(
+        PressIconButton(
             onClick = { transport.skipToNext() },
             enabled = enabled,
             modifier = Modifier.size(metrics.keySize),
@@ -665,7 +665,7 @@ internal fun GrantHintCell(
     val base = modifier
         .fillMaxSize()
         .clip(containerShape(ItemCorner))
-        .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+        .then(if (enabled) Modifier.pressClickable(onClick = onClick) else Modifier)
     if (vertical) {
         Column(
             modifier = base.padding(horizontal = 8.dp, vertical = 6.dp),

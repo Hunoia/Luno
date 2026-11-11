@@ -8,7 +8,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +47,7 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 链接分发规则编辑页：ruleId 为空 = 新增。
@@ -165,7 +165,7 @@ fun LinkDispatchEditScreen(
         bottomContentPadding = FloatingContentBottom,
         actions = {
             if (!addMode) {
-                IconButton(onClick = { showDeleteConfirm = true }) {
+                PressIconButton(onClick = { showDeleteConfirm = true }) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(hunoia.luno.design.R.string.delete),

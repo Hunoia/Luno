@@ -2,7 +2,6 @@ package hunoia.luno.picker
 
 import android.appwidget.AppWidgetProviderInfo
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +39,7 @@ import hunoia.luno.gridpanel.widget.applicationIconOf
 import hunoia.luno.gridpanel.widget.widgetPreviewOf
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 小部件选择器：每 app 一个分区，分区内横向滚动预览卡（恒单选）。
@@ -107,7 +107,7 @@ internal fun InternalWidgetCard(
         modifier = modifier
             .width(130.dp)
             .heightIn(min = 120.dp)
-            .clickable(onClick = onSelect),
+            .pressClickable(onClick = onSelect),
         shape = SmallShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     ) {
@@ -167,7 +167,7 @@ internal fun WidgetPreviewCard(
         modifier = modifier
             .width(130.dp)
             .heightIn(min = 120.dp)
-            .clickable(onClick = onSelect),
+            .pressClickable(onClick = onSelect),
         shape = SmallShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     ) {

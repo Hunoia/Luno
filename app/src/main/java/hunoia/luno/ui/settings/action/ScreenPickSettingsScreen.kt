@@ -5,7 +5,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +34,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 屏幕识别设置页：全屏长按识屏、幽灵卡参数与 OCR 模型管理。
@@ -232,7 +232,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                 )
             },
             confirmButton = {
-                TextButton(
+                PressTextButton(
                     onClick = { showDiagDialog = false },
                     enabled = !diagRunning,
                 ) {
@@ -248,7 +248,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
             title = { Text(stringResource(R.string.ocr_model_pp_delete)) },
             text = { Text(stringResource(R.string.ocr_model_pp_delete_confirm)) },
             confirmButton = {
-                TextButton(
+                PressTextButton(
                     onClick = {
                         confirmDelete = false
                         scope.launch { facades.ocrModels.deletePp() }
@@ -258,7 +258,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) {
+                PressTextButton(onClick = { confirmDelete = false }) {
                     Text(stringResource(R.string.ocr_model_cancel))
                 }
             },

@@ -1,5 +1,4 @@
 package hunoia.luno.actions.library
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +37,7 @@ import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.actions.resolvedIcon
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -136,11 +136,8 @@ private fun ActionLibraryItem(
         leading = {
             val clickMod = Modifier
                 .size(RowIconSize)
-                .clickable(
-                    indication = null,
-                    interactionSource = null,
-                    onClick = onIconClick,
-                )
+                // 行本身是 LunoSettingsRow（自己带缩放）；图标单独可点，单独挂反馈。
+                .pressClickable(onClick = onIconClick)
             when (icon) {
                 is TextIcon -> TextIconGlyph(
                     text = icon.text,

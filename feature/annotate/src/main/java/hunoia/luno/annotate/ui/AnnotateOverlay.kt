@@ -31,11 +31,9 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +74,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
 
 /** 工具条内联面板：浮层窗口是 NOT_FOCUSABLE，独立 Dialog 会抢焦点，只能同窗内联。 */
 private enum class OverlayPanel { None, Export, ConfirmExit }
@@ -758,7 +758,7 @@ private fun AnnotateOverlayChrome(
             onToolClick = onToolClick,
             onCropReset = onCropReset,
             extraActions = {
-                IconButton(
+                PressIconButton(
                     onClick = onTogglePenetrate,
                     enabled = !busy,
                     modifier = Modifier.size(SubMinInteractiveSize),
@@ -835,7 +835,7 @@ private fun AnnotatePanelContent(
                     label = stringResource(R.string.annotate_share),
                     onClick = onShare,
                 )
-                TextButton(onClick = { onPanel(OverlayPanel.None) }) {
+                PressTextButton(onClick = { onPanel(OverlayPanel.None) }) {
                     Text(stringResource(R.string.annotate_cancel))
                 }
             }
@@ -844,7 +844,7 @@ private fun AnnotatePanelContent(
                 title = stringResource(R.string.annotate_discard_title),
                 onCancel = { onPanel(OverlayPanel.None) },
             ) {
-                TextButton(
+                PressTextButton(
                     onClick = onConfirmExit,
                     modifier = Modifier.fillMaxWidth(),
                 ) {

@@ -1,6 +1,5 @@
 package hunoia.luno.ui.component
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
@@ -8,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
@@ -30,6 +28,8 @@ import hunoia.luno.ui.theme.TopBarTitlePadding
 import hunoia.luno.ui.theme.appHazeEffect
 import hunoia.luno.ui.theme.hazeSurfaceColor
 import hunoia.luno.ui.theme.topBarMask
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.pressClickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +62,7 @@ fun TopBar(
                         modifier = Modifier
                             .padding(start = TopBarTitlePadding)
                             .graphicsLayer { alpha = 1f - scrollBehavior.state.collapsedFraction }
-                            .let { if (onTitleClick == null) it else it.clickable(onClick = onTitleClick) },
+                            .let { if (onTitleClick == null) it else it.pressClickable(onClick = onTitleClick) },
                         text = title,
                         style = titleStyle,
                         maxLines = 1,
@@ -74,7 +74,7 @@ fun TopBar(
         },
         navigationIcon = {
             if (showBackIcon && onBack != null) {
-                IconButton(
+                PressIconButton(
                     modifier = Modifier.padding(start = TopBarPaddingExtra / 2),
                     onClick = onBack,
                 ) {

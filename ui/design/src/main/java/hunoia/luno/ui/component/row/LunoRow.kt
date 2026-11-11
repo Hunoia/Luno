@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.LargeShape
@@ -143,6 +144,8 @@ internal fun LunoRowBase(
         modifier = modifier
             .heightIn(min = MinInteractiveSize)
             .alpha(if (enabled) 1f else DisabledAlpha)
+            // 行不加 ripple（§5.3），点击反馈靠按压缩放。
+            .pressScale(interactionSource)
             .then(clickableModifier)
             .clip(if (inDividedCard) RectangleShape else shape)
             .background(background)

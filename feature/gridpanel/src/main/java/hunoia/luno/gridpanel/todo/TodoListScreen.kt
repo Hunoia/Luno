@@ -2,7 +2,6 @@ package hunoia.luno.gridpanel.todo
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +54,7 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MinInteractiveSize
 import kotlinx.coroutines.launch
 import java.time.ZoneId
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 代办管理列表：主设置 → 代办。
@@ -210,7 +210,7 @@ private fun TodoListRow(
             .heightIn(min = MinInteractiveSize)
             .clip(shape)
             .background(scheme.surfaceBright)
-            .clickable(onClick = onEdit)
+            .pressClickable(onClick = onEdit)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -262,7 +262,7 @@ private fun TodoCheckToggle(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .clickable(onClick = onToggle),
+            .pressClickable(onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
         if (done) {

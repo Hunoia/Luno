@@ -11,7 +11,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +18,7 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 顶部降级提示条：只有原因与动作，不承担状态展示（状态在下方状态卡）。
@@ -60,7 +60,7 @@ fun NoticeBanner(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
-            TextButton(onClick = onAction) {
+            PressTextButton(onClick = onAction) {
                 Text(
                     text = actionLabel,
                     color = MaterialTheme.colorScheme.onErrorContainer,

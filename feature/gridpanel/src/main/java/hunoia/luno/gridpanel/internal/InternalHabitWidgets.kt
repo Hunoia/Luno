@@ -3,8 +3,6 @@ package hunoia.luno.gridpanel.internal
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -68,6 +66,7 @@ import hunoia.luno.gridpanel.habit.label
 import hunoia.luno.gridpanel.habit.markTint
 import hunoia.luno.gridpanel.habit.visual
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.HabitDayDotStroke
 import hunoia.luno.ui.theme.toColor
 import hunoia.luno.ui.theme.containerShape
@@ -169,7 +168,7 @@ internal fun HabitHistoryCell(
                     .fillMaxWidth()
                     .then(
                         if (enabled) {
-                            Modifier.clickable {
+                            Modifier.pressClickable {
                                 context.startActivity(HabitExtras.editIntent(context, habit.id))
                                 closePanel()
                             }
@@ -198,7 +197,6 @@ internal fun HabitHistoryCell(
             Spacer(Modifier.height(HabitTitleGap))
             // 点阵区域：点击进入打卡确认（倒计时环浮中央）；倒计时内再点打卡今天。
             // 确认态隐藏点阵、不加遮罩背景，只留中央进度环（与桌面部件同口径）。
-            // 点击不加高亮（indication = null，纯状态反馈）。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -206,10 +204,7 @@ internal fun HabitHistoryCell(
                     .semantics { contentDescription = confirmHint }
                     .then(
                         if (enabled) {
-                            Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
+                            Modifier.pressClickable {
                                 when {
                                     !canCheckToday -> {
                                         context.startActivity(HabitExtras.editIntent(context, habit.id))
@@ -356,10 +351,7 @@ internal fun EmptyHabitCell(
             .then(
                 if (clickable) {
                     Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onReconfigure?.invoke() }
+                        .pressClickable { onReconfigure?.invoke() }
                         .semantics { contentDescription = hint }
                 } else {
                     Modifier

@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,6 +34,8 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import hunoia.luno.ui.component.PressFilterChip
+import hunoia.luno.ui.component.PressTextButton
 
 /** 推迟时长下限（分钟）。 */
 internal const val SnoozeMinMinutes = 1
@@ -102,7 +102,7 @@ internal fun SnoozeDurationDialog(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     (0..6).forEach { h ->
-                        FilterChip(
+                        PressFilterChip(
                             selected = h == hour,
                             onClick = {
                                 total = when {
@@ -125,12 +125,12 @@ internal fun SnoozeDurationDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(total) }) {
+            PressTextButton(onClick = { onConfirm(total) }) {
                 Text(stringResource(hunoia.luno.design.R.string.confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            PressTextButton(onClick = onDismiss) {
                 Text(stringResource(hunoia.luno.design.R.string.cancel))
             }
         },

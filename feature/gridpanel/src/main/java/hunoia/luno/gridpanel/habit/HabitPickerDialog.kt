@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.Habit
 import hunoia.luno.ui.theme.toColor
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 习惯选择弹窗：给面板「习惯部件」添加时指定目标习惯。
@@ -80,7 +80,7 @@ fun HabitPickerDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            PressTextButton(onClick = onDismiss) {
                 Text(stringResource(hunoia.luno.design.R.string.cancel))
             }
         },

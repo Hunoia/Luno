@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
+import hunoia.luno.ui.component.PressIconButton
 
 /**
  * 玻璃胶囊内联搜索框（动作选择页底栏与页面常驻搜索框共用）：不用 M3 OutlinedTextField ——
@@ -88,7 +88,7 @@ fun LunoSearchField(
             },
         )
         if (query.isNotEmpty()) {
-            IconButton(
+            PressIconButton(
                 onClick = { onQueryChange("") },
                 modifier = Modifier.size(36.dp),
             ) {

@@ -13,7 +13,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -88,6 +87,7 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.pressClickable
 
 /** 底栏一颗类型 chip：图标 + 无障碍文案，key 为 null 表示「全部」。 */
 internal data class ActionTypeChip(
@@ -227,7 +227,7 @@ internal fun ActionSelectBottomBar(
                         .fillMaxHeight()
                         .width(BottomBarHeight)
                         .clip(CircleShape)
-                        .clickable(
+                        .pressClickable(
                             role = Role.Button,
                             onClick = { if (searchExpanded) closeSearch() else searchExpanded = true },
                         ),

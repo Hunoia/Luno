@@ -7,18 +7,16 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.component.PressFloatingActionButton
 
 /**
  * 右下角保存/新增 FAB：64dp、无点击 ripple、避让导航栏，全 app 的编辑页与列表页共用一套观感。
@@ -32,8 +30,7 @@ fun LunoFab(
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalRippleConfiguration provides null) {
-            FloatingActionButton(
+            PressFloatingActionButton(
                 onClick = onClick,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -45,6 +42,5 @@ fun LunoFab(
             ) {
                 Icon(imageVector = icon, contentDescription = contentDescription)
             }
-        }
     }
 }

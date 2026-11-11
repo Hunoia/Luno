@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +46,7 @@ import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.PressTextButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppPickerSheet(
@@ -126,7 +126,7 @@ fun AppPickerSheet(
                         .padding(vertical = EmptyStatePaddingVertical),
                     contentAlignment = Alignment.Center,
                 ) {
-                    TextButton(onClick = { permissionState.launchPermissionRequest() }) {
+                    PressTextButton(onClick = { permissionState.launchPermissionRequest() }) {
                         Text(stringResource(R.string.request_get_apps_permission))
                     }
                 }

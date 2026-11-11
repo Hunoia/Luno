@@ -3,7 +3,6 @@ package hunoia.luno.actions.library
 import hunoia.luno.actions.icon.IconPalette
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,12 +33,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.actions.R
 import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.PressFilledTonalButton
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.theme.PageMatchIconSize
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.pressClickable
 
 /**
  * 更换图标面板：无标题、无搜索、无底部按钮，网格撑满剩余高度，
@@ -112,7 +112,7 @@ fun IconPickerSheet(
                 placeholder = { Text(stringResource(R.string.action_library_icon_custom)) },
                 shape = SmallShape,
             )
-            FilledTonalButton(
+            PressFilledTonalButton(
                 onClick = {
                     val t = customText.trim()
                     if (t.isNotEmpty()) onPick(t)
@@ -137,7 +137,7 @@ private fun IconTile(
             .fillMaxWidth()
             .clip(SmallShape)
             .background(if (selected) colorScheme.primaryContainer else colorScheme.surface)
-            .clickable(onClick = onClick)
+            .pressClickable(onClick = onClick)
             .padding(vertical = CardInnerSpacing),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

@@ -9,11 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +36,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
 val ParameterDefinition.isCardRowType: Boolean
     get() = this is ParameterDefinition.Bool ||
         this is ParameterDefinition.AppSelector ||
@@ -219,7 +219,7 @@ private fun KeyValueMapEditor(
                         shape = LargeShape,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(
+                    PressIconButton(
                         onClick = { emit(rows.toMutableList().also { it.removeAt(index) }) },
                     ) {
                         Icon(
@@ -231,7 +231,7 @@ private fun KeyValueMapEditor(
                 }
             }
         }
-        TextButton(onClick = { emit(rows + newRow("", "")) }) {
+        PressTextButton(onClick = { emit(rows + newRow("", "")) }) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,

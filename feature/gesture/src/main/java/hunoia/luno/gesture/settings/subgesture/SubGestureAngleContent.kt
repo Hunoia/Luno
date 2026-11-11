@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,6 +67,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import hunoia.luno.ui.component.PressIconButton
 
 @Composable
 fun SubGestureAngleContent(
@@ -130,7 +130,7 @@ private fun DirectionAngleContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = {
+            PressIconButton(onClick = {
                 draftBoundaries = DirectionLayoutDefaults.defaultBoundaries(draftBoundaries.size)
             }) {
                 Icon(
@@ -191,7 +191,7 @@ private fun DirectionCountStepper(
     onCountChange: (Int) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
+        PressIconButton(
             onClick = { onCountChange(count - 1) },
             enabled = count > DirectionLayoutDefaults.MinCount,
         ) {
@@ -204,7 +204,7 @@ private fun DirectionCountStepper(
             text = count.toString(),
             style = MaterialTheme.typography.titleMedium,
         )
-        IconButton(
+        PressIconButton(
             onClick = { onCountChange(count + 1) },
             enabled = count < DirectionLayoutDefaults.MaxCount,
         ) {

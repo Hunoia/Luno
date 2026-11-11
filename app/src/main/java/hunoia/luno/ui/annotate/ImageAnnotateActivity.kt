@@ -40,7 +40,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +84,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 图片编辑页（计划 §3.2）：透明 `:service` Activity，顶部 contain 图片、底部固定工具条。
@@ -536,7 +536,7 @@ private fun ImageAnnotateScreen(
                             title = stringResource(AnnotateR.string.annotate_discard_title),
                             onCancel = { onDialog(Dialog.None) },
                         ) {
-                            TextButton(
+                            PressTextButton(
                                 onClick = onClose,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
@@ -572,7 +572,7 @@ private fun ImageAnnotateScreen(
                                 onDialog(Dialog.None)
                                 onExport(ExportKind.Share)
                             }
-                            TextButton(onClick = { onDialog(Dialog.None) }) {
+                            PressTextButton(onClick = { onDialog(Dialog.None) }) {
                                 Text(stringResource(AnnotateR.string.annotate_cancel))
                             }
                         }
@@ -678,7 +678,7 @@ private fun PanelAction(
     destructive: Boolean = false,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    PressTextButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),

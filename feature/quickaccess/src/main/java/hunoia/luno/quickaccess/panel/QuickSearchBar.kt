@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +47,7 @@ import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.component.PressFilterChip
 
 /**
  * 引擎条：有查询词时给快捷换引擎入口；存在图片引擎时空态也显示（图片引擎不依赖查询词）。
@@ -74,7 +74,7 @@ internal fun QuickSearchEngineBar(
             itemsIndexed(engines, key = { _, engine -> engine.id }) { index, engine ->
                 val launch = engine.effectiveLaunch()
                 val imageEngine = launch is SearchLaunch.ShareImage
-                FilterChip(
+                PressFilterChip(
                     // 主引擎 = 列表第一位，不再单独选默认。
                     selected = index == 0,
                     enabled = searchQuery.isNotBlank() || imageEngine,

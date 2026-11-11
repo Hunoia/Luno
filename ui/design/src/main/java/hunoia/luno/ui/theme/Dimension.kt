@@ -125,9 +125,15 @@ val PillHeight = 5.dp
 val PillPaddingVertical = 6.dp
 val PillAlpha = 0.35f
 
-// 按压缩放反馈
-val PressScaleApp = 0.92f
-val PressScaleKey = 0.93f
+// 按压缩放反馈（全站统一，替代 ripple；见 ui-guidelines §5.3）
+/** 大目标（行 / 卡 / 键）的按压缩放幅度。 */
+val PressScaleLarge = 0.96f
+/** 紧凑目标（图标按钮 / 圆点 / chip）的按压缩放幅度。 */
+val PressScaleCompact = 0.90f
+/** 紧凑目标的判据：最小边不超过它的可点区域按 compact 档缩。 */
+val PressScaleCompactThresholdDp = MinInteractiveSize
+/** 按压缩放防抖：这段时间内松手不缩（列表快速滑动不闪缩）。 */
+const val PressFeedbackDebounceMillis = 80L
 
 // 面板内上拖手势阈值（网格顶部展开键盘、页面底部返回应用页共用）
 val DragThresholdPx = 32f

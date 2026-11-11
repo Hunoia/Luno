@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.annotate.R
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 两个宿主共用的工具条上方 chrome：确认卡与导出动作按钮。
@@ -48,7 +48,7 @@ fun ConfirmPanel(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
         actions()
-        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+        PressTextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.annotate_cancel))
         }
     }
@@ -61,7 +61,7 @@ fun ExportAction(
     label: String,
     onClick: () -> Unit,
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+    PressIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
         Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
     }
 }

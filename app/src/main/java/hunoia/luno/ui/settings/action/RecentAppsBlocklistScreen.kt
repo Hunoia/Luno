@@ -22,15 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -73,6 +69,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import hunoia.luno.ui.component.PressFloatingActionButton
+import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 最近应用黑名单（全屏版应用多选）：选择列表由调用方提供、结果经 [onSave] 落盘，
@@ -172,7 +170,7 @@ fun RecentAppsBlocklistScreen(
                         .padding(vertical = EmptyStatePaddingVertical),
                     contentAlignment = Alignment.Center,
                 ) {
-                    TextButton(onClick = { permissionState.launchPermissionRequest() }) {
+                    PressTextButton(onClick = { permissionState.launchPermissionRequest() }) {
                         Text(stringResource(R.string.request_get_apps_permission))
                     }
                 }
@@ -254,8 +252,7 @@ fun RecentAppsBlocklistScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         // 与 LunoFab 同口径：全 app 的 FAB 都无 ripple（反馈靠容器色/图标）。
-                        CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                            FloatingActionButton(
+                            PressFloatingActionButton(
                                 onClick = { confirm() },
                                 modifier = Modifier
                                     .align(Alignment.End)
@@ -269,7 +266,6 @@ fun RecentAppsBlocklistScreen(
                                     contentDescription = stringResource(hunoia.luno.design.R.string.confirm),
                                 )
                             }
-                        }
                         // 常驻搜索胶囊：与动作选择页底栏同一套玻璃样式（glassCapsule），
                         // 无展开/收起；进页不自动聚焦（focusRequester 不传），点框才弹键盘。
                         Box(

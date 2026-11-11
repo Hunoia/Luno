@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +74,7 @@ import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
 import dev.chrisbanes.haze.HazeState
+import hunoia.luno.ui.component.PressIconButton
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
 private const val TYPE_APP = "app"
@@ -357,7 +357,7 @@ internal fun ActionPage(
                                         subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
                                         shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
                                         trailing = if (item.typeId in RowSettingsActionTypeIds) {{
-                                            IconButton(onClick = { settingsAction = item }) {
+                                            PressIconButton(onClick = { settingsAction = item }) {
                                                 Icon(
                                                     imageVector = Icons.Default.Settings,
                                                     contentDescription = null,
