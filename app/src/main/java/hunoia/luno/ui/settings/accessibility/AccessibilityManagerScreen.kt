@@ -31,7 +31,6 @@ import hunoia.luno.R
 import hunoia.luno.a11y.A11yManagerFacade
 import hunoia.luno.a11y.A11yServiceEntry
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
-import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -98,11 +97,6 @@ fun AccessibilityManagerScreen(
     }
 
     val hasWriteSecure = remember(tick) { context.hasWriteSecureSettingsPermission() }
-    val serviceOn = remember(tick) {
-        facades.system.privilegedPermissionStatus(context)
-            .firstOrNull { it.permission == PrivilegedPermission.ACCESSIBILITY }
-            ?.granted == true
-    }
     val services = remember(tick) { A11yManagerFacade.loadServices(context) }
     val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
 
@@ -157,53 +151,6 @@ fun AccessibilityManagerScreen(
                         refresh()
                     }
                 },
-            )
-        }
-
-        LunoGroup(title = stringResource(R.string.a11y_status_group)) {
-            // 标题本身带状态文案（TalkBack 直接读得到），不再叠加 stateDescription。
-            LunoSettingsRow(
-                title = stringResource(
-                    if (serviceOn) R.string.a11y_status_service_on else R.string.a11y_status_service_off,
-                ),
-                subtitle = stringResource(R.string.a11y_status_service_hint),
-                subtitleColor = if (serviceOn) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                shape = segmentedShape(0, 3),
-                onClick = {
-                    facades.system
-                        .privilegedPermissionIntent(context, PrivilegedPermission.ACCESSIBILITY)
-                        ?.let { intent -> runCatching { context.startActivity(intent) } }
-                },
-            )
-            LunoSettingsRow(
-                title = stringResource(
-                    if (hasWriteSecure) R.string.a11y_status_write_secure_on
-                    else R.string.a11y_status_write_secure_off,
-                ),
-                subtitle = stringResource(R.string.a11y_status_write_secure_hint),
-                subtitleColor = if (hasWriteSecure) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                shape = segmentedShape(1, 3),
-            )
-            LunoSettingsRow(
-                title = stringResource(
-                    if (keepAliveOn) R.string.a11y_status_keep_alive_on
-                    else R.string.a11y_status_keep_alive_off,
-                ),
-                subtitle = stringResource(R.string.a11y_status_keep_alive_hint),
-                subtitleColor = if (keepAliveOn) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                shape = segmentedShape(2, 3),
             )
         }
 

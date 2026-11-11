@@ -4,7 +4,7 @@
     <string name="home_title">@string/app_name</string>
     <string name="home_tab">Home</string>
     <string name="settings">Settings</string>
-    <string name="accessibility_description">The accessibility service simulates back, home and other key presses to enable custom side-gesture control. It collects no data.</string>
+    <string name="accessibility_description">Simulates back, home and other key presses for custom side-gesture control. Collects no data.</string>
     <string name="add_gesture_button">Add gesture button</string>
     <string name="backup_settings_entry">Backup &amp; Restore</string>
     <string name="backup_manual_group">Manual Backup &amp; Restore</string>
@@ -75,7 +75,7 @@
     <string name="add_action_panel">Add panel</string>
     <string name="action_panel_name_hint">Panel name</string>
     <string name="action_panel_items">Panel content</string>
-    <string name="action_panel_empty_hint">No panel items yet. After adding, pick "Action panel" on a gesture button to show it on trigger.</string>
+    <string name="action_panel_empty_hint">No panel items yet. After adding, pick "Action panel" on a gesture button to show it.</string>
     <string name="action_panel_item_drag">Drag to reorder</string>
     <string name="action_panel_delete_title">Delete panel</string>
     <string name="action_panel_delete_desc">Delete panel "%1$s"? Gesture buttons referencing it will become "No action".</string>
@@ -386,14 +386,9 @@
     <string name="status_bar_icon_stereo">Speaker stereo</string>
     <string name="persistent_notification_settings_title">Persistent notification hiding</string>
     <string name="persistent_notification_settings_entry">Persistent notification hiding</string>
-    <string name="persistent_notification_status_group">Status</string>
-    <string name="persistent_notification_access_on">Notification access granted</string>
     <string name="persistent_notification_access_off">Notification access not granted</string>
-    <string name="persistent_notification_access_hint_on">Capsule and regular notification hiding sync instantly</string>
     <string name="persistent_notification_access_hint_off">Not granted: sync unavailable, Luno falls back to Shizuku</string>
-    <string name="persistent_notification_shizuku_on">Shizuku available</string>
     <string name="persistent_notification_shizuku_off">Shizuku unavailable</string>
-    <string name="persistent_notification_shizuku_hint_on">Can read the notification shade list and hide as fallback</string>
     <string name="persistent_notification_shizuku_hint_off">Cannot read the notification shade list; the listener still tries to hide</string>
     <string name="persistent_notification_master_group">Master switch</string>
     <string name="persistent_notification_master">Enable persistent notification hiding</string>
@@ -405,16 +400,6 @@
     <string name="persistent_notification_empty">No persistent notifications to hide right now</string>
     <string name="persistent_notification_target_subtitle">%1$s · persistent</string>
     <string name="persistent_notification_target_subtitle_channel">%1$s · %2$s</string>
-    <string name="a11y_status_group">This app status</string>
-    <string name="a11y_status_service_on">Service enabled</string>
-    <string name="a11y_status_service_off">Service disabled</string>
-    <string name="a11y_status_service_hint">Host of gesture recognition and action execution; tap to open settings</string>
-    <string name="a11y_status_write_secure_on">System settings write granted</string>
-    <string name="a11y_status_write_secure_off">System settings write not granted</string>
-    <string name="a11y_status_write_secure_hint">Needed to enable/disable the service; switches work once granted</string>
-    <string name="a11y_status_keep_alive_on">Self-heal active</string>
-    <string name="a11y_status_keep_alive_off">Self-heal off</string>
-    <string name="a11y_status_keep_alive_hint">Automatically restores the service if the system disables it</string>
     <string name="a11y_banner_shizuku">Shizuku is not running; cannot toggle accessibility services</string>
     <string name="a11y_banner_shizuku_action">Start Shizuku</string>
     <string name="a11y_banner_write_secure">"System settings write" not granted; cannot toggle accessibility services</string>
@@ -482,15 +467,11 @@
     <string name="todo_reminder_share_content">[%1$s] %2$s</string>
 
     <string name="habit_reminder_perm_notification">Notification permission</string>
-    <string name="habit_reminder_perm_notification_on_hint">Allowed · reminder pops at the time</string>
     <string name="habit_reminder_perm_notification_off_hint">Not allowed · reminder will not show; tap to enable</string>
     <string name="habit_reminder_perm_exact_alarm">Exact alarm</string>
-    <string name="habit_reminder_perm_exact_on_hint">Allowed · fires on schedule</string>
     <string name="habit_reminder_perm_exact_off_hint">Not allowed · system may delay the reminder</string>
     <string name="habit_reminder_perm_live_update">Live update / status bar capsule</string>
-    <string name="habit_reminder_perm_live_on_hint">Allowed · Android 16+ can upgrade to live update</string>
     <string name="habit_reminder_perm_live_off_hint">Not allowed · tap to open system notification settings</string>
-    <string name="habit_reminder_perm_live_unsupported">Not supported on this system (needs Android 16+)</string>
     <string name="habit_reminder_test_name">Test reminder</string>
     <string name="habit_reminder_test_title">Habit reminder (test)</string>
     <string name="habit_reminder_test_body">Current mode: %1$s · auto-dismisses in 60 s</string>

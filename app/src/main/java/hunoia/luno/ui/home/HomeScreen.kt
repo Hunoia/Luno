@@ -368,6 +368,17 @@ fun HomeScreen(
                                 )
                             }
 
+                            item(key = "permission_status") {
+                                // 权限状态卡：仅在存在缺失权限时出现（有缺失才提示，无缺失不占空间）。
+                                val missing = uiState.privilegedPermissionStatus.missingHomePermissions()
+                                if (missing.isNotEmpty()) {
+                                    HomePermissionStatusCard(
+                                        missing = missing,
+                                        onOpen = onNavToPrivilegedPermissions,
+                                    )
+                                }
+                            }
+
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
                                     onHabitsClick = onNavToHabits,

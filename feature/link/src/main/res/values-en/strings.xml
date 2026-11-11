@@ -38,7 +38,7 @@
     <string name="link_dispatch_rule_advanced_group">Rewrite</string>
     <string name="link_dispatch_rule_browser_auto">Auto (besides the device default browser)</string>
     <string name="link_dispatch_rule_browser_clear">Back to auto</string>
-    <string name="link_dispatch_rule_browser_clear_hint">Clears the specified browser to pick automatically</string>
+    <string name="link_dispatch_rule_browser_clear_hint">Clears the chosen browser to pick automatically again</string>
     <string name="link_dispatch_rule_browser_target">Specified browser</string>
     <string name="link_dispatch_rule_delete_desc">This link will no longer be dispatched to the target app after deletion.</string>
     <string name="link_dispatch_rule_delete_title">Delete this rule?</string>
@@ -55,7 +55,7 @@
     <string name="link_dispatch_rule_miss">On dispatch failure</string>
     <string name="link_dispatch_rule_miss_browser_short">Browser</string>
     <string name="link_dispatch_rule_miss_global">Follow global</string>
-    <string name="link_dispatch_rule_miss_hint">What to do when this rule matches but the target app fails to open</string>
+    <string name="link_dispatch_rule_miss_hint">How to handle when the matched app fails to open</string>
     <string name="link_dispatch_rule_missing">Rule does not exist or has been deleted</string>
     <string name="link_dispatch_rule_miss_picker_short">Choose app</string>
     <string name="link_dispatch_rule_miss_share_short">Share</string>
@@ -78,7 +78,7 @@
     <string name="link_dispatch_rule_template">Link template</string>
     <string name="link_dispatch_rule_template_hint">Leave blank to dispatch as-is; use {url} {host} {path} {query}</string>
     <string name="link_dispatch_rule_test">Test match</string>
-    <string name="link_dispatch_rule_test_hint">Paste a link to see which rule handles it in real time</string>
+    <string name="link_dispatch_rule_test_hint">Paste a link to see which rule handles it</string>
     <string name="link_dispatch_rule_test_hit">Matched "%1$s" → %2$s</string>
     <string name="link_dispatch_rule_test_miss">No rule matched; follows "When no rule matches"</string>
     <string name="link_dispatch_rule_via_browser">Open via browser</string>

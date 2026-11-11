@@ -38,7 +38,7 @@
     <string name="clipboard_max_entries_value">%1$d items</string>
     <string name="clipboard_manage_group">Data</string>
     <string name="clipboard_export">Export JSON</string>
-    <string name="clipboard_export_hint">Text and pin markers only; images and sensitive items excluded</string>
+    <string name="clipboard_export_hint">Text and pinned items only; images and sensitive items excluded</string>
     <string name="clipboard_import">Import JSON</string>
     <string name="clipboard_import_hint">Deduplicates by text and merges; does not overwrite existing history</string>
     <string name="clipboard_import_success">Imported; %1$d items total</string>

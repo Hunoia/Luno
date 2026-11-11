@@ -74,7 +74,7 @@
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="delete_sub_gesture_warning">删除子手势？</string>
-    <string name="delete_sub_gesture_warning_desc">删除后会清理所有引用该子手势的动作。</string>
+    <string name="delete_sub_gesture_warning_desc">删除后，引用它的动作一并清理。</string>
     <string name="direction_count_add">增加方向数</string>
     <string name="direction_count_remove">减少方向数</string>
     <string name="double_tap_action">双击</string>
@@ -89,7 +89,7 @@
     <string name="long_slide_action">长滑</string>
     <string name="long_slide_hold_action">长滑停留</string>
     <string name="mirror_sub_gesture">建立镜像子手势</string>
-    <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
+    <string name="mirror_sub_gesture_desc">将当前子手势方向镜像（左↔右、左上↔右上、左下↔右下）。</string>
     <string name="mirror_sub_gesture_name">镜像·%1$s</string>
     <string name="physical_params">物理参数</string>
     <string name="slide_action">短滑</string>

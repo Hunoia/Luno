@@ -274,12 +274,14 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
     }
     fun updatePermissionState() {
         viewModelScope.launch {
-            val state = facades.system.loadHomePermissionState(AppContext.get())
+            val context = AppContext.get()
+            val state = facades.system.loadHomePermissionState(context)
             updateUiState {
                 it.copy(
                     isGestureSwitchEnabled = state.isGestureEnabled,
                     isAccessibilityEnabled = state.isAccessibilityEnabled,
                     isKeepAliveEnabled = state.isKeepAliveEnabled,
+                    privilegedPermissionStatus = facades.system.privilegedPermissionStatus(context),
                 ).withRuntimeStatus()
             }
         }

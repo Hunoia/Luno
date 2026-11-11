@@ -4,7 +4,7 @@
     <string name="home_title">@string/app_name</string>
     <string name="home_tab">主页</string>
     <string name="settings">设置</string>
-    <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
+    <string name="accessibility_description">模拟返回、主页等按键，实现侧滑手势的自定义操控，不收集数据。</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="backup_settings_entry">备份与恢复</string>
     <string name="backup_manual_group">手动备份与恢复</string>
@@ -75,7 +75,7 @@
     <string name="add_action_panel">添加面板</string>
     <string name="action_panel_name_hint">面板名称</string>
     <string name="action_panel_items">面板内容</string>
-    <string name="action_panel_empty_hint">还没有面板项。添加后，触钮上选「动作面板」即可触发时弹出。</string>
+    <string name="action_panel_empty_hint">还没有面板项。添加后，触钮动作选「动作面板」即可弹出。</string>
     <string name="action_panel_item_drag">拖动排序</string>
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
@@ -149,7 +149,7 @@
     <string name="action_panel_item_no_long_press">长按：同短按</string>
     <string name="grid_panels">网格面板</string>
     <string name="grid_panel_add">添加网格面板</string>
-    <string name="grid_panel_empty_hint">还没有网格面板。添加后，动作里选「网格面板」即可在触点附近弹出。</string>
+    <string name="grid_panel_empty_hint">还没有网格面板。添加后，动作选「网格面板」即可在触点附近弹出。</string>
     <string name="grid_panel_summary">%1$d 项 · %2$d 列</string>
     <string name="grid_panel_delete_title">删除网格面板</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
@@ -386,14 +386,9 @@
     <string name="status_bar_icon_stereo">音箱立体声</string>
     <string name="persistent_notification_settings_title">固定通知隐藏</string>
     <string name="persistent_notification_settings_entry">固定通知隐藏</string>
-    <string name="persistent_notification_status_group">状态</string>
-    <string name="persistent_notification_access_on">通知使用权已授</string>
     <string name="persistent_notification_access_off">通知使用权未授</string>
-    <string name="persistent_notification_access_hint_on">胶囊与普通通知的隐藏可即时同步</string>
     <string name="persistent_notification_access_hint_off">未授权：同步不可用，Luno 用 Shizuku 兜底</string>
-    <string name="persistent_notification_shizuku_on">Shizuku 可用</string>
     <string name="persistent_notification_shizuku_off">Shizuku 不可用</string>
-    <string name="persistent_notification_shizuku_hint_on">可读取通知栏列表并兜底隐藏</string>
     <string name="persistent_notification_shizuku_hint_off">无法读取通知栏列表；监听器仍会尝试隐藏</string>
     <string name="persistent_notification_master_group">总开关</string>
     <string name="persistent_notification_master">启用固定通知隐藏</string>
@@ -405,16 +400,6 @@
     <string name="persistent_notification_empty">当前没有可隐藏的常驻通知</string>
     <string name="persistent_notification_target_subtitle">%1$s · 常驻</string>
     <string name="persistent_notification_target_subtitle_channel">%1$s · %2$s</string>
-    <string name="a11y_status_group">本应用状态</string>
-    <string name="a11y_status_service_on">本服务已启用</string>
-    <string name="a11y_status_service_off">本服务未启用</string>
-    <string name="a11y_status_service_hint">手势识别与动作执行的宿主；点击去设置</string>
-    <string name="a11y_status_write_secure_on">系统设置写入已授权</string>
-    <string name="a11y_status_write_secure_off">系统设置写入未授权</string>
-    <string name="a11y_status_write_secure_hint">启停服务需要它；授权后开关即可用</string>
-    <string name="a11y_status_keep_alive_on">自愈生效中</string>
-    <string name="a11y_status_keep_alive_off">自愈未开启</string>
-    <string name="a11y_status_keep_alive_hint">系统关闭本服务时会自动写回恢复</string>
     <string name="a11y_banner_shizuku">Shizuku 未运行，无法启停无障碍服务</string>
     <string name="a11y_banner_shizuku_action">启动 Shizuku</string>
     <string name="a11y_banner_write_secure">未授予「系统设置写入」，无法启停无障碍服务</string>
@@ -482,15 +467,11 @@
     <string name="todo_reminder_share_content">【%1$s】%2$s</string>
 
     <string name="habit_reminder_perm_notification">通知权限</string>
-    <string name="habit_reminder_perm_notification_on_hint">已允许 · 到点会弹出提醒</string>
     <string name="habit_reminder_perm_notification_off_hint">未允许 · 提醒不会显示，点按去开启</string>
     <string name="habit_reminder_perm_exact_alarm">精确闹钟</string>
-    <string name="habit_reminder_perm_exact_on_hint">已允许 · 按设定时间准时提醒</string>
     <string name="habit_reminder_perm_exact_off_hint">未允许 · 系统可能延迟提醒</string>
     <string name="habit_reminder_perm_live_update">实时活动 / 状态栏胶囊</string>
-    <string name="habit_reminder_perm_live_on_hint">已允许 · Android 16+ 可升为实时活动</string>
     <string name="habit_reminder_perm_live_off_hint">未允许 · 点按去系统通知设置开启</string>
-    <string name="habit_reminder_perm_live_unsupported">当前系统不支持（需 Android 16+）</string>
     <string name="habit_reminder_test_name">测试提醒</string>
     <string name="habit_reminder_test_title">习惯提醒（测试）</string>
     <string name="habit_reminder_test_body">当前模式：%1$s · 60 秒后自动收起</string>

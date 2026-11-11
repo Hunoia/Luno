@@ -38,7 +38,7 @@
     <string name="link_dispatch_rule_advanced_group">改写</string>
     <string name="link_dispatch_rule_browser_auto">自动（本机默认浏览器之外）</string>
     <string name="link_dispatch_rule_browser_clear">改回自动选择</string>
-    <string name="link_dispatch_rule_browser_clear_hint">清空已指定的浏览器，回到本机自动挑选</string>
+    <string name="link_dispatch_rule_browser_clear_hint">清除已指定浏览器，改回本机自动挑选</string>
     <string name="link_dispatch_rule_browser_target">指定浏览器</string>
     <string name="link_dispatch_rule_delete_desc">删除后该链接不再分发到目标应用。</string>
     <string name="link_dispatch_rule_delete_title">删除这条规则？</string>
@@ -55,7 +55,7 @@
     <string name="link_dispatch_rule_miss">分发失败时</string>
     <string name="link_dispatch_rule_miss_browser_short">浏览器</string>
     <string name="link_dispatch_rule_miss_global">跟随全局</string>
-    <string name="link_dispatch_rule_miss_hint">本规则命中但没能打开目标应用时怎么处理</string>
+    <string name="link_dispatch_rule_miss_hint">命中后目标应用打不开时的处理</string>
     <string name="link_dispatch_rule_missing">规则不存在或已被删除</string>
     <string name="link_dispatch_rule_miss_picker_short">选择应用</string>
     <string name="link_dispatch_rule_miss_share_short">分享</string>
@@ -78,7 +78,7 @@
     <string name="link_dispatch_rule_template">链接模板</string>
     <string name="link_dispatch_rule_template_hint">留空原样分发；可用 {url} {host} {path} {query}</string>
     <string name="link_dispatch_rule_test">测试匹配</string>
-    <string name="link_dispatch_rule_test_hint">粘贴一条链接，实时看会被哪条规则接手</string>
+    <string name="link_dispatch_rule_test_hint">粘贴一条链接，看会被哪条规则接手</string>
     <string name="link_dispatch_rule_test_hit">命中「%1$s」→ %2$s</string>
     <string name="link_dispatch_rule_test_miss">未命中任何规则，按「未命中规则时」处理</string>
     <string name="link_dispatch_rule_via_browser">交给浏览器打开</string>

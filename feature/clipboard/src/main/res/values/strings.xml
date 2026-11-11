@@ -38,7 +38,7 @@
     <string name="clipboard_max_entries_value">%1$d 条</string>
     <string name="clipboard_manage_group">数据</string>
     <string name="clipboard_export">导出 JSON</string>
-    <string name="clipboard_export_hint">只含文本与固定标记；图片、敏感项不导出</string>
+    <string name="clipboard_export_hint">只含文本与固定项；图片、敏感项不导出</string>
     <string name="clipboard_import">导入 JSON</string>
     <string name="clipboard_import_hint">按文本去重合并，不覆盖现有历史</string>
     <string name="clipboard_import_success">已导入，当前共 %1$d 条</string>
