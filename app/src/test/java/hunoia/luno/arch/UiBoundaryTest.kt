@@ -1,6 +1,7 @@
 package hunoia.luno.arch
 
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
+import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -93,6 +94,37 @@ class UiBoundaryTest {
         }
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
+
+    @Test
+    fun `theme 不开启平台窗口 dim`() {
+        // 平台 dim 不跟退场动画：退场结束、窗口移除那一帧背景会一下子变亮（「关窗最后卡一下」）。
+        // 遮罩统一由 `DialogScrim` 画（ui-guidelines §4.4），透明弹窗主题必须 backgroundDimEnabled=false。
+        val pattern = Regex("""backgroundDimEnabled"\s*>\s*true""")
+        val values = resValuesXml()
+        assertTrue(
+            "没扫到 res/values XML，路径基准可能变了：${File("..").absolutePath}",
+            values.any { it.name == "themes.xml" },
+        )
+        val offenders = values
+            .filter { pattern.containsMatchIn(it.readText()) }
+            .map { it.path }
+            .toList()
+        assertTrue(
+            offenders.joinToString("\n", postfix = " 开了平台窗口 dim：改由 DialogScrim 画遮罩"),
+            offenders.isEmpty(),
+        )
+    }
+
+    /** main 源集下的 `res/values*` XML（跳过 build 目录，否则会扫到生成物）。 */
+    private fun resValuesXml(): List<File> =
+        File("..").walkTopDown()
+            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", "node_modules") }
+            .filter { file ->
+                file.isFile && file.name.endsWith(".xml") &&
+                    "/src/main/res/" in file.path.replace('\\', '/') &&
+                    file.parentFile?.name?.startsWith("values") == true
+            }
+            .toList()
 
     /** 与搬迁前一致：app 只看 ui 包，feature / ui 模块全量。 */
     private fun isUiCode(file: KoFileDeclaration): Boolean =

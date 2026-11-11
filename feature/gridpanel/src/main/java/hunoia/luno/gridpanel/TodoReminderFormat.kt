@@ -69,24 +69,55 @@ object TodoReminderFormat {
         )
     }
 
-    /** 编辑弹窗里的状态行：已过期只显示「已过期」，未来时间显示完整提醒时间。 */
+    /** 编辑弹窗里的状态行：已过期只显示「已过期」，未来时间带「提醒时间：」前缀。 */
     fun dialogStatus(
         context: Context,
         reminder: TodoReminder,
         nowMillis: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault(),
+    ): String = if (reminder.isPast(nowMillis, zone)) {
+        context.getString(R.string.todo_reminder_expired_short)
+    } else {
+        context.getString(
+            R.string.todo_reminder_dialog_status,
+            relativeTimeText(context, reminder, zone),
+        )
+    }
+
+    /**
+     * 编辑弹窗收起态的提醒摘要：`今天 14:40` / `明天 09:00` / `10月2日 09:00` / `已过期`。
+     *
+     * 比 [label] 多带「今天 / 明天」：收起态只有这一行，光一个 `14:40` 分不清是哪天。
+     */
+    fun dialogSummary(
+        context: Context,
+        reminder: TodoReminder,
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String = if (reminder.isPast(nowMillis, zone)) {
+        context.getString(R.string.todo_reminder_expired_short)
+    } else {
+        relativeTimeText(context, reminder, zone)
+    }
+
+    /** 相对日期 + 时间：今天 / 明天 / `11月12日 09:00`。 */
+    private fun relativeTimeText(
+        context: Context,
+        reminder: TodoReminder,
+        zone: ZoneId,
     ): String {
-        if (reminder.isPast(nowMillis, zone)) {
-            return context.getString(R.string.todo_reminder_expired_short)
-        }
-        val label = reminder.label(nowMillis, zone)
-        val time = timeText(context, label)
-        val whenText = when (reminder.day - LocalDate.now(zone).toEpochDay()) {
+        val date = LocalDate.ofEpochDay(reminder.day)
+        val time = context.getString(R.string.todo_reminder_time, reminder.hour, reminder.minute)
+        return when (reminder.day - LocalDate.now(zone).toEpochDay()) {
             0L -> context.getString(R.string.todo_reminder_today, time)
             1L -> context.getString(R.string.todo_reminder_tomorrow, time)
-            else -> dateTimeText(context, label, time)
+            else -> context.getString(
+                R.string.todo_reminder_date,
+                date.monthValue,
+                date.dayOfMonth,
+                time,
+            )
         }
-        return context.getString(R.string.todo_reminder_dialog_status, whenText)
     }
 
     /** 推迟时长文案（`30 分钟` / `1 小时 30 分钟`），设置行与通知按钮共用。 */

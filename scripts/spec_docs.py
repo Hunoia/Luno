@@ -126,8 +126,9 @@ def ui_tokens_doc() -> str:
 
 def ui_components_doc() -> str:
     root = ROOT / "ui/design/src/main/java/hunoia/luno/ui/component"
+    # 允许 `fun <T> Name(...)`：泛型 composable 也要进索引，否则索引会漏（WheelColumn 踩过）。
     composable_re = re.compile(
-        r"@Composable\s+(?:private\s+|internal\s+|public\s+)?fun\s+(\w+)"
+        r"@Composable\s+(?:private\s+|internal\s+|public\s+)?fun\s+(?:<[^<>]*>\s*)?(\w+)"
     )
     lines = [
         "# UI 组件索引（自动生成）",

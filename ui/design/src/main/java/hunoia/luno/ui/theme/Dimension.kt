@@ -147,6 +147,13 @@ const val MotionContentIn = 200
 const val MotionContentOut = 150
 /** 面板隐藏后延迟拆窗的编排时间（非动画）。 */
 const val ChoreographyPostHideDelay = 250L
+/**
+ * 进场等键盘真正出现的兜底上限（ms）：只有等到它才撑掉窗口的 `SOFT_INPUT_STATE_ALWAYS_VISIBLE`，
+ * 状态位不能无限留着（留着会在窗口再次获焦点时自己弹键盘）。
+ */
+const val ImeBootstrapTimeoutMs = 600L
+/** 弹层遮罩不透明度（`scrim` role）：遮罩自己画 + 跟退场动画一起淡出，不用窗口 dim。 */
+const val DialogScrimAlpha = 0.22f
 const val MotionNavTransition = 400
 /** 指针光标跟随触点的平滑（属于跟手，不参与档位）。 */
 const val MotionPointerFollow = 45
@@ -216,10 +223,8 @@ val FabSize = 64.dp
 // 习惯日历点阵：编辑页近 30 天日历与网格面板部件共用语义（命中区 48dp 见 §1.6）。
 val HabitDayCellMinHeight = 48.dp
 
-// 待办提醒弹窗：日期月历与时间表盘在**同一块区域**切换，高度固定，切换时卡片不改变高度。
-// 取两者较大者（月历 6 行 × 36dp + 月份头 + 星期行 ≈ 表盘 272 × 372dp 缩放后）。
-// 提醒视图不滚动，极小屏由 TodoReminderEditor 按屏幕高度再收一档。
-val ReminderPickerHeight = 320.dp
+// 待办提醒展开后是三列滚轮（日期 / 时 / 分），行高随字体推出、宽度按列权重分，
+// 不再有固定高度的选择区 token：高度约束统一由弹窗卡片的 heightIn(max) 提供。
 val HabitDayCellPaddingVertical = 3.dp
 val HabitDayDotSize = 14.dp
 val HabitDayDotStroke = 1.5.dp

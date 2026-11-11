@@ -21,17 +21,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,15 +65,19 @@ import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.input.WheelColumn
+import hunoia.luno.ui.component.input.wheelNumber
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.gridpanel.ui.snoozeDurationLabel
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContentBottom
@@ -119,7 +120,6 @@ import hunoia.luno.ui.component.pressClickable
  * 已加载的 [Habit]——配置流首帧为空（`initialValue`），否则会被空值初始化导致重进丢内容。
  * 增删改与打卡写入走 [HabitCenter] 门面（配置写入，不走 Action / Dispatcher）。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitEditScreen(
     habitId: String?,
@@ -564,8 +564,11 @@ private fun HabitHeatmapCard(
     }
 }
 
-/** 提醒时间选择：24 小时制 Material3 TimePicker，确定后回调 [onConfirm]。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 提醒时间选择：与待办提醒同一套「时 / 分」滚轮，卡片由 [AnchoredDialog] 统一锚定在底部。
+ *
+ * 不再用 M3 默认居中 AlertDialog + 表盘（ui-guidelines §4.4 禁止直接用默认居中弹窗）。
+ */
 @Composable
 private fun HabitTimePickerDialog(
     initialHour: Int,
@@ -573,26 +576,54 @@ private fun HabitTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
-    val timeState = rememberTimePickerState(
-        initialHour = initialHour,
-        initialMinute = initialMinute,
-        is24Hour = true,
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.habit_reminder_time)) },
-        text = { TimePicker(state = timeState) },
-        confirmButton = {
-            PressTextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
-                Text(stringResource(hunoia.luno.design.R.string.confirm))
-            }
-        },
-        dismissButton = {
-            PressTextButton(onClick = onDismiss) {
+    val hours = remember { (0 until 24).toList() }
+    val minutes = remember { (0 until 60).toList() }
+    var hour by rememberSaveable { mutableIntStateOf(initialHour) }
+    var minute by rememberSaveable { mutableIntStateOf(initialMinute) }
+    AnchoredDialog(onDismiss = onDismiss) { dismiss ->
+        Text(
+            text = stringResource(R.string.habit_reminder_time),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+        ) {
+            WheelColumn(
+                values = hours,
+                initialIndex = initialHour,
+                onSelected = { hour = it },
+                label = ::wheelNumber,
+                modifier = Modifier.weight(1f),
+            )
+            WheelColumn(
+                values = minutes,
+                initialIndex = initialMinute,
+                onSelected = { minute = it },
+                label = ::wheelNumber,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1f))
+            PressTextButton(onClick = dismiss) {
                 Text(stringResource(R.string.habit_reminder_cancel))
             }
-        },
-    )
+            PressTextButton(
+                onClick = {
+                    onConfirm(hour, minute)
+                    dismiss()
+                },
+            ) {
+                Text(stringResource(hunoia.luno.design.R.string.confirm))
+            }
+        }
+    }
 }
 
 /** 新增提醒时的默认时间：最后一个时间 + 1 小时（空列表用 20:00）。 */

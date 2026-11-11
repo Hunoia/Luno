@@ -41,6 +41,7 @@ import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.ui.component.sheet.DialogScrim
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
@@ -101,6 +102,7 @@ private fun HabitPickerDialog(appWidgetId: Int, onSelect: (String) -> Unit) {
     val unnamed = stringResource(R.string.widget_habit_picker_unnamed)
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            DialogScrim()
             Surface(
                 modifier = Modifier
                     .widthIn(min = 280.dp, max = 360.dp)

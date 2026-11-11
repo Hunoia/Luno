@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
@@ -98,6 +97,7 @@ fun ConfirmDialogContent(
             ),
         contentAlignment = Alignment.BottomCenter,
     ) {
+        DialogScrim()
         DialogCard {
             ConfirmCardContent(
                 title = title,
@@ -167,18 +167,18 @@ fun TextInputDialog(
         mutableStateOf(TextFieldValue(initialValue, selection = TextRange(initialValue.length)))
     }
     val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
     val curOnConfirm by rememberUpdatedState(onConfirm)
 
-    AnchoredDialog(onDismiss = onDismissRequest) { dismiss ->
+    AnchoredDialog(onDismiss = onDismissRequest, imeAutoShow = true) { dismiss ->
         fun submit() {
             if (!confirmEnabled) return
-            keyboard?.hide()
+            // 不收键盘：AnchoredDialog 在退场时先 hide 再等 IME 落定，
+            // 提前 hide 会让键盘下滑和卡片退场各跑一段。
             curOnConfirm(textValue.text)
             dismiss()
         }
 
-        // 自动聚焦：键盘随之弹出。
+        // 自动聚焦：窗口获得焦点时由 SOFT_INPUT_STATE_ALWAYS_VISIBLE 拉起键盘，与卡片进场同时。
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
         Text(
