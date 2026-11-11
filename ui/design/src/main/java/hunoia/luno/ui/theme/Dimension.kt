@@ -145,8 +145,6 @@ const val MotionSelection = 150
 const val MotionContentIn = 200
 /** 页面内内容互换的退场。 */
 const val MotionContentOut = 150
-/** 面板隐藏后延迟拆窗的编排时间（非动画）。 */
-const val ChoreographyPostHideDelay = 250L
 /**
  * 进场等键盘真正出现的兜底上限（ms）：只有等到它才撑掉窗口的 `SOFT_INPUT_STATE_ALWAYS_VISIBLE`，
  * 状态位不能无限留着（留着会在窗口再次获焦点时自己弹键盘）。
@@ -206,7 +204,10 @@ const val MotionCellIn = 120
 const val MotionCellOut = 100
 /** 面板出现 / 收口的位移距离（dp）：面板走位移而不是整层淡入淡出（ui-guidelines §3「面板」）。 */
 val PanelAppearSlide = 16.dp
-/** 面板进退场的缩放起止档：进场 0.25→1，退场 1→0.25；缩放锚点落在触发点，缩放为主、位移为辅（ui-guidelines §5.1）。 */
+/**
+ * 面板进退场的缩放起止档：进场 0.25→1，退场 1→0.25；缩放锚点落在触发点，缩放为主、位移为辅
+ * （ui-guidelines §5.1）。网格面板 / 快捷启动 / 动作面板共用 `Modifier.panelAppear`，只此一份。
+ */
 const val PanelAppearScale = 0.25f
 /**
  * 面板进退场 alpha 的收口尾段比例：进度其余部分保持不透明，alpha 只在尾段收掉。

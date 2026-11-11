@@ -13,7 +13,7 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.query.AppSearch.sortApps
 import hunoia.luno.quickaccess.query.QuickAppLauncherAppList
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.ui.theme.ChoreographyPostHideDelay
+import hunoia.luno.ui.theme.panelTeardownDelayMillis
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -71,7 +71,8 @@ class QuickAppLauncherState(
             closing = true
             panelVisible = false
             coroutineScope.launch {
-                delay(ChoreographyPostHideDelay)
+                // 拆窗必须等退场播完：由面板家族时长推导，不写死（慢档会截断）。
+                delay(panelTeardownDelayMillis())
                 onCloseAnimatedRaw()
             }
         }

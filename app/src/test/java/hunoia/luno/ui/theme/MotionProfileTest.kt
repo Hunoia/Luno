@@ -77,9 +77,20 @@ class MotionProfileTest {
     fun `交互反馈与编排延迟不参与档位`() {
         val bases = MotionFamily.entries.map { it.baseMillis }.toSet()
         assertFalse("确认倒计时不入家族", MotionConfirmCountdown in bases)
-        assertFalse("编排延迟不是动画", ChoreographyPostHideDelay.toInt() in bases)
         assertEquals(1200, MotionConfirmCountdown)
-        assertEquals(250L, ChoreographyPostHideDelay)
         assertEquals(MotionSpeed.Faster.factor, MotionSpeed.entries.first().factor)
+    }
+
+    @Test
+    fun `拆窗编排覆盖最慢档面板退场`() {
+        // 拆窗延迟必须由家族时长推导：写死常量在慢档会比退场动画短，窗口被提前拆掉。
+        val previous = MotionTuning.profile
+        try {
+            MotionTuning.profile = profile(panel = MotionSpeed.Slowest)
+            val slowestPanel = MotionTuning.profile.millisOf(MotionFamily.PanelCard)
+            assertEquals(slowestPanel + 40L, panelTeardownDelayMillis())
+        } finally {
+            MotionTuning.profile = previous
+        }
     }
 }

@@ -147,9 +147,8 @@ private fun ConfirmScreen(
         title = title,
         text = message,
         onDismiss = { if (!working) onFinished() },
-        // 写回是异步的：先干活，完成后才开始退场（`dismiss()` → 退场动画播完才 `onFinished()`），
-        // 否则 Activity 会在动画一半时被 finish，确认路径直接瞬消。
-        onConfirm = { dismiss ->
+        // 组件在退场播完后才回调 onConfirm：写回、finish 都发生在动画之后，不会截断退场。
+        onConfirm = {
             if (!working) {
                 working = true
                 scope.launch {
@@ -158,7 +157,7 @@ private fun ConfirmScreen(
                         WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE -> confirmTodoComplete(context, targetId)
                     }
                     working = false
-                    dismiss()
+                    onFinished()
                 }
             }
         },

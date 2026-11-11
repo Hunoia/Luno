@@ -33,6 +33,7 @@ import hunoia.luno.ui.theme.MotionProfile
 import hunoia.luno.ui.theme.MotionSpec
 import hunoia.luno.ui.theme.floatingSpec
 import hunoia.luno.ui.theme.overlaySpec
+import hunoia.luno.ui.theme.PanelAppearScale
 import hunoia.luno.ui.theme.panelSpec
 import hunoia.luno.ui.theme.tween
 
@@ -80,7 +81,7 @@ fun MotionTuningPreview(
                     label = stringResource(R.string.motion_preview_panel),
                     spec = panel,
                     replay = replay,
-                    initialScale = 0.25f,
+                    initialScale = PanelAppearScale,
                     initialAlpha = 0.3f,
                     modifier = Modifier.weight(1f),
                 )

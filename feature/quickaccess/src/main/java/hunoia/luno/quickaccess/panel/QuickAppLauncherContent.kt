@@ -3,6 +3,8 @@ import hunoia.luno.ui.theme.*
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -10,7 +12,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -51,7 +52,11 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.hypot
 import kotlin.math.roundToInt
+import hunoia.luno.ui.component.panel.panelAppear
+import hunoia.luno.ui.component.panel.panelFadeIn
+import hunoia.luno.ui.component.panel.panelFadeOut
 import hunoia.luno.ui.theme.ExtraLargeShape
 
 import hunoia.luno.bridge.ui.systemBarsSafeArea
@@ -104,11 +109,11 @@ internal fun QuickAppLauncherRoot(
             onRegisterCloseAnimated = onRegisterCloseAnimated,
         ).also { onStateReady(it) }
     }
-    // 进退场走 AnimatedVisibility：Content 每次打开都是全新进入组合，
-    // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过（重开瞬现的根因）。
-    // 时长走面板家族 spec（已含应用档位），缩放锚点落在触发点在面板内的相对位置。
-    // 退场仍是纯淡出（几何可与进场不同，时长同 spec）：缩放重采样尾段发糊，
-    // 拆窗时机由 closeAnimated→closeImmediate 编排，不在这里管。
+    // 进退场走 AnimatedVisibility 维持组合生命周期（Content 每次打开都是全新进入组合，
+    // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过，重开瞬现的根因）。
+    // 几何与 alpha 曲线统一走面板家族（ui-guidelines §5.1）：绕触发点从 PanelAppearScale
+    // 展开 + 位移 + alpha 尾段，与网格面板、动作面板同一份实现（以前这里是 0.92 轻缩放 + 纯淡出）。
+    // 拆窗时机仍由 closeAnimated→closeImmediate 编排，不在这里管。
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val view = LocalView.current
@@ -147,18 +152,26 @@ internal fun QuickAppLauncherRoot(
             ((anchorY - targetPosY) / panelHeightPx).coerceIn(0f, 1f),
         )
     }
+    // 面板自身的位移方向：卡片中心 → 触发点（与网格面板同口径：进度 0 时向触发点偏移）。
+    val appearDir = remember(targetPosX, targetPosY, anchorX, anchorY, panelWidthPx, panelHeightPx) {
+        val dx = anchorX - (targetPosX + panelWidthPx / 2f)
+        val dy = anchorY - (targetPosY + panelHeightPx / 2f)
+        val len = hypot(dx, dy).coerceAtLeast(1f)
+        Offset(dx / len, dy / len)
+    }
+    val appearSlidePx = with(density) { PanelAppearSlide.toPx() }
     val panelMotion = panelSpec()
     AnimatedVisibility(
         visible = state.panelVisible,
-        enter = fadeIn(animationSpec = panelMotion.tween()) +
-            scaleIn(
-                initialScale = 0.92f,
-                animationSpec = panelMotion.tween(),
-                transformOrigin = triggerOrigin,
-            ),
-        exit = fadeOut(animationSpec = panelMotion.tween()),
+        enter = panelFadeIn(panelMotion),
+        exit = panelFadeOut(panelMotion),
     ) {
+        // 几何与 alpha 同一段时长：进度直接读 AnimatedVisibility 自己的 transition。
+        val appear = transition.animateFloat(transitionSpec = { panelMotion.tween() }) { from ->
+            if (from == EnterExitState.Visible) 1f else 0f
+        }
         // 全屏 scrim：面板外点击只关面板，不传透下层应用。
+        // **scrim 不参与缩放**：缩了之后角落的点击会漏给下层应用（它在面板动画前 15% 里最小）。
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -178,7 +191,13 @@ internal fun QuickAppLauncherRoot(
             Box(
                 modifier = Modifier
                     .offset { IntOffset(posAnimX.value.roundToInt(), posAnimY.value.roundToInt()) }
-                    .width(with(density) { panelWidthPx.toDp() }),
+                    .width(with(density) { panelWidthPx.toDp() })
+                    .panelAppear(
+                        progress = { appear.value },
+                        originForSize = { triggerOrigin },
+                        slideForSize = { appearDir * appearSlidePx },
+                        fade = false,
+                    ),
             ) {
                 QuickAppLauncherContent(
                     state = state,

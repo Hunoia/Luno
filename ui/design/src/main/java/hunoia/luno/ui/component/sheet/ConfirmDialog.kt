@@ -52,7 +52,19 @@ fun ConfirmDialog(
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
-    AnchoredDialog(onDismiss = onDismissRequest) { dismiss ->
+    // 确认动作等退场播完再执行：调用点习惯在 onConfirm 里同步清"显示"状态，先执行动作会在
+    // 退场起播前把弹层卸出组合，动画被截断（只有取消 / 点外部是滑出的）。这里的
+    // pendingConfirm 就是那条"先播完、再执行"的桥；退场完成回调由 AnchoredDialog 保证。
+    var pendingConfirm by remember { mutableStateOf(false) }
+    AnchoredDialog(
+        onDismiss = {
+            if (pendingConfirm) {
+                pendingConfirm = false
+                onConfirm()
+            }
+            onDismissRequest()
+        },
+    ) { dismiss ->
         ConfirmCardContent(
             title = title,
             text = text,
@@ -60,9 +72,8 @@ fun ConfirmDialog(
             dismissLabel = dismissLabel,
             destructive = destructive,
             onDismiss = dismiss,
-            // 先执行动作再退场：动作立即生效，退场由弹层自己收尾（宿主别再同步卸载）。
             onConfirm = {
-                onConfirm()
+                pendingConfirm = true
                 dismiss()
             },
         )
@@ -72,20 +83,30 @@ fun ConfirmDialog(
 /**
  * 确认弹窗内容（底部锚定卡片 + 取消/确认）：独立 Activity 形态直接铺一屏（部件确认弹窗），
  * 不再套一层 Compose `Dialog`，避免双窗口/双遮罩。
+ *
+ * 与 [ConfirmDialog] 同一套语义：确认动作在退场播完后执行（同步写回 / 异步启动都行），
+ * 退场播完才回调 [onDismiss]。
  */
 @Composable
 fun ConfirmDialogContent(
     title: String,
     onDismiss: () -> Unit,
-    // 确认后由调用方决定何时退场：同步动作直接调 `dismiss()`；异步写回先干活、完成后再 `dismiss()`，
-    // 退场播完才回调 [onDismiss]。这样宿主不必在动作里同步卸载本弹层（会截断退场）。
-    onConfirm: (dismiss: () -> Unit) -> Unit,
+    onConfirm: () -> Unit,
     text: String? = null,
     confirmLabel: String = stringResource(R.string.confirm),
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
-    AnchoredDialogContent(onDismiss = onDismiss) { dismiss ->
+    var pendingConfirm by remember { mutableStateOf(false) }
+    AnchoredDialogContent(
+        onDismiss = {
+            if (pendingConfirm) {
+                pendingConfirm = false
+                onConfirm()
+            }
+            onDismiss()
+        },
+    ) { dismiss ->
         ConfirmCardContent(
             title = title,
             text = text,
@@ -93,7 +114,10 @@ fun ConfirmDialogContent(
             dismissLabel = dismissLabel,
             destructive = destructive,
             onDismiss = dismiss,
-            onConfirm = { onConfirm(dismiss) },
+            onConfirm = {
+                pendingConfirm = true
+                dismiss()
+            },
         )
     }
 }
@@ -154,13 +178,25 @@ fun TextInputDialog(
     }
     val focusRequester = remember { FocusRequester() }
     val curOnConfirm by rememberUpdatedState(onConfirm)
+    var pendingText by remember { mutableStateOf<String?>(null) }
 
-    AnchoredDialog(onDismiss = onDismissRequest, imeAutoShow = true) { dismiss ->
+    AnchoredDialog(
+        // 与 ConfirmDialog 同口径：确认动作等退场播完再执行（调用点通常在 onConfirm 里把
+        // "显示"状态置空，先执行会在退场起播前把弹层卸掉，动画被截断）。文本在提交时就快照。
+        onDismiss = {
+            pendingText?.let { text ->
+                pendingText = null
+                curOnConfirm(text)
+            }
+            onDismissRequest()
+        },
+        imeAutoShow = true,
+    ) { dismiss ->
         fun submit() {
             if (!confirmEnabled) return
             // 不在确认时收键盘：AnchoredDialog 退场会 hide，键盘自己滑完；提前 hide 会让
             // 键盘下滑与卡片退场各跑一段。
-            curOnConfirm(textValue.text)
+            pendingText = textValue.text
             dismiss()
         }
 

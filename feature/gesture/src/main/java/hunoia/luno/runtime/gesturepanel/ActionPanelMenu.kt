@@ -1,7 +1,9 @@
 package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterExitState.Visible
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateDpAsState
@@ -35,6 +37,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -50,6 +53,10 @@ import com.aaron.compose.ktx.toPx
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.ui.component.panel.panelAppear
+import hunoia.luno.ui.component.panel.panelFadeIn
+import hunoia.luno.ui.component.panel.panelFadeOut
+import hunoia.luno.ui.theme.PanelAppearSlide
 import hunoia.luno.core.domain.launchMiniWindow
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
@@ -62,6 +69,7 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.panelSpec
 import hunoia.luno.ui.theme.tween
+import kotlin.math.hypot
 import kotlinx.coroutines.flow.filter
 import hunoia.luno.gesture.vibrateForActionPanel
 import hunoia.luno.ui.theme.toMarkColor
@@ -85,9 +93,14 @@ fun ActionPanelMenu(
     AnimatedVisibility(
         modifier = modifier,
         visible = actionPanelState.visible,
-        enter = fadeIn(panelMotion.tween()),
-        exit = fadeOut(panelMotion.tween())
+        // alpha 只收首尾段（与网格 / 快捷启动同一份曲线）；几何由下面的 panelAppear 负责。
+        enter = panelFadeIn(panelMotion),
+        exit = panelFadeOut(panelMotion),
     ) {
+        // 进度直接读 AnimatedVisibility 自己的 transition，几何与 alpha 同一段时长。
+        val appear = transition.animateFloat(transitionSpec = { panelMotion.tween() }) { from ->
+            if (from == EnterExitState.Visible) 1f else 0f
+        }
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
@@ -96,13 +109,49 @@ fun ActionPanelMenu(
         val insets = remember((resolvedStyle as? ArcStyle)?.placement, density) {
             (resolvedStyle as? ArcStyle)?.panelInsets(density.density) ?: ActionPanelInsets()
         }
+        val appearSlidePx = with(density) { PanelAppearSlide.toPx() }
+        // 缩放 / 位移锚点 = 面板几何里的触发点（已按边距夹进可点区），与光晕、扇区同一份原点。
+        val appearOriginPoint = { size: Size ->
+            if (size.width <= 0f || size.height <= 0f || !actionPanelState.origin.isSpecified) {
+                Offset(size.width / 2f, size.height / 2f)
+            } else {
+                actionPanelOrigin(size, actionPanelState.origin, itemSizePx, insets)
+            }
+        }
         val actionLibrarySettings by hunoia.luno.domain.action.ActionLibrary.settings
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }
         Box(
-            modifier = Modifier.onGloballyPositioned { parentSize = it.size.toSize() }
+            modifier = Modifier
+                .onGloballyPositioned { parentSize = it.size.toSize() }
+                // 与网格 / 快捷启动同一份面板几何：绕触发点从 PanelAppearScale 展开 + 向触发点
+                // 位移 + alpha 尾段（§5.1）。环形项自己也从触发点展开，两者的终点一致，
+                // 起点都在指尖，不会变成两倍行程。
+                .panelAppear(
+                    progress = { appear.value },
+                    originForSize = { size ->
+                        if (size.width <= 0f || size.height <= 0f) {
+                            TransformOrigin.Center
+                        } else {
+                            val o = appearOriginPoint(size)
+                            TransformOrigin(o.x / size.width, o.y / size.height)
+                        }
+                    },
+                    slideForSize = { size ->
+                        if (size.width <= 0f || size.height <= 0f) {
+                            Offset.Zero
+                        } else {
+                            val o = appearOriginPoint(size)
+                            val dx = o.x - size.width / 2f
+                            val dy = o.y - size.height / 2f
+                            val len = hypot(dx, dy).coerceAtLeast(1f)
+                            Offset(dx / len, dy / len) * appearSlidePx
+                        }
+                    },
+                    fade = false,
+                ),
         ) {
             ActionPanelBackdrop(
                 modifier = Modifier.matchParentSize(),

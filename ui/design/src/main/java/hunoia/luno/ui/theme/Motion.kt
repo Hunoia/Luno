@@ -87,6 +87,14 @@ val LocalMotionProfile = staticCompositionLocalOf { MotionTuning.profile }
 /** 当前进程的原生动效时长（ms），已乘应用档位、未乘系统缩放（原生 API 自带）。 */
 fun motionMillis(family: MotionFamily): Int = MotionTuning.profile.millisOf(family)
 
+/**
+ * 面板退场播完后拆窗 / 缩窗的编排延迟（ms）：必须由家族时长推导。
+ *
+ * 写死常量会在「慢」档（1.3× / 1.7×）比退场动画短，窗口在动画中途被拆掉——
+ * 表现就是退场被截断（快捷启动、动作面板都踩过）。+40ms 留给最后一帧提交。
+ */
+fun panelTeardownDelayMillis(): Long = motionMillis(MotionFamily.PanelCard) + 40L
+
 /** 面板家族 spec：卡片面板默认，[fullScreen] 走全屏基础值。 */
 @Composable
 fun panelSpec(fullScreen: Boolean = false): MotionSpec =

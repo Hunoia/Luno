@@ -49,7 +49,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
@@ -96,9 +95,8 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import hunoia.luno.ui.theme.PanelAppearScale
+import hunoia.luno.ui.component.panel.panelAppear
 import hunoia.luno.ui.theme.PanelAppearSlide
-import hunoia.luno.ui.theme.PanelFadeTailFraction
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.component.PressFloatingActionButton
 
@@ -328,21 +326,12 @@ fun GridPanelCard(
                 with(density) { metrics.cardW.toDp() },
                 with(density) { metrics.cardH.toDp() },
             )
-            .graphicsLayer {
-                val remaining = 1f - appearance
-                // 退场以「缩回触发点 + 位移」为主体：缩放绕触发点走满全程（1 → PanelAppearScale），
-                // alpha 只在尾段收掉，既避免移窗硬切，也不让整层淡出盖过缩放（§5.1）。
-                alpha = if (hiddenForDrag) {
-                    0f
-                } else {
-                    (appearance / PanelFadeTailFraction).coerceIn(0f, 1f)
-                }
-                transformOrigin = appearOrigin
-                scaleX = PanelAppearScale + (1f - PanelAppearScale) * appearance
-                scaleY = scaleX
-                translationX = if (hiddenForDrag) 0f else appearDir.x * appearSlidePx * remaining
-                translationY = if (hiddenForDrag) 0f else appearDir.y * appearSlidePx * remaining
-            }
+            .panelAppear(
+                progress = { appearance },
+                originForSize = { appearOrigin },
+                slideForSize = { appearDir * appearSlidePx },
+                hidden = hiddenForDrag,
+            )
             // 编辑态双指捏合调列数：只在卡面上生效，且要求两根手指，避免抢走单项拖拽。
             // 捏合命中区放外层（无 clip）：双指本就是全卡面，圆角外差几个像素无感。
             .pinchToColumns(
