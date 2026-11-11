@@ -1,10 +1,12 @@
 package hunoia.luno.gridpanel.todo
 
+import android.app.Activity
 import android.view.View
 import android.view.ViewTreeObserver
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,6 +69,7 @@ import hunoia.luno.ui.component.input.WheelColumn
 import hunoia.luno.ui.component.input.wheelNumber
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.sheet.AnchoredDialog
+import hunoia.luno.ui.component.sheet.AnchoredDialogContent
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
@@ -95,6 +98,8 @@ fun TodoEditDialog(
     todoId: String?,
     onDismiss: () -> Unit,
     onChanged: () -> Unit = {},
+    // true = 宿主是透明 Activity（部件入口），弹层直接铺在 Activity 窗口里，不再套 Compose Dialog。
+    inlineHost: Boolean = false,
 ) {
     val config by TodoCenter.todoConfig.collectAsState(initial = TodoConfig())
     val existing = todoId?.let { config.todoById(it) }
@@ -132,23 +137,10 @@ fun TodoEditDialog(
         .coerceAtLeast(240.dp)
     val mainScroll = rememberScrollState()
 
-    AnchoredDialog(
-        onDismiss = onDismiss,
-        // 进场就让窗口自己拉起键盘：和卡片上滑同一段动画（见 AnchoredDialog 的 imeAutoShow）。
-        imeAutoShow = false,
-        contentPadding = PaddingValues(PageGutter),
-        // 展开提醒后卡片变高（大字体下更高），统一保留滚动兜底；滚轮自己是嵌套滚动的子节点，
-        // 拖动优先由滚轮消费，不会和卡片的 verticalScroll 抢手势。
-        // 高度过渡用 animateContentSize 而不是 AnimatedContent 的 SizeTransform：后者在
-        // verticalScroll 的无限高度约束下会把新内容按「当前动画高度」测量，卡片停在半程、
-        // 子项被压成 0 高后互相叠在一起（实机复现过）。
-        cardModifier = Modifier
-            .heightIn(max = maxCardHeight)
-            .animateContentSize(animationSpec = tween(MotionContentIn))
-            .verticalScroll(mainScroll),
-    ) { dismiss ->
+    val content: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit = { dismiss ->
         val density = LocalDensity.current
         val dialogView = LocalView.current
+        val hostContext = LocalContext.current
         val imeInsets = WindowInsets.ime
 
         fun submit() {
@@ -179,17 +171,20 @@ fun TodoEditDialog(
             reminderExpanded = true
         }
 
-        // 自动聚焦 + 弹键盘。窗口的 SOFT_INPUT_STATE_ALWAYS_VISIBLE（AnchoredDialog 的 imeAutoShow）
-        // 会在窗口获得焦点时拉起键盘，所以焦点要提前要：等 window focus 再 requestFocus，
-        // 键盘就比卡片晚一两帧，看起来就是「先出弹窗、再弹键盘」。
+        // 自动聚焦 + 弹键盘。焦点要提前要：等 window focus 再 requestFocus，
+        // 键盘就比卡片晚一两帧，看起来就是「先出弹窗、再弹键盘」。透明 Activity 宿主不再
+        // 依赖窗口的 ALWAYS_VISIBLE（首次聚焦时输入框还没有编辑会话，系统会忽略）。
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
             dialogView.awaitWindowFocus()
             withFrameNanos { }
-            // 少数 ROM 首帧拉起被吞：改用窗口 insets 控制器再补一次，仍失败就等用户点输入框。
+            // 少数 ROM 首帧拉起被吞：用窗口 insets 控制器再补一次，仍失败就等用户点输入框。
+            // Dialog 宿主取 Dialog 窗口；透明 Activity 宿主没有 DialogWindowProvider，回退到 Activity 窗口。
             if (imeInsets.getBottom(density) == 0) {
-                (dialogView.parent as? DialogWindowProvider)?.window?.let { window ->
-                    WindowInsetsControllerCompat(window, dialogView)
+                val hostWindow = (dialogView.parent as? DialogWindowProvider)?.window
+                    ?: (hostContext as? Activity)?.window
+                if (hostWindow != null) {
+                    WindowInsetsControllerCompat(hostWindow, dialogView)
                         .show(WindowInsetsCompat.Type.ime())
                 }
             }
@@ -279,6 +274,35 @@ fun TodoEditDialog(
                 onConfirm = { submit() },
             )
         }
+    }
+
+    // 展开提醒后卡片变高（大字体下更高），统一保留滚动兜底；滚轮自己是嵌套滚动的子节点，
+    // 拖动优先由滚轮消费，不会和卡片的 verticalScroll 抢手势。
+    // 高度过渡用 animateContentSize 而不是 AnimatedContent 的 SizeTransform：后者在
+    // verticalScroll 的无限高度约束下会把新内容按「当前动画高度」测量，卡片停在半程、
+    // 子项被压成 0 高后互相叠在一起（实机复现过）。
+    val cardModifier = Modifier
+        .heightIn(max = maxCardHeight)
+        .animateContentSize(animationSpec = tween(MotionContentIn))
+        .verticalScroll(mainScroll)
+
+    if (inlineHost) {
+        AnchoredDialogContent(
+            onDismiss = onDismiss,
+            contentPadding = PaddingValues(PageGutter),
+            cardModifier = cardModifier,
+            startOnIme = true,
+            content = content,
+        )
+    } else {
+        AnchoredDialog(
+            onDismiss = onDismiss,
+            // 进场就让窗口自己拉起键盘：和卡片上滑同一段动画（见 AnchoredDialog 的 imeAutoShow）。
+            imeAutoShow = true,
+            contentPadding = PaddingValues(PageGutter),
+            cardModifier = cardModifier,
+            content = content,
+        )
     }
 }
 

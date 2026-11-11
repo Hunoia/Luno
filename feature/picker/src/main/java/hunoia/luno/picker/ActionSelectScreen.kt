@@ -105,12 +105,13 @@ fun ActionSelectContent(
             onBack = onDismissRequest,
             dialogs = {
                 // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（architecture §9.2）。
+                // 选中后不在这里卸弹层：由 HabitPickerDialog 播完退场再回调 onDismiss，
+                // 同步置空会把退场动画跳过（退化为瞬时消失）。
                 val pending = pendingHabitWidgetId
                 if (pending != null) {
                     HabitPickerDialog(
                         habits = habitConfig.habits,
                         onSelect = { habit ->
-                            pendingHabitWidgetId = null
                             vm.commitInternalWidget(
                                 pending,
                                 JsonSerializer.encodeToString(HabitWidgetParams(habit.id)),

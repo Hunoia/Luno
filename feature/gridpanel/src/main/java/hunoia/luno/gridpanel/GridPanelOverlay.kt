@@ -158,9 +158,7 @@ object GridPanelOverlay : OverlayPanelHost(
         if (!windowReady || view == null) return
         // 第三方部件点击命中 Activity 型 PendingIntent 时，抬手就让面板开始退场，
         // 不再等 MIUI 延迟数百毫秒的前台窗口事件。
-        PanelAppWidgetHostView.setLaunchCloseListener {
-            (closeAnimated ?: { closeImmediate() }).invoke()
-        }
+        PanelAppWidgetHostView.setLaunchCloseListener { closeForLaunch() }
         lifecycleOwner?.resume()
         if (!shownEventPosted) {
             shownEventPosted = true
@@ -191,6 +189,28 @@ object GridPanelOverlay : OverlayPanelHost(
             }
             .start()
         postDismissed()
+    }
+
+    /**
+     * 拉起别的 Activity（部件 / 待办弹窗）导致面板退场：**先交出焦点再播退场动画**。
+     *
+     * 面板窗口是 focusable 的悬浮窗，退场动画播完才移除；如果一直拿着焦点，新 Activity
+     * 要等整段动画结束才拿到窗口焦点，键盘再晚一截才弹 —— 表现就是「点了没反应，弹窗/
+     * 键盘过一会儿才出来」。降焦点不影响淡出画面，新窗口可以先获得焦点、IME 先起，
+     * 两边并行后卡片正好在面板淡出时接上，也不会出现「面板没了、空白一瞬」的闪动。
+     */
+    private fun closeForLaunch() {
+        val current = view
+        val lp = current?.layoutParams as? WindowManager.LayoutParams
+        if (current != null && lp != null &&
+            lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0
+        ) {
+            lp.flags = lp.flags or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            wm.safeUpdateViewLayout(current, lp)
+        }
+        (closeAnimated ?: { closeImmediate() }).invoke()
     }
 
     /** 组合的 onCloseAnimated 落点：移窗、销毁 owner（组合随之释放）。 */
@@ -270,7 +290,7 @@ object GridPanelOverlay : OverlayPanelHost(
                 LocalGridPanels provides settings.actionGridPanels.panels,
                 LocalSubGestures provides subGestureSettings.subGestures,
                 // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
-                LocalGridPanelClose provides { (closeAnimated ?: { closeImmediate() }).invoke() },
+                LocalGridPanelClose provides { closeForLaunch() },
                 LocalGridPanelDragGhost provides dragGhost,
             ) {
                 Box(Modifier.fillMaxSize()) {

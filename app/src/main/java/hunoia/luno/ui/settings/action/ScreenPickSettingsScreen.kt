@@ -2,7 +2,12 @@ package hunoia.luno.ui.settings.action
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,8 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
@@ -29,6 +36,8 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.AnchoredDialog
+import hunoia.luno.ui.component.sheet.ConfirmDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -219,48 +228,49 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
     }
 
     if (showDiagDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!diagRunning) showDiagDialog = false },
-            title = { Text(stringResource(R.string.screen_pick_diag_group)) },
-            text = {
-                val d = diag
-                Text(
-                    when {
-                        diagRunning || d == null -> sDiagRunning
-                        else -> diagLines(d).joinToString("\n")
-                    },
-                )
-            },
-            confirmButton = {
+        AnchoredDialog(onDismiss = { if (!diagRunning) showDiagDialog = false }) { dismiss ->
+            Text(
+                text = stringResource(R.string.screen_pick_diag_group),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            val d = diag
+            Text(
+                text = when {
+                    diagRunning || d == null -> sDiagRunning
+                    else -> diagLines(d).joinToString("\n")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
                 PressTextButton(
-                    onClick = { showDiagDialog = false },
+                    onClick = dismiss,
                     enabled = !diagRunning,
                 ) {
                     Text(stringResource(hunoia.luno.design.R.string.close))
                 }
-            },
-        )
+            }
+        }
     }
 
     if (confirmDelete) {
-        AlertDialog(
+        ConfirmDialog(
+            title = stringResource(R.string.ocr_model_pp_delete),
+            text = stringResource(R.string.ocr_model_pp_delete_confirm),
+            confirmLabel = stringResource(R.string.ocr_model_delete),
+            destructive = true,
             onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.ocr_model_pp_delete)) },
-            text = { Text(stringResource(R.string.ocr_model_pp_delete_confirm)) },
-            confirmButton = {
-                PressTextButton(
-                    onClick = {
-                        confirmDelete = false
-                        scope.launch { facades.ocrModels.deletePp() }
-                    },
-                ) {
-                    Text(stringResource(R.string.ocr_model_delete))
-                }
-            },
-            dismissButton = {
-                PressTextButton(onClick = { confirmDelete = false }) {
-                    Text(stringResource(R.string.ocr_model_cancel))
-                }
+            onConfirm = {
+                confirmDelete = false
+                scope.launch { facades.ocrModels.deletePp() }
             },
         )
     }

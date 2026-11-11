@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.MaterialTheme
+import hunoia.luno.ui.theme.DialogScrimAlpha
 import hunoia.luno.ui.theme.SheetTopShape
 
 /**
@@ -35,6 +36,8 @@ fun LunoSheet(
         sheetState = sheetState,
         containerColor = containerColor,
         shape = topShape,
+        // 遮罩与 DialogScrim 同一口径（容器自己会把它跟动画一起淡入淡出）。
+        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = DialogScrimAlpha),
         dragHandle = if (showDragHandle) {
             { BottomSheetDefaults.DragHandle() }
         } else {

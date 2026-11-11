@@ -479,8 +479,7 @@ private fun LibraryTypeMenu(
             DropdownMenuItem(
                 text = { Text(def.name) },
                 leadingIcon = {
-                    val icon = def.icon
-                    if (icon is ImageVector) Icon(icon, contentDescription = null) else null
+                    Icon(def.icon, contentDescription = null)
                 },
                 onClick = { onSelect(def.typeId) },
             )

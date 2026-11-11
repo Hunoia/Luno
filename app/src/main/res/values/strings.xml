@@ -307,7 +307,6 @@
     <string name="ocr_result_unselect_word">取消选择此词</string>
 
     <!-- ===== OCR 模型设置页（自 debug APK 资源还原） ===== -->
-    <string name="ocr_model_cancel">取消</string>
     <string name="ocr_model_delete">删除</string>
     <string name="ocr_model_env_group">运行环境</string>
     <string name="ocr_model_gpu_supported">GPU 可用（OpenCL / Adreno，运行时加载 fp32 tflite）</string>

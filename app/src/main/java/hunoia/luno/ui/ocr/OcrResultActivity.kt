@@ -23,7 +23,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -96,7 +95,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -132,6 +130,7 @@ import hunoia.luno.quickaccess.QuickSearchActivity
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
 import hunoia.luno.ui.component.selection.resized
+import hunoia.luno.ui.component.sheet.DialogScrim
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.CompactToolbarHeight
@@ -565,16 +564,9 @@ private fun OcrResultScreen(
             enter = fadeIn(panelMotion.tween()),
             exit = fadeOut(panelMotion.tween()),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(ComposeColor.Black.copy(alpha = 0.35f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = requestClose,
-                    ),
-            )
+            // 遮罩统一走 DialogScrim：与弹层同一份实现（透明度 token、点外部关闭），
+            // 不再写死 Black 0.35（会与 DialogScrimAlpha 口径分叉）。
+            DialogScrim(onClick = requestClose)
         }
         Box(
             modifier = Modifier

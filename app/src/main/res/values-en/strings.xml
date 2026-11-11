@@ -297,7 +297,6 @@
     <string name="ocr_result_unselect_word">Deselect this word</string>
 
     <!-- ===== OCR model settings page (restored from debug APK resources) ===== -->
-    <string name="ocr_model_cancel">Cancel</string>
     <string name="ocr_model_delete">Delete</string>
     <string name="ocr_model_env_group">Runtime</string>
     <string name="ocr_model_gpu_supported">GPU available (OpenCL / Adreno; loads fp32 tflite at runtime)</string>

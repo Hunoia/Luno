@@ -115,6 +115,21 @@ class UiBoundaryTest {
         )
     }
 
+    @Test
+    fun `ui 不自建 M3 AlertDialog`() {
+        // 默认居中 AlertDialog 走平台窗口与窗口 dim，不跟 AnchoredDialog 的遮罩 / 退场动画
+        // （ui-guidelines §4.4）：统一走 AnchoredDialog / ConfirmDialog / LunoSheet。
+        val problems = productionFiles
+            .filter(::isUiCode)
+            .flatMap { file ->
+                file.imports
+                    .map { it.name }
+                    .filter { it == "androidx.compose.material3.AlertDialog" }
+                    .map { "${file.repoPath()} 直接引用 M3 AlertDialog" }
+            }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
     /** main 源集下的 `res/values*` XML（跳过 build 目录，否则会扫到生成物）。 */
     private fun resValuesXml(): List<File> =
         File("..").walkTopDown()

@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.view.WindowCompat
 import hunoia.luno.config.model.canCheck
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.domain.gridpanel.TodoCenter
@@ -26,7 +27,8 @@ import java.time.LocalDate
  * 桌面部件的一次性确认弹窗（习惯打卡 / 待办完成）。
  *
  * 复用 `:ui:design` 的 [ConfirmDialogContent]（底部卡片 + 取消/确认），在独立 Activity 里
- * 直接铺内容，不再套一层 Compose `Dialog`，避免双窗口/双遮罩。
+ * 直接铺内容，不再套一层 Compose `Dialog`，避免双窗口/双遮罩；退场由 `AnchoredDialogContent`
+ * 的两段式动画收尾，宿主不在动作里同步 `finish()`。
  *
  * 部件侧不再维护 pending 状态：点阵/圆点点击只是启动本 Activity；确认后才写回域门面，
  * 再由 [WidgetSync] 刷新部件。取消 / 返回 / 点外部都只关闭弹窗，不改数据。
@@ -46,6 +48,9 @@ class WidgetConfirmDialogActivity : ComponentActivity() {
         val label = intent.getStringExtra(EXTRA_LABEL).orEmpty()
         val count = intent.getIntExtra(EXTRA_COUNT, 0)
         val target = intent.getIntExtra(EXTRA_TARGET, 1)
+        // 与 TodoEditDialogActivity 同口径：弹层自己消费 navigationBars ∪ ime inset，
+        // 不让 decor 再垫一层（否则卡片会比弹窗族其他成员高出一个导航栏）。
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             SideGestureTheme {
                 ConfirmScreen(
@@ -142,15 +147,19 @@ private fun ConfirmScreen(
         title = title,
         text = message,
         onDismiss = { if (!working) onFinished() },
-        onConfirm = {
-            if (working) return@ConfirmDialogContent
-            working = true
-            scope.launch {
-                when (kind) {
-                    WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK -> confirmHabitCheck(context, targetId)
-                    WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE -> confirmTodoComplete(context, targetId)
+        // 写回是异步的：先干活，完成后才开始退场（`dismiss()` → 退场动画播完才 `onFinished()`），
+        // 否则 Activity 会在动画一半时被 finish，确认路径直接瞬消。
+        onConfirm = { dismiss ->
+            if (!working) {
+                working = true
+                scope.launch {
+                    when (kind) {
+                        WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK -> confirmHabitCheck(context, targetId)
+                        WidgetConfirmDialogActivity.ConfirmKind.TODO_COMPLETE -> confirmTodoComplete(context, targetId)
+                    }
+                    working = false
+                    dismiss()
                 }
-                onFinished()
             }
         },
     )

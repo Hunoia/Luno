@@ -1,6 +1,7 @@
 package hunoia.luno.widget
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -24,15 +25,22 @@ class TodoEditDialogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val todoId = intent.getStringExtra(TodoExtras.EXTRA_TODO_ID)
-        // Dialog 主题浮窗：与应用内 Dialog 同样关 decorFitsSystemWindows + ADJUST_NOTHING，
-        // 让 IME inset 派发下来（imePadding 生效），内容顶到键盘上方。
+        // 透明 Activity 直接铺弹层（不套 Compose Dialog）：弹层与 Activity 同属一个窗口，没有
+        // 第二个窗口的创建/焦点延迟，卡片进场与键盘上滑能同时开始，也不会「先画卡片、IME inset
+        // 晚一帧再把卡片顶上去」（双窗口闪动）。
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // 不设 SOFT_INPUT_STATE_ALWAYS_VISIBLE：本窗口第一次获得焦点时输入框还没建立
+        // 编辑会话，系统会直接忽略它（实测 ImeVisibilityStateComputer 打出 ignored），
+        // 真正拉起键盘的是内容里的显式 show。窗口属性保持一次设定，避免 IME 动画期间
+        // 改属性触发系统重算可见性（键盘「往回弹一下」）。
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         setContent {
             // 套 Luno 主题：与页面内 TodoEditDialog（SideGestureTheme 下）视觉一致。
             SideGestureTheme {
                 TodoEditDialog(
                     todoId = todoId,
                     onDismiss = { finish() },
+                    inlineHost = true,
                     onChanged = {
                         lifecycleScope.launch {
                             runCatching { WidgetSync.updateTodoWidgets(applicationContext) }

@@ -589,8 +589,9 @@ class AnnotateOverlay(
 
     private fun hideIme() {
         val view = canvasView ?: return
-        view.clearFocus()
         val imm = service.getSystemService(InputMethodManager::class.java) ?: return
+        // 先 hide、不清焦点：先 `clearFocus()` 会先断 InputConnection，平台会瞬断键盘
+        // （没有下滑动画）。窗口拆除 / 改为不可聚焦时焦点自然失效。
         runCatching { imm.hideSoftInputFromWindow(view.windowToken, 0) }
     }
 

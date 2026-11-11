@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +36,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.sheet.AnchoredDialog
+import hunoia.luno.ui.theme.ListSpacing
 
 /** 推迟时长下限（分钟）。 */
 internal const val SnoozeMinMinutes = 1
@@ -67,74 +69,83 @@ internal fun SnoozeDurationDialog(
     }
     val hour = total / 60
     val minute = total % 60
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.snooze_dialog_title)) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                MinuteDial(
-                    minute = minute,
-                    enabled = hour < 6,
-                    onMinuteChange = { picked ->
-                        val safeMinute = if (hour == 0) {
-                            picked.coerceIn(1, 59)
-                        } else {
-                            picked.coerceIn(0, 59)
-                        }
-                        total = hour * 60 + safeMinute
-                    },
-                )
-                Text(
-                    text = snoozeDurationLabel(total),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = stringResource(R.string.snooze_hours_unit),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    (0..6).forEach { h ->
-                        PressFilterChip(
-                            selected = h == hour,
-                            onClick = {
-                                total = when {
-                                    h == 6 -> SnoozeMaxMinutes
-                                    h == 0 -> (total % 60).coerceAtLeast(SnoozeMinMinutes)
-                                    else -> h * 60 + (total % 60)
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = h.toString(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
+    AnchoredDialog(onDismiss = onDismiss) { dismiss ->
+        Text(
+            text = stringResource(R.string.snooze_dialog_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            MinuteDial(
+                minute = minute,
+                enabled = hour < 6,
+                onMinuteChange = { picked ->
+                    val safeMinute = if (hour == 0) {
+                        picked.coerceIn(1, 59)
+                    } else {
+                        picked.coerceIn(0, 59)
                     }
+                    total = hour * 60 + safeMinute
+                },
+            )
+            Text(
+                text = snoozeDurationLabel(total),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.snooze_hours_unit),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                (0..6).forEach { h ->
+                    PressFilterChip(
+                        selected = h == hour,
+                        onClick = {
+                            total = when {
+                                h == 6 -> SnoozeMaxMinutes
+                                h == 0 -> (total % 60).coerceAtLeast(SnoozeMinMinutes)
+                                else -> h * 60 + (total % 60)
+                            }
+                        },
+                        label = {
+                            Text(
+                                text = h.toString(),
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
-        },
-        confirmButton = {
-            PressTextButton(onClick = { onConfirm(total) }) {
-                Text(stringResource(hunoia.luno.design.R.string.confirm))
-            }
-        },
-        dismissButton = {
-            PressTextButton(onClick = onDismiss) {
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1f))
+            PressTextButton(onClick = dismiss) {
                 Text(stringResource(hunoia.luno.design.R.string.cancel))
             }
-        },
-    )
+            PressTextButton(
+                onClick = {
+                    onConfirm(total)
+                    dismiss()
+                },
+            ) {
+                Text(stringResource(hunoia.luno.design.R.string.confirm))
+            }
+        }
+    }
 }
 
 /** 60 刻度的分钟表盘：12 点方向为 0 分，顺时针递增；拖动 / 点按都能改。 */

@@ -126,20 +126,22 @@ def ui_tokens_doc() -> str:
 
 def ui_components_doc() -> str:
     root = ROOT / "ui/design/src/main/java/hunoia/luno/ui/component"
-    # 允许 `fun <T> Name(...)`：泛型 composable 也要进索引，否则索引会漏（WheelColumn 踩过）。
+    # 允许 `fun <T> Name(...)`（泛型）与 `fun Modifier.name(...)`（扩展）：只捕获真正的名字，
+    # 否则索引会漏泛型（WheelColumn 踩过）或把接收者 `Modifier` / `ColumnScope` 当组件名。
+    # `private` 是文件内实现细节，不进组件索引。
     composable_re = re.compile(
-        r"@Composable\s+(?:private\s+|internal\s+|public\s+)?fun\s+(?:<[^<>]*>\s*)?(\w+)"
+        r"@Composable\s+(?:(internal|public)\s+)?fun\s+(?:<[^<>]*>\s*)?(?:[\w.<>]+\.)?(\w+)"
     )
     lines = [
         "# UI 组件索引（自动生成）",
         "",
-        AUTO + "> 来源：`ui/design/src/main/java/hunoia/luno/ui/component/**/*.kt`。",
+        AUTO + "> 来源：`ui/design/src/main/java/hunoia/luno/ui/component/**/*.kt`（只列非 `private` 顶层 Composable）。",
         "",
         "| 文件 | 顶层 Composable |",
         "|---|---|",
     ]
     for path in sorted(root.rglob("*.kt")):
-        names = list(dict.fromkeys(composable_re.findall(read(path))))
+        names = list(dict.fromkeys(name for _vis, name in composable_re.findall(read(path))))
         name_text = ", ".join(f"`{name}`" for name in names) if names else "—"
         lines.append(f"| `{rel(path)}` | {name_text} |")
     lines.append("")

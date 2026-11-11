@@ -1,13 +1,9 @@
 package hunoia.luno.ui.component.sheet
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -81,34 +77,24 @@ fun ConfirmDialog(
 fun ConfirmDialogContent(
     title: String,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
+    // 确认后由调用方决定何时退场：同步动作直接调 `dismiss()`；异步写回先干活、完成后再 `dismiss()`，
+    // 退场播完才回调 [onDismiss]。这样宿主不必在动作里同步卸载本弹层（会截断退场）。
+    onConfirm: (dismiss: () -> Unit) -> Unit,
     text: String? = null,
     confirmLabel: String = stringResource(R.string.confirm),
     dismissLabel: String = stringResource(R.string.cancel),
     destructive: Boolean = false,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss,
-            ),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        DialogScrim()
-        DialogCard {
-            ConfirmCardContent(
-                title = title,
-                text = text,
-                confirmLabel = confirmLabel,
-                dismissLabel = dismissLabel,
-                destructive = destructive,
-                onDismiss = onDismiss,
-                onConfirm = onConfirm,
-            )
-        }
+    AnchoredDialogContent(onDismiss = onDismiss) { dismiss ->
+        ConfirmCardContent(
+            title = title,
+            text = text,
+            confirmLabel = confirmLabel,
+            dismissLabel = dismissLabel,
+            destructive = destructive,
+            onDismiss = dismiss,
+            onConfirm = { onConfirm(dismiss) },
+        )
     }
 }
 
@@ -172,8 +158,8 @@ fun TextInputDialog(
     AnchoredDialog(onDismiss = onDismissRequest, imeAutoShow = true) { dismiss ->
         fun submit() {
             if (!confirmEnabled) return
-            // 不收键盘：AnchoredDialog 在退场时先 hide 再等 IME 落定，
-            // 提前 hide 会让键盘下滑和卡片退场各跑一段。
+            // 不在确认时收键盘：AnchoredDialog 退场会 hide，键盘自己滑完；提前 hide 会让
+            // 键盘下滑与卡片退场各跑一段。
             curOnConfirm(textValue.text)
             dismiss()
         }
