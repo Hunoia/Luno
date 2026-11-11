@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.recentspicker
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,10 +15,19 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -27,25 +37,26 @@ import coil3.compose.AsyncImage
 import coil3.imageLoader
 import hunoia.luno.action.model.RecentsPickerLayout
 import hunoia.luno.core.domain.RecentApp
-import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.icon.rememberAppDrawable
 import hunoia.luno.ui.icon.rememberAppLabel
 import kotlin.math.absoluteValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 
 /** 滚轮露出多少行（奇数，选中行居中），与时间滚轮一致。 */
 internal const val RecentsWheelVisibleRows = 3
 
-/** 图标边长。 */
-private val RecentsWheelIconSize = 60.dp
-
 /** 行内图标四周留白：行沿滚动轴尺寸 = 图标 + 两侧留白。 */
-private val RecentsWheelRowPadding = 10.dp
+internal val RecentsWheelRowPadding = 10.dp
 
-/** 行沿滚动轴尺寸。 */
-internal val RecentsWheelRowSize = RecentsWheelIconSize + RecentsWheelRowPadding * 2
+/** 滚轮横截面在图标外的加成：横截面尺寸 = 图标 + 加成（竖向宽 / 横向高）。 */
+internal val RecentsWheelCrossPadding = 28.dp
 
-/** 滚轮横截面尺寸：竖向时是滚轮宽度，横向时是滚轮高度。 */
-internal val RecentsWheelCrossSize = 88.dp
+/** 行沿滚动轴尺寸（随图标大小）：图标 + 两侧留白。 */
+internal fun recentsWheelRowSize(iconSize: Dp): Dp = iconSize + RecentsWheelRowPadding * 2
+
+/** 滚轮横截面尺寸（随图标大小）：竖向宽 / 横向高。 */
+internal fun recentsWheelCrossSize(iconSize: Dp): Dp = iconSize + RecentsWheelCrossPadding
 
 /** 离中心每远一行衰减多少不透明度；再远也不低于 [RecentsWheelMinAlpha]。 */
 private const val RecentsWheelFadePerRow = 0.35f
@@ -77,13 +88,23 @@ fun RecentsWheel(
     apps: List<RecentApp>,
     listState: LazyListState,
     layout: RecentsPickerLayout,
+    iconSize: Dp,
     onAppTap: (RecentApp) -> Unit,
+    onAppLongPress: (RecentApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (apps.isEmpty()) return
-    val rowSize = RecentsWheelRowSize
-    val crossSize = RecentsWheelCrossSize
+    val rowSize = recentsWheelRowSize(iconSize)
+    val crossSize = recentsWheelCrossSize(iconSize)
     val fling = rememberSnapFlingBehavior(lazyListState = listState)
+    // 滚动时当前项变化：移动到新图标上振动一下（选中反馈）。
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(listState) {
+        snapshotFlow { centeredItemIndex(listState) }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
+    }
 
     val wheelWidth: Dp = if (layout == RecentsPickerLayout.VERTICAL) crossSize else rowSize * RecentsWheelVisibleRows
     val wheelHeight: Dp = if (layout == RecentsPickerLayout.VERTICAL) rowSize * RecentsWheelVisibleRows else crossSize
@@ -113,7 +134,9 @@ fun RecentsWheel(
                         layout = layout,
                         rowSize = rowSize,
                         crossSize = crossSize,
+                        iconSize = iconSize,
                         onAppTap = onAppTap,
+                        onAppLongPress = onAppLongPress,
                     )
                 }
             }
@@ -132,7 +155,9 @@ fun RecentsWheel(
                         layout = layout,
                         rowSize = rowSize,
                         crossSize = crossSize,
+                        iconSize = iconSize,
                         onAppTap = onAppTap,
+                        onAppLongPress = onAppLongPress,
                     )
                 }
             }
@@ -148,7 +173,9 @@ private fun RecentsWheelRow(
     layout: RecentsPickerLayout,
     rowSize: Dp,
     crossSize: Dp,
+    iconSize: Dp,
     onAppTap: (RecentApp) -> Unit,
+    onAppLongPress: (RecentApp) -> Unit,
 ) {
     val context = LocalContext.current
     val icon = rememberAppDrawable("app/${app.blockKey}") {
@@ -167,6 +194,9 @@ private fun RecentsWheelRow(
     val cloneLabel = stringResource(hunoia.luno.actions.R.string.app_clone_label)
     val description = if (app.userId == 0) appLabel else "$appLabel · $cloneLabel"
 
+    // 按压缩放（不读 CompositionLocal，detach 安全）：detectTapGestures 驱动 pressed 状态。
+    var pressed by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .size(
@@ -175,14 +205,31 @@ private fun RecentsWheelRow(
             )
             .wheelRowFalloff(listState, index, layout)
             .semantics { contentDescription = description }
-            .pressClickable { onAppTap(app) },
+            // 点击 = 全屏（onAppTap），长按 = 小窗（onAppLongPress）。
+            // 不用 combinedClickable：它在 Modifier 节点 detach 后仍处理 DOWN 会读 CompositionLocal 崩溃。
+            .graphicsLayer {
+                val s = if (pressed) 0.9f else 1f
+                scaleX = s
+                scaleY = s
+            }
+            .pointerInput(app) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        tryAwaitRelease()
+                        pressed = false
+                    },
+                    onTap = { onAppTap(app) },
+                    onLongPress = { onAppLongPress(app) },
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (icon != null) {
             AsyncImage(
                 model = icon,
                 contentDescription = null,
-                modifier = Modifier.size(RecentsWheelIconSize),
+                modifier = Modifier.size(iconSize),
                 imageLoader = context.imageLoader,
             )
         } else {
@@ -190,7 +237,7 @@ private fun RecentsWheelRow(
                 imageVector = Icons.Default.Android,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(RecentsWheelIconSize),
+                modifier = Modifier.size(iconSize),
             )
         }
     }

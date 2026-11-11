@@ -21,6 +21,7 @@ import hunoia.luno.action.model.RecentsPickerLayout
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.Events
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.domain.AppLaunchAction
 import hunoia.luno.core.domain.DispatchOrigin
@@ -101,6 +102,7 @@ object RecentsPickerOverlay : OverlayPanelHost(
             return
         }
         if (!shownEventPosted && view == null) return
+        Log.i(LOG_TAG, "recents picker close: view=${view != null} attached=${view?.isAttachedToWindow} shown=$shownEventPosted")
         closeImmediate()
     }
 
@@ -124,34 +126,57 @@ object RecentsPickerOverlay : OverlayPanelHost(
             val s = state ?: return@SideGestureTheme
             RecentsPickerContent(
                 state = s,
-                onLaunch = { app -> launchApp(app) },
-                onDismiss = { close() },
+                onLaunch = { app -> launchApp(app, miniWindow = false) },
+                onLongPress = { app -> launchApp(app, miniWindow = true) },
+                onDismiss = { closeAfterGesture() },
             )
         }
     }
 
-    /** 点选：启动该应用（带 userId 直达分身实例），成功即关窗。 */
-    private fun launchApp(app: RecentApp) {
+    /**
+     * 手势回调路径的关闭：延迟一帧执行。`detectTapGestures` 的 onTap/onLongPress 仍
+     * 在 pointer 协程里，此时同步 `removeViewImmediate` 会抛
+     * `Already resumed, but proposed with update`（Compose pointer 协程未结束）→ 移除失败
+     * → 全屏窗口残留挡触摸。post 到下一帧让 pointer 协程先结束再移窗。
+     */
+    private fun closeAfterGesture() {
+        mainHandler.post { close() }
+    }
+
+    /** 点选/长按：启动该应用（带 userId 直达分身实例），点击全屏、长按小窗；发起即收窗。 */
+    private fun launchApp(app: RecentApp, miniWindow: Boolean) {
+        // 小窗防抖：与按住停留（hold 检测）共享同一份状态，同一会话只放行一次小窗。
+        if (miniWindow) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - (state?.lastMiniWindowLaunchAtMs ?: 0L) < RECENTS_MINI_DEBOUNCE_MS) return
+            state?.lastMiniWindowLaunchAtMs = now
+        }
         SurfaceDispatch.dispatch(
             action = AppLaunchAction.stored(
                 packageName = app.packageName,
                 userId = app.userId,
+                miniWindow = miniWindow,
             ),
             origin = DispatchOrigin.PANEL,
-        ) { launched -> if (launched) close() }
+        ) { _ -> closeAfterGesture() }
     }
 }
+
+/** 小窗启动防抖：长按图标与按住停留可能同时触发，间隔内只启动一次。 */
+private const val RECENTS_MINI_DEBOUNCE_MS = 800L
 
 /** 全屏滚轮内容：底色遮罩 + 触点定位滚轮；空白点击取消。 */
 @Composable
 private fun RecentsPickerContent(
     state: RecentsPickerState,
     onLaunch: (RecentApp) -> Unit,
+    onLongPress: (RecentApp) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val rowSizePx = with(density) { RecentsWheelRowSize.toPx() }
-    val crossPx = with(density) { RecentsWheelCrossSize.toPx() }
+    val iconSize = state.iconSizeDp.dp
+    val rowSizePx = with(density) { recentsWheelRowSize(iconSize).toPx() }
+    val crossPx = with(density) { recentsWheelCrossSize(iconSize).toPx() }
     val vertical = state.layout == RecentsPickerLayout.VERTICAL
     val wheelWidthPx = if (vertical) crossPx else rowSizePx * RecentsWheelVisibleRows
     val wheelHeightPx = if (vertical) rowSizePx * RecentsWheelVisibleRows else crossPx
@@ -184,7 +209,9 @@ private fun RecentsPickerContent(
             apps = state.apps,
             listState = state.listState,
             layout = state.layout,
+            iconSize = iconSize,
             onAppTap = onLaunch,
+            onAppLongPress = onLongPress,
             modifier = Modifier.offset {
                 val maxX = (screenWidth - wheelWidthPx).roundToInt() - marginPx
                 val maxY = (screenHeight - wheelHeightPx).roundToInt() - marginPx

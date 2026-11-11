@@ -94,16 +94,24 @@ class ActionMapperTest {
         val horizontal = ActionMapper.fromStored(
             StoredAction(
                 "internal.recentsPicker",
-                buildJsonObject { put("layout", JsonPrimitive("HORIZONTAL")) },
+                buildJsonObject {
+                    put("layout", JsonPrimitive("HORIZONTAL"))
+                    put("sensitivityPercent", JsonPrimitive("250"))
+                    put("iconSizeDp", JsonPrimitive("84"))
+                },
             ),
         ) as Action.RecentsPicker
         assertEquals(RecentsPickerLayout.HORIZONTAL, horizontal.layout)
+        assertEquals(250, horizontal.blankScrollSensitivityPercent)
+        assertEquals(84, horizontal.iconSizeDp)
 
-        // 未写 layout 落默认竖向；值存在却非法按枚举约定抛受控异常（不裸 valueOf 崩协程）。
+        // 未写 layout 落默认竖向，参数落 null（默认值由实现侧决定）。
         val fallback = ActionMapper.fromStored(
             StoredAction("internal.recentsPicker", JsonObject(emptyMap())),
         ) as Action.RecentsPicker
         assertEquals(RecentsPickerLayout.VERTICAL, fallback.layout)
+        assertEquals(null, fallback.blankScrollSensitivityPercent)
+        assertEquals(null, fallback.iconSizeDp)
 
         try {
             ActionMapper.fromStored(
@@ -119,19 +127,39 @@ class ActionMapperTest {
     }
 
     @Test
-    fun `recents picker config decode falls back to vertical`() {
+    fun `recents picker config decode falls back to defaults`() {
         val horizontal = StoredAction(
             "internal.recentsPicker",
-            buildJsonObject { put("layout", JsonPrimitive("HORIZONTAL")) },
+            buildJsonObject {
+                put("layout", JsonPrimitive("HORIZONTAL"))
+                put("sensitivityPercent", JsonPrimitive("250"))
+                put("iconSizeDp", JsonPrimitive("84"))
+            },
         )
-        assertEquals(RecentsPickerLayout.HORIZONTAL, horizontal.recentsPickerConfigOrDefault().layout)
+        val config = horizontal.recentsPickerConfigOrDefault()
+        assertEquals(RecentsPickerLayout.HORIZONTAL, config.layout)
+        assertEquals(250, config.blankScrollSensitivityPercent)
+        assertEquals(84, config.iconSizeDp)
 
+        // 未写参数落默认（100 / 60），脏值同样回落默认。
         val default = StoredAction("internal.recentsPicker", JsonObject(emptyMap()))
-        assertEquals(RecentsPickerLayout.VERTICAL, default.recentsPickerConfigOrDefault().layout)
+        assertEquals(100, default.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
+        assertEquals(60, default.recentsPickerConfigOrDefault().iconSizeDp)
+
+        val dirty = StoredAction(
+            "internal.recentsPicker",
+            buildJsonObject {
+                put("sensitivityPercent", JsonPrimitive("abc"))
+                put("iconSizeDp", JsonPrimitive("xyz"))
+            },
+        )
+        assertEquals(100, dirty.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
+        assertEquals(60, dirty.recentsPickerConfigOrDefault().iconSizeDp)
 
         // 非本动作类型读不到参数，也落默认。
         val other = StoredAction("internal.volumeScrub", JsonObject(emptyMap()))
-        assertEquals(RecentsPickerLayout.VERTICAL, other.recentsPickerConfigOrDefault().layout)
+        assertEquals(100, other.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
+        assertEquals(60, other.recentsPickerConfigOrDefault().iconSizeDp)
     }
 
     @Test

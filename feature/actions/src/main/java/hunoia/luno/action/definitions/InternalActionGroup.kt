@@ -79,7 +79,7 @@ internal object InternalActionGroup : ActionGroup {
             icon = Icons.Default.TouchApp),
         // 最近应用滚动选择器：触发方式（按住/抬手）由手势类型自动决定，
         // 排列方向在动作选择页行尾设置按钮里配。
-        ActionDefinition("internal.recentsPicker", "最近应用滚动选择器", ActionCategory.GESTURE_TOOL, Capability.None,
+        ActionDefinition("internal.recentsPicker", "最近应用", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.FormatListBulleted),
         // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
@@ -130,6 +130,10 @@ internal object InternalActionGroup : ActionGroup {
         ActionMappingRegistry.register("internal.recentsPicker") { p ->
             Action.RecentsPicker(
                 layout = p.enumValueOr("layout", RecentsPickerLayout.VERTICAL),
+                // 未写 = null，默认值由实现侧（配置层）决定，映射层不持默认。
+                blankScrollSensitivityPercent =
+                    (p["sensitivityPercent"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull(),
+                iconSizeDp = (p["iconSizeDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull(),
             )
         }
         ActionMappingRegistry.register("internal.previousApp") { Action.PreviousApp }

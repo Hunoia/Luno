@@ -247,6 +247,10 @@ sealed interface Action {
     data class RecentsPicker(
         /** 滚轮排列方向：竖向 / 横向。未指定时由实现侧用配置默认值。 */
         val layout: RecentsPickerLayout = RecentsPickerLayout.VERTICAL,
+        /** 列表外滑动灵敏度（百分比，100 = 1.0x）。null = 用实现侧默认。 */
+        val blankScrollSensitivityPercent: Int? = null,
+        /** 图标边长 dp。null = 用实现侧默认。 */
+        val iconSizeDp: Int? = null,
     ) : Action {
         override val typeId: String = "internal.recentsPicker"
     }

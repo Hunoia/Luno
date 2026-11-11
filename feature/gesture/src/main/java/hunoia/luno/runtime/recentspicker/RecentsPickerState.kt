@@ -34,9 +34,20 @@ class RecentsPickerState(
     var layout by mutableStateOf(RecentsPickerLayout.VERTICAL)
         private set
 
+    /** 列表外滑动灵敏度（百分比，100 = 1.0x）：作用于按住触发与 overlay 空白拖动。 */
+    var blankScrollSensitivityPercent by mutableStateOf(100)
+        private set
+
+    /** 图标边长 dp。 */
+    var iconSizeDp by mutableStateOf(60)
+        private set
+
     /** 触发锚点（屏幕 px）：滚轮中心落在此处，夹取屏内。 */
     var anchor by mutableStateOf(Offset.Zero)
         private set
+
+    /** 小窗启动防抖：同一次按住会话内，长按/停留只触发一次小窗（uptimeMillis）。 */
+    var lastMiniWindowLaunchAtMs = 0L
 
     /**
      * 共享滚动状态：每次 [activate] 重建，初始居中「最新一条」（历史旧→新，末尾最新）。
@@ -48,10 +59,19 @@ class RecentsPickerState(
     private var pendingDelta = 0f
     private var scrollJob: Job? = null
 
-    fun activate(apps: List<RecentApp>, layout: RecentsPickerLayout, anchor: Offset) {
+    fun activate(
+        apps: List<RecentApp>,
+        layout: RecentsPickerLayout,
+        blankScrollSensitivityPercent: Int,
+        iconSizeDp: Int,
+        anchor: Offset,
+    ) {
         this.apps = apps
         this.layout = layout
+        this.blankScrollSensitivityPercent = blankScrollSensitivityPercent
+        this.iconSizeDp = iconSizeDp
         this.anchor = anchor
+        lastMiniWindowLaunchAtMs = 0L
         isActive = true
         pendingDelta = 0f
         scrollJob?.cancel()
@@ -67,7 +87,9 @@ class RecentsPickerState(
             RecentsPickerLayout.HORIZONTAL -> dragAmount.x
         }
         if (delta == 0f) return
-        pendingDelta += delta
+        // 列表外滑动灵敏度：按住触发（管线 onMove）与 overlay 空白拖动（detectDragGestures）
+        // 都走这里，一并放大/缩小；滚轮自身拖动（LazyColumn 子节点）不经过 onDrag，保持 1:1。
+        pendingDelta += delta * blankScrollSensitivityPercent / 100f
         if (scrollJob?.isActive != true) {
             scrollJob = scope.launch {
                 while (pendingDelta != 0f) {
@@ -103,6 +125,9 @@ class RecentsPickerState(
         scrollJob = null
         apps = emptyList()
     }
+
+    /** 当前选中（视口中心）的应用；无布局/空列表时返回 null（此时视为「不在图标上」）。 */
+    fun centeredApp(): RecentApp? = apps.getOrNull(centeredItemIndex(listState))
 
     fun clear() = onDragCancel()
 }

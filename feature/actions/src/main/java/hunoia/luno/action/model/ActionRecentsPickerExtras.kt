@@ -1,5 +1,7 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.config.defaults.ActionSettingsDefaults.RecentsPickerIconSizeDp
+import hunoia.luno.config.defaults.ActionSettingsDefaults.RecentsPickerSensitivityPercent
 import hunoia.luno.config.model.RecentsPickerConfig
 import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,5 +20,10 @@ fun StoredAction.recentsPickerConfigOrDefault(): RecentsPickerConfig {
             "HORIZONTAL" -> RecentsPickerLayout.HORIZONTAL
             else -> RecentsPickerLayout.VERTICAL
         },
+        blankScrollSensitivityPercent =
+            (params["sensitivityPercent"] as? JsonPrimitive)?.contentOrNull
+                ?.toIntOrNull() ?: RecentsPickerSensitivityPercent,
+        iconSizeDp = (params["iconSizeDp"] as? JsonPrimitive)?.contentOrNull
+            ?.toIntOrNull() ?: RecentsPickerIconSizeDp,
     )
 }

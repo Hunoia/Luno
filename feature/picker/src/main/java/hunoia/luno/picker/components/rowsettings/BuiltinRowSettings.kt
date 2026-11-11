@@ -72,19 +72,30 @@ internal object BuiltinRowSettings {
         typeId = "internal.recentsPicker",
         titleRes = R.string.row_dialog_recents_picker,
         subtitle = { params, context ->
-            context.getString(
+            val layoutText = context.getString(
                 if (params.str("layout", RowSettingsDefaults.RecentsPickerLayout) == "HORIZONTAL") {
                     R.string.row_settings_recents_layout_horizontal
                 } else {
                     R.string.row_settings_recents_layout_vertical
                 },
             )
+            val sensitivity = params.int("sensitivityPercent", RowSettingsDefaults.RecentsPickerSensitivityPercent)
+            val iconSize = params.int("iconSizeDp", RowSettingsDefaults.RecentsPickerIconSizeDp)
+            "$layoutText · ${sensitivity / 100.0}x · ${iconSize}dp"
         },
         canonicalize = { draft ->
             buildJsonObject {
                 put(
                     "layout",
                     JsonPrimitive(draft.str("layout", RowSettingsDefaults.RecentsPickerLayout)),
+                )
+                put(
+                    "sensitivityPercent",
+                    JsonPrimitive(draft.int("sensitivityPercent", RowSettingsDefaults.RecentsPickerSensitivityPercent)),
+                )
+                put(
+                    "iconSizeDp",
+                    JsonPrimitive(draft.int("iconSizeDp", RowSettingsDefaults.RecentsPickerIconSizeDp)),
                 )
             }
         },
@@ -98,6 +109,23 @@ internal object BuiltinRowSettings {
                 ),
                 selectedIndex = if (layout == "HORIZONTAL") 1 else 0,
             ) { scope.setStr("layout", if (it == 1) "HORIZONTAL" else "VERTICAL") }
+            // 列表外滑动灵敏度：按住触发与 overlay 空白拖动都放大/缩小，滚轮自身保持 1:1。
+            val sensitivity = scope.draft.int("sensitivityPercent", RowSettingsDefaults.RecentsPickerSensitivityPercent)
+            SettingSlider(
+                value = sensitivity.toFloat(),
+                onValueChange = { scope.setInt("sensitivityPercent", it.toInt()) },
+                title = stringResource(R.string.row_settings_sensitivity),
+                valueDisplay = { "${it.toInt() / 100.0}x" },
+                valueRange = 50f..300f,
+            )
+            val iconSize = scope.draft.int("iconSizeDp", RowSettingsDefaults.RecentsPickerIconSizeDp)
+            SettingSlider(
+                value = iconSize.toFloat(),
+                onValueChange = { scope.setInt("iconSizeDp", it.toInt()) },
+                title = stringResource(R.string.row_settings_recents_icon_size),
+                valueDisplay = { "${it.toInt()}dp" },
+                valueRange = 48f..108f,
+            )
         },
     )
 

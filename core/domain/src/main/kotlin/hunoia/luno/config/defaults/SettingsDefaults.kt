@@ -54,4 +54,9 @@ object ActionSettingsDefaults {
 
     const val HideGestureButtonDelayMs = 1000L
     const val VolumeScrubStepThresholdDp = 14
+
+    /** 最近应用滚轮：列表外滑动灵敏度（百分比，100 = 1.0x）。 */
+    const val RecentsPickerSensitivityPercent = 100
+    /** 最近应用滚轮：图标边长 dp。 */
+    const val RecentsPickerIconSizeDp = 60
 }

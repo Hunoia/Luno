@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.os.SystemClock
 import android.os.UserHandle
 import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
@@ -63,6 +64,10 @@ object Launcher {
                 anchor = anchor,
             )
         }
+        val tLaunch = SystemClock.uptimeMillis()
+        if (miniWindow) {
+            Log.i(LOG_TAG, "miniWindow launch begin pkg=$packageName user=$userId t=$tLaunch")
+        }
         return try {
             // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
             // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
@@ -73,7 +78,15 @@ object Launcher {
                     } else {
                         null
                     }
-                    if (ShizukuManager.startActivityAsUser(intent, 0, options)) return true
+                    if (ShizukuManager.startActivityAsUser(intent, 0, options)) {
+                        if (miniWindow) {
+                            Log.i(
+                                LOG_TAG,
+                                "miniWindow shizuku launched elapsedMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+                            )
+                        }
+                        return true
+                    }
                 }
             }
             val pm = context.packageManager
@@ -270,17 +283,27 @@ object Launcher {
         settings: MiniWindowSettings,
         anchor: Pair<Int, Int>?,
     ) {
+        val t0 = SystemClock.uptimeMillis()
         var taskId: Int? = null
+        var polls = 0
         for (attempt in 0 until 6) {
             if (attempt > 0) delay(120)
+            polls = attempt + 1
             val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
             taskId = parseTaskId(list.stdout, packageName, userId)
             if (taskId != null) break
         }
-        val id = taskId ?: return
+        val id = taskId ?: run {
+            Log.i(LOG_TAG, "miniWindow bounds NOT FOUND polls=$polls t=${SystemClock.uptimeMillis() - t0}ms")
+            return
+        }
         val bounds = MiniWindowGeometry.resolveBounds(context, settings, anchor)
         ShizukuManager.executeShell(
             "am task resize $id ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}",
+        )
+        Log.i(
+            LOG_TAG,
+            "miniWindow bounds applied task=$id polls=$polls elapsedMs=${SystemClock.uptimeMillis() - t0}",
         )
     }
 
@@ -741,8 +764,14 @@ private object MiniWindow {
         anchor: Pair<Int, Int>? = null,
     ): Boolean {
         return try {
+            val t0 = SystemClock.uptimeMillis()
             val activityOptions = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+            val tOptions = SystemClock.uptimeMillis()
             context.startActivity(intent, activityOptions)
+            Log.i(
+                LOG_TAG,
+                "miniWindow startActivity done optionsMs=${tOptions - t0} t=${SystemClock.uptimeMillis()}",
+            )
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "startActivity in mini window failed", e)

@@ -1,7 +1,10 @@
 package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
+import android.os.SystemClock
 import hunoia.luno.action.model.Action
+import hunoia.luno.action.model.RecentsPickerLayout
 import hunoia.luno.action.model.recentsPickerConfigOrDefault
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.bridge.ui.showToast
@@ -17,6 +20,9 @@ import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.isPlainSlideType
 import hunoia.luno.core.BallTapActionEvent
 import hunoia.luno.core.Events
+import hunoia.luno.core.domain.AppLaunchAction
+import hunoia.luno.core.domain.DispatchOrigin
+import hunoia.luno.core.domain.RecentApp
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.gesture.GestureDecision
@@ -30,14 +36,26 @@ import hunoia.luno.gesture.VolumeScrubState
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.pointer.PointerSession
 import hunoia.luno.runtime.recentspicker.RecentsPickerState
+import hunoia.luno.runtime.recentspicker.RecentsWheelVisibleRows
+import hunoia.luno.runtime.recentspicker.recentsWheelCrossSize
+import hunoia.luno.runtime.recentspicker.recentsWheelRowSize
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.panelTeardownDelayMillis
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
+
+/** 小窗启动防抖：长按图标与按住停留可能同时触发，间隔内只启动一次。 */
+private const val RECENTS_MINI_DEBOUNCE_MS = 800L
+
+/** 按住静止判定的位移死区（px）：微抖不重置计时，真正拖动才重置。 */
+private const val RECENTS_HOLD_JITTER_PX = 10f
 
 /** 面板收起主 overlay 前的等待：盖住 ActionPanel 的淡出动画，不等窗口会先缩成 1x1 导致内容跳位。 */
 val ACTION_PANEL_FADE_OUT_MS: Long
@@ -84,6 +102,16 @@ class GestureSessionPipeline(
     val actionPanelState: ActionPanelState = ActionPanelState(scope)
     private val volumeScrubState = VolumeScrubState(hunoia.luno.core.AppContext.get())
     private val recentsPickerState = RecentsPickerState(scope)
+
+    /** 按住触发长按停留检测：手指静止超阈值 → 小窗打开当前选中项（不等抬手）。 */
+    private var recentsHoldJob: Job? = null
+    private var recentsLastDragMs = 0L
+
+    /** 按住触发抬手坐标判定：累计手指位移，锚点 + 累计 = 手指当前位置（屏幕 px）。 */
+    private var recentsDragTotal = Offset.Zero
+
+    /** 按住触发静止计时起点的累计位移：手指相对它离开死区才算真正移动（微抖容差）。 */
+    private var recentsHoldAnchor = Offset.Zero
     val pointer: PointerSession = PointerSession(
         initialSettings = initial.gestureSettings.pointer,
         onStart = { s -> callbacks.onPointerStart(s) },
@@ -188,7 +216,20 @@ class GestureSessionPipeline(
             return
         }
         if (recentsPickerState.isActive) {
-            // 按住类触发：管线继续喂拖动，滚轮实时跟随；抬手后 onUp 收成预览。
+            // 按住类触发：管线继续喂拖动，滚轮实时跟随；抬手后 onUp 开当前项或预览。
+            // 位移非 0 才参与静止判定：静止长按检测只认真正的手指停留。
+            if (dragAmount.x != 0f || dragAmount.y != 0f) {
+                // 累计位移：抬手坐标判定（锚点 + 累计 = 手指当前位置）。
+                recentsDragTotal += dragAmount
+                // 静止长按检测只认真正的手指停留：手指离开死区（相对计时起点的累计位移）
+                // 才算移动，重置计时并换新锚点；微抖在死区内不重置，避免按住停留被抖动无限推迟。
+                val driftX = recentsDragTotal.x - recentsHoldAnchor.x
+                val driftY = recentsDragTotal.y - recentsHoldAnchor.y
+                if (driftX * driftX + driftY * driftY > RECENTS_HOLD_JITTER_PX * RECENTS_HOLD_JITTER_PX) {
+                    recentsLastDragMs = SystemClock.uptimeMillis()
+                    recentsHoldAnchor = recentsDragTotal
+                }
+            }
             recentsPickerState.onDrag(dragAmount)
             return
         }
@@ -234,7 +275,15 @@ class GestureSessionPipeline(
             return
         }
         if (recentsPickerState.isActive) {
-            // 按住类触发的松手：滚轮收成预览（不启动，等点选），窗口保留。
+            // 按住类触发的松手：手指落在滚轮中心行内且有选中项 → 打开当前项全屏；否则进预览。
+            stopRecentsHoldDetection()
+            if (isFingerOnWheelCenter()) {
+                val app = recentsPickerState.centeredApp()
+                if (app != null) {
+                    launchRecentsApp(app, miniWindow = false)
+                    return
+                }
+            }
             recentsPickerState.onDragEnd()
             return
         }
@@ -319,6 +368,7 @@ class GestureSessionPipeline(
         }
         if (recentsPickerState.isActive) {
             // 取消（来电/系统抢焦点）：清会话并收掉滚轮窗口。
+            stopRecentsHoldDetection()
             recentsPickerState.onDragCancel()
             callbacks.onRecentsPickerOverlayDismissed()
             return
@@ -623,9 +673,87 @@ class GestureSessionPipeline(
             showToast(R.string.recents_picker_empty)
             return false
         }
-        recentsPickerState.activate(apps, config.layout, touchPosition)
+        recentsPickerState.activate(
+            apps = apps,
+            layout = config.layout,
+            blankScrollSensitivityPercent = config.blankScrollSensitivityPercent,
+            iconSizeDp = config.iconSizeDp,
+            anchor = touchPosition,
+        )
+        // 抬手坐标判定从触发锚点起算：新会话清零累计位移。
+        recentsDragTotal = Offset.Zero
         callbacks.onRecentsPickerOverlayRequested(recentsPickerState)
+        // 按住触发：手指静止超阈值直接小窗打开当前项，不等抬手。
+        if (dragInFlight) startRecentsHoldDetection()
         return true
+    }
+
+    /**
+     * 抬手「在图标上」判定：手指当前位置（锚点 + 累计位移）落在**整个滚轮显示区域**
+     * （选中行居中，竖向/横向各露出 [RecentsWheelVisibleRows] 行）内，且该行有选中项。
+     * 显示区域尺寸由 iconSizeDp 派生（rowSize/crossSize）；不必落在中心图标上。
+     */
+    private fun isFingerOnWheelCenter(): Boolean {
+        if (recentsPickerState.centeredApp() == null) return false
+        val density = hunoia.luno.bridge.ui.DensityProvider.density
+        val iconSizeDp = recentsPickerState.iconSizeDp.dp
+        val rowSizePx = recentsWheelRowSize(iconSizeDp).value * density
+        val crossSizePx = recentsWheelCrossSize(iconSizeDp).value * density
+        // 整个滚轮显示区域的一半（显示区 = VisibleRows 行 × 1 列）。
+        val halfAlong = rowSizePx * RecentsWheelVisibleRows / 2f
+        val halfCross = crossSizePx / 2f
+        val dx = recentsDragTotal.x
+        val dy = recentsDragTotal.y
+        return if (recentsPickerState.layout == RecentsPickerLayout.VERTICAL) {
+            abs(dx) <= halfCross && abs(dy) <= halfAlong
+        } else {
+            abs(dx) <= halfAlong && abs(dy) <= halfCross
+        }
+    }
+
+    /** 启动最近应用：点击/抬手全屏，长按/停留小窗；成功即收掉滚轮窗口。 */
+    private fun launchRecentsApp(app: RecentApp, miniWindow: Boolean) {
+        // 小窗防抖：长按图标（overlay onLongPress）与按住停留（hold 检测）可能同时触发，
+        // 同一会话内只放行一次小窗。
+        if (miniWindow) {
+            val now = SystemClock.uptimeMillis()
+            if (now - recentsPickerState.lastMiniWindowLaunchAtMs < RECENTS_MINI_DEBOUNCE_MS) return
+            recentsPickerState.lastMiniWindowLaunchAtMs = now
+        }
+        SurfaceDispatch.dispatch(
+            action = AppLaunchAction.stored(
+                packageName = app.packageName,
+                userId = app.userId,
+                miniWindow = miniWindow,
+            ),
+            origin = DispatchOrigin.PANEL,
+        ) { _ -> callbacks.onRecentsPickerOverlayDismissed() }
+    }
+
+    /** 按住触发长按停留检测：静止超过阈值且仍有选中项 → 小窗打开（不等抬手）。 */
+    private fun startRecentsHoldDetection() {
+        stopRecentsHoldDetection()
+        recentsLastDragMs = SystemClock.uptimeMillis()
+        // 静止计时起点：记录当前累计位移，手指离开死区（微抖容差）才算移动。
+        recentsHoldAnchor = recentsDragTotal
+        val threshold = settings.gestureSettings.actionPanelLongPressMs
+        recentsHoldJob = scope.launch {
+            while (recentsPickerState.isActive) {
+                delay(threshold)
+                if (!recentsPickerState.isActive) break
+                // 手指静止（无位移刷新）累计超过阈值 → 在图标上长按到阈值，直接小窗。
+                if (SystemClock.uptimeMillis() - recentsLastDragMs >= threshold) {
+                    val app = recentsPickerState.centeredApp()
+                    if (app != null) launchRecentsApp(app, miniWindow = true)
+                    break
+                }
+            }
+        }
+    }
+
+    private fun stopRecentsHoldDetection() {
+        recentsHoldJob?.cancel()
+        recentsHoldJob = null
     }
 
     /** 最近应用（旧→新，末尾最新）：过滤当前前台与自身包名；黑名单已在源头（PreviousAppTracker）过滤。 */

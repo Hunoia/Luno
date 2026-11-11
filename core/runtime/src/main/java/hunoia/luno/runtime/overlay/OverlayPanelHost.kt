@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import android.view.Gravity
 import android.view.KeyEvent
@@ -207,10 +208,24 @@ abstract class OverlayPanelHost(
      * 关闭落点：先移窗再清引用。必须移窗：全屏可触摸窗留在屏幕上会挡住底下所有
      * 触摸，且 view 置 null 后就再也够不着它。view 为 null 时不做事（保持 close 的
      * 幂等语义：引用与 owner 原样保留）。
+     *
+     * 加固：`removeViewImmediate` 在部分 ROM（MIUI）上对全屏可获焦窗口可能不立即
+     * 生效，移除后仍 attached 则用普通 `removeView` 重试一次，避免残留挡触摸。
      */
     protected fun removeAndTeardown() {
         val current = view ?: return
+        val t0 = SystemClock.uptimeMillis()
+        val wasAttached = current.isAttachedToWindow
         context.removeWindow(current)
+        if (wasAttached && current.isAttachedToWindow) {
+            Log.w(logTag, "$logPrefix removeViewImmediate left window attached, retrying removeView")
+            runCatching { wm.removeView(current) }
+        }
+        if (current.isAttachedToWindow) {
+            Log.w(logTag, "$logPrefix window still attached after remove (leak) elapsedMs=${SystemClock.uptimeMillis() - t0}")
+        } else {
+            Log.i(logTag, "$logPrefix window removed elapsedMs=${SystemClock.uptimeMillis() - t0}")
+        }
         teardownRefs()
     }
 
