@@ -13,7 +13,7 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.query.AppSearch.sortApps
 import hunoia.luno.quickaccess.query.QuickAppLauncherAppList
 import hunoia.luno.quickaccess.QuickLaunchFacade
-import hunoia.luno.ui.theme.AnimPostHideDelay
+import hunoia.luno.ui.theme.ChoreographyPostHideDelay
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -71,7 +71,7 @@ class QuickAppLauncherState(
             closing = true
             panelVisible = false
             coroutineScope.launch {
-                delay(AnimPostHideDelay)
+                delay(ChoreographyPostHideDelay)
                 onCloseAnimatedRaw()
             }
         }

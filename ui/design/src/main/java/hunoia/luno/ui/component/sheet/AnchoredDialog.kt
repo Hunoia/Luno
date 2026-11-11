@@ -43,9 +43,9 @@ import androidx.compose.ui.window.DialogWindowProvider
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.LargeGutter
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.MotionPanelIn
-import hunoia.luno.ui.theme.MotionPanelOut
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 
 /**
  * 底部锚定弹层（ui-guidelines §4.4）：遮罩 + 底部卡片 + 进出场动画。
@@ -67,6 +67,8 @@ fun AnchoredDialog(
     // 进场先挂载再置位，让 AnimatedVisibility 真正播一次；退场播完再回调宿主（镜像 OcrResultActivity）。
     val visible = remember { MutableTransitionState(false) }
     LaunchedEffect(Unit) { visible.targetState = true }
+    // 面板家族 spec：进出同长同曲线，不再分别写 170 / 140。
+    val panelMotion = panelSpec()
     var closing by remember { mutableStateOf(false) }
     val dismiss: () -> Unit = {
         if (!closing) {
@@ -105,10 +107,10 @@ fun AnchoredDialog(
                     WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
                         .union(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
                 ),
-                enter = slideInVertically(tween(MotionPanelIn)) { it } +
-                    fadeIn(tween(MotionPanelIn)),
-                exit = slideOutVertically(tween(MotionPanelOut)) { it } +
-                    fadeOut(tween(MotionPanelOut)),
+                enter = slideInVertically(panelMotion.tween()) { it } +
+                    fadeIn(panelMotion.tween()),
+                exit = slideOutVertically(panelMotion.tween()) { it } +
+                    fadeOut(panelMotion.tween()),
             ) {
                 DialogCard(modifier = cardModifier, contentPadding = contentPadding) {
                     content(dismiss)

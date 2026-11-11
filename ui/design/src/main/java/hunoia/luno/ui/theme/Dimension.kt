@@ -138,13 +138,20 @@ const val PressFeedbackDebounceMillis = 80L
 // 面板内上拖手势阈值（网格顶部展开键盘、页面底部返回应用页共用）
 val DragThresholdPx = 32f
 
-// Animation durations (ms)
-const val AnimNormal = 150L
-const val AnimMedium = 200L
-const val AnimPanelResize = 250L
-const val AnimOverlayFade = AnimMedium
-const val AnimPostHideDelay = 250L
-const val AnimNavTransition = 400
+// 非档位类动效 / 编排延迟（不参与应用档位，见 Motion.kt）
+/** 内容级反馈（行底色、选中态透明度等）的短过渡。 */
+const val MotionSelection = 150
+/** 页面内内容互换的进场。 */
+const val MotionContentIn = 200
+/** 页面内内容互换的退场。 */
+const val MotionContentOut = 150
+/** 面板隐藏后延迟拆窗的编排时间（非动画）。 */
+const val ChoreographyPostHideDelay = 250L
+const val MotionNavTransition = 400
+/** 指针光标跟随触点的平滑（属于跟手，不参与档位）。 */
+const val MotionPointerFollow = 45
+/** 指针光标点击涟漪（点击反馈，不参与档位）。 */
+const val MotionRipple = 300
 
 val MiniWindowDefaultHeight = 267.dp
 
@@ -185,16 +192,11 @@ const val MotionSwapOut = 120
 const val MotionPress = 120
 const val MotionSettle = 240
 const val MotionReturn = 250
-const val MotionFadeOut = 150
 const val MotionSubtle = 180
-const val MotionOverlayEnter = 300
-const val MotionOverlayExit = 200
 const val MotionStatusIn = 220
 const val MotionStatusOut = 140
 const val MotionCellIn = 120
 const val MotionCellOut = 100
-const val MotionPanelIn = 170
-const val MotionPanelOut = 140
 /** 面板出现 / 收口的位移距离（dp）：面板走位移而不是整层淡入淡出（ui-guidelines §3「面板」）。 */
 val PanelAppearSlide = 16.dp
 /** 面板进退场的缩放起止档：进场 0.25→1，退场 1→0.25；缩放锚点落在触发点，缩放为主、位移为辅（ui-guidelines §5.1）。 */

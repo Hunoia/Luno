@@ -137,8 +137,6 @@ import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.CompactToolbarHeight
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
-import hunoia.luno.ui.theme.MotionPanelIn
-import hunoia.luno.ui.theme.MotionPanelOut
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut
@@ -147,6 +145,8 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -556,12 +556,14 @@ private fun OcrResultScreen(
     // 全选口径：所有行的所有词（空行不占下标）。
     val allWords = remember(lines) { lines.sumOf { it.words.size } }
     val allSelected = allWords > 0 && selected.size == allWords
+    // 结果卡按面板家族进退（与其它面板同长同曲线，已含应用档位）。
+    val panelMotion = panelSpec()
 
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visibleState = visible,
-            enter = fadeIn(tween(MotionPanelIn)),
-            exit = fadeOut(tween(MotionPanelOut)),
+            enter = fadeIn(panelMotion.tween()),
+            exit = fadeOut(panelMotion.tween()),
         ) {
             Box(
                 modifier = Modifier
@@ -589,10 +591,10 @@ private fun OcrResultScreen(
             AnimatedVisibility(
                 visibleState = visible,
                 modifier = Modifier.fillMaxWidth(),
-                enter = slideInVertically(tween(MotionPanelIn)) { it } +
-                    fadeIn(tween(MotionPanelIn)),
-                exit = slideOutVertically(tween(MotionPanelOut)) { it } +
-                    fadeOut(tween(MotionPanelOut)),
+                enter = slideInVertically(panelMotion.tween()) { it } +
+                    fadeIn(panelMotion.tween()),
+                exit = slideOutVertically(panelMotion.tween()) { it } +
+                    fadeOut(panelMotion.tween()),
             ) {
                 Surface(
                     modifier = Modifier

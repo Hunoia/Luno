@@ -60,8 +60,8 @@ import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.gridpanel.geometry.resolvePanelResize
-import hunoia.luno.ui.theme.MotionPanelIn
-import hunoia.luno.ui.theme.MotionPanelOut
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
@@ -108,14 +108,16 @@ fun GridPanelRoot(
     val appearance = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
+    // 家族 spec 在组合期取一次（@Composable），effect 里只做时长换算。
+    val panelMotion = panelSpec()
     LaunchedEffect(Unit) {
-        appearance.animateTo(1f, tween(MotionPanelIn))
+        appearance.animateTo(1f, panelMotion.tween())
     }
     fun closeWithAnim() {
         if (closing) return
         closing = true
         scope.launch {
-            appearance.animateTo(0f, tween(MotionPanelOut))
+            appearance.animateTo(0f, panelMotion.tween())
             onCloseAnimated()
         }
     }

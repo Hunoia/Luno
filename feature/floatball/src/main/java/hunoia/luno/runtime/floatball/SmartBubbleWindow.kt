@@ -70,8 +70,10 @@ import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
+import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.motionMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -384,7 +386,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         v.animate()
             .scaleX(collapsedScale())
             .alpha(0f)
-            .setDuration(HideMs)
+            .setDuration(motionMillis(MotionFamily.Floating).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 if (exitingView === v) exitingView = null
@@ -400,7 +402,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 context.removeWindow(v)
                 onHidden?.invoke()
             }
-        }, HideMs + 120L)
+        }, motionMillis(MotionFamily.Floating) + 120L)
     }
 
     fun detachNow() {
@@ -615,7 +617,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         settleAnimator?.cancel()
         val from = offsetPx
         val animator = ValueAnimator.ofFloat(from, targetOffset).apply {
-            duration = SnapMs
+            duration = motionMillis(MotionFamily.FloatingSnap).toLong()
             interpolator = DecelerateInterpolator()
             addUpdateListener { offsetPx = it.animatedValue as Float }
             addListener(object : AnimatorListenerAdapter() {
@@ -698,11 +700,14 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         v.animate()
             .scaleX(1f)
             .alpha(1f)
-            .setDuration(MorphMs)
+            .setDuration(motionMillis(MotionFamily.FloatingMorph).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction { if (view === v) entering = false }
             .start()
-        mainHandler.postDelayed({ if (view === v) entering = false }, MorphMs + 80L)
+        mainHandler.postDelayed(
+            { if (view === v) entering = false },
+            motionMillis(MotionFamily.FloatingMorph) + 80L,
+        )
     }
 
     private fun cancelEnterFeedback() {
@@ -916,9 +921,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private companion object {
         const val TAG = LOG_TAG
-        const val MorphMs = 180L
-        const val HideMs = 140L
-        const val SnapMs = 170L
         const val EnterFallbackMs = 260L
         const val MaxOriginDp = 200f
         const val PressScale = 0.97f

@@ -70,14 +70,15 @@ fun HomeRuntimeStatusCard(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    // 颜色渐变：切状态不再硬切闪屏。
+    // 颜色渐变：切状态不再硬切闪屏；时长跟浮层家族（非开关显隐）。
+    val overlayMotion = hunoia.luno.ui.theme.overlaySpec()
     val containerColor by animateColorAsState(
         targetValue = when (runtimeStatus.level) {
             HomeRuntimeStatusLevel.Running -> colorScheme.primaryContainer
             HomeRuntimeStatusLevel.NeedsAttention -> colorScheme.secondaryContainer
             HomeRuntimeStatusLevel.Unavailable -> colorScheme.errorContainer
         },
-        animationSpec = tween(hunoia.luno.ui.theme.MotionOverlayEnter),
+        animationSpec = tween(overlayMotion.durationMillis),
         label = "statusContainer",
     )
     val contentColor by animateColorAsState(
@@ -86,7 +87,7 @@ fun HomeRuntimeStatusCard(
             HomeRuntimeStatusLevel.NeedsAttention -> colorScheme.onSecondaryContainer
             HomeRuntimeStatusLevel.Unavailable -> colorScheme.onErrorContainer
         },
-        animationSpec = tween(hunoia.luno.ui.theme.MotionOverlayEnter),
+        animationSpec = tween(overlayMotion.durationMillis),
         label = "statusContent",
     )
 

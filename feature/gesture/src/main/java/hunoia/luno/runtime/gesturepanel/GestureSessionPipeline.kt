@@ -28,6 +28,8 @@ import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.pointer.PointerSession
+import hunoia.luno.ui.theme.MotionFamily
+import hunoia.luno.ui.theme.motionMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,7 +39,8 @@ import kotlinx.serialization.json.contentOrNull
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
 /** 面板收起主 overlay 前的等待：盖住 ActionPanel 的淡出动画，不等窗口会先缩成 1x1 导致内容跳位。 */
-const val ACTION_PANEL_FADE_OUT_MS = 400L
+val ACTION_PANEL_FADE_OUT_MS: Long
+    get() = motionMillis(MotionFamily.PanelCard) + 40L
 
 /** 一次手势配置快照：由无障碍按钮窗路径与设置页共用同一份。 */
 data class GesturePipelineSettings(

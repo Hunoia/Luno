@@ -21,11 +21,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.ui.theme.MotionPointerFollow
+import hunoia.luno.ui.theme.MotionRipple
+import hunoia.luno.ui.theme.overlaySpec
+import hunoia.luno.ui.theme.tween
 import kotlinx.coroutines.delay
 
-/** 点击涟漪动画时长（旧主题 AnimRipple 常量，内联）。 */
-private const val RIPPLE_MS = 300
-
+/** 指针光标所在窗口属于浮层家族：进场时长跟随应用档位，跟手 / 涟漪不参与。 */
 @Composable
 fun PointerCursor(
     position: Offset,
@@ -40,14 +42,18 @@ fun PointerCursor(
     val rippleAnim = remember { Animatable(0f) }
     val entranceAnim = remember { Animatable(0f) }
     val accentColor = MaterialTheme.colorScheme.primary
+    val entranceSpec = overlaySpec()
     val renderedPosition by animateOffsetAsState(
         targetValue = position,
-        animationSpec = tween(durationMillis = 45, easing = LinearEasing),
+        animationSpec = tween(durationMillis = MotionPointerFollow, easing = LinearEasing),
         label = "PointerCursorPosition",
     )
     val maxTrailSize = 18
     LaunchedEffect(Unit) {
-        entranceAnim.animateTo(1f, animationSpec = tween(durationMillis = 140, easing = LinearEasing))
+        entranceAnim.animateTo(
+            1f,
+            animationSpec = tween(durationMillis = entranceSpec.durationMillis, easing = LinearEasing),
+        )
     }
     LaunchedEffect(renderedPosition, trailEnabled) {
         if (!trailEnabled) return@LaunchedEffect
@@ -71,7 +77,7 @@ fun PointerCursor(
     LaunchedEffect(clickPulseKey) {
         if (clickPulseKey == 0) return@LaunchedEffect
         rippleAnim.snapTo(0f)
-        rippleAnim.animateTo(1f, animationSpec = tween(durationMillis = RIPPLE_MS, easing = LinearEasing))
+        rippleAnim.animateTo(1f, animationSpec = tween(durationMillis = MotionRipple, easing = LinearEasing))
         rippleAnim.snapTo(0f)
     }
     Canvas(modifier = modifier.fillMaxSize()) {

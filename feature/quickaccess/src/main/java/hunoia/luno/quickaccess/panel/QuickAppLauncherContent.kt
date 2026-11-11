@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -48,6 +47,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -106,19 +106,57 @@ internal fun QuickAppLauncherRoot(
     }
     // 进退场走 AnimatedVisibility：Content 每次打开都是全新进入组合，
     // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过（重开瞬现的根因）。
-    // 进场淡入 + 0.92→1 缩放（对齐网格面板质感）；退场纯淡出 —— 缩放重采样尾段发糊
-    //（快搜同款结论），且拆窗时机由 closeAnimated→closeImmediate 编排，不在这里管。
+    // 时长走面板家族 spec（已含应用档位），缩放锚点落在触发点在面板内的相对位置。
+    // 退场仍是纯淡出（几何可与进场不同，时长同 spec）：缩放重采样尾段发糊，
+    // 拆窗时机由 closeAnimated→closeImmediate 编排，不在这里管。
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val layout = state.previewSettings?.layout(landscape)
+        ?: state.launcherSettings.layout(landscape)
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
+    val panelWidthPx = (screenWidthPx * layout.effectivePanelWidthFraction()).roundToInt().coerceIn(1, screenWidthPx)
+    // 与 Content 内实际渲染同口径：fraction 高度兜不住键盘+候选的最小内容时按最小内容算。
+    val requiredHeightPx = with(density) {
+        requiredContentHeight(layout.keyHeightDp.dp, layout.candidateRows.coerceIn(1, 3), CandidateMinHeight)
+            .toPx().roundToInt()
+    }
+    val panelHeightPx = (screenHeightPx * layout.effectiveContentHeightFraction())
+        .roundToInt().coerceAtLeast(requiredHeightPx).coerceAtMost(screenHeightPx)
+    // 系统栏安全区与悬浮球同源（:core:bridge），按 configuration 记忆：转屏后不沿用旧值。
+    val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
+    val target = layout.placement.resolveTopLeft(
+        anchorX = anchorX,
+        anchorY = anchorY,
+        widthPx = panelWidthPx.toFloat(),
+        heightPx = panelHeightPx.toFloat(),
+        screenWidthPx = screenWidthPx,
+        screenHeightPx = screenHeightPx,
+        safeTopPx = barSafeArea.top,
+        safeBottomPx = barSafeArea.bottom,
+        density = density.density,
+    )
+    val targetPosX = target.x
+    val targetPosY = target.y
+    // 触发点（屏幕坐标）换算到面板局部 0..1；夹进边界，避免贴边时锚点跑到面板外。
+    val triggerOrigin = remember(targetPosX, targetPosY, panelWidthPx, panelHeightPx) {
+        TransformOrigin(
+            ((anchorX - targetPosX) / panelWidthPx).coerceIn(0f, 1f),
+            ((anchorY - targetPosY) / panelHeightPx).coerceIn(0f, 1f),
+        )
+    }
+    val panelMotion = panelSpec()
     AnimatedVisibility(
         visible = state.panelVisible,
-        enter = fadeIn(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())) +
+        enter = fadeIn(animationSpec = panelMotion.tween()) +
             scaleIn(
                 initialScale = 0.92f,
-                animationSpec = tween(
-                    durationMillis = AnimOverlayFade.toInt(),
-                    easing = LinearOutSlowInEasing,
-                ),
+                animationSpec = panelMotion.tween(),
+                transformOrigin = triggerOrigin,
             ),
-        exit = fadeOut(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
+        exit = fadeOut(animationSpec = panelMotion.tween()),
     ) {
         // 全屏 scrim：面板外点击只关面板，不传透下层应用。
         Box(
@@ -130,39 +168,6 @@ internal fun QuickAppLauncherRoot(
                     onClick = onClose,
                 ),
         ) {
-            // 面板几何在 Compose 里换算（窗口全屏化后不再走窗口 params）。
-            // 位置跟随触发锚点（同网格面板）：横向贴触发侧，竖向锚在面板 25% 处并夹上下间距。
-            val configuration = LocalConfiguration.current
-            val density = LocalDensity.current
-            val view = LocalView.current
-            val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            val layout = state.previewSettings?.layout(landscape)
-                ?: state.launcherSettings.layout(landscape)
-            val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
-            val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
-            val panelWidthPx = (screenWidthPx * layout.effectivePanelWidthFraction()).roundToInt().coerceIn(1, screenWidthPx)
-            // 与 Content 内实际渲染同口径：fraction 高度兜不住键盘+候选的最小内容时按最小内容算。
-            val requiredHeightPx = with(density) {
-                requiredContentHeight(layout.keyHeightDp.dp, layout.candidateRows.coerceIn(1, 3), CandidateMinHeight)
-                    .toPx().roundToInt()
-            }
-            val panelHeightPx = (screenHeightPx * layout.effectiveContentHeightFraction())
-                .roundToInt().coerceAtLeast(requiredHeightPx).coerceAtMost(screenHeightPx)
-            // 系统栏安全区与悬浮球同源（:core:bridge），按 configuration 记忆：转屏后不沿用旧值。
-            val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
-            val target = layout.placement.resolveTopLeft(
-                anchorX = anchorX,
-                anchorY = anchorY,
-                widthPx = panelWidthPx.toFloat(),
-                heightPx = panelHeightPx.toFloat(),
-                screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx,
-                safeTopPx = barSafeArea.top,
-                safeBottomPx = barSafeArea.bottom,
-                density = density.density,
-            )
-            val targetPosX = target.x
-            val targetPosY = target.y
             // 首帧（重开）初值即目标，不飞入；已可见时再触发换锚点，弹簧平滑挪过去（同网格面板卡片）。
             val posAnimX = remember { Animatable(targetPosX) }
             val posAnimY = remember { Animatable(targetPosY) }
@@ -317,7 +322,7 @@ private fun QuickAppLauncherContent(
                         AnimatedContent(
                             targetState = currentPage,
                             transitionSpec = {
-                                fadeIn(animationSpec = tween(AnimMedium.toInt())) togetherWith fadeOut(animationSpec = tween(AnimNormal.toInt()))
+                                fadeIn(animationSpec = tween(MotionContentIn)) togetherWith fadeOut(animationSpec = tween(MotionContentOut))
                             },
                             label = "pageSwitch"
                         ) { page ->
@@ -326,7 +331,7 @@ private fun QuickAppLauncherContent(
                                     AnimatedContent(
                                         targetState = state.keyboardExpanded,
                                         transitionSpec = {
-                                            fadeIn(animationSpec = tween(AnimMedium.toInt())) togetherWith fadeOut(animationSpec = tween(AnimNormal.toInt())) using SizeTransform(clip = false)
+                                            fadeIn(animationSpec = tween(MotionContentIn)) togetherWith fadeOut(animationSpec = tween(MotionContentOut)) using SizeTransform(clip = false)
                                         },
                                         label = "keyboardExpand"
                                     ) { expanded ->

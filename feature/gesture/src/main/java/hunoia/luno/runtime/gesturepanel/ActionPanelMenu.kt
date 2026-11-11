@@ -4,10 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState.Visible
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,11 +56,12 @@ import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureSettings
-import hunoia.luno.ui.theme.AnimNormal
-import hunoia.luno.ui.theme.AnimPanelResize
 import hunoia.luno.ui.theme.MiniWindowDefaultHeight
 import hunoia.luno.ui.theme.MiniWindowWidth
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.MotionSelection
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 import kotlinx.coroutines.flow.filter
 import hunoia.luno.gesture.vibrateForActionPanel
 import hunoia.luno.ui.theme.toMarkColor
@@ -81,11 +80,13 @@ fun ActionPanelMenu(
     modifier: Modifier = Modifier,
     gestureSettings: GestureSettings? = null
 ) {
+    // 面板家族 spec：外层显隐与内部项/尺寸动画共用同一时长（下次打开生效）。
+    val panelMotion = panelSpec()
     AnimatedVisibility(
         modifier = modifier,
         visible = actionPanelState.visible,
-        enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)),
-        exit = fadeOut(spring(stiffness = Spring.StiffnessMedium))
+        enter = fadeIn(panelMotion.tween()),
+        exit = fadeOut(panelMotion.tween())
     ) {
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
@@ -114,7 +115,7 @@ fun ActionPanelMenu(
 
             val selectedAction = actionPanelState.selectedAction
             val selectedLabel = actionText(selectedAction, emptyIfNone = false, actionLibraryEntries = actionLibrarySettings.entries)
-            val animationSpec = spring<Float>(stiffness = Spring.StiffnessHigh)
+            val animationSpec = panelMotion.tween<Float>()
             val enter = fadeIn(animationSpec) + scaleIn(animationSpec, 0.9f)
             val exit = fadeOut(animationSpec) + scaleOut(animationSpec, 0.9f)
 
@@ -135,7 +136,10 @@ fun ActionPanelMenu(
                                 val miniWindow = selectedAction.launchMiniWindow()
                                 val boxMaxWidth = maxWidth
                                 val boxMaxHeight = maxHeight
-                                val spec = tween<Dp>(AnimPanelResize.toInt())
+                                val spec = tween<Dp>(
+                                    durationMillis = panelMotion.durationMillis,
+                                    easing = panelMotion.easing,
+                                )
                                 val width by animateDpAsState(
                                     targetValue = if (miniWindow) MiniWindowWidth else boxMaxWidth,
                                     animationSpec = spec
@@ -226,7 +230,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
     val selected = actionPanelState.isSelected(action)
     val hasSelection = actionPanelState.selectedAction.typeId != Action.NONE_TYPE_ID
     val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
-    val itemAlpha by animateFloatAsState(if (!hasSelection || selected) 1f else 0.72f, tween(AnimNormal.toInt()), label = "actionAlpha")
+    val itemAlpha by animateFloatAsState(if (!hasSelection || selected) 1f else 0.72f, tween(MotionSelection), label = "actionAlpha")
     LaunchedEffect(transition, actionPanelState, index, action, panelOrigin, targetAnimOffset) {
         snapshotFlow { actionPanelState.finger }
             .filter { it.isSpecified && !transition.isRunning && transition.currentState == Visible }

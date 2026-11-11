@@ -49,4 +49,10 @@
     <string name="surface_side_margin">左右边距</string>
     <string name="surface_top_gap">上间距</string>
     <string name="surface_bottom_gap">下间距</string>
+    <!-- 动效档位预览（设置页外观组）。 -->
+    <string name="motion_preview_title">动效预览</string>
+    <string name="motion_preview_replay">重播</string>
+    <string name="motion_preview_panel">面板</string>
+    <string name="motion_preview_overlay">浮层</string>
+    <string name="motion_preview_floating">浮窗</string>
 </resources>

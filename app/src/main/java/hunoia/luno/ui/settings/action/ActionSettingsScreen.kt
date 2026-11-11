@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
@@ -30,7 +31,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,11 +43,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.ListStyle
-import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.domain.tune.TuneConfig
@@ -60,7 +57,6 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 
 /** 设置 tab：功能 / 动作 / 系统 / 外观。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,9 +76,9 @@ fun ActionSettingsTab(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
+    onNavToAppearanceSettings: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showFontScale by remember { mutableStateOf(false) }
     var fontScale by remember { mutableFloatStateOf(facades.system.fontScale(context)) }
@@ -93,7 +89,6 @@ fun ActionSettingsTab(
     var resumeTick by remember { mutableIntStateOf(0) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
-    val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -153,28 +148,15 @@ fun ActionSettingsTab(
             ),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
-            item(key = "appearance") {
-                LunoGroup(title = stringResource(R.string.action_settings_appearance_group)) {
-                    ChoiceRow(
-                        title = stringResource(R.string.action_settings_list_style),
-                        options = listOf(
-                            stringResource(R.string.list_style_segmented),
-                            stringResource(R.string.list_style_card_divided),
-                        ),
-                        selectedIndex = advancedSettings.listStyle.ordinal,
-                        onSelect = { index ->
-                            scope.launch {
-                                TuneConfig.updateAdvanced {
-                                    it.copy(listStyle = ListStyle.entries[index])
-                                }
-                            }
-                        },
-                        shape = segmentedShape(0, 1),
-                    )
-                }
-            }
             item(key = "features") {
                 LunoGroup(title = stringResource(R.string.action_settings_feature_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Palette,
+                        title = stringResource(R.string.action_settings_appearance_group),
+                        subtitle = stringResource(R.string.appearance_settings_entry_hint),
+                        shape = segmentedShape(0, 5),
+                        onClick = onNavToAppearanceSettings,
+                    )
                     LunoSettingsRow(
                         icon = Icons.Default.RadioButtonChecked,
                         title = stringResource(R.string.action_panel_list_group),
@@ -182,25 +164,25 @@ fun ActionSettingsTab(
                             R.string.action_panel_count,
                             actionSettings.actionPanels.panels.size + actionSettings.actionGridPanels.panels.size,
                         ),
-                        shape = segmentedShape(0, 4),
+                        shape = segmentedShape(1, 5),
                         onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Search,
                         title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
-                        shape = segmentedShape(1, 4),
+                        shape = segmentedShape(2, 5),
                         onClick = onNavToSearchEngines,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Adjust,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball),
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(3, 5),
                         onClick = onNavToFloatBallSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(hunoia.luno.link.R.string.link_dispatch),
-                        shape = segmentedShape(3, 4),
+                        shape = segmentedShape(4, 5),
                         onClick = onNavToLinkDispatch,
                     )
                 }

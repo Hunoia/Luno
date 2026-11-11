@@ -1,8 +1,7 @@
 package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideIn
@@ -28,6 +27,8 @@ import com.aaron.compose.ktx.toDp
 import com.aaron.compose.ktx.toPx
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 import androidx.compose.ui.platform.LocalDensity
 
 @Composable
@@ -75,6 +76,8 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                 .size(itemSize)
         ) {
             val transition = transition
+            // 面板家族 spec：item 进出同长同曲线（几何相反，时长对称）。
+            val itemMotion = panelSpec()
             actionPanelState.actions.fastForEachIndexed { index, action ->
                 key(index) {
                     val panelOrigin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx, insets)
@@ -108,14 +111,19 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                         gestureSettings = gestureSettings,
                         modifier = Modifier
                             .run animateEnterExit@{
-                                val stiffness = Spring.StiffnessMedium
+                                val enter = itemMotion.tween<Float>()
+                                val exit = itemMotion.tween<Float>()
+                                val slide = tween<IntOffset>(
+                                    durationMillis = itemMotion.durationMillis,
+                                    easing = itemMotion.easing,
+                                )
                                 animateEnterExit(
-                                    enter = scaleIn(spring(stiffness = stiffness)) +
-                                            slideIn(animationSpec = spring(stiffness = stiffness)) {
+                                    enter = scaleIn(enter) +
+                                            slideIn(animationSpec = slide) {
                                                 IntOffset(-targetAnimOffset.x.toInt(), -targetAnimOffset.y.toInt())
                                             },
-                                    exit = scaleOut(spring(stiffness = stiffness)) +
-                                            slideOut(animationSpec = spring(stiffness = stiffness)) {
+                                    exit = scaleOut(exit) +
+                                            slideOut(animationSpec = slide) {
                                                 IntOffset(-targetAnimOffset.x.toInt(), -targetAnimOffset.y.toInt())
                                             }
                                 )

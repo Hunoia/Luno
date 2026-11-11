@@ -31,7 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import hunoia.luno.R
-import hunoia.luno.ui.theme.AnimNavTransition
+import hunoia.luno.ui.theme.MotionNavTransition
 import kotlinx.coroutines.launch
 
 import hunoia.luno.picker.ActionSelect
@@ -66,6 +66,7 @@ import hunoia.luno.ui.navigation.MiniWindowSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.PointerAdjust
 import hunoia.luno.ui.navigation.PointerSettings
+import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
@@ -91,6 +92,7 @@ import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.action.PointerAdjustScreen
 import hunoia.luno.ui.settings.action.PointerSettingsScreen
+import hunoia.luno.ui.settings.action.AppearanceSettingsScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
 import hunoia.luno.link.settings.LinkDispatchEditScreen
 import hunoia.luno.link.settings.LinkDispatchSettingsScreen
@@ -209,6 +211,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToPointerSettings = { navController.navigate(PointerSettings) },
+                        onNavToAppearanceSettings = { navController.navigate(AppearanceSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
@@ -353,6 +356,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onAdjustPosition = { follow -> navController.navigate(PointerAdjust(follow)) },
                     )
+                }
+                myComposable<AppearanceSettings> {
+                    AppearanceSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<PointerAdjust> {
                     PointerAdjustScreen(
@@ -539,4 +545,4 @@ private inline fun <reified T : Any> NavGraphBuilder.myComposable(
     }
 }
 
-private const val ANIMATION_DURATION_MS = AnimNavTransition
+private const val ANIMATION_DURATION_MS = MotionNavTransition

@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.action
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -10,7 +9,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,17 +18,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.core.LogLevel
 import hunoia.luno.facade.LogStats
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.component.CheckDropdownMenuItem
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -38,8 +34,6 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.theme.ElevationSmall
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetListMaxHeight
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +56,6 @@ fun LogSettingsScreen(onBack: () -> Unit) {
     var stats by remember { mutableStateOf(LogStats()) }
     var showPreview by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
-    var levelMenuOpen by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf("") }
 
     LaunchedEffect(tick) {
@@ -90,40 +83,21 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                 },
                 shape = segmentedShape(0, 2),
             )
-            Box(modifier = Modifier.fillMaxWidth()) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.log_settings_level),
-                    subtitle = levelSummary(stats),
-                    shape = segmentedShape(1, 2),
-                    onClick = { levelMenuOpen = true },
-                )
-                Box(modifier = Modifier.align(Alignment.BottomEnd)) {
-                    DropdownMenu(
-                        expanded = levelMenuOpen,
-                        onDismissRequest = { levelMenuOpen = false },
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = LargeShape,
-                        tonalElevation = ElevationSmall,
-                        shadowElevation = 0.dp,
-                    ) {
-                        LogLevel.entries.forEach { level ->
-                            CheckDropdownMenuItem(
-                                label = stringResource(level.labelRes()),
-                                selected = stats.level == level,
-                                onClick = {
-                                    levelMenuOpen = false
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            facades.logs.setLevel(level)
-                                        }
-                                        tick++
-                                    }
-                                },
-                            )
+            LunoDropdownRow(
+                title = stringResource(R.string.log_settings_level),
+                options = LogLevel.entries.map { stringResource(it.labelRes()) },
+                selectedIndex = LogLevel.entries.indexOf(stats.level),
+                subtitle = levelSummary(stats),
+                onSelect = { index ->
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            facades.logs.setLevel(LogLevel.entries[index])
                         }
+                        tick++
                     }
-                }
-            }
+                },
+                shape = segmentedShape(1, 2),
+            )
         }
         LunoGroup(title = stringResource(R.string.log_settings_files)) {
             if (stats.files.isEmpty()) {

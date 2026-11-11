@@ -130,6 +130,11 @@ data object MiniWindowAdjust
 @Serializable
 data object PointerSettings
 
+/** 外观设置页：列表风格与面板 / 浮层 / 浮窗动效档位。 */
+@Keep
+@Serializable
+data object AppearanceSettings
+
 /** 指针位置调整页：[follow] 为 true 编辑跟随偏移，否则编辑初始落点。 */
 @Keep
 @Serializable

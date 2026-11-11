@@ -52,10 +52,10 @@ import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.toMarkColor
-import hunoia.luno.ui.theme.MotionFadeOut
+import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.MotionPress
-import hunoia.luno.ui.theme.MotionReturn
 import hunoia.luno.ui.theme.MotionSettle
+import hunoia.luno.ui.theme.motionMillis
 import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
@@ -425,7 +425,7 @@ class FloatBallWindow(
         applyBallTouchFlags(current, wm, hidden = true)
         current.animate()
             .alpha(0f)
-            .setDuration(MotionFadeOut.toLong())
+            .setDuration(motionMillis(MotionFamily.Floating).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction { context.removeWindow(current) }
             .start()
@@ -474,7 +474,7 @@ class FloatBallWindow(
             applyBallTouchFlags(current, wm, hidden = true)
             current.animate()
                 .alpha(0f)
-                .setDuration(MotionFadeOut.toLong())
+                .setDuration(motionMillis(MotionFamily.Floating).toLong())
                 .setInterpolator(DecelerateInterpolator())
                 .withEndAction { settleBallWindowAlpha(current, wm) }
                 .start()
@@ -508,7 +508,7 @@ class FloatBallWindow(
             .alpha(if (idled) FloatBallDefaults.IdleDimAlpha else 1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(MotionReturn.toLong())
+            .setDuration(motionMillis(MotionFamily.Floating).toLong())
             .setInterpolator(OvershootInterpolator(1.2f))
     }
 
@@ -659,7 +659,7 @@ class FloatBallWindow(
         visualAnimator?.cancel()
         target.animate()
             .alpha(0f)
-            .setDuration(MotionFadeOut.toLong())
+            .setDuration(motionMillis(MotionFamily.Floating).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 transferring = false

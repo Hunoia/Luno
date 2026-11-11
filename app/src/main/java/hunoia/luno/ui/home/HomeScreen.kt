@@ -115,6 +115,7 @@ fun HomeScreen(
     onNavToActionPanels: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToPointerSettings: () -> Unit = {},
+    onNavToAppearanceSettings: () -> Unit = {},
     onNavToLinkDispatch: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
@@ -436,6 +437,7 @@ fun HomeScreen(
                             onNavToPersistentNotificationSettings = onNavToPersistentNotificationSettings,
                             onNavToNotificationSettings = onNavToNotificationSettings,
                             onNavToStatusBarIconSettings = onNavToStatusBarIconSettings,
+                            onNavToAppearanceSettings = onNavToAppearanceSettings,
                         )
                     }
                 }

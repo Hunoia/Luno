@@ -18,6 +18,8 @@ data class AdvancedSettings(
     val hideLunoFromRecents: Boolean = true,
     /** 设置列表视觉风格：分段式（默认）/ 大卡分割线。 */
     val listStyle: ListStyle = ListStyle.Segmented,
+    /** 动效档位：面板 / 浮层 / 浮窗各自独立（ui-guidelines §5.1）。 */
+    val motion: MotionTuningSettings = MotionTuningSettings(),
     /** 通用通知显示设置（呈现模式 + 覆盖层，见 [NotificationDisplaySettings]）。 */
     val notificationDisplay: NotificationDisplaySettings = NotificationDisplaySettings(),
 )

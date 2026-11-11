@@ -3,7 +3,6 @@ import android.app.Activity
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -36,6 +35,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.tween
 import hunoia.luno.ui.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
@@ -323,15 +324,16 @@ internal fun QuickSearchContent(
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。
     val panelScale = remember { Animatable(0.92f) }
     val panelAlpha = remember { Animatable(0f) }
+    val panelMotion = panelSpec(fullScreen = true)
     LaunchedEffect(Unit) {
-        launch { panelScale.animateTo(1f, tween(hunoia.luno.ui.theme.MotionOverlayEnter, easing = LinearOutSlowInEasing)) }
-        launch { panelAlpha.animateTo(1f, tween(hunoia.luno.ui.theme.MotionOverlayEnter)) }
+        launch { panelScale.animateTo(1f, panelMotion.tween()) }
+        launch { panelAlpha.animateTo(1f, panelMotion.tween()) }
     }
     LaunchedEffect(closing) {
         // 退场纯淡出 200ms（缩放重采样尾段是糊的）。播完才调 onExitFinished 拆窗：提前拆会掐断结尾。
         if (closing) {
             keyboard?.hide()
-            panelAlpha.animateTo(0f, tween(hunoia.luno.ui.theme.MotionOverlayExit))
+            panelAlpha.animateTo(0f, panelMotion.tween())
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "fadeDone=${System.currentTimeMillis()}")
             onExitFinished()
         }

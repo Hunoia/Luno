@@ -20,6 +20,9 @@ fun AppTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
+    // 动效档位随配置流更新：在这里读 state，主题内任意面板重新打开时都会拿到新 spec。
+    // 设置页预览在子树里再 provide，覆盖的是预览副本，不写全局。
+    val motionProfile = MotionTuning.profile
     val colorScheme = if (darkTheme) {
         dynamicDarkColorScheme(context)
     } else {
@@ -33,6 +36,7 @@ fun AppTheme(
     CompositionLocalProvider(
         LocalIndication provides NoOpIndication,
         LocalRippleConfiguration provides null,
+        LocalMotionProfile provides motionProfile,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

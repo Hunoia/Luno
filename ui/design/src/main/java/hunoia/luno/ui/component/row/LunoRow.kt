@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
 import hunoia.luno.ui.component.pressScale
-import hunoia.luno.ui.theme.AnimNormal
+import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
@@ -111,7 +111,7 @@ internal fun LunoRowBase(
         } else {
             containerColor ?: colorScheme.surfaceBright
         },
-        animationSpec = tween(AnimNormal.toInt()),
+        animationSpec = tween(MotionSelection),
         label = "lunoRowBackground",
     )
     val iconTint = if (selectable && selected) colorScheme.primary else colorScheme.onSurfaceVariant

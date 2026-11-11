@@ -1,10 +1,5 @@
 package hunoia.luno.ui.component.sheet
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.BottomSheetDefaults
@@ -47,14 +42,9 @@ fun LunoSheet(
         },
         content = {
             SheetNestedContent(scrollState = scrollState) {
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
-                        slideInVertically { it / 8 },
-                ) {
-                    Column {
-                        content()
-                    }
+                // 内容直接跟随 M3 容器动画（唯一不吃应用档位的例外，§5.1）。
+                Column {
+                    content()
                 }
             }
         },

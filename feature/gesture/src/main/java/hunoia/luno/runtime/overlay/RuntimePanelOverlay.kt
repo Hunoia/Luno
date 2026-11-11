@@ -12,7 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.ui.theme.AnimOverlayFade
+import hunoia.luno.ui.theme.MotionFamily
+import hunoia.luno.ui.theme.motionMillis
 
 class RuntimePanelScope internal constructor(
     val close: () -> Unit,
@@ -89,7 +90,7 @@ class RuntimePanelOverlay(private val host: GestureHost) {
     private fun animateOut(view: View) {
         view.animate()
             .alpha(0f)
-            .setDuration(AnimOverlayFade)
+            .setDuration(motionMillis(MotionFamily.Overlay).toLong())
             .withEndAction { removeOverlayView(view) }
     }
 

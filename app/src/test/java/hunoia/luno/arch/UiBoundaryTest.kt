@@ -24,15 +24,41 @@ class UiBoundaryTest {
 
     private val uiFiles get() = productionFiles.filter { it.repoPath().startsWith(uiRoot) }
 
+    private val bareDurationPatterns = listOf(
+        Regex("""tween\(\s*\d"""),
+        Regex("""durationMillis\s*=\s*\d"""),
+        Regex("""\.setDuration\(\s*\d"""),
+        Regex("""postDelayed\(\s*\d"""),
+    )
+
     @Test
-    fun `no bare tween literals in ui code`() {
+    fun `no bare duration literals in ui code`() {
         val problems = productionFiles
             .filter(::isUiCode)
             .flatMap { file ->
                 file.text.lines().mapIndexedNotNull { index, line ->
-                    val at = line.indexOf("tween(")
-                    val bare = at >= 0 && line.getOrNull(at + "tween(".length)?.isDigit() == true
-                    if (bare) "${file.repoPath()}:${index + 1} 使用了裸 tween 数字" else null
+                    val code = line.substringBefore("//")
+                    val hit = bareDurationPatterns.any { it.containsMatchIn(code) }
+                    if (hit) "${file.repoPath()}:${index + 1} 使用了裸时长数字（走 Motion 家族 spec / token）" else null
+                }
+            }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
+    fun `no legacy Anim tokens`() {
+        // 动效时长统一由 MotionFamily 承载；`Anim*` 语义 token 已删除，残留会绕过档位。
+        val pattern = Regex("""\bAnim[A-Z][A-Za-z0-9]*""")
+        val problems = productionFiles
+            .filter(::isUiCode)
+            .flatMap { file ->
+                file.text.lines().mapIndexedNotNull { index, line ->
+                    val code = line.substringBefore("//")
+                    if (pattern.containsMatchIn(code)) {
+                        "${file.repoPath()}:${index + 1} 残留 Anim* 动效 token"
+                    } else {
+                        null
+                    }
                 }
             }
         assertTrue(problems.joinToString("\n"), problems.isEmpty())

@@ -17,7 +17,8 @@ import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.SideGestureTheme
-import hunoia.luno.ui.theme.MotionFadeOut
+import hunoia.luno.ui.theme.MotionFamily
+import hunoia.luno.ui.theme.motionMillis
 import hunoia.luno.ui.component.PointerCursor
 
 /** 指针窗口宿主：由无障碍服务实现（成员全部来自 [hunoia.luno.runtime.GestureHost]）。 */
@@ -109,7 +110,7 @@ class PointerOverlay(private val host: PointerOverlayHost) {
         overlayView = composeView
     }
 
-    /** 退场：立即不可点，光标淡出 120ms 后拆窗（show 的同步重建路径仍走 [closeImmediately]）。 */
+    /** 退场：立即不可点，光标淡出（浮层家族时长）后拆窗（show 的同步重建路径仍走 [closeImmediately]）。 */
     fun close() {
         val view = overlayView ?: return
         overlayView = null
@@ -120,7 +121,7 @@ class PointerOverlay(private val host: PointerOverlayHost) {
         }
         view.animate()
             .alpha(0f)
-            .setDuration(MotionFadeOut.toLong())
+            .setDuration(motionMillis(MotionFamily.Overlay).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction { runCatching { host.context.windowManager().removeViewImmediate(view) } }
             .start()

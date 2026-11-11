@@ -19,9 +19,12 @@ import hunoia.luno.bridge.ui.isMainThread
 import hunoia.luno.bridge.vibration.initVibrationContext
 import hunoia.luno.quickaccess.icon.AppIconFetcherFactory
 import hunoia.luno.quickaccess.icon.AppIconKeyer
+import hunoia.luno.ui.theme.toProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import me.weishu.reflection.Reflection
 import rikka.shizuku.ShizukuProvider
@@ -104,6 +107,10 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)
+        // 动效档位：两进程都要生效（主进程 Compose + :service 原生动效），进程启动即订阅。
+        hunoia.luno.domain.tune.TuneConfig.advanced
+            .onEach { hunoia.luno.ui.theme.MotionTuning.profile = it.motion.toProfile() }
+            .launchIn(appScope)
 
         UDFComponentDefaults.set(UDFComponentDefaultsImpl())
 
