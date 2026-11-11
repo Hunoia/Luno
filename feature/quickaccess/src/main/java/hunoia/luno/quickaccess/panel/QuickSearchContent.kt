@@ -330,7 +330,9 @@ internal fun QuickSearchContent(
         launch { panelAlpha.animateTo(1f, panelMotion.tween()) }
     }
     LaunchedEffect(closing) {
-        // 退场纯淡出 200ms（缩放重采样尾段是糊的）。播完才调 onExitFinished 拆窗：提前拆会掐断结尾。
+        // 退场纯 alpha：全屏面板缩放重采样尾段发糊，是面板族里唯一的几何不对称例外
+        // （ui-guidelines §5.1）；时长 / 曲线仍是同一个 panelSpec。播完才调 onExitFinished 拆窗：
+        // 提前拆会掐断结尾。
         if (closing) {
             keyboard?.hide()
             panelAlpha.animateTo(0f, panelMotion.tween())
