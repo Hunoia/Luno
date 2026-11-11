@@ -33,12 +33,12 @@
     <string name="clipboard_capacity">固定 %1$d 条 · 未固定 %2$d 条 / 上限 %3$d 条</string>
     <string name="clipboard_settings_group">记录设置</string>
     <string name="clipboard_record_enabled">记录剪贴板</string>
-    <string name="clipboard_record_enabled_hint">关闭后不再记录新内容，当前剪贴板仍可读取</string>
+    <string name="clipboard_record_enabled_hint">关闭后不再记录新内容</string>
     <string name="clipboard_max_entries">未固定条目上限</string>
     <string name="clipboard_max_entries_value">%1$d 条</string>
     <string name="clipboard_manage_group">数据</string>
     <string name="clipboard_export">导出 JSON</string>
-    <string name="clipboard_export_hint">只含文本与固定标记；图片、敏感项不导出</string>
+    <string name="clipboard_export_hint">只含文本与固定项；图片、敏感项不导出</string>
     <string name="clipboard_import">导入 JSON</string>
     <string name="clipboard_import_hint">按文本去重合并，不覆盖现有历史</string>
     <string name="clipboard_import_success">已导入，当前共 %1$d 条</string>

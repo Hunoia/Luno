@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Luno</string>
+    <string name="home_title">@string/app_name</string>
+    <string name="home_tab">Home</string>
+    <string name="settings">Settings</string>
+    <string name="accessibility_description">Simulates back, home and other key presses for custom side-gesture control. Collects no data.</string>
+    <string name="add_gesture_button">Add gesture button</string>
+    <string name="backup_settings_entry">Backup &amp; Restore</string>
+    <string name="backup_manual_group">Manual Backup &amp; Restore</string>
+    <string name="backup_to_file">Backup to file</string>
+    <string name="backup_to_file_hint">Choose a location to export all settings</string>
+    <string name="restore_from_file">Restore from file</string>
+    <string name="restore_from_file_hint">Choose a backup file to restore current settings</string>
+    <string name="reset_default_settings_warning">Reset to defaults</string>
+    <string name="reset_default_settings_warning_desc">Resets to factory defaults and permanently deletes all data.</string>
+    <string name="backup_success">Backup succeeded</string>
+    <string name="backup_failed">Backup failed</string>
+    <string name="restore_success">Restore succeeded</string>
+    <string name="restore_failed">Restore failed</string>
+    <!-- Scheduled auto backup: entry row, settings subpage, failure notification (success stays silent) -->
+    <string name="auto_backup_switch">Scheduled auto backup</string>
+    <string name="auto_backup_switch_hint">Once daily; keeps the last 7 files</string>
+    <string name="auto_backup_directory">Backup directory</string>
+    <string name="auto_backup_directory_unset">No directory selected</string>
+    <string name="auto_backup_status">Status</string>
+    <string name="auto_backup_status_never">Auto backup has not run yet</string>
+    <string name="auto_backup_status_success">Last success: %1$s</string>
+    <string name="auto_backup_status_failed">Last failure: %1$s · %2$s</string>
+    <string name="auto_backup_run_now">Back up now</string>
+    <string name="auto_backup_run_now_hint">Write one backup to the directory now</string>
+    <string name="auto_backup_run_queued">Added to backup queue</string>
+    <string name="auto_backup_run_need_directory">Please select a backup directory first</string>
+    <string name="auto_backup_restore">Restore from auto backup</string>
+    <string name="auto_backup_restore_hint">Choose an auto backup to restore current settings</string>
+    <string name="auto_backup_restore_empty">No auto backups in the directory</string>
+    <string name="auto_backup_restore_list_failed">Failed to read backup directory</string>
+    <string name="auto_backup_notify_title">Auto backup failed</string>
+    <string name="auto_backup_fail_permission_lost">Backup directory permission expired, please reselect</string>
+    <string name="auto_backup_fail_create">Could not create file in backup directory</string>
+    <string name="auto_backup_fail_write">Failed to write backup file</string>
+    <string name="auto_backup_fail_too_large">Backup exceeds the 8 MB limit</string>
+    <string name="auto_backup_fail_need_all_files">This device does not support directory writes, grant Luno "All files access" in system settings</string>
+    <string name="auto_backup_fail_unsupported_location">Only internal storage directories are supported, please pick another</string>
+    <string name="auto_backup_fail_unknown">An unknown error occurred</string>
+    <string name="keep_alive_need_permission">Keep-alive requires the "Modify system settings" permission. Authorize via Shizuku first or run: adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
+    <string name="refresh">Refresh</string>
+    <string name="action_panel_style">Action panel style</string>
+    <string name="action_panel_style_group">Style</string>
+    <string name="action_panel_list_group">Panels</string>
+    <!-- Pointer (internal.pointer): settings row + sliders -->
+    <string name="pointer">Pointer</string>
+    <string name="pointer_settings_title">Pointer</string>
+    <string name="pointer_hint">Sensitivity · Acceleration · Start position · Cursor style</string>
+    <string name="pointer_group_motion">Motion feel</string>
+    <string name="pointer_group_start">Start position</string>
+    <string name="pointer_group_cursor">Cursor appearance</string>
+    <string name="pointer_follow_trigger">Follow trigger position</string>
+    <string name="pointer_follow_trigger_hint">Hold uses the touch point; release uses the pointer window\'s first tap</string>
+    <string name="pointer_adjust_position">Adjust position</string>
+    <string name="pointer_follow_offset_summary">Offset X %1$d%% / Y %2$d%%</string>
+    <string name="pointer_initial_summary">Initial %1$d%% / %2$d%%</string>
+    <string name="pointer_sensitivity_x_plain">X sensitivity</string>
+    <string name="pointer_sensitivity_y_plain">Y sensitivity</string>
+    <string name="pointer_acceleration_plain">Acceleration</string>
+    <string name="pointer_cursor_size_plain">Cursor size</string>
+    <string name="pointer_cursor_alpha_plain">Cursor opacity</string>
+    <string name="pointer_sensitivity_x">%1$.1fx</string>
+    <string name="pointer_sensitivity_y">%1$.1fx</string>
+    <string name="pointer_acceleration">%1$.1f</string>
+    <string name="pointer_cursor_size">%1$d dp</string>
+    <string name="pointer_cursor_alpha">%1$d%%</string>
+    <!-- Action panels (explicit action type internal.actionPanel) global list and editor -->
+    <string name="action_panels">Action panels</string>
+    <string name="add_action_panel">Add panel</string>
+    <string name="action_panel_name_hint">Panel name</string>
+    <string name="action_panel_items">Panel content</string>
+    <string name="action_panel_empty_hint">No panel items yet. After adding, pick "Action panel" on a gesture button to show it.</string>
+    <string name="action_panel_item_drag">Drag to reorder</string>
+    <string name="action_panel_delete_title">Delete panel</string>
+    <string name="action_panel_delete_desc">Delete panel "%1$s"? Gesture buttons referencing it will become "No action".</string>
+    <string name="action_panel_delete_refs">Referenced in %1$d place(s) (panel items, buttons/sub-gestures, float ball); they will be cleared too.</string>
+
+    <!-- Float ball (2038 float ball trigger mode) -->
+    <string name="recent_apps_blocklist">Recent apps blocklist</string>
+    <!-- Settings page (shared by actions / quick search) -->
+    <!-- Action selection row trailing settings dialog -->
+    <!-- Row settings dialog title -->
+    <string name="action_settings_feature_group">Features</string>
+    <string name="action_settings_action_group">Actions</string>
+
+    <string name="action_settings_system_group">System</string>
+    <string name="action_settings_appearance_group">Appearance</string>
+    <string name="action_settings_list_style">List style</string>
+    <string name="list_style_segmented">Segmented</string>
+    <string name="list_style_card_divided">Card divided</string>
+    <!-- Font scale (system font_scale) -->
+    <string name="font_scale_entry">Font scale</string>
+    <string name="font_scale_entry_summary">System font · %1$d%%</string>
+    <string name="font_scale_need_permission">Requires "Modify system settings" permission</string>
+    <string name="font_scale_percent">%1$d%%</string>
+    <string name="font_scale_sheet_group">System font size</string>
+    <string name="font_scale_slider_label">Font size</string>
+    <string name="font_scale_reset">Reset to 100%</string>
+    <string name="font_scale_sample_group">Sample text</string>
+    <string name="font_scale_sample_hint">Some apps have their own font settings and may ignore the system font size</string>
+    <string name="font_scale_sample_title">Font scale preview Aa 123</string>
+    <string name="font_scale_sample_body">Body sample: drag the slider to preview the actual font size.</string>
+    <string name="font_scale_write_failed">This font size is not supported by the system</string>
+    <string name="action_settings_mini_window_position">Mini window settings</string>
+    <string name="mini_window_settings_title">Mini window settings</string>
+    <string name="mini_window_settings_group">Follow trigger position</string>
+    <string name="mini_window_follow_trigger">Follow trigger position</string>
+    <string name="mini_window_follow_trigger_hint">Hug the trigger side horizontally; vertical follows the touch point; fixed position when no touch</string>
+    <string name="mini_window_position_size">Position &amp; size</string>
+    <string name="mini_window_position_size_hint">Adjust the fixed position for portrait and landscape</string>
+    <string name="screen_pick_settings_title">Screen recognition</string>
+    <string name="screen_pick_settings_group">Full-screen long press</string>
+    <string name="screen_pick_settings_image_group">Image</string>
+    <string name="screen_pick_settings_enabled">Enabled</string>
+    <string name="screen_pick_settings_disabled">Disabled</string>
+    <string name="screen_pick_trigger_interval">Trigger interval</string>
+    <string name="screen_pick_trigger_interval_value">%1$d ms</string>
+    <string name="screen_pick_global_long_press">Full-screen long-press recognition</string>
+    <string name="screen_pick_global_long_press_hint">Hold and drag out a card; drag on blank space to box-select (needs Shizuku)</string>
+    <string name="screen_pick_drag_timeout">Drag window</string>
+    <string name="screen_pick_drag_timeout_value">Drag within %1$d ms of hold</string>
+    <string name="screen_pick_drag_timeout_off">No limit</string>
+    <string name="screen_pick_long_press_delay">Long-press duration</string>
+    <string name="screen_pick_diag_group">Diagnostics</string>
+    <string name="screen_pick_diag_run">Run diagnostics</string>
+    <string name="screen_pick_diag_hint">Checks the switch, Shizuku and touch device chain</string>
+    <string name="screen_pick_diag_running">Diagnosing…</string>
+    <string name="screen_pick_diag_switch_ok">Gesture master switch and full-screen long-press are both on</string>
+    <string name="screen_pick_diag_switch_off">Switch off: both the gesture master switch and full-screen long-press must be on</string>
+    <string name="screen_pick_diag_shizuku_ok">Shizuku is connected and authorized</string>
+    <string name="screen_pick_diag_shizuku_fail">Shizuku is not ready or not authorized</string>
+    <string name="screen_pick_diag_device_ok">Touch device detected: %1$s</string>
+    <string name="screen_pick_diag_device_fail">No touchscreen device found (ROM may restrict getevent scanning)</string>
+    <string name="screen_pick_diag_note">Static chain is OK; streaming runs in the accessibility service process, restart the service after changing switches</string>
+    <string name="screen_pick_long_press_delay_value">%1$d ms</string>
+    <string name="screen_pick_slop">Drag tolerance</string>
+    <string name="screen_pick_slop_value">%1$d dp</string>
+    <string name="screen_pick_save_to_gallery">Save recognition images to gallery</string>
+    <string name="screen_pick_save_to_gallery_hint">Off: share writes cache only; copy still writes to gallery for paste compatibility</string>
+    <string name="notification_blocklist">Notification blocklist</string>
+    <string name="action_panel_items_count">%1$d items</string>
+    <string name="action_panel_count">%1$d panels</string>
+    <string name="action_panel_item_no_long_press">Long press: same as tap</string>
+    <string name="grid_panels">Grid panels</string>
+    <string name="grid_panel_add">Add grid panel</string>
+    <string name="grid_panel_empty_hint">No grid panels yet. After adding, pick "Grid panel" in an action to show it near the touch point.</string>
+    <string name="grid_panel_summary">%1$d items · %2$d columns</string>
+    <string name="grid_panel_delete_title">Delete grid panel</string>
+    <string name="grid_panel_card_alpha">Card opacity</string>
+    <string name="grid_panel_blur_radius">Background blur</string>
+    <string name="grid_panel_blur_off">Off</string>
+    <string name="gesture_button_name">Gesture button %1$d</string>
+    <string name="gesture_button_size_max">Maximum number of gesture buttons reached</string>
+    <string name="request_get_apps_permission">Get app list</string>
+    <string name="rename">Rename</string>
+
+
+    <!-- Theme color -->
+
+    <!-- Action categories -->
+
+    <!-- Quick launch -->
+
+    <!-- Gesture settings -->
+
+    <!-- Data model defaults -->
+    <string name="sub_gesture_default_name">Sub-gesture %1$d</string>
+
+    <string name="search_app_hint">Search apps</string>
+    <string name="add_sub_gesture">Add sub-gesture</string>
+    <string name="home_section_settings">Settings</string>
+    <string name="home_section_data">Data management</string>
+    <string name="action_deep_link_not_found">Action does not exist or has been deleted</string>
+
+    <!-- Parameter templates -->
+
+
+    <!-- Home -->
+    <string name="mini_window_nudge_left">Move left</string>
+    <string name="mini_window_nudge_right">Move right</string>
+    <string name="mini_window_nudge_up">Move up</string>
+    <string name="mini_window_nudge_down">Move down</string>
+
+    <!-- Gesture settings groups -->
+
+    <!-- Display conditions -->
+    <string name="app_picker_select_title">Select app</string>
+    <string name="loading">Loading…</string>
+    <string name="toast_invalid_parameter">Invalid parameter</string>
+    <string name="toast_execution_failed">Execution failed</string>
+    <string name="toast_permission_denied">Insufficient permission</string>
+    <string name="toast_unsupported_action">Unsupported action type</string>
+
+    <!-- Automation rules -->
+
+    <!-- Condition types -->
+    <!-- Quick search -->
+
+    <!-- Search engines -->
+
+
+    <!-- Link dispatch -->
+    <string name="link_dispatch_no_link">No link detected</string>
+    <string name="link_dispatch_pick_app_title">Choose how to open</string>
+    <string name="link_dispatch_pick_app_empty">No app found that can open this link</string>
+    <string name="link_dispatch_share_action">Send with system share sheet</string>
+    <string name="link_dispatch_select_title">Choose link</string>
+    <string name="link_dispatch_select_hint">%1$d links total; tap to dispatch, long-press to share</string>
+    <string name="link_dispatch_select_target">To %1$s · %2$s</string>
+    <string name="link_dispatch_select_no_target">No rule matched · %1$s</string>
+    <string name="privileged_granting">Granting…</string>
+    <string name="privileged_grant_partial">%1$d item(s) not granted; retry or set manually</string>
+    <string name="privileged_grant_failed">Grant failed: check that Shizuku is running and authorized</string>
+    <string name="perm_page_title">Permissions</string>
+    <string name="perm_group_app">App permissions</string>
+    <string name="perm_group_core">Core permissions</string>
+    <string name="perm_group_notification">Notifications</string>
+    <string name="perm_group_system">System enhancements</string>
+    <string name="perm_grant_all">Grant all</string>
+    <string name="perm_grant_one">Grant</string>
+    <string name="perm_grant_one_failed">Not granted: requires Shizuku or manual system settings</string>
+    <string name="perm_state_granted">Granted</string>
+    <string name="perm_state_missing">Not granted</string>
+    <string name="perm_overlay">Display over other apps</string>
+    <string name="perm_overlay_hint">Gesture button windows, float ball and panels all need it</string>
+    <string name="perm_accessibility">Accessibility service</string>
+    <string name="perm_accessibility_hint">Host of gesture recognition, action execution and panel windows</string>
+    <string name="perm_notification_listener">Notification access</string>
+    <string name="perm_notification_listener_hint">Notification conditions, notification capsule and DND state</string>
+    <string name="perm_write_secure">System settings write</string>
+    <string name="perm_write_secure_hint">Can only be granted via Shizuku; no system settings page to open</string>
+    <string name="perm_battery">Battery optimization whitelist</string>
+    <string name="perm_battery_hint">Prevents background freezing that delays gesture buttons</string>
+    <string name="perm_notifications">Notification permission</string>
+    <string name="perm_notifications_hint">Needed by the keep-alive foreground service notification</string>
+    <string name="perm_manage_files">All files access</string>
+    <string name="perm_manage_files_hint">Read/write all storage files; needed for export / backup</string>
+    <string name="perm_write_system">Modify system settings</string>
+    <string name="perm_write_system_hint">Needed by some system switches (e.g. screen timeout); manual enable only</string>
+    <string name="perm_notification_policy">DND access</string>
+    <string name="perm_notification_policy_hint">Needed by actions like auto DND toggle</string>
+    <string name="perm_camera">Camera</string>
+    <string name="perm_camera_hint">Used by QR / screenshot recognition</string>
+    <string name="perm_read_contacts">Read contacts</string>
+    <string name="perm_read_contacts_hint">Needed by contact search</string>
+    <string name="perm_read_calendar">Read calendar</string>
+    <string name="perm_read_calendar_hint">Needed by calendar search</string>
+    <string name="perm_read_sms">Read SMS</string>
+    <string name="perm_read_sms_hint">Needed by SMS search</string>
+    <string name="perm_read_call_log">Read call log</string>
+    <string name="perm_read_call_log_hint">Needed by call log search</string>
+    <string name="perm_read_media_images">Read images</string>
+    <string name="perm_read_media_images_hint">Needed by image search</string>
+    <string name="perm_read_media_video">Read videos</string>
+    <string name="perm_read_media_video_hint">Needed by video search</string>
+    <string name="perm_read_media_audio">Read audio</string>
+    <string name="perm_read_media_audio_hint">Needed by audio search</string>
+    <!-- ===== Home runtime status card (restored from debug APK resources) ===== -->
+
+    <!-- ===== Accessibility switch reset hint (restored from debug APK resources) ===== -->
+
+    <!-- ===== Restore config confirm (restored from debug APK resources) ===== -->
+
+    <!-- ===== OCR result page ===== -->
+    <string name="ocr_result_placeholder">Enter text</string>
+    <string name="ocr_result_finish_edit">Finish editing</string>
+    <string name="ocr_result_edit">Edit</string>
+    <string name="ocr_result_copy">Copy</string>
+    <string name="ocr_result_search">Search</string>
+    <string name="ocr_result_share">Share</string>
+    <string name="ocr_result_empty">No text recognized</string>
+    <string name="ocr_result_failed">Operation failed, please retry</string>
+    <string name="ocr_result_image_decode_failed">Failed to decode image</string>
+    <string name="ocr_model_missing_hint">OCR model not installed; import it in screen recognition settings</string>
+    <string name="ocr_result_copied">Copied</string>
+    <string name="ocr_result_source_a11y">Accessibility</string>
+    <string name="ocr_result_source_ocr">OCR</string>
+    <string name="ocr_result_view_text">Text</string>
+    <string name="ocr_result_view_image">Image</string>
+    <string name="ocr_result_switch_to">Switch to %1$s</string>
+    <string name="ocr_result_re_ocr">Re-recognize selection</string>
+    <string name="ocr_result_image_copy">Copy image</string>
+    <string name="ocr_result_image_share">Share image</string>
+    <string name="ocr_result_image_save">Save image</string>
+    <string name="ocr_result_image_annotate">Annotate</string>
+    <string name="ocr_result_image_copied">Image copied</string>
+    <string name="ocr_result_image_saved">Image saved to gallery</string>
+    <string name="ocr_result_select_all">Select all</string>
+    <string name="ocr_result_select_none">Clear selection</string>
+    <string name="ocr_result_select_word">Select this word</string>
+    <string name="ocr_result_unselect_word">Deselect this word</string>
+
+    <!-- ===== OCR model settings page (restored from debug APK resources) ===== -->
+    <string name="ocr_model_cancel">Cancel</string>
+    <string name="ocr_model_delete">Delete</string>
+    <string name="ocr_model_env_group">Runtime</string>
+    <string name="ocr_model_gpu_supported">GPU available (OpenCL / Adreno; loads fp32 tflite at runtime)</string>
+    <string name="ocr_model_gpu_unsupported">No GPU delegate on this device; falls back to CPU (slower)</string>
+    <string name="ocr_model_pp_delete">Delete model</string>
+    <string name="ocr_model_pp_delete_confirm">Delete the imported PP-OCRv6 model? Recognition will not work until you re-import.</string>
+    <string name="ocr_model_pp_detail">%1$s · %2$s</string>
+    <string name="ocr_model_pp_error">Unavailable</string>
+    <string name="ocr_model_pp_failed">Unavailable: %1$s</string>
+    <string name="ocr_model_pp_group">PP-OCRv6 (local GPU)</string>
+    <string name="ocr_model_pp_import">Import model ZIP</string>
+    <string name="ocr_model_pp_import_hint">Contains manifest.json, det / rec tflite and characters.json</string>
+    <string name="ocr_model_pp_imported_at">Imported %1$s</string>
+    <string name="ocr_model_pp_missing">No GPU model imported</string>
+    <string name="ocr_model_pp_ready">Ready</string>
+    <string name="ocr_model_pp_rec">rec %1$s</string>
+    <string name="ocr_model_pp_state">Model state</string>
+    <string name="ocr_model_pp_verifying">Verifying…</string>
+    <string name="ocr_model_refresh">Recheck state</string>
+    <string name="ocr_model_soc">SoC</string>
+
+    <!-- ===== Accessibility manager (list and toggle all accessibility services) ===== -->
+    <string name="a11y_manager_title">Accessibility manager</string>
+    <string name="a11y_settings_entry">Accessibility manager</string>
+    <string name="a11y_settings_entry_hint">View and toggle all accessibility services on the device</string>
+    <!-- ===== Status bar icon hiding (writes Settings.Secure.icon_blacklist) ===== -->
+    <string name="status_bar_icons_title">Status bar icon hiding</string>
+    <string name="status_bar_icons_entry">Status bar icon hiding</string>
+    <string name="status_bar_icons_common_group">Common icons</string>
+    <string name="status_bar_icons_scope_hint">Clock, battery and notification icons are not controlled on this page</string>
+    <string name="status_bar_icons_more_entry">More icons (MIUI)</string>
+    <string name="status_bar_icons_more_entry_hint">Device connectivity, network speed, VoLTE and other system icons</string>
+    <string name="status_bar_icons_more_group">More (MIUI)</string>
+    <string name="status_bar_icons_actions_group">Actions</string>
+    <string name="status_bar_icons_show_all">Show all icons</string>
+    <string name="status_bar_icons_show_all_hint">Clear the hidden list</string>
+    <string name="status_bar_icons_open_tuner">Open SystemUI tuner</string>
+    <string name="status_bar_icons_open_tuner_hint">The system\'s same-named switch page</string>
+    <string name="status_bar_icons_tuner_missing">This device has no SystemUI tuner entry</string>
+    <string name="status_bar_icons_write_failed">Write failed: "System settings write" permission missing</string>
+    <string name="status_bar_icons_banner_shizuku">Shizuku is not running; cannot grant "System settings write"</string>
+    <string name="status_bar_icons_banner_shizuku_action">Start Shizuku</string>
+    <string name="status_bar_icons_banner_write_secure">"System settings write" not granted; icon switches are read-only</string>
+    <string name="status_bar_icons_banner_write_secure_action">Grant</string>
+    <string name="status_bar_icon_mobile">Mobile data</string>
+    <string name="status_bar_icon_mobile_hint">Includes signal bars and 5G / LTE indicator</string>
+    <string name="status_bar_icon_wifi">Wi-Fi</string>
+    <string name="status_bar_icon_bluetooth">Bluetooth</string>
+    <string name="status_bar_icon_hotspot">Hotspot</string>
+    <string name="status_bar_icon_cast">Cast</string>
+    <string name="status_bar_icon_managed_profile">Work profile</string>
+    <string name="status_bar_icon_headset">Headset</string>
+    <string name="status_bar_icon_rotate">Auto-rotate screen</string>
+    <string name="status_bar_icon_volume">Volume</string>
+    <string name="status_bar_icon_zen">DND</string>
+    <string name="status_bar_icon_camera">Camera indicator</string>
+    <string name="status_bar_icon_ethernet">Ethernet</string>
+    <string name="status_bar_icon_network_speed">Live network speed</string>
+    <string name="status_bar_icon_hd">VoLTE (HD)</string>
+    <string name="status_bar_icon_hd_hint">Visibility may be set by the carrier on some models</string>
+    <string name="status_bar_icon_no_sim">No SIM indicator</string>
+    <string name="status_bar_icon_vpn">VPN</string>
+    <string name="status_bar_icon_location">Location</string>
+    <string name="status_bar_icon_nfc">NFC</string>
+    <string name="status_bar_icon_alarm_clock">Alarm clock</string>
+    <string name="status_bar_icon_mute">Mute</string>
+    <string name="status_bar_icon_ime">IME switch</string>
+    <string name="status_bar_icon_privacy_mode">Privacy mode</string>
+    <string name="status_bar_icon_stealth">Stealth mode</string>
+    <string name="status_bar_icon_stealth_hint">System indicator when mic / camera is in use</string>
+    <string name="status_bar_icon_second_space">Second space</string>
+    <string name="status_bar_icon_microphone">Microphone indicator</string>
+    <string name="status_bar_icon_handle">Game controller</string>
+    <string name="status_bar_icon_dist_compute">Distributed computing</string>
+    <string name="status_bar_icon_tty">TTY</string>
+    <string name="status_bar_icon_wireless_headset">Wireless headset</string>
+    <string name="status_bar_icon_glasses">Smart glasses</string>
+    <string name="status_bar_icon_pad">Tablet link</string>
+    <string name="status_bar_icon_pc">Laptop link</string>
+    <string name="status_bar_icon_phone">Phone link</string>
+    <string name="status_bar_icon_tv">TV link</string>
+    <string name="status_bar_icon_car">Car link</string>
+    <string name="status_bar_icon_sound_box">Speaker</string>
+    <string name="status_bar_icon_sound_box_screen">Smart display speaker</string>
+    <string name="status_bar_icon_sound_box_group">Whole-home audio</string>
+    <string name="status_bar_icon_stereo">Speaker stereo</string>
+    <string name="persistent_notification_settings_title">Persistent notification hiding</string>
+    <string name="persistent_notification_settings_entry">Persistent notification hiding</string>
+    <string name="persistent_notification_access_off">Notification access not granted</string>
+    <string name="persistent_notification_access_hint_off">Not granted: sync unavailable, Luno falls back to Shizuku</string>
+    <string name="persistent_notification_shizuku_off">Shizuku unavailable</string>
+    <string name="persistent_notification_shizuku_hint_off">Cannot read the notification shade list; the listener still tries to hide</string>
+    <string name="persistent_notification_master_group">Master switch</string>
+    <string name="persistent_notification_master">Enable persistent notification hiding</string>
+    <string name="persistent_notification_master_hint">Hidden notifications reappear when turned off</string>
+    <string name="persistent_notification_luno_group">Luno persistent notifications</string>
+    <string name="persistent_notification_luno_hide">Hide Luno persistent notifications</string>
+    <string name="persistent_notification_luno_hide_hint">The two foreground service notifications for keep-alive and float ball</string>
+    <string name="persistent_notification_others_group">Other apps</string>
+    <string name="persistent_notification_empty">No persistent notifications to hide right now</string>
+    <string name="persistent_notification_target_subtitle">%1$s · persistent</string>
+    <string name="persistent_notification_target_subtitle_channel">%1$s · %2$s</string>
+    <string name="a11y_banner_shizuku">Shizuku is not running; cannot toggle accessibility services</string>
+    <string name="a11y_banner_shizuku_action">Start Shizuku</string>
+    <string name="a11y_banner_write_secure">"System settings write" not granted; cannot toggle accessibility services</string>
+    <string name="a11y_banner_write_secure_action">Grant</string>
+    <string name="a11y_services_group">Installed services (%1$d)</string>
+    <string name="a11y_services_empty">No installed accessibility services found</string>
+    <string name="a11y_state_on">Enabled</string>
+    <string name="a11y_state_off">Disabled</string>
+    <string name="a11y_own_service_warning">With keep-alive on, it is restored automatically after disabling</string>
+    <string name="a11y_toggle_failed">Update failed: system settings write permission missing</string>
+    <string name="a11y_detail_package">Package</string>
+    <string name="a11y_detail_component">Component</string>
+    <string name="a11y_detail_no_description">This service provides no description</string>
+
+    <string name="log_settings_group">Recording settings</string>
+    <string name="clipboard_settings_entry">Clipboard</string>
+    <string name="log_settings_title">Runtime log</string>
+    <string name="log_settings_recording">Record to file</string>
+    <string name="log_settings_recording_hint">Split by process, auto-rotate</string>
+    <string name="log_settings_level">Log level</string>
+    <string name="log_settings_level_hint">Only affects file writes</string>
+    <string name="log_settings_level_recording_off">Recording off</string>
+    <string name="log_settings_level_verbose">Verbose (all)</string>
+    <string name="log_settings_level_debug">Debug</string>
+    <string name="log_settings_level_info">Info (default)</string>
+    <string name="log_settings_level_warn">Warn</string>
+    <string name="log_settings_level_error">Error</string>
+    <string name="log_settings_files">Log files</string>
+    <string name="log_settings_total">Total size</string>
+    <string name="log_settings_manage">Log management</string>
+    <string name="log_settings_total_value">%1$d file(s) · %2$s</string>
+    <string name="log_settings_empty_files">No log files</string>
+    <string name="log_settings_export">Export logs</string>
+    <string name="log_settings_export_hint">Package main and service logs and share</string>
+    <string name="log_settings_export_failed">Export failed, please retry later</string>
+    <string name="log_settings_clear">Clear logs</string>
+    <string name="log_settings_clear_confirm">Delete all saved runtime logs? This cannot be undone.</string>
+    <string name="log_settings_cleared">Runtime logs cleared</string>
+    <string name="log_settings_preview">Recent logs</string>
+    <string name="log_settings_preview_hint">View the last %1$d lines</string>
+    <string name="log_settings_preview_title">Recent logs</string>
+    <string name="log_settings_preview_empty">No logs</string>
+
+    <string name="habit_reminder_channel">Habit reminders</string>
+    <string name="habit_reminder_title">Habit reminder</string>
+    <string name="habit_reminder_done">+1</string>
+    <string name="habit_reminder_snooze_minutes">Snooze %1$d min</string>
+    <string name="habit_reminder_snooze_hours">Snooze %1$d h</string>
+    <string name="habit_reminder_snooze_hours_minutes">Snooze %1$d h %2$d min</string>
+    <string name="habit_reminder_status_due">%1$d-day streak · due today</string>
+    <string name="habit_reminder_status_overdue">%1$d-day streak · missed, can make up</string>
+    <string name="habit_reminder_status_inactive">Not started · starts today</string>
+    <string name="habit_reminder_status_progress">Today %1$d/%2$d · %3$d-day streak</string>
+    <string name="habit_reminder_status_progress_overdue">Today %1$d/%2$d · missed, can make up</string>
+    <string name="habit_reminder_status_progress_inactive">Starts today · Today %1$d/%2$d</string>
+    <string name="habit_reminder_status_plain">Time to check in</string>
+    <string name="habit_reminder_share_content">[%1$s] %2$s</string>
+    <string name="habit_reminder_test_done">Test finished · dismissed</string>
+    <string name="habit_reminder_capsule">Check in</string>
+
+    <string name="todo_reminder_channel">Todo reminders</string>
+    <string name="todo_reminder_title">Todo reminder</string>
+    <string name="todo_reminder_done">Done</string>
+    <string name="todo_reminder_capsule">Due now</string>
+    <string name="todo_reminder_share_content">[%1$s] %2$s</string>
+
+    <string name="habit_reminder_perm_notification">Notification permission</string>
+    <string name="habit_reminder_perm_notification_off_hint">Not allowed · reminder will not show; tap to enable</string>
+    <string name="habit_reminder_perm_exact_alarm">Exact alarm</string>
+    <string name="habit_reminder_perm_exact_off_hint">Not allowed · system may delay the reminder</string>
+    <string name="habit_reminder_perm_live_update">Live update / status bar capsule</string>
+    <string name="habit_reminder_perm_live_off_hint">Not allowed · tap to open system notification settings</string>
+    <string name="habit_reminder_test_name">Test reminder</string>
+    <string name="habit_reminder_test_title">Habit reminder (test)</string>
+    <string name="habit_reminder_test_body">Current mode: %1$s · auto-dismisses in 60 s</string>
+
+    <string name="notification_display_settings_title">Notifications</string>
+    <string name="notification_display_mode_group">Display mode</string>
+    <string name="notification_display_mode_row">Reminder display mode</string>
+    <string name="notification_display_mode_hint">Falls back when unsupported; HyperOS "Live" is the island</string>
+    <string name="notification_display_mode_standard">Standard</string>
+    <string name="notification_display_mode_live">Live</string>
+    <string name="notification_display_mode_island">Island</string>
+    <string name="notification_display_override_group">Override by type</string>
+    <string name="notification_display_override_hint">"Default" follows the global display mode</string>
+    <string name="notification_display_kind_habit">Habit reminders</string>
+    <string name="notification_display_kind_backup">Auto backup</string>
+    <string name="notification_display_kind_todo">Todo reminders</string>
+    <string name="notification_display_override_follow">Default</string>
+    <string name="notification_display_island_group">Island</string>
+    <string name="notification_display_island_auto_expand">Auto-expand big island</string>
+    <string name="notification_display_island_auto_expand_hint">Off: shows only the small island / capsule; tap to expand</string>
+    <string name="notification_display_island_timeout">Island timeout</string>
+    <string name="notification_display_island_timeout_hint">Auto-dismisses on timeout; "No limit" follows persistent semantics</string>
+    <string name="notification_display_island_timeout_none">No limit</string>
+    <string name="notification_display_island_timeout_5m">5 minutes</string>
+    <string name="notification_display_island_timeout_30m">30 minutes</string>
+    <string name="notification_display_island_timeout_1h">1 hour</string>
+    <string name="notification_display_island_expand_seconds">Expand hold</string>
+    <string name="notification_display_island_expand_seconds_hint">How long the big island stays expanded before collapsing to a capsule</string>
+    <string name="notification_display_island_expand_3s">3 seconds</string>
+    <string name="notification_display_island_expand_5s">5 seconds</string>
+    <string name="notification_display_island_expand_10s">10 seconds</string>
+    <string name="notification_display_island_disconnect">Disconnect duration</string>
+    <string name="notification_display_island_disconnect_hint">Temporarily disconnects the MIUI service when posting; too short gets withdrawn</string>
+    <string name="notification_display_island_disconnect_value">%1$d ms</string>
+    <string name="notification_display_island_outer_glow">Outer glow</string>
+    <string name="notification_display_island_outer_glow_hint">Adds a breathing glow around the island card</string>
+    <string name="notification_display_island_keep_shade">Keep notification shade</string>
+    <string name="notification_display_island_keep_shade_hint">Off: only the island is shown, no entry in the shade</string>
+    <string name="notification_display_island_drag_share">Long-press drag to share</string>
+    <string name="notification_display_island_drag_share_hint">Long-press the island card to drag into a chat (needs system support)</string>
+    <string name="notification_display_test_group">Test</string>
+    <string name="notification_display_test_send">Send test notification</string>
+    <string name="notification_display_test_send_hint">Uses the real publish path; switch to recents to see the island effect</string>
+    <string name="notification_display_test_sent">Test notification sent</string>
+    <string name="notification_display_perm_group">Permission status</string>
+    <string name="notification_display_settings_entry">Notifications</string>
+    <string name="notification_display_settings_entry_hint">Display mode, island and permissions</string>
+</resources>

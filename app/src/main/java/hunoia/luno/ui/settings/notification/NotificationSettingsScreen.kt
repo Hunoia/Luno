@@ -130,7 +130,10 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             )
         }
 
-        LunoGroup(title = stringResource(R.string.notification_display_override_group)) {
+        LunoGroup(
+            title = stringResource(R.string.notification_display_override_group),
+            subtitle = stringResource(R.string.notification_display_override_hint),
+        ) {
             NotificationKind.entries.forEachIndexed { index, kind ->
                 val override = display.overrides[kind]
                 ChoiceRow(
@@ -141,7 +144,6 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                             NotificationKind.TODO -> R.string.notification_display_kind_todo
                         },
                     ),
-                    subtitle = stringResource(R.string.notification_display_override_hint),
                     options = listOf(
                         stringResource(R.string.notification_display_override_follow),
                         stringResource(R.string.notification_display_mode_standard),
@@ -269,48 +271,43 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             )
         }
 
-        LunoGroup(title = stringResource(R.string.notification_display_perm_group)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.habit_reminder_perm_notification),
-                subtitle = stringResource(
-                    if (notificationsEnabled) {
-                        R.string.habit_reminder_perm_notification_on_hint
-                    } else {
-                        R.string.habit_reminder_perm_notification_off_hint
-                    },
-                ),
-                shape = segmentedShape(0, 3),
-                onClick = { openAppNotificationSettings(context) },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.habit_reminder_perm_exact_alarm),
-                subtitle = stringResource(
-                    if (exactAlarmEnabled) {
-                        R.string.habit_reminder_perm_exact_on_hint
-                    } else {
-                        R.string.habit_reminder_perm_exact_off_hint
-                    },
-                ),
-                shape = segmentedShape(1, 3),
-                onClick = { openExactAlarmSettings(context) },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.habit_reminder_perm_live_update),
-                subtitle = stringResource(
-                    when {
-                        !liveUpdateSupported -> R.string.habit_reminder_perm_live_unsupported
-                        liveUpdateEnabled -> R.string.habit_reminder_perm_live_on_hint
-                        else -> R.string.habit_reminder_perm_live_off_hint
-                    },
-                ),
-                shape = segmentedShape(2, 3),
-                enabled = liveUpdateSupported,
-                onClick = if (liveUpdateSupported) {
-                    { openAppNotificationSettings(context) }
-                } else {
-                    null
-                },
-            )
+        // 权限提示：只在对应权限缺失时出现（与悬浮球设置页同模式）；已授权/不适用（旧系统不支持）不显示。
+        val needNotifPerm = !notificationsEnabled
+        val needExactAlarm = !exactAlarmEnabled
+        val needLiveUpdate = liveUpdateSupported && !liveUpdateEnabled
+        if (needNotifPerm || needExactAlarm || needLiveUpdate) {
+            val rowCount = (if (needNotifPerm) 1 else 0) +
+                (if (needExactAlarm) 1 else 0) +
+                (if (needLiveUpdate) 1 else 0)
+            LunoGroup(title = stringResource(R.string.notification_display_perm_group)) {
+                if (needNotifPerm) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.habit_reminder_perm_notification),
+                        subtitle = stringResource(R.string.habit_reminder_perm_notification_off_hint),
+                        shape = segmentedShape(0, rowCount),
+                        onClick = { openAppNotificationSettings(context) },
+                    )
+                }
+                if (needExactAlarm) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.habit_reminder_perm_exact_alarm),
+                        subtitle = stringResource(R.string.habit_reminder_perm_exact_off_hint),
+                        shape = segmentedShape(if (needNotifPerm) 1 else 0, rowCount),
+                        onClick = { openExactAlarmSettings(context) },
+                    )
+                }
+                if (needLiveUpdate) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.habit_reminder_perm_live_update),
+                        subtitle = stringResource(R.string.habit_reminder_perm_live_off_hint),
+                        shape = segmentedShape(
+                            (if (needNotifPerm) 1 else 0) + (if (needExactAlarm) 1 else 0),
+                            rowCount,
+                        ),
+                        onClick = { openAppNotificationSettings(context) },
+                    )
+                }
+            }
         }
     }
 }

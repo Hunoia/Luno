@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_running">Running normally</string>
+    <string name="home_status_needs_attention">Needs attention</string>
+    <string name="home_status_unavailable">Unavailable</string>
+    <string name="home_status_running_desc">Core status is available; side gestures respond normally.</string>
+    <string name="home_status_accessibility_desc">Enable accessibility to use side gestures.</string>
+    <string name="home_status_gesture_desc">Enable gestures to restore side triggers.</string>
+    <string name="home_status_shizuku_not_running_desc">Start Shizuku to refresh status.</string>
+    <string name="home_status_shizuku_not_authorized_desc">Authorize to use features requiring system permissions.</string>
+    <string name="home_status_keep_alive_desc">Enable to reduce the chance of the service being reclaimed.</string>
+    <string name="home_permission_status_title">Permission status</string>
+    <string name="gesture_switch_retry_failed">Accessibility service not detected as enabled; switch reset</string>
+    <string name="restore_confirm_title">Restore configuration?</string>
+    <string name="restore_confirm_desc">Restoring will overwrite current settings.</string>
+</resources>

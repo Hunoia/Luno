@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressTextButton
 
 @Composable
-private fun PrivilegedPermission.title(): String = stringResource(
+internal fun PrivilegedPermission.title(): String = stringResource(
     when (this) {
         PrivilegedPermission.OVERLAY -> R.string.perm_overlay
         PrivilegedPermission.ACCESSIBILITY -> R.string.perm_accessibility
@@ -60,7 +60,7 @@ private fun PrivilegedPermission.title(): String = stringResource(
 )
 
 @Composable
-private fun PrivilegedPermission.hint(): String = stringResource(
+internal fun PrivilegedPermission.hint(): String = stringResource(
     when (this) {
         PrivilegedPermission.OVERLAY -> R.string.perm_overlay_hint
         PrivilegedPermission.ACCESSIBILITY -> R.string.perm_accessibility_hint

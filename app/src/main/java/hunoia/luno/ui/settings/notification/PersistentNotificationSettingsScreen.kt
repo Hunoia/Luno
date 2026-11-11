@@ -1,6 +1,10 @@
 package hunoia.luno.ui.settings.notification
 
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +26,7 @@ import hunoia.luno.config.model.isTargetHidden
 import hunoia.luno.core.LunoLog
 import hunoia.luno.core.domain.PersistentNotificationEntry
 import hunoia.luno.domain.system.PersistentNotificationHidingUseCase
+import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -92,41 +97,37 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
         title = stringResource(R.string.persistent_notification_settings_title),
         onBack = onBack,
     ) {
-        LunoGroup(title = stringResource(R.string.persistent_notification_status_group)) {
-            LunoSettingsRow(
-                title = stringResource(
-                    if (state.notificationAccessGranted) {
-                        R.string.persistent_notification_access_on
-                    } else {
-                        R.string.persistent_notification_access_off
-                    },
-                ),
-                subtitle = stringResource(
-                    if (state.notificationAccessGranted) {
-                        R.string.persistent_notification_access_hint_on
-                    } else {
-                        R.string.persistent_notification_access_hint_off
-                    },
-                ),
-                shape = segmentedShape(0, 2),
-            )
-            LunoSettingsRow(
-                title = stringResource(
-                    if (state.shizukuReady) {
-                        R.string.persistent_notification_shizuku_on
-                    } else {
-                        R.string.persistent_notification_shizuku_off
-                    },
-                ),
-                subtitle = stringResource(
-                    if (state.shizukuReady) {
-                        R.string.persistent_notification_shizuku_hint_on
-                    } else {
-                        R.string.persistent_notification_shizuku_hint_off
-                    },
-                ),
-                shape = segmentedShape(1, 2),
-            )
+        // 权限提示：只在功能开启且对应依赖缺失时出现（与悬浮球设置页同模式）。
+        if (state.settings.enabled && (!state.notificationAccessGranted || !state.shizukuReady)) {
+            val needNotifAccess = !state.notificationAccessGranted
+            val needShizuku = !state.shizukuReady
+            val rowCount = (if (needNotifAccess) 1 else 0) + (if (needShizuku) 1 else 0)
+            LunoGroup {
+                if (needNotifAccess) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.persistent_notification_access_off),
+                        subtitle = stringResource(R.string.persistent_notification_access_hint_off),
+                        icon = Icons.AutoMirrored.Filled.OpenInNew,
+                        shape = segmentedShape(0, rowCount),
+                        onClick = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                    )
+                }
+                if (needShizuku) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.persistent_notification_shizuku_off),
+                        subtitle = stringResource(R.string.persistent_notification_shizuku_hint_off),
+                        icon = Icons.AutoMirrored.Filled.OpenInNew,
+                        shape = segmentedShape(if (needNotifAccess) 1 else 0, rowCount),
+                        onClick = {
+                            scope.launch {
+                                runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
+                            }
+                        },
+                    )
+                }
+            }
         }
 
         LunoGroup(title = stringResource(R.string.persistent_notification_master_group)) {

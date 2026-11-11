@@ -2,6 +2,7 @@ package hunoia.luno.ui.home
 
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
+import hunoia.luno.facade.PrivilegedPermissionStatus
 import hunoia.luno.shizuku.ShizukuStatus
 
 sealed interface RenameTarget {
@@ -37,5 +38,7 @@ data class UiState(
             permissionGranted = false,
         ),
     ),
+    /** 主页权限状态卡：各特权权限的当前授权快照（有缺失时才显示卡片）。 */
+    val privilegedPermissionStatus: List<PrivilegedPermissionStatus> = emptyList(),
     val renameDialogTarget: RenameTarget? = null,
 )
