@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -85,7 +86,6 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.glassCapsule
 import kotlin.math.abs
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -152,14 +152,6 @@ internal fun ActionSelectBottomBar(
     // 系统返回先收搜索框，否则输入到一半会直接退出选择页。
     BackHandler(enabled = searchExpanded) { closeSearch() }
 
-    // 展开动画铺好布局再要焦点：组合期直接 requestFocus 节点还没 attach，会落空。
-    LaunchedEffect(searchExpanded) {
-        if (searchExpanded) {
-            delay(100)
-            runCatching { focusRequester.requestFocus() }
-        }
-    }
-
     // 键盘与导航栏取并集：IME 可见时底部 inset 已含导航栏，相加会多顶一截。
     val bottomInsets = WindowInsets.navigationBars
         .only(WindowInsetsSides.Bottom)
@@ -204,12 +196,23 @@ internal fun ActionSelectBottomBar(
                     label = "actionSearchMode",
                 ) { searching ->
                     if (searching) {
+                        // 展开动画铺好布局再要焦点：组合期直接 requestFocus 节点还没 attach，
+                        // 会落空（旧实现用固定 delay(100) 盲等，慢设备等不够就静默失败、键盘
+                        // 不弹，快设备又白等）。改用 onGloballyPositioned 等搜索框完成首帧布局，
+                        // 回调触发即节点已挂载，requestFocus 必不落空；标志位与搜索框同组合作用域，
+                        // 收起自动销毁、下次展开从 false 重新触发，反复展开/收起都正确。
+                        var placed by remember { mutableStateOf(false) }
+                        LaunchedEffect(placed) {
+                            if (placed) runCatching { focusRequester.requestFocus() }
+                        }
                         LunoSearchField(
                             query = query,
                             onQueryChange = onQueryChange,
                             placeholder = stringResource(hunoia.luno.design.R.string.search_hint_all),
                             focusRequester = focusRequester,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .onGloballyPositioned { placed = true },
                         )
                     } else {
                         TypeChipStrip(
