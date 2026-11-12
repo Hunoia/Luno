@@ -71,4 +71,39 @@ class ForegroundAppResolverTest {
             ),
         )
     }
+
+    @Test
+    fun `systemui on top is skipped for the app below`() {
+        // MIUI 小窗时 systemui 的 TYPE_APPLICATION 窗口层级高于 freeform 应用。
+        assertEquals(
+            "com.wechat",
+            resolve(
+                AppWindow("com.android.systemui", layer = 3),
+                AppWindow("com.android.systemui", layer = 2),
+                AppWindow("com.wechat", layer = 1),
+            ),
+        )
+    }
+
+    @Test
+    fun `systemui over launcher is not a target`() {
+        assertEquals(
+            "",
+            resolve(
+                AppWindow("com.android.systemui", layer = 3),
+                AppWindow("com.android.launcher", layer = 0),
+            ),
+        )
+    }
+
+    @Test
+    fun `only systemui windows is not a target`() {
+        assertEquals(
+            "",
+            resolve(
+                AppWindow("com.android.systemui", layer = 3),
+                AppWindow("com.android.systemui", layer = 2),
+            ),
+        )
+    }
 }

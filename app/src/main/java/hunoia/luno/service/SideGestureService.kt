@@ -505,7 +505,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 .sortedByDescending { it.layer }
                 .firstOrNull { w ->
                     w.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
-                        runCatching { w.root?.packageName?.toString() }.getOrNull() != packageName
+                        runCatching { w.root?.packageName?.toString() }.getOrNull()
+                            ?.let { it != packageName && it != "com.android.systemui" } == true
                 }
                 ?.root?.packageName?.toString()
         }.getOrNull()

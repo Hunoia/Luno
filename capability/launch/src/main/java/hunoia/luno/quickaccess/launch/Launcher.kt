@@ -68,22 +68,28 @@ object Launcher {
         return try {
             // 整个启动体放到 IO：hasClone / resolveActivity / startActivity 都是阻塞 binder，
             // 占住手势收尾与面板收口的主线程，会在系统忙时拖慢「触发→打开」的感知。
+            var suppressSwap = false
             val launched = withContext(Dispatchers.IO) {
                 // 优先复用已有 task：目标在最近任务里时，用 startActivityFromRecents 带小窗参数
                 // 提到前台，而不是重新走一次 Activity 启动。实测能让 2.5s / 5.0s 的
                 // 「快照启动窗卡在 OPEN 转场直到超时」变成 60–170ms。
                 // 放在 hasClone / 分身分支之前，保证微信这类装了分身的应用也能命中。
-                if (miniWindow && miniReuseEnabled() &&
-                    tryReuseTaskInMiniWindow(
+                if (miniWindow && miniReuseEnabled()) {
+                    when (tryReuseTaskInMiniWindow(
                         context = context,
                         packageName = packageName,
                         userId = userId,
                         miniWindowSettings = miniWindowSettings,
                         anchor = anchor,
                         tLaunch = tLaunch,
-                    )
-                ) {
-                    return@withContext true
+                    )) {
+                        MiniReuseResult.Reused -> return@withContext true
+                        MiniReuseResult.Toggled, MiniReuseResult.Switched -> {
+                            suppressSwap = true
+                            return@withContext true
+                        }
+                        MiniReuseResult.NotHandled -> Unit
+                    }
                 }
                 if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
                     return@withContext launchCloneApp(
@@ -138,7 +144,9 @@ object Launcher {
             }
             if (launched && miniWindow) {
                 scheduleScaleLearn(context, packageName)
-                if (miniWindowSettings.swapExisting) {
+                // 切换/toggle 路径已自行处理旧小窗（切换恢复当前、toggle 关掉小窗），
+                // 不再 swap；复用/普通启动才把其他既有小窗恢复全屏（单前台小窗）。
+                if (!suppressSwap && miniWindowSettings.swapExisting) {
                     scheduleSwapExistingWindows(context, packageName)
                 }
             }
@@ -226,22 +234,19 @@ object Launcher {
                 return@withContext false
             }
             val target = plan.target
-            // 直接对普通小窗（freeform）派发会走 MIUI 的 fromFreeformToMini，实机会卡死/崩系统；
-            // 先复用原 task 恢复全屏，等窗口模式落定后再挂迷你。已经在迷你态的跳过。
+            // 目标是 freeform（普通小窗或迷你小窗）→ 变全屏（toggle），不挂迷你。
+            // 「普通小窗→迷你」路径已删：restore 全屏后立即挂迷你会撞上未落定的
+            // freeform↔fullscreen 转换，MIUI 内部 MiuiFreeFormActivityStack 为 null →
+            // system_server 崩溃（实测）。迷你小窗同样走恢复全屏（已小窗→全屏）。
             if (target.isFreeform) {
-                if (ShizukuManager.isMiniFreeFormTask(target.taskId)) {
-                    Log.i(
-                        LOG_TAG,
-                        "miniFreeform skip=already-mini task=${target.taskId} pkg=${target.packageName}",
-                    )
-                    return@withContext true
-                }
                 Log.i(
                     LOG_TAG,
-                    "miniFreeform restore-first task=${target.taskId} pkg=${target.packageName}",
+                    "miniFreeform toggle-to-fullscreen " +
+                        "mini=${ShizukuManager.isMiniFreeFormTask(target.taskId)} " +
+                        "task=${target.taskId} pkg=${target.packageName}",
                 )
                 restoreTaskToFullscreen(context, target)
-                delay(250)
+                return@withContext true
             }
             val positionCode = miniFreeformPositionCode(context, miniFreeform.position, anchor)
             val tCall = SystemClock.uptimeMillis()
@@ -459,8 +464,22 @@ object Launcher {
         return value != "off"
     }
 
+    private enum class MiniReuseResult {
+        /** 未处理，回落到普通启动（需要 swap 旧小窗）。 */
+        NotHandled,
+
+        /** 复用了后台 task 打开小窗（需要 swap 旧小窗）。 */
+        Reused,
+
+        /** 当前小窗 → 全屏（toggle，不 swap）。 */
+        Toggled,
+
+        /** 小窗 + 全屏切换（镜像迷你小窗，不 swap）。 */
+        Switched,
+    }
+
     /**
-     * 复用已有 task 打开小窗：`startActivityFromRecents(taskId, freeform options)`。
+     * 复用已有 task 打开小窗：`startActivityFromRecents(taskId, freeform options)`.
      * 失败（找不到 task / Shizuku 拒绝）返回 false，调用方回落到普通启动。
      *
      * 找到的是 task 而不是 Intent，所以不会重新走 ActivityStarter 的启动/快照路径，
@@ -474,33 +493,76 @@ object Launcher {
         miniWindowSettings: MiniWindowSettings,
         anchor: Pair<Int, Int>?,
         tLaunch: Long,
-    ): Boolean {
+    ): MiniReuseResult {
         if (!ShizukuManager.currentStatus().isReady) {
             Log.i(LOG_TAG, "miniReuse skip shizuku-not-ready pkg=$packageName user=$userId")
-            return false
+            return MiniReuseResult.NotHandled
         }
         val tLookup = SystemClock.uptimeMillis()
         val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
-        val taskId = parseTaskId(list.stdout, packageName, userId)
+        val tasks = parseStackTasks(list.stdout)
+        val current = tasks.firstOrNull {
+            it.packageName == packageName && (userId == 0 || it.userId == userId)
+        }
         val lookupMs = SystemClock.uptimeMillis() - tLookup
-        if (taskId == null) {
+        if (current == null) {
             Log.i(
                 LOG_TAG,
                 "miniReuse no-task pkg=$packageName user=$userId lookupMs=$lookupMs " +
                     "totalMs=${SystemClock.uptimeMillis() - tLaunch}",
             )
-            return false
+            return MiniReuseResult.NotHandled
         }
-        val preWindowingMode = parseTaskRootWindowingMode(list.stdout, packageName, userId)
-        val taskVisible = isTaskVisible(list.stdout, packageName, userId)
-        // 前台 task 不复用：见 [miniReuseVisibleTaskEnabled]。
+        val plan = chooseMiniWindowTarget(
+            tasks = tasks,
+            packageName = packageName,
+            userId = userId,
+            autoSwap = miniWindowSettings.swapExisting,
+            selfPackage = context.packageName,
+        ) ?: return MiniReuseResult.NotHandled
+        val target = plan.target
+        // 切换（镜像迷你小窗）：当前是小窗 + 开启互换 + 后面有可见全屏应用 →
+        // 打开那个全屏应用的小窗（复用其 task），并把当前小窗恢复全屏。
+        if (plan.swapped) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse switch target=${target.taskId} pkg=${target.packageName} " +
+                    "swap=${plan.swap?.taskId} current=$packageName lookupMs=$lookupMs " +
+                    "totalMs=${SystemClock.uptimeMillis() - tLaunch}",
+            )
+            val options = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+            val tCall = SystemClock.uptimeMillis()
+            val ok = ShizukuManager.startActivityFromRecents(target.taskId, options)
+            Log.i(
+                LOG_TAG,
+                "miniReuse switch-ok ok=$ok callMs=${SystemClock.uptimeMillis() - tCall}",
+            )
+            if (ok) plan.swap?.let { restoreTaskToFullscreen(context, it) }
+            return if (ok) MiniReuseResult.Switched else MiniReuseResult.NotHandled
+        }
+        val taskId = target.taskId
+        val preWindowingMode = target.windowingMode
+        val taskVisible = target.visible
+        // 目标已是前台小窗（可见 freeform task）→ 切全屏（toggle），不再开小窗。
+        // 复用原 task（保留页面状态），由 [restoreTaskToFullscreen] 回读确认。
+        if (miniReuseVisibleTaskEnabled() && taskVisible && target.isFreeform) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse toggle-to-fullscreen task=$taskId pkg=$packageName user=$userId " +
+                    "preMode=$preWindowingMode lookupMs=$lookupMs " +
+                    "totalMs=${SystemClock.uptimeMillis() - tLaunch}",
+            )
+            restoreTaskToFullscreen(context, target)
+            return MiniReuseResult.Toggled
+        }
+        // 前台（非小窗）task 不复用：见 [miniReuseVisibleTaskEnabled]。
         if (miniReuseVisibleTaskEnabled() && taskVisible) {
             Log.i(
                 LOG_TAG,
                 "miniReuse skip=visible task=$taskId preMode=$preWindowingMode user=$userId " +
                     "lookupMs=$lookupMs totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
             )
-            return false
+            return MiniReuseResult.NotHandled
         }
         val options = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
         val tCall = SystemClock.uptimeMillis()
@@ -511,26 +573,7 @@ object Launcher {
                 "lookupMs=$lookupMs callMs=${SystemClock.uptimeMillis() - tCall} " +
                 "totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
         )
-        return ok
-    }
-
-    /**
-     * `am stack list` 里目标 task 所在 RootTask 在**复用前**的 windowingMode，仅用于日志。
-     *
-     * 后台 task 通常挂在 fullscreen 的 RootTask 下（即使上次是小窗，回到后台后 RootTask
-     * 也会被收回），所以这里看到 `fullscreen` 是正常的；它记录的是「复用前」的状态，
-     * 复用时会由 [MiniWindowGeometry.activityOptionsBundle] 的 freeform 参数转成小窗。
-     */
-    private fun parseTaskRootWindowingMode(output: String, packageName: String, userId: Int): String? {
-        val lines = output.lineSequence().toList()
-        val taskRegex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
-        val index = lines.indexOfFirst { taskRegex.containsMatchIn(it) }
-        if (index < 0) return null
-        val modeRegex = Regex("""mWindowingMode=([\w-]+)""")
-        for (i in index downTo 0) {
-            modeRegex.find(lines[i])?.let { return it.groupValues[1] }
-        }
-        return null
+        return if (ok) MiniReuseResult.Reused else MiniReuseResult.NotHandled
     }
 
     /**
@@ -732,23 +775,6 @@ object Launcher {
     private fun parseTaskId(output: String, packageName: String, userId: Int): Int? {
         val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
-    }
-
-    /**
-     * 命中的 task 当前是否可见（前台）。`am stack list` 的 task 行带 `visible=true|false`：
-     *
-     * ```
-     * taskId=97358: com.ss.android.ugc.aweme/...bounds=[0,0][1200,2670] userId=0 visible=true ...
-     * ```
-     *
-     * 前台 task 原地转 freeform 会露出未装饰的大方形帧，复用路径要避开（见
-     * [miniReuseVisibleTaskEnabled]）。
-     */
-    private fun isTaskVisible(output: String, packageName: String, userId: Int): Boolean {
-        val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
-        // 注意：正则只吃到 `userId=0` 为止，`visible=` 在其后，必须按整行判断。
-        val line = output.lineSequence().firstOrNull { regex.containsMatchIn(it) } ?: return false
-        return line.contains("visible=true")
     }
 
     private fun launchCloneViaLauncherApps(

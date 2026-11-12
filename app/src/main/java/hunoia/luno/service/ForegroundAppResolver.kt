@@ -11,6 +11,15 @@ package hunoia.luno.service
  */
 internal object ForegroundAppResolver {
 
+    /**
+     * 系统 UI 包：无障碍窗口列表里 systemui 的 `TYPE_APPLICATION` 窗口（如 MIUI 小窗的
+     * caption/控制层）层级常**高于** freeform 应用窗口，会把「当前应用」污染成 systemui。
+     * 它们没有 launcher，小窗/迷你动作取到只会失败，直接跳过。
+     */
+    private val systemUiPackages = setOf(
+        "com.android.systemui",
+    )
+
     /** 已过滤为 `TYPE_APPLICATION && isVisibleToUser` 的窗口；[packageName] 可能因 root 未就绪为 null。 */
     data class AppWindow(
         val packageName: String?,
@@ -23,7 +32,7 @@ internal object ForegroundAppResolver {
             .asSequence()
             .sortedByDescending { it.layer }
             .mapNotNull { it.packageName?.takeIf(String::isNotBlank) }
-            .firstOrNull()
+            .firstOrNull { it !in systemUiPackages }
             ?: return ""
         return if (isLauncher(topPackage)) "" else topPackage
     }
