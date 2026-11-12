@@ -39,6 +39,9 @@ interface AppLauncher {
     /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */
     suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>? = null): ActionResult
 
+    /** 当前应用挂成 MIUI 迷你小窗；位置/互换设置由实现侧读。 */
+    suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>? = null): ActionResult
+
     /** 打开链接（含 Query 参数与小窗）。 */
     suspend fun openUrl(
         url: String,

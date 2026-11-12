@@ -152,6 +152,9 @@ class App : Application(), SingletonImageLoader.Factory {
             }
 
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
+        // 无障碍服务进程崩溃后系统会重启进程（PID 变）但常不重连连接；
+        // 主进程/:service 进程启动时检测最近崩溃，用 Shizuku 权限强制重绑（免手动重开）。
+        hunoia.luno.service.AccessibilityCrashRecovery.tryRecover(applicationContext)
     }
 
     /**

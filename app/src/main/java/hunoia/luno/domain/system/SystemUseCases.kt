@@ -16,7 +16,7 @@ object SystemUseCases : SystemFacade {
     ): Boolean = KeepAliveUseCase.setEnabled(context, enabled, onPermissionRequired)
 
     override suspend fun enableAccessibility(context: Context): Boolean =
-        EnableAccessibilityUseCase.enable(context)
+        EnableAccessibilityUseCase.enable(context, forceRebind = true)
 
     override fun setFloatBallEnabled(context: Context, enabled: Boolean) =
         FloatBallUseCase.setEnabled(context, enabled)

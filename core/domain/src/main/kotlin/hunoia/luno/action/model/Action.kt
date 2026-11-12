@@ -55,6 +55,13 @@ sealed interface Action {
     data object Popup : Action {
         override val typeId: String = "app.popup"
     }
+    /**
+     * 迷你小窗当前应用：走 MIUI 私有事务挂成系统迷你浮窗，与小窗（freeform）相互独立。
+     * 位置与是否互换用动作设置→小窗里的「迷你小窗」分组。
+     */
+    data object MiniWindow : Action {
+        override val typeId: String = "system.mini_window"
+    }
     data class LaunchShortcut(val data: String) : Action {
         override val typeId: String = "app.launchShortcut"
     }
@@ -238,6 +245,21 @@ sealed interface Action {
     /** 指针：开启光标模式，拖动定位、松手在光标处点击。无参数，设置在 GestureSettings.Pointer。 */
     data object Pointer : Action {
         override val typeId: String = "internal.pointer"
+    }
+    /**
+     * 最近应用滚动选择器：全屏滚轮列出最近应用，滑动预览、点选启动、点空白/返回取消。
+     * 触发方式（按住/抬手）由手势类型自动决定（与 volumeScrub 同构）；
+     * 排列方向是动作参数，在动作选择页行尾设置里配。
+     */
+    data class RecentsPicker(
+        /** 滚轮排列方向：竖向 / 横向。未指定时由实现侧用配置默认值。 */
+        val layout: RecentsPickerLayout = RecentsPickerLayout.VERTICAL,
+        /** 列表外滑动灵敏度（百分比，100 = 1.0x）。null = 用实现侧默认。 */
+        val blankScrollSensitivityPercent: Int? = null,
+        /** 图标边长 dp。null = 用实现侧默认。 */
+        val iconSizeDp: Int? = null,
+    ) : Action {
+        override val typeId: String = "internal.recentsPicker"
     }
     /** 上一个应用：切换到最近访问的非黑名单应用，黑名单在动作设置全局配置。 */
     data object PreviousApp : Action {

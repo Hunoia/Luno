@@ -1,6 +1,8 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.config.defaults.ActionSettingsDefaults.RecentsPickerIconSizeDp
+import hunoia.luno.config.defaults.ActionSettingsDefaults.RecentsPickerSensitivityPercent
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.Serializable
 
@@ -32,4 +34,15 @@ data class ActionSettings(
 @Keep
 data class VolumeScrubConfig(
     val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
+)
+
+@Serializable
+@Keep
+data class RecentsPickerConfig(
+    val layout: hunoia.luno.action.model.RecentsPickerLayout =
+        hunoia.luno.action.model.RecentsPickerLayout.VERTICAL,
+    /** 列表外滑动灵敏度（百分比，100 = 1.0x），作用于按住触发与 overlay 空白拖动。 */
+    val blankScrollSensitivityPercent: Int = RecentsPickerSensitivityPercent,
+    /** 图标边长 dp。 */
+    val iconSizeDp: Int = RecentsPickerIconSizeDp,
 )

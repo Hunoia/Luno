@@ -25,6 +25,29 @@ val DefaultLandscapeBounds: WindowBounds = WindowBounds(
     height = AdvancedSettingsDefaults.MiniWindowLandscapeHeight,
 )
 
+/** 迷你小窗贴在屏幕哪一侧。 */
+@Serializable
+@Keep
+enum class MiniFreeformPosition {
+    /** 按触发点位置决定：触点落在左半屏贴左，右半屏贴右。 */
+    AUTO,
+    LEFT,
+    RIGHT,
+}
+
+/**
+ * 迷你小窗（MIUI/HyperOS 原生迷你浮窗）的独立设置。
+ *
+ * 尺寸由系统控制，这里只决定位置与是否与屏幕上已有的小窗互换。
+ */
+@Serializable
+@Keep
+data class MiniFreeformSettings(
+    val position: MiniFreeformPosition = MiniFreeformPosition.AUTO,
+    /** 屏幕已有小窗时，把旧小窗恢复全屏，把当前应用挂成迷你小窗。 */
+    val autoSwap: Boolean = true,
+)
+
 /** 小窗位置与大小，竖屏横屏各存一套：转屏后比例几乎必然不合理，所以按方向分开。 */
 @Serializable
 @Keep
@@ -36,6 +59,14 @@ data class MiniWindowSettings(
     /** 跟随触发位置时，横 / 竖屏各自的三个边距。 */
     val portraitPlacement: SurfacePlacement = SurfacePlacement(),
     val landscapePlacement: SurfacePlacement = SurfacePlacement(),
+    /**
+     * 打开新小窗时，把屏幕上已有的其他小窗恢复为全屏。
+     *
+     * 与 [MiniFreeformSettings.autoSwap] 相互独立：那个管迷你小窗动作，这个管普通小窗。
+     */
+    val swapExisting: Boolean = true,
+    /** 迷你小窗动作的设置，与小窗本身互不影响。 */
+    val miniFreeform: MiniFreeformSettings = MiniFreeformSettings(),
 ) {
     fun forOrientation(landscape: Boolean): WindowBounds =
         if (landscape) this.landscape else portrait

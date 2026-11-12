@@ -20,6 +20,15 @@ interface GestureOverlayCallbacks {
     /** 请求挂上全屏音量触摸窗：滑动（非停留）手势触发，把调节区扩到全屏，触发的那次拖动结束后任意位置再拖仍能调节。 */
     fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig)
 
+    /**
+     * 请求挂上最近应用滚轮窗：状态已 activate（含列表/布局/锚点），窗口渲染共享
+     * [hunoia.luno.runtime.recentspicker.RecentsPickerState] 并接管抬手后的滚动/点选。
+     */
+    fun onRecentsPickerOverlayRequested(state: hunoia.luno.runtime.recentspicker.RecentsPickerState)
+
+    /** 请求收掉最近应用滚轮窗（按住类触发的系统级取消路径）。 */
+    fun onRecentsPickerOverlayDismissed()
+
     /** 指针桥：按住类触发的面板内光标走 start→end/actionAtPosition；其余入口（滑动/面板点选/悬浮球/动作分发）走 show 挂全屏指针窗口。 */
     fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean
     fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean

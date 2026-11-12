@@ -47,6 +47,8 @@ import hunoia.luno.runtime.overlay.TransientOverlayController
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.runtime.pointer.PointerRuntime
+import hunoia.luno.runtime.recentspicker.RecentsPickerRuntime
+import hunoia.luno.runtime.recentspicker.RecentsPickerState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -338,6 +340,9 @@ class GestureCoordinator(
         override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?) =
             appLauncher.launchInPopup(packageName, anchor)
 
+        override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?) =
+            appLauncher.launchMiniWindow(packageName, anchor)
+
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 
@@ -515,6 +520,10 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons() },
     )
 
+    private val recentsPickerRuntime = RecentsPickerRuntime(
+        onStateChanged = { refreshGestureButtons() },
+    )
+
     private var started = false
 
     /** 动作面板 Dismissed 延迟发布的代际：面板在淡出期间重开则旧事件作废。 */
@@ -663,6 +672,16 @@ class GestureCoordinator(
             volumeScrubRuntime.show(config)
         }
 
+        override fun onRecentsPickerOverlayRequested(state: RecentsPickerState) {
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "recents picker overlay requested")
+            recentsPickerRuntime.show(state)
+        }
+
+        override fun onRecentsPickerOverlayDismissed() {
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "recents picker overlay dismissed")
+            recentsPickerRuntime.end()
+        }
+
         override fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
             val started = pointerRuntime.beginBridge()
             // 已在会话中（start=false）时不要收回宿主窗：光标还在画。
@@ -771,6 +790,7 @@ class GestureCoordinator(
             Events.post(PanelDismissedEvent())
         }
         volumeScrubRuntime.end()
+        recentsPickerRuntime.end()
         pointerRuntime.end()
         dismissPanelsForScreenAction()
     }
@@ -1219,6 +1239,7 @@ class GestureCoordinator(
         }
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
+        recentsPickerRuntime.onDestroy()
         pointerRuntime.onDestroy()
         previousAppTracker.onRelease()
         wallpaperColorsListener?.let { listener ->

@@ -11,10 +11,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.os.SystemClock
 import android.os.UserHandle
 import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
 import hunoia.luno.capability.launch.R
+import hunoia.luno.config.model.MiniFreeformPosition
+import hunoia.luno.config.model.MiniFreeformSettings
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
 import hunoia.luno.config.model.resolveTopLeft
@@ -29,13 +32,22 @@ import hunoia.luno.bridge.system.AppIcons
 import hunoia.luno.bridge.system.shellQuote
 import hunoia.luno.shizuku.ShizukuManager
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
 object Launcher {
+
+    /**
+     * 小窗缩放系数的异步采样：不能挡在启动返回路径上，且要等 MIUI freeform 装饰/合成
+     * 层真正生效（约 600–700ms）后 `dumpsys` 才能看到带放大的 transform。
+     */
+    private val learnScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     suspend fun launchApp(
         context: Context,
@@ -49,53 +61,476 @@ object Launcher {
         userId: Int = 0,
         anchor: Pair<Int, Int>? = null,
     ): Boolean {
-        if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
-            return launchCloneApp(
-                context = context,
-                packageName = packageName,
-                className = className,
-                miniWindow = miniWindow,
-                miniWindowSettings = miniWindowSettings,
-                intentAction = intentAction,
-                data = data,
-                extras = extras,
-                userId = userId,
-                anchor = anchor,
-            )
+        val tLaunch = SystemClock.uptimeMillis()
+        if (miniWindow) {
+            Log.i(LOG_TAG, "miniWindow launch begin pkg=$packageName user=$userId t=$tLaunch")
         }
         return try {
-            // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
-            // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
-            if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
-                buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
-                    val options = if (miniWindow) {
-                        MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
-                    } else {
-                        null
+            // 整个启动体放到 IO：hasClone / resolveActivity / startActivity 都是阻塞 binder，
+            // 占住手势收尾与面板收口的主线程，会在系统忙时拖慢「触发→打开」的感知。
+            val launched = withContext(Dispatchers.IO) {
+                // 优先复用已有 task：目标在最近任务里时，用 startActivityFromRecents 带小窗参数
+                // 提到前台，而不是重新走一次 Activity 启动。实测能让 2.5s / 5.0s 的
+                // 「快照启动窗卡在 OPEN 转场直到超时」变成 60–170ms。
+                // 放在 hasClone / 分身分支之前，保证微信这类装了分身的应用也能命中。
+                if (miniWindow && miniReuseEnabled() &&
+                    tryReuseTaskInMiniWindow(
+                        context = context,
+                        packageName = packageName,
+                        userId = userId,
+                        miniWindowSettings = miniWindowSettings,
+                        anchor = anchor,
+                        tLaunch = tLaunch,
+                    )
+                ) {
+                    return@withContext true
+                }
+                if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
+                    return@withContext launchCloneApp(
+                        context = context,
+                        packageName = packageName,
+                        className = className,
+                        miniWindow = miniWindow,
+                        miniWindowSettings = miniWindowSettings,
+                        intentAction = intentAction,
+                        data = data,
+                        extras = extras,
+                        userId = userId,
+                        anchor = anchor,
+                    )
+                }
+                // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
+                // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
+                if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
+                    buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
+                        val options = if (miniWindow) {
+                            MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+                        } else {
+                            null
+                        }
+                        if (ShizukuManager.startActivityAsUser(intent, 0, options)) {
+                            if (miniWindow) {
+                                Log.i(
+                                    LOG_TAG,
+                                    "miniWindow shizuku launched elapsedMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+                                )
+                            }
+                            return@withContext true
+                        }
                     }
-                    if (ShizukuManager.startActivityAsUser(intent, 0, options)) return true
+                }
+                val pm = context.packageManager
+                val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
+                    ?: run {
+                        // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
+                        // 而不是静默失败。包本身不存在时仍返回 false。
+                        if (runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() == null) {
+                            return@withContext false
+                        }
+                        return@withContext openAppDetails(context, packageName)
+                    }
+                if (miniWindow) {
+                    MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
+                } else {
+                    context.startActivity(intent)
+                    true
                 }
             }
-            val pm = context.packageManager
-            val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
-                ?: run {
-                    // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
-                    // 而不是静默失败。包本身不存在时仍返回 false。
-                    if (runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() == null) {
-                        return false
-                    }
-                    return openAppDetails(context, packageName)
+            if (launched && miniWindow) {
+                scheduleScaleLearn(context, packageName)
+                if (miniWindowSettings.swapExisting) {
+                    scheduleSwapExistingWindows(context, packageName)
                 }
-            if (miniWindow) {
-                MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
-            } else {
-                context.startActivity(intent)
-                true
             }
+            launched
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchApp failed", e)
             false
         }
+    }
+
+    /** 小窗启动成功后异步学习合成缩放系数；转屏后第一次仍用旧缓存/常量。 */
+    private fun scheduleScaleLearn(context: Context, packageName: String) {
+        val landscape = context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        learnScope.launch {
+            delay(700)
+            FreeformScale.learn(landscape, packageName)
+        }
+    }
+
+    /**
+     * 普通小窗的「与已有小窗互换」：新小窗起来后，把旧的小窗任务恢复全屏。
+     *
+     * 放在后台异步做，不占启动返回路径；排除本次启动的包名和本应用自己的页面，
+     * 避免把刚打开的小窗也一起恢复。旧小窗的 taskId 会被保留（见
+     * [restoreTaskToFullscreen]），所以回到全屏后页面状态不丢。
+     */
+    private fun scheduleSwapExistingWindows(context: Context, packageName: String) {
+        learnScope.launch {
+            delay(450)
+            if (!ShizukuManager.currentStatus().isReady) return@launch
+            val tasks = parseStackTasks(
+                ShizukuManager.executeShell("am stack list", maxChars = 200_000).stdout,
+            )
+            val existing = tasks.filter {
+                it.isFreeform && it.visible &&
+                    it.packageName != packageName &&
+                    it.packageName != context.packageName &&
+                    // 迷你小窗归「迷你小窗」那组设置管，普通小窗互换不去动它。
+                    !ShizukuManager.isMiniFreeFormTask(it.taskId)
+            }
+            for (task in existing) {
+                Log.i(
+                    LOG_TAG,
+                    "miniWindow swap existing pkg=${task.packageName} task=${task.taskId}",
+                )
+                restoreTaskToFullscreen(context, task)
+            }
+        }
+    }
+
+    /**
+     * 迷你小窗：把当前应用的任务交给 MIUI 的迷你浮窗（`launchMiniFreeFormWindow`）。
+     *
+     * 与小窗（freeform）是两条独立链路：尺寸由系统决定，只按设置选左右位置；
+     * 开启互换时，屏幕上已有的 freeform 小窗会同步恢复为全屏。目标选择见
+     * [chooseMiniWindowTarget]。
+     *
+     * 找不到目标 task（应用已退出 / 系统未列出）返回 false，由调用方给出失败反馈。
+     */
+    suspend fun launchMiniWindow(
+        context: Context,
+        packageName: String,
+        miniFreeform: MiniFreeformSettings = MiniFreeformSettings(),
+        userId: Int = 0,
+        anchor: Pair<Int, Int>? = null,
+    ): Boolean = try {
+        withContext(Dispatchers.IO) {
+            if (!ShizukuManager.currentStatus().isReady) {
+                Log.i(LOG_TAG, "miniFreeform skip shizuku-not-ready pkg=$packageName")
+                return@withContext false
+            }
+            val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
+            val plan = chooseMiniWindowTarget(
+                tasks = parseStackTasks(list.stdout),
+                packageName = packageName,
+                userId = userId,
+                autoSwap = miniFreeform.autoSwap,
+                selfPackage = context.packageName,
+            )
+            if (plan == null) {
+                Log.i(LOG_TAG, "miniFreeform no-task pkg=$packageName user=$userId")
+                return@withContext false
+            }
+            val target = plan.target
+            // 直接对普通小窗（freeform）派发会走 MIUI 的 fromFreeformToMini，实机会卡死/崩系统；
+            // 先复用原 task 恢复全屏，等窗口模式落定后再挂迷你。已经在迷你态的跳过。
+            if (target.isFreeform) {
+                if (ShizukuManager.isMiniFreeFormTask(target.taskId)) {
+                    Log.i(
+                        LOG_TAG,
+                        "miniFreeform skip=already-mini task=${target.taskId} pkg=${target.packageName}",
+                    )
+                    return@withContext true
+                }
+                Log.i(
+                    LOG_TAG,
+                    "miniFreeform restore-first task=${target.taskId} pkg=${target.packageName}",
+                )
+                restoreTaskToFullscreen(context, target)
+                delay(250)
+            }
+            val positionCode = miniFreeformPositionCode(context, miniFreeform.position, anchor)
+            val tCall = SystemClock.uptimeMillis()
+            val ok = ShizukuManager.launchMiniFreeFormWindow(target.taskId, positionCode)
+            Log.i(
+                LOG_TAG,
+                "miniFreeform task=${target.taskId} pkg=${target.packageName} " +
+                    "user=${target.userId} current=$packageName swappedTarget=${plan.swapped} " +
+                    "position=$positionCode ok=$ok swap=${plan.swap?.packageName} " +
+                    "callMs=${SystemClock.uptimeMillis() - tCall}",
+            )
+            if (ok && plan.swap != null) {
+                restoreTaskToFullscreen(context, plan.swap)
+            }
+            ok
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.e(LOG_TAG, "miniFreeform failed pkg=$packageName", e)
+        false
+    }
+
+    /** 一次迷你小窗派发的目标选择结果。 */
+    internal data class MiniWindowPlan(
+        val target: StackTask,
+        /** 需要恢复为全屏的旧小窗；关闭互换或屏幕上没有小窗时为 null。 */
+        val swap: StackTask?,
+        /** true 表示目标不是传入的「当前应用」，而是它下面的全屏任务。 */
+        val swapped: Boolean,
+    )
+
+    /**
+     * 选择迷你小窗的目标任务。
+     *
+     * 无障碍的「当前应用」在屏幕已有浮动小窗时指向那个浮窗，而不是它下面的全屏应用；
+     * 开启互换时用户看到的是全屏应用，且「互换」的语义正是「全屏应用进迷你、旧小窗
+     * 回全屏」，因此当前应用已在小窗里时改选可见的全屏任务。
+     */
+    internal fun chooseMiniWindowTarget(
+        tasks: List<StackTask>,
+        packageName: String,
+        userId: Int,
+        autoSwap: Boolean,
+        selfPackage: String,
+    ): MiniWindowPlan? {
+        val current = tasks.firstOrNull {
+            it.packageName == packageName && (userId == 0 || it.userId == userId) && it.visible
+        } ?: tasks.firstOrNull {
+            it.packageName == packageName && (userId == 0 || it.userId == userId)
+        }
+        val fullscreenBehind = if (autoSwap && current?.isFreeform == true) {
+            tasks.firstOrNull {
+                it.visible && !it.isFreeform &&
+                    it.activityType != "home" &&
+                    it.packageName != packageName &&
+                    it.packageName != selfPackage
+            }
+        } else {
+            null
+        }
+        val target = fullscreenBehind ?: current ?: return null
+        val swap = if (autoSwap) {
+            current?.takeIf { it.isFreeform && it.visible && it.taskId != target.taskId }
+                ?: tasks.firstOrNull {
+                    it.isFreeform && it.visible &&
+                        it.taskId != target.taskId &&
+                        it.packageName != target.packageName
+                }
+        } else {
+            null
+        }
+        return MiniWindowPlan(target = target, swap = swap, swapped = fullscreenBehind != null)
+    }
+
+    private fun miniFreeformPositionCode(
+        context: Context,
+        position: MiniFreeformPosition,
+        anchor: Pair<Int, Int>?,
+    ): Int = when (position) {
+        MiniFreeformPosition.LEFT -> 1
+        MiniFreeformPosition.RIGHT -> 2
+        MiniFreeformPosition.AUTO -> {
+            val screenWidth = MiniWindowGeometry.realScreenSize(context).x
+            if (anchor != null && screenWidth > 0 && anchor.first < screenWidth / 2) 1 else 2
+        }
+    }
+
+    /**
+     * 把小窗任务恢复全屏，并回读窗口模式确认。
+     *
+     * 用于迷你小窗的互换、以及普通小窗挂迷你前的预恢复。优先
+     * `startActivityFromRecents` 复用原任务（保留页面状态，不会多开一个 task）；
+     * 任务已被系统回收时退回按包名重新启动。只做尽力而为 —— MIUI 对已经在栈里的
+     * task 可能忽略全屏档，此时记为失败日志，不影响后续迷你派发。
+     */
+    private suspend fun restoreTaskToFullscreen(context: Context, task: StackTask) {
+        val options = MiniWindowGeometry.fullscreenOptionsBundle()
+        val restored = ShizukuManager.startActivityFromRecents(task.taskId, options)
+        val dispatched = if (restored) {
+            true
+        } else {
+            val intent = runCatching {
+                context.packageManager.getLaunchIntentForPackage(task.packageName)
+            }.getOrNull()
+            if (intent == null) {
+                Log.w(LOG_TAG, "restore-fullscreen no-launch-intent pkg=${task.packageName}")
+                return
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ShizukuManager.startActivityAsUser(intent, task.userId, options)
+        }
+        delay(450)
+        val afterTasks = parseStackTasks(
+            ShizukuManager.executeShell("am stack list", maxChars = 200_000).stdout,
+        )
+        val after = afterTasks.firstOrNull { it.taskId == task.taskId }
+            ?: afterTasks.firstOrNull {
+                it.packageName == task.packageName && it.userId == task.userId
+            }
+        Log.i(
+            LOG_TAG,
+            "restore-fullscreen pkg=${task.packageName} task=${task.taskId} " +
+                "restoredFromRecents=$restored dispatched=$dispatched " +
+                "windowingMode=${after?.windowingMode ?: "gone"}",
+        )
+    }
+
+    /** `am stack list` 里的一条任务及其所属 RootTask 的窗口模式。 */
+    internal data class StackTask(
+        val taskId: Int,
+        val packageName: String,
+        val userId: Int,
+        val windowingMode: String,
+        val visible: Boolean,
+        /** RootTask 的 `mActivityType`，如 `home` / `standard`；老系统可能读不到。 */
+        val activityType: String? = null,
+    ) {
+        /** 普通小窗与迷你小窗的 RootTask 都是 `freeform`。 */
+        val isFreeform: Boolean get() = windowingMode == "freeform"
+    }
+
+    /**
+     * 解析 `am stack list`：RootTask 行之后紧跟 configuration（含 `mWindowingMode`），
+     * 再列出该栈内的 task 行。freeform 小窗所在 RootTask 的 mode 即 `freeform`。
+     */
+    internal fun parseStackTasks(output: String): List<StackTask> {
+        val tasks = mutableListOf<StackTask>()
+        var mode = ""
+        var activityType: String? = null
+        for (line in output.lineSequence()) {
+            if (line.startsWith("RootTask ")) {
+                mode = ""
+                activityType = null
+                continue
+            }
+            if (mode.isEmpty()) {
+                ROOT_WINDOWING_MODE_REGEX.find(line)?.let { mode = it.groupValues[1] }
+            }
+            if (activityType == null) {
+                ROOT_ACTIVITY_TYPE_REGEX.find(line)?.let { activityType = it.groupValues[1] }
+            }
+            val match = STACK_TASK_REGEX.find(line) ?: continue
+            val pkg = match.groupValues[2]
+            if (pkg == "unknown") continue
+            val taskId = match.groupValues[1].toIntOrNull() ?: continue
+            tasks += StackTask(
+                taskId = taskId,
+                packageName = pkg,
+                userId = match.groupValues[3].toIntOrNull() ?: 0,
+                windowingMode = mode,
+                visible = line.contains("visible=true"),
+                activityType = activityType,
+            )
+        }
+        return tasks
+    }
+
+    /**
+     * 复用已有 task 的快路径开关。默认开启，出问题时可临时关闭对照：
+     *
+     * ```
+     * adb shell setprop debug.luno.mini_reuse off   # 回到「每次重新 startActivity」
+     * adb shell setprop debug.luno.mini_reuse on    # 恢复复用（默认）
+     * ```
+     */
+    private fun miniReuseEnabled(): Boolean = reuseFlag("debug.luno.mini_reuse")
+
+    /**
+     * 前台（可见）task 是否跳过复用，默认开启。
+     *
+     * 可见 task 的 activity 已经 `RESUMED` + 绘制过，WMS 不会再给它建
+     * `SnapshotStartingWindow`（`Disable startingWindow, because the main window has already
+     * been drawn`）。此时 `startActivityFromRecents` 会让它在原地 fullscreen→freeform：
+     * 窗口先按补偿后的 raw frame（可见尺寸 × 1/0.7）重排，而 MIUI freeform shell 的 0.7
+     * 合成缩放 / 圆角 / caption 要晚 ~40–60ms 才生效，于是就露出一个没装饰的大方形窗口，
+     * 再「弹」回正常小窗尺寸。后台 task 有快照窗挡着，所以看不到这一步。
+     *
+     * 改为走普通启动（OPEN 转场，原生入口实测不弹）；后台 task 仍走复用快路径。
+     * 对照开关：
+     *
+     * ```
+     * adb shell setprop debug.luno.mini_reuse_visible off   # 前台 task 也复用
+     * adb shell setprop debug.luno.mini_reuse_visible on    # 恢复（默认）
+     * ```
+     */
+    private fun miniReuseVisibleTaskEnabled(): Boolean = reuseFlag("debug.luno.mini_reuse_visible")
+
+    private fun reuseFlag(key: String): Boolean {
+        val value = runCatching {
+            val clazz = Class.forName("android.os.SystemProperties")
+            val get = clazz.getMethod("get", String::class.java)
+            get.invoke(null, key) as? String
+        }.getOrNull().orEmpty().trim().lowercase(Locale.ROOT)
+        return value != "off"
+    }
+
+    /**
+     * 复用已有 task 打开小窗：`startActivityFromRecents(taskId, freeform options)`。
+     * 失败（找不到 task / Shizuku 拒绝）返回 false，调用方回落到普通启动。
+     *
+     * 找到的是 task 而不是 Intent，所以不会重新走 ActivityStarter 的启动/快照路径，
+     * 也就避开了「SnapshotStartingWindow 卡在 OPEN 转场直到 2.5s/5s 超时」。
+     * [userId] 用于分身：主用户找 `userId=0` 的 task，分身找 `userId=999` 的 task。
+     */
+    private suspend fun tryReuseTaskInMiniWindow(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        miniWindowSettings: MiniWindowSettings,
+        anchor: Pair<Int, Int>?,
+        tLaunch: Long,
+    ): Boolean {
+        if (!ShizukuManager.currentStatus().isReady) {
+            Log.i(LOG_TAG, "miniReuse skip shizuku-not-ready pkg=$packageName user=$userId")
+            return false
+        }
+        val tLookup = SystemClock.uptimeMillis()
+        val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
+        val taskId = parseTaskId(list.stdout, packageName, userId)
+        val lookupMs = SystemClock.uptimeMillis() - tLookup
+        if (taskId == null) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse no-task pkg=$packageName user=$userId lookupMs=$lookupMs " +
+                    "totalMs=${SystemClock.uptimeMillis() - tLaunch}",
+            )
+            return false
+        }
+        val preWindowingMode = parseTaskRootWindowingMode(list.stdout, packageName, userId)
+        val taskVisible = isTaskVisible(list.stdout, packageName, userId)
+        // 前台 task 不复用：见 [miniReuseVisibleTaskEnabled]。
+        if (miniReuseVisibleTaskEnabled() && taskVisible) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse skip=visible task=$taskId preMode=$preWindowingMode user=$userId " +
+                    "lookupMs=$lookupMs totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+            )
+            return false
+        }
+        val options = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+        val tCall = SystemClock.uptimeMillis()
+        val ok = ShizukuManager.startActivityFromRecents(taskId, options)
+        Log.i(
+            LOG_TAG,
+            "miniReuse task=$taskId preMode=$preWindowingMode ok=$ok visible=$taskVisible user=$userId " +
+                "lookupMs=$lookupMs callMs=${SystemClock.uptimeMillis() - tCall} " +
+                "totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+        )
+        return ok
+    }
+
+    /**
+     * `am stack list` 里目标 task 所在 RootTask 在**复用前**的 windowingMode，仅用于日志。
+     *
+     * 后台 task 通常挂在 fullscreen 的 RootTask 下（即使上次是小窗，回到后台后 RootTask
+     * 也会被收回），所以这里看到 `fullscreen` 是正常的；它记录的是「复用前」的状态，
+     * 复用时会由 [MiniWindowGeometry.activityOptionsBundle] 的 freeform 参数转成小窗。
+     */
+    private fun parseTaskRootWindowingMode(output: String, packageName: String, userId: Int): String? {
+        val lines = output.lineSequence().toList()
+        val taskRegex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
+        val index = lines.indexOfFirst { taskRegex.containsMatchIn(it) }
+        if (index < 0) return null
+        val modeRegex = Regex("""mWindowingMode=([\w-]+)""")
+        for (i in index downTo 0) {
+            modeRegex.find(lines[i])?.let { return it.groupValues[1] }
+        }
+        return null
     }
 
     /**
@@ -270,23 +705,50 @@ object Launcher {
         settings: MiniWindowSettings,
         anchor: Pair<Int, Int>?,
     ) {
+        val t0 = SystemClock.uptimeMillis()
         var taskId: Int? = null
+        var polls = 0
         for (attempt in 0 until 6) {
             if (attempt > 0) delay(120)
+            polls = attempt + 1
             val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
             taskId = parseTaskId(list.stdout, packageName, userId)
             if (taskId != null) break
         }
-        val id = taskId ?: return
+        val id = taskId ?: run {
+            Log.i(LOG_TAG, "miniWindow bounds NOT FOUND polls=$polls t=${SystemClock.uptimeMillis() - t0}ms")
+            return
+        }
         val bounds = MiniWindowGeometry.resolveBounds(context, settings, anchor)
         ShizukuManager.executeShell(
             "am task resize $id ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}",
+        )
+        Log.i(
+            LOG_TAG,
+            "miniWindow bounds applied task=$id polls=$polls elapsedMs=${SystemClock.uptimeMillis() - t0}",
         )
     }
 
     private fun parseTaskId(output: String, packageName: String, userId: Int): Int? {
         val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    }
+
+    /**
+     * 命中的 task 当前是否可见（前台）。`am stack list` 的 task 行带 `visible=true|false`：
+     *
+     * ```
+     * taskId=97358: com.ss.android.ugc.aweme/...bounds=[0,0][1200,2670] userId=0 visible=true ...
+     * ```
+     *
+     * 前台 task 原地转 freeform 会露出未装饰的大方形帧，复用路径要避开（见
+     * [miniReuseVisibleTaskEnabled]）。
+     */
+    private fun isTaskVisible(output: String, packageName: String, userId: Int): Boolean {
+        val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
+        // 注意：正则只吃到 `userId=0` 为止，`visible=` 在其后，必须按整行判断。
+        val line = output.lineSequence().firstOrNull { regex.containsMatchIn(it) } ?: return false
+        return line.contains("visible=true")
     }
 
     private fun launchCloneViaLauncherApps(
@@ -571,6 +1033,16 @@ object Launcher {
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
     }
 
+    /** `taskId=97417: com.tencent.mm/com.tencent.mm.ui.LauncherUI ... userId=0 ...` */
+    private val STACK_TASK_REGEX = Regex(
+        """taskId=(\d+): ([^/\s]+)/\S+.*\buserId=(\d+)""",
+    )
+
+    /** RootTask 的 configuration 行：`... mWindowingMode=freeform ...` */
+    private val ROOT_WINDOWING_MODE_REGEX = Regex("""mWindowingMode=([\w-]+)""")
+
+    /** RootTask 的 configuration 行：`... mActivityType=home ...` */
+    private val ROOT_ACTIVITY_TYPE_REGEX = Regex("""mActivityType=(\w+)""")
 }
 
 
@@ -586,13 +1058,13 @@ internal object MiniWindowGeometry {
      * MIUI13+/澎湃对 freeform 小窗在合成层再缩一次显示，但 WindowManager 帧仍是请求的 bounds，
      * 所以必须把宽高乘以 1/scale 抵消，否则实际窗口只有预览的 scale 倍大。
      *
-     * 合成 scale 按屏幕方向不同（HyperOS 4.0 真机实测）：竖屏 0.7，横屏 0.56。
-     * 竖屏若只按 1/0.7 补偿会得到预期大小；横屏沿用 1/0.7 则只有预览的 0.8 倍，
-     * 这正是「横屏小窗比预览小」的成因。横屏补偿值用 1/0.56≈1.786。
+     * scale 优先取系统实际值（[FreeformScale] 从 `dumpsys window windows` 的窗口
+     * transform 采样，启动后异步刷新），读不到时退回实测常量：竖屏 0.7、横屏 0.56。
+     * 横屏沿用 1/0.7 只有预览的 0.8 倍，这正是「横屏小窗比预览小」的成因。
      */
     private fun miuiFreeformCompensation(landscape: Boolean): Float {
         if (!isMiui13Plus()) return 1f
-        return if (landscape) 1f / 0.56f else 1f / 0.7f
+        return FreeformScale.current(landscape)
     }
 
     fun bounds(settings: WindowBounds, realSw: Int, realSh: Int, landscape: Boolean): Rect {
@@ -682,8 +1154,15 @@ internal object MiniWindowGeometry {
             .apply { putInt(KEY_WINDOWING_MODE, WINDOWING_MODE_FREEFORM) }
     }
 
+    /** 把已有 freeform 任务转回全屏用的启动参数（互换时恢复旧小窗）。 */
+    fun fullscreenOptionsBundle(): Bundle =
+        ActivityOptions.makeBasic()
+            .toBundle()
+            .apply { putInt(KEY_WINDOWING_MODE, WINDOWING_MODE_FULLSCREEN) }
+
     private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"
     private const val WINDOWING_MODE_FREEFORM = 5
+    private const val WINDOWING_MODE_FULLSCREEN = 1
 
     private fun isMiui13Plus(): Boolean {
         val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
@@ -741,8 +1220,14 @@ private object MiniWindow {
         anchor: Pair<Int, Int>? = null,
     ): Boolean {
         return try {
+            val t0 = SystemClock.uptimeMillis()
             val activityOptions = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+            val tOptions = SystemClock.uptimeMillis()
             context.startActivity(intent, activityOptions)
+            Log.i(
+                LOG_TAG,
+                "miniWindow startActivity done optionsMs=${tOptions - t0} t=${SystemClock.uptimeMillis()}",
+            )
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "startActivity in mini window failed", e)
@@ -751,3 +1236,4 @@ private object MiniWindow {
         }
     }
 }
+

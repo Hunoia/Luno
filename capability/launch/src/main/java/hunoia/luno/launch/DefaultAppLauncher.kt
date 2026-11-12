@@ -127,6 +127,19 @@ class DefaultAppLauncher(
         return if (launched) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
     }
 
+    override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?): ActionResult {
+        if (packageName.isBlank()) return ActionResult.Failed(ActionFailure.ExecutionFailed)
+        val userId = Launcher.currentUserIdForPackage(context, packageName)
+        val launched = Launcher.launchMiniWindow(
+            context = context,
+            packageName = packageName,
+            miniFreeform = advancedSettings().miniWindowSettings().miniFreeform,
+            userId = userId,
+            anchor = anchor,
+        )
+        return if (launched) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+    }
+
     override suspend fun openUrl(
         url: String,
         miniWindow: Boolean,
