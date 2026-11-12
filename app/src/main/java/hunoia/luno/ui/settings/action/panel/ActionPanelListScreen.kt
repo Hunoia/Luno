@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,7 +19,9 @@ import hunoia.luno.R
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GridPanel
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
 import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -73,6 +76,14 @@ fun ActionPanelListScreen(
         }
     }
 
+    fun createSinglePanel() {
+        scope.launch {
+            val panel = GridPanel.createSingle()
+            TuneConfig.updateAction { it.copy(actionGridPanels = it.actionGridPanels.withPanel(panel)) }
+            onEditGridPanel(panel.id)
+        }
+    }
+
     PanelListScreen(
         title = stringResource(R.string.action_panel_list_group),
         onBack = onBack,
@@ -97,10 +108,7 @@ fun ActionPanelListScreen(
                     PanelListRow(
                         id = panel.id,
                         title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
-                        subtitle = stringResource(
-                            R.string.grid_panel_summary,
-                            panel.portrait.items.size, panel.portrait.geometry.columnCount,
-                        ),
+                        subtitle = gridPanelSummary(panel),
                     )
                 },
             ),
@@ -121,6 +129,11 @@ fun ActionPanelListScreen(
                 label = stringResource(R.string.grid_panel_add),
                 icon = Icons.Default.GridView,
                 onClick = ::createGridPanel,
+            ),
+            PanelCreateItem(
+                label = stringResource(R.string.grid_panel_add_single),
+                icon = Icons.Default.Widgets,
+                onClick = ::createSinglePanel,
             ),
         ),
         header = {
@@ -159,6 +172,26 @@ fun ActionPanelListScreen(
             )
         }
     }
+}
+
+@Composable
+private fun gridPanelSummary(panel: GridPanel): String {
+    if (panel.isSingle) {
+        val widget = panel.singleWidgetId?.takeIf { it.isNotBlank() }?.let(PanelWidgetRegistry::byId)
+        return if (widget == null) {
+            stringResource(hunoia.luno.gridpanel.R.string.single_panel_summary_unset)
+        } else {
+            stringResource(
+                hunoia.luno.gridpanel.R.string.single_panel_summary,
+                stringResource(widget.labelRes),
+            )
+        }
+    }
+    return stringResource(
+        R.string.grid_panel_summary,
+        panel.portrait.items.size,
+        panel.portrait.geometry.columnCount,
+    )
 }
 
 @Composable

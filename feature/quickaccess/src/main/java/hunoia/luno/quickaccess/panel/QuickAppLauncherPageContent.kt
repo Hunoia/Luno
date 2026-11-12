@@ -16,6 +16,7 @@ internal fun SettingsPageContent(
     contentHeight: Dp,
     onUpdateLayout: ((QuickAppLauncherSettings) -> Unit)?,
     onNavigateToApp: () -> Unit,
+    showPanelGeometry: Boolean = true,
 ) {
     Column(
         modifier = Modifier.height(contentHeight)
@@ -27,6 +28,7 @@ internal fun SettingsPageContent(
         ) {
             QuickAppLauncherAdjustPanel(
                 onSettingsChanged = { onUpdateLayout?.invoke(it) },
+                showPanelGeometry = showPanelGeometry,
             )
         }
         Pill(

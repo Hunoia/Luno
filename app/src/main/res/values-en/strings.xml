@@ -145,11 +145,12 @@
     <string name="action_panel_items_count">%1$d items</string>
     <string name="action_panel_count">%1$d panels</string>
     <string name="action_panel_item_no_long_press">Long press: same as tap</string>
-    <string name="grid_panels">Grid panels</string>
-    <string name="grid_panel_add">Add grid panel</string>
-    <string name="grid_panel_empty_hint">No grid panels yet. After adding, pick "Grid panel" in an action to show it near the touch point.</string>
+    <string name="grid_panels">Panels</string>
+    <string name="grid_panel_add">Add panel</string>
+    <string name="grid_panel_add_single">Add single-function panel</string>
+    <string name="grid_panel_empty_hint">No panels yet. After adding, pick "Panel" in an action to show it near the touch point.</string>
     <string name="grid_panel_summary">%1$d items · %2$d columns</string>
-    <string name="grid_panel_delete_title">Delete grid panel</string>
+    <string name="grid_panel_delete_title">Delete panel</string>
     <string name="grid_panel_card_alpha">Card opacity</string>
     <string name="grid_panel_blur_radius">Background blur</string>
     <string name="grid_panel_blur_off">Off</string>

@@ -100,7 +100,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
         // 并复位 closing 闩锁。首开时 quickState 还是 null（组合下一帧才跑），由 onStateReady 代劳。
         quickState?.let {
             if (!it.panelVisible) {
-                it.resetForNewSession()
+                it.content.resetForNewSession()
                 it.setPanelShown(true)
             }
         }
@@ -199,7 +199,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                     // 由 `QuickAppLauncherRoot` 的 LaunchedEffect 下一帧置位；之后的开会由
                     // show() 用 quickState 引用直接驱动。
                     quickState = state
-                    state.resetForNewSession()
+                    state.content.resetForNewSession()
                 },
             )
         }

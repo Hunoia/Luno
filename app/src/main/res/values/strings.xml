@@ -155,11 +155,12 @@
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
     <string name="action_panel_item_no_long_press">长按：同短按</string>
-    <string name="grid_panels">网格面板</string>
-    <string name="grid_panel_add">添加网格面板</string>
-    <string name="grid_panel_empty_hint">还没有网格面板。添加后，动作选「网格面板」即可在触点附近弹出。</string>
+    <string name="grid_panels">面板</string>
+    <string name="grid_panel_add">添加面板</string>
+    <string name="grid_panel_add_single">添加单功能面板</string>
+    <string name="grid_panel_empty_hint">还没有面板。添加后，动作选「面板」即可在触点附近弹出。</string>
     <string name="grid_panel_summary">%1$d 项 · %2$d 列</string>
-    <string name="grid_panel_delete_title">删除网格面板</string>
+    <string name="grid_panel_delete_title">删除面板</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_blur_radius">背景模糊</string>
     <string name="grid_panel_blur_off">关闭</string>

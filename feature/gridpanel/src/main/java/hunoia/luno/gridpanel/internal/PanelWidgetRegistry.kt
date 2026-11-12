@@ -35,6 +35,13 @@ data class PanelWidget(
     val defaultSpanY: Int,
     val minSpanX: Int = 1,
     val minSpanY: Int = 1,
+    /**
+     * 能否作为单功能面板的整页内容。不是所有部件都适合整页：音量/亮度这类
+     * 条状控件放进整页面板会失去「面板里的一条」语义，默认拒绝。
+     */
+    val supportsSinglePanel: Boolean = false,
+    /** 是否可作为网格面板里的一个格子项；整页专用的功能应设 false。 */
+    val availableAsGridItem: Boolean = true,
     val content: @Composable (PanelWidgetContentScope) -> Unit,
 )
 
@@ -56,6 +63,10 @@ object PanelWidgetRegistry {
     fun byId(id: String): PanelWidget? = widgets[id]
 
     val all: List<PanelWidget> get() = widgets.values.toList()
+
+    /** 可作为单功能面板整页内容的部件，顺序与 [all] 一致。 */
+    val singlePanelWidgets: List<PanelWidget>
+        get() = widgets.values.filter { it.supportsSinglePanel }
 
     val ids: Set<String> get() = widgets.keys.toSet()
 
@@ -130,6 +141,7 @@ object PanelWidgetRegistry {
                 defaultSpanY = 3,
                 minSpanX = 2,
                 minSpanY = 2,
+                supportsSinglePanel = true,
             ) { scope ->
                 ClipboardPageCell(
                     modifier = scope.modifier,
@@ -147,11 +159,29 @@ object PanelWidgetRegistry {
                 defaultSpanY = 4,
                 minSpanX = 2,
                 minSpanY = 2,
+                supportsSinglePanel = true,
             ) { scope ->
                 AppDrawerCell(
                     modifier = scope.modifier,
                     spanX = scope.spanX,
                     spanY = scope.spanY,
+                    enabled = scope.enabled,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.QUICK_LAUNCH,
+                labelRes = R.string.grid_panel_internal_quick_launch,
+                defaultSpanX = 4,
+                defaultSpanY = 4,
+                minSpanX = 2,
+                minSpanY = 2,
+                supportsSinglePanel = true,
+                availableAsGridItem = false,
+            ) { scope ->
+                QuickLaunchPanelCell(
+                    modifier = scope.modifier,
                     enabled = scope.enabled,
                 )
             },

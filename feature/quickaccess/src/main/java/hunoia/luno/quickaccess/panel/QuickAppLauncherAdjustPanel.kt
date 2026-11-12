@@ -32,6 +32,8 @@ import kotlin.math.roundToInt
 @Composable
 internal fun QuickAppLauncherAdjustPanel(
     onSettingsChanged: (QuickAppLauncherSettings) -> Unit,
+    /** 内嵌到面板时只留内容相关项；面板宽高 / placement 由面板卡片负责。 */
+    showPanelGeometry: Boolean = true,
 ) {
     val settings by hunoia.luno.domain.search.SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
@@ -61,27 +63,29 @@ internal fun QuickAppLauncherAdjustPanel(
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        LunoTextSlider(
-            value = pending.value.contentHeightFraction,
-            onValueChange = { preview(pending.value.copy(contentHeightFraction = it)) },
-            onValueChangeFinished = { commit() },
-            text = stringResource(R.string.quick_app_launcher_content_height),
-            valueDisplay = { "${(it * 100).roundToInt()}%" },
-            valueRange = heightMin..heightMax,
-        )
-        LunoTextSlider(
-            value = pending.value.panelWidthFraction,
-            onValueChange = { preview(pending.value.copy(panelWidthFraction = it)) },
-            onValueChangeFinished = { commit() },
-            text = stringResource(R.string.quick_app_launcher_panel_width),
-            valueDisplay = { "${(it * 100).roundToInt()}%" },
-            valueRange = QuickLauncherGeometry.MinPanelWidthFraction..QuickLauncherGeometry.MaxPanelWidthFraction,
-        )
-        SurfacePlacementSliders(
-            placement = pending.value.placement,
-            onPreview = { next -> preview(pending.value.copy(placement = next)) },
-            onCommit = { commit() },
-        )
+        if (showPanelGeometry) {
+            LunoTextSlider(
+                value = pending.value.contentHeightFraction,
+                onValueChange = { preview(pending.value.copy(contentHeightFraction = it)) },
+                onValueChangeFinished = { commit() },
+                text = stringResource(R.string.quick_app_launcher_content_height),
+                valueDisplay = { "${(it * 100).roundToInt()}%" },
+                valueRange = heightMin..heightMax,
+            )
+            LunoTextSlider(
+                value = pending.value.panelWidthFraction,
+                onValueChange = { preview(pending.value.copy(panelWidthFraction = it)) },
+                onValueChangeFinished = { commit() },
+                text = stringResource(R.string.quick_app_launcher_panel_width),
+                valueDisplay = { "${(it * 100).roundToInt()}%" },
+                valueRange = QuickLauncherGeometry.MinPanelWidthFraction..QuickLauncherGeometry.MaxPanelWidthFraction,
+            )
+            SurfacePlacementSliders(
+                placement = pending.value.placement,
+                onPreview = { next -> preview(pending.value.copy(placement = next)) },
+                onCommit = { commit() },
+            )
+        }
         LunoTextSlider(
             value = pending.value.candidateRows.toFloat(),
             onValueChange = { preview(pending.value.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },

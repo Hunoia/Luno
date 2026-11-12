@@ -9,6 +9,7 @@ import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
@@ -54,6 +55,10 @@ object SurfaceActionRuntime {
     @Volatile
     private var actionLibrary = ActionLibrarySettings()
 
+    /** 面板快照：快速启动动作要同步判断是否已配置单功能面板。 */
+    @Volatile
+    private var actionSettings = ActionSettings()
+
     private var appContextRef: Context? = null
 
     private var installed = false
@@ -94,6 +99,11 @@ object SurfaceActionRuntime {
                 runCatching { ConfigProvider.getActionLibrarySettings() }
                     .onSuccess { actionLibrary = it }
                 ConfigProvider.actionLibrarySettings.collect { actionLibrary = it }
+            }
+            AppContext.applicationScope?.launch(Dispatchers.IO) {
+                runCatching { ConfigProvider.getActionSettings() }
+                    .onSuccess { actionSettings = it }
+                ConfigProvider.actionSettings.collect { actionSettings = it }
             }
             SurfaceDispatch.install(SurfaceActionDispatch { request, launchAnchor, onSettled ->
                 // 单例复用：执行器与能力闸不应每次点击重建（见 ExecutionSinglePortTest）。
@@ -189,6 +199,9 @@ object SurfaceActionRuntime {
         private val launcher by lazy { appLauncher(context) }
 
         override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
+            if (hunoia.luno.gridpanel.QuickLaunchPanelRouting.showIfConfigured(actionSettings, anchorX, anchorY)) {
+                return
+            }
             hunoia.luno.quickaccess.QuickAppLauncherOverlay.show(anchorX, anchorY)
         }
 

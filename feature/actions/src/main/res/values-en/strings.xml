@@ -49,7 +49,7 @@
     <string name="action_category_clipboard">Clipboard</string>
     <string name="action_category_entry">Shortcuts</string>
     <string name="action_category_gesture_tool">Gesture tools</string>
-    <string name="action_category_grid_panel">Grid panels</string>
+    <string name="action_category_grid_panel">Panels</string>
     <string name="action_category_link_share">Link sharing</string>
     <string name="action_category_media">Media</string>
     <string name="action_category_navigation">Navigation</string>
@@ -63,7 +63,7 @@
     <string name="action_deep_links">External calls</string>
     <string name="action_panel_add_item">Add panel item</string>
     <string name="action_panel_unnamed">Unnamed panel</string>
-    <string name="grid_panel_unnamed">Unnamed grid panel</string>
+    <string name="grid_panel_unnamed">Unnamed panel</string>
     <string name="clipboard_label">Luno</string>
     <string name="app_control_result_success">Processed %1$d apps</string>
     <string name="app_control_result_partial">%1$d succeeded, %2$d failed</string>

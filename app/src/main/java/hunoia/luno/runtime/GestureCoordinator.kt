@@ -313,6 +313,10 @@ class GestureCoordinator(
     /** 执行口的 Surface 副作用端口：执行口只说要弹哪个面，窗口控制留在这里。 */
     private val executeSurfaces = object : hunoia.luno.execute.SurfaceHost {
         override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
+            val actionSettings = runtimeSettingsStore.snapshot().actionSettings
+            if (hunoia.luno.gridpanel.QuickLaunchPanelRouting.showIfConfigured(actionSettings, anchorX, anchorY)) {
+                return
+            }
             hunoia.luno.quickaccess.QuickAppLauncherOverlay.show(anchorX, anchorY)
         }
 

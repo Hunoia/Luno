@@ -24,6 +24,8 @@ object InternalWidgetIds {
     const val CLIPBOARD = "internal.clipboardPage"
     /** 页面类部件：整块可滚动的应用抽屉（与快速启动器共用应用列表）。 */
     const val APP_DRAWER = "internal.appDrawer"
+    /** 整页快速启动：搜索键盘 + 候选行 + 应用网格，仅作为单功能面板内容。 */
+    const val QUICK_LAUNCH = "internal.quickLaunch"
     /** 习惯历史：近 N 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
     const val HABIT_HISTORY = "internal.habitHistory"
     /** 习惯热力图：近 90 天热力格 + 连续天数（params 存 HabitWidgetParams）。 */
@@ -40,9 +42,9 @@ data class InternalWidgetDef(
     val spanY: Int,
 )
 
-/** 选择页「Luno 内置」分区的清单：从 [PanelWidgetRegistry] 派生。 */
+/** 选择页「Luno 内置」分区的清单：从 [PanelWidgetRegistry] 派生；整页专用的功能不进网格项选择。 */
 val InternalWidgetDefs: List<InternalWidgetDef>
-    get() = PanelWidgetRegistry.all.map { widget ->
+    get() = PanelWidgetRegistry.all.filter { it.availableAsGridItem }.map { widget ->
         InternalWidgetDef(
             id = widget.id,
             labelRes = widget.labelRes,

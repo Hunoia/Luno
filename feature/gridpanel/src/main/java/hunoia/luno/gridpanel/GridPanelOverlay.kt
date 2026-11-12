@@ -36,8 +36,9 @@ import hunoia.luno.ui.theme.motionMillis
 import hunoia.luno.core.LOG_TAG
 
 /**
- * 网格面板悬浮窗（TYPE_APPLICATION_OVERLAY）：面板要「无障碍没开也能用」，a11y 窗口不行；代价是吃悬浮窗授权。
- * 窗口生命周期骨架见 [OverlayPanelHost]；这里只留网格面板自己的编排与组合内容。
+ * 面板悬浮窗（TYPE_APPLICATION_OVERLAY）：网格 / 单功能两种内容模式共用同一 Surface。
+ * 面板要「无障碍没开也能用」，a11y 窗口不行；代价是吃悬浮窗授权。
+ * 窗口生命周期骨架见 [OverlayPanelHost]；这里只留面板自己的编排与组合内容。
  */
 object GridPanelOverlay : OverlayPanelHost(
     logTag = LOG_TAG,

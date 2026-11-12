@@ -49,7 +49,7 @@
     <string name="action_category_clipboard">剪贴板</string>
     <string name="action_category_entry">快捷入口</string>
     <string name="action_category_gesture_tool">手势工具</string>
-    <string name="action_category_grid_panel">网格面板</string>
+    <string name="action_category_grid_panel">面板</string>
     <string name="action_category_link_share">链接分享</string>
     <string name="action_category_media">媒体</string>
     <string name="action_category_navigation">导航</string>
@@ -63,7 +63,7 @@
     <string name="action_deep_links">外部调用</string>
     <string name="action_panel_add_item">添加面板项</string>
     <string name="action_panel_unnamed">未命名面板</string>
-    <string name="grid_panel_unnamed">未命名网格面板</string>
+    <string name="grid_panel_unnamed">未命名面板</string>
     <string name="clipboard_label">Luno</string>
     <string name="app_control_result_success">已处理 %1$d 个应用</string>
     <string name="app_control_result_partial">成功 %1$d 个，失败 %2$d 个</string>

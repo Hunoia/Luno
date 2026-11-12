@@ -60,7 +60,7 @@ internal object InternalActionGroup : ActionGroup {
          * 进不了动作库新建页（`ActionCatalog.libraryDefinitions` 只收有参动作），
          * 不必占 `libraryExcluded`。
          */
-        ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.GRID_PANEL, Capability.None,
+        ActionDefinition(GRID_PANEL_TYPE_ID, "面板", ActionCategory.GRID_PANEL, Capability.None,
             icon = Icons.Default.GridView),
         // 参数改在动作选择页行尾设置按钮里配（弹窗），不设置落运行时默认值。
         // 原「隐藏触钮」合并进本动作的临时隐藏模式。

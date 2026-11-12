@@ -156,6 +156,11 @@ fun GridPanelCard(
     pinchColumns: Int? = null,
     /** (目标列数, 是否松手收尾)。 */
     onPinchColumns: ((Int, Boolean) -> Unit)? = null,
+    /**
+     * 非 null = 单功能面板：跳过 pager / 网格层 / 页指示 / 加项 FAB，只渲染这一块整页内容。
+     * 卡片定位、进场、模糊、旋转与缩放手柄仍由本卡片统一负责。
+     */
+    singleContent: (@Composable (GridMetrics) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val view = LocalView.current
@@ -362,6 +367,11 @@ fun GridPanelCard(
                 .background(cardColor.copy(alpha = cardBackgroundAlpha), cardShape)
                 .clip(cardShape),
         ) {
+        if (singleContent != null) {
+            Box(Modifier.fillMaxSize()) {
+                singleContent.invoke(metrics)
+            }
+        } else {
         // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
             // 顶部预留区恒存在（高度 = IndicatorHeight），单页运行态为空白，
@@ -559,6 +569,7 @@ fun GridPanelCard(
                     contentDescription = stringResource(R.string.grid_panel_add_item),
                 )
             }
+        }
         }
         }
         // 整块面板缩放手柄：编辑态显示在离屏边最远的角，视觉与项手柄一致。

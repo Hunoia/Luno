@@ -80,8 +80,9 @@ private const val ExitEditTapGuardMillis = 150L
 private const val TAG = "GridPanel"
 
 /**
- * 网格面板：固定网格 + 跨格项 + 简版多页。
+ * 面板根：网格模式下是固定网格 + 跨格项 + 简版多页；单功能模式下是整页一个功能。
  * 运行态点项执行、长按空白进编辑；编辑态显示删除角标与尺寸手柄、可拖拽落位。
+ * 单功能编辑态只保留面板缩放手柄与换功能入口。
  * 本函数只管生命周期与落盘：几何在 [rememberGridMetrics]，拖拽/缩放在
  * [GridPanelState]，渲染在 GridPanelCard / GridPanelLayer。
  */
@@ -136,13 +137,18 @@ fun GridPanelRoot(
     // panel 短暂为 null 时沿用上一次有效页数：否则 pageCount 会闪成 1，
     // 映射效果把 pager 重锚到低位，回来后当前页和循环起点都丢了。
     var lastKnownPageCount by remember(panelId) {
-        mutableIntStateOf(panel?.orientation(landscape)?.derivedPageCount ?: 1)
+        mutableIntStateOf(panel?.pageCount(landscape) ?: 1)
     }
-    val pageCount = panel?.orientation(landscape)?.derivedPageCount ?: lastKnownPageCount
+    val pageCount = panel?.pageCount(landscape) ?: lastKnownPageCount
     LaunchedEffect(pageCount) {
         if (panel != null) lastKnownPageCount = pageCount
     }
     var editMode by remember(panelId) { mutableStateOf(false) }
+    // 单功能面板的「换功能」清单：在卡内切换，不弹跨进程选择页。
+    var showFunctionPicker by remember(panelId) { mutableStateOf(false) }
+    LaunchedEffect(editMode) {
+        if (!editMode) showFunctionPicker = false
+    }
     // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
     // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
     // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
@@ -150,7 +156,7 @@ fun GridPanelRoot(
     // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
     // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
     // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
-    val effectivePages = pageCount + if (editMode) 1 else 0
+    val effectivePages = if (panel?.isSingle == true) 1 else pageCount + if (editMode) 1 else 0
     var mappingPages by remember(panelId) { mutableIntStateOf(pageCount) }
     // pager 页数恒为极大值：页数若真的收缩到 1，PagerState 会把高位的循环索引钳回
     // 0，之后再进编辑态右滑（索引减）就滑不动了。单页不滑改用 userScrollEnabled。
@@ -218,6 +224,9 @@ fun GridPanelRoot(
 
     // 横竖屏分别取几何：尺寸拖拽期间用本地预览，松手才落盘。
     val orientation = panel.orientation(landscape)
+    // 单功能选择的本地真身：落盘回流有延迟，选中后先换内容，避免闪一帧「未选择」。
+    var localSingleWidgetId by remember(panelId) { mutableStateOf(panel.singleWidgetId) }
+    LaunchedEffect(panel.singleWidgetId) { localSingleWidgetId = panel.singleWidgetId }
     val serverGeometry = orientation.geometry
     var localGeometry by remember(panelId, landscape) { mutableStateOf(serverGeometry) }
     LaunchedEffect(serverGeometry) { localGeometry = serverGeometry }
@@ -272,6 +281,21 @@ fun GridPanelRoot(
                 }
             }.onFailure { Log.w(TAG, "$failureTag: ${it.message}") }
             if (cleanupResources) PanelResources.cleanup()
+        }
+    }
+
+    /** 面板级字段（模式 / 单功能选择）的落盘单口，与朝向无关。 */
+    fun updateWholePanel(failureTag: String, transform: (GridPanel) -> GridPanel) {
+        scope.launch {
+            runCatching {
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id)
+                        ?: return@updateActionSettings settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(transform(latest)),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "$failureTag: ${it.message}") }
         }
     }
 
@@ -554,6 +578,7 @@ fun GridPanelRoot(
     LaunchedEffect(state) {
         onRegisterBackHandler?.invoke {
             when {
+                showFunctionPicker -> { showFunctionPicker = false; true }
                 state.draggingId != null -> { state.cancelDrag(); true }
                 state.resizingId != null -> { state.cancelResize(); true }
                 editMode -> { exitEditMode(); true }
@@ -579,7 +604,9 @@ fun GridPanelRoot(
                     onTap = {
                         // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
                         if (closing) return@detectTapGestures
-                        if (editMode) {
+                        if (showFunctionPicker) {
+                            showFunctionPicker = false
+                        } else if (editMode) {
                             exitEditMode()
                             suppressItemTapUntil =
                                 SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
@@ -604,7 +631,7 @@ fun GridPanelRoot(
             panelId = panel.id,
             editMode = editMode,
             pageCount = pageCount,
-            showIndicator = pageCount > 1 || editMode,
+            showIndicator = !panel.isSingle && (pageCount > 1 || editMode),
             mappingPages = mappingPages,
             placement = placement,
             cornerPx = cornerPx,
@@ -684,13 +711,43 @@ fun GridPanelRoot(
             onPanelResizeDelta = ::updatePanelResize,
             onPanelResizeEnd = ::endPanelResize,
             pinchColumns = pinchColumns,
-            onPinchColumns = { target, final ->
-                if (final) {
-                    commitPinchColumns(target)
-                } else {
-                    // 回到起始列数时隐藏 HUD，但手势结束仍按 target 收尾。
-                    pinchColumns = target.takeIf { it != baseColumns }
+            onPinchColumns = if (panel.isSingle) {
+                null
+            } else {
+                { target, final ->
+                    if (final) {
+                        commitPinchColumns(target)
+                    } else {
+                        // 回到起始列数时隐藏 HUD，但手势结束仍按 target 收尾。
+                        pinchColumns = target.takeIf { it != baseColumns }
+                    }
                 }
+            },
+            singleContent = if (panel.isSingle) {
+                { cardMetrics ->
+                    SinglePanelContent(
+                        panel = panel.copy(
+                            singleWidgetId = localSingleWidgetId,
+                            singleParams = panel.singleParams.takeIf {
+                                localSingleWidgetId == panel.singleWidgetId
+                            },
+                        ),
+                        metrics = cardMetrics,
+                        editMode = editMode,
+                        pickerVisible = showFunctionPicker,
+                        onOpenPicker = { showFunctionPicker = true },
+                        onClosePicker = { showFunctionPicker = false },
+                        onPickFunction = { widgetId ->
+                            showFunctionPicker = false
+                            localSingleWidgetId = widgetId
+                            updateWholePanel("single panel function commit failed") {
+                                it.copy(singleWidgetId = widgetId, singleParams = null)
+                            }
+                        },
+                    )
+                }
+            } else {
+                null
             },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。

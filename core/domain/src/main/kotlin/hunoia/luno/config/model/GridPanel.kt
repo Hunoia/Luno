@@ -5,12 +5,17 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
- * 网格面板：触发时在触点附近弹出的网格快捷中心，点项即执行。
+ * 网格面板：触发时在触点附近弹出的快捷中心。两种内容模式共用同一 Surface、触发引用与
+ * 备份域（[ActionSettings.actionGridPanels]）：
+ * - [PanelMode.Grid]：固定网格 + 跨格项 + 多页；
+ * - [PanelMode.Single]：整页一个功能（剪贴板 / 应用抽屉），无网格、不可加项、不可翻页。
+ *
  * 与弧形面板（[ActionPanel]）的「待选菜单」分工不同。必须挂在
  * [ActionSettings.actionGridPanels] 下才能到达 `:service` 运行时，挪走会静默失效。
  *
  * 横竖屏**完全分开**：[portrait] / [landscape] 各持一份几何与部件列表，
- * 转屏后面板显示另一朝向的独立布局。
+ * 转屏后面板显示另一朝向的独立布局。单功能模式下只使用几何，[GridPanelOrientation.items]
+ * 不参与渲染。
  */
 @Serializable
 @Keep
@@ -26,13 +31,39 @@ data class GridPanel(
      * 默认开启；旧配置没有该字段时按默认值反序列化（不做迁移）。
      */
     val blurRadiusDp: Float = GridPanelDefaults.BlurRadiusDp,
+    /** 内容模式；旧配置缺省 = [PanelMode.Grid]。 */
+    val mode: PanelMode = PanelMode.Grid,
+    /** 单功能模式的功能 id（见 `PanelWidgetRegistry`）；空 = 尚未选择。 */
+    val singleWidgetId: String? = null,
+    /** 单功能的每实例参数（JSON 串，口径同 [GridPanelItem.Kind.Internal.params]）。 */
+    val singleParams: String? = null,
 ) {
     fun orientation(landscape: Boolean): GridPanelOrientation =
         if (landscape) this.landscape else this.portrait
 
+    /** 有效页数：单功能恒 1 页；网格走项列表派生。 */
+    fun pageCount(landscape: Boolean): Int =
+        if (isSingle) 1 else orientation(landscape).derivedPageCount
+
+    val isSingle: Boolean get() = mode == PanelMode.Single
+
     companion object {
         fun create(name: String = ""): GridPanel = GridPanel(name = name)
+
+        fun createSingle(name: String = ""): GridPanel =
+            GridPanel(name = name, mode = PanelMode.Single)
     }
+}
+
+/** 面板内容模式。 */
+@Serializable
+@Keep
+enum class PanelMode {
+    /** 固定网格 + 项列表（原有玩法）。 */
+    Grid,
+
+    /** 整页一个功能；无网格、不可加项、不可翻页。 */
+    Single,
 }
 
 /**
