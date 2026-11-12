@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.core.LogLevel
 import hunoia.luno.facade.IncidentStats
@@ -48,6 +49,10 @@ import kotlinx.coroutines.withContext
 
 private const val PREVIEW_LINES = 200
 private const val INCIDENT_PREVIEW_ENTRIES = 50
+
+/** release 下 INFO 及以下已从调用点裁掉，下拉只保留实际可记录的档位。 */
+private val supportedLevels: List<LogLevel> =
+    if (BuildConfig.DEBUG) LogLevel.entries else listOf(LogLevel.WARN, LogLevel.ERROR)
 
 /**
  * 运行日志页：记录开关、文件大小、最近日志预览、清空与导出。
@@ -112,13 +117,13 @@ fun LogSettingsScreen(onBack: () -> Unit) {
             )
             LunoDropdownRow(
                 title = stringResource(R.string.log_settings_level),
-                options = LogLevel.entries.map { stringResource(it.labelRes()) },
-                selectedIndex = LogLevel.entries.indexOf(stats.level),
+                options = supportedLevels.map { stringResource(it.labelRes()) },
+                selectedIndex = supportedLevels.indexOf(stats.level),
                 subtitle = levelSummary(stats),
                 onSelect = { index ->
                     scope.launch {
                         withContext(Dispatchers.IO) {
-                            facades.logs.setLevel(LogLevel.entries[index])
+                            facades.logs.setLevel(supportedLevels[index])
                         }
                         tick++
                     }
@@ -315,8 +320,11 @@ fun LogSettingsScreen(onBack: () -> Unit) {
 private fun levelSummary(stats: LogStats): String {
     val level = stringResource(stats.level.labelRes())
     val hint = stringResource(
-        if (stats.enabled) R.string.log_settings_level_hint
-        else R.string.log_settings_level_recording_off,
+        when {
+            !stats.enabled -> R.string.log_settings_level_recording_off
+            !BuildConfig.DEBUG -> R.string.log_settings_level_release_hint
+            else -> R.string.log_settings_level_hint
+        },
     )
     return "$level · $hint"
 }

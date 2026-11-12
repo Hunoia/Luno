@@ -431,6 +431,7 @@
     <string name="log_settings_recording_hint">Split by process, auto-rotate</string>
     <string name="log_settings_level">Log level</string>
     <string name="log_settings_level_hint">Only affects file writes</string>
+    <string name="log_settings_level_release_hint">Release records Warn and above only</string>
     <string name="log_settings_level_recording_off">Recording off</string>
     <string name="log_settings_level_verbose">Verbose (all)</string>
     <string name="log_settings_level_debug">Debug</string>

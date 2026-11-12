@@ -441,6 +441,7 @@
     <string name="log_settings_recording_hint">按进程分文件，自动轮转</string>
     <string name="log_settings_level">日志级别</string>
     <string name="log_settings_level_hint">只影响写入文件</string>
+    <string name="log_settings_level_release_hint">release 仅记录 Warn 及以上</string>
     <string name="log_settings_level_recording_off">记录已关闭</string>
     <string name="log_settings_level_verbose">Verbose（全部）</string>
     <string name="log_settings_level_debug">Debug</string>
