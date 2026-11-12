@@ -147,7 +147,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     /** 屏幕标注浮层（计划 2026-11-04-annotate）。
-     *  截屏是异步的：这里只返回「已接管」；失败 toast，不打开空画布。 */
+     *  进页默认穿透、不截屏：用屏幕尺寸占位文档坐标，尺寸在退出穿透重截后换成真实值。 */
     fun showScreenAnnotate(): Boolean {
         if (!isDispatchReady()) return false
         if (annotateOverlay?.isShown == true || annotateOpening) return true
@@ -157,18 +157,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         annotateSurfacesHidden = true
         annotateOpenJob = coroutineScope.launch {
             kotlinx.coroutines.delay(64)
-            val bitmap = hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
-            // 截屏期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
+            // 等一下自家浮层软隐藏完成，避免挂窗时抢触摸；不截屏了，尺寸只用来占位。
+            // 期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
             if (isKeyguardLocked()) {
-                bitmap?.recycle()
                 annotateOpening = false
                 restoreAnnotateSurfaces()
-                return@launch
-            }
-            if (bitmap == null) {
-                annotateOpening = false
-                restoreAnnotateSurfaces()
-                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
                 return@launch
             }
             val overlay = hunoia.luno.annotate.ui.AnnotateOverlay(
@@ -187,12 +180,18 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             annotateOverlay = overlay
             // open() 现在是 suspend（先读偏好再挂窗）：保持 annotateOpening 到真正挂完，
             // 否则读盘这几毫秒内再触发动作会建出第二个浮层。
-            val opened = overlay.open(bitmap)
+            val opened = overlay.open(
+                imageWidth = resources.displayMetrics.widthPixels,
+                imageHeight = resources.displayMetrics.heightPixels,
+            )
             annotateOpening = false
             if (!opened) {
                 annotateOverlay = null
                 restoreAnnotateSurfaces()
-                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+                hunoia.luno.core.LunoLog.w(
+                    LOG_TAG,
+                    "annotate overlay open failed",
+                )
             }
         }
         return true

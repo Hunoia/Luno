@@ -857,8 +857,12 @@ fun AnnotateCanvas(
             },
     ) {
         // 背景（图片外留白）：放在世界层之外，缩放时不会露出未绘制区域。
-        Canvas(Modifier.fillMaxSize()) {
-            drawRect(color = AnnotateVisuals.CanvasGutter, size = size)
+        // 只在有底图时画：穿透态 base == null，铺黑会把整个屏幕挡住
+        // （overlay 窗口本身是透明的，黑来自这里）。
+        if (base != null) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(color = AnnotateVisuals.CanvasGutter, size = size)
+            }
         }
         // 世界层：底图 + 标注按 baseFit 绘制一次；缩放/平移只改 layer 变换。
         Canvas(
