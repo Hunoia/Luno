@@ -27,4 +27,7 @@ enum class ActionFailure {
     ExecutionFailed,
     PermissionDenied,
     Unsupported,
+
+    /** 「当前应用」解析不到可小窗的目标（桌面/无窗口），不回退最近应用。 */
+    NoForegroundApp,
 }

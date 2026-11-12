@@ -35,20 +35,28 @@ class AppExecutors : ActionExecutor {
                         data = action.data,
                         extras = action.extras,
                         userId = action.userId,
-                        anchor = context.touchPosition,
+                        anchor = context.launchAnchor,
                     )
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.AppDetails -> context.surfaces.openAppDetails(action.packageName, action.userId)
-            is Action.Popup -> context.surfaces.launchInPopup(
-                context.environment.currentPackageName().orEmpty(),
-                context.touchPosition,
-            )
-            is Action.MiniWindow -> context.surfaces.launchMiniWindow(
-                context.environment.currentPackageName().orEmpty(),
-                context.touchPosition,
-            )
+            is Action.Popup -> {
+                val foreground = context.foregroundHint ?: context.environment.currentPackageName()
+                if (foreground.isNullOrBlank()) {
+                    ActionResult.Failed(ActionFailure.NoForegroundApp)
+                } else {
+                    context.surfaces.launchInPopup(foreground, context.launchAnchor)
+                }
+            }
+            is Action.MiniWindow -> {
+                val foreground = context.foregroundHint ?: context.environment.currentPackageName()
+                if (foreground.isNullOrBlank()) {
+                    ActionResult.Failed(ActionFailure.NoForegroundApp)
+                } else {
+                    context.surfaces.launchMiniWindow(foreground, context.launchAnchor)
+                }
+            }
             is Action.LaunchShortcut -> {
                 if (context.surfaces.launchShortcut(action.data)) {
                     ActionResult.Success()

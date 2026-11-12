@@ -156,7 +156,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                     action.url,
                     action.miniWindow,
                     action.queryParameters,
-                    context.touchPosition,
+                    context.launchAnchor,
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }

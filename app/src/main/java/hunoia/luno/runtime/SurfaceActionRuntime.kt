@@ -95,10 +95,10 @@ object SurfaceActionRuntime {
                     .onSuccess { actionLibrary = it }
                 ConfigProvider.actionLibrarySettings.collect { actionLibrary = it }
             }
-            SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
+            SurfaceDispatch.install(SurfaceActionDispatch { request, launchAnchor, onSettled ->
                 // 单例复用：执行器与能力闸不应每次点击重建（见 ExecutionSinglePortTest）。
                 dispatcher.submit(
-                    ExecuteCall(request = request),
+                    ExecuteCall(request = request, launchAnchor = launchAnchor),
                     onSettled = { settlement -> onSettled(settlement.succeeded) },
                 )
             })
@@ -120,7 +120,8 @@ object SurfaceActionRuntime {
                 ) is ActionResult.Success
             })
             // Surface 入口：先受理，再异步等执行结果；超时 / 未送达按失败回调。
-            SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
+            SurfaceDispatch.install(SurfaceActionDispatch { request, _, onSettled ->
+                // 主进程的 Surface 入口只做 IPC：触点锚点仅服务进程内有效，跨进程不携带。
                 scope.launch {
                     val result = hunoia.luno.service.DispatchClient.await(
                         action = request.stored,
@@ -179,7 +180,7 @@ object SurfaceActionRuntime {
         override val appContext: Context = context
 
         override fun currentPackageName(): String? =
-            hunoia.luno.service.SideGestureService.current?.getCurrentPackageName()
+            hunoia.luno.service.SideGestureService.current?.getCurrentAppForWindow()
                 ?.takeIf { it.isNotBlank() }
     }
 

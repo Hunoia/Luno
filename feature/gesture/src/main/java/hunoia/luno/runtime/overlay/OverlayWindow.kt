@@ -47,5 +47,12 @@ interface GestureOverlayCallbacks {
         touchPosition: androidx.compose.ui.geometry.Offset,
         /** 触发这次动作的识别结果；面板点选等非直接触发为 null。 */
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
+        /**
+         * 启动类动作的小窗落点：手势直发 = [touchPosition]，动作面板 = 面板打开时的触点。
+         * 与 [touchPosition] 分开，避免影响 `accessibility.tap` 的真实点击位置。
+         */
+        launchAnchor: androidx.compose.ui.geometry.Offset = touchPosition,
+        /** 面板打开时的前台应用快照：全屏浮层会挡住无障碍窗口，执行「当前应用」时用它。 */
+        foregroundHint: String? = null,
     )
 }

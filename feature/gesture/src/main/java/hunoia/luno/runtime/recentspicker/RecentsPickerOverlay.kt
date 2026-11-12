@@ -151,6 +151,10 @@ object RecentsPickerOverlay : OverlayPanelHost(
             if (now - (state?.lastMiniWindowLaunchAtMs ?: 0L) < RECENTS_MINI_DEBOUNCE_MS) return
             state?.lastMiniWindowLaunchAtMs = now
         }
+        // 小窗跟随滚轮打开时的触点（state.anchor），不是点选时手指所在位置。
+        val anchor = state?.anchor
+            ?.takeIf { it.x.isFinite() && it.y.isFinite() }
+            ?.let { it.x.roundToInt() to it.y.roundToInt() }
         SurfaceDispatch.dispatch(
             action = AppLaunchAction.stored(
                 packageName = app.packageName,
@@ -158,6 +162,7 @@ object RecentsPickerOverlay : OverlayPanelHost(
                 miniWindow = miniWindow,
             ),
             origin = DispatchOrigin.PANEL,
+            launchAnchor = anchor,
         ) { _ -> closeAfterGesture() }
     }
 }

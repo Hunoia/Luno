@@ -216,6 +216,7 @@
     <string name="toast_execution_failed">执行失败</string>
     <string name="toast_permission_denied">权限不足</string>
     <string name="toast_unsupported_action">不支持的动作类型</string>
+    <string name="toast_no_foreground_app">没有可小窗的前台应用</string>
 
     <!-- 自动化规则 -->
 

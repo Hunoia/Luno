@@ -21,7 +21,6 @@ import hunoia.luno.quickaccess.launch.Launcher
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.environment.RecentAppsHub
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.Job
@@ -324,9 +323,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         anchorX: Int,
         anchorY: Int,
         colorSpec: ColorSpec,
+        foregroundHint: String? = null,
     ): Boolean {
         if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec)
+        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
         return true
     }
 
@@ -340,7 +340,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         anchorX: Int,
         anchorY: Int,
         colorSpec: ColorSpec,
-    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec)
+        foregroundHint: String?,
+    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
 
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
@@ -375,9 +376,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, colorSpec ->
             forwardBallTap(action, anchorX, anchorY, colorSpec)
         }
-        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec ->
-            forwardPanelTap(action, x, y, colorSpec)
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec, foregroundHint ->
+            forwardPanelTap(action, x, y, colorSpec, foregroundHint)
         }
+        // 网格面板是全屏浮层，挂上之后无障碍 `windows` 会变空；面板 show() 时先快照一次。
+        hunoia.luno.gesture.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }
         hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
@@ -513,14 +516,45 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             return fromWindows
         }
 
-        val history = RecentAppsHub.history.value.lastOrNull()?.packageName
-            ?: RecentAppsHub.foreground.value?.packageName?.takeIf { it.isNotBlank() }
+        // 不再回退最近应用历史：面板盖在桌面上/没有应用窗口时就是「无目标」，
+        // 交给调用方决定提示；环境跟踪只吃上面的窗口扫描结果。
+        if (hunoia.luno.gesture.BuildConfig.DEBUG) {
+            hunoia.luno.core.LunoLog.i(LOG_TAG, "currentPackage: no non-self application window")
+        }
+        return ""
+    }
+
+    /**
+     * 严格解析「当前应用」：最上层可见的 `TYPE_APPLICATION` 窗口。
+     *
+     * 面板/悬浮球是自家的 overlay 类型，天然不参与；Luno 的 Activity 在前台时
+     * 会正常返回自身包名，允许小窗 Luno 自己。桌面或无应用窗口返回空串。
+     */
+    override fun getCurrentAppForWindow(): String {
+        val appWindows = runCatching {
+            windows.mapNotNull { window ->
+                // AccessibilityService.windows 只给出当前屏上的窗口；API 37 已移除
+                // isVisibleToUser()，这里用窗口类型 + 层级即可。
+                if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    return@mapNotNull null
+                }
+                val packageName = runCatching { window.root?.packageName?.toString() }
+                    .getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                ForegroundAppResolver.AppWindow(packageName = packageName, layer = window.layer)
+            }
+        }.getOrDefault(emptyList())
+
+        val resolved = ForegroundAppResolver.resolve(appWindows) { packageName ->
+            QuickLaunchFacade.isLauncherPackage(this, packageName)
+        }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             hunoia.luno.core.LunoLog.i(
                 LOG_TAG,
-                "currentPackage: own overlay -> history/foreground=${history.orEmpty()}",
+                "currentAppForWindow=${resolved.ifEmpty { "<none>" }} " +
+                    "windows=${appWindows.map { it.packageName to it.layer }}",
             )
         }
-        return history.orEmpty()
+        return resolved
     }
 }

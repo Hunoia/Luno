@@ -596,6 +596,10 @@ fun GridPanelRoot(
                 )
             },
     ) {
+        // 面板打开时的触点随内容树下发：应用抽屉等内部部件启动小窗时用它做落点。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalGridPanelAnchor provides (anchorX to anchorY),
+        ) {
         GridPanelCard(
             panelId = panel.id,
             editMode = editMode,
@@ -705,5 +709,6 @@ fun GridPanelRoot(
                 if (!started) showToast(R.string.toast_select_page_failed)
             },
         )
+        }
     }
 }
