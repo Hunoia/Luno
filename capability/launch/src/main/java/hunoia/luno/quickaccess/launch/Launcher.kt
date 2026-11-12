@@ -141,11 +141,36 @@ object Launcher {
      * adb shell setprop debug.luno.mini_reuse on    # 恢复复用（默认）
      * ```
      */
-    private fun miniReuseEnabled(): Boolean = runCatching {
-        val clazz = Class.forName("android.os.SystemProperties")
-        val get = clazz.getMethod("get", String::class.java)
-        (get.invoke(null, "debug.luno.mini_reuse") as? String).orEmpty().trim().lowercase(Locale.ROOT)
-    }.getOrDefault("") != "off"
+    private fun miniReuseEnabled(): Boolean = reuseFlag("debug.luno.mini_reuse")
+
+    /**
+     * 前台（可见）task 是否跳过复用，默认开启。
+     *
+     * 可见 task 的 activity 已经 `RESUMED` + 绘制过，WMS 不会再给它建
+     * `SnapshotStartingWindow`（`Disable startingWindow, because the main window has already
+     * been drawn`）。此时 `startActivityFromRecents` 会让它在原地 fullscreen→freeform：
+     * 窗口先按补偿后的 raw frame（可见尺寸 × 1/0.7）重排，而 MIUI freeform shell 的 0.7
+     * 合成缩放 / 圆角 / caption 要晚 ~40–60ms 才生效，于是就露出一个没装饰的大方形窗口，
+     * 再「弹」回正常小窗尺寸。后台 task 有快照窗挡着，所以看不到这一步。
+     *
+     * 改为走普通启动（OPEN 转场，原生入口实测不弹）；后台 task 仍走复用快路径。
+     * 对照开关：
+     *
+     * ```
+     * adb shell setprop debug.luno.mini_reuse_visible off   # 前台 task 也复用
+     * adb shell setprop debug.luno.mini_reuse_visible on    # 恢复（默认）
+     * ```
+     */
+    private fun miniReuseVisibleTaskEnabled(): Boolean = reuseFlag("debug.luno.mini_reuse_visible")
+
+    private fun reuseFlag(key: String): Boolean {
+        val value = runCatching {
+            val clazz = Class.forName("android.os.SystemProperties")
+            val get = clazz.getMethod("get", String::class.java)
+            get.invoke(null, key) as? String
+        }.getOrNull().orEmpty().trim().lowercase(Locale.ROOT)
+        return value != "off"
+    }
 
     /**
      * 复用已有 task 打开小窗：`startActivityFromRecents(taskId, freeform options)`。
@@ -180,14 +205,24 @@ object Launcher {
             return false
         }
         val preWindowingMode = parseTaskRootWindowingMode(list.stdout, packageName, userId)
+        val taskVisible = isTaskVisible(list.stdout, packageName, userId)
+        // 前台 task 不复用：见 [miniReuseVisibleTaskEnabled]。
+        if (miniReuseVisibleTaskEnabled() && taskVisible) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse skip=visible task=$taskId preMode=$preWindowingMode user=$userId " +
+                    "lookupMs=$lookupMs totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+            )
+            return false
+        }
         val options = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
         val tCall = SystemClock.uptimeMillis()
         val ok = ShizukuManager.startActivityFromRecents(taskId, options)
         Log.i(
             LOG_TAG,
-            "miniReuse task=$taskId preMode=$preWindowingMode ok=$ok user=$userId lookupMs=$lookupMs " +
-                "callMs=${SystemClock.uptimeMillis() - tCall} totalMs=${SystemClock.uptimeMillis() - tLaunch} " +
-                "pkg=$packageName",
+            "miniReuse task=$taskId preMode=$preWindowingMode ok=$ok visible=$taskVisible user=$userId " +
+                "lookupMs=$lookupMs callMs=${SystemClock.uptimeMillis() - tCall} " +
+                "totalMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
         )
         return ok
     }
@@ -410,6 +445,23 @@ object Launcher {
     private fun parseTaskId(output: String, packageName: String, userId: Int): Int? {
         val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
         return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    }
+
+    /**
+     * 命中的 task 当前是否可见（前台）。`am stack list` 的 task 行带 `visible=true|false`：
+     *
+     * ```
+     * taskId=97358: com.ss.android.ugc.aweme/...bounds=[0,0][1200,2670] userId=0 visible=true ...
+     * ```
+     *
+     * 前台 task 原地转 freeform 会露出未装饰的大方形帧，复用路径要避开（见
+     * [miniReuseVisibleTaskEnabled]）。
+     */
+    private fun isTaskVisible(output: String, packageName: String, userId: Int): Boolean {
+        val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
+        // 注意：正则只吃到 `userId=0` 为止，`visible=` 在其后，必须按整行判断。
+        val line = output.lineSequence().firstOrNull { regex.containsMatchIn(it) } ?: return false
+        return line.contains("visible=true")
     }
 
     private fun launchCloneViaLauncherApps(
