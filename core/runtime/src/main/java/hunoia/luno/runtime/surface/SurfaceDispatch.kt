@@ -33,6 +33,11 @@ object SurfaceDispatch {
         origin: DispatchOrigin = DispatchOrigin.PANEL,
         /** 同一用户意图重放时复用（如收件箱项重试），null = 不去重。 */
         idempotencyKey: String? = null,
+        /**
+         * 启动类动作的小窗落点（屏幕 px）：面板传「面板打开时的触点」，无触点传 null。
+         * 只随本次分发透传，不写进 [StoredAction]。
+         */
+        launchAnchor: Pair<Int, Int>? = null,
         onSettled: (Boolean) -> Unit = {},
     ) {
         val request = ActionRequest(stored = action, origin = origin, idempotencyKey = idempotencyKey)
@@ -41,6 +46,6 @@ object SurfaceDispatch {
             onSettled(false)
             return
         }
-        current.dispatch(request, onSettled)
+        current.dispatch(request, launchAnchor, onSettled)
     }
 }

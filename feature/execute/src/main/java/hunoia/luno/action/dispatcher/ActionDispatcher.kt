@@ -131,6 +131,8 @@ class ActionDispatcher(
             messages = messages,
             scope = scope,
             touchPosition = call.touchPosition,
+            launchAnchor = call.launchAnchor,
+            foregroundHint = call.foregroundHint,
             sourceButtonId = call.sourceButtonId,
             triggerContext = call.request.triggerContext,
         )

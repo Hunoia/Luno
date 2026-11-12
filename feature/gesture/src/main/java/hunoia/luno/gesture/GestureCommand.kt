@@ -16,8 +16,24 @@ object GestureCommand {
     /** 球点击转发（携带按钮颜色来源，面板/手势链路从这里走同一套分发）。 */
     var forwardBallTap: ((action: StoredAction, anchorX: Int, anchorY: Int, colorSpec: ColorSpec) -> Unit)? = null
 
-    /** 面板点选转发（返回是否已接管；网格面板据此决定先退场）。 */
-    var forwardPanelTap: ((action: StoredAction, anchorX: Int, anchorY: Int, colorSpec: ColorSpec) -> Boolean)? = null
+    /**
+     * 面板点选转发（返回是否已接管；网格面板据此决定先退场）。
+     * [foregroundHint] 是面板打开时的前台应用快照：面板这层全屏浮层会让无障碍
+     * `windows` 变空，执行「当前应用」类动作时必须用快照而不是重新解析。
+     */
+    var forwardPanelTap: ((
+        action: StoredAction,
+        anchorX: Int,
+        anchorY: Int,
+        colorSpec: ColorSpec,
+        foregroundHint: String?,
+    ) -> Boolean)? = null
+
+    /**
+     * 快照「当前前台应用」：返回空字符串 = 桌面/无应用，null = 无法确定（执行时再实时解析）。
+     * 面板必须在自身窗口挂上之前调用，否则全屏浮层会把下层应用窗口挡成不可见。
+     */
+    var snapshotForegroundApp: (() -> String?)? = null
 
     /** 在屏幕坐标处注入文本（剪贴板部件拖入输入框）。 */
     var insertText: (suspend (text: String, x: Int, y: Int) -> hunoia.luno.action.controller.TextInserter.Result)? = null

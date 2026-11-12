@@ -84,11 +84,11 @@ private enum class OverlayPanel { None, Export, ConfirmExit }
  * 屏幕标注浮层（计划 D1 / D5–D8 / §3.1）。
  *
  * 双窗口：全屏画布 + 独立工具条。
- * - 默认态：画布画冻结截图，触摸被画布拦截；
- * - 穿透态：撤掉底图（透明）、画布 `NOT_TOUCHABLE | NOT_FOCUSABLE`，工具条仍可点；
+ * - 默认态：穿透（透明、画布 `NOT_TOUCHABLE | NOT_FOCUSABLE`），用户直接操作下层应用，
+ *   工具条仍可点；进页不截屏，省一次 a11y/Shizuku 抓图与入口延迟；
  * - 关闭穿透：隐藏两窗 → 重新截屏（由注入的 [captureScreenshot] 负责，含 Shizuku → a11y
- *   回退）→ 换底图；笔迹默认保留（清空走工具条「清除全部」）；
- * - 导出：不截屏，按原分辨率重放矢量再按选区裁剪。
+ *   回退）→ 换底图并撤掉穿透；笔迹默认保留；
+ * - 导出：穿透态先自动关穿透，再按原分辨率重放矢量并按选区裁剪。
  *
  * 宿主只负责「取图」和「软隐藏自家浮层」；这里不碰 SurfaceController，也不依赖 `:app`。
  */
@@ -143,34 +143,43 @@ class AnnotateOverlay(
 
     val isShown: Boolean get() = document != null
 
-    /** 打开浮层；重复调用只保留第一张底图（避免连点动作覆盖正在编辑的内容）。 */
-    suspend fun open(bitmap: Bitmap): Boolean {
+    /**
+     * 打开浮层；重复调用直接返回。
+     *
+     * 入参是文档坐标尺寸（进页默认穿透、不截屏，用屏幕尺寸占位），
+     * 关闭穿透重截后由 [AnnotateState.replaceImage] 换成真实截屏尺寸。
+     */
+    suspend fun open(imageWidth: Int, imageHeight: Int): Boolean {
         if (document != null) return true
-        if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return false
+        if (imageWidth <= 0 || imageHeight <= 0) return false
 
-        val doc = AnnotateDocument(AnnotateState.of(bitmap.width, bitmap.height))
+        val doc = AnnotateDocument(AnnotateState.of(imageWidth, imageHeight))
         // 先恢复偏好再挂窗：工具条首个位置就是持久化位置，避免打开后跳一下。
         restoreAnnotateSettings(doc, settingsStore)
         document = doc
-        base = BaseImage(bitmap)
-        penetrating = false
+        // 默认穿透：进页不铺底图（铺了黑 gutter 会盖满屏幕），画布也不可触摸。
+        base = null
+        penetrating = true
         panel = OverlayPanel.None
         stylePanelTool = null
 
         val wm = service.getSystemService(WindowManager::class.java) ?: return false
         if (!addCanvas(wm)) {
-            cleanup(bitmap)
+            cleanup()
             return false
         }
+        // 首次挂窗就带 NOT_TOUCHABLE | NOT_FOCUSABLE：晚一步 updateViewLayout
+        // 会有一帧抢下层触摸。
+        applyCanvasFlags()
         if (!addToolbar(wm)) {
             canvasView?.let { runCatching { wm.removeViewImmediate(it) } }
-            cleanup(bitmap)
+            cleanup()
             return false
         }
         // 面板独立窗口：懒创建（首次显示样式卡/导出/确认时才 addView），
         // 工具条窗口高度恒定，面板开合不影响工具条位置。
         scope.observeAnnotateSettings(doc, settingsStore)
-        Log.i(LOG_TAG, "annotate overlay shown image=${bitmap.width}x${bitmap.height}")
+        Log.i(LOG_TAG, "annotate overlay shown (penetrating) ${imageWidth}x${imageHeight}")
         return true
     }
 
@@ -206,10 +215,9 @@ class AnnotateOverlay(
         onClosed()
     }
 
-    private fun cleanup(bitmap: Bitmap) {
+    private fun cleanup() {
         document = null
         base = null
-        if (!bitmap.isRecycled) bitmap.recycle()
     }
 
     private fun addCanvas(wm: WindowManager): Boolean {
@@ -567,7 +575,7 @@ class AnnotateOverlay(
 
     private fun screenHeightPx(): Int = service.resources.displayMetrics.heightPixels
 
-    /** 穿透开关（D8）：只改画布窗口 flags，工具条保持可点。 */
+    /** 穿透开关：只改画布窗口 flags，工具条保持可点。进页默认已在穿透态。 */
     private fun togglePenetrate() {
         if (document == null || busy) return
         // 切换前先交卷：穿透会让画布不可聚焦，编辑器无法再完成输入。

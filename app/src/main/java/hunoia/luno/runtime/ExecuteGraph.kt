@@ -23,6 +23,7 @@ class LunoExecuteMessages(private val context: Context) : ExecuteMessages {
             ActionFailure.ExecutionFailed -> R.string.toast_execution_failed
             ActionFailure.PermissionDenied -> R.string.toast_permission_denied
             ActionFailure.Unsupported -> R.string.toast_unsupported_action
+            ActionFailure.NoForegroundApp -> R.string.toast_no_foreground_app
         }
     )
 
@@ -40,5 +41,6 @@ class LunoExecuteMessages(private val context: Context) : ExecuteMessages {
 /** 宿主能力：直接转发 [GestureHost]，执行口不 import 宿主实现。 */
 class LunoExecuteEnvironment(private val host: GestureHost) : ExecuteEnvironment {
     override val appContext: Context get() = host.context.applicationContext
-    override fun currentPackageName(): String? = host.getCurrentPackageName()
+    override fun currentPackageName(): String? =
+        host.getCurrentAppForWindow().takeIf { it.isNotBlank() }
 }

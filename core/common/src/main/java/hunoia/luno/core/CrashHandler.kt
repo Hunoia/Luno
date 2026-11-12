@@ -21,6 +21,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(t: Thread, e: Throwable) {
         // 崩溃路径里绝不能抛：IO 失败不能阻断 defaultHandler，否则进程死得不明不白。
         runCatching { saveErrorInfo(e) }
+        // 独立故障记录：同步落盘 + 通知；与上面的 cache crashlog（无障碍自愈消费）互不影响。
+        runCatching { IncidentLog.recordCrash(e, t) }
         defaultHandler?.uncaughtException(t, e)
     }
 

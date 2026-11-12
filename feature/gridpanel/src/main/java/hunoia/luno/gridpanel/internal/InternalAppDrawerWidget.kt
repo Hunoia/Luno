@@ -53,6 +53,7 @@ fun AppDrawerCell(
     enabled: Boolean = true,
 ) {
     val closePanel = LocalGridPanelClose.current
+    val panelAnchor = hunoia.luno.gridpanel.LocalGridPanelAnchor.current
     val appList by AppListRepository.state.collectAsState()
     val usageStats by hunoia.luno.domain.search.SearchCenter.appUsage.collectAsState(initial = AppUsageStats())
     val launcherSettings by hunoia.luno.domain.search.SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
@@ -81,6 +82,7 @@ fun AppDrawerCell(
                 userId = app.userId,
             ),
             origin = DispatchOrigin.PANEL,
+            launchAnchor = panelAnchor,
         ) { launched ->
             if (launched) closePanel()
             else showToast(hunoia.luno.core.bridge.R.string.launch_failed)

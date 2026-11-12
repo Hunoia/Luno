@@ -41,6 +41,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- 故障记录 / 通知探针：免构造真实崩溃验证落盘与通知。 -->
+        <receiver
+            android:name="hunoia.luno.domain.log.IncidentProbeReceiver"
+            android:exported="true"
+            android:process=":service">
+            <intent-filter>
+                <action android:name="hunoia.luno.debug.INCIDENT_PROBE" />
+            </intent-filter>
+        </receiver>
+
         <!-- 形状软度画廊：adbd 拉起即可，不挂任何入口 UI。 -->
         <activity
             android:name="hunoia.luno.ui.theme.ShapeGalleryActivity"

@@ -2,6 +2,7 @@ package hunoia.luno.core
 
 import android.app.Application
 import android.util.Log as AndroidLog
+import hunoia.luno.core.common.BuildConfig
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -12,12 +13,20 @@ import java.util.concurrent.TimeUnit
 /**
  * 统一日志入口：仍写 logcat，同时把「当前级别及以上」异步落盘，供设置页长期回看与导出。
  *
+ * release 只保留 WARN 及以上：INFO/DEBUG/VERBOSE 调用点由 R8 的
+ * `-assumenosideeffects` 直接裁掉，这里再做一次运行时兜底（动态级别也走同一道闸），
+ * 避免线上为调试日志付出字符串拼接、堆栈抓取与落盘成本。
+ * debug 不受影响，仍输出全部级别。
+ *
  * 落盘按进程分文件（`luno-main.log` / `luno-service.log`），避免两个进程并发写同一文件；
  * 单文件 1MB，保留当前 + 3 份轮转。写入走单线程有界队列，磁盘慢时丢弃最旧任务，
  * 绝不阻塞调用线程。日志目录位于 `filesDir/logs`，不随缓存清理消失。
  *
  * 级别与记录开关都用日志目录里的标记文件表达，主进程与 `:service` 共享同一份状态；
  * logcat 不受级别影响，始终输出调用方传入的全部级别。
+ *
+ * ERROR / ASSERT 额外进入 [IncidentLog]：独立落盘并触发故障通知，不受本对象的
+ * 记录开关与级别影响（见设置页「故障记录」）。
  *
  * 页面不要直接使用本对象：UI 通过 `AppGraph.logs` 门面读取/导出。
  */
@@ -123,30 +132,43 @@ object LunoLog {
         enabledCheckedAt = System.currentTimeMillis()
     }
 
-    /** 当前落盘级别；文件缺失或内容非法时回落到 [LogLevel.DEFAULT]。 */
+    /** 当前落盘级别；文件缺失或内容非法时回落到平台默认（debug INFO / release WARN）。 */
     fun minLevel(): LogLevel {
         val now = System.currentTimeMillis()
         if (now - levelCheckedAt < 1_000L) return levelCached
         val dir = directory()
-        levelCached = if (dir == null) {
-            LogLevel.DEFAULT
+        val stored = if (dir == null) {
+            null
         } else {
-            runCatching { LogLevel.fromName(File(dir, LEVEL_MARKER).readText()) }
-                .getOrDefault(LogLevel.DEFAULT)
+            runCatching { LogLevel.fromNameOrNull(File(dir, LEVEL_MARKER).readText()) }
+                .getOrNull()
         }
+        levelCached = coerceSupported(stored ?: defaultLevel())
         levelCheckedAt = now
         return levelCached
     }
 
     fun setMinLevel(level: LogLevel) {
         val dir = directory() ?: return
+        val resolved = coerceSupported(level)
         runCatching {
             dir.mkdirs()
-            File(dir, LEVEL_MARKER).writeText(level.name)
+            File(dir, LEVEL_MARKER).writeText(resolved.name)
         }
-        levelCached = level
+        levelCached = resolved
         levelCheckedAt = System.currentTimeMillis()
     }
+
+    /** release 下低级别日志已从调用点裁掉，UI/标记文件里的更低级别统一抬到 WARN。 */
+    private fun coerceSupported(level: LogLevel): LogLevel =
+        if (!BuildConfig.DEBUG && level.priority < LogLevel.WARN.priority) {
+            LogLevel.WARN
+        } else {
+            level
+        }
+
+    private fun defaultLevel(): LogLevel =
+        if (BuildConfig.DEBUG) LogLevel.DEFAULT else LogLevel.WARN
 
     /** 等待当前进程已入队日志写完；导出/查看前调用。 */
     fun flush(timeoutMs: Long = 800L) {
@@ -182,12 +204,23 @@ object LunoLog {
     // ---- 实现 ----
 
     private fun log(priority: Int, tag: String, msg: String, tr: Throwable?): Int {
+        // release 只保留 WARN 及以上；v/d/i 的调用点已由 R8 裁掉，这里兜底动态级别，
+        // 同时保证早退发生在堆栈抓取 / 时间格式化 / 入队之前。
+        if (!BuildConfig.DEBUG && priority < AndroidLog.WARN) return 0
+        val minLevel = minLevel()
+        val recordToFile = priority >= minLevel.priority
+        // logcat 在 debug 输出全部级别；release 只输出 WARN 及以上。
+        val writeLogcat = BuildConfig.DEBUG || priority >= AndroidLog.WARN
+        if (!writeLogcat && !recordToFile) return 0
         // 单测里的 android.jar 是桩：getStackTraceString 可能返回 null，这里统一兜底。
         val stack = tr?.let { AndroidLog.getStackTraceString(it) }
-        val result = AndroidLog.println(priority, tag, msg)
-        if (tr != null) AndroidLog.println(priority, tag, stack.orEmpty())
-        // 文件阈值由设置页控制；默认 INFO，避免 release 下高频日志放大文件。
-        if (priority >= minLevel().priority) {
+        val result = if (writeLogcat) AndroidLog.println(priority, tag, msg) else 0
+        if (tr != null && writeLogcat) AndroidLog.println(priority, tag, stack.orEmpty())
+        // 严重错误单独进故障记录（不受运行日志开关/级别影响）；通知去重由 IncidentLog 负责。
+        if (priority >= AndroidLog.ERROR) {
+            runCatching { IncidentLog.recordError(tag, msg, tr) }
+        }
+        if (recordToFile) {
             val line = buildString {
                 append(LocalDateTime.now().format(timeFormatter))
                 append(' ')

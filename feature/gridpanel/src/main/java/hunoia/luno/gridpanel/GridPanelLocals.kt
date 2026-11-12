@@ -14,6 +14,12 @@ import androidx.compose.ui.geometry.Offset
 val LocalGridPanelClose = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
+ * 网格面板打开时的屏幕触点：面板内自绘部件（应用抽屉等）启动小窗时作为落点。
+ * 用 CompositionLocal 下发，避免把 anchor 一路穿到每个内部部件。
+ */
+val LocalGridPanelAnchor = staticCompositionLocalOf<Pair<Int, Int>?> { null }
+
+/**
  * 面板内「拿起一个内容拖到别的应用」的拖拽幽灵状态：内容区（部件）写入，面板根绘制。
  *
  * 位置是**窗口坐标**（面板根 Box 的 local 坐标）：内容区用

@@ -153,6 +153,16 @@ data class ExecuteCall(
     val request: ActionRequest,
     /** 手势触点（px）：点按类动作没填坐标时的兜底，也是面板锚点。 */
     val touchPosition: Pair<Int, Int>? = null,
+    /**
+     * 启动类动作的小窗落点（px）：手势直发 = 当前触点，面板 = 面板打开时的触点。
+     * 与 [touchPosition] 分开：面板打开后手指可能已经移走，点击类动作仍要落在真实触点。
+     */
+    val launchAnchor: Pair<Int, Int>? = null,
+    /**
+     * 面板打开时的前台应用快照（空串 = 桌面/无应用，null = 未采集）。
+     * 网格面板全屏浮层会让无障碍 `windows` 变空，不能用执行时的实时解析替代。
+     */
+    val foregroundHint: String? = null,
     /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
     val sourceButtonId: String? = null,
 )

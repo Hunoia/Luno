@@ -41,6 +41,15 @@
     public static int i(...);
 }
 
+# LunoLog 是自建包装器，R8 不会把它当成 android.util.Log 处理，必须单独声明；
+# 否则 release 里 LunoLog.i 仍会执行字符串拼接、logcat 输出与落盘。
+# 只裁 v/d/i：w/e/wtf 是线上诊断底线，且 e/wtf 还负责写故障记录。
+-assumenosideeffects class hunoia.luno.core.LunoLog {
+    public *** v(...);
+    public *** d(...);
+    public *** i(...);
+}
+
 # ML Kit（unbundled 文本识别）：release 下 R8 会优化组件注册链，
 # 实测崩在 InputImage.fromBitmap → MlKitContext.get(SharedPrefManager) 返回 null 的 NPE。
 # 官方 consumer 规则只保 ComponentRegistrar 类名，不足以保住注册用的静态字段/方法体。

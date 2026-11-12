@@ -52,7 +52,7 @@ object AccessibilityCrashRecovery {
             if (System.currentTimeMillis() - lastCrashMs > RECENT_WINDOW_MS) return@launch
             // 总闸仍开且最近崩过：Shizuku 权限写回 token 强制重绑无障碍服务。
             val ok = EnableAccessibilityUseCase.enable(app, forceRebind = true)
-            hunoia.luno.core.LunoLog.i(
+            hunoia.luno.core.LunoLog.w(
                 TAG,
                 "crash recovery: process=$processName rebind=$ok",
             )

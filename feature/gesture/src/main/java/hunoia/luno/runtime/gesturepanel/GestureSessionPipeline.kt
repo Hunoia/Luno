@@ -42,6 +42,7 @@ import hunoia.luno.runtime.recentspicker.recentsWheelRowSize
 import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.panelTeardownDelayMillis
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -295,6 +296,9 @@ class GestureSessionPipeline(
             val style = actionPanelState.actionPanelStyle ?: currentSettings.actionPanelStyle
             val colorSpec = actionPanelState.buttonColor
             val centerDegrees = actionPanelState.centerDegrees
+            // 小窗落点用「面板打开时」的触点：选中项时手指可能已经滑到别处，
+            // done() 会清掉 origin，必须在结算前取出。
+            val panelAnchor = actionPanelState.origin
             val hitAction = actionPanelState.done()
             val panelSourceButton = actionPanelSourceButton
             actionPanelSourceButton = null
@@ -327,7 +331,12 @@ class GestureSessionPipeline(
                         // 面板点选最近应用滚轮：与手势路径同一条 state，直接开窗。
                         "internal.recentsPicker" ->
                             showRecentsPicker(hitAction, touchPosition)
-                        else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition)
+                        else -> handleResolvedAction(
+                            hitAction,
+                            panelSourceButton,
+                            touchPosition,
+                            launchAnchor = panelAnchor,
+                        )
                     }
                 }
                 if (fromSubGesturePanel) {
@@ -391,6 +400,10 @@ class GestureSessionPipeline(
         sourceButton: GestureButton?,
         touchPosition: Offset,
         decision: GestureDecision.Trigger? = null,
+        /** 启动类动作的小窗落点：默认与触点一致，面板请求沿用面板打开时的触点。 */
+        launchAnchor: Offset = touchPosition,
+        /** 面板打开时的前台应用快照；null = 未采集，执行时实时解析。 */
+        foregroundHint: String? = null,
     ): Boolean {
         // 按「手指是否还按着」分两档振动：触钮停留/滑动进入时手指还在，触摸窗只是视觉；
         // 抬手/悬浮球点按才让触摸窗真正接管，两者语义不能反。
@@ -407,7 +420,7 @@ class GestureSessionPipeline(
             }
             SubGestureEntry.Ignored -> Unit
         }
-        callbacks.onAction(action, sourceButton, touchPosition, decision)
+        callbacks.onAction(action, sourceButton, touchPosition, decision, launchAnchor, foregroundHint)
         return false
     }
 
@@ -435,6 +448,10 @@ class GestureSessionPipeline(
         onPanelStarted: () -> Unit = {},
         needsPanelOverlay: Boolean = false,
         decision: GestureDecision.Trigger? = null,
+        /** 启动类动作的小窗落点：手势直发为触点，动作面板为面板打开时的触点。 */
+        launchAnchor: Offset = touchPosition,
+        /** 面板打开时的前台应用快照；null = 未采集，执行时实时解析。 */
+        foregroundHint: String? = null,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
         val action = resolvedAction?.takeIf { it.typeId != Action.NONE_TYPE_ID }
@@ -464,7 +481,14 @@ class GestureSessionPipeline(
             subGestureState.clear(notifyService = true)
             scope.launch {
                 delay(SUB_GESTURE_DIRECT_ACTION_DELAY_MS)
-                handleResolvedAction(action, sourceButton, touchPosition, decision)
+                handleResolvedAction(
+                    action,
+                    sourceButton,
+                    touchPosition,
+                    decision,
+                    launchAnchor = launchAnchor,
+                    foregroundHint = foregroundHint,
+                )
             }
             onDirectComplete(false)
             return
@@ -506,7 +530,14 @@ class GestureSessionPipeline(
                 false
             }
             Action.NONE_TYPE_ID -> false
-            else -> handleResolvedAction(action, sourceButton, touchPosition, decision)
+            else -> handleResolvedAction(
+                action,
+                sourceButton,
+                touchPosition,
+                decision,
+                launchAnchor = launchAnchor,
+                foregroundHint = foregroundHint,
+            )
         }
         onDirectComplete(enteredSubGesture)
     }
@@ -525,6 +556,7 @@ class GestureSessionPipeline(
             panelColor = event.colorSpec,
             needsPanelOverlay = true,
             onPanelStarted = { actionPanelSourceButton = null },
+            foregroundHint = event.foregroundHint,
         )
     }
 
@@ -722,6 +754,9 @@ class GestureSessionPipeline(
             if (now - recentsPickerState.lastMiniWindowLaunchAtMs < RECENTS_MINI_DEBOUNCE_MS) return
             recentsPickerState.lastMiniWindowLaunchAtMs = now
         }
+        val anchor = recentsPickerState.anchor
+            .takeIf { it.x.isFinite() && it.y.isFinite() }
+            ?.let { it.x.roundToInt() to it.y.roundToInt() }
         SurfaceDispatch.dispatch(
             action = AppLaunchAction.stored(
                 packageName = app.packageName,
@@ -729,6 +764,7 @@ class GestureSessionPipeline(
                 miniWindow = miniWindow,
             ),
             origin = DispatchOrigin.PANEL,
+            launchAnchor = anchor,
         ) { _ -> callbacks.onRecentsPickerOverlayDismissed() }
     }
 

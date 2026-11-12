@@ -194,6 +194,7 @@
     <string name="toast_execution_failed">Execution failed</string>
     <string name="toast_permission_denied">Insufficient permission</string>
     <string name="toast_unsupported_action">Unsupported action type</string>
+    <string name="toast_no_foreground_app">No foreground app to open in a floating window</string>
 
     <!-- Automation rules -->
 
@@ -419,6 +420,7 @@
     <string name="log_settings_recording_hint">Split by process, auto-rotate</string>
     <string name="log_settings_level">Log level</string>
     <string name="log_settings_level_hint">Only affects file writes</string>
+    <string name="log_settings_level_release_hint">Release records Warn and above only</string>
     <string name="log_settings_level_recording_off">Recording off</string>
     <string name="log_settings_level_verbose">Verbose (all)</string>
     <string name="log_settings_level_debug">Debug</string>
@@ -440,6 +442,24 @@
     <string name="log_settings_preview_hint">View the last %1$d lines</string>
     <string name="log_settings_preview_title">Recent logs</string>
     <string name="log_settings_preview_empty">No logs</string>
+
+    <!-- Incidents (crash / ANR / native crash / ERROR) -->
+    <string name="incident_group">Incidents</string>
+    <string name="incident_notification">Incident notifications</string>
+    <string name="incident_notification_hint">Notify on crashes, ANRs and errors</string>
+    <string name="incident_recent">Latest incident</string>
+    <string name="incident_none">No incidents yet</string>
+    <string name="incident_summary">%1$d entries · latest %2$s</string>
+    <string name="incident_clear">Clear incidents</string>
+    <string name="incident_clear_confirm">Delete all incident records? This cannot be undone.</string>
+    <string name="incident_cleared">Incident records cleared</string>
+    <string name="incident_sheet_title">Incidents</string>
+    <string name="incident_empty">No incidents yet</string>
+    <string name="incident_notification_channel">Runtime incidents</string>
+    <string name="incident_notification_channel_desc">Crash, ANR and error alerts</string>
+    <string name="incident_notification_title">Luno runtime incident</string>
+    <string name="incident_notification_text">%1$s: %2$s</string>
+    <string name="incident_notification_tap_hint">Tap to view incident records</string>
 
     <string name="habit_reminder_channel">Habit reminders</string>
     <string name="habit_reminder_title">Habit reminder</string>

@@ -755,8 +755,10 @@ class GestureCoordinator(
             sourceButton: GestureButton?,
             touchPosition: Offset,
             decision: hunoia.luno.gesture.GestureDecision.Trigger?,
+            launchAnchor: Offset,
+            foregroundHint: String?,
         ) {
-            onGestureDecision(decision, action, sourceButton, touchPosition)
+            onGestureDecision(decision, action, sourceButton, touchPosition, launchAnchor, foregroundHint)
         }
     }
 
@@ -805,6 +807,8 @@ class GestureCoordinator(
         action: hunoia.luno.core.domain.StoredAction,
         sourceButton: GestureButton?,
         touchPosition: Offset,
+        launchAnchor: Offset = touchPosition,
+        foregroundHint: String? = null,
     ) {
         if (BuildConfig.DEBUG) {
             Log.i(
@@ -830,6 +834,13 @@ class GestureCoordinator(
         } else {
             null
         }
+        // 启动落点与「点击落点」分开传：面板/子手势可以把启动锚点换成面板打开时的触点，
+        // 而 accessibility.tap 仍用真实手指位置。
+        val anchor = if (launchAnchor.x.isFinite() && launchAnchor.y.isFinite()) {
+            launchAnchor.x.roundToInt() to launchAnchor.y.roundToInt()
+        } else {
+            touch
+        }
         // 只提交 ActionRequest；触发源专属状态（按钮/触点/手势类型）随调用传入，
         // 落定回执在这里发事件，执行口不碰事件总线。
         actionDispatcher.submit(
@@ -840,6 +851,8 @@ class GestureCoordinator(
                     idempotencyKey = nextIntentKey("gesture:${sourceButton?.id ?: "surface"}"),
                 ),
                 touchPosition = touch,
+                launchAnchor = anchor,
+                foregroundHint = foregroundHint,
                 sourceButtonId = sourceButton?.id,
             ),
             onSettled = { settlement ->
@@ -889,11 +902,14 @@ class GestureCoordinator(
         anchorX: Int,
         anchorY: Int,
         colorSpec: hunoia.luno.config.model.ColorSpec,
+        foregroundHint: String? = null,
     ) {
         val panelId = action.actionPanelId()
         if (panelId == null) {
             hunoia.luno.core.Events.post(
-                hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, colorSpec),
+                hunoia.luno.core.BallTapActionEvent(
+                    action, anchorX, anchorY, colorSpec, foregroundHint,
+                ),
             )
             return
         }
@@ -902,7 +918,9 @@ class GestureCoordinator(
                 val panels = runtimeSettingsStore.snapshot().actionSettings.actionPanels.panels
                 if (panels.any { it.id == panelId } || attempt == BALL_PANEL_REVEAL_MAX_ATTEMPTS) {
                     hunoia.luno.core.Events.post(
-                        hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, colorSpec),
+                        hunoia.luno.core.BallTapActionEvent(
+                            action, anchorX, anchorY, colorSpec, foregroundHint,
+                        ),
                     )
                     return@launch
                 }

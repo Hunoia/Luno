@@ -31,5 +31,13 @@ fun interface AwaitableActionDispatch {
  * 由 `:app` 注入的进程级实现完成 `Capability Gate -> Executor`。
  */
 fun interface SurfaceActionDispatch {
-    fun dispatch(request: ActionRequest, onSettled: (Boolean) -> Unit)
+    /**
+     * [launchAnchor] 是启动类动作的小窗落点（屏幕 px），只在本进程内透传，
+     * 不进入 [ActionRequest] 落库；跨进程入口没有触点时传 null。
+     */
+    fun dispatch(
+        request: ActionRequest,
+        launchAnchor: Pair<Int, Int>?,
+        onSettled: (Boolean) -> Unit,
+    )
 }

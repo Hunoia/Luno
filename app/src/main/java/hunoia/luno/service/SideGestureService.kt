@@ -21,7 +21,6 @@ import hunoia.luno.quickaccess.launch.Launcher
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.environment.RecentAppsHub
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.Job
@@ -148,7 +147,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     /** 屏幕标注浮层（计划 2026-11-04-annotate）。
-     *  截屏是异步的：这里只返回「已接管」；失败 toast，不打开空画布。 */
+     *  进页默认穿透、不截屏：用屏幕尺寸占位文档坐标，尺寸在退出穿透重截后换成真实值。 */
     fun showScreenAnnotate(): Boolean {
         if (!isDispatchReady()) return false
         if (annotateOverlay?.isShown == true || annotateOpening) return true
@@ -158,18 +157,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         annotateSurfacesHidden = true
         annotateOpenJob = coroutineScope.launch {
             kotlinx.coroutines.delay(64)
-            val bitmap = hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
-            // 截屏期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
+            // 等一下自家浮层软隐藏完成，避免挂窗时抢触摸；不截屏了，尺寸只用来占位。
+            // 期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
             if (isKeyguardLocked()) {
-                bitmap?.recycle()
                 annotateOpening = false
                 restoreAnnotateSurfaces()
-                return@launch
-            }
-            if (bitmap == null) {
-                annotateOpening = false
-                restoreAnnotateSurfaces()
-                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
                 return@launch
             }
             val overlay = hunoia.luno.annotate.ui.AnnotateOverlay(
@@ -188,12 +180,18 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             annotateOverlay = overlay
             // open() 现在是 suspend（先读偏好再挂窗）：保持 annotateOpening 到真正挂完，
             // 否则读盘这几毫秒内再触发动作会建出第二个浮层。
-            val opened = overlay.open(bitmap)
+            val opened = overlay.open(
+                imageWidth = resources.displayMetrics.widthPixels,
+                imageHeight = resources.displayMetrics.heightPixels,
+            )
             annotateOpening = false
             if (!opened) {
                 annotateOverlay = null
                 restoreAnnotateSurfaces()
-                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+                hunoia.luno.core.LunoLog.w(
+                    LOG_TAG,
+                    "annotate overlay open failed",
+                )
             }
         }
         return true
@@ -331,9 +329,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         anchorX: Int,
         anchorY: Int,
         colorSpec: ColorSpec,
+        foregroundHint: String? = null,
     ): Boolean {
         if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec)
+        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
         return true
     }
 
@@ -347,7 +346,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         anchorX: Int,
         anchorY: Int,
         colorSpec: ColorSpec,
-    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec)
+        foregroundHint: String?,
+    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
 
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
@@ -382,9 +382,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, colorSpec ->
             forwardBallTap(action, anchorX, anchorY, colorSpec)
         }
-        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec ->
-            forwardPanelTap(action, x, y, colorSpec)
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec, foregroundHint ->
+            forwardPanelTap(action, x, y, colorSpec, foregroundHint)
         }
+        // 网格面板是全屏浮层，挂上之后无障碍 `windows` 会变空；面板 show() 时先快照一次。
+        hunoia.luno.gesture.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }
         hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
@@ -509,7 +511,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 .sortedByDescending { it.layer }
                 .firstOrNull { w ->
                     w.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
-                        runCatching { w.root?.packageName?.toString() }.getOrNull() != packageName
+                        runCatching { w.root?.packageName?.toString() }.getOrNull()
+                            ?.let { it != packageName && it != "com.android.systemui" } == true
                 }
                 ?.root?.packageName?.toString()
         }.getOrNull()
@@ -520,14 +523,45 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             return fromWindows
         }
 
-        val history = RecentAppsHub.history.value.lastOrNull()?.packageName
-            ?: RecentAppsHub.foreground.value?.packageName?.takeIf { it.isNotBlank() }
+        // 不再回退最近应用历史：面板盖在桌面上/没有应用窗口时就是「无目标」，
+        // 交给调用方决定提示；环境跟踪只吃上面的窗口扫描结果。
+        if (hunoia.luno.gesture.BuildConfig.DEBUG) {
+            hunoia.luno.core.LunoLog.i(LOG_TAG, "currentPackage: no non-self application window")
+        }
+        return ""
+    }
+
+    /**
+     * 严格解析「当前应用」：最上层可见的 `TYPE_APPLICATION` 窗口。
+     *
+     * 面板/悬浮球是自家的 overlay 类型，天然不参与；Luno 的 Activity 在前台时
+     * 会正常返回自身包名，允许小窗 Luno 自己。桌面或无应用窗口返回空串。
+     */
+    override fun getCurrentAppForWindow(): String {
+        val appWindows = runCatching {
+            windows.mapNotNull { window ->
+                // AccessibilityService.windows 只给出当前屏上的窗口；API 37 已移除
+                // isVisibleToUser()，这里用窗口类型 + 层级即可。
+                if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    return@mapNotNull null
+                }
+                val packageName = runCatching { window.root?.packageName?.toString() }
+                    .getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                ForegroundAppResolver.AppWindow(packageName = packageName, layer = window.layer)
+            }
+        }.getOrDefault(emptyList())
+
+        val resolved = ForegroundAppResolver.resolve(appWindows) { packageName ->
+            QuickLaunchFacade.isLauncherPackage(this, packageName)
+        }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             hunoia.luno.core.LunoLog.i(
                 LOG_TAG,
-                "currentPackage: own overlay -> history/foreground=${history.orEmpty()}",
+                "currentAppForWindow=${resolved.ifEmpty { "<none>" }} " +
+                    "windows=${appWindows.map { it.packageName to it.layer }}",
             )
         }
-        return history.orEmpty()
+        return resolved
     }
 }

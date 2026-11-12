@@ -184,6 +184,8 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                             userId = appInfo.userId,
                         ),
                         origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                        // 小窗跟随面板打开时的触点，而不是点选时的手指位置。
+                        launchAnchor = anchorXState to anchorYState,
                     ) { launched ->
                         if (!launched) showToastLong(R.string.quick_launcher_start_failed)
                     }

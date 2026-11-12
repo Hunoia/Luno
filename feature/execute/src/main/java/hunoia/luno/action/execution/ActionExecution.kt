@@ -132,6 +132,10 @@ data class ExecutorContext(
     val messages: ExecuteMessages,
     val scope: CoroutineScope,
     val touchPosition: Pair<Int, Int>? = null,
+    /** 启动类动作的小窗落点：与 [touchPosition] 分离，面板打开后手指移走也不影响落点。 */
+    val launchAnchor: Pair<Int, Int>? = null,
+    /** 面板打开时的前台应用快照（空串 = 桌面/无应用，null = 未采集）。 */
+    val foregroundHint: String? = null,
     /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
     val sourceButtonId: String? = null,
     /** 触发上下文（全屏手势锚点 / 会话 id）；非全屏手势链路为 null。 */

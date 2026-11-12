@@ -57,6 +57,13 @@ object GridPanelOverlay : OverlayPanelHost(
     private var anchorXState by mutableIntStateOf(0)
     private var anchorYState by mutableIntStateOf(0)
 
+    /**
+     * 面板打开时的前台应用快照（空串 = 桌面/无应用，null = 未采集）。
+     * 面板自身是全屏 `TYPE_APPLICATION_OVERLAY`，挂上后无障碍 `windows` 会变空，
+     * 「当前应用」类动作必须用打开面板前的那一刻，而不是点选时的实时解析。
+     */
+    private var foregroundHint: String? = null
+
     /** 组合注册的返回键处理器：返回 true 表示已消费（如退出编辑态）。 */
     private var backHandler: (() -> Boolean)? = null
 
@@ -136,6 +143,11 @@ object GridPanelOverlay : OverlayPanelHost(
         // 面板项里引用自身（旧数据/手改配置）：已经显示的就是这块面板，重复 show 只会
         // 重置锚点、重播入场；就地 no-op。
         if (shownEventPosted && panelId == panelIdState) return
+        // 只在真正从「未显示」到「显示」时快照：窗口挂上后 windows 会被本面板挡住。
+        // 选择页回显等仍处于 shown 状态的 show 保留首次快照。
+        if (!shownEventPosted) {
+            foregroundHint = hunoia.luno.gesture.GestureCommand.snapshotForegroundApp?.invoke()
+        }
         panelIdState = panelId
         anchorXState = anchorX
         anchorYState = anchorY
@@ -301,7 +313,11 @@ object GridPanelOverlay : OverlayPanelHost(
                     anchorY = anchorYState,
                     dispatch = { action, x, y ->
                         val handled = hunoia.luno.gesture.GestureCommand.forwardPanelTap
-                            ?.invoke(action, x, y, hunoia.luno.config.model.ColorSpec.Unset) == true
+                            ?.invoke(
+                                action, x, y,
+                                hunoia.luno.config.model.ColorSpec.Unset,
+                                foregroundHint,
+                            ) == true
                         // 动作面板（弧形菜单）是另一扇浮窗：网格面板先退场，
                         // 否则两层浮层叠在一起，点选也会落在被盖住的那一层上。
                         if (handled && action.actionPanelId() != null) {

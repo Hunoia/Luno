@@ -15,6 +15,12 @@ interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
     fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
     fun getCurrentPackageName(): String
 
+    /**
+     * 严格解析「当前应用」：最上层可见 `TYPE_APPLICATION` 窗口的包名。
+     * 桌面 / 无应用窗口返回空串（不兜底最近应用）；Luno 自己的 Activity 算 Luno。
+     */
+    fun getCurrentAppForWindow(): String
+
 
     /** 供 overlay 等场景直接执行一个已构造好的动作；key 由意图产生方提供，转发层不补键。 */
     fun dispatchAction(
