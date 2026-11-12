@@ -10,6 +10,8 @@ object DataStoreFiles {
     const val INITIAL_SETTINGS = "initial_settings"
     const val GESTURE_BUTTONS = "gesture_buttons"
     const val SUB_GESTURE_SETTINGS = "sub_gesture_settings"
+    /** 识别区（全屏手势）：顺序即优先级，每区自带触发列表。 */
+    const val GLOBAL_GESTURE = "global_gesture"
 
     // 调参组
     const val ADVANCED_SETTINGS = "advanced_settings"

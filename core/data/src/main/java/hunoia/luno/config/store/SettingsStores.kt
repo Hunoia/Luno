@@ -11,6 +11,7 @@ import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
@@ -30,6 +31,7 @@ class SettingsStores(
     internal val _gestureSettings: DataStore<GestureSettings>,
     internal val _actionSettings: DataStore<ActionSettings>,
     internal val _gestureButtons: DataStore<List<GestureButton>>,
+    internal val _globalGesture: DataStore<GlobalGestureSettings>,
     internal val _quickAppLauncherSettings: DataStore<QuickAppLauncherSettings>,
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
     internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
@@ -48,6 +50,7 @@ class SettingsStores(
     val gestureSettings: Flow<GestureSettings> = _gestureSettings.data
     val actionSettings: Flow<ActionSettings> = _actionSettings.data
     val gestureButtons: Flow<List<GestureButton>> = _gestureButtons.data
+    val globalGesture: Flow<GlobalGestureSettings> = _globalGesture.data
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = _quickAppLauncherSettings.data
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
@@ -74,6 +77,7 @@ class SettingsStores(
                 _gestureSettings = ctx.dataStore(DataStoreFiles.GESTURE_SETTINGS, GestureSettings()),
                 _actionSettings = ctx.dataStore(DataStoreFiles.ACTION_SETTINGS, ActionSettings()),
                 _gestureButtons = ctx.dataStore(DataStoreFiles.GESTURE_BUTTONS, GestureButton.Defaults),
+                _globalGesture = ctx.dataStore(DataStoreFiles.GLOBAL_GESTURE, GlobalGestureSettings()),
                 _quickAppLauncherSettings = ctx.dataStore(DataStoreFiles.QUICK_APP_LAUNCHER, QuickAppLauncherSettings()),
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
                 _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),

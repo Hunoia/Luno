@@ -10,6 +10,8 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
+import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureSettings
@@ -62,6 +64,25 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                 settings.copy(subGestures = settings.subGestures + newGesture)
             }
         }
+    }
+
+    fun addGlobalZone() {
+        viewModelScope.launch {
+            GestureConfig.updateGlobalGesture { settings ->
+                settings.copy(zones = settings.zones + GlobalGestureZone.create())
+            }
+        }
+    }
+
+    fun onGlobalZoneEnabledChange(zone: GlobalGestureZone, enabled: Boolean) {
+        updateUiState {
+            it.copy(
+                globalZones = it.globalZones.map { current ->
+                    if (current.id == zone.id) current.copy(enabled = enabled) else current
+                },
+            )
+        }
+        saveSettings()
     }
 
     fun onSubGestureEnabledChange(gesture: SubGesture, enabled: Boolean) {
@@ -268,6 +289,15 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                         )
                     }
                 }
+                is RenameTarget.GlobalZone -> {
+                    GestureConfig.updateGlobalGesture { settings ->
+                        settings.copy(
+                            zones = settings.zones.map {
+                                if (it.id == target.zone.id) it.copy(name = newName) else it
+                            },
+                        )
+                    }
+                }
             }
             hideRenameDialog()
         }
@@ -310,6 +340,11 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                     SubGestureSettings(subGestures = uiState.subGestures)
                 }
             }
+            launch {
+                GestureConfig.updateGlobalGesture { settings ->
+                    settings.copy(zones = uiState.globalZones)
+                }
+            }
         }
     }
 
@@ -328,11 +363,13 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                 GestureConfig.initial,
                 GestureConfig.buttons,
                 GestureConfig.subGestures,
-            ) { initial, buttons, subGestureSettings ->
+                GestureConfig.globalGesture,
+            ) { initial, buttons, subGestureSettings, globalGesture ->
                 HomeGestureData(
                     initialSettings = initial,
                     gestureButtons = buttons,
                     subGestureSettings = subGestureSettings,
+                    globalGesture = globalGesture,
                 )
             }
             val runtimeData = combine(
@@ -355,6 +392,7 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                     isGestureSwitchEnabled = switchEnabled,
                     gestureButtons = gesture.gestureButtons.sortedBy { it.id },
                     subGestures = gesture.subGestureSettings.subGestures,
+                    globalZones = gesture.globalGesture.zones,
                     isKeepAliveEnabled = runtime.advancedSettings.keepAliveEnabled,
                 ).withRuntimeStatus()
             }.collectLatest { state ->
@@ -379,6 +417,7 @@ private data class HomeGestureData(
     val initialSettings: InitialSettings,
     val gestureButtons: List<GestureButton>,
     val subGestureSettings: SubGestureSettings,
+    val globalGesture: GlobalGestureSettings,
 )
 
 private data class HomeRuntimeData(

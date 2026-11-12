@@ -14,6 +14,7 @@ import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
@@ -38,6 +39,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val gestureDeferred = async { stores._gestureSettings.data.first() }
         val actionDeferred = async { stores._actionSettings.data.first() }
         val buttonsDeferred = async { stores._gestureButtons.data.first() }
+        val globalGestureDeferred = async { stores._globalGesture.data.first() }
         val qlaDeferred = async { stores._quickAppLauncherSettings.data.first() }
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
         val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
@@ -62,6 +64,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             gestureSettings = gestureDeferred.await(),
             actionSettings = actionDeferred.await(),
             gestureButtons = buttonsDeferred.await(),
+            globalGesture = globalGestureDeferred.await(),
             quickAppLauncherSettings = qlaDeferred.await(),
             subGestureSettings = subGestureDeferred.await(),
             actionLibrarySettings = actionLibraryDeferred.await(),
@@ -84,6 +87,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.gestureSettings?.let { v -> writeSection("gestureSettings") { stores._gestureSettings.updateData { v } } } }
         launch { backup.actionSettings?.let { v -> writeSection("actionSettings") { stores._actionSettings.updateData { v } } } }
         launch { backup.gestureButtons?.let { v -> writeSection("gestureButtons") { stores._gestureButtons.updateData { v } } } }
+        launch { backup.globalGesture?.let { v -> writeSection("globalGesture") { stores._globalGesture.updateData { v } } } }
         launch { backup.quickAppLauncherSettings?.let { v -> writeSection("quickAppLauncherSettings") { stores._quickAppLauncherSettings.updateData { v } } } }
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
         launch { backup.actionLibrarySettings?.let { v -> writeSection("actionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
@@ -142,6 +146,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._gestureSettings.updateData { GestureSettings() } }
         launch { stores._actionSettings.updateData { ActionSettings() } }
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
+        launch { stores._globalGesture.updateData { GlobalGestureSettings() } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
         launch { stores._appUsageStats.updateData { AppUsageStats() } }
         launch { stores._clipboardHistory.updateData { ClipboardHistory() } }

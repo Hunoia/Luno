@@ -109,6 +109,7 @@ val MainTab.contentDescriptionRes: Int
 fun HomeScreen(
     onNavToGestureButtonSettings: (GestureButton) -> Unit,
     onNavToSubGestureEditor: (String) -> Unit,
+    onNavToGlobalZoneEditor: (String) -> Unit = {},
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
@@ -389,12 +390,20 @@ fun HomeScreen(
                                 GesturePanel(
                                     gestureButtons = uiState.gestureButtons,
                                     subGestures = uiState.subGestures,
+                                    globalZones = uiState.globalZones,
                                     expandedSection = expandedGestureSection,
                                     onExpandedChange = { expandedGestureSection = it },
                                     onGestureButtonClick = onNavToGestureButtonSettings,
                                     onSubGestureClick = onNavToSubGestureEditor,
+                                    onGlobalZoneClick = onNavToGlobalZoneEditor,
                                     onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
                                     onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
+                                    onGlobalZoneCheckedChange = { zone, enabled ->
+                                        vm.onGlobalZoneEnabledChange(zone, enabled)
+                                    },
+                                    onGlobalZoneRename = { zone ->
+                                        vm.showRenameDialog(RenameTarget.GlobalZone(zone = zone))
+                                    },
                                     onAddGesture = {
                                         // 点「+」添加后展开当前列，让新触钮立即可见。
                                         expandedGestureSection = GesturePanelSection.TouchButton
@@ -405,6 +414,11 @@ fun HomeScreen(
                                         // 点「+」添加后展开当前列，让新子手势立即可见。
                                         expandedGestureSection = GesturePanelSection.SubGesture
                                         vm.addSubGesture(id)
+                                    },
+                                    onAddGlobalZone = {
+                                        // 点「+」添加后展开当前列，让新识别区立即可见。
+                                        expandedGestureSection = GesturePanelSection.GlobalZone
+                                        vm.addGlobalZone()
                                     },
                                     onMarkColorClick = { target ->
                                         colorPickerTarget = target

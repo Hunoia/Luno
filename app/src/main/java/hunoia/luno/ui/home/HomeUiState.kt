@@ -1,6 +1,7 @@
 package hunoia.luno.ui.home
 
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.facade.PrivilegedPermissionStatus
 import hunoia.luno.shizuku.ShizukuStatus
@@ -13,6 +14,11 @@ sealed interface RenameTarget {
     data class SubGesture(val gesture: hunoia.luno.config.model.SubGesture) : RenameTarget {
         override val name: String get() = gesture.name
     }
+    data class GlobalZone(val zone: GlobalGestureZone) : RenameTarget {
+        // 默认全屏区没有持久化名称：弹窗预填展示名，允许用户直接确认。
+        override val name: String
+            get() = zone.name.ifBlank { if (zone.id == "1") "全屏" else "" }
+    }
 }
 
 sealed interface UiEvent {
@@ -22,6 +28,7 @@ sealed interface UiEvent {
 data class UiState(
     val gestureButtons: List<GestureButton> = emptyList(),
     val subGestures: List<SubGesture> = emptyList(),
+    val globalZones: List<GlobalGestureZone> = emptyList(),
     val isGestureSwitchEnabled: Boolean = false,
     val isAccessibilityEnabled: Boolean = false,
     val isKeepAliveEnabled: Boolean = false,

@@ -32,7 +32,9 @@ import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.SubGesture
+import hunoia.luno.gesture.settings.global.globalZoneLabel
 import hunoia.luno.ui.component.buttonTextCompose
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.MarkColorSize
@@ -51,19 +53,25 @@ import androidx.compose.animation.fadeOut
 enum class GesturePanelSection {
     TouchButton,
     SubGesture,
+    GlobalZone,
 }
 @Composable
 fun GesturePanel(
     gestureButtons: List<GestureButton>,
     subGestures: List<SubGesture>,
+    globalZones: List<GlobalGestureZone> = emptyList(),
     expandedSection: GesturePanelSection?,
     onExpandedChange: (GesturePanelSection?) -> Unit,
     onGestureButtonClick: (GestureButton) -> Unit,
     onSubGestureClick: (String) -> Unit,
+    onGlobalZoneClick: (String) -> Unit = {},
     onGestureCheckedChange: (GestureButton, Boolean) -> Unit,
     onSubCheckedChange: (SubGesture, Boolean) -> Unit,
+    onGlobalZoneCheckedChange: (GlobalGestureZone, Boolean) -> Unit = { _, _ -> },
+    onGlobalZoneRename: (GlobalGestureZone) -> Unit = {},
     onAddGesture: () -> Unit,
     onAddSub: () -> Unit,
+    onAddGlobalZone: () -> Unit = {},
     onMarkColorClick: (Any) -> Unit,
     onGestureButtonRename: (GestureButton) -> Unit = {},
     onSubGestureRename: (SubGesture) -> Unit = {},
@@ -149,6 +157,33 @@ fun GesturePanel(
                                         .pressClickable(onClick = { onMarkColorClick(gesture) }),
                                 )
                             }
+                        },
+                    )
+                }
+            }
+        }
+        GestureSection(
+            title = stringResource(id = hunoia.luno.gesture.R.string.gesture_global_zone),
+            addContentDescription = stringResource(id = hunoia.luno.gesture.R.string.gesture_global_zone_add),
+            expanded = expandedSection == GesturePanelSection.GlobalZone,
+            itemCount = globalZones.size,
+            onExpandedChange = { expanded ->
+                onExpandedChange(
+                    if (expanded) GesturePanelSection.GlobalZone else null
+                )
+            },
+            onAdd = onAddGlobalZone,
+        ) {
+            globalZones.fastForEachIndexed { index, zone ->
+                key(zone.id) {
+                    LunoSwitchRow(
+                        title = globalZoneLabel(zone, index),
+                        checked = zone.enabled,
+                        onCheckedChange = { onGlobalZoneCheckedChange(zone, it) },
+                        onClick = { onGlobalZoneClick(zone.id) },
+                        shape = segmentedShape(index + 1, globalZones.size + 1),
+                        leading = {
+                            RenameIcon(onClick = { onGlobalZoneRename(zone) })
                         },
                     )
                 }

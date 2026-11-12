@@ -11,6 +11,8 @@ import hunoia.luno.config.model.GestureTriggerType
 data class GestureActionTarget(
     val gestureButtonId: String = "",
     val subGestureId: String = "",
+    /** 识别区触发条目 id：与上面两个互斥。 */
+    val globalGestureTriggerId: String = "",
     val slot: Int = 0,
     val directionLabel: String = "",
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,

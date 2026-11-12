@@ -5,6 +5,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGestureSettings
 
@@ -14,6 +15,7 @@ data class SettingsState(
     val gestureSettings: GestureSettings = GestureSettings(),
     val actionSettings: ActionSettings = ActionSettings(),
     val gestureButtons: List<GestureButton> = emptyList(),
+    val globalGesture: GlobalGestureSettings = GlobalGestureSettings(),
     val subGestureSettings: SubGestureSettings = SubGestureSettings(),
     val actionLibrarySettings: ActionLibrarySettings = ActionLibrarySettings(),
 )

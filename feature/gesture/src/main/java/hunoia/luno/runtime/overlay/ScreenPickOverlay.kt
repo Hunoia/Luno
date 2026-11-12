@@ -154,9 +154,9 @@ class ScreenPickOverlay(
     /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
     private val onAnnotate: (Bitmap) -> Boolean = { false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */    private val onOpenLink: suspend (String) -> Boolean = { false },
-    /** 长按/拖动参数：`:app` 注入运行时配置，保证与全屏长按使用同一套阈值。 */
-    private val screenPickGesture: () -> hunoia.luno.config.model.ScreenPickGesture = {
-        hunoia.luno.config.model.ScreenPickGesture()
+    /** 识屏自身参数（OCR 文字体系）：`:app` 注入运行时配置。 */
+    private val screenPickSettings: () -> hunoia.luno.config.model.ScreenPickSettings = {
+        hunoia.luno.config.model.ScreenPickSettings()
     },
 ) : hunoia.luno.runtime.surface.SurfaceHandle {
     override val surfaceId: String = "screen-pick"
@@ -352,7 +352,7 @@ class ScreenPickOverlay(
     /**
      * 全屏长按入口：在落点直接进入幽灵卡态，不经过“轻点取词 / 拖动框选”。
      *
-     * 手势由调用方（内核触摸流的 [hunoia.luno.gesture.touchsource.GlobalLongPressTrigger]）
+     * 手势由调用方（内核触摸流的 [hunoia.luno.gesture.touchsource.GlobalGestureRuntime]）
      * 继续喂 [movePortal] / [releasePortal]：按下那一刻已经发生在别人的窗口上，
      * 本层拿不到后续 MOVE/UP，只能借同一股原始触摸流。
      */
@@ -578,7 +578,7 @@ class ScreenPickOverlay(
             )
             return null
         }
-        val scripts = screenPickGesture().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
+        val scripts = screenPickSettings().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
         ocrInFlight++
         return try {
             val bitmap = withContext(Dispatchers.IO) {
@@ -1054,7 +1054,7 @@ class ScreenPickOverlay(
             null
         } else {
             try {
-                val scripts = screenPickGesture().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
+                val scripts = screenPickSettings().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
                 val result = withContext(NonCancellable) {
                     ocrEngine.recognize(source, scripts)
                 }
@@ -1641,7 +1641,7 @@ private fun ScreenPickScreen(
                         onPortalMove(at)
                     }
                     // 识屏层内长按“按住即触发”，不设拖动取消窗口；
-                    // dragStartTimeoutMs 只作用于全局长按路径（GlobalLongPressTrigger）。
+                    // dragStartTimeoutMs 只作用于识别区的长按触发条目。
                     val portalTimer = scope.launch {
                         delay(viewConfiguration.longPressTimeoutMillis)
                         if (!moved && !childConsumed && !portalStarted &&

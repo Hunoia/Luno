@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -24,14 +25,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureSettings
+import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.gesture.R
+import hunoia.luno.gesture.settings.global.globalZoneLabel
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
@@ -61,6 +65,9 @@ fun ButtonVisibilityEditScreen(
 ) {
     val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
     val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
+    val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
+        initialValue = GlobalGestureSettings(),
+    )
     val scope = rememberCoroutineScope()
     val isNew = profileId == NEW_VISIBILITY_PROFILE_ID
     var draft by remember { mutableStateOf<VisibilityProfile?>(null) }
@@ -229,6 +236,7 @@ fun ButtonVisibilityEditScreen(
                 TargetPickerSheet(
                     current = current,
                     buttons = buttons,
+                    zones = globalGesture.zones,
                     onDismissRequest = { showTargetPicker = false },
                     onModeChange = { draft = current.copy(mode = it) },
                     onTargetToggle = { id, checked ->
@@ -299,6 +307,7 @@ fun ButtonVisibilityEditScreen(
 private fun TargetPickerSheet(
     current: VisibilityProfile,
     buttons: List<GestureButton>,
+    zones: List<GlobalGestureZone>,
     onDismissRequest: () -> Unit,
     onModeChange: (VisibilityTargetMode) -> Unit,
     onTargetToggle: (String, Boolean) -> Unit,
@@ -363,12 +372,20 @@ private fun TargetPickerSheet(
                             },
                         )
                     }
-                    item(key = "screen_pick") {
+                    item(key = "zones_title") {
+                        Text(
+                            text = stringResource(R.string.button_visibility_target_zones),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = PageGutter),
+                        )
+                    }
+                    itemsIndexed(zones, key = { _, zone -> zone.id }) { index, zone ->
                         LunoSelectableRow(
-                            title = stringResource(R.string.button_visibility_target_screen_pick),
-                            selected = VisibilityTargets.SCREEN_PICK in current.targetIds,
+                            title = globalZoneLabel(zone, index),
+                            selected = zone.id in current.targetIds,
                             onSelectedChange = { checked ->
-                                onTargetToggle(VisibilityTargets.SCREEN_PICK, checked)
+                                onTargetToggle(zone.id, checked)
                             },
                         )
                     }

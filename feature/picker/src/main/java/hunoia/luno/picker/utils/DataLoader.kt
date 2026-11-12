@@ -13,6 +13,8 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.config.model.GlobalGestureKind
+import hunoia.luno.config.model.isDirectional
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
@@ -66,6 +68,45 @@ internal suspend fun saveSettingsAction(
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
         return SaveOutcome.Saved
+    }
+    if (actionSelect.globalGestureTriggerId.isNotBlank()) {
+        var found = false
+        GestureConfig.updateGlobalGesture { settings ->
+            settings.copy(
+                zones = settings.zones.map { zone ->
+                    if (zone.triggers.none { it.id == actionSelect.globalGestureTriggerId }) {
+                        zone
+                    } else {
+                        zone.copy(
+                            triggers = zone.triggers.map { trigger ->
+                                if (trigger.id != actionSelect.globalGestureTriggerId) return@map trigger
+                                found = true
+                                // 长按是混合形态：按住即触发用单动作，等拖动触发用方向槽。
+                                val directional = trigger.kind.isDirectional ||
+                                    (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold)
+                                val oldAction = if (directional) {
+                                    trigger.directionActions.actionBy(actionSelect.slot)
+                                } else {
+                                    trigger.action
+                                }
+                                tryDeleteShortcutIcons(oldAction, picked)
+                                if (directional) {
+                                    trigger.copy(
+                                        directionActions = trigger.directionActions.withAction(
+                                            actionSelect.slot,
+                                            picked,
+                                        ),
+                                    )
+                                } else {
+                                    trigger.copy(action = picked)
+                                }
+                            },
+                        )
+                    }
+                },
+            )
+        }
+        return if (found) SaveOutcome.Saved else SaveOutcome.TargetMissing
     }
     if (actionSelect.subGestureId.isNotBlank()) {
         GestureConfig.updateSubGestures { settings ->
@@ -612,6 +653,20 @@ internal suspend fun loadDataBody(
         actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
+        // 识别区触发：先判 id，否则会掉进下面的 null 分支。
+        actionSelect.globalGestureTriggerId.isNotBlank() -> {
+            val trigger = GestureConfig.getGlobalGesture().zones
+                .asSequence()
+                .flatMap { it.triggers.asSequence() }
+                .firstOrNull { it.id == actionSelect.globalGestureTriggerId }
+            when {
+                trigger == null -> null
+                trigger.kind.isDirectional ||
+                    (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold) ->
+                    trigger.directionActions.actionBy(actionSelect.slot)
+                else -> trigger.action
+            }
+        }
         subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.slot)
         button != null -> button.actionFor(actionSelect.triggerType, actionSelect.slot)
         else -> null

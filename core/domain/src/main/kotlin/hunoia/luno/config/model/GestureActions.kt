@@ -10,8 +10,8 @@ import kotlinx.serialization.Serializable
 @Keep
 data class InitialSettings(
     val gestureEnabled: Boolean = GestureEnabled,
-    /** 识屏长按手势：全屏任意位置按住 → 幽灵卡。默认关闭（需 Shizuku 读内核触摸流）。 */
-    val screenPickGesture: ScreenPickGesture = ScreenPickGesture(),
+    /** 识屏自身参数（OCR 文字体系）；触发方式在识别区配置里。 */
+    val screenPick: ScreenPickSettings = ScreenPickSettings(),
     /** 触钮可见性场景：按应用 / 界面派生显隐，不写回按钮 enabled。 */
     val buttonVisibility: ButtonVisibilitySettings = ButtonVisibilitySettings(),
 )

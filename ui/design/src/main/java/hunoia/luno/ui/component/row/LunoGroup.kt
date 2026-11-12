@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.ListStyle
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -65,9 +66,11 @@ fun LunoSegmentedGroup(
 ) {
     val scope = SegmentedGroupScope()
     scope.content()
+    // 大卡分割线风格：行间由分割线分隔，不能再用分段式的 1dp 缝。
+    val effectiveSpacing = if (LocalInDividedCard.current) 0.dp else contentSpacing
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(contentSpacing),
+        verticalArrangement = Arrangement.spacedBy(effectiveSpacing),
     ) {
         scope.items.forEachIndexed { index, item ->
             item(segmentedShape(index, scope.items.size))

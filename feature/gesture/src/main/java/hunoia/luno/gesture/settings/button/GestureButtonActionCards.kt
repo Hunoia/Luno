@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonAngle
@@ -37,6 +38,7 @@ import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.directionLabel
+import hunoia.luno.ui.component.row.LocalInDividedCard
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
@@ -99,11 +101,22 @@ fun ExpandableGestureActionCard(
         bottomStart = ContainerRadius,
         bottomEnd = ContainerRadius,
     )
+    // 大卡分割线风格：由外层 LunoGroup 托底并画行间分割线，卡片自身不能再裁圆角 / 留缝。
+    val inDividedCard = LocalInDividedCard.current
+    val outerModifier = if (inDividedCard) {
+        Modifier.fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth().clip(outerShape)
+    }
+    val contentModifier = if (inDividedCard) {
+        Modifier.fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth().clip(contentShape)
+    }
+    val spacing = if (inDividedCard) 0.dp else SegmentedGap
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(outerShape),
-        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+        modifier = outerModifier,
+        verticalArrangement = if (inDividedCard) Arrangement.Top else Arrangement.spacedBy(spacing),
     ) {
         LunoSettingsRow(
             title = title,
@@ -126,10 +139,8 @@ fun ExpandableGestureActionCard(
             exit = shrinkVertically() + fadeOut(),
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(contentShape),
-                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                modifier = contentModifier,
+                verticalArrangement = if (inDividedCard) Arrangement.Top else Arrangement.spacedBy(spacing),
             ) {
                 content()
             }
@@ -219,7 +230,9 @@ private fun <T> RowGroup(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(
+            if (LocalInDividedCard.current) 0.dp else SegmentedGap,
+        ),
     ) {
         items.forEachIndexed { index, value ->
             item(index, value)

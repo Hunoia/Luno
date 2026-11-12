@@ -51,6 +51,8 @@ data class Backup(
     val gestureSettings: GestureSettings? = null,
     val actionSettings: ActionSettings? = null,
     val gestureButtons: List<GestureButton>? = null,
+    /** 识别区（全屏手势）：随手势域备份。 */
+    val globalGesture: GlobalGestureSettings? = null,
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
     val actionLibrarySettings: ActionLibrarySettings? = null,

@@ -77,7 +77,17 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.ScreenPick -> {
                 // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
                 // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
-                val shown = context.surfaces.showScreenPick()
+                val contextPosition = context.triggerContext?.position
+                val shown = if (contextPosition != null) {
+                    // 全屏手势：动作仍然无参，锚点由触发上下文提供，直接落到幽灵卡。
+                    context.surfaces.showScreenPickPortal(
+                        x = contextPosition.first,
+                        y = contextPosition.second,
+                        sessionId = context.triggerContext?.sessionId,
+                    )
+                } else {
+                    context.surfaces.showScreenPick()
+                }
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ScreenAnnotate -> {

@@ -74,6 +74,8 @@ import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
 import hunoia.luno.gesture.settings.SubGestureEditor
+import hunoia.luno.gesture.settings.global.GlobalGestureZoneEditor
+import hunoia.luno.gesture.settings.global.GlobalGestureZoneEditorScreen
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
@@ -205,6 +207,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToSubGestureEditor = { subGestureId ->
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
+                        onNavToGlobalZoneEditor = { zoneId ->
+                            navController.navigate(GlobalGestureZoneEditor(zoneId))
+                        },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
@@ -265,6 +270,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                                     directionLabel = target.directionLabel,
                                     triggerType = target.triggerType,
                                     subGestureId = target.subGestureId,
+                                    globalGestureTriggerId = target.globalGestureTriggerId,
                                 ),
                             )
                         },
@@ -475,6 +481,24 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
+                myComposable<GlobalGestureZoneEditor> {
+                    GlobalGestureZoneEditorScreen(
+                        zoneId = it.toRoute<GlobalGestureZoneEditor>().zoneId,
+                        onBack = { navController.navigateUp() },
+                        onNavToActionSelect = { target ->
+                            navController.navigate(
+                                ActionSelect(
+                                    gestureButtonId = target.gestureButtonId,
+                                    slot = target.slot,
+                                    directionLabel = target.directionLabel,
+                                    triggerType = target.triggerType,
+                                    subGestureId = target.subGestureId,
+                                    globalGestureTriggerId = target.globalGestureTriggerId,
+                                ),
+                            )
+                        },
+                    )
+                }
                 myComposable<SubGestureEditor> {
                     SubGestureSettingsScreen(
                         onBack = { navController.navigateUp() },
@@ -486,6 +510,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                                     directionLabel = target.directionLabel,
                                     triggerType = target.triggerType,
                                     subGestureId = target.subGestureId,
+                                    globalGestureTriggerId = target.globalGestureTriggerId,
                                 ),
                             )
                         },

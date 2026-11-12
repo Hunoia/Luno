@@ -59,21 +59,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
-import hunoia.luno.gesture.touch.TouchAction
-import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger
+import hunoia.luno.gesture.touchsource.GlobalGestureRuntime
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
 private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
 
-/**
- * 识屏让位带在状态栏高度之外再加的余量（dp）。
- *
- * 0 = 只让出状态栏本身（超级岛胶囊所在带）：岛卡片的「长按 + 拖动」和识屏是同一手势形态，
- * 只能按起点位置区分。展开态大岛卡片伸到状态栏以下的部分**不**让位，否则屏幕顶部会多出
- * 一条不能识屏的死区；代价是从卡片下半部分起手时识屏仍可能先弹出来。
- */
-private const val SYSTEM_BAR_GESTURE_BAND_DP = 0f
+/** 识屏动作的 typeId：全屏手势识别区需要给它做预捕获与拖动跟随的特殊处理。 */
+private const val SCREEN_PICK_TYPE_ID = "accessibility.screenPick"
 
 /** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
 private const val KEYBOARD_WATCH_MS = 600L
@@ -117,21 +110,21 @@ class GestureCoordinator(
     val transientOverlayController = TransientOverlayController(host.context)
 
     /**
-     * 识屏长按配置：跟随手势总开关。总开关关闭时不启动内核触摸流，
-     * 也不接受全屏长按（与侧边手势保持一致）。
+     * 识别区（全屏手势）配置：跟随手势总开关。总开关关闭时视作没有任何区，
+     * 内核触摸流也不启动（与侧边手势保持一致）。
      */
-    private val screenPickGestureConfig: hunoia.luno.config.model.ScreenPickGesture
-        get() = runtimeSettingsStore.snapshot().initialSettings.let { initial ->
-            if (!initial.gestureEnabled) {
-                initial.screenPickGesture.copy(enabled = false)
+    private val globalGestureConfig: hunoia.luno.config.model.GlobalGestureSettings
+        get() = runtimeSettingsStore.snapshot().let { state ->
+            if (!state.initialSettings.gestureEnabled) {
+                hunoia.luno.config.model.GlobalGestureSettings(zones = emptyList())
             } else {
-                initial.screenPickGesture
+                state.globalGesture
             }
         }
 
-    /** 供 Surface 层复用同一套长按/拖动阈值。 */
-    fun currentScreenPickGesture(): hunoia.luno.config.model.ScreenPickGesture =
-        screenPickGestureConfig
+    /** 供识屏层读取 OCR 文字体系等自身参数。 */
+    fun currentScreenPickSettings(): hunoia.luno.config.model.ScreenPickSettings =
+        runtimeSettingsStore.snapshot().initialSettings.screenPick
 
     /** DOWN 后 100ms 抓一次 a11y 快照，避免应用自己的长按菜单污染取词结果。 */
     private val screenTextPreCapture by lazy {
@@ -143,35 +136,56 @@ class GestureCoordinator(
     }
 
     /**
-     * 全屏长按识屏检测器：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。
-     * 触发后由同一股原始触摸流继续喂拖动/抬手，幽灵卡靠它跟随手指。
+     * 识别区手势运行时：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。
+     * 识别、起点保护、区命中都在运行时空；命中后仍走 `ActionRequest → Dispatcher`。
      */
-    /**
-     * 识屏的「让位」区域：状态栏 + 超级岛胶囊。
-     *
-     * 岛卡片的长按拖动分享和「长按后拖动识屏」完全同形，只能按起点位置区分：
-     * 起点落在状态栏带内就交给 SystemUI，否则拖拽分享会先弹识屏卡。
-     */
-    private val systemBarGestureBandPx by lazy {
-        val res = host.context.resources
-        val id = res.getIdentifier("status_bar_height", "dimen", "android")
-        val bar = if (id > 0) {
-            runCatching { res.getDimensionPixelSize(id) }.getOrDefault(0)
-        } else {
-            0
-        }
-        bar + (SYSTEM_BAR_GESTURE_BAND_DP * hunoia.luno.bridge.ui.DensityProvider.density).toInt()
-    }
-
-    private val globalScreenPickTrigger = GlobalLongPressTrigger(
-        config = { screenPickGestureConfig },
-        shouldIgnoreStart = { _, y -> y <= systemBarGestureBandPx },
-        onTrigger = { x, y ->
-            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(
-                x,
-                y,
-                screenTextPreCapture.peek(),
+    private val globalGestureRuntime = GlobalGestureRuntime(
+        config = { globalGestureConfig },
+        shouldIgnoreStart = { x, y ->
+            val service = hunoia.luno.service.SideGestureService.current
+            // Luno 自己的界面不参与全屏手势：识屏层/幽灵卡在屏、面板在屏、
+            // 前台是自家 Activity，或触点落在自家窗口（浮球/面板）上。
+            service == null ||
+                service.isScreenPickVisible() ||
+                service.isScreenPickPortalVisible() ||
+                openPanels.hasOpenPanels ||
+                service.isOwnUiForeground() ||
+                service.isOwnWindowAt(x, y)
+        },
+        zoneVisible = { zoneId ->
+            shouldShowSurface(
+                zoneId,
+                runtimeSettingsStore.snapshot().initialSettings,
+                RuntimeStateHub.current(),
             )
+        },
+        wantsPreCapture = ::zoneWantsScreenPickCapture,
+        onFire = { hit ->
+            val touch = hit.anchor.x.roundToInt() to hit.anchor.y.roundToInt()
+            val context = hunoia.luno.core.domain.TriggerContext(
+                position = touch,
+                sessionId = hit.sessionId,
+            )
+            if (hit.action.typeId == SCREEN_PICK_TYPE_ID) {
+                // 预捕获必须在点火瞬间取：之后应用自己的长按菜单会污染快照。
+                hunoia.luno.runtime.overlay.text.ScreenPickSessionRegistry.offer(
+                    hit.sessionId,
+                    screenTextPreCapture.peek(),
+                )
+            }
+            actionDispatcher.submit(
+                hunoia.luno.execute.ExecuteCall(
+                    request = hunoia.luno.core.domain.ActionRequest(
+                        stored = hit.action.withoutVariantKey(),
+                        origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
+                        idempotencyKey = "global:${hit.sessionId}",
+                        triggerContext = context,
+                    ),
+                    touchPosition = touch,
+                ),
+            )
+            // 识屏幽灵卡要继续跟随手指；其余动作点火即结束。
+            hit.action.typeId == SCREEN_PICK_TYPE_ID
         },
         onDrag = { x, y ->
             hunoia.luno.service.SideGestureService.current?.moveScreenPickPortal(x, y)
@@ -181,10 +195,24 @@ class GestureCoordinator(
         },
         onPreCapture = { x, y, _ -> screenTextPreCapture.start(x, y) },
         onPreCaptureCancel = { screenTextPreCapture.cancel() },
+        onVibrate = { trigger ->
+            if (trigger.vibrate) {
+                hunoia.luno.bridge.vibration.appContext?.let { ctx ->
+                    hunoia.luno.bridge.vibration.vibrate(ctx)
+                }
+            }
+        },
     )
 
-    /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的长按不能当“识屏”。 */
+    /** 该区是否有任何触发直接绑定识屏动作（只有这类区需要按下时预捕获）。 */
+    private fun zoneWantsScreenPickCapture(zone: hunoia.luno.config.model.GlobalGestureZone): Boolean =
+        zone.triggers.any { trigger ->
+            trigger.action?.typeId == SCREEN_PICK_TYPE_ID ||
+                trigger.directionActions.actions.values.any { it.typeId == SCREEN_PICK_TYPE_ID }
+        }
+    /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的按下不能当全屏手势。 */
     private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter()
+
     private var refreshJob: Job? = null
 
     /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
@@ -345,6 +373,9 @@ class GestureCoordinator(
 
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
+
+        override fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(x, y, sessionId) == true
 
         override fun showScreenAnnotate(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
@@ -598,53 +629,25 @@ class GestureCoordinator(
     }
 
     /**
-     * 内核触摸流只为「全屏长按识屏」而启停：手势总开关与识屏开关都开才跑。
-     * 触钮固定走无障碍按钮窗，不再触发内核触摸流。
+     * 内核触摸流只为「识别区」全屏手势而启停：手势总开关打开，且任一启用区
+     * 存在启用且有动作的触发才跑。触钮固定走无障碍按钮窗，不触发内核触摸流。
      */
     private fun syncTouchInputSources() {
         val state = runtimeSettingsStore.snapshot()
         val gestureEnabled = state.initialSettings.gestureEnabled
         motionEventInput.start()
-        if (gestureEnabled && state.initialSettings.screenPickGesture.enabled) {
+        // 先挂监听再启动：启动是异步的，避免首帧落在监听赋值之前。
+        shizukuTouchInput.globalFrameListener = listener@{ points, action ->
+            globalGestureRuntime.onFrame(points, action)
+        }
+        if (gestureEnabled && globalGestureConfig.zones.any { zone ->
+                zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
+            }
+        ) {
             shizukuTouchInput.start()
         } else if (shizukuTouchInput.isRunning) {
-            // 只在真的在跑时停：无谓 stop 会掐断进行中的全局长按会话。
+            // 只在真的在跑时停：无谓 stop 会掐断进行中的识别区会话。
             shizukuTouchInput.stop()
-        }
-        // 识屏长按复用这一股内核触摸流：把每帧喂给长按检测器。
-        // 触钮固定走无障碍窗，内核流不消费也不仲裁，因此这里只做“自家界面让位”。
-        shizukuTouchInput.globalFrameListener = listener@{ point, action ->
-            if (action == TouchAction.Down) {
-                val service = hunoia.luno.service.SideGestureService.current
-                // Luno 自己的界面不参与“全局长按识屏”：
-                // - 识屏层在屏：长按由窗口自己的手势处理（否则会双触发）；
-                // - 搜索/网格/动作面板在屏：那是面板交互；
-                // - 前台是自家 Activity，或触点落在自家窗口（浮球/面板）上。
-                if (service == null ||
-                    service.isScreenPickVisible() ||
-                    service.isScreenPickPortalVisible()
-                ) {
-                    return@listener
-                }
-                if (openPanels.hasOpenPanels) return@listener
-                if (service.isOwnUiForeground() ||
-                    service.isOwnWindowAt(point.x.toInt(), point.y.toInt())
-                ) {
-                    return@listener
-                }
-                // 场景显隐统一裁决：长按识别作为 VisibilityTarget，profile 命中且
-                // visible=false 时完全不触发（不出卡、不预捕获、不碰触摸）。
-                // visible=true 不强制开启：功能基线仍是识屏总开关 + Shizuku（config.enabled）。
-                if (!shouldShowSurface(
-                        hunoia.luno.config.model.VisibilityTargets.SCREEN_PICK,
-                        runtimeSettingsStore.snapshot().initialSettings,
-                        RuntimeStateHub.current(),
-                    )
-                ) {
-                    return@listener
-                }
-            }
-            globalScreenPickTrigger.onFrame(point, action)
         }
     }
 

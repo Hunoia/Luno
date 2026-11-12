@@ -17,6 +17,7 @@ import hunoia.luno.config.model.record
 import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitHistoryRetentionDays
@@ -52,6 +53,8 @@ object ConfigProvider {
     val actionSettings: Flow<ActionSettings> = stores.actionSettings
     val gestureButtons: Flow<List<GestureButton>> =
         stores.gestureButtons.map { buttons -> buttons.map { it.withResolvedName() } }
+    /** 识别区（全屏手势）：总开关 + 区列表。 */
+    val globalGesture: Flow<GlobalGestureSettings> = stores.globalGesture
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val appUsageStats: Flow<AppUsageStats> = stores.appUsageStats
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
@@ -77,6 +80,7 @@ object ConfigProvider {
     suspend fun getActionSettings(): ActionSettings = stores._actionSettings.data.first()
     suspend fun getGestureButtons(): List<GestureButton> =
         stores._gestureButtons.data.first().map { it.withResolvedName() }
+    suspend fun getGlobalGesture(): GlobalGestureSettings = stores._globalGesture.data.first()
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
@@ -101,6 +105,9 @@ object ConfigProvider {
     }
     suspend fun updateGestureButtons(transform: suspend (List<GestureButton>) -> List<GestureButton>) {
         stores._gestureButtons.updateData(transform)
+    }
+    suspend fun updateGlobalGesture(transform: suspend (GlobalGestureSettings) -> GlobalGestureSettings) {
+        stores._globalGesture.updateData(transform)
     }
     suspend fun updateQuickAppLauncherSettings(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) {
         stores._quickAppLauncherSettings.updateData(transform)

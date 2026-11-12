@@ -53,7 +53,7 @@ data class ShizukuTouchStatus(
  *
  * 职责边界（路线 A 收敛后）：
  * - 只产生**全屏触摸帧**并投给 [globalFrameListener]，不做手势识别、不执行动作；
- * - 唯一消费者是「全屏长按识屏」（`GlobalLongPressTrigger`）；触钮固定走无障碍按钮窗；
+ * - 唯一消费者是「识别区」全屏手势（`GlobalGestureRuntime`）；触钮固定走无障碍按钮窗；
  * - 不摆拦截窗、不消费触摸、不做来源仲裁——视觉与窗口层的东西一概不碰；
  * - 失败一律降级并暴露在 [status] 上，不静默。
  *
@@ -74,11 +74,10 @@ class ShizukuTouchInputSource(
     private var session: ShizukuShellSession? = null
 
     /**
-     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧都会回调，
-     * 由 :app 用来做“全屏任意位置长按取词”等全局手势识别。
-     * 本监听不消费触摸，底层 App 照常收到触摸。
+     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧都会回调当前**全部**触摸点，
+     * 首点是主指。由 :app 用来做全屏手势识别；本监听不消费触摸，底层 App 照常收到触摸。
      */
-    var globalFrameListener: ((screen: Offset, action: TouchAction) -> Unit)? = null
+    var globalFrameListener: ((points: List<Offset>, action: TouchAction) -> Unit)? = null
 
     val isRunning: Boolean get() = monitorJob?.isActive == true
 
@@ -131,7 +130,7 @@ class ShizukuTouchInputSource(
             }
             _status.value = ShizukuTouchStatus(
                 state = ShizukuTouchStatus.State.STREAMING,
-                detail = "监听中：仅用于全屏长按识屏，不拦截触摸",
+                detail = "监听中：仅用于识别区全屏手势，不拦截触摸",
                 deviceName = device.name.ifBlank { device.path },
             )
 
@@ -178,30 +177,28 @@ class ShizukuTouchInputSource(
         }
     }
 
-    /** 全屏帧监听用的屏幕坐标：UP 帧没有触摸点，抬手位置只能沿用最后一次坐标。 */
-    private var lastGlobalScreen: Offset? = null
+    /** 全屏帧监听用的屏幕坐标：UP 帧没有触摸点，抬手位置只能沿用最后一帧。 */
+    private var lastGlobalPoints: List<Offset> = emptyList()
 
     private fun dispatch(frame: TouchFrame) {
         // UP 帧的 points 恒为空（TouchTracker 用“点集变空”表达抬手），
-        // 不能先取 primaryPoint 再转发，否则全局监听永远收不到 Up，
-        // 长按状态机会一直停在“已触发”（表现为只能触发一次）。
+        // 不能先取点再转发，否则全局监听永远收不到 Up，
+        // 手势状态机会一直停在“已触发/按住中”。
         if (frame.action == TouchAction.Up) {
-            lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
-            lastGlobalScreen = null
+            if (lastGlobalPoints.isNotEmpty()) {
+                globalFrameListener?.invoke(lastGlobalPoints, TouchAction.Up)
+            }
+            lastGlobalPoints = emptyList()
             return
         }
 
-        val point = primaryPoint(frame) ?: return
-        val screen = mapper.toScreen(point) ?: return
-        lastGlobalScreen = screen
-        // 每帧（含自己窗口上方）都喂给全局监听：长按状态机自己判断是否该忽略，
+        val mapped = frame.points.mapNotNull { mapper.toScreen(it) }
+        if (mapped.isEmpty()) return
+        lastGlobalPoints = mapped
+        // 每帧（含自己窗口上方）都喂给全局监听：手势状态机自己判断是否该忽略，
         // 本监听不消费触摸、不改变窗口层。
-        globalFrameListener?.invoke(screen, frame.action)
+        globalFrameListener?.invoke(mapped, frame.action)
     }
-
-    /** 多指时锁定第一根落下的手指；其余手指不参与，也不打断会话。 */
-    private fun primaryPoint(frame: TouchFrame): TouchPoint? =
-        frame.points.minByOrNull { it.id }
 
     private suspend fun awaitShizuku(): Boolean {
         // 不在主线程忙循环：每次尝试之间让出，让 Shizuku 状态更新有机会落地。
@@ -219,9 +216,11 @@ class ShizukuTouchInputSource(
     }
 
     private fun closeSession() {
-        // 流在按住中途断掉时没有 UP：补一发抬手，避免全局长按状态机永远停在“已触发”。
-        lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
-        lastGlobalScreen = null
+        // 流在按住中途断掉时没有 UP：补一发抬手，避免手势状态机永远停在“按住中”。
+        if (lastGlobalPoints.isNotEmpty()) {
+            globalFrameListener?.invoke(lastGlobalPoints, TouchAction.Up)
+        }
+        lastGlobalPoints = emptyList()
         session?.let { runCatching { it.close() } }
         session = null
     }

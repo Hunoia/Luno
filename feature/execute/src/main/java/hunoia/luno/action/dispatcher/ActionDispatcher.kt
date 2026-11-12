@@ -132,5 +132,6 @@ class ActionDispatcher(
             scope = scope,
             touchPosition = call.touchPosition,
             sourceButtonId = call.sourceButtonId,
+            triggerContext = call.request.triggerContext,
         )
 }

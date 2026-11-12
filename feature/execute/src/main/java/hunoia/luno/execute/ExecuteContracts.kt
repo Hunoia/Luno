@@ -84,6 +84,12 @@ interface SurfaceHost {
     /** 屏幕取点（transient Surface）：挂在无障碍服务窗口上。 */
     fun showScreenPick(): Boolean
 
+    /**
+     * 全屏手势的识屏入口：直接落到幽灵卡，锚点为按下点。
+     * [sessionId] 用于取回按下瞬间的预捕获快照（同进程短期上下文）。
+     */
+    fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean
+
     /** 屏幕标注：截屏 + 浮层；返回 false = 未接管（服务未就绪 / 窗口被拒）。 */
     fun showScreenAnnotate(): Boolean
 

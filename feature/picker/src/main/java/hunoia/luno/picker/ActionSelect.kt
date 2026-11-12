@@ -15,6 +15,8 @@ data class ActionSelect(
     val directionLabel: String = "",
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
+    /** 非空 = 在配识别区里的这条触发。 */
+    val globalGestureTriggerId: String = "",
     /** 非空 = 本次不配触钮/子手势，而是在这个动作面板里挑一个面板项。 */
     val actionPanelId: String = "",
     /** true = 只选动作并复制其 Deep Link，不写入任何配置。 */

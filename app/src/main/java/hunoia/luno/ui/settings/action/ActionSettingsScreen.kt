@@ -44,6 +44,7 @@ import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.PrivilegedPermission
@@ -90,6 +91,9 @@ fun ActionSettingsTab(
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
+    val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
+        initialValue = GlobalGestureSettings(),
+    )
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -188,6 +192,13 @@ fun ActionSettingsTab(
                 }
             }
             item(key = "actions") {
+                val enabledZoneCount = if (initialSettings.gestureEnabled) {
+                    globalGesture.zones.count { zone ->
+                        zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
+                    }
+                } else {
+                    0
+                }
                 LunoGroup(title = stringResource(R.string.action_settings_action_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.TouchApp,
@@ -199,13 +210,11 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.DocumentScanner,
                         title = stringResource(R.string.screen_pick_settings_title),
-                        subtitle = stringResource(
-                            if (initialSettings.screenPickGesture.enabled) {
-                                R.string.screen_pick_settings_enabled
-                            } else {
-                                R.string.screen_pick_settings_disabled
-                            },
-                        ),
+                        subtitle = if (enabledZoneCount > 0) {
+                            stringResource(R.string.screen_pick_settings_zones_count, enabledZoneCount)
+                        } else {
+                            stringResource(R.string.screen_pick_settings_disabled)
+                        },
                         shape = segmentedShape(1, 4),
                         onClick = onNavToScreenPickSettings,
                     )

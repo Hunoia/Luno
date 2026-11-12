@@ -128,6 +128,7 @@ internal object BuiltinBackupDomains {
                     initialSettings = full.initialSettings,
                     gestureSettings = full.gestureSettings,
                     gestureButtons = full.gestureButtons,
+                    globalGesture = full.globalGesture,
                     subGestureSettings = full.subGestureSettings,
                 )
             },
@@ -135,6 +136,7 @@ internal object BuiltinBackupDomains {
                 it.initialSettings == null &&
                     it.gestureSettings == null &&
                     it.gestureButtons == null &&
+                    it.globalGesture == null &&
                     it.subGestureSettings == null
             },
         )

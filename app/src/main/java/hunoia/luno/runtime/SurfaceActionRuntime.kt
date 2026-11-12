@@ -248,6 +248,9 @@ object SurfaceActionRuntime {
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 
+        override fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(x, y, sessionId) == true
+
         override fun showScreenAnnotate(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
 

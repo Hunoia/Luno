@@ -23,14 +23,14 @@ enum class VisibilityTargetMode {
     EXCEPT,
 }
 
-/** 场景可作用的非触钮 Surface。触钮直接用 `GestureButton.id`。 */
+/**
+ * 场景可作用的非触钮目标。触钮与识别区直接用各自的 `id`
+ * （`GestureButton.id` / `GlobalGestureZone.id`）。
+ */
 object VisibilityTargets {
     const val FLOAT_BALL = "surface:float_ball"
     const val NOTIFICATION_CAPSULE = "surface:notification_capsule"
     const val CLIPBOARD_BALL = "surface:clipboard_ball"
-
-    /** 全屏长按识屏：profile 命中且 visible=false 时不触发（不出卡、不预捕获、不碰触摸）。 */
-    const val SCREEN_PICK = "surface:screen_pick"
 }
 
 /**

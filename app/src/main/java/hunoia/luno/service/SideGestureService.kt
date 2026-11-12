@@ -111,11 +111,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         onAnnotate = { bitmap ->
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
         },
-        screenPickGesture = {
+        screenPickSettings = {
             if (::gestureCoordinator.isInitialized) {
-                gestureCoordinator.currentScreenPickGesture()
+                gestureCoordinator.currentScreenPickSettings()
             } else {
-                hunoia.luno.config.model.ScreenPickGesture()
+                hunoia.luno.config.model.ScreenPickSettings()
             }
         },
     )
@@ -225,16 +225,23 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     /**
-     * 全屏长按识屏入口：落到幽灵卡（不经过轻点取词 / 拖动框选）。
-     * 后续拖动/抬手由 GlobalLongPressTrigger 从同一股内核触摸流转发进来。
+     * 全屏手势识屏入口：落到幽灵卡（不经过轻点取词 / 拖动框选）。
+     * 后续拖动/抬手由 GlobalGestureRuntime 从同一股内核触摸流转发进来。
      */
     fun showScreenPickPortal(
         x: Int,
         y: Int,
-        preCapture: hunoia.luno.runtime.overlay.text.ScreenPreCapture? = null,
+        sessionId: String?,
     ): Boolean {
-        if (!isDispatchReady()) return false
+        if (!isDispatchReady()) {
+            hunoia.luno.runtime.overlay.text.ScreenPickSessionRegistry.cancel(sessionId)
+            return false
+        }
+        val preCapture = hunoia.luno.runtime.overlay.text.ScreenPickSessionRegistry.consume(sessionId)
         val shown = screenPickOverlay.showPortalAt(x, y, preCapture)
+        if (!shown) {
+            hunoia.luno.runtime.overlay.text.ScreenPickSessionRegistry.cancel(sessionId)
+        }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             hunoia.luno.core.LunoLog.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
         }

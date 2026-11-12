@@ -134,6 +134,8 @@ data class ExecutorContext(
     val touchPosition: Pair<Int, Int>? = null,
     /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
     val sourceButtonId: String? = null,
+    /** 触发上下文（全屏手势锚点 / 会话 id）；非全屏手势链路为 null。 */
+    val triggerContext: hunoia.luno.core.domain.TriggerContext? = null,
 ) {
     /** 只对触发钮生效的临时隐藏；非手势链路没有来源按钮时静默跳过。 */
     fun hideGestureButton(delayMs: Long) {

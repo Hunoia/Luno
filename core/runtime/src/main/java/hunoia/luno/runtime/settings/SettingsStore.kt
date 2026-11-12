@@ -47,7 +47,8 @@ class SettingsStore(
                 ConfigProvider.initialSettings,
                 ConfigProvider.subGestureSettings,
                 ConfigProvider.actionLibrarySettings,
-            ) { runtime, initialSettings, subGestureSettings, actionLibrarySettings ->
+                ConfigProvider.globalGesture,
+            ) { runtime, initialSettings, subGestureSettings, actionLibrarySettings, globalGesture ->
                 SettingsState(
                     gestureButtons = runtime.gestureButtons,
                     advancedSettings = runtime.advancedSettings,
@@ -56,6 +57,7 @@ class SettingsStore(
                     initialSettings = initialSettings,
                     subGestureSettings = subGestureSettings,
                     actionLibrarySettings = actionLibrarySettings,
+                    globalGesture = globalGesture,
                 )
             }.collectLatest { _state.value = it }
         }

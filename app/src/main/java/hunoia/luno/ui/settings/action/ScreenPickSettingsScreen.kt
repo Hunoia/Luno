@@ -17,20 +17,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.ScreenPickGesture
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.OcrModelState
 import hunoia.luno.facade.PpModelUiState
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -41,16 +39,15 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressTextButton
 
 /**
- * 屏幕识别设置页：全屏长按识屏、幽灵卡参数与 OCR 模型管理。
+ * 屏幕识别设置页：识屏结果参数（保存到相册）与 OCR 模型管理。
  *
- * 动作设置根页只留一个入口行；参数多，单独一页避免根页变成参数堆。
- * OCR 模型（运行环境 + PP-OCRv6 包导入/删除）内嵌在本页，不再单独页面。
- * 识屏诊断：一键探测「开关 → Shizuku → 触摸设备」，结果弹窗展示。
+ * 触发方式（长按后拖、双指、按住即触发等）与阈值已经迁到「识别区」编辑页；
+ * 本页只留识屏自身参数与运行环境，避免同一参数在两处维护。
+ * 识屏诊断：一键探测「识别区开关 → Shizuku → 触摸设备」，结果弹窗展示。
  */
 @Composable
 fun ScreenPickSettingsScreen(onBack: () -> Unit) {
@@ -63,10 +60,9 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
     val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(
         initialValue = AdvancedSettings(),
     )
-    val screenPick = initialSettings.screenPickGesture
-    val commit: (ScreenPickGesture) -> Unit = { next ->
-        scope.launch { GestureConfig.updateInitial { it.copy(screenPickGesture = next) } }
-    }
+    val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
+        initialValue = GlobalGestureSettings(),
+    )
     var confirmDelete by remember { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -99,50 +95,6 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
     }
 
     LunoScreen(title = stringResource(R.string.screen_pick_settings_title), onBack = onBack) {
-        LunoGroup(title = stringResource(R.string.screen_pick_settings_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_global_long_press),
-                subtitle = stringResource(R.string.screen_pick_global_long_press_hint),
-                checked = screenPick.enabled,
-                onCheckedChange = { checked -> commit(screenPick.copy(enabled = checked)) },
-                shape = segmentedShape(0, 5),
-            )
-            ScreenPickSlider(
-                value = screenPick.longPressDelayMs.toFloat(),
-                range = 200f..1_000f,
-                text = stringResource(R.string.screen_pick_long_press_delay),
-                display = { stringResource(R.string.screen_pick_long_press_delay_value, it.roundToInt()) },
-                shape = segmentedShape(1, 5),
-                onCommit = { commit(screenPick.copy(longPressDelayMs = it.roundToInt())) },
-            )
-            ScreenPickSlider(
-                value = screenPick.dragStartTimeoutMs.toFloat(),
-                range = 0f..5_000f,
-                text = stringResource(R.string.screen_pick_drag_timeout),
-                display = { ms ->
-                    if (ms.roundToInt() == 0) stringResource(R.string.screen_pick_drag_timeout_off)
-                    else stringResource(R.string.screen_pick_drag_timeout_value, ms.roundToInt())
-                },
-                shape = segmentedShape(2, 5),
-                onCommit = { commit(screenPick.copy(dragStartTimeoutMs = it.roundToInt())) },
-            )
-            ScreenPickSlider(
-                value = screenPick.slopDp,
-                range = 2f..40f,
-                text = stringResource(R.string.screen_pick_slop),
-                display = { stringResource(R.string.screen_pick_slop_value, it.roundToInt()) },
-                shape = segmentedShape(3, 5),
-                onCommit = { commit(screenPick.copy(slopDp = it.roundToInt().toFloat())) },
-            )
-            ScreenPickSlider(
-                value = screenPick.triggerCooldownMs.toFloat(),
-                range = 0f..3_000f,
-                text = stringResource(R.string.screen_pick_trigger_interval),
-                display = { stringResource(R.string.screen_pick_trigger_interval_value, it.roundToInt()) },
-                shape = segmentedShape(4, 5),
-                onCommit = { commit(screenPick.copy(triggerCooldownMs = it.roundToInt())) },
-            )
-        }
         LunoGroup(title = stringResource(R.string.screen_pick_settings_image_group)) {
             LunoSwitchRow(
                 title = stringResource(R.string.screen_pick_save_to_gallery),
@@ -166,7 +118,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                         diagRunning = true
                         showDiagDialog = true
                         diag = null
-                        diag = runScreenPickDiagChecks(initialSettings)
+                        diag = runScreenPickDiagChecks(initialSettings, globalGesture)
                         diagRunning = false
                     }
                 },
@@ -277,27 +229,6 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ScreenPickSlider(
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    text: String,
-    display: @Composable (Float) -> String,
-    shape: Shape,
-    onCommit: (Float) -> Unit,
-) {
-    var draft by remember(value) { mutableStateOf(value) }
-    LunoTextSlider(
-        value = draft,
-        onValueChange = { draft = it },
-        onValueChangeFinished = { onCommit(draft) },
-        text = text,
-        valueDisplay = { display(it) },
-        valueRange = range,
-        shape = shape,
-    )
-}
-
-@Composable
 private fun ppBadge(pp: PpModelUiState): String? = when (pp.state) {
     is OcrModelState.Ready -> stringResource(R.string.ocr_model_pp_ready)
     is OcrModelState.Verifying -> stringResource(R.string.ocr_model_pp_verifying)
@@ -358,16 +289,23 @@ private data class ScreenPickDiag(
  * 设备探测与运行时扫描共用 [hunoia.luno.gesture.touchsource.TouchDeviceScanner]，
  * 避免两份 getevent 口径。
  */
-private suspend fun runScreenPickDiagChecks(initial: InitialSettings): ScreenPickDiag {
+private suspend fun runScreenPickDiagChecks(
+    initial: InitialSettings,
+    global: GlobalGestureSettings,
+): ScreenPickDiag {
     hunoia.luno.shizuku.ShizukuManager.updateStatus()
     val shizukuReady = hunoia.luno.shizuku.ShizukuManager.currentStatus().isReady
-    val device = if (initial.gestureEnabled && initial.screenPickGesture.enabled && shizukuReady) {
+    val zonesReady = global.zones.any { zone ->
+        zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
+    }
+    val switchOk = initial.gestureEnabled && zonesReady
+    val device = if (switchOk && shizukuReady) {
         hunoia.luno.gesture.touchsource.TouchDeviceScanner.scan().touchscreen
     } else {
         null
     }
     return ScreenPickDiag(
-        switchOk = initial.gestureEnabled && initial.screenPickGesture.enabled,
+        switchOk = switchOk,
         shizukuOk = shizukuReady,
         deviceName = device?.name?.ifBlank { device.path },
     )
