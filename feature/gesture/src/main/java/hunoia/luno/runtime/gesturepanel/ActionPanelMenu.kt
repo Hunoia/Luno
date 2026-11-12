@@ -218,9 +218,10 @@ fun ActionPanelMenu(
                 }
             }
 
+            // 不用 `visible` 做门控：退场期间环与光晕还在，标签也得跟着退场一起淡，
+            // 否则一关就“唯标签先消失”。真正结束由 release() 清 origin / actions。
             val canShowPill = selectedLabel.isNotEmpty() &&
                     actionPanelState.selectedIndex >= 0 &&
-                    actionPanelState.visible &&
                     actionPanelState.origin.isSpecified &&
                     !parentSize.isEmpty()
             if (canShowPill) {

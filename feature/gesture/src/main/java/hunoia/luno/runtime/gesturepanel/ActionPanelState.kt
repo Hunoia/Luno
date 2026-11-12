@@ -60,6 +60,11 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
 
     override fun onDragStart(offset: Offset) {
         super.onDragStart(offset)
+        // 新会话：上一次退场留下的选中项 / 长按态不延续（几何已被 super 覆盖）。
+        selectedIndex = -1
+        selectedBaseAction = StoredAction.of(Action.NONE_TYPE_ID)
+        delayTriggerTypeChangedJob?.cancel()
+        triggerType = TriggerType.Press
         visible = true
     }
 
@@ -76,7 +81,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
     }
 
     fun cancel() {
-        reset()
+        release()
     }
 
     fun onSelectStart(offset: Offset) {
@@ -85,6 +90,9 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
 
     fun done(): StoredAction {
         val action = selectedAction
+        // 只收起，不清几何：退场动画还要用 origin / style / actions / 选中项画环、光晕和标签，
+        // 同帧清掉的话第一帧就只剩一个空容器在退（真机表现「动作面板没有关闭动画」）。
+        // 真正清理在退场播完后由 [release] 做。
         reset()
         return action
     }
@@ -116,16 +124,31 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         }
     }
 
+    /**
+     * 会话结束 = 只收起（[visible] 置 false）。**保留** origin / finger / style / actions /
+     * 选中项：退场动画（`ActionPanelMenu` 的 `panelAppear` + 环形项 + 光晕）全部从这些字段
+     * 算出来，必须活到退场播完。丢掉内容的动作在 [release]。
+     */
     override fun reset() {
         visible = false
+        delayTriggerTypeChangedJob?.cancel()
+    }
+
+    /**
+     * 退场真正播完后丢弃会话内容（`GestureSessionPipeline.notifyActionPanelHidden` 调用），
+     * 或强制收口时直接调。语义上与基类 `reset()` 一致：会话结束，几何置空，等下次 [ready]。
+     * 顺手补上原来漏清的 [actions]——否则面板删空后下次开会先画一帧旧条目。
+     */
+    fun release() {
+        reset()
+        actions = emptyList()
         actionPanelStyle = null
         buttonColor = ColorSpec.Unset
         selectedIndex = -1
         selectedBaseAction = StoredAction.of(Action.NONE_TYPE_ID)
+        triggerType = TriggerType.Press
         origin = Offset.Unspecified
         finger = Offset.Unspecified
-        delayTriggerTypeChangedJob?.cancel()
-        triggerType = TriggerType.Press
     }
 
     /**

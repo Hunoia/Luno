@@ -60,6 +60,7 @@ import hunoia.luno.quickaccess.query.normalizePinQuery
 import hunoia.luno.quickaccess.query.searchOutcome
 import hunoia.luno.quickaccess.query.topUsed
 import hunoia.luno.quickaccess.query.toSearchResult
+import hunoia.luno.ui.component.panel.awaitPanelExitFrame
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -337,6 +338,8 @@ internal fun QuickSearchContent(
             keyboard?.hide()
             panelAlpha.animateTo(0f, panelMotion.tween())
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "fadeDone=${System.currentTimeMillis()}")
+            // 末帧先画出来再拆窗（ui-guidelines §5.1）：动画续体先于帧提交恢复。
+            awaitPanelExitFrame()
             onExitFinished()
         }
     }

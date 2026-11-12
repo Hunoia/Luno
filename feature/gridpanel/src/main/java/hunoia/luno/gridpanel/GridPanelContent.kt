@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
+import hunoia.luno.ui.component.panel.awaitPanelExitFrame
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.core.domain.withoutVariantKey
@@ -118,6 +119,8 @@ fun GridPanelRoot(
         closing = true
         scope.launch {
             appearance.animateTo(0f, panelMotion.tween())
+            // 让 alpha 归零的那一帧真正画出来再拆窗（真机表现是「缩到最后直接关」）。
+            awaitPanelExitFrame()
             onCloseAnimated()
         }
     }

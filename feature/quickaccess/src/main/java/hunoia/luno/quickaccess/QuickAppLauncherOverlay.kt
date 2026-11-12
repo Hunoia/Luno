@@ -176,11 +176,12 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 },
                 onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                 onStateReady = { state ->
-                    // 仅「首次组合」触发（组合随 owner 存活）：登记常驻引用 + 首会话初始化，
-                    // 之后的开会由 show() 用引用直接驱动。
+                    // 仅「首次组合」触发（组合随 owner 存活）：登记常驻引用 + 首会话初始化。
+                    // **不在这里置 visible**：进场动画要求首次组合时 visible 还是 false，
+                    // 由 `QuickAppLauncherRoot` 的 LaunchedEffect 下一帧置位；之后的开会由
+                    // show() 用 quickState 引用直接驱动。
                     quickState = state
                     state.resetForNewSession()
-                    state.setPanelShown(true)
                 },
             )
         }

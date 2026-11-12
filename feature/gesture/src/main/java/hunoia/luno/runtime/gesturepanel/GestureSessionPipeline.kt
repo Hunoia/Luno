@@ -132,8 +132,10 @@ class GestureSessionPipeline(
         Events.unsubscribe(BallTapActionEvent::class, ballTapSubscriber)
     }
 
-    /** 面板淡出结束（容器侧 LaunchedEffect 计完 400ms）：把“已退场”播出去。 */
+    /** 面板淡出结束（容器侧 LaunchedEffect 计完 `ACTION_PANEL_FADE_OUT_MS`）：丢弃退场快照，再播“已退场”。 */
     fun notifyActionPanelHidden() {
+        // 退场动画已经播完：现在才清 origin / style / actions（见 ActionPanelState.release）。
+        actionPanelState.release()
         callbacks.onActionPanelVisibilityChanged(false)
     }
 

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -29,6 +30,10 @@ import kotlin.math.roundToInt
  * 进度到 1 归零。方向和距离都依赖自身尺寸时（如径向菜单以触发点为中心）在 lambda 里算。
  * [fade] = false 时 alpha 交给 `AnimatedVisibility` 的 [panelFadeIn] / [panelFadeOut]
  * 驱动——不能两层同时淡，否则曲线上叠一份 double-fade。
+ *
+ * **曲线**：时长 / 缓动仍是家族 spec（`panelSpec()`，`FastOutSlowIn`），缩放再做一次「先快后慢」
+ * 整形（[scaleAt]）：从触发点弹出时前段就有明显位移，尾段收敛；不做 overshoot（大面积面板回弹
+ * 会把边缘糊掉）。退场读同一条函数的反向进度，进 / 退严格对称。
  */
 fun Modifier.panelAppear(
     progress: () -> Float,
@@ -46,12 +51,35 @@ fun Modifier.panelAppear(
     }
     val layerSize = Size(size.width, size.height)
     transformOrigin = originForSize(layerSize)
-    val scale = PanelAppearScale + (1f - PanelAppearScale) * p
+    val scale = PanelAppearScale + (1f - PanelAppearScale) * scaleAt(p)
     scaleX = scale
     scaleY = scale
     val slide = if (hidden) Offset.Zero else slideForSize(layerSize) * remaining
     translationX = slide.x
     translationY = slide.y
+}
+
+/**
+ * 缩放整形：在家族缓动之上再「先快后慢」一次（ease-out 二次）。
+ *
+ * 进度本身已走 `FastOutSlowIn`，若直接线性映射到缩放，前半段几乎是「不动」的，
+ * 大面积面板看起来像「先等一拍再展开」；这里让前段吃掉大部分缩放行程，尾段收敛。
+ * 退场读反向进度，因此先快速缩回、末段减速，与进场对称。
+ */
+private fun scaleAt(progress: Float): Float {
+    val remaining = 1f - progress
+    return 1f - remaining * remaining
+}
+
+/**
+ * 面板退场拆窗前的最后一帧屏障（ui-guidelines §5.1）：`Animatable.animateTo` 的续体在末帧
+ * **提交之前**恢复，退场播完直接拆窗 / 收起组合会把收尾那一帧裁掉——真机表现是「缩到最后
+ * 直接关」「淡出没播完就没了」。所有 `animateTo(0f, panelSpec...)` 之后立刻拆窗的路径都要先
+ * await 这一帧。`panelTeardownDelayMillis` 那套「等时长 + 40ms」是同一个问题的定时器版本，
+ * 能用帧信号的地方优先用这里。
+ */
+suspend fun awaitPanelExitFrame() {
+    withFrameNanos { }
 }
 
 /**

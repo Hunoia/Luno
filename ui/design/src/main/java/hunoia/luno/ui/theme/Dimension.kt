@@ -212,9 +212,10 @@ const val PanelAppearScale = 0.25f
 /**
  * 面板进退场 alpha 的收口尾段比例：进度其余部分保持不透明，alpha 只在尾段收掉。
  * 退场以缩放 / 位移为主体，alpha 仅用来避免移窗时的硬切（ui-guidelines §5.1）：
- * 0.15 = 前 85% 进度保持不透明地缩回，末 15% 已经缩得很小，边缩边淡掉即可。
+ * 0.3 = 前 70% 进度保持不透明地缩回（此时代码的缩放整形已缩到 ~63% 尺寸），
+ * 末 30%（标准档 60ms）边缩边淡。取 0.15 时只剩 30ms（~2 帧），真机上看起来就是硬切。
  */
-const val PanelFadeTailFraction = 0.15f
+const val PanelFadeTailFraction = 0.3f
 /** 双击确认窗口（ms）：面板内置习惯打卡 / 待办完成的倒计时时长，不随系统动画缩放改变。 */
 const val MotionConfirmCountdown = 1200
 

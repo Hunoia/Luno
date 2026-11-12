@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import hunoia.luno.ui.component.panel.awaitPanelExitFrame
 import hunoia.luno.ui.theme.DialogScrimAlpha
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.ImeBootstrapTimeoutMs
@@ -221,6 +222,8 @@ private fun AnchoredDialogSurface(
             imm?.hideSoftInputFromWindow(view.windowToken, 0)
         }
         progress.animateTo(0f, panelMotion.tween())
+        // 退场末帧先画出来再拆窗：animateTo 的续体在末帧提交前恢复（ui-guidelines §5.1）。
+        awaitPanelExitFrame()
         onDismiss()
     }
 

@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -79,10 +80,9 @@ internal fun requiredContentHeight(
     candidateRowHeight * candidateRows + KeyboardGap + PanelPaddingVertical * 2
 
 /**
- * 常驻入口。ComposeView 只创建一次，本组合随它一直活着，`remember` 出来的
- * [QuickAppLauncherState]（已加载的应用列表、搜索索引、Coil 图标）跨会话保留。
- * 收起时只渲染一个 1dp 的盒子：GPU 上那块全屏 RGBA_8888 buffer（1200x2670 ≈ 12.2MB）
- * 随窗口缩到 1x1 就释放了，而 state 还在；首开因此不必重查 PackageManager、不必重建索引。
+ * 常驻入口。ComposeView 在【每次打开】时重新创建（关闭 = 移窗 + 销毁 owner，见
+ * `QuickAppLauncherOverlay.closeImmediate`），所以这里每次都是「全新 attach + 首次组合」：
+ * 进场动画必须靠「首帧先以 visible=false 组合」来拿到，置位时机会直接决定进不进场。
  */
 @Composable
 internal fun QuickAppLauncherRoot(
@@ -109,8 +109,15 @@ internal fun QuickAppLauncherRoot(
             onRegisterCloseAnimated = onRegisterCloseAnimated,
         ).also { onStateReady(it) }
     }
-    // 进退场走 AnimatedVisibility 维持组合生命周期（Content 每次打开都是全新进入组合，
-    // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过，重开瞬现的根因）。
+    // 首次组合时 visible 必须还是 false，下一帧才置位：AnimatedVisibility 与本组合同帧
+    // 创建时若已读到 true，会走「初始即目标」路径，enter 根本不播（每次打开都是全新 attach，
+    // 所以每次首开都是瞬现，不是偶发）。show() 走的是「组合已存在」分支，不在这里。
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        // 这一帧里已经有人请求关闭（返回键 / 点外部）的话不要复活它。
+        if (!state.closing) state.setPanelShown(true)
+    }
+    // 进退场走 AnimatedVisibility 维持组合生命周期（关闭时靠它把退场播完再拆窗）。
     // 几何与 alpha 曲线统一走面板家族（ui-guidelines §5.1）：绕触发点从 PanelAppearScale
     // 展开 + 位移 + alpha 尾段，与网格面板、动作面板同一份实现（以前这里是 0.92 轻缩放 + 纯淡出）。
     // 拆窗时机仍由 closeAnimated→closeImmediate 编排，不在这里管。

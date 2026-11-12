@@ -132,8 +132,11 @@ class QuickAppLauncherState(
     }
 
     /**
-     * 可见性由 overlay 驱动，而不是 content 里的 `LaunchedEffect`：窗口必须先**从 1×1 放大到
-     * 面板尺寸，再置 true；反过来淡入首帧会按 1×1 定位再跳到全尺寸。
+     * 可见性由 overlay / 组合侧驱动，而不是 content 里的 `LaunchedEffect`：
+     * - 首次打开：`QuickAppLauncherRoot` 在**首帧之后**才置 true，保证 `AnimatedVisibility`
+     *   先以 false 组合一帧、进场动画能播；
+     * - 重开（窗口已挂、组合未销毁）：`show()` 直接置 true。
+     * 关闭时置 false 会触发退场，拆窗由 `closeAnimated` 的定时编排负责。
      */
     fun setPanelShown(visible: Boolean) {
         if (panelVisible == visible) return
