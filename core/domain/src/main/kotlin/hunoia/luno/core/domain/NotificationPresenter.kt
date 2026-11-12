@@ -84,8 +84,10 @@ data class IslandNotificationSpec(
     val timeoutSeconds: Int = 0,
     /** true = 常驻（ongoing，habit）；false = 一次性事件（backup），到时 / 点击自动收走。 */
     val ongoing: Boolean = true,
-    /** 强调色（ARGB）；null = 不染色。 */
+    /** 强调色（ARGB）：标题 / 高亮文字用；**不做背景**。null = 不染色。 */
     val accentColor: Int? = null,
+    /** 岛背景色（ARGB）：null = 系统默认（不染背景）。与 [accentColor] 分开，强调色不该当背景。 */
+    val backgroundColor: Int? = null,
     /** 点击岛主体的 Activity Intent URI；null = 不响应点击。 */
     val contentIntentUri: String? = null,
     /** 岛上的动作（最多 2 个，超出的丢弃）；key 用于日志追踪。 */
@@ -109,6 +111,13 @@ data class IslandActionSpec(
     val intentKind: IslandIntentKind = IslandIntentKind.ACTIVITY,
     /** 高亮（实底色按钮）；否则默认样式。 */
     val highlighted: Boolean = false,
+    /**
+     * 点击后是否让 SystemUI 立刻收起岛。
+     *
+     * `false` 用于需要展示结果的动作（习惯「+1」）：岛原地更新内容，由发布方重投；
+     * `true` 用于一按就结束的动作（推迟 / 关闭）。
+     */
+    val collapseOnClick: Boolean = true,
 )
 
 interface NotificationPresenter {

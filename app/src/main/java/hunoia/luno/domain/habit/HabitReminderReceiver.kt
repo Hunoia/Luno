@@ -3,6 +3,7 @@ package hunoia.luno.domain.habit
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.config.model.HabitDefaultSnoozeMinutes
@@ -11,6 +12,7 @@ import hunoia.luno.config.model.habitDayState
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.domain.notify.ProgressNotificationDismisser
 import hunoia.luno.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,10 +100,33 @@ class HabitReminderReceiver : BroadcastReceiver() {
 
     private fun onMarkDone(context: Context, habitId: String, intent: Intent) {
         LunoLog.i(LOG_TAG, "habit reminder mark done: habit=$habitId")
+        // 一次点击只记一次：岛按钮在部分 ROM 上会重复投递广播（连点 / 系统重放），
+        // 没有这层保护时连点几下就把多次习惯直接点达标（「点 +1 直接完成了」）。
+        // 测试通知也走合并窗口，否则验不了「连点只算一次」。
+        if (debounced(habitId)) return
         // 测试通知（假 id）：不写任何配置，只给一条轻反馈当「点击链路走通了」的信号。
         if (HabitReminderNotifier.isTestHabit(habitId)) {
-            HabitReminderNotifier.cancel(context, habitId)
-            showToast(R.string.habit_reminder_test_done)
+            // 进度测试：在内存里 +1 并重投，直到达标再收掉，能完整验进度组件与自动移除链路。
+            if (HabitReminderNotifier.isProgressTestHabit(habitId)) {
+                val count = HabitReminderNotifier.nextTestProgressCount()
+                if (count >= HabitReminderNotifier.TEST_PROGRESS_TARGET) {
+                    HabitReminderNotifier.cancel(context, habitId)
+                    showToast(R.string.habit_reminder_test_done)
+                } else {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val mode = HabitReminderScheduler.currentMode()
+                        HabitReminderNotifier.showTest(context, mode, progress = true, count = count)
+                        // 同样走真实链路：点一次后到时自动移除，测试通知也能验这个行为。
+                        ProgressNotificationDismisser.scheduleFromSettings(
+                            context,
+                            HabitReminderScheduler.notificationId(habitId),
+                        )
+                    }
+                }
+            } else {
+                HabitReminderNotifier.cancel(context, habitId)
+                showToast(R.string.habit_reminder_test_done)
+            }
             return
         }
         val pending = goAsync()
@@ -146,6 +171,12 @@ class HabitReminderReceiver : BroadcastReceiver() {
                             ),
                             slot,
                         )
+                        // 进度类通知的「点击后到时移除」：通用通知设置里的时长，
+                        // 期间再点一次会重置计时，达标走上面的 cancel。
+                        ProgressNotificationDismisser.scheduleFromSettings(
+                            context,
+                            HabitReminderScheduler.notificationId(habitId),
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -164,6 +195,11 @@ class HabitReminderReceiver : BroadcastReceiver() {
         val slot = intent.getIntExtra(HabitReminderScheduler.EXTRA_SLOT, 0).coerceAtLeast(0)
         LunoLog.i(LOG_TAG, "habit reminder snooze: habit=$habitId minutes=$minutes slot=$slot")
         HabitReminderNotifier.cancel(context, habitId)
+        // 测试通知（假 id）：收起即可，不要挂一个指向不存在习惯的推迟闹钟。
+        if (HabitReminderNotifier.isTestHabit(habitId)) {
+            showToast(R.string.habit_reminder_test_done)
+            return
+        }
         HabitReminderScheduler.scheduleSnooze(context, habitId, minutes, slot)
     }
 
@@ -210,6 +246,29 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
+    }
+
+    /**
+     * 「+1」合并窗口：同一习惯在 [INCREMENT_DEBOUNCE_MS] 内的重复广播只算一次。
+     * 用 `elapsedRealtime`（不受系统时间调整影响）且在锁内「读 + 写」，避免并发双开。
+     */
+    private fun debounced(habitId: String): Boolean = synchronized(lastIncrementAt) {
+        val now = SystemClock.elapsedRealtime()
+        val last = lastIncrementAt[habitId]
+        if (last != null && now - last < INCREMENT_DEBOUNCE_MS) {
+            LunoLog.i(LOG_TAG, "habit reminder mark done debounced: habit=$habitId delta=${now - last}ms")
+            true
+        } else {
+            lastIncrementAt[habitId] = now
+            false
+        }
+    }
+
+    private companion object {
+        /** 一次物理点击只记一次的窗口；足够盖住连点与 ROM 的重复投递。 */
+        const val INCREMENT_DEBOUNCE_MS = 600L
+        /** 习惯 id → 上次计数时刻（elapsedRealtime）：仅进程内，进程重建后自然失效。 */
+        val lastIncrementAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
     }
 
     /** 跨日：收起昨天所有休息在屏的提醒，再按新的一天重排（含当天已过时间的补弹）。 */

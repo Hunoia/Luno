@@ -135,10 +135,11 @@ internal class IslandPublisher(
                     // `timeout` 单位是分钟（islandTimeout 才是秒），统一按秒值换算。
                     put("timeout", islandTimeoutMinutes(spec.timeoutSeconds))
                 }
-                accentHtml?.let {
+                // 背景只认 backgroundColor：强调色（习惯色）只用于标题 / 高亮，不当背景。
+                spec.backgroundColor?.let { bg ->
                     put(
                         "bgInfo",
-                        JSONObject().put("type", 1).put("colorBg", it),
+                        JSONObject().put("type", 1).put("colorBg", colorToHtml(bg)),
                     )
                 }
             }
@@ -278,7 +279,8 @@ internal class IslandPublisher(
                     .put("actionTitle", escapeHtml(action.title))
                     // SystemUI 按这个值决定用 action 的 PendingIntent 拉起（而不是把 actionIntent 当 URI）。
                     .put("actionIntentType", ACTION_INTENT_TYPE_PENDING)
-                    .put("clickWithCollapse", true)
+                    // 动作可以声明「不收起岛」：+1 这类要留在原地展示进度变化。
+                    .put("clickWithCollapse", action.collapseOnClick)
                     .apply {
                         if (action.highlighted) {
                             put("actionBgColor", HIGHLIGHT_BG)

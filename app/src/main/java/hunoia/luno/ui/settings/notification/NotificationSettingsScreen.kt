@@ -68,6 +68,12 @@ private val ISLAND_DISCONNECT_OPTIONS = NotificationDisplaySettings.ISLAND_DISCO
 /** 岛设置组内的行数（分段圆角按「组内行数」算，不是选项数）。 */
 private const val ISLAND_ROWS = 7
 
+/** 进度类通知点击后的自动移除延时（秒）；0 = 不移除。 */
+private val PROGRESS_DISMISS_OPTIONS = NotificationDisplaySettings.PROGRESS_DISMISS_SECONDS_OPTIONS
+
+/** 测试分组行数（普通 / 进度）。 */
+private const val TEST_ROWS = 2
+
 @Composable
 fun NotificationSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -107,6 +113,15 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
     val testMode = display.modeFor(NotificationKind.HABIT)
     val islandInUse = display.mode == NotificationMode.ISLAND ||
         display.overrides.values.any { it == NotificationMode.ISLAND }
+
+    // 测试通知发前先切走：应用在前台时 SystemUI 不建岛，首帧浮出判定在投递瞬间。
+    suspend fun sendTestNotification(progress: Boolean) {
+        if (testMode != NotificationMode.STANDARD) {
+            openRecents(context)
+            delay(TEST_AWAY_DELAY_MS)
+        }
+        HabitReminderNotifier.showTest(context, testMode, progress = progress)
+    }
 
     LunoScreen(
         title = stringResource(R.string.notification_display_settings_title),
@@ -252,19 +267,47 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             }
         }
 
+        // 进度类通知的收尾行为：与呈现模式无关（标准 / 实时 / 岛都适用），所以不放在岛分组里。
+        LunoGroup(title = stringResource(R.string.notification_display_progress_group)) {
+            ChoiceRow(
+                title = stringResource(R.string.notification_display_progress_dismiss),
+                subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
+                options = PROGRESS_DISMISS_OPTIONS.map {
+                    if (it == 0) {
+                        stringResource(R.string.notification_display_progress_dismiss_none)
+                    } else {
+                        stringResource(R.string.notification_display_progress_dismiss_value, it)
+                    }
+                },
+                selectedIndex = PROGRESS_DISMISS_OPTIONS
+                    .indexOf(display.progressDismissSeconds).coerceAtLeast(0),
+                onSelect = { index ->
+                    update { it.copy(progressDismissSeconds = PROGRESS_DISMISS_OPTIONS[index]) }
+                },
+                shape = segmentedShape(0, 1),
+            )
+        }
+
         LunoGroup(title = stringResource(R.string.notification_display_test_group)) {
             LunoSettingsRow(
                 title = stringResource(R.string.notification_display_test_send),
                 subtitle = stringResource(R.string.notification_display_test_send_hint),
-                shape = segmentedShape(0, 1),
+                shape = segmentedShape(0, TEST_ROWS),
                 onClick = {
                     scope.launch {
                         // 非标准模式：先切走再投递，否则前台应用拿不到岛（生产路径都是后台发）。
-                        if (testMode != NotificationMode.STANDARD) {
-                            openRecents(context)
-                            delay(TEST_AWAY_DELAY_MS)
-                        }
-                        HabitReminderNotifier.showTest(context, testMode)
+                        sendTestNotification(progress = false)
+                        showToast(R.string.notification_display_test_sent)
+                    }
+                },
+            )
+            LunoSettingsRow(
+                title = stringResource(R.string.notification_display_test_progress),
+                subtitle = stringResource(R.string.notification_display_test_progress_hint),
+                shape = segmentedShape(1, TEST_ROWS),
+                onClick = {
+                    scope.launch {
+                        sendTestNotification(progress = true)
                         showToast(R.string.notification_display_test_sent)
                     }
                 },

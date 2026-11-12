@@ -62,7 +62,7 @@
     <string name="grid_panel_empty_items_edit">This page is still empty. Tap "+" at the top-right to add an action or widget.</string>
     <string name="todo_add">Add todo</string>
     <string name="todo_create_title">New todo</string>
-    <string name="todo_delete">Delete todo</string>
+    <string name="todo_delete">Delete</string>
     <string name="todo_edit_title">Edit todo</string>
     <string name="todo_empty">No todos yet; tap the top-right to create</string>
     <string name="todo_list_title">Todos</string>
@@ -79,7 +79,7 @@
     <!-- Todo reminders -->
     <string name="todo_reminder_add">Add reminder</string>
     <string name="todo_reminder_edit">Edit reminder</string>
-    <string name="todo_reminder_remove">Remove reminder</string>
+    <string name="todo_reminder_remove">Remove</string>
     <string name="todo_reminder_title">Todo reminder</string>
     <string name="todo_reminder_pick_date">Date</string>
     <string name="todo_reminder_month">%1$d/%2$d</string>
@@ -110,7 +110,7 @@
     <string name="habit_check_confirm_action">Make up</string>
     <string name="habit_uncheck_confirm_title">Undo check-in</string>
     <string name="habit_uncheck_confirm_text">Will clear the check-in and progress for %1$d/%2$d; the streak may change.</string>
-    <string name="habit_uncheck_confirm_action">Undo check-in</string>
+    <string name="habit_uncheck_confirm_action">Undo</string>
     <string name="habit_edit_title">Edit habit</string>
     <string name="habit_empty">No habits yet; tap the top-right to create</string>
     <string name="habit_interval">Check-in frequency</string>

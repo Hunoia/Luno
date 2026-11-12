@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import hunoia.luno.R
 import hunoia.luno.capability.notify.DefaultNotificationPresenter
+import hunoia.luno.capability.notify.NotificationProgress
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.HABIT_REMINDER_CHANNEL_ID
 import hunoia.luno.config.model.Habit
@@ -28,6 +29,7 @@ import hunoia.luno.core.domain.IslandNotificationSpec
 import hunoia.luno.core.domain.IslandPublishResult
 import hunoia.luno.core.domain.IslandShareSpec
 import hunoia.luno.core.domain.NotificationPresenter
+import hunoia.luno.domain.notify.ProgressNotificationDismisser
 import hunoia.luno.gridpanel.HabitExtras
 
 /**
@@ -51,7 +53,15 @@ object HabitReminderNotifier {
 
     /** 测试通知用固定假 id：不写打卡、不参与调度，60 秒后自动收起。 */
     internal const val TEST_HABIT_ID = "__habit_reminder_test__"
+    /** 进度测试通知的假 id：点 +1 只改内存计数（见 [nextTestProgressCount]）。 */
+    internal const val TEST_PROGRESS_HABIT_ID = "__habit_reminder_test_progress__"
+    /** 进度测试的目标次数：3 次既能看到「节点 = 次数」，也能连续点两下验到达标。 */
+    internal const val TEST_PROGRESS_TARGET = 3
     private const val TEST_TIMEOUT_MS = 60_000L
+
+    /** 进度测试的当前计数（进程内）：不落盘，重发测试时重置。 */
+    @Volatile
+    private var testProgressCount: Int = 1
 
     /** 状态栏胶囊 / 岛摘要态文案上限（HyperOS 实测超过 ~8 字会被裁）。 */
     private const val SHORT_CRITICAL_TEXT_MAX = 8
@@ -61,7 +71,16 @@ object HabitReminderNotifier {
     }
 
     /** 测试通知（假 habit id）——接收器据此跳过配置写入并只给轻反馈。 */
-    fun isTestHabit(habitId: String): Boolean = habitId == TEST_HABIT_ID
+    fun isTestHabit(habitId: String): Boolean = habitId == TEST_HABIT_ID || habitId == TEST_PROGRESS_HABIT_ID
+
+    /** 进度测试通知：点「+1」只在内存里递增，不写配置（验进度组件 / 自动移除链路用）。 */
+    fun isProgressTestHabit(habitId: String): Boolean = habitId == TEST_PROGRESS_HABIT_ID
+
+    /** 进度测试的下一次计数（1-based）：到 [TEST_PROGRESS_TARGET] 即达标。 */
+    fun nextTestProgressCount(): Int {
+        testProgressCount = (testProgressCount + 1).coerceAtMost(TEST_PROGRESS_TARGET)
+        return testProgressCount
+    }
 
     suspend fun show(
         context: Context,
@@ -75,15 +94,40 @@ object HabitReminderNotifier {
         post(context, habit, day, mode, status, slotMinutes, test = false, autoExpandOverride = autoExpandOverride)
     }
 
-    /** 「发送测试通知」：用指定模式立即发一条，60 秒后自动收起，不写任何打卡。 */
-    suspend fun showTest(context: Context, mode: NotificationMode, autoExpand: Boolean? = null) {
+    /**
+     * 「发送测试通知」：用指定模式立即发一条，60 秒后自动收起，不写任何打卡。
+     *
+     * [progress] = true 时发「进度测试通知」：假习惯目标 3 次、当前 [count] 次，
+     * 岛 / 通知栏都会带进度组件；点「+1」只改内存计数并重投（见 [nextTestProgressCount]）。
+     */
+    suspend fun showTest(
+        context: Context,
+        mode: NotificationMode,
+        autoExpand: Boolean? = null,
+        progress: Boolean = false,
+        count: Int = 1,
+    ) {
         val app = context.applicationContext
+        if (progress) {
+            testProgressCount = count.coerceIn(1, TEST_PROGRESS_TARGET)
+        }
         val habit = Habit(
-            id = TEST_HABIT_ID,
+            id = if (progress) TEST_PROGRESS_HABIT_ID else TEST_HABIT_ID,
             name = app.getString(R.string.habit_reminder_test_name),
+            dailyTarget = if (progress) TEST_PROGRESS_TARGET else 1,
         )
         val day = java.time.LocalDate.now().toEpochDay()
-        post(context, habit, day, mode, status = null, slotMinutes = 0, test = true, autoExpandOverride = autoExpand)
+        val status = if (progress) {
+            HabitReminderStatus(
+                state = HabitDayState.DUE,
+                streakDays = 0,
+                count = testProgressCount,
+                target = TEST_PROGRESS_TARGET,
+            )
+        } else {
+            null
+        }
+        post(context, habit, day, mode, status = status, slotMinutes = 0, test = true, autoExpandOverride = autoExpand)
     }
 
     /**
@@ -100,7 +144,13 @@ object HabitReminderNotifier {
         presenter.prewarmIslandAuth(CHANNEL_ID)
     }
 
-    /** 「+1」后未达标：静默刷新进度文案，不重新响铃 / 震动；岛模式下不重发，避免二次展开。 */
+    /**
+     * 「+1」后未达标：静默刷新进度（不响铃 / 不震动），岛与通知栏都要更新。
+     *
+     * 岛模式下**必须重投**：不重投就只剩 SystemUI 按 `clickWithCollapse` 收岛，用户看不到
+     * 进度变化（以前的「点 +1 直接完成」就是这么来的）。重投用短展开（[PROGRESS_CONFIRM_SECONDS]）
+     * 把新进度闪一下，到时由系统自动收回胶囊，不靠我们等定时器再发一次（少一次 XMSF 事务）。
+     */
     suspend fun refreshProgress(
         context: Context,
         habit: Habit,
@@ -110,22 +160,54 @@ object HabitReminderNotifier {
     ) {
         val app = context.applicationContext
         val mode = HabitReminderScheduler.currentMode()
-        if (mode == NotificationMode.ISLAND) return
         val notificationId = HabitReminderScheduler.notificationId(habit.id)
         if (!isActive(app, notificationId)) return
         createChannel(app)
-        postNotification(
-            app,
-            habit,
-            day,
-            status,
-            slotMinutes,
-            test = false,
-            mode = mode,
-            notificationId = notificationId,
-            wantLive = mode == NotificationMode.LIVE,
-            silent = true,
-        )
+        when (mode) {
+            NotificationMode.ISLAND -> {
+                val posted = presenter.publishIsland(
+                    islandSpec(
+                        app,
+                        habit,
+                        day,
+                        status,
+                        slotMinutes,
+                        test = false,
+                        mode = mode,
+                        notificationId = notificationId,
+                        progressUpdate = true,
+                    ),
+                )
+                if (posted == IslandPublishResult.Posted) return
+                // 岛不可用 / 被拒：退回 LIVE 静默重投，保证通知栏能看到新进度。
+                LunoLog.w(LOG_TAG, "habit progress island update failed: $posted, fallback to LIVE")
+                postNotification(
+                    app,
+                    habit,
+                    day,
+                    status,
+                    slotMinutes,
+                    test = false,
+                    mode = mode,
+                    notificationId = notificationId,
+                    wantLive = true,
+                    silent = true,
+                )
+            }
+
+            else -> postNotification(
+                app,
+                habit,
+                day,
+                status,
+                slotMinutes,
+                test = false,
+                mode = mode,
+                notificationId = notificationId,
+                wantLive = mode == NotificationMode.LIVE,
+                silent = true,
+            )
+        }
     }
 
     private suspend fun post(
@@ -141,6 +223,9 @@ object HabitReminderNotifier {
         val app = context.applicationContext
         createChannel(app)
         val notificationId = HabitReminderScheduler.notificationId(habit.id)
+        // 新一轮提醒覆盖旧条目：先撤掉上一次「点击后自动移除」的计时，
+        // 否则旧计时到点会把刚发的新提醒误删。
+        ProgressNotificationDismisser.cancel(app, notificationId)
         LunoLog.i(LOG_TAG, "habit reminder show: habit=${habit.id} day=$day slot=$slotMinutes mode=$mode test=$test id=$notificationId")
         if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) {
             LunoLog.w(LOG_TAG, "habit reminder skipped: notifications disabled")
@@ -186,16 +271,23 @@ object HabitReminderNotifier {
         mode: NotificationMode,
         notificationId: Int,
         autoExpandOverride: Boolean? = null,
+        /** true = 「+1」后的进度重投：短展开闪一下新进度，不跟随用户的自动展开设置。 */
+        progressUpdate: Boolean = false,
     ): IslandNotificationSpec {
-        val body = if (test) {
+        val body = if (test && status == null) {
             app.getString(R.string.habit_reminder_test_body, app.getString(mode.labelRes))
         } else {
-            statusText(app, status)
+            islandBody(app, status)
         }
         val display = currentDisplay()
         // 悬浮探测只做诊断：本 ROM 的 `canShowFloat()` 会误报 false（channel importance=4、
         // 大岛实际能展开，2026-12 实测），拿它否决用户显式打开的「自动展开」会把开关弄死。
-        val askExpand = autoExpandOverride ?: display.islandAutoExpand
+        val askExpand = when {
+            progressUpdate -> true
+            autoExpandOverride != null -> autoExpandOverride
+            else -> display.islandAutoExpand
+        }
+        val expandSeconds = if (progressUpdate) PROGRESS_CONFIRM_SECONDS else display.islandExpandSeconds
         val canFloat = presenter.canChannelFloat(CHANNEL_ID)
         if (askExpand && !canFloat) {
             LunoLog.w(LOG_TAG, "island float probe says false, ignoring (known false-negative on HyperOS 4)")
@@ -206,11 +298,13 @@ object HabitReminderNotifier {
             notificationId = notificationId,
             title = habit.name.ifBlank { app.getString(R.string.habit_reminder_title) },
             text = body,
-            capsuleText = habit.name.take(SHORT_CRITICAL_TEXT_MAX)
-                .ifBlank { app.getString(R.string.habit_reminder_capsule) },
+            capsuleText = capsuleText(app, habit, status),
+            // 习惯色只做强调（标题 / 高亮），不当岛背景：背景交给系统默认，
+            // 大面积染成习惯色会把习惯颜色当成主题色铺满整块。
             accentColor = habit.color,
+            backgroundColor = null,
             autoExpand = askExpand,
-            expandedSeconds = display.islandExpandSeconds,
+            expandedSeconds = expandSeconds,
             blockWindowMs = display.islandDisconnectMs,
             outerGlow = display.islandOuterGlow,
             showInShade = display.islandKeepShadeNotification,
@@ -230,15 +324,18 @@ object HabitReminderNotifier {
                     add(
                         IslandActionSpec(
                             key = ACTION_KEY_DONE,
-                            title = app.getString(R.string.habit_reminder_done),
+                            title = doneLabel(app, habit),
                             intentUri = it,
                             intentKind = IslandIntentKind.BROADCAST,
                             highlighted = true,
+                            // 点了不立刻收岛：先重投新进度，看到变化后再由系统收回胶囊。
+                            collapseOnClick = false,
                         ),
                     )
                 }
-                // 测试通知只有一个按钮：它就是「点击链路能不能走通」的探针。
-                if (!test) {
+                // 普通测试通知只有一个按钮（就是「点击链路能不能走通」的探针）；
+                // 进度测试通知带两个，用来验「进度 + 多动作」的真实布局。
+                if (!test || isProgressTestHabit(habit.id)) {
                     snoozeActionUri(app, habit, day, slotMinutes)?.let {
                         add(
                             IslandActionSpec(
@@ -258,26 +355,38 @@ object HabitReminderNotifier {
         runCatching { ConfigProvider.getAdvancedSettings().notificationDisplay }
             .getOrDefault(NotificationDisplaySettings())
 
+    /**
+     * 岛展开态正文：多次习惯给单行「今日 x/y」，单次习惯仍是状态 + 连续天数。
+     * 岛上没有可用的进度组件（真机实测 progressInfo / multiProgressInfo / 环形进度均不渲染），
+     * 进度条只在标准模式的通知卡上（系统 `Notification.ProgressStyle`）。
+     */
+    private fun islandBody(app: Context, status: HabitReminderStatus?): String = statusText(app, status)
+
+    /** 胶囊摘要：多次习惯带上进度（`2/5 喝水`），仍受 [SHORT_CRITICAL_TEXT_MAX] 约束。 */
+    private fun capsuleText(app: Context, habit: Habit, status: HabitReminderStatus?): String {
+        val name = habit.name.ifBlank { app.getString(R.string.habit_reminder_capsule) }
+        val target = status?.target ?: 1
+        val raw = if (status != null && target > 1) {
+            "${status.count.coerceIn(0, target)}/$target $name"
+        } else {
+            name
+        }
+        return raw.take(SHORT_CRITICAL_TEXT_MAX)
+    }
+
+    /** 动作文案：单次习惯点下去就是完成，多次习惯才是「+1」。 */
+    private fun doneLabel(app: Context, habit: Habit): String = app.getString(
+        if (habit.safeDailyTarget > 1) R.string.habit_reminder_done else R.string.habit_reminder_complete,
+    )
+
     /** 展开态正文：状态 + 连续天数；多次习惯显示今日进度。 */
     private fun statusText(app: Context, status: HabitReminderStatus?): String {
         if (status == null) return app.getString(R.string.habit_reminder_status_plain)
         val target = status.target.coerceAtLeast(1)
         if (target > 1) {
             val done = status.count.coerceIn(0, target)
-            return when (status.state) {
-                HabitDayState.CHECKED,
-                HabitDayState.SKIPPED,
-                -> app.getString(R.string.habit_reminder_status_plain)
-
-                HabitDayState.INACTIVE ->
-                    app.getString(R.string.habit_reminder_status_progress_inactive, done, target)
-
-                HabitDayState.OVERDUE ->
-                    app.getString(R.string.habit_reminder_status_progress_overdue, done, target)
-
-                HabitDayState.DUE ->
-                    app.getString(R.string.habit_reminder_status_progress, done, target, status.streakDays)
-            }
+            // 通知 / 岛卡片都是单行排版：只给「今日 x/y」，不拼连续天数（会换行）。
+            return app.getString(R.string.habit_reminder_status_progress_short, done, target)
         }
         return when (status.state) {
             HabitDayState.CHECKED,
@@ -351,7 +460,7 @@ object HabitReminderNotifier {
             HabitReminderScheduler.ACTION_SNOOZE,
             snoozeMinutes,
         )
-        val body = if (test) {
+        val body = if (test && status == null) {
             app.getString(R.string.habit_reminder_test_body, app.getString(mode.labelRes))
         } else {
             statusText(app, status)
@@ -366,7 +475,15 @@ object HabitReminderNotifier {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(Notification.BigTextStyle().bigText(body))
+            // 多次习惯：**仅标准模式**用系统进度条（API 36+）。实时 / 岛模式下 ProgressStyle 会让
+            // SystemUI 按系统进度卡渲染，丢掉岛与按钮（真机踩过），保持大文本卡。
+            .let {
+                if (mode == NotificationMode.STANDARD && habit.safeDailyTarget > 1 && status != null) {
+                    NotificationProgress.apply(it, status.count, status.target, habit.color)
+                } else {
+                    it.setStyle(Notification.BigTextStyle().bigText(body))
+                }
+            }
             .setContentIntent(contentIntent)
             .setCategory(Notification.CATEGORY_REMINDER)
             // 常驻提醒：直到完成当日目标或当天 0 点由调度器统一收起；
@@ -378,11 +495,11 @@ object HabitReminderNotifier {
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(app, R.mipmap.ic_launcher),
-                    app.getString(R.string.habit_reminder_done),
+                    doneLabel(app, habit),
                     doneIntent,
                 ).build(),
             )
-        if (!test) {
+        if (!test || isProgressTestHabit(habit.id)) {
             builder.addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(app, R.mipmap.ic_launcher),
@@ -475,6 +592,8 @@ object HabitReminderNotifier {
     /** 收起通知（「完成」「跳过今天」、当天 0 点或删除 / 关闭习惯时）。 */
     fun cancel(context: Context, habitId: String) {
         val notificationId = HabitReminderScheduler.notificationId(habitId)
+        // 通知要被撤掉了，对应的自动移除计时也没意义（否则会对着同一个 id 再 cancel 一次）。
+        ProgressNotificationDismisser.cancel(context, notificationId)
         notificationManager(context).cancel(notificationId)
         // 少数 HyperOS 版本 cancel 会被岛自愈重新贴回，补一次。
         if (isActive(context, notificationId)) {
@@ -533,6 +652,9 @@ object HabitReminderNotifier {
 
     private const val ACTION_KEY_DONE = "habit_done"
     private const val ACTION_KEY_SNOOZE = "habit_snooze"
+
+    /** 「+1」进度重投时大岛停留秒数：够看清进度变化，又不让岛赖着不走。 */
+    private const val PROGRESS_CONFIRM_SECONDS = 2
 }
 
 /** 一条提醒所需的习惯状态快照（接收器从配置派生，通知器只负责排版）。 */

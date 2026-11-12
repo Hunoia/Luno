@@ -55,6 +55,11 @@ data class NotificationDisplaySettings(
     val islandKeepShadeNotification: Boolean = true,
     /** 长按岛卡片可拖拽分享（`param_island.shareData`）。 */
     val islandDragShare: Boolean = false,
+    /**
+     * 进度类通知（点了会更新进度的，如习惯「+1」）点击后自动移除整条通知的延时（秒）。
+     * 0 = 不移除（可继续点）。到点前再点一次会重置计时；达标立即移除。
+     */
+    val progressDismissSeconds: Int = DEFAULT_PROGRESS_DISMISS_SECONDS,
 ) {
     /** [kind] 的最终生效模式：覆盖优先，否则全局。 */
     fun modeFor(kind: NotificationKind): NotificationMode = overrides[kind] ?: mode
@@ -71,5 +76,11 @@ data class NotificationDisplaySettings(
 
         /** 大岛停留可选档位（秒）；关展开走 [islandAutoExpand]，这里只给「展开多久」。 */
         val ISLAND_EXPAND_SECONDS_OPTIONS = listOf(3, 5, 10)
+
+        /** 进度类通知点击后的自动移除延时默认 30 秒：够看清进度、也够补点。 */
+        const val DEFAULT_PROGRESS_DISMISS_SECONDS = 30
+
+        /** 自动移除延时可选档位（秒）；0 = 不移除。 */
+        val PROGRESS_DISMISS_SECONDS_OPTIONS = listOf(0, 10, 30, 60, 120)
     }
 }

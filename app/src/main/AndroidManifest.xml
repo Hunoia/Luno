@@ -323,6 +323,11 @@
             android:name=".domain.habit.HabitReminderReceiver"
             android:exported="false" />
 
+        <!-- 进度类通知（习惯 +1 等）点击后到时自动移除。 -->
+        <receiver
+            android:name=".domain.notify.ProgressNotificationDismissReceiver"
+            android:exported="false" />
+
         <!-- 待办提醒：AlarmManager 触发 + 通知「完成 / 推迟」按钮。 -->
         <receiver
             android:name=".domain.todo.TodoReminderReceiver"

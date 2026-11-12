@@ -11,9 +11,12 @@
 - `NotificationPresenter.publishIsland(spec)`：suspend，执行「切 XMSF → 焦点通知 →
   校验窗口 → 恢复」原子事务；返回 `Posted` / `Rejected` / `Unsupported` / `Failed`。
   调用方按结果执行回退链（LIVE → STANDARD），内容与通道始终归调用方。
-- `IslandNotificationSpec`：通道、通知 id、标题 / 正文 / 胶囊摘要、展开与超时、强调色、
+- `IslandNotificationSpec`：通道、通知 id、标题 / 正文 / 胶囊摘要、展开与超时、**强调色与背景色分开**
+  （`accentColor` 只用于标题 / 高亮，`backgroundColor` 才是 `bgInfo.colorBg`；默认都不染，跟随系统）、
   点击 Intent URI、最多 2 个动作。PendingIntent 不进契约层，由发布器按
   `IslandIntentKind`（ACTIVITY / BROADCAST）构建。
+- `IslandActionSpec.collapseOnClick`：点击后是否让 SystemUI 立刻收岛。需要展示结果的
+  动作（习惯「+1」）传 `false`，由发布方重投新内容。
 
 ## 实现要点
 
@@ -40,6 +43,17 @@
 - **动作形态**：`textButton[i]` 用 `type=2`（文字按钮）+ `actionIntentType=1` + `action`
   键；对应 `miui.focus.actions` Bundle 的值必须是 `Notification.Action`（含有效 Icon）。
   **裸 PendingIntent 不行**：按钮能渲染，点击零反应（无广播、无异常日志）。
+  `clickWithCollapse` 按动作给（`IslandActionSpec.collapseOnClick`）：默认 `true`（一按就收），
+  需要展示结果的动作写 `false`，否则点击瞬间岛就被收走，用户看不到重投的进度。
+- **进度呈现**（实测结论）：
+  - 岛上**没有可用的进度组件**——`progressInfo` / `multiProgressInfo` / 小岛 `combinePicInfo`
+    环在本机对三方包均不渲染（换了官方推荐的 `baseInfo{type:2}+picInfo` 搭配也一样），
+    带进度的模板属于审核场景。岛上只用文字：展开态「今日 x/y」、胶囊「x/y 名字」。
+  - 通知栏：`NotificationProgress`（本模块）用 API 36 原生 `Notification.ProgressStyle`，
+    但**只能用于标准模式**：实时 / 岛模式下系统会按进度卡渲染，把岛和动作按钮吃掉。
+  - `target ≤ 1` 不表现进度（没有进度语义）。
+- **背景与强调色分开**：`bgInfo{type:1,colorBg}` 只由 `backgroundColor` 驱动。曾把业务强调色
+  （习惯色）当背景，整块岛被染成习惯颜色；现在默认不染背景，跟随系统。
 - **展开态主卡**：只用 `iconTextInfo`（左侧图标 + 标题 + 正文）。旧版 `baseInfo{type:1}`
   在通知栏可用但大岛拿不到标准图文组件；`param_v2.picInfo`（右上角小图标）也去掉了——
   左侧已经有图标，右侧重复同一个 logo 只是噪音。
@@ -68,10 +82,14 @@
 
 - `HabitReminderNotifier`（`:app`）：HABIT，两个 broadcast 动作——「完成」（打卡，幂等）、
   「推迟 N 分钟」（N 取自习惯设置，收起当前提醒并挂一次性闹钟，到点重算状态再弹；
-  已打卡 / 休整日则静默收掉）。
+  已打卡 / 休整日则静默收掉）。多次习惯的「+1」按 `collapseOnClick = false` 投递，
+  点击后由调用方重投新进度；「点击后到时移除」由 `:app` 的 `ProgressNotificationDismisser`
+  编排（延时读通用通知设置），不属于本模块。
 - `AutoBackupNotifier`（`:app`）：BACKUP，一次性短岛，无动作。
 - `NotificationSettingsScreen`（`:app`）：呈现模式、岛细节（自动展开 / 停留时长 / 外发光 /
-  通知栏 / 拖拽分享 / 超时）、「发送测试通知」与权限状态。
+  通知栏 / 拖拽分享 / 超时）、进度类通知的点击后移除时长、「发送测试通知」与权限状态。
+  测试有两条：普通测试（单按钮，验点击链路）与进度测试（假数据 1/3、带「+1」与「推迟」
+  两个按钮，点 +1 只改内存计数，用来验进度组件 / 多动作布局 / 自动移除）。
 
 Toast 不在此模块：系统 Toast 是平台原语，唯一入口在 `:core:bridge`
 （`bridge.ui.showToast` / `showToastLong`），归位理由见 `docs/archive.md` §14。
