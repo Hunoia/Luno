@@ -50,65 +50,165 @@ object Launcher {
         userId: Int = 0,
         anchor: Pair<Int, Int>? = null,
     ): Boolean {
-        if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
-            return launchCloneApp(
-                context = context,
-                packageName = packageName,
-                className = className,
-                miniWindow = miniWindow,
-                miniWindowSettings = miniWindowSettings,
-                intentAction = intentAction,
-                data = data,
-                extras = extras,
-                userId = userId,
-                anchor = anchor,
-            )
-        }
         val tLaunch = SystemClock.uptimeMillis()
         if (miniWindow) {
             Log.i(LOG_TAG, "miniWindow launch begin pkg=$packageName user=$userId t=$tLaunch")
         }
         return try {
-            // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
-            // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
-            if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
-                buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
-                    val options = if (miniWindow) {
-                        MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
-                    } else {
-                        null
-                    }
-                    if (ShizukuManager.startActivityAsUser(intent, 0, options)) {
-                        if (miniWindow) {
-                            Log.i(
-                                LOG_TAG,
-                                "miniWindow shizuku launched elapsedMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
-                            )
+            // 整个启动体放到 IO：hasClone / resolveActivity / startActivity 都是阻塞 binder，
+            // 占住手势收尾与面板收口的主线程，会在系统忙时拖慢「触发→打开」的感知。
+            withContext(Dispatchers.IO) {
+                // 优先复用已有 task：目标在最近任务里时，用 startActivityFromRecents 带小窗参数
+                // 提到前台，而不是重新走一次 Activity 启动。实测能让 2.5s / 5.0s 的
+                // 「快照启动窗卡在 OPEN 转场直到超时」变成 60–170ms。
+                // 放在 hasClone / 分身分支之前，保证微信这类装了分身的应用也能命中。
+                if (miniWindow && miniReuseEnabled() &&
+                    tryReuseTaskInMiniWindow(
+                        context = context,
+                        packageName = packageName,
+                        userId = userId,
+                        miniWindowSettings = miniWindowSettings,
+                        anchor = anchor,
+                        tLaunch = tLaunch,
+                    )
+                ) {
+                    return@withContext true
+                }
+                if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
+                    return@withContext launchCloneApp(
+                        context = context,
+                        packageName = packageName,
+                        className = className,
+                        miniWindow = miniWindow,
+                        miniWindowSettings = miniWindowSettings,
+                        intentAction = intentAction,
+                        data = data,
+                        extras = extras,
+                        userId = userId,
+                        anchor = anchor,
+                    )
+                }
+                // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
+                // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
+                if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
+                    buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
+                        val options = if (miniWindow) {
+                            MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+                        } else {
+                            null
                         }
-                        return true
+                        if (ShizukuManager.startActivityAsUser(intent, 0, options)) {
+                            if (miniWindow) {
+                                Log.i(
+                                    LOG_TAG,
+                                    "miniWindow shizuku launched elapsedMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
+                                )
+                            }
+                            return@withContext true
+                        }
                     }
                 }
-            }
-            val pm = context.packageManager
-            val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
-                ?: run {
-                    // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
-                    // 而不是静默失败。包本身不存在时仍返回 false。
-                    if (runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() == null) {
-                        return false
+                val pm = context.packageManager
+                val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
+                    ?: run {
+                        // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
+                        // 而不是静默失败。包本身不存在时仍返回 false。
+                        if (runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() == null) {
+                            return@withContext false
+                        }
+                        return@withContext openAppDetails(context, packageName)
                     }
-                    return openAppDetails(context, packageName)
+                if (miniWindow) {
+                    MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
+                } else {
+                    context.startActivity(intent)
+                    true
                 }
-            if (miniWindow) {
-                MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
-            } else {
-                context.startActivity(intent)
-                true
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchApp failed", e)
             false
         }
+    }
+
+    /**
+     * 复用已有 task 的快路径开关。默认开启，出问题时可临时关闭对照：
+     *
+     * ```
+     * adb shell setprop debug.luno.mini_reuse off   # 回到「每次重新 startActivity」
+     * adb shell setprop debug.luno.mini_reuse on    # 恢复复用（默认）
+     * ```
+     */
+    private fun miniReuseEnabled(): Boolean = runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val get = clazz.getMethod("get", String::class.java)
+        (get.invoke(null, "debug.luno.mini_reuse") as? String).orEmpty().trim().lowercase(Locale.ROOT)
+    }.getOrDefault("") != "off"
+
+    /**
+     * 复用已有 task 打开小窗：`startActivityFromRecents(taskId, freeform options)`。
+     * 失败（找不到 task / Shizuku 拒绝）返回 false，调用方回落到普通启动。
+     *
+     * 找到的是 task 而不是 Intent，所以不会重新走 ActivityStarter 的启动/快照路径，
+     * 也就避开了「SnapshotStartingWindow 卡在 OPEN 转场直到 2.5s/5s 超时」。
+     * [userId] 用于分身：主用户找 `userId=0` 的 task，分身找 `userId=999` 的 task。
+     */
+    private suspend fun tryReuseTaskInMiniWindow(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        miniWindowSettings: MiniWindowSettings,
+        anchor: Pair<Int, Int>?,
+        tLaunch: Long,
+    ): Boolean {
+        if (!ShizukuManager.currentStatus().isReady) {
+            Log.i(LOG_TAG, "miniReuse skip shizuku-not-ready pkg=$packageName user=$userId")
+            return false
+        }
+        val tLookup = SystemClock.uptimeMillis()
+        val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
+        val taskId = parseTaskId(list.stdout, packageName, userId)
+        val lookupMs = SystemClock.uptimeMillis() - tLookup
+        if (taskId == null) {
+            Log.i(
+                LOG_TAG,
+                "miniReuse no-task pkg=$packageName user=$userId lookupMs=$lookupMs " +
+                    "totalMs=${SystemClock.uptimeMillis() - tLaunch}",
+            )
+            return false
+        }
+        val preWindowingMode = parseTaskRootWindowingMode(list.stdout, packageName, userId)
+        val options = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+        val tCall = SystemClock.uptimeMillis()
+        val ok = ShizukuManager.startActivityFromRecents(taskId, options)
+        Log.i(
+            LOG_TAG,
+            "miniReuse task=$taskId preMode=$preWindowingMode ok=$ok user=$userId lookupMs=$lookupMs " +
+                "callMs=${SystemClock.uptimeMillis() - tCall} totalMs=${SystemClock.uptimeMillis() - tLaunch} " +
+                "pkg=$packageName",
+        )
+        return ok
+    }
+
+    /**
+     * `am stack list` 里目标 task 所在 RootTask 在**复用前**的 windowingMode，仅用于日志。
+     *
+     * 后台 task 通常挂在 fullscreen 的 RootTask 下（即使上次是小窗，回到后台后 RootTask
+     * 也会被收回），所以这里看到 `fullscreen` 是正常的；它记录的是「复用前」的状态，
+     * 复用时会由 [MiniWindowGeometry.activityOptionsBundle] 的 freeform 参数转成小窗。
+     */
+    private fun parseTaskRootWindowingMode(output: String, packageName: String, userId: Int): String? {
+        val lines = output.lineSequence().toList()
+        val taskRegex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
+        val index = lines.indexOfFirst { taskRegex.containsMatchIn(it) }
+        if (index < 0) return null
+        val modeRegex = Regex("""mWindowingMode=([\w-]+)""")
+        for (i in index downTo 0) {
+            modeRegex.find(lines[i])?.let { return it.groupValues[1] }
+        }
+        return null
     }
 
     /**

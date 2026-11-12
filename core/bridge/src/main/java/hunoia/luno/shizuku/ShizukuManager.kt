@@ -324,6 +324,38 @@ object ShizukuManager {
         }
 
     /**
+     * 把已有 task 提到前台，并允许带 freeform 的 ActivityOptions。
+     *
+     * 与 [startActivityAsUser] 的差别：后者按 Intent 走一次「启动」，已有 task 时也可能
+     * 重新走 Activity 启动流程；这里直接复用系统任务，不经过 ActivityStarter 的
+     * 「后台启动 / 冻结应用」判定。小窗打开已有 task 的默认快路径用它，见
+     * `Launcher.tryReuseTaskInMiniWindow`（开关：`debug.luno.mini_reuse`）。
+     */
+    private val startActivityFromRecentsMethod by lazy {
+        HiddenApiBypass.getDeclaredMethods(Class.forName("android.app.IActivityTaskManager"))
+            .filterIsInstance<Method>()
+            .firstOrNull { it.name == "startActivityFromRecents" }
+            ?: throw NoSuchMethodException("IActivityTaskManager.startActivityFromRecents not found")
+    }
+
+    suspend fun startActivityFromRecents(taskId: Int, options: Bundle? = null): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!isBinderAlive()) return@withContext false
+            if (!hasPermission()) return@withContext false
+            runCatching {
+                val result = startActivityFromRecentsMethod.invoke(activityTaskProxy, taskId, options) as? Int
+                result != null && result >= 0
+            }.getOrElse { t ->
+                hunoia.luno.core.LunoLog.w(
+                    "ShizukuManager",
+                    "startActivityFromRecents failed task=$taskId",
+                    t,
+                )
+                false
+            }
+        }
+
+    /**
      * 以 shell 身份启动快捷方式。非默认 launcher 调 `LauncherApps.startShortcut` 会被
      * 「Caller can't access shortcut information」拦住；shell 持有 ACCESS_SHORTCUTS，
      * 通过 Shizuku 代理调用即可启动应用未导出的 shortcut trampoline。
