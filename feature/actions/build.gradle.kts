@@ -18,6 +18,8 @@ dependencies {
     // 动作展示 UI（图标/标题/行内组件）：动作扩展面自带的展示能力。
     implementation(project(":ui:design"))
     implementation(project(":core:runtime"))
+    // 冻结/解冻执行器复用能力库的唯一写入点（PackageControl），不另开 Shizuku 旁路。
+    implementation(project(":capability:launch"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

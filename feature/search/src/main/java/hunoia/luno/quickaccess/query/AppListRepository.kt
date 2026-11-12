@@ -73,6 +73,9 @@ object AppListRepository {
         }
     }
 
+    /** 外部写入（冻结/解冻）后的显式重扫：不等包广播，避免部分 ROM 不发 PACKAGE_CHANGED。 */
+    fun refresh() = reload()
+
     /** 系统语言变了才重扫；返回 true 表示确实触发了重扫。 */
     fun reloadIfLocaleChanged(): Boolean {
         if (currentLocaleTag() == loadedLocaleTag) return false

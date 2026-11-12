@@ -31,7 +31,7 @@
     <string name="grid_panel_todo_open_list">Open todo list</string>
     <string name="grid_panel_todo_complete">Mark complete</string>
     <string name="grid_panel_todo_open">Open: %1$s</string>
-    <string name="app_drawer_disabled_app">This app is disabled</string>
+    <string name="app_drawer_disabled_app">This app is frozen</string>
     <string name="grid_panel_clipboard_image">Image</string>
     <string name="grid_panel_clipboard_empty">No clipboard history</string>
     <string name="grid_panel_clipboard_copy">Copy</string>

@@ -154,6 +154,11 @@ data object LogSettings
 @Serializable
 data object AutoBackupSettings
 
+/** 应用冻结管理页：冻结 / 解冻、一键名单与批量操作。 */
+@Keep
+@Serializable
+data object AppControl
+
 /** 剪贴板管理页：历史 / 固定 / 批量 / 导入导出 / 记录设置。 */
 @Keep
 @Serializable

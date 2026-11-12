@@ -11,6 +11,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.R
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.ui.showToastLong
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
@@ -155,7 +156,22 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 initialSettings = s,
                 anchorX = anchorXState,
                 anchorY = anchorYState,
-                requestEnableDisabledPackage = disabledPackageEnabler::request,
+                requestEnableDisabledPackage = { packageName, callback ->
+                    disabledPackageEnabler.request(packageName) { success ->
+                        if (!success) {
+                            val suspended = hunoia.luno.quickaccess.query.DisabledAppQuery
+                                .isSuspended(context, packageName)
+                            showToast(
+                                if (suspended) {
+                                    hunoia.luno.capability.launch.R.string.app_suspended_cannot_enable
+                                } else {
+                                    hunoia.luno.capability.launch.R.string.enable_disabled_app_failed
+                                },
+                            )
+                        }
+                        callback(success)
+                    }
+                },
                 onCloseAnimated = { closeImmediate() },
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                 onLaunch = { appInfo, miniWindow ->

@@ -130,27 +130,10 @@ class App : Application(), SingletonImageLoader.Factory {
         // 启动能力库的协作者注入（architecture §9.4）：能力库自己不认识配置流与查询层。
         hunoia.luno.search.SearchCapabilities.actionSearch = hunoia.luno.actions.LunoActionSearchSource
         hunoia.luno.launch.LaunchCapability.telemetry = hunoia.luno.config.DataLaunchTelemetry
-        hunoia.luno.launch.LaunchCapability.targetResolver =
-            hunoia.luno.core.domain.LaunchTargetResolver { packageName ->
-                hunoia.luno.quickaccess.query.AppQuery
-                    .findLauncherActivity(applicationContext, packageName)
-                    ?.let { hunoia.luno.core.domain.LaunchTarget(it.packageName, it.className) }
-            }
-        hunoia.luno.launch.LaunchCapability.disabledApps =
-            object : hunoia.luno.core.domain.DisabledAppState {
-                override fun isDisabled(packageName: String): Boolean =
-                    hunoia.luno.quickaccess.query.DisabledAppQuery
-                        .isDisabled(applicationContext, packageName)
-
-                override fun markEnabled(packageName: String) {
-                    hunoia.luno.quickaccess.query.DisabledAppQuery.markEnabled(packageName)
-                }
-
-                override fun invalidateLauncherCache() {
-                    hunoia.luno.quickaccess.query.AppQuery.invalidateLauncherCache()
-                }
-            }
-
+        // 冻结/解冻写入成功后显式重扫应用清单：包广播是兜底，部分 ROM 对 pm disable 不发。
+        hunoia.luno.launch.LaunchCapability.onPackageStateChanged = {
+            hunoia.luno.quickaccess.query.AppListRepository.refresh()
+        }
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
         // 无障碍服务进程崩溃后系统会重启进程（PID 变）但常不重连连接；
         // 主进程/:service 进程启动时检测最近崩溃，用 Shizuku 权限强制重绑（免手动重开）。

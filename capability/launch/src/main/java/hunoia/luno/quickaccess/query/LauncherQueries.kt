@@ -47,6 +47,14 @@ object LauncherEnvironment {
     @Volatile
     private var observingPackageChanges = false
 
+    /** 当前默认桌面：HOME intent 的 resolveActivity 结果。不缓存，切换桌面后立即生效。 */
+    fun currentHomePackage(context: Context): String? = runCatching {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        context.packageManager
+            .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName
+    }.getOrNull()
+
     fun isLauncherPackage(context: Context, packageName: String): Boolean {
         if (packageName.isBlank()) return false
         packageCache.get(packageName)?.let { return it }

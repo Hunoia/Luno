@@ -5,6 +5,7 @@ import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
+import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
@@ -67,6 +68,8 @@ object ConfigProvider {
     val clipboardSettings: Flow<ClipboardSettings> = stores.clipboardSettings
     /** 定时自动备份状态：设备本地派生数据，不进备份、不被 resetAll 清掉。 */
     val autoBackup: Flow<AutoBackupSettings> = stores.autoBackup
+    /** 应用冻结：一键名单（不含系统禁用状态）。 */
+    val appControlSettings: Flow<AppControlSettings> = stores.appControlSettings
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
     val habitConfig: Flow<HabitConfig> = stores.habitConfig
@@ -84,6 +87,7 @@ object ConfigProvider {
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
+    suspend fun getAppControlSettings(): AppControlSettings = stores._appControlSettings.data.first()
     suspend fun getClipboardSettings(): ClipboardSettings = stores._clipboardSettings.data.first()
     suspend fun getAutoBackup(): AutoBackupSettings = stores._autoBackup.data.first()
 
@@ -129,6 +133,10 @@ object ConfigProvider {
 
     suspend fun updateAnnotateSettings(transform: suspend (AnnotateSettings) -> AnnotateSettings) {
         stores._annotateSettings.updateData(transform)
+    }
+
+    suspend fun updateAppControlSettings(transform: suspend (AppControlSettings) -> AppControlSettings) {
+        stores._appControlSettings.updateData(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {

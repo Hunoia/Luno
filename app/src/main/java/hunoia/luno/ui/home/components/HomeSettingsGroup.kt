@@ -1,6 +1,7 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.AcUnit
 import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.CheckCircle
 import androidx.compose.material.icons.twotone.Checklist
@@ -20,6 +21,7 @@ fun HomeSettingsGroup(
     onHabitsClick: () -> Unit,
     onTodosClick: () -> Unit,
     onClipboardClick: () -> Unit,
+    onAppControlClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -44,6 +46,12 @@ fun HomeSettingsGroup(
             icon = Icons.TwoTone.ContentPaste,
             shape = shape,
             onClick = onClipboardClick,
+            ) }
+            item { shape -> LunoSettingsRow(
+            title = stringResource(R.string.app_control_settings_entry),
+            icon = Icons.TwoTone.AcUnit,
+            shape = shape,
+            onClick = onAppControlClick,
             ) }
         }
     }

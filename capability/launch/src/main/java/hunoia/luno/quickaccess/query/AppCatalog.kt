@@ -6,7 +6,7 @@ import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.os.Process
 import hunoia.luno.core.domain.AppInfo
-import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.config.ConfigProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -134,7 +134,8 @@ object AppCatalog {
         showSystemAppsCache?.let { return it }
         // 同步调用方都在后台线程（查询本身就要扫包）；首次读配置的 IO 远小于扫包成本。
         val value = runBlocking(Dispatchers.IO) {
-            runCatching { SearchCenter.showSystemAppsEnabled() }.getOrDefault(false)
+            runCatching { ConfigProvider.getActionSettings().showSystemAppsInAppList }
+                .getOrDefault(false)
         }
         showSystemAppsCache = value
         return value
@@ -146,7 +147,8 @@ object AppCatalog {
 
     suspend fun refreshSystemSetting() {
         showSystemAppsCache = withContext(Dispatchers.IO) {
-            runCatching { SearchCenter.showSystemAppsEnabled() }.getOrDefault(false)
+            runCatching { ConfigProvider.getActionSettings().showSystemAppsInAppList }
+                .getOrDefault(false)
         }
     }
 }

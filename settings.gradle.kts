@@ -57,6 +57,7 @@ include(":feature:floatball")
 include(":feature:gridpanel")
 include(":feature:widget")
 include(":feature:annotate")
+include(":feature:appcontrol")
 include(":feature:clipboard")
 include(":feature:a11y")
  

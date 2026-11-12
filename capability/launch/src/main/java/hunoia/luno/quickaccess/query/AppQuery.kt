@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import hunoia.luno.core.LunoLog as Log
-import hunoia.luno.search.BuildConfig
+import hunoia.luno.capability.launch.BuildConfig
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.core.AppContext

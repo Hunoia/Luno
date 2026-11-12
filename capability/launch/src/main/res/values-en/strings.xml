@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Launch capability exclusive strings (invalid_url/launch_failed/launch_no_handler reuse core:bridge). -->
-    <string name="enable_disabled_app_failed">Failed to enable the disabled app.</string>
+    <string name="enable_disabled_app_failed">Failed to unfreeze the app.</string>
+    <string name="app_suspended_cannot_enable">This app is frozen by the system; Luno cannot unfreeze it.</string>
     <string name="launch_mini_window_failed">Could not launch the app mini window.</string>
     <string name="launch_shortcut_info_failed">Could not launch the %1$s shortcut.</string>
 </resources>

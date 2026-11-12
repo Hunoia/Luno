@@ -5,6 +5,7 @@ import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
+import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
 import hunoia.luno.config.model.ClipboardHistory
@@ -44,6 +45,7 @@ class SettingsStores(
     internal val _todoConfig: DataStore<TodoConfig>,
     internal val _annotateSettings: DataStore<AnnotateSettings>,
     internal val _autoBackup: DataStore<AutoBackupSettings>,
+    internal val _appControlSettings: DataStore<AppControlSettings>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -64,6 +66,8 @@ class SettingsStores(
     val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data
     /** 定时自动备份状态：设备本地，不进备份、不被「恢复默认设置」清掉。 */
     val autoBackup: Flow<AutoBackupSettings> = _autoBackup.data
+    /** 应用冻结：一键名单；禁用状态由系统查询，不走配置。 */
+    val appControlSettings: Flow<AppControlSettings> = _appControlSettings.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -90,6 +94,7 @@ class SettingsStores(
                 _todoConfig = ctx.dataStore(DataStoreFiles.TODOS, TodoConfig()),
                 _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),
                 _autoBackup = ctx.dataStore(DataStoreFiles.AUTO_BACKUP, AutoBackupSettings()),
+                _appControlSettings = ctx.dataStore(DataStoreFiles.APP_CONTROL_SETTINGS, AppControlSettings()),
             )
         }
     }

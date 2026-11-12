@@ -59,6 +59,12 @@ class DefaultAppLauncher(
     /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false。 */
     private suspend fun ensureEnabled(packageName: String): Boolean {
         val disabledApps = LaunchCapability.resolveDisabledState()
+        // suspend 是厂商冻结：enablePackage 清的是 enabled 位，对它无效。必须显式拒绝，
+        // 否则会「解冻成功 → 启动失败」且没有任何提示。
+        if (disabledApps.isSuspended(packageName)) {
+            showToast(R.string.app_suspended_cannot_enable)
+            return false
+        }
         if (!disabledApps.isDisabled(packageName)) return true
         if (!unfreezePackage(packageName)) {
             showToast(R.string.enable_disabled_app_failed)

@@ -30,6 +30,10 @@ object DataStoreFiles {
     /** Luno 触发的应用启动统计：设备本地派生数据，不进备份。 */
     const val APP_USAGE_STATS = "app_usage_stats"
 
+    // 应用冻结组
+    /** 一键冻结名单；当前禁用状态是系统状态，不落盘。 */
+    const val APP_CONTROL_SETTINGS = "app_control_settings"
+
     // 习惯组（独立于手势/动作/搜索，按 §11.1 语义分组）
     const val HABITS = "habits"
     const val TODOS = "todos"

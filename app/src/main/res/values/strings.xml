@@ -423,6 +423,7 @@
 
     <string name="log_settings_group">记录设置</string>
     <string name="clipboard_settings_entry">剪贴板</string>
+    <string name="app_control_settings_entry">应用冻结</string>
     <string name="log_settings_title">运行日志</string>
     <string name="log_settings_recording">记录到文件</string>
     <string name="log_settings_recording_hint">按进程分文件，自动轮转</string>

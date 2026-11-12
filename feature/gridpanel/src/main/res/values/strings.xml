@@ -31,7 +31,7 @@
     <string name="grid_panel_todo_open_list">打开待办列表</string>
     <string name="grid_panel_todo_complete">标记完成</string>
     <string name="grid_panel_todo_open">打开：%1$s</string>
-    <string name="app_drawer_disabled_app">该应用已被禁用</string>
+    <string name="app_drawer_disabled_app">该应用已被冻结</string>
     <string name="grid_panel_clipboard_image">图片</string>
     <string name="grid_panel_clipboard_empty">暂无剪贴板历史</string>
     <string name="grid_panel_clipboard_copy">复制</string>

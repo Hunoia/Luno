@@ -5,6 +5,10 @@ plugins {
 
 android {
     namespace = "hunoia.luno.capability.launch"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
@@ -17,6 +21,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.collection)
+    implementation(libs.coil)
     implementation(libs.jetbrains.kotlin.serialization)
     testImplementation(libs.junit)
 }

@@ -3,6 +3,7 @@ package hunoia.luno.shizuku
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import hunoia.luno.core.AppContext
@@ -98,6 +99,17 @@ object ShizukuManager {
         val stubClass = Class.forName("android.content.pm.ILauncherApps\$Stub")
         val binder = SystemServiceHelper.getSystemService(Context.LAUNCHER_APPS_SERVICE)
         HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
+    }
+
+    private val amProxy by lazy {
+        val stubClass = Class.forName("android.app.IActivityManager\$Stub")
+        val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
+        } else {
+            stubClass.getMethod("asInterface", android.os.IBinder::class.java)
+                .invoke(null, ShizukuBinderWrapper(binder))
+        }
     }
 
     private val activityTaskProxy by lazy {
@@ -471,45 +483,110 @@ object ShizukuManager {
 
     // ---- Package Operations (public, with checks) ----
 
-    suspend fun enablePackage(packageName: String): PackageResult = withContext(Dispatchers.IO) {
+    suspend fun enablePackage(
+        packageName: String,
+        shellFallback: Boolean = true,
+    ): PackageResult = withContext(Dispatchers.IO) {
         if (!isBinderAlive()) {
             return@withContext PackageResult(false, packageName, "Shizuku binder unavailable")
         }
         if (!hasPermission()) {
             return@withContext PackageResult(false, packageName, "Shizuku permission denied")
         }
-        enablePackageUnchecked(packageName)
+        enablePackageUnchecked(packageName, shellFallback)
+    }
+
+    /**
+     * 禁用（UI 文案「冻结」）单个应用。
+     *
+     * 优先走 binder 的 `setApplicationEnabledSetting(DISABLED_USER)`：批量场景下比 shell
+     * 快一个数量级；binder 失败时再对单包用 `pm disable-user` 兜底（批量调用方不逐包兜底，
+     * 避免一次操作起几十个 shell）。
+     */
+    suspend fun disablePackage(
+        packageName: String,
+        shellFallback: Boolean = true,
+    ): PackageResult = withContext(Dispatchers.IO) {
+        if (!isBinderAlive()) {
+            return@withContext PackageResult(false, packageName, "Shizuku binder unavailable")
+        }
+        if (!hasPermission()) {
+            return@withContext PackageResult(false, packageName, "Shizuku permission denied")
+        }
+        disablePackageUnchecked(packageName, shellFallback)
     }
 
     // ---- Internal (unchecked, no IO wrapper) ----
 
-    private fun enablePackageUnchecked(packageName: String): PackageResult {
-        return runCatching {
-            val state = PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            if (setEnabledSetting.parameterCount == 5) {
-                setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId, callerPackage)
-            } else {
-                setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId)
-            }
-            PackageResult(true, packageName)
-        }.getOrElse {
-            enablePackageShell(packageName)
+    private fun enablePackageUnchecked(packageName: String, shellFallback: Boolean): PackageResult =
+        setPackageEnabled(packageName, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, shellFallback) {
+            packageShell(packageName, enable = true)
+        }
+
+    private fun disablePackageUnchecked(packageName: String, shellFallback: Boolean): PackageResult {
+        // 禁用位变化不保证进程立刻退出（尤其 MIUI/HyperOS）：先 force-stop，避免
+        // 用户看到「已冻结」但应用还在后台跑。
+        forceStopAppUnchecked(packageName)
+        return setPackageEnabled(
+            packageName,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
+            shellFallback,
+        ) {
+            packageShell(packageName, enable = false)
         }
     }
 
-    private fun enablePackageShell(packageName: String): PackageResult {
+    private fun forceStopAppUnchecked(packageName: String): Boolean {
+        return runCatching {
+            amProxy
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                HiddenApiBypass.invoke(amProxy::class.java, amProxy, "forceStopPackage", packageName, userId)
+            } else {
+                amProxy::class.java.getMethod("forceStopPackage", String::class.java, Int::class.java)
+                    .invoke(amProxy, packageName, userId)
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+    private inline fun setPackageEnabled(
+        packageName: String,
+        state: Int,
+        shellFallback: Boolean,
+        shell: () -> PackageResult,
+    ): PackageResult = runCatching {
+        if (setEnabledSetting.parameterCount == 5) {
+            setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId, callerPackage)
+        } else {
+            setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId)
+        }
+        PackageResult(true, packageName)
+    }.getOrElse { t ->
+        if (shellFallback) {
+            shell()
+        } else {
+            PackageResult(false, packageName, t.message ?: t.javaClass.simpleName)
+        }
+    }
+
+    private fun packageShell(packageName: String, enable: Boolean): PackageResult {
+        val command = if (enable) {
+            "pm enable $packageName"
+        } else {
+            "pm disable-user --user $userId $packageName"
+        }
         return runCatching {
             val svc = IShizukuService.Stub.asInterface(Shizuku.getBinder())
             val proc = svc.newProcess(arrayOf(if (isRoot) "su" else "sh"), null, null)
             ParcelFileDescriptor.AutoCloseOutputStream(proc.outputStream).use {
-                it.write("pm enable $packageName\n".toByteArray())
+                it.write("$command\n".toByteArray())
             }
             val exitCode = proc.waitFor()
             proc.destroy()
             if (exitCode == 0) {
                 PackageResult(true, packageName)
             } else {
-                PackageResult(false, packageName, "pm enable exit=$exitCode")
+                PackageResult(false, packageName, "$command exit=$exitCode")
             }
         }.getOrElse { t ->
             PackageResult(false, packageName, t.message ?: t.javaClass.simpleName)

@@ -23,9 +23,6 @@ object SearchCenter {
     /** 搜索面板展示动作库条目所需的只读投影，避免 quickaccess 直连配置存储。 */
     val actionLibrary: Flow<ActionLibrarySettings> = ConfigProvider.actionLibrarySettings
 
-    suspend fun showSystemAppsEnabled(): Boolean =
-        ConfigProvider.getActionSettings().showSystemAppsInAppList
-
     suspend fun updateLauncher(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) =
         ConfigProvider.updateQuickAppLauncherSettings(transform)
 

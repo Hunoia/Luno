@@ -2,7 +2,7 @@ package hunoia.luno.quickaccess.launch
 
 import android.content.Context
 import hunoia.luno.launch.LaunchCapability
-import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.launch.PackageControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +33,7 @@ class DisabledPackageEnabler(
 
         scopeProvider().launch(Dispatchers.IO) {
             val start = System.currentTimeMillis()
-            val result = ShizukuManager.enablePackage(packageName)
+            val result = PackageControl.unfreeze(packageName)
             if (result.success) {
                 // 解冻成功后同步能力层的禁用缓存：否则同一轮 app.launch 还会再判一次
                 // disabled，且下次启动仍可能命中旧的 false/true。

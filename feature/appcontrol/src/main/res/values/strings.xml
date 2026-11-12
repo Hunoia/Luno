@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_control_title">应用冻结</string>
+    <string name="app_control_search_hint">搜索应用</string>
+    <string name="app_control_show_system">显示系统应用</string>
+    <string name="app_control_show_system_hint">搜索时包含没有桌面入口的系统包</string>
+    <string name="app_control_state_frozen">已冻结</string>
+    <string name="app_control_state_suspended">系统冻结，Luno 无法解除</string>
+    <string name="app_control_state_protected">受保护，不可冻结</string>
+    <string name="app_control_one_key">一键名单</string>
+    <string name="app_control_one_key_add">加入一键名单</string>
+    <string name="app_control_one_key_remove">移出一键名单</string>
+    <string name="app_control_select">选择</string>
+    <string name="app_control_cancel_select">取消选择</string>
+    <string name="app_control_select_all">全选</string>
+    <string name="app_control_freeze_selected">冻结所选</string>
+    <string name="app_control_unfreeze_selected">解冻所选</string>
+    <string name="app_control_freeze_confirm_title">冻结 %1$d 个应用？</string>
+    <string name="app_control_freeze_confirm_desc">冻结后应用不会出现在桌面，也不能在后台运行。可在本页解冻。</string>
+    <string name="app_control_batch_result">成功 %1$d 个，失败 %2$d 个</string>
+    <string name="app_control_batch_nothing">没有可处理的应用</string>
+    <string name="app_control_failures_title">上次失败</string>
+    <string name="app_control_clear_failures">清除</string>
+    <string name="app_control_empty">没有匹配的应用</string>
+    <string name="app_control_frozen_count">已冻结 %1$d 个 · 一键名单 %2$d 个</string>
+    <string name="app_control_freeze_failed">冻结失败</string>
+    <string name="app_control_suspended_toast">该应用由系统冻结，Luno 无法解除</string>
+    <string name="app_control_protected_toast">自己与当前桌面不允许冻结</string>
+    <string name="app_control_one_key_added">已加入一键名单</string>
+    <string name="app_control_one_key_removed">已移出一键名单</string>
+    <string name="app_control_loading">正在读取应用…</string>
+    <string name="app_control_reason_suspended">系统冻结，无法解除</string>
+    <string name="app_control_reason_protected_self">Luno 自己不允许冻结</string>
+    <string name="app_control_reason_protected_launcher">当前桌面不允许冻结</string>
+    <string name="app_control_reason_shizuku_unavailable">Shizuku 未连接</string>
+    <string name="app_control_reason_shizuku_permission">Shizuku 未授权</string>
+    <string name="app_control_reason_failed">系统拒绝执行</string>
+    <string name="app_control_one_key_updated">已更新一键名单</string>
+</resources>

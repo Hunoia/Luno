@@ -1,9 +1,7 @@
 package hunoia.luno.quickaccess
 
 import android.content.Context
-import androidx.collection.LruCache
 import coil3.request.ImageRequest
-import coil3.request.crossfade
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.query.AppCatalog
@@ -13,7 +11,6 @@ import hunoia.luno.quickaccess.query.LauncherIconQuery
 import hunoia.luno.quickaccess.launch.Launcher
 import hunoia.luno.quickaccess.launch.QuickAppLaunch
 import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.quickaccess.icon.AppIconModel
 import hunoia.luno.quickaccess.query.ActivityOption
 import hunoia.luno.quickaccess.query.LauncherAppOption
 import hunoia.luno.quickaccess.query.LauncherEnvironment
@@ -55,25 +52,12 @@ object QuickLaunchFacade {
         packageName: String,
         sizePx: Int,
         userId: Int = 0,
-    ): ImageRequest {
-        val key = if (userId == 0) "$packageName@$sizePx" else "$packageName@$sizePx@$userId"
-        iconRequestCache.get(key)?.let { return it }
-        val req = ImageRequest.Builder(context)
-            .data(AppIconModel(packageName, sizePx, userId))
-            .size(sizePx, sizePx)
-            // 搜索行禁用全局 150ms crossfade：结果列表每次挂载十几行，
-            // 每行淡入 stagger 起来就是闪（提示行/空态行全是同步矢量所以不闪）。
-            // 图标靠搜索 flow 发射前 resolve 进 SearchIconCache，到时直接呈现，
-            // 无需淡入掩盖解码。
-            .crossfade(false)
-            .build()
-        iconRequestCache.put(key, req)
-        return req
-    }
-
-    /** 请求复用上限：一屏结果十几行，128 ≈ 8 屏的余量。 */
-    private const val ICON_REQUEST_CAP = 128
-    private val iconRequestCache = LruCache<String, ImageRequest>(ICON_REQUEST_CAP)
+    ): ImageRequest = hunoia.luno.quickaccess.icon.AppIconRequests.request(
+        context,
+        packageName,
+        sizePx,
+        userId,
+    )
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
         OpenAppOrUrlQuery.queryLauncherApps(context)

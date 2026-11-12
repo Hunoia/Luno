@@ -65,4 +65,8 @@
     <string name="action_panel_unnamed">未命名面板</string>
     <string name="grid_panel_unnamed">未命名网格面板</string>
     <string name="clipboard_label">Luno</string>
+    <string name="app_control_result_success">已处理 %1$d 个应用</string>
+    <string name="app_control_result_partial">成功 %1$d 个，失败 %2$d 个</string>
+    <string name="app_control_one_key_empty">一键冻结名单为空，请先在「应用冻结」页添加应用</string>
+    <string name="app_control_nothing_to_unfreeze">名单中没有需要解冻的应用</string>
 </resources>

@@ -6,6 +6,7 @@ import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
+import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
@@ -49,6 +50,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val annotateDeferred = async { stores._annotateSettings.data.first() }
         val clipboardSettingsDeferred = async { stores._clipboardSettings.data.first() }
         val clipboardHistoryDeferred = async { stores._clipboardHistory.data.first() }
+        val appControlDeferred = async { stores._appControlSettings.data.first() }
         Backup(
             backupFormatVersion = BackupVersions.FORMAT,
             gestureSchemaVersion = BackupVersions.GESTURE,
@@ -59,6 +61,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             todoSchemaVersion = BackupVersions.TODO,
             annotateSchemaVersion = BackupVersions.ANNOTATE,
             clipboardSchemaVersion = BackupVersions.CLIPBOARD,
+            appControlSchemaVersion = BackupVersions.APP_CONTROL,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
             gestureSettings = gestureDeferred.await(),
@@ -74,6 +77,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             annotateSettings = annotateDeferred.await(),
             clipboardSettings = clipboardSettingsDeferred.await(),
             clipboardPinned = clipboardHistoryDeferred.await().exportablePinned().ifEmpty { null },
+            appControlSettings = appControlDeferred.await(),
         )
     }
 
@@ -100,6 +104,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.clipboardSettings?.let { v -> writeSection("clipboardSettings") { stores._clipboardSettings.updateData { v.coerced() } } } }
         // 固定项合并而不是覆盖：备份里的固定项是用户资产，不能顺手抹掉本机现有历史。
         launch { backup.clipboardPinned?.let { v -> writeSection("clipboardPinned") { stores._clipboardHistory.updateData { it.mergePinned(v) } } } }
+        launch { backup.appControlSettings?.let { v -> writeSection("appControlSettings") { stores._appControlSettings.updateData { v } } } }
     }
 
     /**
@@ -157,5 +162,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._habitConfig.updateData { HabitConfig() } }
         launch { stores._todoConfig.updateData { TodoConfig() } }
         launch { stores._annotateSettings.updateData { AnnotateSettings() } }
+        launch { stores._appControlSettings.updateData { AppControlSettings() } }
     }
 }

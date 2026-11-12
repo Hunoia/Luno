@@ -156,6 +156,7 @@ dependencies {
     implementation(project(":feature:widget"))
     implementation(project(":feature:annotate"))
     implementation(project(":feature:clipboard"))
+    implementation(project(":feature:appcontrol"))
     implementation(project(":feature:a11y"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)

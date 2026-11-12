@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_control_title">App freeze</string>
+    <string name="app_control_search_hint">Search apps</string>
+    <string name="app_control_show_system">Show system apps</string>
+    <string name="app_control_show_system_hint">Include system packages without a launcher entry when searching</string>
+    <string name="app_control_state_frozen">Frozen</string>
+    <string name="app_control_state_suspended">Frozen by system; Luno cannot unfreeze</string>
+    <string name="app_control_state_protected">Protected; cannot freeze</string>
+    <string name="app_control_one_key">One-key list</string>
+    <string name="app_control_one_key_add">Add to one-key list</string>
+    <string name="app_control_one_key_remove">Remove from one-key list</string>
+    <string name="app_control_select">Select</string>
+    <string name="app_control_cancel_select">Cancel selection</string>
+    <string name="app_control_select_all">Select all</string>
+    <string name="app_control_freeze_selected">Freeze selected</string>
+    <string name="app_control_unfreeze_selected">Unfreeze selected</string>
+    <string name="app_control_freeze_confirm_title">Freeze %1$d apps?</string>
+    <string name="app_control_freeze_confirm_desc">Frozen apps disappear from the launcher and cannot run in the background. They can be unfrozen here.</string>
+    <string name="app_control_batch_result">%1$d succeeded, %2$d failed</string>
+    <string name="app_control_batch_nothing">No apps to process</string>
+    <string name="app_control_failures_title">Last failures</string>
+    <string name="app_control_clear_failures">Clear</string>
+    <string name="app_control_empty">No matching apps</string>
+    <string name="app_control_frozen_count">%1$d frozen · %2$d in one-key list</string>
+    <string name="app_control_freeze_failed">Freeze failed</string>
+    <string name="app_control_suspended_toast">This app is frozen by the system; Luno cannot unfreeze it</string>
+    <string name="app_control_protected_toast">Luno and the current launcher cannot be frozen</string>
+    <string name="app_control_one_key_added">Added to one-key list</string>
+    <string name="app_control_one_key_removed">Removed from one-key list</string>
+    <string name="app_control_loading">Loading apps…</string>
+    <string name="app_control_reason_suspended">Frozen by system; cannot unfreeze</string>
+    <string name="app_control_reason_protected_self">Luno itself cannot be frozen</string>
+    <string name="app_control_reason_protected_launcher">The current launcher cannot be frozen</string>
+    <string name="app_control_reason_shizuku_unavailable">Shizuku is not connected</string>
+    <string name="app_control_reason_shizuku_permission">Shizuku permission not granted</string>
+    <string name="app_control_reason_failed">The system rejected the change</string>
+    <string name="app_control_one_key_updated">One-key list updated</string>
+</resources>

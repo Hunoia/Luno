@@ -20,6 +20,7 @@ internal object BuiltinActionGroups {
 
     private val groups: List<ActionGroup> = listOf(
         AppActionGroup,
+        AppControlActionGroup,
         IntentActionGroup,
         SystemActionGroup,
         AccessibilityActionGroup,

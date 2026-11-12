@@ -3,8 +3,12 @@ package hunoia.luno.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import hunoia.luno.core.AppContext
 import hunoia.luno.domain.habit.HabitReminderScheduler
 import hunoia.luno.domain.todo.TodoReminderScheduler
+import hunoia.luno.launch.PackageControl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * 开机自启：拉起保活与悬浮球两个常驻前台服务。
@@ -25,6 +29,10 @@ class BootReceiver : BroadcastReceiver() {
             // 待办调度器同时负责「错过提醒」补弹：标记还在、时间已过 → 静默补一条通知。
             HabitReminderScheduler.rescheduleAll(context)
             TodoReminderScheduler.rescheduleAll(context)
+            // 一键冻结名单里的已卸载包：开机清理一次；页面进入时还会再兜一次。
+            AppContext.applicationScope?.launch(Dispatchers.IO) {
+                runCatching { PackageControl.pruneUninstalledFromOneKey() }
+            }
         }
     }
 }

@@ -500,6 +500,7 @@ class GestureCoordinator(
                 ),
                 hunoia.luno.action.executor.ShellExecutor(),
                 hunoia.luno.action.executor.MiscActionExecutors(),
+                hunoia.luno.action.executor.AppControlExecutors(),
                 hunoia.luno.action.executor.InternalExecutors(),
             ),
             capabilityGate = hunoia.luno.action.capability.CapabilityGate(

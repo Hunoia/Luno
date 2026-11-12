@@ -127,6 +127,7 @@ fun HomeScreen(
     onNavToLogSettings: () -> Unit = {},
     onNavToAutoBackup: () -> Unit = {},
     onNavToClipboard: () -> Unit = {},
+    onNavToAppControl: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
@@ -383,6 +384,7 @@ fun HomeScreen(
                                     onHabitsClick = onNavToHabits,
                                     onTodosClick = onNavToTodos,
                                     onClipboardClick = onNavToClipboard,
+                                    onAppControlClick = onNavToAppControl,
                                 )
                             }
 

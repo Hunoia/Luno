@@ -44,6 +44,16 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
     }
+    /** 冻结一键名单：对名单内全部应用置 DISABLED_USER。 */
+    data object FreezeOneKey : Action {
+        override val typeId: String = "app.freezeOneKey"
+    }
+
+    /** 解冻一键名单：只处理「名单 ∩ 当前 disabled」，suspend 包不进入目标。 */
+    data object UnfreezeOneKey : Action {
+        override val typeId: String = "app.unfreezeOneKey"
+    }
+
     data class AppDetails(
         val packageName: String,
         /** 0 = 主用户；其他值 = 分身（详情页按用户展示对应实例）。 */
