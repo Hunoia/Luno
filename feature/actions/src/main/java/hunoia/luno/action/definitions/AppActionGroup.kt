@@ -3,6 +3,7 @@ package hunoia.luno.action.definitions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Window
 import hunoia.luno.action.model.Action
@@ -47,6 +48,12 @@ internal object AppActionGroup : ActionGroup {
             Capability.None,
             icon = Icons.Default.Window,
         ),
+        // 独立动作：MIUI 原生迷你浮窗，位置/互换在「动作设置→小窗」的迷你小窗分组。
+        ActionDefinition(
+            "system.mini_window", "迷你小窗当前应用", ActionCategory.APP,
+            Capability.Shizuku,
+            icon = Icons.Default.CropFree,
+        ),
         ActionDefinition(
             "app.launchShortcut", "启动快捷方式", ActionCategory.APP,
             Capability.None,
@@ -74,6 +81,7 @@ internal object AppActionGroup : ActionGroup {
             )
         }
         ActionMappingRegistry.register("app.popup") { Action.Popup }
+        ActionMappingRegistry.register("system.mini_window") { Action.MiniWindow }
         ActionMappingRegistry.register("app.launchShortcut") { p -> Action.LaunchShortcut(p.str("data")) }
     }
 }

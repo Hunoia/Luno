@@ -230,6 +230,9 @@ object SurfaceActionRuntime {
         override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
             launcher.launchInPopup(packageName, anchor)
 
+        override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
+            launcher.launchMiniWindow(packageName, anchor)
+
         override fun shareFile(): ActionResult = runCatching {
             context.startActivity(
                 Intent(context, hunoia.luno.ui.share.ShareFilePickActivity::class.java).apply {

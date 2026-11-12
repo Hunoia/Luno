@@ -55,6 +55,13 @@ sealed interface Action {
     data object Popup : Action {
         override val typeId: String = "app.popup"
     }
+    /**
+     * 迷你小窗当前应用：走 MIUI 私有事务挂成系统迷你浮窗，与小窗（freeform）相互独立。
+     * 位置与是否互换用动作设置→小窗里的「迷你小窗」分组。
+     */
+    data object MiniWindow : Action {
+        override val typeId: String = "system.mini_window"
+    }
     data class LaunchShortcut(val data: String) : Action {
         override val typeId: String = "app.launchShortcut"
     }

@@ -340,6 +340,9 @@ class GestureCoordinator(
         override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?) =
             appLauncher.launchInPopup(packageName, anchor)
 
+        override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?) =
+            appLauncher.launchMiniWindow(packageName, anchor)
+
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 

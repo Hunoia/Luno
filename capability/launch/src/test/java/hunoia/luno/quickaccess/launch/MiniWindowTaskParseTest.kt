@@ -86,4 +86,118 @@ class MiniWindowTaskParseTest {
 
         assertNull(Launcher.parseRecentTaskUserId(output, "com.tencent.mobileqq"))
     }
+
+    @Test
+    fun `任务解析带 RootTask 窗口模式`() {
+        val output = """
+            RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+              configuration={... mWindowingMode=fullscreen ...}
+              taskId=100: com.foo/com.foo.MainActivity bounds=[0,0][1200,2670] userId=0 visible=true topActivity=ComponentInfo{com.foo/com.foo.MainActivity}
+
+            RootTask id=2 bounds=[20,165][1000,1005] displayId=0 userId=0
+              configuration={... mWindowingMode=freeform ...}
+              taskId=200: com.bar/com.bar.MainActivity bounds=[20,165][1000,1005] userId=0 visible=true topActivity=ComponentInfo{com.bar/com.bar.MainActivity}
+        """.trimIndent()
+
+        val tasks = Launcher.parseStackTasks(output)
+        assertEquals(2, tasks.size)
+        assertEquals("fullscreen", tasks[0].windowingMode)
+        assertEquals("freeform", tasks[1].windowingMode)
+        assertEquals(200, tasks[1].taskId)
+        assertEquals("com.bar", tasks[1].packageName)
+        assertEquals(true, tasks[1].visible)
+    }
+
+    private val smallWindowOverFullscreen = """
+        RootTask id=2 bounds=[20,165][1000,1005] displayId=0 userId=0
+          configuration={... mWindowingMode=freeform ...}
+          taskId=200: com.bar/com.bar.MainActivity bounds=[20,165][1000,1005] userId=0 visible=true topActivity=ComponentInfo{com.bar/com.bar.MainActivity}
+
+        RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+          configuration={... mWindowingMode=fullscreen ...}
+          taskId=100: com.foo/com.foo.MainActivity bounds=[0,0][1200,2670] userId=0 visible=true topActivity=ComponentInfo{com.foo/com.foo.MainActivity}
+    """.trimIndent()
+
+    @Test
+    fun `当前应用是小窗时互换选它下面的全屏任务`() {
+        val plan = Launcher.chooseMiniWindowTarget(
+            tasks = Launcher.parseStackTasks(smallWindowOverFullscreen),
+            packageName = "com.bar",
+            userId = 0,
+            autoSwap = true,
+            selfPackage = "hunoia.luno.debug",
+        )!!
+
+        assertEquals("com.foo", plan.target.packageName)
+        assertEquals("com.bar", plan.swap?.packageName)
+        assertEquals(true, plan.swapped)
+    }
+
+    @Test
+    fun `关闭互换后小窗应用仍是目标`() {
+        val plan = Launcher.chooseMiniWindowTarget(
+            tasks = Launcher.parseStackTasks(smallWindowOverFullscreen),
+            packageName = "com.bar",
+            userId = 0,
+            autoSwap = false,
+            selfPackage = "hunoia.luno.debug",
+        )!!
+
+        assertEquals("com.bar", plan.target.packageName)
+        assertNull(plan.swap)
+        assertEquals(false, plan.swapped)
+    }
+
+    @Test
+    fun `当前应用全屏时互换旧小窗`() {
+        val plan = Launcher.chooseMiniWindowTarget(
+            tasks = Launcher.parseStackTasks(smallWindowOverFullscreen),
+            packageName = "com.foo",
+            userId = 0,
+            autoSwap = true,
+            selfPackage = "hunoia.luno.debug",
+        )!!
+
+        assertEquals("com.foo", plan.target.packageName)
+        assertEquals("com.bar", plan.swap?.packageName)
+        assertEquals(false, plan.swapped)
+    }
+
+    @Test
+    fun `当前应用是小窗时不把桌面当成互换目标`() {
+        val output = """
+            RootTask id=2 bounds=[20,165][1000,1005] displayId=0 userId=0
+              configuration={... mWindowingMode=freeform mActivityType=standard ...}
+              taskId=200: com.bar/com.bar.MainActivity bounds=[20,165][1000,1005] userId=0 visible=true topActivity=ComponentInfo{com.bar/com.bar.MainActivity}
+
+            RootTask id=1 bounds=[0,0][1200,2670] displayId=0 userId=0
+              configuration={... mWindowingMode=fullscreen mActivityType=home ...}
+              taskId=2: com.miui.home/com.miui.home.launcher.Launcher bounds=[0,0][1200,2670] userId=0 visible=true topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher}
+        """.trimIndent()
+
+        val plan = Launcher.chooseMiniWindowTarget(
+            tasks = Launcher.parseStackTasks(output),
+            packageName = "com.bar",
+            userId = 0,
+            autoSwap = true,
+            selfPackage = "hunoia.luno.debug",
+        )!!
+
+        assertEquals("com.bar", plan.target.packageName)
+        assertNull(plan.swap)
+        assertEquals(false, plan.swapped)
+    }
+
+    @Test
+    fun `目标应用不存在时不产生计划`() {
+        val plan = Launcher.chooseMiniWindowTarget(
+            tasks = Launcher.parseStackTasks(smallWindowOverFullscreen),
+            packageName = "com.qux",
+            userId = 0,
+            autoSwap = true,
+            selfPackage = "hunoia.luno.debug",
+        )
+
+        assertNull(plan)
+    }
 }

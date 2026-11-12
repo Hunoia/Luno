@@ -70,6 +70,8 @@ class ActionExecutionTest {
             ActionResult.Failed(ActionFailure.Unsupported)
         override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
             ActionResult.Failed(ActionFailure.Unsupported)
+        override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
+            ActionResult.Failed(ActionFailure.Unsupported)
         override fun shareFile(): ActionResult = ActionResult.Failed(ActionFailure.Unsupported)
         override fun showScreenPick(): Boolean = false
         override fun showScreenAnnotate(): Boolean = false

@@ -19,6 +19,7 @@ class AppExecutors : ActionExecutor {
         hunoia.luno.core.domain.AppLaunchAction.TYPE_ID,
         "app.details",
         "app.popup",
+        "system.mini_window",
         "app.launchShortcut",
     )
 
@@ -41,6 +42,10 @@ class AppExecutors : ActionExecutor {
             }
             is Action.AppDetails -> context.surfaces.openAppDetails(action.packageName, action.userId)
             is Action.Popup -> context.surfaces.launchInPopup(
+                context.environment.currentPackageName().orEmpty(),
+                context.touchPosition,
+            )
+            is Action.MiniWindow -> context.surfaces.launchMiniWindow(
                 context.environment.currentPackageName().orEmpty(),
                 context.touchPosition,
             )

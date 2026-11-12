@@ -356,6 +356,81 @@ object ShizukuManager {
         }
 
     /**
+     * MIUI/HyperOS 私有事务：把任务挂成「迷你小窗」。
+     *
+     * 系统没有公开 API，也没有 settings/prop 开关；只能按 MIUI 自己的 AIDL 事务码
+     * 通过 `service call activity_task` 派发（[launchMiniFreeFormWindowCode] 反射不到时
+     * 用真机验证过的 138 / 0x8a 兜底）。
+     *
+     * @param positionCode 1 = 左/左上，2 = 右/右上
+     */
+    suspend fun launchMiniFreeFormWindow(taskId: Int, positionCode: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!isBinderAlive()) return@withContext false
+            if (!hasPermission()) return@withContext false
+            val code = launchMiniFreeFormWindowCode
+            val command = "service call activity_task $code " +
+                "i32 $taskId i32 $positionCode s16 \"\" s16 \"null\""
+            val result = executeShell(command, maxChars = 8_192)
+            val output = (result.stdout + result.stderr).trim()
+            val failed = !result.isSuccess ||
+                output.lowercase().contains("fffffff") ||
+                output.contains("Exception", ignoreCase = true) ||
+                output.contains("Error", ignoreCase = true)
+            hunoia.luno.core.LunoLog.i(
+                "ShizukuManager",
+                "launchMiniFreeFormWindow task=$taskId position=$positionCode " +
+                    "code=$code ok=${!failed} out=$output",
+            )
+            !failed
+        }
+
+    /**
+     * 任务当前是否已经处于「迷你小窗」态。
+     *
+     * 用来避免对已经在迷你态的 task 重复派发（会先被恢复全屏再挂回，产生多余动画）。
+     * `miui.app.MiuiFreeFormManager` 是 MIUI 的公开浮窗 API，取不到时返回 false，
+     * 调用方按普通小窗处理即可。
+     */
+    fun isMiniFreeFormTask(taskId: Int): Boolean = runCatching {
+        val manager = Class.forName("miui.app.MiuiFreeFormManager")
+        val getter = manager.getMethod(
+            "getFreeFormStackInfoByStackId",
+            Int::class.javaPrimitiveType,
+        )
+        val info = getter.invoke(null, taskId) ?: return@runCatching false
+        val inMini = info.javaClass.getMethod("isInMiniFreeFormMode")
+        inMini.invoke(info) as? Boolean ?: false
+    }.getOrDefault(false)
+
+    /**
+     * 从 `IActivityTaskManager$Stub` 反射 MIUI 私有事务码；两个版本号字段都找不到时
+     * 退回已验证的 138 (0x8a)。
+     */
+    private val launchMiniFreeFormWindowCode: Int by lazy {
+        val stub = runCatching {
+            Class.forName("android.app.IActivityTaskManager\$Stub")
+        }.getOrNull()
+        val names = listOf(
+            "TRANSACTION_launchMiniFreeFormWindowVersion2",
+            "TRANSACTION_launchMiniFreeFormWindow",
+        )
+        val code = stub?.let { clazz ->
+            names.firstNotNullOfOrNull { name ->
+                runCatching {
+                    clazz.getDeclaredField(name).apply { isAccessible = true }.getInt(null)
+                }.getOrNull()
+            }
+        }
+        hunoia.luno.core.LunoLog.i(
+            "ShizukuManager",
+            "launchMiniFreeFormWindow transaction=${code ?: 138} " +
+                if (code != null) "source=reflect" else "source=fallback",
+        )
+        code ?: 138
+    }
+
+    /**
      * 以 shell 身份启动快捷方式。非默认 launcher 调 `LauncherApps.startShortcut` 会被
      * 「Caller can't access shortcut information」拦住；shell 持有 ACCESS_SHORTCUTS，
      * 通过 Shizuku 代理调用即可启动应用未导出的 shortcut trampoline。
