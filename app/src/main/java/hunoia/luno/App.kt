@@ -73,6 +73,8 @@ class App : Application(), SingletonImageLoader.Factory {
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if (BuildConfig.DEBUG) enableStrictMode()
         AppContext.init(applicationContext, scope)
+        // 故障通知先注入，后面任何 LunoLog.e / 崩溃都能走同一条通知链；无权限时只落盘。
+        hunoia.luno.domain.log.IncidentNotifier.install(applicationContext)
         LunoLog.i(
             LOG_TAG,
             "app: onCreate process=${Application.getProcessName()} pid=${android.os.Process.myPid()}",
@@ -155,6 +157,10 @@ class App : Application(), SingletonImageLoader.Factory {
         // 无障碍服务进程崩溃后系统会重启进程（PID 变）但常不重连连接；
         // 主进程/:service 进程启动时检测最近崩溃，用 Shizuku 权限强制重绑（免手动重开）。
         hunoia.luno.service.AccessibilityCrashRecovery.tryRecover(applicationContext)
+        // ANR / native crash 不会走 UncaughtExceptionHandler，启动时从系统历史退出原因补记。
+        appScope.launch(Dispatchers.IO) {
+            hunoia.luno.domain.log.IncidentExitScanner.scan(applicationContext)
+        }
     }
 
     /**

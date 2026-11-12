@@ -463,6 +463,24 @@
     <string name="log_settings_preview_title">最近日志</string>
     <string name="log_settings_preview_empty">暂无日志</string>
 
+    <!-- 故障记录（崩溃 / ANR / native crash / ERROR） -->
+    <string name="incident_group">故障记录</string>
+    <string name="incident_notification">故障通知</string>
+    <string name="incident_notification_hint">崩溃、ANR 与错误发生时发送通知</string>
+    <string name="incident_recent">最近故障</string>
+    <string name="incident_none">暂无故障记录</string>
+    <string name="incident_summary">%1$d 条 · 最近 %2$s</string>
+    <string name="incident_clear">清空故障记录</string>
+    <string name="incident_clear_confirm">删除全部故障记录？此操作不可撤销。</string>
+    <string name="incident_cleared">已清空故障记录</string>
+    <string name="incident_sheet_title">故障记录</string>
+    <string name="incident_empty">暂无故障记录</string>
+    <string name="incident_notification_channel">运行故障</string>
+    <string name="incident_notification_channel_desc">崩溃、ANR 与错误提醒</string>
+    <string name="incident_notification_title">Luno 运行故障</string>
+    <string name="incident_notification_text">%1$s：%2$s</string>
+    <string name="incident_notification_tap_hint">点击查看故障记录</string>
+
     <string name="habit_reminder_channel">习惯提醒</string>
     <string name="habit_reminder_title">习惯提醒</string>
     <string name="habit_reminder_done">+1</string>

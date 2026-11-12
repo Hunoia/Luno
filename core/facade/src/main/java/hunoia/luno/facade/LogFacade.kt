@@ -22,6 +22,17 @@ interface LogFacade {
 
     fun clear()
 
+    /** 故障记录汇总：是否通知、条数、最近时间与占用大小。 */
+    fun incidentStats(): IncidentStats
+
+    /** 最近 [maxEntries] 条故障记录，按时间倒序；没有记录时为空串。 */
+    fun readIncidents(maxEntries: Int): String
+
+    fun clearIncidents()
+
+    /** 崩溃/ANR/ERROR 是否发送系统通知；关闭后仍然落盘。 */
+    fun setIncidentNotifyEnabled(enabled: Boolean)
+
     /**
      * 打包主进程与 `:service` 的日志（附设备信息）到缓存 zip，并拉起系统分享。
      * 返回是否成功拉起分享；失败时页面提示。
@@ -41,3 +52,11 @@ data class LogStats(
 ) {
     val totalBytes: Long get() = files.sumOf { it.sizeBytes }
 }
+
+/** 故障记录页数据；[lastTimeMs] 为 0 表示还没有记录。 */
+data class IncidentStats(
+    val notifyEnabled: Boolean = true,
+    val count: Int = 0,
+    val lastTimeMs: Long = 0L,
+    val sizeBytes: Long = 0L,
+)

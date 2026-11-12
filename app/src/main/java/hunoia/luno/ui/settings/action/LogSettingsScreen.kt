@@ -21,11 +21,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.core.LogLevel
+import hunoia.luno.facade.IncidentStats
 import hunoia.luno.facade.LogStats
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -36,11 +39,15 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetListMaxHeight
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val PREVIEW_LINES = 200
+private const val INCIDENT_PREVIEW_ENTRIES = 50
 
 /**
  * 运行日志页：记录开关、文件大小、最近日志预览、清空与导出。
@@ -54,16 +61,36 @@ fun LogSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
     var stats by remember { mutableStateOf(LogStats()) }
+    var incidentStats by remember { mutableStateOf(IncidentStats()) }
     var showPreview by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showIncidents by remember { mutableStateOf(false) }
+    var showClearIncidentsConfirm by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf("") }
+    var incidentText by remember { mutableStateOf("") }
+
+    val pendingIncident by PendingIncidentView.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingIncident) {
+        if (pendingIncident) {
+            showIncidents = true
+            PendingIncidentView.consume()
+        }
+    }
 
     LaunchedEffect(tick) {
         stats = withContext(Dispatchers.IO) { facades.logs.stats() }
+        incidentStats = withContext(Dispatchers.IO) { facades.logs.incidentStats() }
     }
     LaunchedEffect(showPreview) {
         if (showPreview) {
             preview = withContext(Dispatchers.IO) { facades.logs.readTail(PREVIEW_LINES) }
+        }
+    }
+    LaunchedEffect(showIncidents) {
+        if (showIncidents) {
+            incidentText = withContext(Dispatchers.IO) {
+                facades.logs.readIncidents(INCIDENT_PREVIEW_ENTRIES)
+            }
         }
     }
 
@@ -114,6 +141,34 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                     )
                 }
             }
+        }
+        LunoGroup(title = stringResource(R.string.incident_group)) {
+            LunoSwitchRow(
+                title = stringResource(R.string.incident_notification),
+                subtitle = stringResource(R.string.incident_notification_hint),
+                checked = incidentStats.notifyEnabled,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            facades.logs.setIncidentNotifyEnabled(enabled)
+                        }
+                        tick++
+                    }
+                },
+                shape = segmentedShape(0, 3),
+            )
+            LunoSettingsRow(
+                title = stringResource(R.string.incident_recent),
+                subtitle = incidentSummary(incidentStats),
+                shape = segmentedShape(1, 3),
+                onClick = { showIncidents = true },
+            )
+            LunoSettingsRow(
+                title = stringResource(R.string.incident_clear),
+                subtitle = formatBytes(incidentStats.sizeBytes),
+                shape = segmentedShape(2, 3),
+                onClick = { showClearIncidentsConfirm = true },
+            )
         }
         LunoGroup(title = stringResource(R.string.log_settings_manage)) {
             LunoSettingsRow(
@@ -187,6 +242,57 @@ fun LogSettingsScreen(onBack: () -> Unit) {
         }
     }
 
+    if (showIncidents) {
+        LunoSheet(onDismissRequest = { showIncidents = false }, showDragHandle = true) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PageGutter)
+                    .padding(bottom = PageGutter),
+            ) {
+                Text(
+                    text = stringResource(R.string.incident_sheet_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                SelectionContainer {
+                    Text(
+                        text = incidentText.ifBlank {
+                            stringResource(R.string.incident_empty)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = SheetListMaxHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = PageGutter),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showClearIncidentsConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.incident_clear),
+            text = stringResource(R.string.incident_clear_confirm),
+            destructive = true,
+            onDismissRequest = { showClearIncidentsConfirm = false },
+            onConfirm = {
+                showClearIncidentsConfirm = false
+                scope.launch {
+                    withContext(Dispatchers.IO) { facades.logs.clearIncidents() }
+                    incidentText = ""
+                    tick++
+                    showToast(R.string.incident_cleared)
+                }
+            },
+        )
+    }
+
     if (showClearConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.log_settings_clear),
@@ -214,6 +320,23 @@ private fun levelSummary(stats: LogStats): String {
     )
     return "$level · $hint"
 }
+
+@Composable
+private fun incidentSummary(stats: IncidentStats): String {
+    if (stats.count == 0) return stringResource(R.string.incident_none)
+    return stringResource(
+        R.string.incident_summary,
+        stats.count,
+        formatIncidentTime(stats.lastTimeMs),
+    )
+}
+
+private val incidentTimeFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm")
+
+private fun formatIncidentTime(timeMs: Long): String =
+    runCatching {
+        Instant.ofEpochMilli(timeMs).atZone(ZoneId.systemDefault()).format(incidentTimeFormatter)
+    }.getOrDefault("")
 
 private fun LogLevel.labelRes(): Int = when (this) {
     LogLevel.VERBOSE -> R.string.log_settings_level_verbose

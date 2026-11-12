@@ -19,6 +19,9 @@ import java.util.concurrent.TimeUnit
  * 级别与记录开关都用日志目录里的标记文件表达，主进程与 `:service` 共享同一份状态；
  * logcat 不受级别影响，始终输出调用方传入的全部级别。
  *
+ * ERROR / ASSERT 额外进入 [IncidentLog]：独立落盘并触发故障通知，不受本对象的
+ * 记录开关与级别影响（见设置页「故障记录」）。
+ *
  * 页面不要直接使用本对象：UI 通过 `AppGraph.logs` 门面读取/导出。
  */
 object LunoLog {
@@ -186,6 +189,10 @@ object LunoLog {
         val stack = tr?.let { AndroidLog.getStackTraceString(it) }
         val result = AndroidLog.println(priority, tag, msg)
         if (tr != null) AndroidLog.println(priority, tag, stack.orEmpty())
+        // 严重错误单独进故障记录（不受运行日志开关/级别影响）；通知去重由 IncidentLog 负责。
+        if (priority >= AndroidLog.ERROR) {
+            runCatching { IncidentLog.recordError(tag, msg, tr) }
+        }
         // 文件阈值由设置页控制；默认 INFO，避免 release 下高频日志放大文件。
         if (priority >= minLevel().priority) {
             val line = buildString {

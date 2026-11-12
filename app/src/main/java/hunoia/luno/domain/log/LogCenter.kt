@@ -2,6 +2,7 @@ package hunoia.luno.domain.log
 
 import android.content.Context
 import hunoia.luno.bridge.system.FileOutput
+import hunoia.luno.core.IncidentLog
 import hunoia.luno.core.LogLevel
 import hunoia.luno.core.LunoLog
 import java.io.BufferedOutputStream
@@ -13,6 +14,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import hunoia.luno.facade.IncidentStats
 import hunoia.luno.facade.LogFacade
 import hunoia.luno.facade.LogFileInfo
 import hunoia.luno.facade.LogStats
@@ -44,6 +46,23 @@ object LogCenter : LogFacade {
 
     override fun clear() = LunoLog.clear()
 
+    override fun incidentStats(): IncidentStats {
+        val summary = IncidentLog.summary()
+        return IncidentStats(
+            notifyEnabled = IncidentLog.isNotifyEnabled(),
+            count = summary.count,
+            lastTimeMs = summary.lastTimeMs,
+            sizeBytes = summary.sizeBytes,
+        )
+    }
+
+    override fun readIncidents(maxEntries: Int): String = IncidentLog.readTailText(maxEntries)
+
+    override fun clearIncidents() = IncidentLog.clear()
+
+    override fun setIncidentNotifyEnabled(enabled: Boolean) =
+        IncidentLog.setNotifyEnabled(enabled)
+
     override suspend fun exportAndShare(context: Context): Boolean {
         val zip = withContext(Dispatchers.IO) { buildExport(context) } ?: return false
         // startActivity 必须在主线程；zip 已经写完，这里只负责拉起选择器。
@@ -54,6 +73,7 @@ object LogCenter : LogFacade {
 
     private fun buildExport(context: Context): File? {
         LunoLog.flush()
+        IncidentLog.flush()
         val dir = File(context.cacheDir, EXPORT_DIR).apply { mkdirs() }
         cleanOldExports(dir)
         val zip = File(dir, "luno-logs-${LocalDateTime.now().format(exportFileName)}.zip")
@@ -61,6 +81,11 @@ object LogCenter : LogFacade {
             ZipOutputStream(BufferedOutputStream(FileOutputStream(zip))).use { out ->
                 LunoLog.files().forEach { file ->
                     out.putNextEntry(ZipEntry(file.name))
+                    file.inputStream().use { it.copyTo(out) }
+                    out.closeEntry()
+                }
+                IncidentLog.files().forEach { file ->
+                    out.putNextEntry(ZipEntry("incidents/${file.name}"))
                     file.inputStream().use { it.copyTo(out) }
                     out.closeEntry()
                 }

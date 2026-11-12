@@ -23,7 +23,9 @@ import hunoia.luno.link.LinkExtras
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.domain.habit.HabitReminderNotifier
+import hunoia.luno.domain.log.IncidentNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
+import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
+        handleIncidentIntent(intent)
 
         setContent {
             // 门面注入点（architecture §8.4）：页面与状态持有者只读 LocalFacades。
@@ -88,6 +91,7 @@ class MainActivity : ComponentActivity() {
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
+        handleIncidentIntent(intent)
     }
 
     /**
@@ -122,6 +126,13 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(TodoExtras.EXTRA_OPEN_TODO_LIST)
         intent.removeExtra(TodoExtras.EXTRA_TODO_ID)
         TodoListRequests.request(todoId)
+    }
+
+    /** 故障通知点击：导航到运行日志页并展开故障记录。 */
+    private fun handleIncidentIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(IncidentNotifier.EXTRA_OPEN_INCIDENTS, false) != true) return
+        intent.removeExtra(IncidentNotifier.EXTRA_OPEN_INCIDENTS)
+        PendingIncidentView.request()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

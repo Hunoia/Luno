@@ -453,6 +453,24 @@
     <string name="log_settings_preview_title">Recent logs</string>
     <string name="log_settings_preview_empty">No logs</string>
 
+    <!-- Incidents (crash / ANR / native crash / ERROR) -->
+    <string name="incident_group">Incidents</string>
+    <string name="incident_notification">Incident notifications</string>
+    <string name="incident_notification_hint">Notify on crashes, ANRs and errors</string>
+    <string name="incident_recent">Latest incident</string>
+    <string name="incident_none">No incidents yet</string>
+    <string name="incident_summary">%1$d entries · latest %2$s</string>
+    <string name="incident_clear">Clear incidents</string>
+    <string name="incident_clear_confirm">Delete all incident records? This cannot be undone.</string>
+    <string name="incident_cleared">Incident records cleared</string>
+    <string name="incident_sheet_title">Incidents</string>
+    <string name="incident_empty">No incidents yet</string>
+    <string name="incident_notification_channel">Runtime incidents</string>
+    <string name="incident_notification_channel_desc">Crash, ANR and error alerts</string>
+    <string name="incident_notification_title">Luno runtime incident</string>
+    <string name="incident_notification_text">%1$s: %2$s</string>
+    <string name="incident_notification_tap_hint">Tap to view incident records</string>
+
     <string name="habit_reminder_channel">Habit reminders</string>
     <string name="habit_reminder_title">Habit reminder</string>
     <string name="habit_reminder_done">+1</string>

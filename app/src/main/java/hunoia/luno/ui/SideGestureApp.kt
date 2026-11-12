@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
@@ -119,6 +120,7 @@ import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
+import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.home.HomeScreen
@@ -166,6 +168,17 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
         LaunchedEffect(pendingTodoList) {
             if (pendingTodoList == null) return@LaunchedEffect
             navController.navigate(TodoList) { launchSingleTop = true }
+        }
+        // 故障通知点击 → 运行日志页；日志页自己消费该请求并展开故障记录。
+        // 已经在日志页时不要重复导航：launchSingleTop 仍会重建页面，会把刚展开的
+        // 故障 sheet 连同局部状态一起丢掉。
+        val pendingIncident by PendingIncidentView.requested.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingIncident) {
+            if (!pendingIncident) return@LaunchedEffect
+            if (navController.currentDestination?.hasRoute(LogSettings::class) == true) {
+                return@LaunchedEffect
+            }
+            navController.navigate(LogSettings) { launchSingleTop = true }
         }
         CompositionLocalProvider(
             LocalNavController provides navController,
