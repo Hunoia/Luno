@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,7 @@ import hunoia.luno.gridpanel.geometry.IndicatorHeight
 import hunoia.luno.gridpanel.geometry.gapFor
 import hunoia.luno.gridpanel.geometry.gridPanelCardHeight
 import hunoia.luno.gridpanel.geometry.keepCardHeightFraction
+import hunoia.luno.gridpanel.geometry.loopAnchorIndex
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
@@ -123,6 +125,11 @@ fun GridPanelRoot(
     dockEntries: List<PanelDockEntry> = emptyList(),
     /** 点底栏 tab：由浮层换内容，不重开面板。 */
     onSwitchPanel: (String) -> Unit = {},
+    /**
+     * 编辑态：浮层持有（窗口级单一实例）。必须从外面传进来 —— 见下面 `editMode` 的说明，
+     * 组合内的状态会被残留手势闭包读到旧值。
+     */
+    editState: MutableState<Boolean>,
 ) {
     // 进出场用一张 Animatable 管进度（位移/缩放/alpha 在 Card 里派生）：语义可证伪，
     // 不依赖服务进程里 animate*AsState 的收敛。时长直接传 MotionPanel*：Compose 的
@@ -165,11 +172,16 @@ fun GridPanelRoot(
     LaunchedEffect(pageCount) {
         if (panel != null) lastKnownPageCount = pageCount
     }
-    var editMode by remember(panelId) { mutableStateOf(false) }
+    // 编辑态**由浮层持有**（窗口级单一实例），不在本组合里 remember：
+    // 实测切换面板后仍会残留上一块面板的手势闭包（旧协程先 consume 掉 down，新协程连
+    // down 都拿不到），若编辑态是组合内状态，旧闭包读到的就是切换前那一份 false ——
+    // 表现为「长按进不了编辑态」「编辑态点空白反而把面板关掉」。
+    // 状态对象只有一份时，无论哪份闭包抢到事件，读写的都是当前编辑态。
+    val editMode = editState.value
     // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
     // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
     // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
-    val loopBase = remember(panelId) { 1_000_000 - 1_000_000 % pageCount }
+    val loopBase = remember(panelId) { loopAnchorIndex(pageCount) }
     // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
     // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
     // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
@@ -204,6 +216,16 @@ fun GridPanelRoot(
             mappingPages = effectivePages
         }
     }
+    // 切换面板：pagerState 不随 panelId 重建，索引会沿用上一块面板的绝对页，
+    // 真实页 = index % pageCount 可能落在任意页（「切换后不在首页」）。
+    // 重置到本面板首页的高位锚点；首次打开时与 initialPage 相同，是 no-op。
+    LaunchedEffect(panelId) {
+        val anchor = loopAnchorIndex(pageCount)
+        if (pagerState.currentPage != anchor) {
+            Log.i(TAG, "panel switch -> page anchor $anchor (pageCount=$pageCount)")
+            pagerState.scrollToPage(anchor)
+        }
+    }
     // 就近等价索引：离当前位置最近的、真实页为 real 的 pager 索引，避免跨百万页滚动。
     fun nearestPageIndexOf(real: Int): Int {
         val cur = pagerState.settledPage
@@ -218,7 +240,7 @@ fun GridPanelRoot(
     // 上一页。新页未建时的代价是收缩帧闪一下空虚页，可接受。
     fun exitEditMode() {
         Log.i(TAG, "exitEditMode: cur=${pagerState.settledPage} mapping=$mappingPages pageCount=$pageCount")
-        editMode = false
+        editState.value = false
     }
 
     if (panel == null) {
@@ -675,7 +697,8 @@ fun GridPanelRoot(
         }
     }
 
-    var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
+    // 同样与组合同寿：旧闭包写入也不该丢（它只决定退出编辑后多短窗口内忽略点按）。
+    var suppressItemTapUntil by remember { mutableStateOf(0L) }
 
     // 拖拽幽灵提供在更外层（见 GridPanelOverlay）：拖拽时这里只负责把卡片本体淡出，
     // 让下面的应用露出来；窗口不摘，手势才接得上。
@@ -686,30 +709,47 @@ fun GridPanelRoot(
     // detectTapGestures 见 consumed 即取消 —— 消费链天然就是判定域。
     // 底栏是唯一例外：它是卡的兄弟、不在卡内，必须显式按矩形排除，否则点胶囊等于点空白。
     val dockBounds = remember { mutableStateOf<Rect?>(null) }
+    // 面板 id 也走 rememberUpdatedState：手势节点只装一次，日志要打当前面板而不是首帧那块。
+    val currentPanelId by rememberUpdatedState(panel.id)
+    // 点按 / 长按的动作必须在**每次重组**时刷新：手势节点只装一次，动作走这里取当前值。
+    // 注意：分支判断必须**现读** `editState.value`，不能用组合期的 `editMode` 快照。
+    // 手势闭包可能来自更早的组合（切换面板后旧节点仍在跑），它的 `editMode` 快照是旧的
+    // false —— 表现就是「编辑态点空白，日志显示 edit=true，却仍走关面板分支」。
+    fun handlePanelTap(offset: Offset) {
+        if (dockBounds.value?.contains(offset) == true) return
+        // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
+        if (closing) return
+        if (editState.value) {
+            exitEditMode()
+            suppressItemTapUntil = SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
+        } else {
+            onClose()
+        }
+    }
+
+    fun handlePanelLongPress(offset: Offset) {
+        if (dockBounds.value?.contains(offset) == true) return
+        if (closing || editState.value) return
+        view.hapticLongPress()
+        editState.value = true
+        Log.i(TAG, "enter edit mode panel=$currentPanelId at ($offset)")
+    }
+
+    val currentTap by rememberUpdatedState(::handlePanelTap)
+    val currentLongPress by rememberUpdatedState(::handlePanelLongPress)
     Box(
         Modifier
             .fillMaxSize()
-            .pointerInput(editMode) {
+            // key 恒为 Unit：**手势节点一次装好就不再重启**。
+            // - 带 editMode：进编辑态时手指还按着，重启后长按的抬手落到新协程，实测
+            //   「刚进编辑态又立刻退出」。
+            // - 带 panelId：切换面板时重启，但实测旧协程不会被回收，它先 consume 掉 down，
+            //   新协程连 down 都拿不到；旧闭包写的是上一块面板的状态 →「切面板后长按没反应」。
+            // 因此这里只装一次，动作与面板 id 都走 rememberUpdatedState 取当前值。
+            .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { offset ->
-                        if (dockBounds.value?.contains(offset) == true) return@detectTapGestures
-                        // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
-                        if (closing) return@detectTapGestures
-                        if (editMode) {
-                            exitEditMode()
-                            suppressItemTapUntil =
-                                SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
-                        } else {
-                            onClose()
-                        }
-                    },
-                    onLongPress = { offset ->
-                        if (dockBounds.value?.contains(offset) == true) return@detectTapGestures
-                        if (!editMode && !closing) {
-                            view.hapticLongPress()
-                            editMode = true
-                        }
-                    },
+                    onTap = { offset -> currentTap(offset) },
+                    onLongPress = { offset -> currentLongPress(offset) },
                 )
             },
     ) {
@@ -849,6 +889,7 @@ fun GridPanelRoot(
                 },
                 session = frozenDock,
                 anchor = dockAnchor,
+                cornerPx = cornerPx,
                 onBounds = { dockBounds.value = it },
             )
         }

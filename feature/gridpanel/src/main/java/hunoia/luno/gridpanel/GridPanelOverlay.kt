@@ -63,6 +63,15 @@ object GridPanelOverlay : OverlayPanelHost(
 
     // 组合消费的状态：重复 show 原位换面板/锚点。
     private var panelIdState by mutableStateOf("")
+
+    /**
+     * 编辑态：**窗口级单一实例**，随面板会话存在。
+     *
+     * 放在这里而不是 `GridPanelRoot` 的 remember 里：切换面板后可能残留旧的手势闭包，
+     * 组合内状态会被旧闭包读到切换前的那一份（长按进不了编辑；编辑态点空白反而关面板）。
+     * 单一实例保证任何一份闭包读写的都是当前编辑态。切换面板 / 重开 / 关闭都显式复位。
+     */
+    private val editModeState = mutableStateOf(false)
     private var anchorXState by mutableIntStateOf(0)
     private var anchorYState by mutableIntStateOf(0)
 
@@ -165,6 +174,7 @@ object GridPanelOverlay : OverlayPanelHost(
         if (!shownEventPosted) {
             foregroundHint = hunoia.luno.gesture.GestureCommand.snapshotForegroundApp?.invoke()
         }
+        if (!shownEventPosted) setEditMode(false, "show-new")
         panelIdState = panelId
         anchorXState = anchorX
         anchorYState = anchorY
@@ -250,6 +260,7 @@ object GridPanelOverlay : OverlayPanelHost(
         }
         PanelAppWidgetHostView.clearTapCandidate()
         PanelAppWidgetHostView.setLaunchCloseListener(null)
+        setEditMode(false, "close")
         postDismissed()
         removeAndTeardown()
     }
@@ -265,6 +276,13 @@ object GridPanelOverlay : OverlayPanelHost(
     override fun teardownExtra() {
         Events.unsubscribe(ActionSelectClosedEvent::class, closedSubscriber)
         backHandler = null
+        setEditMode(false, "teardown")
+    }
+
+    /** 编辑态复位单口：记一条 d 级日志，方便以后查「编辑态自己消失了」。 */
+    private fun setEditMode(value: Boolean, reason: String) {
+        Log.d(TAG, "editState <- $value ($reason) panel=$panelIdState")
+        editModeState.value = value
     }
 
     private fun restoreVisibility() {
@@ -392,7 +410,12 @@ object GridPanelOverlay : OverlayPanelHost(
                     dockEntries = dockEntries,
                     // 只换内容：不走 show()——不重挂窗、不重算前台快照、
                     // 不重过锁屏/悬浮窗权限检查、不重发 Shown/Dismissed（面板计数不动）。
-                    onSwitchPanel = { id -> panelIdState = id },
+                    onSwitchPanel = { id ->
+                        // 换面板 = 退出编辑态（同步复位，不等重组）。
+                        setEditMode(false, "switch:$id")
+                        panelIdState = id
+                    },
+                    editState = editModeState,
                     )
                     GridPanelDragGhostLayer(dragGhost)
                 }

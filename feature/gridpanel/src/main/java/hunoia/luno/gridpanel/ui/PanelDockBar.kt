@@ -1,7 +1,6 @@
 package hunoia.luno.gridpanel.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -131,6 +130,8 @@ fun PanelDockLayer(
     onSelect: (String) -> Unit,
     session: PanelDockSession,
     anchor: PanelDockAnchor,
+    /** 当前面板卡的圆角（px）：底栏与卡同源，切换面板后跟着当前卡走，不做冻结。 */
+    cornerPx: Float,
     onBounds: (Rect) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -139,9 +140,10 @@ fun PanelDockLayer(
     val placement = session.placement
     val widthDp = with(density) { placement.widthPx.toDp() }
     val tabWidthDp = with(density) { placement.tabWidthPx.toDp() }
-    // 与内置部件同一种块：圆角走角色 token，不就地构造形状（§2.1.1）。
-    val shape = remember { containerShape(ItemCorner) }
-    val cornerPx = with(density) { ItemCorner.toPx() }
+    // 底栏容器与面板卡同源：同一个 px 圆角，不另选档位（§2.1.1）。
+    val shape = remember(cornerPx, density) {
+        containerShape(with(density) { cornerPx.toDp() })
+    }
     val listState = rememberLazyListState()
     val scrollable = placement.needsScroll
 
@@ -185,12 +187,7 @@ fun PanelDockLayer(
             modifier = Modifier
                 .matchParentSize()
                 .clip(shape)
-                .background(gridPanelCardColor.copy(alpha = session.cardAlpha))
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-                    shape,
-                ),
+                .background(gridPanelCardColor.copy(alpha = session.cardAlpha)),
             // 入口少时整条居中聚拢；多到放不下时 LazyRow 自己滚动。
             contentAlignment = Alignment.Center,
         ) {
