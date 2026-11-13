@@ -12,6 +12,10 @@
     <string name="screen_pick_image_copied">Image copied</string>
     <string name="screen_pick_image_saved">Image saved to gallery</string>
     <string name="screen_pick_no_content">No copyable content detected</string>
+    <string name="screen_pick_qr">QR code</string>
+    <string name="screen_pick_qr_label">QR code</string>
+    <string name="screen_pick_barcode_label">Barcode</string>
+    <string name="screen_pick_qr_not_found">No QR code or barcode detected</string>
     <string name="screen_pick_save_image">Save image</string>
     <string name="screen_pick_share_image">Share</string>
     <string name="screen_pick_extract_text">OCR recognize</string>

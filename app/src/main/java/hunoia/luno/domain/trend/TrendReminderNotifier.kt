@@ -1,5 +1,6 @@
 package hunoia.luno.domain.trend
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -24,6 +25,12 @@ object TrendReminderNotifier {
 
     private const val CHANNEL_ID = TREND_REMINDER_CHANNEL_ID
 
+    /**
+     * 通知权限在 Android 13+ 为运行时权限；`notify` 可能抛 [SecurityException]，
+     * 下方 runCatching 已显式兜底（返回 false 不崩溃），lint 的 MissingPermission
+     * 不识别 Kotlin runCatching 的异常处理，故显式抑制。
+     */
+    @SuppressLint("MissingPermission")
     fun show(context: Context, metric: TrendMetric): Boolean {
         val app = context.applicationContext
         createChannel(app)

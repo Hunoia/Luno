@@ -141,6 +141,8 @@
     <string name="screen_pick_diag_note">Static chain is OK; streaming runs in the accessibility service process, restart the service after changing switches</string>
     <string name="screen_pick_save_to_gallery">Save recognition images to gallery</string>
     <string name="screen_pick_save_to_gallery_hint">Off: share writes cache only; copy still writes to gallery for paste compatibility</string>
+    <string name="screen_pick_enable_qr">Recognize QR code</string>
+    <string name="screen_pick_enable_qr_hint">Long-press auto-detect + QR button in selection action bar</string>
     <string name="notification_blocklist">Notification blocklist</string>
     <string name="action_panel_items_count">%1$d items</string>
     <string name="action_panel_count">%1$d panels</string>

@@ -14,13 +14,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -55,7 +57,7 @@ import hunoia.luno.ui.theme.containerShape
  */
 enum class PortalAction { Copy, Search, Share, Save, OpenLink, Ocr }
 
-/** 一次长按识别出的内容：文字节点或图片节点（两者都为空 = 识别中 / 无可取内容）。 */
+/** 一次长按识别出的内容：文字节点、图片节点或二维码（三者都为空 = 识别中 / 无可取内容）。 */
 internal data class PortalContent(
     val text: String? = null,
     val imageSize: Pair<Int, Int>? = null,
@@ -65,13 +67,27 @@ internal data class PortalContent(
     val preview: ImageBitmap? = null,
     /** 命中的 a11y 节点 bounds（屏幕坐标）：OCR 兜底/按需识别的区域。 */
     val nodeBounds: android.graphics.Rect? = null,
+    /** 条码识别结果：二维码/条形码的原始内容；非空时卡片按条码样式展示。 */
+    val qrText: String? = null,
+    /** 命中一维条形码（否则二维码）。 */
+    val qrIsBarcode: Boolean = false,
 ) {
-    val isImage: Boolean get() = text.isNullOrBlank() && imageSize != null
-    val isEmpty: Boolean get() = text.isNullOrBlank() && imageSize == null
+    val isQr: Boolean get() = qrText != null
+    val isImage: Boolean get() = text.isNullOrBlank() && imageSize != null && qrText == null
+    val isEmpty: Boolean get() = text.isNullOrBlank() && imageSize == null && qrText == null
 }
 
 /** 动作集：文字 复制/搜索/分享（含链接时多一个打开）；图片 复制/分享/保存；两者共存时并集。 */
 internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
+    // 条码卡：复制/搜索/分享 + 打开链接（内容为 URL 时）。不含保存/OCR。
+    if (content.isQr) {
+        return buildList {
+            add(PortalAction.Copy)
+            add(PortalAction.Search)
+            add(PortalAction.Share)
+            if (!content.url.isNullOrBlank()) add(PortalAction.OpenLink)
+        }
+    }
     val hasText = !content.text.isNullOrBlank()
     val hasImage = content.imageSize != null
     if (!hasText && !hasImage) return emptyList()
@@ -234,6 +250,7 @@ internal fun PortalLayer(
                     color = cardContent.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.labelMedium,
                 )
+                content.isQr -> QrCardContent(content, cardContent)
                 content.isImage -> if (content.preview != null) {
                     Image(
                         bitmap = content.preview,
@@ -324,6 +341,39 @@ private fun PortalCardActionIcon(
                 modifier = Modifier.size(20.dp),
             )
         }
+    }
+}
+
+/** 条码卡内容：顶部「二维码/条形码」标识 + 解码文本（最多 4 行省略）。 */
+@Composable
+private fun QrCardContent(content: PortalContent, cardContent: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.QrCode,
+                contentDescription = null,
+                tint = cardContent.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = stringResource(
+                    if (content.qrIsBarcode) R.string.screen_pick_barcode_label
+                    else R.string.screen_pick_qr_label,
+                ),
+                color = cardContent.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        Text(
+            text = content.qrText.orEmpty(),
+            color = cardContent,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

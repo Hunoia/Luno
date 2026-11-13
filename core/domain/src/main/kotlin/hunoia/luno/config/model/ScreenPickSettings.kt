@@ -18,4 +18,9 @@ data class ScreenPickSettings(
     // 中文模型同时覆盖拉丁字母与数字（中英混排），默认只跑它：多跑一份就多一份耗时，
     // 而日文映射到同一个 zh 模型（纯重复）、韩文模型对中文只会产出垃圾块再被去重丢掉。
     val ocrScripts: List<OcrScript> = listOf(OcrScript.Chinese),
+    /**
+     * 识别屏幕区域内的二维码/条形码：长按自动检测 + 框选动作条「二维码」按钮。
+     * 关闭后两者都不跑，屏幕识别只保留 OCR/文字路径。
+     */
+    val enableQrRecognition: Boolean = true,
 )

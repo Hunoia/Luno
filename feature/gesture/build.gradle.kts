@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":feature:actions"))
     implementation(project(":feature:link"))
     implementation(project(":capability:ocr"))
+    implementation(project(":capability:qr"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

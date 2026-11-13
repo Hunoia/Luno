@@ -18,6 +18,7 @@ shizuku = "13.1.5"
 hiddenapibypass = "6.1"
 litert = "2.3.2"
 orgJson = "20240303"
+zxing = "3.5.3"
 coil = "3.6.3"
 navigationCompose = "2.10.2"
 activityCompose = "1.13.0"
@@ -91,6 +92,9 @@ litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version
 
 # JVM 单测里需要真实 org.json（Android 的实现是空炮）。
 org-json = { module = "org.json:json", version.ref = "orgJson" }
+
+# 二维码/条形码识别（纯本地，无 GMS）。
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 # build-logic 的 convention plugin 需要 AGP 本体（不只是 plugin marker）
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }

@@ -105,7 +105,20 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                         TuneConfig.updateAdvanced { it.copy(screenPickSaveToGallery = checked) }
                     }
                 },
-                shape = segmentedShape(0, 1),
+                shape = segmentedShape(0, 2),
+            )
+            LunoSwitchRow(
+                title = stringResource(R.string.screen_pick_enable_qr),
+                subtitle = stringResource(R.string.screen_pick_enable_qr_hint),
+                checked = initialSettings.screenPick.enableQrRecognition,
+                onCheckedChange = { checked ->
+                    scope.launch {
+                        GestureConfig.updateInitial {
+                            it.copy(screenPick = it.screenPick.copy(enableQrRecognition = checked))
+                        }
+                    }
+                },
+                shape = segmentedShape(1, 2),
             )
         }
         // ===== 识屏诊断 =====

@@ -143,6 +143,7 @@ dependencies {
     implementation(project(":capability:launch"))
     implementation(project(":capability:notify"))
     implementation(project(":capability:ocr"))
+    implementation(project(":capability:qr"))
     implementation(project(":feature:search"))
     implementation(project(":feature:quickaccess"))
     implementation(project(":feature:picker"))

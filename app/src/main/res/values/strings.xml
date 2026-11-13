@@ -151,6 +151,8 @@
     <string name="screen_pick_diag_note">静态链路正常；流式监听在无障碍服务进程，改过开关后重启无障碍服务再试</string>
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
     <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制仍需写相册</string>
+    <string name="screen_pick_enable_qr">识别二维码</string>
+    <string name="screen_pick_enable_qr_hint">长按自动检测 + 框选动作条「二维码」按钮</string>
     <string name="notification_blocklist">通知黑名单</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
