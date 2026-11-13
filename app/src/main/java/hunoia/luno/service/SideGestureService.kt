@@ -74,9 +74,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     private val ocrEngine: hunoia.luno.capability.ocr.PpOcrEngine =
         hunoia.luno.domain.ocr.OcrEngineHolder.get(this)
 
+    /** 条码识别引擎：与 OCR 同源注入 ScreenPickOverlay，进程内单例。 */
+    private val qrEngine: hunoia.luno.capability.qr.ZxingQrEngine =
+        hunoia.luno.domain.qr.QrEngineHolder.get()
+
     private val screenPickOverlay = ScreenPickOverlay(
         this,
         ocrEngine = ocrEngine,
+        qrEngine = qrEngine,
         onSearch = { query ->
             hunoia.luno.quickaccess.QuickSearchActivity.start(this, query)
         },

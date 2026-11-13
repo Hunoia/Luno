@@ -22,11 +22,13 @@ import androidx.navigation.compose.rememberNavController
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
+import hunoia.luno.gridpanel.TrendExtras
 import hunoia.luno.domain.habit.HabitReminderNotifier
 import hunoia.luno.domain.log.IncidentNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingLinkRule
+import hunoia.luno.ui.navigation.PendingTrendRecord
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
+        handleTrendIntent(intent)
         handleIncidentIntent(intent)
 
         setContent {
@@ -91,6 +94,7 @@ class MainActivity : ComponentActivity() {
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
+        handleTrendIntent(intent)
         handleIncidentIntent(intent)
     }
 
@@ -126,6 +130,21 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(TodoExtras.EXTRA_OPEN_TODO_LIST)
         intent.removeExtra(TodoExtras.EXTRA_TODO_ID)
         TodoListRequests.request(todoId)
+    }
+
+    /**
+     * 趋势部件 / 提醒通知：`TrendExtras.EXTRA_OPEN_TREND` 标记存在即触发；
+     * `EXTRA_TREND_METRIC_ID` 存在 = 进该指标详情，`EXTRA_TREND_OPEN_RECORD` = 自动弹快速记录。
+     * 导航由 [SideGestureApp] 消费 [PendingTrendRecord] 完成；这里只负责收件。
+     */
+    private fun handleTrendIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(TrendExtras.EXTRA_OPEN_TREND, false) != true) return
+        val metricId = intent.getStringExtra(TrendExtras.EXTRA_TREND_METRIC_ID)
+        val openRecord = intent.getBooleanExtra(TrendExtras.EXTRA_TREND_OPEN_RECORD, false)
+        intent.removeExtra(TrendExtras.EXTRA_OPEN_TREND)
+        intent.removeExtra(TrendExtras.EXTRA_TREND_METRIC_ID)
+        intent.removeExtra(TrendExtras.EXTRA_TREND_OPEN_RECORD)
+        PendingTrendRecord.request(metricId, openRecord)
     }
 
     /** 故障通知点击：导航到运行日志页并展开故障记录。 */

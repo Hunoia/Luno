@@ -84,11 +84,6 @@ data class SinglePanelEdit(
     val widgetId: String,
 )
 
-/** 习惯管理列表（主设置 → 习惯）。 */
-@Keep
-@Serializable
-data object HabitList
-
 /** 习惯编辑；habitId 空 = 新增。 */
 @Keep
 @Serializable
@@ -96,10 +91,20 @@ data class HabitEdit(
     val habitId: String = "",
 )
 
-/** 代办管理列表（主设置 → 代办）。 */
+/** 趋势详情；[openRecord] = 进页即弹快速记录（部件主体 / 提醒通知）。 */
 @Keep
 @Serializable
-data object TodoList
+data class TrendDetail(
+    val metricId: String = "",
+    val openRecord: Boolean = false,
+)
+
+/** 趋势指标编辑；metricId 空 = 新增。 */
+@Keep
+@Serializable
+data class TrendEdit(
+    val metricId: String = "",
+)
 
 @Keep
 @Serializable

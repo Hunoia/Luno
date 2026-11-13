@@ -14,7 +14,13 @@ internal data class GestureButtonWindowTarget(
 )
 
 interface GestureOverlayCallbacks {
-    fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int)
+    /**
+     * 子手势模式切换。进入时给识别初始点 [center] 与整个子手势 [subGesture]
+     * （其 [hunoia.luno.config.model.SubGesture.angle] 边界 / 主题色 / 短长滑范围供
+     * overlay 以初始点为圆心绘制角度示意）；退出时 [inSubGesture] 为 false、
+     * [subGesture] 为 null。
+     */
+    fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, subGesture: hunoia.luno.config.model.SubGesture?)
     fun onActionPanelOverlayChanged(show: Boolean)
 
     /** 请求挂上全屏音量触摸窗：滑动（非停留）手势触发，把调节区扩到全屏，触发的那次拖动结束后任意位置再拖仍能调节。 */

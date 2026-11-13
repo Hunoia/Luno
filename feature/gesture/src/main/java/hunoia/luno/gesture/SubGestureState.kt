@@ -50,7 +50,12 @@ enum class SubGestureEntry {
 class SubGestureState(
     private val scope: CoroutineScope,
     private val subGestureSettings: SubGestureSettings,
-    private val onModeChanged: (Boolean, Offset, Int) -> Unit,
+    /**
+     * 子手势模式切换通知：`(进入, 初始点, 子手势)`。
+     * [subGesture] 为 null = 退出模式；进入时给整个子手势，overlay 据此以初始点为
+     * 圆心画扇区边界线 + 短/长滑范围圆（[SubGesture.showAngleGuide] 关闭时不画）。
+     */
+    private val onModeChanged: (Boolean, Offset, SubGesture?) -> Unit,
     /** 单调时间源；默认 `SystemClock.uptimeMillis`，单测注入假时钟以验证按住类触发。 */
     private val nowMs: () -> Long = SystemClock::uptimeMillis,
 ) {
@@ -103,7 +108,7 @@ class SubGestureState(
         subGestureDepth += 1
         scheduleTimeout()
         if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()
-        onModeChanged(true, origin, target.captureRadius)
+        onModeChanged(true, origin, target)
         return SubGestureEntry.Entered
     }
 
@@ -209,7 +214,7 @@ class SubGestureState(
         subGestureDepth = 0
         timeoutJob?.cancel()
         timeoutJob = null
-        if (notifyService) onModeChanged(false, Offset.Unspecified, 0)
+        if (notifyService) onModeChanged(false, Offset.Unspecified, null)
     }
 
     private fun scheduleTimeout() {
@@ -250,7 +255,7 @@ class SubGestureState(
         longSlideHoldFirstTriggerMs = null
         subGesture.tryVibrateFor(triggerType)
         directTriggered = false
-        onModeChanged(false, Offset.Unspecified, 0)
+        onModeChanged(false, Offset.Unspecified, null)
         return SubGestureResolvedActions(
         subGesture,
         direction,

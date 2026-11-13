@@ -84,6 +84,27 @@ object BackupDomainRegistry {
         return handlers.values.all { it.isEmpty(backup) }
     }
 
+    /**
+     * 恢复后逐域比对，返回内容不一致的域。
+     *
+     * 只比备份里**实际携带**的域：旧备份不含后来新增的域（例如趋势之前的备份没有
+     * `TREND`），restore 的语义是「保留本机现有数据」而非清空；拿空投影去比对会把
+     * 合法恢复误判成失败。
+     */
+    fun mismatchedAfterRestore(backup: Backup, restored: Backup): List<BackupDomain> {
+        ensureBuiltins()
+        return handlers.values.mapNotNull { spec ->
+            val expected = spec.snapshot(backup)
+            if (spec.isEmpty(expected)) return@mapNotNull null
+            val actual = spec.snapshot(restored)
+            // 版本号只是备份文件元信息，恢复不写回配置；旧格式备份恢复后版本必然不同，
+            // 不能把它当内容不一致。
+            spec.domain.takeIf {
+                expected.withoutVersionMetadata() != actual.withoutVersionMetadata()
+            }
+        }
+    }
+
     val registeredDomains: Set<BackupDomain>
         get() {
             ensureBuiltins()
@@ -104,7 +125,23 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.ANNOTATE -> annotateSchemaVersion
     BackupDomain.CLIPBOARD -> clipboardSchemaVersion
     BackupDomain.APP_CONTROL -> appControlSchemaVersion
+    BackupDomain.TREND -> trendSchemaVersion
 }
+
+/** 去掉版本元信息，只留各域内容；用于恢复后的内容比对。 */
+private fun Backup.withoutVersionMetadata(): Backup = copy(
+    backupFormatVersion = 0,
+    gestureSchemaVersion = 0,
+    tuneSchemaVersion = 0,
+    actionSchemaVersion = 0,
+    searchSchemaVersion = 0,
+    habitSchemaVersion = 0,
+    todoSchemaVersion = 0,
+    annotateSchemaVersion = 0,
+    clipboardSchemaVersion = 0,
+    appControlSchemaVersion = 0,
+    trendSchemaVersion = 0,
+)
 
 /** 内置备份域：按语义分组的全部可备份配置。 */
 internal object BuiltinBackupDomains {
@@ -239,6 +276,19 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.appControlSettings?.isEmpty() != false },
+        )
+        register(
+            domain = BackupDomain.TREND,
+            schemaVersion = BackupVersions.TREND,
+            snapshot = { full ->
+                Backup(
+                    backupFormatVersion = full.backupFormatVersion,
+                    trendSchemaVersion = full.trendSchemaVersion,
+                    trendConfig = full.trendConfig,
+                )
+            },
+            isEmpty = { it.trendConfig == null },
+            maxExportBytes = 32L * 1024 * 1024,
         )
     }
 

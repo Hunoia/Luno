@@ -27,6 +27,27 @@ data class FloatBallPosition(
 
 @Serializable
 @Keep
+data class CapsuleBallPosition(
+    /** 竖屏落点；null = 尚未写过，按默认值/旧剪贴板球坐标推导。 */
+    val portrait: FloatBallPosition? = null,
+    /** 横屏落点；null = 尚未写过。 */
+    val landscape: FloatBallPosition? = null,
+) {
+    fun position(landscape: Boolean): FloatBallPosition? =
+        if (landscape) this.landscape else portrait
+
+    /** 只改当前朝向那份落点；未写过时用 [base] 起手。 */
+    fun withPosition(
+        landscape: Boolean,
+        base: FloatBallPosition,
+        transform: (FloatBallPosition) -> FloatBallPosition,
+    ): CapsuleBallPosition =
+        if (landscape) copy(landscape = transform(this.landscape ?: base))
+        else copy(portrait = transform(this.portrait ?: base))
+}
+
+@Serializable
+@Keep
 data class FloatBallSettings(
     val enabled: Boolean = FloatBallDefaults.Enabled,
     val sizeDp: Float = FloatBallDefaults.SizeDp,
@@ -45,11 +66,15 @@ data class FloatBallSettings(
     val portrait: FloatBallPosition = FloatBallPosition(),
     /** 横屏落点。 */
     val landscape: FloatBallPosition = FloatBallPosition(),
-    /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时底部弹出、自动收起。 */
+    /** 通知球位置（独立球，点按展开自己的胶囊）。 */
+    val notificationBallPosition: CapsuleBallPosition = CapsuleBallPosition(),
+    /** 建议球位置（验证码 / 链接）。 */
+    val suggestionBallPosition: CapsuleBallPosition = CapsuleBallPosition(),
+    /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时从通知球向左展开。 */
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
-    /** 剪贴板球（独立开关，宿主同为 FloatBallService）：复制文本后弹出、点击分享、自动收起。 */
+    /** 建议胶囊（独立开关）：验证码/链接从建议球展开；沿用旧 clipboardBall 作为总开关。 */
     val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
-    /** 统一收件箱：通知与剪贴板共用队列、TTL 与容量。 */
+    /** 两条队列的 TTL 与容量。 */
     val inbox: BallInboxSettings = BallInboxSettings(),
 ) {
     fun position(landscape: Boolean): FloatBallPosition =
@@ -57,6 +82,22 @@ data class FloatBallSettings(
 
     val colorSpec: ColorSpec
         get() = ColorSpec(colorSource, colorThemeKey, color)
+
+    /** 通知球落点：没写过用右缘 y=0.30。 */
+    fun notificationBall(landscape: Boolean): FloatBallPosition =
+        notificationBallPosition.position(landscape)
+            ?: FloatBallPosition(x = FloatBallDefaults.X, y = FloatBallDefaults.NotificationBallY)
+
+    /**
+     * 建议球落点：新字段没写过时从旧 `clipboardBall.x/y` 推导，
+     * 旧值也为空才用右缘 y=0.54。
+     */
+    fun suggestionBall(landscape: Boolean): FloatBallPosition =
+        suggestionBallPosition.position(landscape)
+            ?: FloatBallPosition(
+                x = clipboardBall.x ?: FloatBallDefaults.X,
+                y = clipboardBall.y ?: FloatBallDefaults.SuggestionBallY,
+            )
 }
 
 /** 只改当前朝向那份落点。 */
@@ -68,7 +109,7 @@ fun FloatBallSettings.withPosition(
     else copy(portrait = transform(portrait))
 
 /**
- * 通知胶囊配置：通知到达时在屏幕底部居中弹出「图标 + 标题 + 正文」胶囊，
+ * 通知胶囊配置：普通通知到达时从通知球向左展开「图标 + 标题 + 正文」，
  * 点击直达（通知 contentIntent 优先，失败回退启动应用），[autoHideMs] 后自动收起。
  */
 @Serializable
@@ -86,8 +127,7 @@ data class NotificationCapsuleSettings(
 )
 
 /**
- * 剪贴板球配置：剪贴板文本/图片变化时在贴边记忆位弹出胶囊，点击弹系统分享，
- * 长按钉住/取消钉住，尾部图标展开/收起全文，[autoHideMs] 后自动收起（钉住/展开时暂停）。
+ * 建议胶囊配置：验证码/链接变化时从建议球展开，[autoHideMs] 后自动收起。
  * 后台读剪贴板依赖 Shizuku 以 shell 身份读取（新 ROM 不向后台应用投递剪贴板回调，
  * 无障碍也不豁免），读不到内容就不弹。
  */
@@ -97,26 +137,31 @@ data class ClipboardBallSettings(
     val enabled: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
-    /** 记忆位置：x 只记侧别（0 = 左缘 / 1 = 右缘，null = 首弹右侧），y 为归一化纵向落点（按屏高夹在屏内）。 */
+    /**
+     * 旧版剪贴板球位置：只作为迁移来源，不再继续写。
+     * 新位置见 [FloatBallSettings.suggestionBallPosition]。
+     */
     val x: Float? = null,
     val y: Float? = null,
-    /** 是否响应图片剪贴板（关闭后只处理纯文本）。 */
-    val respondToImages: Boolean = true,
 )
 
 /**
- * 统一收件箱配置：通知与剪贴板共用容量，按来源分别计时。
+ * 两条队列配置：通知与建议各自计时，容量可分别覆盖共享默认值。
  * 钉住项不参与 TTL；容量包含钉住项。
  */
 @Serializable
 @Keep
 data class BallInboxSettings(
-    /** 通知在收件箱中的保留时长（ms）。 */
+    /** 通知在通知胶囊中的保留时长（ms）。 */
     val notificationTtlMs: Long = FloatBallDefaults.InboxNotificationTtlMs,
-    /** 剪贴板在收件箱中的保留时长（ms）。 */
-    val clipboardTtlMs: Long = FloatBallDefaults.InboxClipboardTtlMs,
-    /** 收件箱总容量（含钉住项）。 */
+    /** 链接建议的保留时长（ms）；验证码固定 5 分钟，不受此项影响。 */
+    val clipboardTtlMs: Long = FloatBallDefaults.InboxSuggestionTtlMs,
+    /** 共享容量默认值。 */
     val capacity: Int = FloatBallDefaults.InboxCapacity,
+    /** 通知队列容量覆盖；null = 用 [capacity]。 */
+    val notificationCapacity: Int? = null,
+    /** 建议队列容量覆盖；null = 用 [capacity]。 */
+    val suggestionCapacity: Int? = null,
 )
 
 object FloatBallDefaults {
@@ -177,9 +222,16 @@ object FloatBallDefaults {
     const val InboxNotificationTtlMs = 120_000L
     const val InboxNotificationTtlMsMin = 30_000L
     const val InboxNotificationTtlMsMax = 600_000L
-    const val InboxClipboardTtlMs = 300_000L
-    const val InboxClipboardTtlMsMin = 60_000L
-    const val InboxClipboardTtlMsMax = 1_800_000L
+    const val InboxSuggestionTtlMs = 300_000L
+    const val InboxSuggestionTtlMsMin = 60_000L
+    const val InboxSuggestionTtlMsMax = 1_800_000L
+
+    /** 验证码固定保存 5 分钟：不提供设置项。 */
+    const val CodeTtlMs = 300_000L
+
+    /** 三球默认落点：右缘纵向错开。 */
+    const val NotificationBallY = 0.30f
+    const val SuggestionBallY = 0.54f
 
     /** 统一收件箱容量默认值与滑杆上下限。 */
     const val InboxCapacity = 10

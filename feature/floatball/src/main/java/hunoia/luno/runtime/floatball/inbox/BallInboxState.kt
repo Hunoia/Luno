@@ -1,24 +1,31 @@
 package hunoia.luno.runtime.floatball.inbox
 
 /**
- * 收件箱策略。TTL 与容量先保持纯配置，Stage 3 再映射到可序列化的设置模型。
+ * 收件箱策略。通知与建议各有一条队列，容量/TTL 分别配置。
+ *
+ * TTL 判断优先用条目自己的 [BallItem.ttlMs]（验证码固定 5 分钟），
+ * 条目没写死时回落到来源默认值（通知 / 链接）。
  */
 internal data class BallInboxConfig(
     val notificationTtlMs: Long = 120_000L,
-    val clipboardTtlMs: Long = 300_000L,
+    val suggestionTtlMs: Long = 300_000L,
     val maxItems: Int = 10,
 ) {
     init {
         require(notificationTtlMs > 0L) { "notificationTtlMs 必须大于 0" }
-        require(clipboardTtlMs > 0L) { "clipboardTtlMs 必须大于 0" }
+        require(suggestionTtlMs > 0L) { "suggestionTtlMs 必须大于 0" }
         require(maxItems > 0) { "maxItems 必须大于 0" }
     }
 
     fun ttlFor(source: BallSource): Long = when (source) {
         BallSource.NOTIFICATION -> notificationTtlMs
-        BallSource.CLIPBOARD -> clipboardTtlMs
+        BallSource.SUGGESTION -> suggestionTtlMs
     }
 }
+
+/** 条目实际生效的 TTL：固定值优先，否则跟随来源默认值。 */
+internal fun BallItem.effectiveTtlMs(config: BallInboxConfig): Long =
+    ttlMs ?: config.ttlFor(source)
 
 /**
  * 球上徽标的展示状态：数字只算未钉住项；只有钉住项时显示图钉。
@@ -85,7 +92,7 @@ internal data class BallInboxState(
     ): Long? {
         val next = items.asSequence()
             .filter { !it.pinned && it.id != keepId }
-            .map { it.receivedAtElapsedMs + config.ttlFor(it.source) }
+            .map { it.receivedAtElapsedMs + it.effectiveTtlMs(config) }
             .minOrNull()
             ?: return null
         return next.coerceAtLeast(nowMs)

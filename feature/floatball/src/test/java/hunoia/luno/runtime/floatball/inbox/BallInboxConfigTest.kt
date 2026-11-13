@@ -6,14 +6,14 @@ import org.junit.Test
 class BallInboxConfigTest {
 
     @Test
-    fun `defaults match the v1 design`() {
+    fun `defaults match the design`() {
         val config = BallInboxConfig()
 
         assertEquals(120_000L, config.notificationTtlMs)
-        assertEquals(300_000L, config.clipboardTtlMs)
+        assertEquals(300_000L, config.suggestionTtlMs)
         assertEquals(10, config.maxItems)
         assertEquals(120_000L, config.ttlFor(BallSource.NOTIFICATION))
-        assertEquals(300_000L, config.ttlFor(BallSource.CLIPBOARD))
+        assertEquals(300_000L, config.ttlFor(BallSource.SUGGESTION))
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -24,5 +24,21 @@ class BallInboxConfigTest {
     @Test(expected = IllegalArgumentException::class)
     fun `ttl must be positive`() {
         BallInboxConfig(notificationTtlMs = 0L)
+    }
+
+    @Test
+    fun `item ttl overrides the source default`() {
+        val config = BallInboxConfig(notificationTtlMs = 2_000L, suggestionTtlMs = 5_000L)
+        val code = SuggestionItem(
+            kind = SuggestionKind.CODE,
+            sourceKey = "k",
+            title = "验证码",
+            text = "1234",
+            receivedAtElapsedMs = 0L,
+            ttlMs = 300_000L,
+            code = "1234",
+        )
+
+        assertEquals(300_000L, code.effectiveTtlMs(config))
     }
 }

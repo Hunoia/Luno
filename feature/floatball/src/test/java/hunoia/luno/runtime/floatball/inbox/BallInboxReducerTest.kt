@@ -11,7 +11,7 @@ class BallInboxReducerTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        clipboardTtlMs = 5_000L,
+        suggestionTtlMs = 5_000L,
         maxItems = 3,
     )
 
@@ -41,10 +41,13 @@ class BallInboxReducerTest {
         receivedAtElapsedMs = at,
     )
 
-    private fun clip(text: String, at: Long = 0L) = ClipboardTextItem(
-        contentHash = "hash-$text",
-        text = text,
+    private fun clip(text: String, at: Long = 0L) = SuggestionItem(
+        kind = SuggestionKind.LINK,
+        sourceKey = "hash-$text",
+        title = "链接",
+        text = "https://example.com/$text",
         receivedAtElapsedMs = at,
+        urls = listOf("https://example.com/$text"),
     )
 
     private fun ids(state: BallInboxState): List<String> = state.items.map { it.id }
@@ -111,7 +114,7 @@ class BallInboxReducerTest {
     }
 
     @Test
-    fun `duplicate clipboard refreshes timestamp without duplicating`() {
+    fun `duplicate suggestion refreshes timestamp without duplicating`() {
         val first = clip("x", at = 100)
         val second = clip("x", at = 200)
 
@@ -129,17 +132,18 @@ class BallInboxReducerTest {
         val a = clip("a", at = 1)
         val b = clip("b", at = 2)
         val c = clip("c", at = 3)
+        val d = clip("d", at = 4)
 
         var state = BallInboxState()
         state = add(state, a, nowMs = 1).state
         state = add(state, b, nowMs = 2).state
         state = add(state, c, nowMs = 3).state
 
-        val change = add(state, clip("d", at = 4), nowMs = 4)
+        val change = add(state, d, nowMs = 4)
 
-        assertEquals(listOf("clip:hash-d", "clip:hash-c", "clip:hash-b"), ids(change.state))
+        assertEquals(listOf(d.id, c.id, b.id), ids(change.state))
         assertEquals(listOf(a.id), change.removed.map { it.id })
-        assertEquals("clip:hash-d", change.state.currentId)
+        assertEquals(d.id, change.state.currentId)
         assertEquals(3, change.state.items.size)
     }
 
@@ -148,6 +152,7 @@ class BallInboxReducerTest {
         val a = clip("a", at = 1)
         val b = clip("b", at = 2)
         val c = clip("c", at = 3)
+        val d = clip("d", at = 4)
 
         var state = BallInboxState()
         state = add(state, a, nowMs = 1).state
@@ -155,9 +160,9 @@ class BallInboxReducerTest {
         state = add(state, c, nowMs = 3).state
         state = reduce(state, BallInboxAction.Select(a.id), nowMs = 3).state
 
-        val change = add(state, clip("d", at = 4), nowMs = 4, makeCurrent = false)
+        val change = add(state, d, nowMs = 4, makeCurrent = false)
 
-        assertEquals(listOf("clip:hash-d", "clip:hash-c", "clip:hash-a"), ids(change.state))
+        assertEquals(listOf(d.id, c.id, a.id), ids(change.state))
         assertEquals(listOf(b.id), change.removed.map { it.id })
         assertEquals(a.id, change.state.currentId)
         assertFalse(change.currentChanged)
@@ -167,7 +172,7 @@ class BallInboxReducerTest {
     fun `capacity can evict the current item when switching to a new one`() {
         val tightConfig = BallInboxConfig(
             notificationTtlMs = 2_000L,
-            clipboardTtlMs = 5_000L,
+            suggestionTtlMs = 5_000L,
             maxItems = 1,
         )
         val a = clip("a", at = 1)
@@ -196,6 +201,7 @@ class BallInboxReducerTest {
         val a = clip("a", at = 1)
         val b = clip("b", at = 2)
         val c = clip("c", at = 3)
+        val d = clip("d", at = 4)
 
         var state = BallInboxState()
         state = add(state, a, nowMs = 1).state
@@ -206,10 +212,9 @@ class BallInboxReducerTest {
         state = reduce(state, BallInboxAction.SetPinned(c.id, true), nowMs = 3).state
         val before = state
 
-        val dropped = clip("d", at = 4)
-        val change = add(state, dropped, nowMs = 4)
+        val change = add(state, d, nowMs = 4)
 
-        assertEquals(dropped, change.dropped)
+        assertEquals(d, change.dropped)
         assertEquals(before.items, change.state.items)
         assertEquals(before.currentId, change.state.currentId)
         assertEquals(before.revision, change.state.revision)
@@ -217,7 +222,7 @@ class BallInboxReducerTest {
     }
 
     @Test
-    fun `pinning a clipboard item updates badge and keeps current`() {
+    fun `pinning a suggestion updates badge and keeps current`() {
         val item = clip("x", at = 1)
         val state = add(BallInboxState(), item, nowMs = 1).state
 

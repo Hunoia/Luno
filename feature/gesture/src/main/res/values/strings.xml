@@ -12,6 +12,10 @@
     <string name="screen_pick_image_copied">图片已复制</string>
     <string name="screen_pick_image_saved">图片已保存到相册</string>
     <string name="screen_pick_no_content">未识别到可复制的内容</string>
+    <string name="screen_pick_qr">二维码</string>
+    <string name="screen_pick_qr_label">二维码</string>
+    <string name="screen_pick_barcode_label">条形码</string>
+    <string name="screen_pick_qr_not_found">未识别到二维码或条形码</string>
     <string name="screen_pick_save_image">保存图片</string>
     <string name="screen_pick_share_image">分享</string>
     <string name="screen_pick_extract_text">OCR 识别</string>
@@ -58,7 +62,7 @@
     <string name="button_visibility_summary_show">显示</string>
     <string name="button_visibility_target">作用元素</string>
     <string name="button_visibility_target_all">全部元素</string>
-    <string name="button_visibility_target_clipboard_ball">剪贴板气泡</string>
+    <string name="button_visibility_target_clipboard_ball">建议胶囊</string>
     <string name="button_visibility_target_zones">识别区</string>
     <string name="gesture_global_zone">识别区</string>
     <string name="gesture_global_zone_full">全屏</string>
@@ -129,6 +133,7 @@
     <string name="slide_hold_action">短滑停留</string>
     <string name="sub_gesture">子手势</string>
     <string name="sub_gesture_angles">子手势角度</string>
+    <string name="sub_gesture_angle_guide">角度示意</string>
     <string name="sub_gesture_timeout_label">子手势超时</string>
     <string name="sub_gesture_timeout_value">%1$d秒</string>
     <string name="tap_action">单击</string>

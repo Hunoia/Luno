@@ -63,7 +63,7 @@ class NotificationPulseListener : NotificationListenerService() {
             return
         }
         val postedAt = sbn.postTime
-        val signature = "${pulse.title}\u0000${pulse.text}"
+        val signature = "${pulse.title}\u0000${pulse.text}\u0000${pulse.bigText.orEmpty()}"
         synchronized(recentPosts) {
             val last = recentPosts[key]
             if (last != null &&
@@ -235,16 +235,16 @@ class NotificationPulseListener : NotificationListenerService() {
     private fun StatusBarNotification.toPulse(): NotificationPulse {
         val extras = notification.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: ""
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+        val bigText = extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
         val ranking = Ranking()
         val hasRanking = runCatching { currentRanking?.getRanking(key, ranking) }
             .getOrNull() ?: false
         return NotificationPulse(
             packageName = packageName.orEmpty(),
             title = title,
-            text = text,
+            text = text.ifBlank { bigText.orEmpty() },
+            bigText = bigText,
             flags = notification.flags,
             ongoing = isOngoing,
             clearable = isClearable,

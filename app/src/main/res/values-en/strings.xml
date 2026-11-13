@@ -4,6 +4,11 @@
     <string name="home_title">@string/app_name</string>
     <string name="home_tab">Home</string>
     <string name="settings">Settings</string>
+    <!-- Home dock (navigation / record / function balls) accessibility strings; tab items reuse their titles -->
+    <string name="home_dock_nav_ball">Navigation, current: %1$s</string>
+    <string name="home_dock_nav_ball_expand">Expand navigation bar</string>
+    <string name="home_dock_record_ball">Records, current: %1$s</string>
+    <string name="home_dock_record_ball_expand">Expand record navigation</string>
     <string name="accessibility_description">Simulates back, home and other key presses for custom side-gesture control. Collects no data.</string>
     <string name="add_gesture_button">Add gesture button</string>
     <string name="backup_settings_entry">Backup &amp; Restore</string>
@@ -91,6 +96,7 @@
 
     <string name="action_settings_system_group">System</string>
     <string name="action_settings_appearance_group">Appearance</string>
+    <string name="appearance_settings_entry_hint">List style and motion speed</string>
     <string name="action_settings_list_style">List style</string>
     <string name="list_style_segmented">Segmented</string>
     <string name="list_style_card_divided">Card divided</string>
@@ -141,6 +147,8 @@
     <string name="screen_pick_diag_note">Static chain is OK; streaming runs in the accessibility service process, restart the service after changing switches</string>
     <string name="screen_pick_save_to_gallery">Save recognition images to gallery</string>
     <string name="screen_pick_save_to_gallery_hint">Off: share writes cache only; copy still writes to gallery for paste compatibility</string>
+    <string name="screen_pick_enable_qr">Recognize QR code</string>
+    <string name="screen_pick_enable_qr_hint">Long-press auto-detect + QR button in selection action bar</string>
     <string name="notification_blocklist">Notification blocklist</string>
     <string name="action_panel_items_count">%1$d items</string>
     <string name="action_panel_count">%1$d panels</string>
@@ -561,4 +569,10 @@
     <string name="notification_display_perm_group">Permission status</string>
     <string name="notification_display_settings_entry">Notifications</string>
     <string name="notification_display_settings_entry_hint">Display mode, island and permissions</string>
+
+    <!-- Trend reminders -->
+    <string name="trend_reminder_channel">Trend reminders</string>
+    <string name="trend_reminder_title">Record %1$s</string>
+    <string name="trend_reminder_text">No record for “%1$s” today. Tap to add one.</string>
+    <string name="trend_reminder_channel_desc">At most one reminder per metric per day; skipped when already recorded</string>
 </resources>

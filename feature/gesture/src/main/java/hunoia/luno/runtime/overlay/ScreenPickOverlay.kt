@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -75,6 +76,9 @@ import hunoia.luno.ui.component.selection.resized
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.capability.ocr.OcrEngine
 import hunoia.luno.capability.ocr.OcrText
+import hunoia.luno.capability.qr.QrEngine
+import hunoia.luno.capability.qr.QrKind
+import hunoia.luno.capability.qr.QrResult
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.GestureHost
@@ -126,7 +130,7 @@ private data class PortalState(
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
-private enum class PickSelectionAction { Ocr, Annotate, Copy, Search, Share, Save }
+private enum class PickSelectionAction { Ocr, Annotate, Copy, Search, Share, Save, Qr }
 
 /** 结果页「图片」视图的裁剪图长边上限：够看清内容，又不至于把几十 MB 位图塞进进程。 */
 private const val RESULT_IMAGE_MAX_PX = 1600
@@ -141,6 +145,8 @@ class ScreenPickOverlay(
     private val host: GestureHost,
     /** OCR 能力（`:app` 注入）：默认 ML Kit；本模块只依赖契约，不直接引第三方 SDK。 */
     private val ocrEngine: OcrEngine,
+    /** 条码识别能力（`:app` 注入）：ZXing 本地解码；框选/长按对区域检测二维码/条形码。 */
+    private val qrEngine: QrEngine,
     /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quickaccess`）。 */
     private val onSearch: (String) -> Boolean = { false },
     /** 结果页落点（`:app` 注入）：OCR 文本 + a11y 文本 + 裁剪图；true = 已接管，浮层关闭。 */
@@ -299,6 +305,7 @@ class ScreenPickOverlay(
                         content = portalContent,
                         resolving = portalResolving,
                     ),
+                    showQr = qrEnabled,
                     onSelectionAction = ::onSelectionAction,
                     onPortalStart = ::beginPortalAtView,
                     onPortalMove = ::movePortalAtView,
@@ -454,6 +461,17 @@ class ScreenPickOverlay(
                         "snapshot=${snapshot != null}",
                 )
             }
+            // 条码自动检测：命中图片/布局区域时裁剪识别；命中则出条码卡（优先于图片/文字卡）。
+            val qrRegion = hit?.imageBounds ?: hit?.fallbackBounds
+            if (qrRegion != null && qrEnabled) {
+                val qr = detectQrIn(AndroidRect(qrRegion))
+                if (token != session || pickToken != portalSession || overlayView == null) return@launch
+                if (qr != null) {
+                    portalImageBounds = qrRegion
+                    applyPortalQr(qr, qrRegion)
+                    return@launch
+                }
+            }
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
             refreshPortalPreview()
@@ -535,6 +553,59 @@ class ScreenPickOverlay(
         )
         portalResolving = false
         refreshPortalPreview()
+    }
+
+    /** 条码识别开关（识屏设置「二维码识别」）；关时框选按钮隐藏、长按不检测。 */
+    private val qrEnabled: Boolean get() = screenPickSettings().enableQrRecognition
+
+    /**
+     * 屏幕区域裁剪 + 条码检测。开关关/截图未就绪/区域无效返回 null；裁剪图用完即回收。
+     * 只在后台执行（内部 awaitCapture + crop + qrEngine.detect）。
+     */
+    private suspend fun detectQrIn(rect: AndroidRect): QrResult? {
+        if (!qrEnabled) return null
+        val snapshot = awaitCapture() ?: return null
+        val crop = cropRectFor(snapshot, rect) ?: return null
+        val bitmap = withContext(Dispatchers.IO) {
+            runCatching { cropBitmap(snapshot.bitmap, crop) }.getOrNull()
+        } ?: return null
+        return try {
+            qrEngine.detect(bitmap)
+        } finally {
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+    }
+
+    /** 统一回填条码卡：内容文本 + 链接抽取 + 命中区域。 */
+    private fun applyPortalQr(qr: QrResult, bounds: AndroidRect) {
+        portalContent = PortalContent(
+            qrText = qr.text,
+            qrIsBarcode = qr.kind == QrKind.Barcode,
+            nodeBounds = bounds,
+            url = runCatching {
+                hunoia.luno.link.LinkUrls.extractUrls(qr.text, allowBareDomains = true)
+            }.getOrNull()?.firstOrNull(),
+        )
+        portalResolving = false
+    }
+
+    /** 框选「二维码」动作：识别区域；命中出条码卡（不关层），未命中提示后收层。 */
+    private fun resolveQrSelection(screenRect: AndroidRect) {
+        val token = session
+        host.coroutineScope.launch {
+            val qr = detectQrIn(screenRect)
+            if (token != session || overlayView == null) return@launch
+            if (qr == null) {
+                showToast(R.string.screen_pick_qr_not_found)
+                close()
+                return@launch
+            }
+            // 框选命中：以框中心为锚点浮条码卡（onSelectionAction 已撤旧卡/清框）。
+            portalAnchor = Offset(screenRect.centerX().toFloat(), screenRect.centerY().toFloat())
+            portalFinger = portalAnchor
+            portalImageBounds = screenRect
+            applyPortalQr(qr, screenRect)
+        }
     }
 
     /** 等预截图就绪（长按可能比截图快）；超时或截图失败返回 null。 */
@@ -899,6 +970,12 @@ class ScreenPickOverlay(
             resolvingAction = false
             return
         }
+        if (action == PickSelectionAction.Qr) {
+            // 识别二维码：命中出条码卡不关层（失败内部提示并收层）。
+            resolveQrSelection(screenRect)
+            resolvingAction = false
+            return
+        }
         host.coroutineScope.launch {
             if (action == PickSelectionAction.Annotate) {
                 // 标注页要一直持有位图，withCropped 会在 block 结束后回收，所以这里交一份副本。
@@ -950,7 +1027,7 @@ class ScreenPickOverlay(
                     }
                 }
                 PickSelectionAction.Save -> saveImageRegion(screenRect)
-                PickSelectionAction.Ocr, PickSelectionAction.Annotate -> false
+                PickSelectionAction.Ocr, PickSelectionAction.Annotate, PickSelectionAction.Qr -> false
             }
             resolvingAction = false
             // 动作执行即关层（无例外）；OCR 已改为打开面板，由面板按钮关层。
@@ -1448,6 +1525,7 @@ private fun ScreenPickScreen(
     originX: Int,
     originY: Int,
     portal: PortalState,
+    showQr: Boolean,
     onSelectionAction: (Rect, PickSelectionAction) -> Unit,
     onPortalStart: (Offset) -> Unit,
     onPortalMove: (Offset) -> Unit,
@@ -1762,6 +1840,7 @@ private fun ScreenPickScreen(
                     rect = sel,
                     originX = originX,
                     originY = originY,
+                    showQr = showQr,
                     onAction = { action ->
                         // 先撤卡再清选框：否则 adjustRect 变 null 的同一帧里
                         // 残留的 portalAnchor 会让幽灵卡重新出现。
@@ -1799,6 +1878,7 @@ private fun SelectionActionBar(
     rect: Rect,
     originX: Int,
     originY: Int,
+    showQr: Boolean,
     onAction: (PickSelectionAction) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -1806,14 +1886,15 @@ private fun SelectionActionBar(
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val actions = listOf(
-        Triple(Icons.Default.TextFields, R.string.screen_pick_extract_text, PickSelectionAction.Ocr),
-        Triple(Icons.Default.Brush, R.string.screen_pick_annotate_image, PickSelectionAction.Annotate),
-        Triple(Icons.Default.ContentCopy, R.string.screen_pick_copy_image, PickSelectionAction.Copy),
-        Triple(Icons.Default.Search, R.string.screen_pick_portal_search, PickSelectionAction.Search),
-        Triple(Icons.Default.Share, R.string.screen_pick_share_image, PickSelectionAction.Share),
-        Triple(Icons.Default.SaveAlt, R.string.screen_pick_save_image, PickSelectionAction.Save),
-    )
+    val actions = buildList {
+        add(Triple(Icons.Default.TextFields, R.string.screen_pick_extract_text, PickSelectionAction.Ocr))
+        if (showQr) add(Triple(Icons.Default.QrCode, R.string.screen_pick_qr, PickSelectionAction.Qr))
+        add(Triple(Icons.Default.Brush, R.string.screen_pick_annotate_image, PickSelectionAction.Annotate))
+        add(Triple(Icons.Default.ContentCopy, R.string.screen_pick_copy_image, PickSelectionAction.Copy))
+        add(Triple(Icons.Default.Search, R.string.screen_pick_portal_search, PickSelectionAction.Search))
+        add(Triple(Icons.Default.Share, R.string.screen_pick_share_image, PickSelectionAction.Share))
+        add(Triple(Icons.Default.SaveAlt, R.string.screen_pick_save_image, PickSelectionAction.Save))
+    }
     val barW = with(density) {
         (button * actions.size + gap * (actions.size - 1) + pad * 2).toPx()
     }

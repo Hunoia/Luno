@@ -9,7 +9,7 @@ class BallInboxTtlTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        clipboardTtlMs = 5_000L,
+        suggestionTtlMs = 5_000L,
         maxItems = 10,
     )
 
@@ -34,16 +34,19 @@ class BallInboxTtlTest {
         receivedAtElapsedMs = at,
     )
 
-    private fun clip(text: String, at: Long) = ClipboardTextItem(
-        contentHash = "hash-$text",
-        text = text,
+    private fun clip(text: String, at: Long) = SuggestionItem(
+        kind = SuggestionKind.LINK,
+        sourceKey = "hash-$text",
+        title = "链接",
+        text = "https://example.com/$text",
         receivedAtElapsedMs = at,
+        urls = listOf("https://example.com/$text"),
     )
 
     private fun ids(state: BallInboxState): List<String> = state.items.map { it.id }
 
     @Test
-    fun `notification and clipboard use their own ttl`() {
+    fun `notification and suggestion use their own ttl`() {
         val n = notification("n", at = 0)
         val c = clip("c", at = 0)
 
@@ -55,6 +58,24 @@ class BallInboxTtlTest {
         assertEquals(listOf(c.id), ids(change.state))
         assertEquals(listOf(n.id), change.expired.map { it.id })
         assertEquals(c.id, change.state.currentId)
+    }
+
+    @Test
+    fun `fixed code ttl outlives the queue default`() {
+        val code = SuggestionItem(
+            kind = SuggestionKind.CODE,
+            sourceKey = "k",
+            title = "验证码",
+            text = "1234",
+            receivedAtElapsedMs = 0L,
+            ttlMs = 300_000L,
+            code = "1234",
+        )
+        val state = add(BallInboxState(), code, nowMs = 0).state
+
+        val change = reduce(state, BallInboxAction.Prune(), nowMs = 100_000)
+
+        assertSame(state, change.state)
     }
 
     @Test
@@ -76,28 +97,30 @@ class BallInboxTtlTest {
     @Test
     fun `add prunes expired items before inserting`() {
         val n = notification("n", at = 0)
+        val c = clip("c", at = 3_000)
         val state = add(BallInboxState(), n, nowMs = 0).state
 
-        val change = add(state, clip("c", at = 3_000), nowMs = 3_000)
+        val change = add(state, c, nowMs = 3_000)
 
-        assertEquals(listOf("clip:hash-c"), ids(change.state))
+        assertEquals(listOf(c.id), ids(change.state))
         assertEquals(listOf(n.id), change.expired.map { it.id })
-        assertEquals("clip:hash-c", change.state.currentId)
+        assertEquals(c.id, change.state.currentId)
     }
 
     @Test
     fun `add with makeCurrent false keeps an expired current item until hide`() {
         val n = notification("n", at = 0)
+        val c = clip("c", at = 3_000)
         val state = add(BallInboxState(), n, nowMs = 0).state
 
         val change = add(
             state = state,
-            item = clip("c", at = 3_000),
+            item = c,
             nowMs = 3_000,
             makeCurrent = false,
         )
 
-        assertEquals(listOf("clip:hash-c", n.id), ids(change.state))
+        assertEquals(listOf(c.id, n.id), ids(change.state))
         assertEquals(n.id, change.state.currentId)
         assertTrue(change.expired.isEmpty())
     }

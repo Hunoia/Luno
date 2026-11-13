@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,8 +29,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,7 +65,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
-import coil3.compose.AsyncImage
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
@@ -63,16 +72,15 @@ import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.inbox.BallItem
-import hunoia.luno.runtime.floatball.inbox.ClipboardImageItem
-import hunoia.luno.runtime.floatball.inbox.ClipboardTextItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
+import hunoia.luno.runtime.floatball.inbox.SuggestionItem
+import hunoia.luno.runtime.floatball.inbox.SuggestionKind
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.SideGestureTheme
-import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.motionMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -82,13 +90,12 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 统一胶囊：与主球是同一视觉物体的展开态。
+ * 统一胶囊：从所属球的位置展开，收起时恢复该球。
  *
- * - 收起时由 [FloatBallWindow] 显示球；展开时球窗隐藏，本窗从球的矩形原地“长”成胶囊。
- * - 胶囊宽固定（< 屏宽 50%），高 = 球尺寸；内容为一张卡片。
- * - 上下滑是连续轮播：拖动时内容跟手，可连续跨多条；松手按位移/速度吸附，两端停住。
- * - 横滑朝球侧 = 收起；反向 = 移除当前项并翻下一条（多条）/ 收起（末条/单条）。
- *   点按 = 执行；长按 = 钉住（剪贴板）。
+ * - 通知胶囊展示普通通知；建议胶囊展示验证码 / 链接。
+ * - 上下滑是连续轮播；横滑朝球侧 = 收起，反向 = 移除当前项。
+ * - 点按 = 执行主动作；建议项长按在胶囊内换成动作行（验证码：复制/忽略；
+ *   链接：打开/复制/分享/忽略）。
  */
 internal class SmartBubbleWindow(private val context: android.content.Context) {
 
@@ -108,8 +115,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var offsetPx by mutableFloatStateOf(0f)
     private var pageHeightPx by mutableIntStateOf(0)
     private var capsuleWidthPx by mutableIntStateOf(0)
-    private var linkInfo by mutableStateOf<ClipboardLinkInfo?>(null)
-    private var linkItemId by mutableStateOf<String?>(null)
+
+    /** 长按后当前页展开的动作行；null = 普通内容。 */
+    private var menuItemId by mutableStateOf<String?>(null)
+
+    /** 复制成功后短暂显示「已复制」的条目。 */
+    private var copiedItemId by mutableStateOf<String?>(null)
 
     private var settings by mutableStateOf(FloatBallSettings())
     private var anchor = BubbleAnchor(0, 0, 0, 0)
@@ -120,7 +131,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var enterPending = false
     private var pressed = false
 
-    private var hitTarget = HitTarget.BODY
+    private var hitTarget: HitTarget = HitTarget.Body
 
     private var dragDx = 0f
     private var dragDy = 0f
@@ -131,14 +142,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private val bodyArbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onBodyDragged(dx, dy) },
-        onTapped = {
-            if (hitTarget == HitTarget.COUNT) {
-                hitTarget = HitTarget.BODY
-                advanceOne()
-            } else {
-                onBodyTapped?.invoke()
-            }
-        },
+        onTapped = { handleTap() },
         onPressChanged = { pressed ->
             this.pressed = pressed
             onPressStateChanged?.invoke(pressed)
@@ -150,14 +154,17 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             }
         },
         onDragEnded = { finishBodyDrag() },
-        onLongPress = { onLongPress?.invoke() },
+        onLongPress = { handleLongPress() },
     )
 
-    /** 正文点按（通知直达 / 剪贴板分享）。 */
+    /** 正文点按（通知直达 / 建议主动作）。 */
     var onBodyTapped: (() -> Unit)? = null
 
-    /** 正文长按（仅剪贴板：钉住 / 取消钉住）。 */
+    /** 正文长按（通知无动作；建议在窗内展开动作行）。 */
     var onLongPress: (() -> Unit)? = null
+
+    /** 建议动作行 / 主动作回调。 */
+    var onSuggestionAction: ((String, SuggestionAction) -> Unit)? = null
 
     /** 轮播停到某一页（id）：服务据此更新收件箱当前项。 */
     var onPageSelected: ((String) -> Unit)? = null
@@ -165,7 +172,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     /** 朝球所在侧横滑：只收起，保留队列项、不标记 dismissed。 */
     var onCollapsed: (() -> Unit)? = null
 
-    /** 反向横滑：移除当前项并翻下一条（多条）/ 收起（末条/单条；钉住项只收起）。 */
+    /** 反向横滑：移除当前项并翻下一条（多条）/ 收起（末条/单条）。 */
     var onSwipedAway: (() -> Unit)? = null
 
     /** 按住状态：暂停 / 恢复自动收起。 */
@@ -181,18 +188,25 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         settings = next
     }
 
-    /** 异步补链接信息：只对当前页生效。 */
-    fun updateLink(itemId: String?, link: ClipboardLinkInfo?) {
-        linkItemId = itemId
-        linkInfo = link
+    fun isPinned(): Boolean = items.getOrNull(currentIndex)?.pinned == true
+
+    /** 复制成功的短暂反馈：显示「已复制」。 */
+    fun showCopied(itemId: String) {
+        menuItemId = null
+        copiedItemId = itemId
     }
 
-    fun isPinned(): Boolean = items.getOrNull(currentIndex)?.pinned == true
+    /** 清除「已复制」反馈（链接复制等不自动翻页的场景）。 */
+    fun clearCopied() {
+        copiedItemId = null
+    }
 
     /** 只刷新列表（不抢当前页、不重置拖动偏移）：新内容在手动浏览时入队用。 */
     fun updateItems(items: List<BallItem>, index: Int) {
         if (items.isEmpty()) return
         this.items = items
+        if (menuItemId != null && items.none { it.id == menuItemId }) menuItemId = null
+        if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
         if (currentIndex > items.lastIndex) {
             currentIndex = index.coerceIn(0, items.lastIndex)
             offsetPx = 0f
@@ -207,7 +221,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         items: List<BallItem>,
         index: Int,
         anchor: BubbleAnchor,
-        link: ClipboardLinkInfo?,
         originY: Int = 0,
     ): Boolean {
         if (items.isEmpty()) return false
@@ -227,11 +240,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             currentIndex = index.coerceIn(0, items.lastIndex)
             offsetPx = 0f
             lastReportedId = items[currentIndex].id
+            menuItemId = null
         } else {
             currentIndex = currentIndex.coerceIn(0, items.lastIndex)
         }
-        linkInfo = link
-        linkItemId = items.getOrNull(currentIndex)?.id
+        if (menuItemId != null && items.getOrNull(currentIndex)?.id != menuItemId) menuItemId = null
+        if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
 
         val existing = view
         if (existing != null &&
@@ -265,7 +279,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
             setContent { CapsuleContent() }
         }
-        // 与主球窗同构：FrameLayout 做根、ComposeView 做子级，lifecycle owner 同时挂根和
+        // 与球窗同构：FrameLayout 做根、ComposeView 做子级，lifecycle owner 同时挂根和
         // Compose 上。真机上直接拿 ComposeView 当窗口根时偶发不组合（胶囊空白）。
         val created = FrameLayout(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
@@ -359,10 +373,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         entering = false
         enterPending = false
         pressed = false
-        hitTarget = HitTarget.BODY
+        hitTarget = HitTarget.Body
         items = emptyList()
-        linkInfo = null
-        linkItemId = null
+        menuItemId = null
+        copiedItemId = null
         offsetPx = 0f
         contentReady = false
         composeView = null
@@ -415,8 +429,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         enterPending = false
         pressed = false
         items = emptyList()
-        linkInfo = null
-        linkItemId = null
+        menuItemId = null
+        copiedItemId = null
         offsetPx = 0f
         dragDx = 0f
         dragDy = 0f
@@ -466,13 +480,13 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         } else {
             velocityTracker?.addMovement(event)
         }
-        // 所有触摸都交给同一个 arbiter：从计数 chip 区域开始竖向拖也能滚动。
+        // 所有触摸都交给同一个 arbiter：从动作 chip / 动作行开始竖向拖也能滚动。
         val handled = bodyArbiter.onTouch(event)
         if (event.actionMasked == MotionEvent.ACTION_UP ||
             event.actionMasked == MotionEvent.ACTION_CANCEL
         ) {
             recycleVelocity()
-            hitTarget = HitTarget.BODY
+            if (event.actionMasked == MotionEvent.ACTION_CANCEL) hitTarget = HitTarget.Body
         }
         return handled
     }
@@ -482,12 +496,73 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         velocityTracker = null
     }
 
+    private fun handleTap() {
+        val item = items.getOrNull(currentIndex)
+        when (val target = hitTarget) {
+            is HitTarget.Menu -> {
+                hitTarget = HitTarget.Body
+                if (item is SuggestionItem) {
+                    val actions = menuActions(item)
+                    val action = actions.getOrNull(target.index) ?: return
+                    if (action == SuggestionAction.CLOSE) {
+                        menuItemId = null
+                    } else {
+                        menuItemId = null
+                        onSuggestionAction?.invoke(item.id, action)
+                    }
+                }
+            }
+
+            HitTarget.Action -> {
+                hitTarget = HitTarget.Body
+                if (item is SuggestionItem) {
+                    onSuggestionAction?.invoke(item.id, item.primaryAction())
+                } else {
+                    onBodyTapped?.invoke()
+                }
+            }
+
+            HitTarget.Count -> {
+                hitTarget = HitTarget.Body
+                advanceOne()
+            }
+
+            HitTarget.Body -> {
+                if (menuItemId != null) {
+                    menuItemId = null
+                    return
+                }
+                hitTarget = HitTarget.Body
+                onBodyTapped?.invoke()
+            }
+        }
+    }
+
+    private fun handleLongPress() {
+        val item = items.getOrNull(currentIndex)
+        if (item is SuggestionItem) {
+            menuItemId = item.id
+            copiedItemId = null
+        } else {
+            onLongPress?.invoke()
+        }
+    }
+
     private fun resolveHitTarget(v: View, x: Float): HitTarget {
-        val count = if (items.size > 1) DensityProvider.dp2px(CountHitDp) else 0
-        val countStart = v.width - count
+        val item = items.getOrNull(currentIndex)
+        if (item is SuggestionItem && menuItemId == item.id) {
+            val count = menuActions(item).size.coerceAtLeast(1)
+            val index = ((x / v.width.coerceAtLeast(1)) * count).toInt()
+            return HitTarget.Menu(index.coerceIn(0, count - 1))
+        }
+        if (item is SuggestionItem) {
+            val actionStart = v.width - DensityProvider.dp2px(ActionHitDp)
+            if (x >= actionStart) return HitTarget.Action
+        }
+        val countWidth = if (items.size > 1) DensityProvider.dp2px(CountHitDp) else 0
         return when {
-            items.size > 1 && x >= countStart -> HitTarget.COUNT
-            else -> HitTarget.BODY
+            items.size > 1 && x >= v.width - countWidth -> HitTarget.Count
+            else -> HitTarget.Body
         }
     }
 
@@ -553,9 +628,14 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             v.translationX = 0f
         }
         when (axis) {
-            DragAxis.VERTICAL -> settleVertical(vy)
+            DragAxis.VERTICAL -> {
+                menuItemId = null
+                settleVertical(vy)
+            }
+
             DragAxis.HORIZONTAL -> {
                 offsetPx = 0f
+                menuItemId = null
                 val towardEdge = if (sideRight) dx >= collapseThresholdPx else dx <= -collapseThresholdPx
                 val awayFromEdge = if (sideRight) dx <= -collapseThresholdPx else dx >= collapseThresholdPx
                 when {
@@ -630,6 +710,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         currentIndex = targetIndex.coerceIn(0, items.lastIndex)
                     }
                     offsetPx = 0f
+                    menuItemId = null
                     notifyPageSelected()
                 }
             })
@@ -734,8 +815,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             val base = currentIndex
             Box(modifier = Modifier.fillMaxSize()) {
                 // 每页独立按相对位置摆放：base 页落在窗口原点，前后各留一页跟手。
-                // 不要改回「3 页高的 Column + 整列 offset」：实测整列会多偏移一页，
-                // 只看到 base+1（单条通知时是空白页，首条也永远滑不到）。
                 for (i in (base - 1)..(base + 1)) {
                     val item = list.getOrNull(i) ?: continue
                     CapsulePage(
@@ -743,6 +822,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         index = i,
                         total = list.size,
                         pageHeight = pageHeight,
+                        menuOpen = menuItemId == item.id,
+                        copied = copiedItemId == item.id,
                         modifier = Modifier.offset {
                             IntOffset(
                                 0,
@@ -761,6 +842,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         index: Int,
         total: Int,
         pageHeight: androidx.compose.ui.unit.Dp,
+        menuOpen: Boolean,
+        copied: Boolean,
         modifier: Modifier = Modifier,
     ) {
         val accent = settings.colorSpec.toMarkColor()
@@ -770,7 +853,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             min(pageHeight.value - 16f, 24f).coerceAtLeast(16f).dp
         }
         val shape = CircleShape
-        val link = if (item.id == linkItemId) linkInfo else null
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -783,93 +865,253 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BubbleIcon(item = item, contentColor = contentColor, link = link, size = iconSize)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(1.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = item.title.ifBlank { stringResource(R.string.smart_ball_notification) },
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = contentColor.copy(alpha = 0.95f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (item.pinned) {
-                        Icon(
-                            imageVector = Icons.Default.PushPin,
-                            contentDescription = stringResource(R.string.smart_ball_pinned),
-                            tint = contentColor.copy(alpha = 0.75f),
-                            modifier = Modifier.size(10.dp),
-                        )
-                    }
-                }
-                if (item.text.isNotBlank()) {
-                    Text(
-                        text = item.text,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor.copy(alpha = 0.82f),
-                        maxLines = if (pageHeight >= 60.dp) 2 else 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (total > 1) {
-                Text(
-                    text = stringResource(R.string.smart_ball_count, index + 1, total),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.9f),
-                    maxLines = 1,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(contentColor.copy(alpha = 0.16f))
-                        .padding(horizontal = 5.dp, vertical = 1.dp),
+            if (menuOpen && item is SuggestionItem) {
+                SuggestionMenuRow(
+                    item = item,
+                    contentColor = contentColor,
+                    iconSize = iconSize,
                 )
+            } else {
+                when (item) {
+                    is NotificationItem -> NotificationContent(
+                        item = item,
+                        contentColor = contentColor,
+                        iconSize = iconSize,
+                        index = index,
+                        total = total,
+                    )
+
+                    is SuggestionItem -> SuggestionContent(
+                        item = item,
+                        contentColor = contentColor,
+                        iconSize = iconSize,
+                        index = index,
+                        total = total,
+                        copied = copied,
+                    )
+                }
             }
         }
     }
 
     @Composable
-    private fun BubbleIcon(
-        item: BallItem,
+    private fun RowScope.NotificationContent(
+        item: NotificationItem,
         contentColor: Color,
-        link: ClipboardLinkInfo?,
-        size: androidx.compose.ui.unit.Dp,
+        iconSize: androidx.compose.ui.unit.Dp,
+        index: Int,
+        total: Int,
     ) {
-        when (item) {
-            is ClipboardImageItem -> AsyncImage(
-                model = item.uri,
-                contentDescription = stringResource(R.string.smart_ball_image),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(size)
-                    .clip(containerShape(6.dp)),
+        AppIcon(packageName = item.packageName, tint = contentColor, size = iconSize)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(
+                text = item.title.ifBlank { stringResource(R.string.smart_ball_notification) },
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = contentColor.copy(alpha = 0.95f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            if (item.text.isNotBlank()) {
+                Text(
+                    text = item.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.82f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (total > 1) {
+            CountChip(index = index, total = total, contentColor = contentColor)
+        }
+    }
 
-            is NotificationItem -> AppIcon(
-                packageName = item.packageName,
-                tint = contentColor,
-                size = size,
+    @Composable
+    private fun RowScope.SuggestionContent(
+        item: SuggestionItem,
+        contentColor: Color,
+        iconSize: androidx.compose.ui.unit.Dp,
+        index: Int,
+        total: Int,
+        copied: Boolean,
+    ) {
+        SuggestionIcon(item = item, contentColor = contentColor, size = iconSize)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(
+                text = suggestionTitle(item),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = contentColor.copy(alpha = 0.95f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-
-            is ClipboardTextItem -> {
-                val target = link?.targetPackage
-                if (target != null) {
-                    AppIcon(packageName = target, tint = contentColor, size = size)
+            Text(
+                text = if (copied) {
+                    stringResource(R.string.suggestion_copied)
                 } else {
+                    suggestionBody(item)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = if (copied) 1f else 0.82f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (total > 1) {
+            CountChip(index = index, total = total, contentColor = contentColor)
+        } else if (copied) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(16.dp),
+            )
+        } else {
+            Text(
+                text = suggestionActionLabel(item),
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.95f),
+                maxLines = 1,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.16f))
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
+            )
+        }
+    }
+
+    @Composable
+    private fun CountChip(index: Int, total: Int, contentColor: Color) {
+        Text(
+            text = stringResource(R.string.smart_ball_count, index + 1, total),
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.9f),
+            maxLines = 1,
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(contentColor.copy(alpha = 0.16f))
+                .padding(horizontal = 5.dp, vertical = 1.dp),
+        )
+    }
+
+    @Composable
+    private fun SuggestionMenuRow(
+        item: SuggestionItem,
+        contentColor: Color,
+        iconSize: androidx.compose.ui.unit.Dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (action in menuActions(item)) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
-                        imageVector = if (item.pinned) Icons.Default.PushPin else Icons.Default.ContentPaste,
-                        contentDescription = null,
-                        tint = contentColor.copy(alpha = 0.9f),
-                        modifier = Modifier.size(size),
+                        imageVector = actionIcon(action),
+                        contentDescription = actionDescription(action),
+                        tint = if (action == SuggestionAction.IGNORE) {
+                            contentColor.copy(alpha = 0.7f)
+                        } else {
+                            contentColor
+                        },
+                        modifier = Modifier.size((iconSize.value * 0.8f).dp),
                     )
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun suggestionTitle(item: SuggestionItem): String = when (item.kind) {
+        SuggestionKind.CODE -> stringResource(R.string.suggestion_code)
+        SuggestionKind.LINK -> item.targetLabel ?: stringResource(R.string.suggestion_link)
+    }
+
+    @Composable
+    private fun suggestionBody(item: SuggestionItem): String = when (item.kind) {
+        SuggestionKind.CODE -> item.code.orEmpty()
+        SuggestionKind.LINK -> {
+            if (item.linkCount > 1) {
+                stringResource(R.string.suggestion_link_count, item.linkCount)
+            } else {
+                item.primaryUrl.orEmpty()
+            }
+        }
+    }
+
+    @Composable
+    private fun suggestionActionLabel(item: SuggestionItem): String = when (item.kind) {
+        SuggestionKind.CODE -> stringResource(R.string.suggestion_copy)
+        SuggestionKind.LINK -> item.targetLabel?.let {
+            stringResource(R.string.suggestion_open_target, it)
+        } ?: stringResource(R.string.suggestion_open)
+    }
+
+    @Composable
+    private fun actionDescription(action: SuggestionAction): String = when (action) {
+        SuggestionAction.OPEN -> stringResource(R.string.suggestion_open)
+        SuggestionAction.COPY -> stringResource(R.string.suggestion_copy)
+        SuggestionAction.SHARE -> stringResource(R.string.suggestion_share)
+        SuggestionAction.IGNORE -> stringResource(R.string.suggestion_ignore)
+        SuggestionAction.CLOSE -> stringResource(R.string.suggestion_close)
+    }
+
+    private fun actionIcon(action: SuggestionAction) = when (action) {
+        SuggestionAction.OPEN -> Icons.AutoMirrored.Filled.OpenInNew
+        SuggestionAction.COPY -> Icons.Default.ContentCopy
+        SuggestionAction.SHARE -> Icons.Default.Share
+        SuggestionAction.IGNORE -> Icons.Default.Block
+        SuggestionAction.CLOSE -> Icons.Default.Close
+    }
+
+    private fun menuActions(item: SuggestionItem): List<SuggestionAction> = when (item.kind) {
+        SuggestionKind.CODE -> listOf(
+            SuggestionAction.COPY,
+            SuggestionAction.IGNORE,
+            SuggestionAction.CLOSE,
+        )
+
+        SuggestionKind.LINK -> listOf(
+            SuggestionAction.OPEN,
+            SuggestionAction.COPY,
+            SuggestionAction.SHARE,
+            SuggestionAction.IGNORE,
+            SuggestionAction.CLOSE,
+        )
+    }
+
+    @Composable
+    private fun SuggestionIcon(
+        item: SuggestionItem,
+        contentColor: Color,
+        size: androidx.compose.ui.unit.Dp,
+    ) {
+        val target = item.targetPackage
+        if (item.kind == SuggestionKind.LINK && target != null) {
+            AppIcon(packageName = target, tint = contentColor, size = size)
+        } else {
+            Icon(
+                imageVector = if (item.kind == SuggestionKind.CODE) {
+                    Icons.Default.Lock
+                } else {
+                    Icons.Default.Link
+                },
+                contentDescription = null,
+                tint = contentColor.copy(alpha = 0.9f),
+                modifier = Modifier.size(size),
+            )
         }
     }
 
@@ -907,7 +1149,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             )
         } else {
             Icon(
-                imageVector = Icons.Default.ContentPaste,
+                imageVector = Icons.Default.Notifications,
                 contentDescription = null,
                 tint = tint.copy(alpha = 0.85f),
                 modifier = Modifier.size(size),
@@ -915,7 +1157,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
     }
 
-    private enum class HitTarget { BODY, COUNT }
+    private sealed interface HitTarget {
+        data object Body : HitTarget
+        data object Action : HitTarget
+        data object Count : HitTarget
+        data class Menu(val index: Int) : HitTarget
+    }
 
     private enum class DragAxis { NONE, VERTICAL, HORIZONTAL }
 
@@ -928,6 +1175,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f
         const val CountHitDp = 44f
+        const val ActionHitDp = 72f
         const val CollapseThresholdDp = 48f
         const val CollapseFollowRatio = 0.22f
         const val FlingVelocityPxPerSec = 900f
@@ -935,12 +1183,17 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 }
 
-/**
- * 胶囊展示用的链接信息：认出几条链接 + 单条命中规则时的目标应用。
- * 由 [FloatBallService] 按链接分发规则算好传入，窗口只负责画。
- */
-internal data class ClipboardLinkInfo(
-    val count: Int,
-    val targetPackage: String? = null,
-    val targetLabel: String? = null,
-)
+/** 建议胶囊的动作。 */
+internal enum class SuggestionAction {
+    OPEN,
+    COPY,
+    SHARE,
+    IGNORE,
+    CLOSE,
+}
+
+/** 建议项的主动作：验证码复制，链接打开。 */
+internal fun SuggestionItem.primaryAction(): SuggestionAction = when (kind) {
+    SuggestionKind.CODE -> SuggestionAction.COPY
+    SuggestionKind.LINK -> SuggestionAction.OPEN
+}

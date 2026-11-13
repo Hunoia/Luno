@@ -401,11 +401,9 @@ object BackupOperator {
         ConfigProvider.restoreAll(backup)
         val verified = ConfigProvider.snapshotAll()
         // 逐域比较注册表的快照投影：新增备份域时无需再往这里补一条手工字段。
-        val mismatched = BackupDomainRegistry.registeredDomains.mapNotNull { domain ->
-            val expected = BackupDomainRegistry.snapshot(backup, domain)
-            val actual = BackupDomainRegistry.snapshot(verified, domain)
-            domain.takeIf { expected != actual }?.name
-        }
+        // 备份未携带的域（旧备份缺新域）跳过比较：恢复语义是保留本机数据。
+        val mismatched = BackupDomainRegistry.mismatchedAfterRestore(backup, verified)
+            .map { it.name }
         if (mismatched.isNotEmpty()) {
             throw IllegalStateException("restore failed: mismatch after restoreAll: ${mismatched.joinToString()}")
         }

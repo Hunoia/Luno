@@ -339,7 +339,12 @@
             android:name=".domain.todo.TodoReminderReceiver"
             android:exported="false" />
 
-        <!-- 手动改系统时间 / 切换时区后按新墙钟重排习惯与待办提醒。 -->
+        <!-- 趋势记录提醒：AlarmManager 触发；当天已记录则静默跳过并排下一天。 -->
+        <receiver
+            android:name=".domain.trend.TrendReminderReceiver"
+            android:exported="false" />
+
+        <!-- 手动改系统时间 / 切换时区后按新墙钟重排习惯、待办与趋势提醒。 -->
         <receiver
             android:name=".service.TimeChangeReceiver"
             android:exported="false">

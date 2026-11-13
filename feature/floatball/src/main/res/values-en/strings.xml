@@ -4,38 +4,57 @@
     <string name="smart_ball_unread">Smart ball, %1$d unread</string>
     <string name="smart_ball_pinned_only">Smart ball, pinned content</string>
     <string name="smart_ball_count">%1$d/%2$d</string>
-    <string name="smart_ball_image">Image</string>
-    <string name="smart_ball_pinned">Pinned</string>
     <string name="smart_ball_notification">Notification</string>
+
+    <string name="notification_ball_content_desc">Notification ball</string>
+    <string name="notification_ball_unread">Notification ball, %1$d unread</string>
+    <string name="suggestion_ball_content_desc">Suggestion ball</string>
+    <string name="suggestion_ball_unread">Suggestion ball, %1$d unread</string>
+
+    <string name="suggestion_code">Verification code</string>
+    <string name="suggestion_link">Link</string>
+    <string name="suggestion_copy">Copy</string>
+    <string name="suggestion_copied">Copied</string>
+    <string name="suggestion_copy_failed">Copy failed, try again</string>
+    <string name="suggestion_open">Open</string>
+    <string name="suggestion_open_target">Open %1$s</string>
+    <string name="suggestion_share">Share</string>
+    <string name="suggestion_ignore">Ignore</string>
+    <string name="suggestion_close">Close</string>
+    <string name="suggestion_link_count">%1$d links</string>
+
     <string name="float_ball_foreground_channel">Float ball</string>
-    <string name="float_ball_foreground_title">Float ball on standby</string>
+    <string name="float_ball_foreground_title">Float ball and capsules on standby</string>
     <string name="float_ball_foreground_content_desc">Tap to open Luno</string>
     <string name="float_ball">Float ball</string>
     <string name="float_ball_appearance">Appearance</string>
     <string name="float_ball_behavior">Behavior</string>
-    <string name="float_ball_capsule_auto_hide">Bubble hold duration</string>
+
+    <string name="float_ball_notification_group">Notification capsule</string>
+    <string name="float_ball_notification_enabled">Show notification ball</string>
+    <string name="float_ball_notification_enabled_subtitle">Appears for normal notifications; tap to expand</string>
+    <string name="float_ball_notification_ttl">Notification hold duration</string>
+    <string name="float_ball_notification_capacity">Notification queue capacity</string>
+    <string name="float_ball_capsule_auto_hide">Capsule hold duration</string>
     <string name="float_ball_capsule_blocklist">Notification blocklist</string>
     <string name="float_ball_capsule_blocklist_count">%1$d apps</string>
-    <string name="float_ball_capsule_enabled">Peek on notification arrival</string>
-    <string name="float_ball_capsule_group">Notification inbox</string>
     <string name="float_ball_capsule_need_permission">Notification access required</string>
     <string name="float_ball_capsule_need_permission_hint">Tap to grant; the capsule then receives notifications</string>
     <string name="float_ball_capsule_suppress_dismiss">Pause re-peek after dismissing</string>
     <string name="float_ball_capsule_suppress_duration">Pause duration</string>
-    <string name="float_ball_capsule_ttl">Notification hold duration</string>
-    <string name="float_ball_clipball_auto_hide">Bubble hold duration</string>
-    <string name="float_ball_clipball_enabled">Peek after copy</string>
-    <string name="float_ball_clipball_enabled_subtitle">Background reading needs Shizuku running and authorized</string>
-    <string name="float_ball_clipball_group">Clipboard inbox</string>
-    <string name="float_ball_clipball_images">Respond to image clipboard</string>
-    <string name="float_ball_clipball_ttl">Clipboard hold duration</string>
+
+    <string name="float_ball_suggestion_group">Suggestion capsule</string>
+    <string name="float_ball_suggestion_enabled">Show suggestion ball</string>
+    <string name="float_ball_suggestion_enabled_subtitle">Detects verification codes and clipboard links; background reading needs Shizuku</string>
+    <string name="float_ball_suggestion_ttl">Link hold duration</string>
+    <string name="float_ball_suggestion_capacity">Suggestion queue capacity</string>
+    <string name="float_ball_suggestion_code_ttl">Verification codes are kept for 5 minutes</string>
+
     <string name="float_ball_color">Ball color</string>
     <string name="float_ball_enabled">Show float ball</string>
     <string name="float_ball_follow_hand">Follow hand to switch sides</string>
     <string name="float_ball_follow_hand_subtitle">Ball moves to the side the gesture button touches</string>
     <string name="float_ball_idle_dim_delay">Dim and shrink when idle</string>
-    <string name="float_ball_inbox_capacity">Inbox capacity</string>
-    <string name="float_ball_inbox_group">Inbox</string>
     <string name="float_ball_off">Off</string>
     <string name="float_ball_permission_required">Requires "Display over other apps" permission</string>
     <string name="float_ball_size">Ball size</string>

@@ -107,7 +107,7 @@ class GestureCoordinator(
     }
     val mainOverlayController = MainOverlayController(host)
     val buttonWindowController = ButtonWindowController(host.context)
-    val transientOverlayController = TransientOverlayController(host.context)
+    val transientOverlayController = TransientOverlayController(host)
 
     /**
      * 识别区（全屏手势）配置：跟随手势总开关。总开关关闭时视作没有任何区，
@@ -650,9 +650,9 @@ class GestureCoordinator(
     }
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
-        override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int) {
+        override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, subGesture: hunoia.luno.config.model.SubGesture?) {
             if (inSubGesture) {
-                transientOverlayController.attachSubGestureOverlay(center, radiusPx)
+                transientOverlayController.attachSubGestureOverlay(center, subGesture)
                 Events.post(PanelShownEvent())
             } else {
                 transientOverlayController.detachSubGestureOverlay()

@@ -8,6 +8,8 @@ data class NotificationPulse(
     val packageName: String,
     val title: String,
     val text: String,
+    /** 展开后的长文本；验证码经常只出现在这里。 */
+    val bigText: String? = null,
     /** 原始 android.app.Notification.flags。 */
     val flags: Int = 0,
     val ongoing: Boolean = false,

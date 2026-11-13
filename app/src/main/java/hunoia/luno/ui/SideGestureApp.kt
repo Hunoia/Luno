@@ -60,9 +60,9 @@ import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SinglePanelEdit
-import hunoia.luno.ui.navigation.HabitList
 import hunoia.luno.ui.navigation.HabitEdit
-import hunoia.luno.ui.navigation.TodoList
+import hunoia.luno.ui.navigation.TrendDetail
+import hunoia.luno.ui.navigation.TrendEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
@@ -108,8 +108,8 @@ import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.gridpanel.habit.HabitEditScreen
-import hunoia.luno.gridpanel.habit.HabitListScreen
-import hunoia.luno.gridpanel.todo.TodoListScreen
+import hunoia.luno.gridpanel.trend.TrendDetailScreen
+import hunoia.luno.gridpanel.trend.TrendEditScreen
 import hunoia.luno.quickaccess.settings.SearchEngineSettingsScreen
 import hunoia.luno.quickaccess.settings.SearchEngineEditScreen
 import hunoia.luno.quickaccess.settings.SearchSourceSettingsScreen
@@ -128,8 +128,11 @@ import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingLinkRule
+import hunoia.luno.ui.navigation.PendingTrendRecord
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.home.HomeScreen
+import hunoia.luno.ui.home.MainTab
+import hunoia.luno.ui.navigation.PendingHomeTab
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGestureSettings
@@ -169,12 +172,26 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             PendingHabitEdit.consume()
             navController.navigate(HabitEdit(habitId)) { launchSingleTop = true }
         }
-        // 代办面板部件「打开代办列表页」：跨进程 Intent → [TodoListRequests]，导航到列表页。
-        // consume 由列表页完成（它读 todoId 决定开添加/编辑弹窗）；这里只负责导航。
+        // 趋势部件 / 提醒通知 → [PendingTrendRecord]：有指标进详情（可自动弹快速记录），无指标回主页趋势 tab。
+        val pendingTrendOpen by PendingTrendRecord.open.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingTrendOpen) {
+            val open = pendingTrendOpen ?: return@LaunchedEffect
+            PendingTrendRecord.consume()
+            val metricId = open.metricId
+            if (metricId == null) {
+                PendingHomeTab.request(MainTab.Trends)
+                navController.popBackStack(Home, inclusive = false)
+            } else {
+                navController.navigate(TrendDetail(metricId, open.openRecord)) { launchSingleTop = true }
+            }
+        }
+        // 代办面板部件「打开代办列表页」：跨进程 Intent → [TodoListRequests]，回主页代办 tab。
+        // consume 由嵌入的代办内容完成（它读 todoId 决定开添加/编辑弹窗）；这里只负责导航。
         val pendingTodoList by TodoListRequests.open.collectAsStateWithLifecycle()
         LaunchedEffect(pendingTodoList) {
             if (pendingTodoList == null) return@LaunchedEffect
-            navController.navigate(TodoList) { launchSingleTop = true }
+            PendingHomeTab.request(MainTab.Todos)
+            navController.popBackStack(Home, inclusive = false)
         }
         // 故障通知点击 → 运行日志页；日志页自己消费该请求并展开故障记录。
         // 已经在日志页时不要重复导航：launchSingleTop 仍会重建页面，会把刚展开的
@@ -267,11 +284,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToAppControl = {
                             navController.navigate(AppControl)
                         },
-                        onNavToHabits = {
-                            navController.navigate(HabitList)
+                        onNavToHabitEdit = { habitId ->
+                            navController.navigate(HabitEdit(habitId ?: ""))
                         },
-                        onNavToTodos = {
-                            navController.navigate(TodoList)
+                        onNavToTrendEdit = { metricId ->
+                            navController.navigate(TrendEdit(metricId ?: ""))
+                        },
+                        onNavToTrendDetail = { metricId ->
+                            navController.navigate(TrendDetail(metricId))
                         },
                         onNavToScreenPickSettings = {
                             navController.navigate(ScreenPickSettings)
@@ -476,22 +496,24 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                myComposable<HabitList> {
-                    HabitListScreen(
-                        onBack = { navController.popBackStack() },
-                        onEditHabit = { habitId ->
-                            navController.navigate(HabitEdit(habitId ?: ""))
-                        },
-                    )
-                }
                 myComposable<HabitEdit> {
                     HabitEditScreen(
                         habitId = it.toRoute<HabitEdit>().habitId.takeIf { h -> h.isNotBlank() },
                         onBack = { navController.popBackStack() },
                     )
                 }
-                myComposable<TodoList> {
-                    TodoListScreen(
+                myComposable<TrendDetail> {
+                    val route = it.toRoute<TrendDetail>()
+                    TrendDetailScreen(
+                        metricId = route.metricId,
+                        openRecord = route.openRecord,
+                        onBack = { navController.popBackStack() },
+                        onEditMetric = { metricId -> navController.navigate(TrendEdit(metricId)) },
+                    )
+                }
+                myComposable<TrendEdit> {
+                    TrendEditScreen(
+                        metricId = it.toRoute<TrendEdit>().metricId.takeIf { id -> id.isNotBlank() },
                         onBack = { navController.popBackStack() },
                     )
                 }

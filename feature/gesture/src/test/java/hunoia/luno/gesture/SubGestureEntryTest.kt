@@ -2,6 +2,7 @@ package hunoia.luno.gesture
 
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.SubGesture
+import hunoia.luno.config.model.SubGestureAngle
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.core.domain.StoredAction
 import kotlinx.coroutines.CoroutineScope
@@ -54,5 +55,26 @@ class SubGestureEntryTest {
             state.tryEnterSubGesture(StoredAction.of("accessibility.back"), Offset.Zero),
         )
         assertFalse(state.isActive)
+    }
+
+    @Test
+    fun `angle guide passes sub gesture when enabled and hides when disabled`() {
+        val boundaries = listOf(0f, 0.25f, 0.5f)
+        val captured = mutableListOf<SubGesture?>()
+        fun capturingState(gesture: SubGesture) = SubGestureState(
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            subGestureSettings = SubGestureSettings(listOf(gesture)),
+            onModeChanged = { _, _, sg -> captured += sg },
+        )
+        // 默认开启：回调带整个子手势，overlay 据此画边界线 + 范围圆。
+        val enabled = SubGesture(id = "sg", angle = SubGestureAngle(boundaries))
+        capturingState(enabled).tryEnterSubGesture(ref("sg"), Offset.Zero)
+        assertEquals(enabled, captured.last())
+        // 关闭：回调仍带子手势（绘制层凭 showAngleGuide 决定不画），保持触摸源。
+        captured.clear()
+        val disabled = SubGesture(id = "sg", angle = SubGestureAngle(boundaries), showAngleGuide = false)
+        capturingState(disabled).tryEnterSubGesture(ref("sg"), Offset.Zero)
+        assertEquals(disabled, captured.last())
+        assertFalse(captured.last()?.showAngleGuide ?: true)
     }
 }

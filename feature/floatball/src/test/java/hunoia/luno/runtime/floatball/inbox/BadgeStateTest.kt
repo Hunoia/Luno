@@ -10,7 +10,7 @@ class BadgeStateTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        clipboardTtlMs = 5_000L,
+        suggestionTtlMs = 5_000L,
         maxItems = 10,
     )
 
@@ -30,10 +30,13 @@ class BadgeStateTest {
             config = config,
         ).state
 
-    private fun clip(text: String, at: Long = 1L) = ClipboardTextItem(
-        contentHash = "hash-$text",
-        text = text,
+    private fun clip(text: String, at: Long = 1L) = SuggestionItem(
+        kind = SuggestionKind.LINK,
+        sourceKey = "hash-$text",
+        title = "链接",
+        text = "https://example.com/$text",
         receivedAtElapsedMs = at,
+        urls = listOf("https://example.com/$text"),
     )
 
     @Test

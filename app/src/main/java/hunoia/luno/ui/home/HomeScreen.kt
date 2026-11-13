@@ -7,10 +7,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,15 +18,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,18 +33,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -57,7 +50,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
-import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.LargeShape
@@ -71,11 +63,24 @@ import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.actions.library.ActionLibraryScreen
-import hunoia.luno.ui.component.FloatingBottomBar
+import hunoia.luno.ui.component.DefaultHomeDockSide
+import hunoia.luno.ui.component.HomeDock
+import hunoia.luno.ui.component.HomeDockSide
+import hunoia.luno.ui.component.HomeDockTab
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.gridpanel.habit.HabitListContent
+import hunoia.luno.gridpanel.todo.TodoListContent
+import hunoia.luno.gridpanel.trend.TrendListContent
+import hunoia.luno.ui.navigation.PendingHomeTab
 import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddChart
+import androidx.compose.material.icons.filled.AddTask
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.twotone.CheckCircle
+import androidx.compose.material.icons.twotone.Checklist
+import androidx.compose.material.icons.twotone.ShowChart
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
@@ -85,24 +90,58 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.twotone.Home
 import androidx.compose.material.icons.twotone.Settings
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.screen.HomeShell
 import hunoia.luno.ui.settings.action.ActionSettingsTab
-import hunoia.luno.ui.component.PressFloatingActionButton
 
-enum class MainTab(val icon: ImageVector) {
-    Home(Icons.TwoTone.Home),
-    ActionLibrary(Icons.AutoMirrored.TwoTone.LibraryBooks),
-    Settings(Icons.TwoTone.Settings),
+enum class MainTab(
+    val icon: ImageVector,
+    /** 属于哪颗导航球：左主导航 / 中记录导航。 */
+    val group: HomeDockSide,
+) {
+    Home(Icons.TwoTone.Home, HomeDockSide.NAV),
+    Habits(Icons.TwoTone.CheckCircle, HomeDockSide.SECONDARY),
+    Todos(Icons.TwoTone.Checklist, HomeDockSide.SECONDARY),
+    Trends(Icons.TwoTone.ShowChart, HomeDockSide.SECONDARY),
+    ActionLibrary(Icons.AutoMirrored.TwoTone.LibraryBooks, HomeDockSide.NAV),
+    Settings(Icons.TwoTone.Settings, HomeDockSide.NAV),
 }
 
 /** tab 的无障碍文案；标题栏标题另有映射（Home 用 home_title 即应用名）。 */
 val MainTab.contentDescriptionRes: Int
     get() = when (this) {
         MainTab.Home -> R.string.home_tab
+        MainTab.Habits -> hunoia.luno.gridpanel.R.string.habit_list_title
+        MainTab.Todos -> hunoia.luno.gridpanel.R.string.todo_list_title
+        MainTab.Trends -> hunoia.luno.gridpanel.R.string.trend_list_title
         MainTab.ActionLibrary -> hunoia.luno.actions.R.string.action_library
         MainTab.Settings -> R.string.settings
     }
+
+/** 顶栏标题：每个页面用自己的标题，主页用应用名。 */
+val MainTab.titleRes: Int
+    get() = when (this) {
+        MainTab.Home -> R.string.home_title
+        else -> contentDescriptionRes
+    }
+
+/**
+ * 导航球收起时显示哪一页，也就是点它之后会切到哪一页：
+ * - 当前页就在该球组内 → 当前页（点球只展开胶囊）；
+ * - 左球在组外 → 固定回主页；
+ * - 中球在组外 → 回到组内上次停留的记录页。
+ */
+fun collapsedBallTab(
+    current: MainTab,
+    group: HomeDockSide,
+    lastRecordTab: MainTab,
+): MainTab = when {
+    current.group == group -> current
+    group == HomeDockSide.NAV -> MainTab.Home
+    lastRecordTab.group == HomeDockSide.SECONDARY -> lastRecordTab
+    else -> MainTab.Habits
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,8 +167,9 @@ fun HomeScreen(
     onNavToAutoBackup: () -> Unit = {},
     onNavToClipboard: () -> Unit = {},
     onNavToAppControl: () -> Unit = {},
-    onNavToHabits: () -> Unit = {},
-    onNavToTodos: () -> Unit = {},
+    onNavToHabitEdit: (habitId: String?) -> Unit = {},
+    onNavToTrendEdit: (metricId: String?) -> Unit = {},
+    onNavToTrendDetail: (metricId: String) -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vmFactory: (hunoia.luno.facade.Facades) -> HomeVM = { HomeVM(it) },
@@ -138,10 +178,29 @@ fun HomeScreen(
     val vm: HomeVM = viewModel { vmFactory(facades) }
     val homeListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
+    val habitListState = rememberLazyListState()
+    val todoListState = rememberLazyListState()
+    val trendListState = rememberLazyListState()
     val navigationWindowInsets = WindowInsets.navigationBars.only(
         WindowInsetsSides.Bottom,
     )
     var mainTab by rememberSaveable { mutableStateOf(MainTab.Home) }
+    // 三球停靠栏：会话内记住展开的一侧（转屏保持），杀进程回默认导航球。
+    var dockSide by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.name },
+            restore = { HomeDockSide.valueOf(it) },
+        ),
+    ) { mutableStateOf(DefaultHomeDockSide) }
+    // 中球收起时显示「组内上次停留的记录页」；离开记录组后仍然记住。
+    var lastRecordTab by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.name },
+            restore = { MainTab.valueOf(it) },
+        ),
+    ) { mutableStateOf(MainTab.Habits) }
+    // 功能球在待办页触发新建：递增一次，嵌入的待办内容消费后归零。
+    var todoAddRequest by rememberSaveable { mutableIntStateOf(0) }
     var expandedGestureSection by rememberSaveable(
         stateSaver = Saver(
             save = { it?.name ?: "" },
@@ -150,6 +209,21 @@ fun HomeScreen(
     ) { mutableStateOf<GesturePanelSection?>(GesturePanelSection.TouchButton) }
     var colorPickerTarget by remember { mutableStateOf<Any?>(null) }
     val context = LocalContext.current
+
+    // 选页统一入口：tab 决定哪颗球展开；记录页顺手更新中球的记忆。
+    fun selectTab(tab: MainTab) {
+        mainTab = tab
+        dockSide = tab.group
+        if (tab.group == HomeDockSide.SECONDARY) lastRecordTab = tab
+    }
+
+    // 桌面部件 / 动作面板 / 提醒通知要求「打开主页并停在某个 tab」。
+    val pendingHomeTab by PendingHomeTab.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingHomeTab) {
+        val tab = pendingHomeTab ?: return@LaunchedEffect
+        PendingHomeTab.consume()
+        selectTab(tab)
+    }
 
     DisposableEffect(Unit) {
         onDispose { vm.collapseAll() }
@@ -189,11 +263,7 @@ fun HomeScreen(
         }
 
         HomeShell(
-            title = when (mainTab) {
-                MainTab.Home -> stringResource(id = R.string.home_title)
-                MainTab.ActionLibrary -> stringResource(id = hunoia.luno.actions.R.string.action_library)
-                MainTab.Settings -> stringResource(id = R.string.settings)
-            },
+            title = stringResource(mainTab.titleRes),
             sheets = {
                 if (colorPickerTarget != null) {
                 val scheme = MaterialTheme.colorScheme
@@ -233,98 +303,116 @@ fun HomeScreen(
             },
             bottomBar = { hazeState ->
                 var showLibraryTypeMenu by remember { mutableStateOf(false) }
+                // 动作库页的功能球弹动作类型菜单；离开该页时顺手关掉，避免回来时菜单还挂着。
+                LaunchedEffect(mainTab) {
+                    if (mainTab != MainTab.ActionLibrary) showLibraryTypeMenu = false
+                }
+                val navTabs = MainTab.entries.filter { it.group == HomeDockSide.NAV }
+                val recordTabs = MainTab.entries.filter { it.group == HomeDockSide.SECONDARY }
+                // 收起球显示哪一页，点它就是切到哪一页。
+                val navBallTab = collapsedBallTab(mainTab, HomeDockSide.NAV, lastRecordTab)
+                val recordBallTab = collapsedBallTab(mainTab, HomeDockSide.SECONDARY, lastRecordTab)
+                val recordSelectedIndex = recordTabs.indexOf(mainTab).takeIf { it >= 0 }
+                    ?: recordTabs.indexOf(lastRecordTab).coerceAtLeast(0)
+
+                // 功能球跟随当前页：动作库弹类型菜单、记录页新建、图标用各自的「添加」；
+                // 主页 / 设置没有可添加内容，整颗球隐藏。
+                val functionBall = when (mainTab) {
+                    MainTab.ActionLibrary -> DockFunctionBall(
+                        icon = Icons.Default.Add,
+                        label = stringResource(hunoia.luno.actions.R.string.action_library_add),
+                        onClick = { showLibraryTypeMenu = true },
+                    )
+
+                    MainTab.Habits -> DockFunctionBall(
+                        icon = Icons.Default.AddTask,
+                        label = stringResource(hunoia.luno.gridpanel.R.string.habit_add),
+                        onClick = { onNavToHabitEdit(null) },
+                    )
+
+                    MainTab.Todos -> DockFunctionBall(
+                        icon = Icons.Default.PlaylistAdd,
+                        label = stringResource(hunoia.luno.gridpanel.R.string.todo_add),
+                        onClick = { todoAddRequest++ },
+                    )
+
+                    MainTab.Trends -> DockFunctionBall(
+                        icon = Icons.Default.AddChart,
+                        label = stringResource(hunoia.luno.gridpanel.R.string.trend_add),
+                        onClick = { onNavToTrendEdit(null) },
+                    )
+
+                    MainTab.Home, MainTab.Settings -> null
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .padding(bottom = BottomBarPadding)
-                        .windowInsetsPadding(navigationWindowInsets),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    val showAdd = mainTab == MainTab.ActionLibrary
-                    // FAB 恒组合，显隐走缩放+淡入淡出：切 tab 时不重新组合/不占位跳变，消除掉帧。
-                    val fabProgress by animateFloatAsState(
-                        targetValue = if (showAdd) 1f else 0f,
-                        animationSpec = tween(hunoia.luno.ui.theme.MotionSubtle, easing = FastOutSlowInEasing),
-                        label = "homeFab",
-                    )
-                    // 无点击高亮：LocalRippleConfiguration 提供空值关闭 ripple；
-                    // 动作库页点击弹出类型菜单（DropdownMenu 锚定 FAB 所在 Box，同规则页优先级菜单风格）。
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .padding(end = PageGutter, bottom = 12.dp),
-                    ) {
-                        // 隐藏时跳过 place：不绘制也不参与命中测试。graphicsLayer alpha=0
-                        // 不影响命中测试，若只隐不卸，透明 FAB 会吃掉下方内容的点击。
-                        // fabProgress 在 place 块里读：退出动画期间保持 place，归零后才真正卸下。
-                        Box(
-                            modifier = Modifier.layout { measurable, constraints ->
-                                val placeable = measurable.measure(constraints)
-                                layout(placeable.width, placeable.height) {
-                                    if (showAdd || fabProgress > 0f) placeable.place(0, 0)
-                                }
-                            },
-                        ) {
-                                PressFloatingActionButton(
-                                    onClick = {
-                                        // 隐藏态不吃点击。
-                                        if (showAdd) showLibraryTypeMenu = true
-                                    },
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .graphicsLayer {
-                                            val p = fabProgress.fastCoerceIn(0f, 1f)
-                                            alpha = p
-                                            val scale = 0.6f + 0.4f * p
-                                            scaleX = scale
-                                            scaleY = scale
-                                        },
-                                    shape = FloatingActionButtonDefaults.shape,
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    // 不用 M3 默认 elevation：原生阴影放在带 alpha 的 graphicsLayer
-                                    // 里会按矩形光栅化，显隐时 FAB 底部两角会短暂变成直角。
-                                    elevation = FloatingActionButtonDefaults.elevation(
-                                        defaultElevation = 0.dp,
-                                        pressedElevation = 0.dp,
-                                        focusedElevation = 0.dp,
-                                        hoveredElevation = 0.dp,
-                                    ),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(hunoia.luno.actions.R.string.action_library_add),
-                                    )
-                                }
-                        }
-                        LibraryTypeMenu(
-                            expanded = showLibraryTypeMenu,
-                            onDismiss = { showLibraryTypeMenu = false },
-                            onSelect = { typeId ->
-                                showLibraryTypeMenu = false
-                                onNavToActionLibraryEdit(ACTION_LIBRARY_ENTRY_ID, typeId)
-                            },
+                        // 横屏刘海/挖孔：横向安全区也要让开，否则球会压到挖孔里。
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                         )
-                    }
-                    FloatingBottomBar(
-                        items = MainTab.entries.toList(),
-                        selectedIndex = { mainTab.ordinal },
-                        onSelected = { index -> mainTab = MainTab.entries[index] },
+                        .windowInsetsPadding(navigationWindowInsets),
+                ) {
+                    HomeDock(
+                        navTabs = navTabs.map { tab ->
+                            HomeDockTab(
+                                id = tab.name,
+                                icon = tab.icon,
+                                label = stringResource(tab.contentDescriptionRes),
+                            )
+                        },
+                        navSelectedIndex = navTabs.indexOf(mainTab).coerceAtLeast(0),
+                        onNavSelected = { index -> selectTab(navTabs[index]) },
+                        navBallIcon = navBallTab.icon,
+                        navBallLabel = stringResource(
+                            R.string.home_dock_nav_ball,
+                            stringResource(navBallTab.contentDescriptionRes),
+                        ),
+                        navBallClickLabel = stringResource(R.string.home_dock_nav_ball_expand),
+                        onNavBallClick = { selectTab(navBallTab) },
+                        secondaryTabs = recordTabs.map { tab ->
+                            HomeDockTab(
+                                id = tab.name,
+                                icon = tab.icon,
+                                label = stringResource(tab.contentDescriptionRes),
+                            )
+                        },
+                        secondarySelectedIndex = recordSelectedIndex,
+                        onSecondarySelected = { index -> selectTab(recordTabs[index]) },
+                        secondaryBallIcon = recordBallTab.icon,
+                        secondaryBallLabel = stringResource(
+                            R.string.home_dock_record_ball,
+                            stringResource(recordBallTab.contentDescriptionRes),
+                        ),
+                        secondaryBallClickLabel = stringResource(R.string.home_dock_record_ball_expand),
+                        onSecondaryBallClick = { selectTab(recordBallTab) },
+                        functionBallIcon = functionBall?.icon ?: Icons.Default.Add,
+                        functionBallLabel = functionBall?.label.orEmpty(),
+                        onFunctionBallClick = functionBall?.onClick ?: {},
+                        showFunctionBall = functionBall != null,
+                        expandedSide = dockSide,
                         hazeState = hazeState,
+                        functionMenu = {
+                            if (mainTab == MainTab.ActionLibrary) {
+                                LibraryTypeMenu(
+                                    expanded = showLibraryTypeMenu,
+                                    onDismiss = { showLibraryTypeMenu = false },
+                                    onSelect = { typeId ->
+                                        showLibraryTypeMenu = false
+                                        onNavToActionLibraryEdit(ACTION_LIBRARY_ENTRY_ID, typeId)
+                                    },
+                                )
+                            }
+                        },
                         colors = FloatingBottomBarDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             indicatorColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             activeContentColor = MaterialTheme.colorScheme.primary,
                         ),
-                    ) { tab, _ ->
-                        // tint 用底栏的 LocalContentColor（选中 primary/未选中 onSurfaceVariant），不显式传。
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = stringResource(tab.contentDescriptionRes),
-                            modifier = Modifier.size(BottomBarIconSize),
-                        )
-                    }
+                    )
                 }
             },
         ) { topPadding, _ ->
@@ -381,8 +469,6 @@ fun HomeScreen(
 
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
-                                    onHabitsClick = onNavToHabits,
-                                    onTodosClick = onNavToTodos,
                                     onClipboardClick = onNavToClipboard,
                                     onAppControlClick = onNavToAppControl,
                                 )
@@ -443,6 +529,25 @@ fun HomeScreen(
                 }
                         }
 
+                        MainTab.Habits -> HabitListContent(
+                            topPadding = topPadding,
+                            onEditHabit = onNavToHabitEdit,
+                            state = habitListState,
+                        )
+
+                        MainTab.Todos -> TodoListContent(
+                            topPadding = topPadding,
+                            addRequest = todoAddRequest,
+                            onAddRequestHandled = { todoAddRequest = 0 },
+                            state = todoListState,
+                        )
+
+                        MainTab.Trends -> TrendListContent(
+                            topPadding = topPadding,
+                            onOpenMetric = onNavToTrendDetail,
+                            state = trendListState,
+                        )
+
                         MainTab.ActionLibrary -> ActionLibraryScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
@@ -471,6 +576,13 @@ fun HomeScreen(
         }
     }
     }
+
+/** 底栏功能球：当前页的「添加」动作；没有可添加内容的页面为 null（整颗球隐藏）。 */
+private class DockFunctionBall(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit,
+)
 
 /** 动作库 + 号的类型菜单：DropdownMenu（同规则页优先级菜单风格），锚定 FAB。 */
 @Composable

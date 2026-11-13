@@ -31,6 +31,9 @@ import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoDoneRetentionDays
 import hunoia.luno.config.model.TodoItem
+import hunoia.luno.config.model.TrendConfig
+import hunoia.luno.config.model.TrendEntry
+import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.config.model.withResolvedName
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.AppUsageRepository
@@ -76,6 +79,9 @@ object ConfigProvider {
 
     /** 代办配置：代办列表（一次性任务）。部件与管理页都订阅它。 */
     val todoConfig: Flow<TodoConfig> = stores.todoConfig
+
+    /** 趋势配置：指标定义 + 按指标分组的数值记录。部件与管理页都订阅它。 */
+    val trendConfig: Flow<TrendConfig> = stores.trendConfig
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
@@ -245,6 +251,45 @@ object ConfigProvider {
 
     suspend fun deleteTodo(todoId: String) {
         updateTodoConfig { it.deleteTodo(todoId) }
+    }
+
+    // ---------- 趋势域 ----------
+    // 记录 / 增删改是应用内状态变更（配置写入），走 domain 门面写回；
+    // 不走 Dispatcher / SurfaceDispatch（architecture §1.3 配置写入不是 Action）。
+
+    suspend fun getTrendConfig(): TrendConfig = stores._trendConfig.data.first()
+
+    suspend fun updateTrendConfig(transform: suspend (TrendConfig) -> TrendConfig) {
+        stores._trendConfig.updateData(transform)
+    }
+
+    suspend fun addTrendMetric(metric: TrendMetric) {
+        updateTrendConfig { it.addMetric(metric) }
+    }
+
+    suspend fun updateTrendMetric(metric: TrendMetric) {
+        updateTrendConfig { it.updateMetric(metric) }
+    }
+
+    suspend fun deleteTrendMetric(metricId: String) {
+        updateTrendConfig { it.deleteMetric(metricId) }
+    }
+
+    /** 追加记录；指标不存在或达到单指标上限时返回 false。 */
+    suspend fun addTrendEntry(metricId: String, entry: TrendEntry): Boolean {
+        var added = false
+        updateTrendConfig { config ->
+            config.addEntry(metricId, entry)?.also { added = true } ?: config
+        }
+        return added
+    }
+
+    suspend fun updateTrendEntryValue(metricId: String, entryId: String, value: Double) {
+        updateTrendConfig { it.updateEntryValue(metricId, entryId, value) }
+    }
+
+    suspend fun deleteTrendEntry(metricId: String, entryId: String) {
+        updateTrendConfig { it.deleteEntry(metricId, entryId) }
     }
 
     /**

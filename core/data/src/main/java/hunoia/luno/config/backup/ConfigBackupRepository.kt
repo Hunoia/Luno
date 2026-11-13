@@ -22,6 +22,7 @@ import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
+import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.config.model.exportablePinned
 import hunoia.luno.config.model.mergePinned
 import hunoia.luno.config.model.withUniqueEngineTriggers
@@ -47,6 +48,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
         val habitDeferred = async { stores._habitConfig.data.first() }
         val todoDeferred = async { stores._todoConfig.data.first() }
+        val trendDeferred = async { stores._trendConfig.data.first() }
         val annotateDeferred = async { stores._annotateSettings.data.first() }
         val clipboardSettingsDeferred = async { stores._clipboardSettings.data.first() }
         val clipboardHistoryDeferred = async { stores._clipboardHistory.data.first() }
@@ -62,6 +64,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             annotateSchemaVersion = BackupVersions.ANNOTATE,
             clipboardSchemaVersion = BackupVersions.CLIPBOARD,
             appControlSchemaVersion = BackupVersions.APP_CONTROL,
+            trendSchemaVersion = BackupVersions.TREND,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
             gestureSettings = gestureDeferred.await(),
@@ -74,6 +77,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             quickSearchSettings = quickSearchDeferred.await(),
             habitConfig = habitDeferred.await(),
             todoConfig = todoDeferred.await(),
+            trendConfig = trendDeferred.await(),
             annotateSettings = annotateDeferred.await(),
             clipboardSettings = clipboardSettingsDeferred.await(),
             clipboardPinned = clipboardHistoryDeferred.await().exportablePinned().ifEmpty { null },
@@ -100,6 +104,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v.withUniqueEngineTriggers() } } } }
         launch { backup.habitConfig?.let { v -> writeSection("habitConfig") { stores._habitConfig.updateData { v } } } }
         launch { backup.todoConfig?.let { v -> writeSection("todoConfig") { stores._todoConfig.updateData { v } } } }
+        launch { backup.trendConfig?.let { v -> writeSection("trendConfig") { stores._trendConfig.updateData { v } } } }
         launch { backup.annotateSettings?.let { v -> writeSection("annotateSettings") { stores._annotateSettings.updateData { v } } } }
         launch { backup.clipboardSettings?.let { v -> writeSection("clipboardSettings") { stores._clipboardSettings.updateData { v.coerced() } } } }
         // 固定项合并而不是覆盖：备份里的固定项是用户资产，不能顺手抹掉本机现有历史。
@@ -161,6 +166,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
         launch { stores._habitConfig.updateData { HabitConfig() } }
         launch { stores._todoConfig.updateData { TodoConfig() } }
+        launch { stores._trendConfig.updateData { TrendConfig() } }
         launch { stores._annotateSettings.updateData { AnnotateSettings() } }
         launch { stores._appControlSettings.updateData { AppControlSettings() } }
     }

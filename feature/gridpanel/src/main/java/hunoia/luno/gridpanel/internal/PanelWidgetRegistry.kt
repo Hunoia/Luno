@@ -2,6 +2,7 @@ package hunoia.luno.gridpanel.internal
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AddChart
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.CheckCircle
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -264,6 +266,40 @@ object PanelWidgetRegistry {
                     spanY = scope.spanY,
                     enabled = scope.enabled,
                     params = scope.params,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.SYS_MONITOR,
+                labelRes = R.string.grid_panel_internal_sys_monitor,
+                icon = Icons.Default.Speed,
+                defaultSpanX = 4,
+                defaultSpanY = 3,
+                minSpanX = 2,
+                minSpanY = 2,
+            ) { scope ->
+                SysMonitorCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.TREND,
+                labelRes = R.string.grid_panel_internal_trend,
+                icon = Icons.Default.AddChart,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 1,
+                minSpanY = 1,
+            ) { scope ->
+                TrendWidgetCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                    onReconfigure = scope.onReconfigure,
                 )
             },
         )

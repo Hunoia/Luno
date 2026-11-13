@@ -17,6 +17,11 @@ data class SubGesture(
     val longSlideActions: DirectionActions = DirectionActions(),
     val longSlideHoldActions: DirectionActions = DirectionActions(),
     val enabled: Boolean = true,
+    /**
+     * 会话激活时以识别初始点为圆心绘制角度示意：沿 [angle] 的每条边界画射线，
+     * 外套短滑 / 长滑两个触发范围圆。关掉则保持透明无指示（仅触摸源）。
+     */
+    val showAngleGuide: Boolean = true,
     val color: Int = 0,
     val colorSource: ColorSource = ColorSource.Custom,
     val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,

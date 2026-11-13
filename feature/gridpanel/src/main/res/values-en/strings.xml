@@ -17,6 +17,12 @@
     <string name="grid_panel_internal_habit_history">Habit history</string>
     <string name="grid_panel_internal_habit_heatmap">Habit heatmap</string>
     <string name="grid_panel_internal_todo">Todos</string>
+    <string name="grid_panel_internal_sys_monitor">Resource monitor</string>
+    <string name="grid_panel_sys_mem">Memory</string>
+    <string name="grid_panel_sys_cpu">CPU</string>
+    <string name="grid_panel_sys_empty">No apps</string>
+    <string name="grid_panel_sys_need_shizuku">Tap to grant Shizuku to see per-app usage</string>
+    <string name="grid_panel_sys_desc">Memory %1$s, CPU %2$s</string>
     <string name="grid_panel_habit_empty">No habit configured</string>
     <string name="grid_panel_habit_missing">Habit deleted</string>
     <string name="grid_panel_habit_missing_reselect">Habit deleted, tap to reselect</string>
@@ -155,4 +161,73 @@
         <item>Sat</item>
         <item>Sun</item>
     </string-array>
+
+    <!-- Trend -->
+    <string name="trend_list_title">Trends</string>
+    <string name="trend_add">New metric</string>
+    <string name="trend_empty">No trend metrics yet. Tap the button at the bottom right to create one.</string>
+    <string name="trend_list_group">Metrics</string>
+    <string name="trend_metric_missing">Metric deleted</string>
+    <string name="trend_create_title">New metric</string>
+    <string name="trend_edit_title">Edit metric</string>
+    <string name="trend_save">Save</string>
+    <string name="trend_delete">Delete</string>
+    <string name="trend_delete_confirm_title">Delete metric?</string>
+    <string name="trend_delete_confirm_text">"“%1$s” and all of its records will be deleted permanently."</string>
+    <string name="trend_edit_name">Name</string>
+    <string name="trend_edit_name_hint">e.g. Weight, Waist</string>
+    <string name="trend_edit_name_required">Name is required</string>
+    <string name="trend_edit_unit">Unit</string>
+    <string name="trend_edit_unit_hint">e.g. kg, cm, %</string>
+    <string name="trend_edit_unit_note">The unit is only a display label. Historical values are never converted.</string>
+    <string name="trend_edit_decimals">Decimal places</string>
+    <string name="trend_edit_decimals_value">%1$d</string>
+    <string name="trend_edit_color">Color</string>
+    <string name="trend_edit_target">Target</string>
+    <string name="trend_edit_target_hint">Leave empty to hide the target line</string>
+    <string name="trend_edit_target_note">The target line is a reference only; it never limits records.</string>
+    <string name="trend_edit_target_invalid">Invalid target value</string>
+    <string name="trend_goal_lower">Lower is better</string>
+    <string name="trend_goal_higher">Higher is better</string>
+    <string name="trend_goal_neutral">Reference only</string>
+    <string name="trend_edit_reminder">Reminder</string>
+    <string name="trend_edit_reminder_enable">Daily reminder</string>
+    <string name="trend_edit_reminder_time">Reminder time</string>
+    <string name="trend_edit_reminder_time_value">%1$02d:%2$02d</string>
+    <string name="trend_edit_reminder_note">Skipped when a record already exists today.</string>
+    <string name="trend_detail_chart">Chart</string>
+    <string name="trend_detail_records">Records</string>
+    <string name="trend_detail_no_entries">No records yet</string>
+    <string name="trend_summary_target">Target %1$s</string>
+    <string name="trend_summary_no_target">No target</string>
+    <string name="trend_summary_since_previous">vs previous</string>
+    <string name="trend_summary_since_seven_days">vs 7 days ago</string>
+    <string name="trend_summary_to_target">to target</string>
+    <string name="trend_summary_reached">Goal met · %1$s</string>
+    <string name="trend_delta_from_previous">%1$s vs last</string>
+    <string name="trend_chart_target">Target %1$s</string>
+    <string name="trend_range_7">7d</string>
+    <string name="trend_range_30">30d</string>
+    <string name="trend_range_90">90d</string>
+    <string name="trend_range_year">1y</string>
+    <string name="trend_range_all">All</string>
+    <string name="trend_record_title">Record %1$s</string>
+    <string name="trend_record_now">Now %1$s</string>
+    <string name="trend_record_hint">Enter a value</string>
+    <string name="trend_record_save">Save</string>
+    <string name="trend_record_add">Add record</string>
+    <string name="trend_entry_edit_title">Edit %1$s record</string>
+    <string name="trend_entry_time">Recorded at %1$s</string>
+    <string name="trend_entry_delete">Delete</string>
+    <string name="trend_entry_delete_confirm_title">Delete this record?</string>
+    <string name="trend_entry_delete_confirm_text">Only the record from %1$s will be deleted.</string>
+    <string name="grid_panel_internal_trend">Trend</string>
+    <string name="grid_panel_trend_empty">No trend metrics</string>
+    <string name="grid_panel_trend_missing">Metric deleted</string>
+    <string name="grid_panel_trend_missing_reselect">Tap to choose a metric</string>
+    <string name="grid_panel_trend_record_hint">Quick record</string>
+    <string name="trend_pick_title">Choose a metric</string>
+    <string name="trend_pick_empty">Create a trend metric first</string>
+    <string name="trend_record_full">This metric has reached its record limit</string>
+    <string name="trend_detail_records_truncated">Showing the latest %1$d records</string>
 </resources>

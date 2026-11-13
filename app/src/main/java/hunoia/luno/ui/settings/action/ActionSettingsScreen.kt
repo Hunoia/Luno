@@ -43,12 +43,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -89,7 +88,6 @@ fun ActionSettingsTab(
     var fontScalePermissionPending by remember { mutableStateOf(false) }
     var resumeTick by remember { mutableIntStateOf(0) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
         initialValue = GlobalGestureSettings(),
