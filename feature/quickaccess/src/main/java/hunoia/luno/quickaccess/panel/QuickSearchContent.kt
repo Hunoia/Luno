@@ -218,6 +218,10 @@ internal fun QuickSearchContent(
     // 启动统计是搜索输入但不重建流：用 rememberUpdatedState 包一层，由块内 snapshotFlow
     // 读取，统计变了会自动重发一次快照，下一次搜索自然带上新分，不用重建整条管道。
     val usageState = rememberUpdatedState(usageStats)
+    // 动作库条目是普通值（不是 State）：snapshotFlow 闭包若直接捕获 `entries`，
+    // 增删改动作库后仍会拿启动那一份旧列表，只能等 dataVersion 变化才刷新。
+    // 必须和 usage/clips 一样包一层，块内读当前列表。
+    val entriesState = rememberUpdatedState(entries)
     // 剪贴板池同理：内容变了由 snapshotFlow 自动重发一次快照，不用重建整条搜索管道。
     val clipsState = rememberUpdatedState(clips)
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
@@ -230,11 +234,12 @@ internal fun QuickSearchContent(
         appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion,
     ) {
         snapshotFlow {
-            // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
-            // entries（动作库条目参与匹配）、usage（启动统计影响使用分）；
+            // 块内只读快照里没装但会影响结果的值：query（打字即时触发）、
+            // entries（动作库条目参与匹配，普通值走 entriesState）、usage（启动统计影响使用分）；
             // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
-                query.text, entries, usageState.value, effectiveSearchSettings, clipsState.value,
+                query.text, entriesState.value, usageState.value,
+                effectiveSearchSettings, clipsState.value,
             )
         }.mapLatest { s ->
             val text = s.text

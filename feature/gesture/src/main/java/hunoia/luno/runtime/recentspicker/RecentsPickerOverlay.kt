@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -190,23 +191,27 @@ private fun RecentsPickerContent(
     val screenHeight = DensityProvider.screenHeightPx
     // 滚轮窗口与屏幕边缘的最小间距：触点贴边时滚轮不会顶到物理边缘，视觉不拥挤。
     val marginPx = with(density) { RecentsPickerScreenMargin.toPx() }.roundToInt()
+    // 窗口复用：show() 再次触发时只替换 state，组合与 pointerInput 节点不会重建。
+    // 手势闭包必须现读当前会话状态，否则新一次触发拖动的还是上一份已 clear() 的 state。
+    val currentState = rememberUpdatedState(state)
+    val currentOnDismiss = rememberUpdatedState(onDismiss)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = DialogScrimAlpha))
             // 点击空白 = 取消。拖动由下面的 detectDragGestures 消费，tap 检测因 move 被消费自动取消。
-            .pointerInput(Unit) { detectTapGestures { onDismiss() } }
+            .pointerInput(Unit) { detectTapGestures { currentOnDismiss.value() } }
             // 空白处拖动也滚动滚轮（图标随手指）：把增量喂给共享 state，松手吸附。
             // 滚轮自身的滚动在子节点被消费，不会落到这里的 drag 检测（slop 判定取消）。
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        state.onDrag(dragAmount)
+                        currentState.value.onDrag(dragAmount)
                     },
-                    onDragEnd = { state.onDragEnd() },
-                    onDragCancel = { state.onDragEnd() },
+                    onDragEnd = { currentState.value.onDragEnd() },
+                    onDragCancel = { currentState.value.onDragEnd() },
                 )
             },
     ) {

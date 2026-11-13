@@ -87,6 +87,9 @@ class PanelDockAnchor {
     /** 卡片当前高度 px（可能被底栏预留夹过）。 */
     var cardHeightPx: Float by mutableFloatStateOf(0f)
 
+    /** 卡片当前宽度 px：拖缩放手柄只改宽度时位置 / 高度都不变，冻结也得跟。 */
+    var cardWidthPx: Float by mutableFloatStateOf(0f)
+
     /** 卡片出现进度 0–1。 */
     var progress: Float by mutableFloatStateOf(0f)
 

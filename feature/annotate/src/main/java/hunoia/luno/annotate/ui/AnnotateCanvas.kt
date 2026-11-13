@@ -276,7 +276,10 @@ fun AnnotateCanvas(
 
     // 裁剪窗口是视图坐标；图片缩放/平移时，导出 selection 必须跟随窗口同步。
     // cropWindow 在调整大小时只是临时预览，因此不把它作为 effect key，避免拖动中提交 selection。
-    LaunchedEffect(tool) {
+    // baseFit 必须进 key：它是 remember(canvasSize, imageWidth, imageHeight) 的普通值，
+    // 长生命周期的 snapshotFlow 闭包会一直捕获启动那一份 —— 转屏/画布尺寸变化后
+    // 仍按旧 fit 换算 selection，裁剪框与导出的选区就错位。
+    LaunchedEffect(tool, baseFit) {
         if (tool != ToolKind.CROP) return@LaunchedEffect
         snapshotFlow { document.viewTransform }.collect { transform ->
             if (transform.zoom < cropMinZoom) {
@@ -295,11 +298,14 @@ fun AnnotateCanvas(
     }
 
     val editingText = editor != null
+    // 回调是普通参数：长生命周期的 effect / DisposableEffect 会捕获启动那一份。
+    // 宿主换了实例时必须现读当前回调，否则收尾仍通知旧宿主。
+    val currentOnTextEditingChanged by rememberUpdatedState(onTextEditingChanged)
     LaunchedEffect(editingText) {
-        onTextEditingChanged?.invoke(editingText)
+        currentOnTextEditingChanged?.invoke(editingText)
     }
     DisposableEffect(Unit) {
-        onDispose { onTextEditingChanged?.invoke(false) }
+        onDispose { currentOnTextEditingChanged?.invoke(false) }
     }
 
     // 宿主导出/退出/重截前会调 document.commitPendingText()：

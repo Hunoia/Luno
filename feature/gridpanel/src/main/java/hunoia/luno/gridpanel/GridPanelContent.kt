@@ -93,6 +93,18 @@ private const val ExitEditTapGuardMillis = 150L
 private const val TAG = "GridPanel"
 
 /**
+ * 底栏冻结的输入快照：卡片几何 + 是否在拖缩放手柄。
+ * 必须带宽度：只拖左右边（位置 / 高度不变）时，少了它 snapshotFlow 不发光，
+ * 底栏会停在旧宽度，与卡对不上。
+ */
+private data class DockFreezeInput(
+    val position: Offset,
+    val cardWidthPx: Float,
+    val cardHeightPx: Float,
+    val resizing: Boolean,
+)
+
+/**
  * 面板根：网格面板是固定网格 + 跨格项 + 简版多页；单功能面板通过 [singleContent] 注入整页功能。
  * 运行态点项执行、长按空白进编辑；编辑态显示删除角标与尺寸手柄、可拖拽落位。
  * 单功能编辑态只保留面板缩放手柄，不再有换功能入口。
@@ -277,6 +289,27 @@ fun GridPanelRoot(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
+    // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
+    // 状态必须声明在 cardFraction 之前：缩放期间宽度要读这里切到本地预览。
+    var panelResizeCorner by remember(panelId, landscape) {
+        mutableStateOf<ResizeCorner?>(null)
+    }
+    var panelResizePosition by remember(panelId, landscape) {
+        mutableStateOf<Offset?>(null)
+    }
+    var panelResizeStartGeometry by remember(panelId, landscape) {
+        mutableStateOf<GridPanelGeometry?>(null)
+    }
+    var panelResizeStartPosition by remember(panelId, landscape) {
+        mutableStateOf(Offset.Zero)
+    }
+    // 起手尺寸取实际渲染尺寸（高度会被可见行数量化），不能从比例反推：
+    // 否则第一次拖动时手柄与手指之间会跳一行。
+    var panelResizeStartSize by remember(panelId, landscape) {
+        mutableStateOf<Offset?>(null)
+    }
+    val minWidthFraction = GridPanelDefaults.MinCardWidthFraction
+
     // 底栏在打开面板时冻结（位置 / 外观 / 卡片宽度），之后切换面板不重算。
     // 状态必须声明在 cardFraction 之前：冻结后的面板宽度要反过来参与几何计算。
     var dockSession by remember { mutableStateOf<PanelDockSession?>(null) }
@@ -287,7 +320,13 @@ fun GridPanelRoot(
     val activeDockSession = dockSession.takeIf { dockEntries.isNotEmpty() }
     // 有底栏时统一用打开那一刻的面板宽度：切换面板只换内容不换宽度，
     // 否则每切一次卡和底栏都会重新对齐一次。
-    val cardFraction = (activeDockSession?.cardWidthFraction ?: geo.cardWidthFraction)
+    // 但「拖缩放手柄」是用户主动改当前卡：这里必须读本地预览 geo，否则宽度被冻结值
+    // 挡住，拖拽只移动位置（配合 positionOverride）而尺寸要等落盘重进才变。
+    val cardFraction = (if (panelResizeCorner != null) {
+        geo.cardWidthFraction
+    } else {
+        activeDockSession?.cardWidthFraction ?: geo.cardWidthFraction
+    })
         .coerceIn(
             GridPanelDefaults.MinCardWidthFraction,
             GridPanelDefaults.MaxCardWidthFraction,
@@ -487,26 +526,6 @@ fun GridPanelRoot(
     val cornerPx = rememberCardCornerPx(placement.sideMarginDp)
 
 
-    // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
-    var panelResizeCorner by remember(panelId, landscape) {
-        mutableStateOf<ResizeCorner?>(null)
-    }
-    var panelResizePosition by remember(panelId, landscape) {
-        mutableStateOf<Offset?>(null)
-    }
-    var panelResizeStartGeometry by remember(panelId, landscape) {
-        mutableStateOf<GridPanelGeometry?>(null)
-    }
-    var panelResizeStartPosition by remember(panelId, landscape) {
-        mutableStateOf(Offset.Zero)
-    }
-    // 起手尺寸取实际渲染尺寸（高度会被可见行数量化），不能从比例反推：
-    // 否则第一次拖动时手柄与手指之间会跳一行。
-    var panelResizeStartSize by remember(panelId, landscape) {
-        mutableStateOf<Offset?>(null)
-    }
-    val minWidthFraction = GridPanelDefaults.MinCardWidthFraction
-
     // 底栏冻结：只在「第一次拿到卡片实际尺寸」与「用户拖缩放手柄期间」重算。
     // 第一次算完之后就钉住 —— 切换面板不重算（那是「底栏不动」的口径），
     // 缩放期间跟随（用户主动拖，底栏必须跟手），松手后就是新的钉住位置。
@@ -516,16 +535,17 @@ fun GridPanelRoot(
     // if 组里」时重组不会再登记它 —— 表现就是正常态永远冻不住、进编辑态后突然出现。
     val dockAnchor = remember(panel.id) { PanelDockAnchor() }
     // 冻结逻辑包在 lambda 里再 rememberUpdatedState：协程里要读的是「当前」的
-    // metrics / 面板 / 间距，而不是启动那一刻的快照（切换面板后会变）。
+    // 锚点 / 面板 / 间距，而不是启动那一刻的快照（切换面板后会变）。
     val freezeDock = rememberUpdatedState {
         val cardHeight = dockAnchor.cardHeightPx
+        val cardWidth = dockAnchor.cardWidthPx
         val needsFreeze = dockSession == null || panelResizeCorner != null
-        if (cardHeight > 0f && needsFreeze) {
+        if (cardHeight > 0f && cardWidth > 0f && needsFreeze) {
             val next = PanelDockSession(
                 placement = resolvePanelDockPlacement(
                     cardX = dockAnchor.position.x,
                     cardY = dockAnchor.position.y,
-                    cardWidthPx = metrics.cardW,
+                    cardWidthPx = cardWidth,
                     cardHeightPx = cardHeight,
                     gapPx = dockGapPx,
                     tabCount = dockEntries.size,
@@ -542,13 +562,27 @@ fun GridPanelRoot(
             if (next != dockSession) dockSession = next
         }
     }
-    LaunchedEffect(dockEntries.isEmpty()) {
+    // key 必须带面板与朝向：snapshotFlow 的闭包会捕获启动那一刻的锚点与
+    // panelResizeCorner 状态实例，切面板 / 转屏后 remember 换了新实例，旧协程
+    // 还在观察已丢弃的旧状态 —— 表现就是「切换过底栏后拖宽度底栏不跟」。
+    // 重启本身安全：冻结值已存在且不在拖手柄时，freezeDock 是空操作。
+    LaunchedEffect(dockEntries.isEmpty(), panel.id, landscape) {
         if (dockEntries.isEmpty()) return@LaunchedEffect
-        snapshotFlow { Triple(dockAnchor.position, dockAnchor.cardHeightPx, panelResizeCorner) }
-            .collect { freezeDock.value() }
+        snapshotFlow {
+            DockFreezeInput(
+                position = dockAnchor.position,
+                cardWidthPx = dockAnchor.cardWidthPx,
+                cardHeightPx = dockAnchor.cardHeightPx,
+                resizing = panelResizeCorner != null,
+            )
+        }.collect { freezeDock.value() }
     }
 
     fun beginPanelResize(corner: ResizeCorner, cardLeft: Float, cardTop: Float) {
+        // 起手先把「渲染宽度」写回本地预览：底栏冻结时渲染宽度取的是打开那刻的卡宽，
+        // 不是本面板自己的存量。不对齐的话，按下手柄的第一帧（corner 已置、cardFraction
+        // 改读 geo）卡会跳到面板自己的旧宽度。
+        localGeometry = localGeometry.copy(cardWidthFraction = cardFraction)
         panelResizeStartGeometry = localGeometry
         panelResizeStartPosition = Offset(cardLeft, cardTop)
         panelResizeStartSize = Offset(metrics.cardW, metrics.cardH)
@@ -593,6 +627,9 @@ fun GridPanelRoot(
         panelResizeStartGeometry = null
         panelResizeStartSize = null
         val finalGeo = localGeometry
+        // 松手立刻把新宽度钉进底栏会话：不能只靠冻结协程最后一帧（它与松手同一帧里
+        // 是竞态），否则 cardFraction 会退回旧冻结宽度闪一下再变。
+        dockSession = dockSession?.copy(cardWidthFraction = finalGeo.cardWidthFraction)
         // 保留预览位置到面板关闭：尺寸落盘回流后不再跳回 anchor 推导位。
         val commit = onCommitGeometry
         if (commit != null) {
@@ -615,7 +652,9 @@ fun GridPanelRoot(
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
     // 那时格子会永远空白，所以要把这项收掉。
-    DisposableEffect(panel.id) {
+    // key 必须带朝向：监听闭包持有当前朝向的 localItems 与 updatePanel，
+    // 转屏后 remember(panelId, landscape) 换了新状态，旧监听不能再去改上一朝向。
+    DisposableEffect(panel.id, landscape) {
         val listener = WidgetGoneListener { goneId ->
             val left = localItems.filterNot {
                 (it.kind as? GridPanelItem.Kind.AppWidget)?.appWidgetId == goneId

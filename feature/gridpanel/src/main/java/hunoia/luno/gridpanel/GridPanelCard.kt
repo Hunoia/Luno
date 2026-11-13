@@ -265,6 +265,7 @@ fun GridPanelCard(
     if (dockAnchor != null) {
         SideEffect {
             dockAnchor.position = Offset(drawX, drawY)
+            dockAnchor.cardWidthPx = metrics.cardW
             dockAnchor.cardHeightPx = metrics.cardH
             dockAnchor.progress = appearance
             dockAnchor.appearSlide = appearDir * appearSlidePx
