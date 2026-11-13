@@ -86,9 +86,6 @@
     <string name="todo_reminder_edit">Edit reminder</string>
     <string name="todo_reminder_remove">Remove</string>
     <string name="todo_reminder_title">Todo reminder</string>
-    <string name="todo_reminder_pick_date">Date</string>
-    <string name="todo_reminder_month">%1$d/%2$d</string>
-    <string name="todo_reminder_pick_time">Time</string>
     <string name="todo_reminder_confirm">OK</string>
     <string name="todo_reminder_expired">Time has passed; choose a future time</string>
     <string name="todo_reminder_expired_short">Expired</string>

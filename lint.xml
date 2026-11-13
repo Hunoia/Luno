@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      Phase 1 门禁（全模块统一）：
+      - UnusedResources / NewApi 提到 error：baseline 抑制存量，门禁只拦新增。
+      - MissingTranslation / HardcodedText 保持默认 warning，避免 locale 误报阻塞。
+      - IconMissingDensityFolder 原本在 app/lint.xml 忽略，保留。
+    -->
+    <issue id="IconMissingDensityFolder" severity="ignore" />
+    <issue id="UnusedResources" severity="error" />
+    <issue id="NewApi" severity="error" />
+    <!-- 双语不同步仅 warning，不阻塞 CI；避免开发中英文滞后导致误挡。 -->
+    <issue id="MissingTranslation" severity="warning" />
+</lint>

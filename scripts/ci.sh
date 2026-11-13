@@ -17,6 +17,9 @@ step "Gradle 构建 + 单测（含 luno.arch 依赖门禁、Konsist 门禁）"
 ./gradlew --max-workers=2 -Dkotlin.daemon.jvmargs=-Xmx1536m \
     :app:assembleDebug testDebugUnitTest :core:domain:test
 
+step "Android lint（UnusedResources / NewApi；baseline 抑制存量，门禁只拦新增）"
+./gradlew --max-workers=2 -Dkotlin.daemon.jvmargs=-Xmx1536m lintDebug
+
 step "未使用 import"
 unused="$(python3 scripts/check_unused_imports.py)"
 echo "$unused" | tail -5
