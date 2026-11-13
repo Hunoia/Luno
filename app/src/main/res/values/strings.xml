@@ -4,6 +4,11 @@
     <string name="home_title">@string/app_name</string>
     <string name="home_tab">主页</string>
     <string name="settings">设置</string>
+    <!-- 主页三球停靠栏（主导航 / 记录导航 / 功能球）的无障碍文案；tab 条目复用各自标题 -->
+    <string name="home_dock_nav_ball">导航，当前：%1$s</string>
+    <string name="home_dock_nav_ball_expand">展开导航栏</string>
+    <string name="home_dock_record_ball">记录，当前：%1$s</string>
+    <string name="home_dock_record_ball_expand">展开记录导航</string>
     <string name="accessibility_description">模拟返回、主页等按键，实现侧滑手势的自定义操控，不收集数据。</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="backup_settings_entry">备份与恢复</string>

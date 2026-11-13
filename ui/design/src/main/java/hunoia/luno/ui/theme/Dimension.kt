@@ -81,6 +81,8 @@ val BottomBarIconSize = 30.dp
 // 主页底栏 Tab 格宽，指示 pill 同宽
 val BottomBarTabWidth = 76.dp
 
+// 主页双球停靠栏（导航球 + 快捷球）的几何 token 见 DockDimension.kt。
+
 // Segmented list tokens
 val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp

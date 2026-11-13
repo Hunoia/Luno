@@ -1,19 +1,24 @@
 package hunoia.luno.gridpanel.trend
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.TrendConfig
@@ -22,37 +27,40 @@ import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.config.model.trendStats
 import hunoia.luno.domain.gridpanel.TrendCenter
 import hunoia.luno.gridpanel.R
-import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.toColor
 
 /**
- * 趋势管理列表：主设置 → 趋势。
+ * 趋势列表内容：主页「趋势」tab 嵌入用。
+ *
+ * 共享主页外壳的顶栏，没有自己的顶栏 / 返回键 / FAB；新建指标入口是底栏的功能球，
+ * 由调用方接 `onNewMetric`（导航到指标编辑页）。
  * 数据源 [TrendCenter.trendConfig]；增删改写走 domain 门面（配置写入，不走 Action）。
  */
 @Composable
-fun TrendListScreen(
-    onBack: () -> Unit,
+fun TrendListContent(
+    topPadding: Dp,
     onOpenMetric: (metricId: String) -> Unit,
-    onNewMetric: () -> Unit,
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
 ) {
     val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendConfig())
-    LunoScreenLazy(
-        title = stringResource(R.string.trend_list_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
-            LunoFab(
-                onClick = onNewMetric,
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.trend_add),
-            )
-        },
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        state = state,
+        contentPadding = PaddingValues(
+            start = PageGutter,
+            top = topPadding,
+            end = PageGutter,
+            bottom = FloatingContentBottom,
+        ),
+        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         if (config.metrics.isEmpty()) {
             item {

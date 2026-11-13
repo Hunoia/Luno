@@ -278,17 +278,6 @@
 
     <issue
         id="MissingTranslation"
-        message="&quot;appearance_settings_entry_hint&quot; is not translated in &quot;en&quot; (English)"
-        errorLine1="    &lt;string name=&quot;appearance_settings_entry_hint&quot;>列表风格与动效速度&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="94"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
         message="&quot;appearance_group_list&quot; is not translated in &quot;en&quot; (English)"
         errorLine1="    &lt;string name=&quot;appearance_group_list&quot;>列表&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -416,17 +405,6 @@
         <location
             file="src/main/res/values-en/strings.xml"
             line="145"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="PluralsCandidate"
-        message="Formatting %d followed by words (&quot;panels&quot;): This should probably be a plural rather than a string"
-        errorLine1="    &lt;string name=&quot;action_panel_count&quot;>%1$d panels&lt;/string>"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values-en/strings.xml"
-            line="146"
             column="5"/>
     </issue>
 

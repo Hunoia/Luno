@@ -1,19 +1,16 @@
-// icon-only bottom bar: click + drag-to-switch, sliding pill indicator.
-// Tab 格固定 76dp（BottomBarTabWidth）不 weight —— pill 宽度/位移纯算术，
-// 不受 AnimatedVisibility 宽度动画干扰；`+` 圆同根 Row 吃橡皮筋。
+// icon-only tab row: click + drag-to-switch, sliding pill indicator.
+// Tab 格宽固定（BottomBarTabWidth 或窄屏压缩值）不 weight —— pill 宽度/位移纯算术，
+// 不受展开动画宽度干扰。玻璃容器由调用方提供（主页三球停靠栏的形变胶囊）。
 package hunoia.luno.ui.component
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseOut
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalContentColor as M3LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -21,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -32,10 +28,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -48,24 +42,17 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
-import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.animation.DampedDragAnimation
 import hunoia.luno.ui.theme.BottomBarHeight
-import hunoia.luno.ui.theme.BottomBarTabWidth
 import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.TileInnerPadding
-import hunoia.luno.ui.theme.appGlassOutline
-import hunoia.luno.ui.theme.appHazeEffect
-import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 @Immutable
 class FloatingBottomBarColors(
-    val containerColor: Color,
     val indicatorColor: Color,
     val contentColor: Color,
     val activeContentColor: Color,
@@ -74,72 +61,60 @@ class FloatingBottomBarColors(
 object FloatingBottomBarDefaults {
     @Composable
     fun colors(
-        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
         indicatorColor: Color = MaterialTheme.colorScheme.primary,
         contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
         activeContentColor: Color = indicatorColor,
     ): FloatingBottomBarColors = FloatingBottomBarColors(
-        containerColor = containerColor,
         indicatorColor = indicatorColor,
         contentColor = contentColor,
         activeContentColor = activeContentColor,
     )
 }
 
+/**
+ * 底栏 tab 行：只画 tab、指示 pill 与拖拽切换，不画玻璃容器。
+ *
+ * 调用方（[HomeDock] 的导航胶囊）负责玻璃、阴影、形变与裁剪；这里按传入的 [tabWidth]
+ * 用 [requiredWidth] 测量，父容器窄于 tab 行时只做裁剪，不挤压 tab。停靠栏的 tab 宽会随
+ * 功能球显隐变化，因此 [tabWidth] 允许是动画值。
+ */
 @Composable
-fun <T> FloatingBottomBar(
+fun <T> FloatingTabRow(
     items: List<T>,
     selectedIndex: () -> Int,
     onSelected: (index: Int) -> Unit,
-    hazeState: HazeState,
+    tabWidth: Dp,
+    colors: FloatingBottomBarColors,
     modifier: Modifier = Modifier,
-    colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
+    /** tab 行高；主页三球停靠栏的胶囊内容高是 52，默认沿用整条底栏的 56。 */
+    tabHeight: Dp = BottomBarHeight,
     iconContent: @Composable (item: T, index: Int) -> Unit,
 ) {
-    val isInDark = androidx.compose.foundation.isSystemInDarkTheme()
-    // 容器与指示 pill 同走胶囊角色（ui-guidelines §4.2）：半径由高度按零直边条件推出，
-    // 容器 64dp → ~26.7dp、指示 pill 56dp → ~23.3dp，不再按尺寸各开一个 dp token。
-    val capsuleShape = CapsuleShape
-    // Haze 单层底：blur + 0.65 底色。tint 只放 Haze 一层，组件自身不再画底色，
-    // 否则双层叠加发白。
-    val hazeBackground = colors.containerColor.copy(alpha = 0.65f)
-
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val animationScope = rememberCoroutineScope()
     val tabsCount = items.size
-
-    // 格宽固定（BottomBarTabWidth），一切纯算术：不受 FAB 显隐宽度动画干扰。
-    val tabWidthPx = with(density) { BottomBarTabWidth.toPx() }
-    val tabsWidthPx = tabWidthPx * tabsCount
-
-    val offsetAnimation = remember { Animatable(0f) }
-    val rubberBandPx = with(density) { TileInnerPadding.toPx() }
-    val panelOffset by remember(rubberBandPx, tabsWidthPx) {
-        derivedStateOf {
-            if (tabsWidthPx == 0f) {
-                0f
-            } else {
-                val fraction = (offsetAnimation.value / tabsWidthPx).fastCoerceIn(-1f, 1f)
-                rubberBandPx * (if (fraction < 0f) -1f else 1f) * EaseOut.transform(abs(fraction))
-            }
-        }
-    }
+    val tabWidthPx = with(density) { tabWidth.toPx() }
+    // 停靠栏的 tab 宽会随功能球显隐变化（76 ↔ 59.87dp）。手势节点一旦装好就只认 key，
+    // 所以这里把宽度读成状态、而不是把 tabWidthPx 放进 remember key：宽度变化时实例不重建，
+    // 拖动继续驱动同一个动画，落点也按新宽度换算。否则会拖着一个被丢弃的实例，
+    // 表现就是胶囊展开后 pill 不跟手、短拖不切页。
+    val tabWidthPxState = rememberUpdatedState(tabWidthPx)
 
     var currentIndex by remember { mutableIntStateOf(selectedIndex()) }
     val selectedIndexUpdated by rememberUpdatedState(selectedIndex)
     val onSelectedUpdated by rememberUpdatedState(onSelected)
 
-    // 拖拽修饰符挂 tabs 区：从 `+` 起手的滑动不带 pill，只有点击。
     fun indexAt(positionX: Float): Int {
-        if (tabWidthPx == 0f) return currentIndex
-        val logicalX = if (isLtr) positionX else tabsWidthPx - positionX
-        return (logicalX / tabWidthPx)
+        val widthPx = tabWidthPxState.value
+        if (widthPx == 0f) return currentIndex
+        val logicalX = if (isLtr) positionX else widthPx * tabsCount - positionX
+        return (logicalX / widthPx)
             .toInt()
             .fastCoerceIn(0, tabsCount - 1)
     }
 
-    val dampedDragAnimation = remember(animationScope, tabsCount, density, isLtr) {
+    val dampedDragAnimation = remember(animationScope, tabsCount, isLtr) {
         DampedDragAnimation(
             animationScope = animationScope,
             initialValue = currentIndex.toFloat(),
@@ -148,7 +123,7 @@ fun <T> FloatingBottomBar(
             initialScale = 1f,
             pressedScale = 1.2f,
             canDrag = { position ->
-                position.x in 0f..tabsWidthPx
+                position.x in 0f..(tabWidthPxState.value * tabsCount)
             },
             onDragStarted = { position ->
                 updateValue(indexAt(position.x).toFloat())
@@ -160,25 +135,17 @@ fun <T> FloatingBottomBar(
                     onSelectedUpdated(targetIndex)
                 }
                 updateValue(targetIndex.toFloat())
-                animationScope.launch {
-                    offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
-                }
             },
             onDragCancelled = {
                 updateValue(currentIndex.toFloat())
-                animationScope.launch {
-                    offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
-                }
             },
             onDrag = { _, dragAmount ->
-                if (tabWidthPx > 0f && dragAmount.x != 0f) {
+                val widthPx = tabWidthPxState.value
+                if (widthPx > 0f && dragAmount.x != 0f) {
                     updateValue(
-                        (targetValue + dragAmount.x / tabWidthPx * if (isLtr) 1f else -1f)
+                        (targetValue + dragAmount.x / widthPx * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, (tabsCount - 1).toFloat()),
                     )
-                    animationScope.launch {
-                        offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x)
-                    }
                 }
             },
         )
@@ -210,10 +177,8 @@ fun <T> FloatingBottomBar(
             val tabTint = if (tabSelected) colors.activeContentColor else colors.contentColor
             Box(
                 modifier = Modifier
-                    .size(
-                        width = BottomBarTabWidth,
-                        height = BottomBarHeight,
-                    )
+                    .width(tabWidth)
+                    .fillMaxHeight()
                     .semantics(mergeDescendants = true) {
                         selected = tabSelected
                         role = Role.Tab
@@ -243,55 +208,35 @@ fun <T> FloatingBottomBar(
         }
     }
 
-    // 栏 + `+` 同一个根 Row 吃橡皮筋：整体一起晃，接缝不开合。
-    Row(
-        modifier = modifier.graphicsLayer { translationX = panelOffset },
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        modifier = modifier
+            .requiredWidth(tabWidth * tabsCount)
+            .height(tabHeight),
     ) {
-        Box(
-            modifier = Modifier.width(BottomBarTabWidth * tabsCount + TileInnerPadding * 2),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Row(
-                Modifier
-                    .dropShadow(
-                        shape = capsuleShape,
-                        shadow = Shadow(
-                            radius = TileInnerPadding * 2.5f,
-                            color = Color.Black,
-                            alpha = if (isInDark) 0.2f else 0.1f,
-                        ),
-                    )
-                    // clip 在 haze 之外：方形糊输出裁成连续曲率胶囊（只裁绘制，不影响采样）。
-                    .clip(capsuleShape)
-                    .appHazeEffect(hazeState, hazeBackground)
-                    .appGlassOutline(capsuleShape)
-                    .then(dampedDragAnimation.modifier)
-                    .height(BottomBarHeight + TileInnerPadding * 2)
-                    .padding(TileInnerPadding),
-                verticalAlignment = Alignment.CenterVertically,
-                content = tabsContent,
-            )
+        Row(
+            Modifier
+                .fillMaxHeight()
+                .then(dampedDragAnimation.modifier),
+            verticalAlignment = Alignment.CenterVertically,
+            content = tabsContent,
+        )
 
-            // 滑动指示 pill：跟随拖拽值滑动，按压时放大 + 速度倾斜。
-            // 橡皮筋位移由根 Row 统一吃，这里只加 pill 自身位移，别重复加。
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = TileInnerPadding)
-                    .graphicsLayer {
-                        val progressOffset = dampedDragAnimation.value * tabWidthPx
-                        translationX = if (isLtr) progressOffset else -progressOffset
-                        scaleX = dampedDragAnimation.scaleX
-                        scaleY = dampedDragAnimation.scaleY
-                        val velocity = (dampedDragAnimation.velocity / 10f).fastCoerceIn(-0.2f, 0.2f)
-                        scaleX /= 1f - velocity * 0.75f
-                        scaleY *= 1f - velocity * 0.25f
-                    }
-                    .clip(capsuleShape)
-                    .background(colors.indicatorColor.copy(alpha = 0.15f), capsuleShape)
-                    .height(BottomBarHeight)
-                    .width(BottomBarTabWidth),
-            )
-        }
+        // 滑动指示 pill：跟随拖拽值滑动，按压时放大 + 速度倾斜。
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    val progressOffset = dampedDragAnimation.value * tabWidthPx
+                    translationX = if (isLtr) progressOffset else -progressOffset
+                    scaleX = dampedDragAnimation.scaleX
+                    scaleY = dampedDragAnimation.scaleY
+                    val velocity = (dampedDragAnimation.velocity / 10f).fastCoerceIn(-0.2f, 0.2f)
+                    scaleX /= 1f - velocity * 0.75f
+                    scaleY *= 1f - velocity * 0.25f
+                }
+                .clip(CapsuleShape)
+                .background(colors.indicatorColor.copy(alpha = 0.15f), CapsuleShape)
+                .height(tabHeight)
+                .width(tabWidth),
+        )
     }
 }

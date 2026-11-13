@@ -43,6 +43,14 @@ def rel(path: Path) -> str:
     return str(path.relative_to(ROOT))
 
 
+# 尺寸 token 的事实源：Dimension.kt 为主，DockDimension.kt 单独承载双球停靠栏的纯尺寸
+# （拆开的原因见该文件头注释：形状库的字节码版本高于单测 JVM）。
+TOKEN_SOURCES = (
+    "ui/design/src/main/java/hunoia/luno/ui/theme/Dimension.kt",
+    "ui/design/src/main/java/hunoia/luno/ui/theme/DockDimension.kt",
+)
+
+
 def modules_doc() -> str:
     settings = read(ROOT / "settings.gradle.kts")
     modules = re.findall(r'include\("(:[^"]+)"\)', settings)
@@ -104,22 +112,23 @@ def backup_domains_doc() -> str:
 
 
 def ui_tokens_doc() -> str:
-    source = ROOT / "ui/design/src/main/java/hunoia/luno/ui/theme/Dimension.kt"
     lines = [
         "# UI token 清单（自动生成）",
         "",
-        AUTO + "> 来源：`ui/design/.../theme/Dimension.kt`（唯一事实源）。",
+        AUTO + "> 来源：`ui/design/.../theme/Dimension.kt`、`DockDimension.kt`（唯一事实源）。",
         "",
-        "| token | 值 | 源码行 |",
+        "| token | 值 | 源码位置 |",
         "|---|---|---|",
     ]
     token_re = re.compile(r"^(?:const )?val\s+(\w+)\s*=\s*(.+?)\s*$")
-    for lineno, line in enumerate(read(source).splitlines(), start=1):
-        match = token_re.match(line)
-        if not match:
-            continue
-        name, value = match.group(1), match.group(2).replace("|", r"\|")
-        lines.append(f"| `{name}` | `{value}` | {lineno} |")
+    for relative in TOKEN_SOURCES:
+        source = ROOT / relative
+        for lineno, line in enumerate(read(source).splitlines(), start=1):
+            match = token_re.match(line)
+            if not match:
+                continue
+            name, value = match.group(1), match.group(2).replace("|", r"\|")
+            lines.append(f"| `{name}` | `{value}` | `{source.name}:{lineno}` |")
     lines.append("")
     return "\n".join(lines)
 
