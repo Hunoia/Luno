@@ -17,6 +17,12 @@
     <string name="grid_panel_internal_habit_history">Habit history</string>
     <string name="grid_panel_internal_habit_heatmap">Habit heatmap</string>
     <string name="grid_panel_internal_todo">Todos</string>
+    <string name="grid_panel_internal_sys_monitor">Resource monitor</string>
+    <string name="grid_panel_sys_mem">Memory</string>
+    <string name="grid_panel_sys_cpu">CPU</string>
+    <string name="grid_panel_sys_empty">No apps</string>
+    <string name="grid_panel_sys_need_shizuku">Tap to grant Shizuku to see per-app usage</string>
+    <string name="grid_panel_sys_desc">Memory %1$s, CPU %2$s</string>
     <string name="grid_panel_habit_empty">No habit configured</string>
     <string name="grid_panel_habit_missing">Habit deleted</string>
     <string name="grid_panel_habit_missing_reselect">Habit deleted, tap to reselect</string>

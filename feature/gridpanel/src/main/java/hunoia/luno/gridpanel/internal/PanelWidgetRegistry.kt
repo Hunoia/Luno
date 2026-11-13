@@ -240,5 +240,20 @@ object PanelWidgetRegistry {
                 )
             },
         )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.SYS_MONITOR,
+                labelRes = R.string.grid_panel_internal_sys_monitor,
+                defaultSpanX = 4,
+                defaultSpanY = 3,
+                minSpanX = 2,
+                minSpanY = 2,
+            ) { scope ->
+                SysMonitorCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                )
+            },
+        )
     }
 }
