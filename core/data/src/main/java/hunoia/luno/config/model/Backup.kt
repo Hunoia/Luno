@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 /** 备份格式版本与各域 Schema 版本（改某域模型只升对应域版本，不动备份格式）。 */
 object BackupVersions {
-    const val FORMAT = 2
+    const val FORMAT = 3
     const val GESTURE = 1
     const val TUNE = 1
     const val ACTION = 2
@@ -20,6 +20,7 @@ object BackupVersions {
     const val ANNOTATE = 1
     const val CLIPBOARD = 1
     const val APP_CONTROL = 1
+    const val TREND = 1
 }
 
 /** 备份域：整机备份含全部，单域导出一次一域。 */
@@ -33,6 +34,7 @@ enum class BackupDomain {
     ANNOTATE,
     CLIPBOARD,
     APP_CONTROL,
+    TREND,
 }
 
 @Serializable
@@ -49,6 +51,7 @@ data class Backup(
     val annotateSchemaVersion: Int = 1,
     val clipboardSchemaVersion: Int = 1,
     val appControlSchemaVersion: Int = 1,
+    val trendSchemaVersion: Int = 1,
     val initialSettings: InitialSettings? = null,
     val advancedSettings: AdvancedSettings? = null,
     val gestureSettings: GestureSettings? = null,
@@ -69,6 +72,8 @@ data class Backup(
     val clipboardPinned: List<ClipboardEntry>? = null,
     /** 应用冻结：一键冻结名单。当前哪些包被禁用是系统状态，刻意不进备份。 */
     val appControlSettings: AppControlSettings? = null,
+    /** 趋势记录：指标定义 + 数值时间序列。 */
+    val trendConfig: TrendConfig? = null,
 )
 
 /**

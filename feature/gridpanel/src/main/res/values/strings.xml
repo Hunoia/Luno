@@ -164,4 +164,73 @@
         <item>六</item>
         <item>日</item>
     </string-array>
+
+    <!-- 趋势记录 -->
+    <string name="trend_list_title">趋势</string>
+    <string name="trend_add">新建指标</string>
+    <string name="trend_empty">还没有趋势指标，点右下角新建</string>
+    <string name="trend_list_group">指标</string>
+    <string name="trend_metric_missing">指标已删除</string>
+    <string name="trend_create_title">新建指标</string>
+    <string name="trend_edit_title">编辑指标</string>
+    <string name="trend_save">保存</string>
+    <string name="trend_delete">删除</string>
+    <string name="trend_delete_confirm_title">删除指标？</string>
+    <string name="trend_delete_confirm_text">将删除「%1$s」及其全部记录，且不可恢复。</string>
+    <string name="trend_edit_name">名称</string>
+    <string name="trend_edit_name_hint">如：体重、腰围</string>
+    <string name="trend_edit_name_required">名称不能为空</string>
+    <string name="trend_edit_unit">单位</string>
+    <string name="trend_edit_unit_hint">如：kg、cm、%</string>
+    <string name="trend_edit_unit_note">单位只改显示标签，历史数值不会换算。</string>
+    <string name="trend_edit_decimals">小数位</string>
+    <string name="trend_edit_decimals_value">%1$d 位</string>
+    <string name="trend_edit_color">颜色</string>
+    <string name="trend_edit_target">目标</string>
+    <string name="trend_edit_target_hint">留空则不画目标线</string>
+    <string name="trend_edit_target_note">目标线只用于对比，不会限制记录。</string>
+    <string name="trend_edit_target_invalid">目标值无效</string>
+    <string name="trend_goal_lower">越低越好</string>
+    <string name="trend_goal_higher">越高越好</string>
+    <string name="trend_goal_neutral">仅参考</string>
+    <string name="trend_edit_reminder">提醒</string>
+    <string name="trend_edit_reminder_enable">每日提醒</string>
+    <string name="trend_edit_reminder_time">提醒时间</string>
+    <string name="trend_edit_reminder_time_value">%1$02d:%2$02d</string>
+    <string name="trend_edit_reminder_note">今天已记录则跳过当天提醒。</string>
+    <string name="trend_detail_chart">图表</string>
+    <string name="trend_detail_records">记录</string>
+    <string name="trend_detail_no_entries">还没有记录</string>
+    <string name="trend_summary_target">目标 %1$s</string>
+    <string name="trend_summary_no_target">未设目标</string>
+    <string name="trend_summary_since_previous">较上次</string>
+    <string name="trend_summary_since_seven_days">较 7 天前</string>
+    <string name="trend_summary_to_target">距目标</string>
+    <string name="trend_summary_reached">已达标 · %1$s</string>
+    <string name="trend_delta_from_previous">较上次 %1$s</string>
+    <string name="trend_chart_target">目标 %1$s</string>
+    <string name="trend_range_7">7 天</string>
+    <string name="trend_range_30">30 天</string>
+    <string name="trend_range_90">90 天</string>
+    <string name="trend_range_year">1 年</string>
+    <string name="trend_range_all">全部</string>
+    <string name="trend_record_title">记录 %1$s</string>
+    <string name="trend_record_now">现在 %1$s</string>
+    <string name="trend_record_hint">输入数值</string>
+    <string name="trend_record_save">保存</string>
+    <string name="trend_record_add">记录一次</string>
+    <string name="trend_entry_edit_title">编辑 %1$s 记录</string>
+    <string name="trend_entry_time">记录时间 %1$s</string>
+    <string name="trend_entry_delete">删除</string>
+    <string name="trend_entry_delete_confirm_title">删除这条记录？</string>
+    <string name="trend_entry_delete_confirm_text">仅删除 %1$s 这条记录，不影响其他记录。</string>
+    <string name="grid_panel_internal_trend">趋势</string>
+    <string name="grid_panel_trend_empty">还没有趋势指标</string>
+    <string name="grid_panel_trend_missing">指标已删除</string>
+    <string name="grid_panel_trend_missing_reselect">点按重新选择指标</string>
+    <string name="grid_panel_trend_record_hint">快速记录</string>
+    <string name="trend_pick_title">选择趋势指标</string>
+    <string name="trend_pick_empty">还没有趋势指标，请先创建</string>
+    <string name="trend_record_full">该指标记录数已达上限</string>
+    <string name="trend_detail_records_truncated">仅显示最近 %1$d 条记录</string>
 </resources>

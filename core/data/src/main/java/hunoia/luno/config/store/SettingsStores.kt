@@ -21,6 +21,7 @@ import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
+import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -43,6 +44,7 @@ class SettingsStores(
     internal val _clipboardSettings: DataStore<ClipboardSettings>,
     internal val _habitConfig: DataStore<HabitConfig>,
     internal val _todoConfig: DataStore<TodoConfig>,
+    internal val _trendConfig: DataStore<TrendConfig>,
     internal val _annotateSettings: DataStore<AnnotateSettings>,
     internal val _autoBackup: DataStore<AutoBackupSettings>,
     internal val _appControlSettings: DataStore<AppControlSettings>,
@@ -63,6 +65,7 @@ class SettingsStores(
     val clipboardSettings: Flow<ClipboardSettings> = _clipboardSettings.data
     val habitConfig: Flow<HabitConfig> = _habitConfig.data
     val todoConfig: Flow<TodoConfig> = _todoConfig.data
+    val trendConfig: Flow<TrendConfig> = _trendConfig.data
     val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data
     /** 定时自动备份状态：设备本地，不进备份、不被「恢复默认设置」清掉。 */
     val autoBackup: Flow<AutoBackupSettings> = _autoBackup.data
@@ -92,6 +95,7 @@ class SettingsStores(
                 _clipboardSettings = ctx.dataStore(DataStoreFiles.CLIPBOARD_SETTINGS, ClipboardSettings()),
                 _habitConfig = ctx.dataStore(DataStoreFiles.HABITS, HabitConfig()),
                 _todoConfig = ctx.dataStore(DataStoreFiles.TODOS, TodoConfig()),
+                _trendConfig = ctx.dataStore(DataStoreFiles.TRENDS, TrendConfig()),
                 _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),
                 _autoBackup = ctx.dataStore(DataStoreFiles.AUTO_BACKUP, AutoBackupSettings()),
                 _appControlSettings = ctx.dataStore(DataStoreFiles.APP_CONTROL_SETTINGS, AppControlSettings()),

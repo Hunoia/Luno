@@ -95,6 +95,8 @@ class App : Application(), SingletonImageLoader.Factory {
             // 待办提醒同理：配置流一变更（设 / 改 / 删 / 完成 / 撤销）就重排，
             // 首次订阅同时负责「应用打开时补弹错过提醒」。
             hunoia.luno.domain.todo.TodoReminderScheduler.startObserving(applicationContext)
+            // 趋势提醒只按「每指标每天一次」调度，配置变更（开关 / 时间 / 删除）即时重排。
+            hunoia.luno.domain.trend.TrendReminderScheduler.startObserving(applicationContext)
         }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)

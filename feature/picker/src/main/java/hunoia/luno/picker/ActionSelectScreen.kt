@@ -35,9 +35,12 @@ import hunoia.luno.picker.R
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitWidgetParams
+import hunoia.luno.config.model.TrendConfig
+import hunoia.luno.config.model.TrendWidgetParams
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.Paths
 import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.domain.gridpanel.TrendCenter
 import hunoia.luno.gridpanel.internal.InternalWidgetIds
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
@@ -56,6 +59,7 @@ import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.screen.LunoScreenPlain
 import hunoia.luno.gridpanel.habit.HabitPickerDialog
+import hunoia.luno.gridpanel.trend.TrendPickerDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** 已分配 id、等着某个 Activity 回话的小部件。 */
@@ -98,6 +102,10 @@ fun ActionSelectContent(
         var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
         val habitConfig by HabitCenter.habitConfig
             .collectAsStateWithLifecycle(initialValue = HabitConfig())
+        // 趋势部件选择：指定目标指标后落盘（params 同上）。
+        var pendingTrendWidgetId by remember { mutableStateOf<String?>(null) }
+        val trendConfig by TrendCenter.trendConfig
+            .collectAsStateWithLifecycle(initialValue = TrendConfig())
 
         // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
         LunoScreenPlain(
@@ -118,6 +126,19 @@ fun ActionSelectContent(
                             )
                         },
                         onDismiss = { pendingHabitWidgetId = null },
+                    )
+                }
+                val pendingTrend = pendingTrendWidgetId
+                if (pendingTrend != null) {
+                    TrendPickerDialog(
+                        metrics = trendConfig.metrics,
+                        onSelect = { metric ->
+                            vm.commitInternalWidget(
+                                pendingTrend,
+                                JsonSerializer.encodeToString(TrendWidgetParams(metric.id)),
+                            )
+                        },
+                        onDismiss = { pendingTrendWidgetId = null },
                     )
                 }
             },
@@ -333,6 +354,8 @@ fun ActionSelectContent(
                                     id == InternalWidgetIds.HABIT_HEATMAP
                                 ) {
                                     pendingHabitWidgetId = id
+                                } else if (id == InternalWidgetIds.TREND) {
+                                    pendingTrendWidgetId = id
                                 } else {
                                     vm.commitInternalWidget(id)
                                 }

@@ -12,6 +12,9 @@ const val HABIT_REMINDER_CHANNEL_ID = "habit_reminder"
 /** 待办提醒独立通道：用户可单独关闭，不与习惯提醒混在一起。 */
 const val TODO_REMINDER_CHANNEL_ID = "todo_reminder"
 
+/** 趋势记录提醒独立通道：每天至多一条，当天已记录时不发。 */
+const val TREND_REMINDER_CHANNEL_ID = "trend_reminder"
+
 /** 面向用户的常驻提醒通道：固定通知隐藏 / 悬浮球通知脉冲都不得误伤。 */
 val UserFacingReminderChannelIds: Set<String> =
-    setOf(HABIT_REMINDER_CHANNEL_ID, TODO_REMINDER_CHANNEL_ID)
+    setOf(HABIT_REMINDER_CHANNEL_ID, TODO_REMINDER_CHANNEL_ID, TREND_REMINDER_CHANNEL_ID)

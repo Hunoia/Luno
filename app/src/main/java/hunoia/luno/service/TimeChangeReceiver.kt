@@ -7,6 +7,7 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.habit.HabitReminderScheduler
 import hunoia.luno.domain.todo.TodoReminderScheduler
+import hunoia.luno.domain.trend.TrendReminderScheduler
 
 /**
  * 系统时间 / 时区变化后重排所有「墙钟」提醒。
@@ -27,6 +28,7 @@ class TimeChangeReceiver : BroadcastReceiver() {
                 LunoLog.i(LOG_TAG, "time changed (${intent.action}), rescheduling wall-clock reminders")
                 HabitReminderScheduler.rescheduleAll(context)
                 TodoReminderScheduler.rescheduleAll(context)
+                TrendReminderScheduler.rescheduleAll(context)
             }
 
             else -> Unit

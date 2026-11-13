@@ -7,6 +7,7 @@ import androidx.compose.material.icons.twotone.CheckCircle
 import androidx.compose.material.icons.twotone.Checklist
 import androidx.compose.material.icons.twotone.ContentPaste
 import androidx.compose.material.icons.twotone.Link
+import androidx.compose.material.icons.twotone.ShowChart
 import androidx.compose.material.icons.twotone.SettingsBackupRestore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,6 +21,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 fun HomeSettingsGroup(
     onHabitsClick: () -> Unit,
     onTodosClick: () -> Unit,
+    onTrendsClick: () -> Unit,
     onClipboardClick: () -> Unit,
     onAppControlClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -40,6 +42,12 @@ fun HomeSettingsGroup(
             icon = Icons.TwoTone.Checklist,
             shape = shape,
             onClick = onTodosClick,
+            ) }
+            item { shape -> LunoSettingsRow(
+            title = stringResource(hunoia.luno.gridpanel.R.string.trend_list_title),
+            icon = Icons.TwoTone.ShowChart,
+            shape = shape,
+            onClick = onTrendsClick,
             ) }
             item { shape -> LunoSettingsRow(
             title = stringResource(R.string.clipboard_settings_entry),

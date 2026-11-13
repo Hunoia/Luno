@@ -544,4 +544,10 @@
     <string name="notification_display_perm_group">Permission status</string>
     <string name="notification_display_settings_entry">Notifications</string>
     <string name="notification_display_settings_entry_hint">Display mode, island and permissions</string>
+
+    <!-- Trend reminders -->
+    <string name="trend_reminder_channel">Trend reminders</string>
+    <string name="trend_reminder_title">Record %1$s</string>
+    <string name="trend_reminder_text">No record for “%1$s” today. Tap to add one.</string>
+    <string name="trend_reminder_channel_desc">At most one reminder per metric per day; skipped when already recorded</string>
 </resources>

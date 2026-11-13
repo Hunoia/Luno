@@ -32,6 +32,8 @@ object InternalWidgetIds {
     const val HABIT_HEATMAP = "internal.habitHeatmap"
     /** 代办列表：未完成项可勾选 + 未完成数（无 params）。 */
     const val TODO = "internal.todo"
+    /** 趋势记录：最新值 + 迷你曲线（params 存 TrendWidgetParams）。 */
+    const val TREND = "internal.trend"
     /** 资源监控：系统内存/CPU + 各应用进程级占用列表（无 params）。 */
     const val SYS_MONITOR = "internal.sysMonitor"
 }

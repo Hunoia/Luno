@@ -101,6 +101,26 @@ data class HabitEdit(
 @Serializable
 data object TodoList
 
+/** 趋势管理列表（主设置 → 趋势）。 */
+@Keep
+@Serializable
+data object TrendList
+
+/** 趋势详情；[openRecord] = 进页即弹快速记录（部件主体 / 提醒通知）。 */
+@Keep
+@Serializable
+data class TrendDetail(
+    val metricId: String = "",
+    val openRecord: Boolean = false,
+)
+
+/** 趋势指标编辑；metricId 空 = 新增。 */
+@Keep
+@Serializable
+data class TrendEdit(
+    val metricId: String = "",
+)
+
 @Keep
 @Serializable
 data object SearchEngineSettings

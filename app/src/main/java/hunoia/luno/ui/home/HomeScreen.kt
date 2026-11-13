@@ -130,6 +130,7 @@ fun HomeScreen(
     onNavToAppControl: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
+    onNavToTrends: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vmFactory: (hunoia.luno.facade.Facades) -> HomeVM = { HomeVM(it) },
@@ -383,6 +384,7 @@ fun HomeScreen(
                                 HomeSettingsGroup(
                                     onHabitsClick = onNavToHabits,
                                     onTodosClick = onNavToTodos,
+                                    onTrendsClick = onNavToTrends,
                                     onClipboardClick = onNavToClipboard,
                                     onAppControlClick = onNavToAppControl,
                                 )

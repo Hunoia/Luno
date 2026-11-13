@@ -5,6 +5,8 @@ import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.BackupVersions
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.TrendConfig
+import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.config.model.isSupported
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -97,6 +99,46 @@ class BackupDomainRegistryTest {
 
         assertNotNull(BackupDomainRegistry.validate(newer, BackupDomain.GESTURE))
         assertFalse(newer.isSupported())
+    }
+
+    @Test
+    fun `restore verification skips domains absent from an old backup`() {
+        Backup().isSupported()
+
+        // 趋势之前的备份：没有 trendConfig。恢复语义是保留本机趋势数据，不应判失败。
+        val oldBackup = Backup(
+            backupFormatVersion = BackupVersions.FORMAT - 1,
+            initialSettings = InitialSettings(),
+        )
+        val restored = Backup(
+            backupFormatVersion = BackupVersions.FORMAT,
+            initialSettings = InitialSettings(),
+            trendConfig = TrendConfig(metrics = listOf(TrendMetric(id = "m1", name = "体重"))),
+        )
+        assertEquals(
+            emptyList<BackupDomain>(),
+            BackupDomainRegistry.mismatchedAfterRestore(oldBackup, restored),
+        )
+    }
+
+    @Test
+    fun `restore verification still reports a carried domain mismatch`() {
+        Backup().isSupported()
+
+        val backup = Backup(
+            backupFormatVersion = BackupVersions.FORMAT,
+            trendSchemaVersion = BackupVersions.TREND,
+            trendConfig = TrendConfig(metrics = listOf(TrendMetric(id = "m1", name = "体重"))),
+        )
+        val restored = Backup(
+            backupFormatVersion = BackupVersions.FORMAT,
+            trendSchemaVersion = BackupVersions.TREND,
+            trendConfig = TrendConfig(metrics = listOf(TrendMetric(id = "m1", name = "腰围"))),
+        )
+        assertEquals(
+            listOf(BackupDomain.TREND),
+            BackupDomainRegistry.mismatchedAfterRestore(backup, restored),
+        )
     }
 
     @Test

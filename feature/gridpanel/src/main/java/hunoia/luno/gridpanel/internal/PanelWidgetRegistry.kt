@@ -255,5 +255,22 @@ object PanelWidgetRegistry {
                 )
             },
         )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.TREND,
+                labelRes = R.string.grid_panel_internal_trend,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 1,
+                minSpanY = 1,
+            ) { scope ->
+                TrendWidgetCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                    onReconfigure = scope.onReconfigure,
+                )
+            },
+        )
     }
 }

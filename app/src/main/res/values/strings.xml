@@ -554,4 +554,10 @@
     <string name="notification_display_perm_group">权限状态</string>
     <string name="notification_display_settings_entry">通知</string>
     <string name="notification_display_settings_entry_hint">呈现模式、超级岛与权限</string>
+
+    <!-- 趋势提醒 -->
+    <string name="trend_reminder_channel">趋势提醒</string>
+    <string name="trend_reminder_title">记录 %1$s</string>
+    <string name="trend_reminder_text">今天还没有记录「%1$s」，点按补上。</string>
+    <string name="trend_reminder_channel_desc">每个指标每天最多提醒一次；当天已记录则跳过</string>
 </resources>

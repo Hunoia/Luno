@@ -6,6 +6,7 @@ import android.content.Intent
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.habit.HabitReminderScheduler
 import hunoia.luno.domain.todo.TodoReminderScheduler
+import hunoia.luno.domain.trend.TrendReminderScheduler
 import hunoia.luno.launch.PackageControl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,10 +26,11 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             ServiceAutoStart.restore(context)
-            // 习惯 / 待办提醒闹钟是系统持久化之外的（AlarmManager 在重启后清空），开机重建。
+            // 习惯 / 待办 / 趋势提醒闹钟是系统持久化之外的（AlarmManager 在重启后清空），开机重建。
             // 待办调度器同时负责「错过提醒」补弹：标记还在、时间已过 → 静默补一条通知。
             HabitReminderScheduler.rescheduleAll(context)
             TodoReminderScheduler.rescheduleAll(context)
+            TrendReminderScheduler.rescheduleAll(context)
             // 一键冻结名单里的已卸载包：开机清理一次；页面进入时还会再兜一次。
             AppContext.applicationScope?.launch(Dispatchers.IO) {
                 runCatching { PackageControl.pruneUninstalledFromOneKey() }
