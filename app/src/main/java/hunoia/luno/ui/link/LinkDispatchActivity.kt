@@ -2,17 +2,20 @@ package hunoia.luno.ui.link
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import hunoia.luno.core.LunoLog as Log
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
+import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.clipboard.ClipboardCenter
 import kotlinx.coroutines.launch
 
 /**
@@ -38,6 +41,20 @@ class LinkDispatchActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        // 分享图片：直接存进剪贴板并固定。文本分享仍先走链接识别，非链接文本同样存入。
+        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
+            lifecycleScope.launch {
+                val uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                val saved = uri != null && ClipboardCenter.saveShared(
+                    ClipboardContent.Image(uri, intent.type ?: "image/*"),
+                )
+                showToast(
+                    if (saved) R.string.share_clipboard_saved else R.string.share_clipboard_failed,
+                )
+                finish()
+            }
+            return
+        }
         val text = intentText(intent)
         if (text.isNullOrBlank()) {
             finish()
@@ -49,8 +66,17 @@ class LinkDispatchActivity : ComponentActivity() {
                 .getOrDefault(LinkDispatchSettings())
             val urls = LinkUrls.extractUrls(text)
             when {
-                // 分享进来的文本没有链接：给一句提示，否则「点了没反应」很难排查。
-                urls.isEmpty() -> showToast(R.string.link_dispatch_no_link)
+                // 分享进来的纯文本没有链接：存进剪贴板并固定；VIEW 进来的无链接文本仍提示。
+                urls.isEmpty() -> {
+                    if (intent?.action == Intent.ACTION_SEND) {
+                        val saved = ClipboardCenter.saveShared(ClipboardContent.Text(text))
+                        showToast(
+                            if (saved) R.string.share_clipboard_saved else R.string.share_clipboard_failed,
+                        )
+                    } else {
+                        showToast(R.string.link_dispatch_no_link)
+                    }
+                }
                 urls.size > 1 -> startActivity(LinkSelectionActivity.intent(this@LinkDispatchActivity, urls))
                 else -> {
                     val url = urls.first()

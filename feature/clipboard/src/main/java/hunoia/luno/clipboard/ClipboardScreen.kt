@@ -125,6 +125,33 @@ fun ClipboardScreen(
         }
     }
 
+    @Composable
+    fun EntryRow(entry: ClipboardEntry, shape: androidx.compose.ui.graphics.Shape) {
+        ClipboardRow(
+            entry = entry,
+            shape = shape,
+            selectionMode = state.selectionMode,
+            selected = entry.id in state.selectedIds,
+            revealed = entry.id in state.revealedIds,
+            pinned = entry.pinned,
+            onClick = { vm.onEntryClick(entry) },
+            onTogglePin = { vm.togglePin(entry) },
+            onDelete = { vm.delete(entry) },
+            onShare = { vm.share(context, entry) },
+            onFloat = if (entry.sensitive) {
+                null
+            } else {
+                { facades.clipFloat.show(context, entry.id) }
+            },
+            onOcr = if (entry.kind == ClipKind.IMAGE) {
+                { ocr(entry) }
+            } else {
+                null
+            },
+            onClearAll = { vm.requestClear() },
+        )
+    }
+
     LunoScreenLazy(
         title = stringResource(R.string.clipboard_title),
         onBack = onBack,
@@ -211,6 +238,7 @@ fun ClipboardScreen(
                             onTogglePin = { vm.pinSession(entry) },
                             onDelete = { vm.delete(entry) },
                             onShare = { vm.share(context, entry) },
+                            onFloat = null,
                             onOcr = null,
                             onClearAll = null,
                         )
@@ -228,27 +256,23 @@ fun ClipboardScreen(
                 )
             }
         } else {
-            item(key = "history") {
-                LunoGroup(title = stringResource(R.string.clipboard_history_group)) {
-                    visible.forEachIndexed { index, entry ->
-                        ClipboardRow(
-                            entry = entry,
-                            shape = segmentedShape(index, visible.size),
-                            selectionMode = state.selectionMode,
-                            selected = entry.id in state.selectedIds,
-                            revealed = entry.id in state.revealedIds,
-                            pinned = entry.pinned,
-                            onClick = { vm.onEntryClick(entry) },
-                            onTogglePin = { vm.togglePin(entry) },
-                            onDelete = { vm.delete(entry) },
-                            onShare = { vm.share(context, entry) },
-                            onOcr = if (entry.kind == ClipKind.IMAGE) {
-                                { ocr(entry) }
-                            } else {
-                                null
-                            },
-                            onClearAll = { vm.requestClear() },
-                        )
+            val pinnedVisible = visible.filter { it.pinned }
+            val unpinnedVisible = visible.filterNot { it.pinned }
+            if (pinnedVisible.isNotEmpty()) {
+                item(key = "pinned") {
+                    LunoGroup(title = stringResource(R.string.clipboard_pinned_group)) {
+                        pinnedVisible.forEachIndexed { index, entry ->
+                            EntryRow(entry, segmentedShape(index, pinnedVisible.size))
+                        }
+                    }
+                }
+            }
+            if (unpinnedVisible.isNotEmpty()) {
+                item(key = "history") {
+                    LunoGroup(title = stringResource(R.string.clipboard_history_group)) {
+                        unpinnedVisible.forEachIndexed { index, entry ->
+                            EntryRow(entry, segmentedShape(index, unpinnedVisible.size))
+                        }
                     }
                 }
             }
@@ -355,6 +379,7 @@ private fun ClipboardRow(
     onTogglePin: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
+    onFloat: (() -> Unit)?,
     onOcr: (() -> Unit)?,
     onClearAll: (() -> Unit)?,
 ) {
@@ -434,6 +459,12 @@ private fun ClipboardRow(
                             text = { Text(stringResource(R.string.clipboard_share)) },
                             onClick = { menuOpen = false; onShare() },
                         )
+                        if (onFloat != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.clipboard_float)) },
+                                onClick = { menuOpen = false; onFloat() },
+                            )
+                        }
                         if (onOcr != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.clipboard_ocr)) },

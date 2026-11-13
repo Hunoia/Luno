@@ -31,6 +31,8 @@
     <string name="clipboard_history_group">History</string>
     <string name="clipboard_pinned_badge">Pinned</string>
     <string name="clipboard_capacity">%1$d pinned · %2$d unpinned / %3$d cap</string>
+    <string name="clipboard_float">Show as floating window</string>
+    <string name="clipboard_pinned_group">Pinned</string>
     <string name="clipboard_settings_group">Recording settings</string>
     <string name="clipboard_record_enabled">Record clipboard</string>
     <string name="clipboard_record_enabled_hint">Stops recording new content when off</string>

@@ -60,7 +60,7 @@ class SettingsStores(
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
     val clipboardHistory: Flow<ClipboardHistory> = _clipboardHistory.data
-    val clipboardSettings: Flow<ClipboardSettings> = _clipboardSettings.data
+    val clipboardSettings: Flow<ClipboardSettings> = _clipboardSettings.data.map { it.coerced() }
     val habitConfig: Flow<HabitConfig> = _habitConfig.data
     val todoConfig: Flow<TodoConfig> = _todoConfig.data
     val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data

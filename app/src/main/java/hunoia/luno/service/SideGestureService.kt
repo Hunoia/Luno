@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import com.aaron.composeaccessibility.ComponentAccessibilityService
+import hunoia.luno.action.controller.ImageInserter
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.clipboard.ClipboardCapture
 import hunoia.luno.clipboard.ClipboardCenter
@@ -289,6 +290,17 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     fun insertTextAt(text: String, x: Int, y: Int): TextInserter.Result =
         TextInserter.insertAt(this, text, x, y)
 
+    /**
+     * 图片拖拽落点粘贴：先把本地副本写回剪贴板（拿到共享 URI），再粘进落点输入框。
+     * 目标编辑器不支持图片粘贴时返回 Failed，由调用方静默收口。
+     */
+    suspend fun pasteImageAt(imagePath: String, mime: String?, x: Int, y: Int): ImageInserter.Result {
+        if (!hunoia.luno.clipboard.ClipboardCenter.copyImageFileToClipboard(imagePath, mime)) {
+            return ImageInserter.Result.Failed
+        }
+        return ImageInserter.pasteAt(this, x, y)
+    }
+
     override val advancedSettings: AdvancedSettings?
         get() = if (::gestureCoordinator.isInitialized)
             gestureCoordinator.runtimeSettingsStore.snapshot().advancedSettings
@@ -388,6 +400,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 网格面板是全屏浮层，挂上之后无障碍 `windows` 会变空；面板 show() 时先快照一次。
         hunoia.luno.gesture.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }
         hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
+        hunoia.luno.gesture.GestureCommand.insertTextFocused = { text ->
+            TextInserter.insertFocused(this, text)
+        }
+        hunoia.luno.gesture.GestureCommand.pasteImageFocused = {
+            ImageInserter.pasteFocused(this)
+        }
+        hunoia.luno.gesture.GestureCommand.pasteImageAt = { path, mime, x, y ->
+            pasteImageAt(path, mime, x, y)
+        }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
             // 横屏用 freeform 小窗打开选择页（复用现有小窗几何，含 MIUI 合成补偿）；

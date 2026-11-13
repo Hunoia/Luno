@@ -49,12 +49,12 @@ object TextInserter {
     }
 
     /** 焦点切换后的等待：太短目标还没拿到焦点，太长用户能感受到延迟。 */
-    private const val FocusSettleMs = 60L
-    private const val PasteRetryMs = 40L
+    internal const val FocusSettleMs = 60L
+    internal const val PasteRetryMs = 40L
 
     /** 面板刚关掉时应用窗口要过一拍才重新变成可交互窗口：查找失败时重试几次。 */
-    private const val FindAttempts = 4
-    private const val FindRetryMs = 120L
+    internal const val FindAttempts = 4
+    internal const val FindRetryMs = 120L
 
     /** 把文本写入当前焦点输入框。 */
     fun insertFocused(service: AccessibilityService, text: String): Result {
@@ -158,7 +158,7 @@ object TextInserter {
      * 落点下最深的输入节点。只看**应用窗口**（悬浮窗是 TYPE_APPLICATION_OVERLAY，
      * 不属于应用窗口），并跳过本应用自己的窗口（面板里的 Compose 也会报节点）。
      */
-    private fun editableNodeAt(service: AccessibilityService, x: Int, y: Int): AccessibilityNodeInfo? {
+    internal fun editableNodeAt(service: AccessibilityService, x: Int, y: Int): AccessibilityNodeInfo? {
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
         val ownPackage = service.packageName
         for (index in windows.indices.reversed()) {
@@ -174,7 +174,8 @@ object TextInserter {
     /**
      * 最后一个兵底：落点没命中、也没有焦点输入框时，若**最上层应用窗口只有一个**输入节点，
      * 就用它（常见于只有一个搜索框的应用）。多于一个就不猜，避免往错的地方写。
-     */    private fun singleInputInTopWindow(service: AccessibilityService): AccessibilityNodeInfo? {
+     */
+    internal fun singleInputInTopWindow(service: AccessibilityService): AccessibilityNodeInfo? {
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
         val ownPackage = service.packageName
         val root = windows.asReversed().firstNotNullOfOrNull { window ->
@@ -194,7 +195,7 @@ object TextInserter {
         return found.singleOrNull()
     }
 
-    private fun describeWindows(service: AccessibilityService): String {
+    internal fun describeWindows(service: AccessibilityService): String {
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
         return windows.joinToString(prefix = "[", postfix = "]") { window ->
             val pkg = window?.root?.packageName?.toString()
@@ -206,7 +207,7 @@ object TextInserter {
      * 当前激活窗口（`rootInActiveWindow`）里的输入框：面板关掉后它通常就是目标应用。
      * 仍然跳过本应用窗口（面板残留/下次打开时）。
      */
-    private fun activeRootInput(service: AccessibilityService, x: Int, y: Int): AccessibilityNodeInfo? {
+    internal fun activeRootInput(service: AccessibilityService, x: Int, y: Int): AccessibilityNodeInfo? {
         val root = runCatching { service.rootInActiveWindow }.getOrNull() ?: return null
         if (root.packageName?.toString() == service.packageName) return null
         return deepestInputContaining(root, x, y)
@@ -219,7 +220,7 @@ object TextInserter {
      * 当前焦点输入框：**逐个应用窗口**查 `findFocus(FOCUS_INPUT)`。
      * `service.rootInActiveWindow` 会被本面板自己的窗口顶掉，不能直接用。
      */
-    private fun focusedInput(service: AccessibilityService): AccessibilityNodeInfo? {
+    internal fun focusedInput(service: AccessibilityService): AccessibilityNodeInfo? {
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
         val ownPackage = service.packageName
         for (index in windows.indices.reversed()) {

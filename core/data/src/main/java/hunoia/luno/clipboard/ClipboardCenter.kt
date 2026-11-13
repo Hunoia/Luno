@@ -11,8 +11,10 @@ import hunoia.luno.bridge.system.ImageOutput
 import hunoia.luno.bridge.ui.assertNotMainThread
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ClipKind
+import hunoia.luno.config.model.ClipboardImageDirName
 import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
+import hunoia.luno.config.model.ClipboardMaxTextChars
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.mergeImported
 import hunoia.luno.config.model.remove
@@ -167,40 +169,82 @@ object ClipboardCenter {
         } else {
             write(ClipboardContent.Text(entry.text, entry.sensitive), record = false)
         }
-        ClipKind.IMAGE -> {
-            val name = entry.imagePath
-            val context = AppContext.get()
-            if (name.isNullOrBlank()) {
-                false
-            } else {
-                val bitmap = withContext(Dispatchers.IO) { ClipboardImageStore.load(context, name) }
-                if (bitmap == null) {
-                    false
-                } else {
-                    try {
-                        val uri = withContext(Dispatchers.IO) {
-                            ImageOutput.saveToGallery(context, bitmap, "clipboard")
-                        }
-                        if (uri == null) {
-                            false
-                        } else {
-                            // 写回历史条目不再入库：否则每点一次图片就多一份历史副本。
-                            write(
-                                ClipboardContent.Image(uri, entry.mime ?: "image/*"),
-                                record = false,
-                            )
-                        }
-                    } finally {
-                        bitmap.recycle()
-                    }
+        ClipKind.IMAGE -> copyImageFileToClipboard(entry.imagePath, entry.mime)
+    }
+
+    /**
+     * 把剪贴板目录里的一张本地副本写回系统剪贴板。
+     * 悬浮窗 / 面板的「复制图片 / 粘贴图片」共用，避免各处重复「落图库再写剪贴板」。
+     */
+    suspend fun copyImageFileToClipboard(name: String?, mime: String?): Boolean {
+        val context = AppContext.get()
+        val safeName = name?.takeIf { it.isNotBlank() } ?: return false
+        val bitmap = withContext(Dispatchers.IO) {
+            LocalImageStore.load(context, ClipboardImageDirName, safeName)
+        } ?: return false
+        return try {
+            val uri = withContext(Dispatchers.IO) {
+                ImageOutput.saveToGallery(context, bitmap, "clipboard")
+            } ?: return false
+            // 写回历史条目不再入库：否则每点一次图片就多一份历史副本。
+            write(ClipboardContent.Image(uri, mime ?: "image/*"), record = false)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 分享到 Luno：把外部内容存进剪贴板历史并固定。
+     *
+     * 这是用户显式动作，不受「记录开关」影响，也不写系统剪贴板（避免劫持用户当前复制内容）；
+     * 固定项不参与条数裁剪，语义等同于用户手动固定。图片同样落本地副本。
+     */
+    suspend fun saveShared(content: ClipboardContent): Boolean = withContext(Dispatchers.IO) {
+        val settings = runCatching { ConfigProvider.getClipboardSettings() }.getOrNull()
+        val maxEntries = settings?.maxEntries ?: ClipboardSettings().maxEntries
+        when (content) {
+            is ClipboardContent.Text -> {
+                if (content.text.isBlank()) return@withContext false
+                if (content.text.trim().toByteArray(Charsets.UTF_8).size > ClipboardMaxTextChars) {
+                    return@withContext false
                 }
+                val entry = ClipboardEntry(
+                    kind = ClipKind.TEXT,
+                    text = content.text,
+                    pinned = true,
+                    time = System.currentTimeMillis(),
+                )
+                val updated = ConfigProvider.recordClipboardEntry(entry, maxEntries)
+                    ?: return@withContext false
+                pruneImages(updated)
+                true
+            }
+            is ClipboardContent.Image -> {
+                val saved = LocalImageStore.saveUri(
+                    context = AppContext.get(),
+                    dirName = ClipboardImageDirName,
+                    uri = content.uri,
+                    allowShizuku = false,
+                ) ?: return@withContext false
+                val entry = ClipboardEntry(
+                    kind = ClipKind.IMAGE,
+                    imagePath = saved,
+                    mime = content.mimeType,
+                    pinned = true,
+                    time = System.currentTimeMillis(),
+                )
+                val updated = ConfigProvider.recordClipboardEntry(entry, maxEntries)
+                    ?: return@withContext false
+                pruneImages(updated)
+                true
             }
         }
     }
 
     /** 图片条目的本地副本文件（UI 渲染缩略图用）；文件缺失返回 null。 */
     fun imageFile(name: String?): java.io.File? =
-        name?.takeIf { it.isNotBlank() }?.let { ClipboardImageStore.file(AppContext.get(), it) }
+        name?.takeIf { it.isNotBlank() }
+            ?.let { LocalImageStore.file(AppContext.get(), ClipboardImageDirName, it) }
 
     private fun clipboardLabel(): String = runCatching {
         val context = AppContext.get()
@@ -239,7 +283,12 @@ object ClipboardCenter {
                 ConfigProvider.recordClipboardEntry(entry, maxEntries)?.let { pruneImages(it) }
             }
             is ClipboardContent.Image -> {
-                val name = ClipboardImageStore.save(AppContext.get(), content) ?: return
+                val name = LocalImageStore.saveUri(
+                    context = AppContext.get(),
+                    dirName = ClipboardImageDirName,
+                    uri = content.uri,
+                    allowShizuku = true,
+                ) ?: return
                 val entry = ClipboardEntry(
                     kind = ClipKind.IMAGE,
                     imagePath = name,
@@ -329,7 +378,7 @@ object ClipboardCenter {
 
     private fun pruneImages(history: ClipboardHistory) {
         val keep = history.entries.mapNotNull { it.imagePath }.toSet()
-        runCatching { ClipboardImageStore.prune(AppContext.get(), keep) }
+        runCatching { LocalImageStore.prune(AppContext.get(), ClipboardImageDirName, keep) }
     }
 
     private fun keyOf(content: ClipboardContent): String = when (content) {

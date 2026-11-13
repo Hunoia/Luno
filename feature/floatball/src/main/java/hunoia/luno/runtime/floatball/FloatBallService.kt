@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import java.lang.ref.WeakReference
 import hunoia.luno.core.LunoLog as Log
 import androidx.core.content.getSystemService
 import hunoia.luno.floatball.R
@@ -23,10 +24,15 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.bridge.system.SelfWriteGuard
+import hunoia.luno.bridge.system.FileOutput
 import hunoia.luno.bridge.system.canDrawOverlays
+import hunoia.luno.bridge.system.shareText
 import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ButtonVisibilitySettings
+import hunoia.luno.config.model.ClipFloatSettings
+import hunoia.luno.config.model.ClipKind
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
@@ -59,6 +65,8 @@ import hunoia.luno.runtime.button.shouldShowSurface
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
+import hunoia.luno.runtime.surface.SurfaceController
+import hunoia.luno.gesture.GestureCommand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,6 +74,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -93,6 +103,10 @@ class FloatBallService : Service() {
 
     private lateinit var ballWindow: FloatBallWindow
     private lateinit var smartBubble: SmartBubbleWindow
+
+    /** 剪贴板悬浮窗：单窗，显示新条目即替换内容；关闭后置空。 */
+    private var clipFloat: ClipFloatWindow? = null
+    private var destroying = false
     private var broadcastObserver: BroadcastObserver? = null
 
     /** 球是否已真正挂上窗口。false = 未授权或被系统拒绝。 */
@@ -199,6 +213,7 @@ class FloatBallService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        currentRef = WeakReference(this)
         ballWindow = FloatBallWindow(
             this,
             // 让位量变化时同步气泡锚点（胶囊贴球）。
@@ -258,6 +273,7 @@ class FloatBallService : Service() {
                 clipboardPollJob?.cancel()
                 clipboardPollJob = null
                 ballWindow.setHidden(true)
+                closeClipFloat()
                 hideCapsule()
                 // 息屏期间不读剪贴板：重置基线，解锁后由 seedClipboardBaseline 重新对齐。
                 lastSeenClip = null
@@ -281,11 +297,17 @@ class FloatBallService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SHOW_CLIP_FLOAT) {
+            val id = intent.getStringExtra(EXTRA_CLIP_ID).orEmpty()
+            if (id.isNotBlank()) showClipFloatById(id)
+            refreshWindows()
+            return START_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             // 总闸关恒停；否则球/通知/剪贴还有任一想用的功能就保留宿主。
             if (gestureEnabledSnapshot &&
                 (settings.enabled || settings.notificationCapsule.enabled ||
-                    settings.clipboardBall.enabled)
+                    settings.clipboardBall.enabled || clipFloat?.isShowing() == true)
             ) {
                 refreshWindows()
                 return START_STICKY
@@ -310,6 +332,10 @@ class FloatBallService : Service() {
     }
 
     override fun onDestroy() {
+        destroying = true
+        currentRef = null
+        clipFloat?.detach()
+        clipFloat = null
         settingsJob?.cancel()
         imeJob?.cancel()
         imeHintJob?.cancel()
@@ -465,11 +491,14 @@ class FloatBallService : Service() {
 
     private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
         visibility.onPanelShown()
+        // 悬浮窗和球一样给面板让位：面板是当前操作面，贴着它的小卡会挡手。
+        clipFloat?.softHide()
         refreshWindows()
     }
 
     private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
         visibility.onPanelDismissed()
+        clipFloat?.restore()
         refreshWindows()
     }
 
@@ -1561,6 +1590,7 @@ class FloatBallService : Service() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
         if (hidden) {
+            closeClipFloat()
             // 不探头、不补播：队列与徽标保留（决策 9）。
             hideCapsule()
         }
@@ -1639,11 +1669,190 @@ class FloatBallService : Service() {
         }
     }
 
+    // ---- 剪贴板悬浮窗 ----
+
+    private fun showClipFloatById(id: String) {
+        scope.launch {
+            val content = resolveClipFloat(id)
+            if (content == null) {
+                Log.w(TAG, "clip float: item not found id=$id")
+                return@launch
+            }
+            val settings = runCatching {
+                hunoia.luno.domain.floatball.FloatBallSettingsCenter.getClipFloatSettings()
+            }.getOrNull() ?: ClipFloatSettings()
+            val window = clipFloat ?: ClipFloatWindow(this@FloatBallService, clipFloatHost).also {
+                clipFloat = it
+                SurfaceController.register(it)
+            }
+            window.show(content, settings)
+            if (!window.isShowing()) {
+                SurfaceController.unregister(window.surfaceId)
+                clipFloat = null
+            }
+        }
+    }
+
+    private suspend fun resolveClipFloat(id: String): ClipFloatContent? =
+        withContext(Dispatchers.IO) {
+            ClipboardCenter.history.first().entries.firstOrNull { it.id == id }?.let { entry ->
+                ClipFloatContent(
+                    id = entry.id,
+                    kind = entry.kind,
+                    text = entry.text,
+                    imagePath = entry.imagePath,
+                    mime = entry.mime,
+                    imageFile = ClipboardCenter.imageFile(entry.imagePath),
+                )
+            }
+        }
+
+    private fun closeClipFloat() {
+        val window = clipFloat ?: return
+        window.close()
+        if (clipFloat === window) {
+            SurfaceController.unregister(window.surfaceId)
+            clipFloat = null
+        }
+    }
+
+    /** 悬浮窗关掉后，若球 / 胶囊都不需要该宿主就退出，避免只为一个临时窗常驻前台服务。 */
+    private fun maybeStopIfIdle() {
+        if (destroying) return
+        scope.launch {
+            delay(CLIP_FLOAT_IDLE_STOP_MS)
+            if (clipFloat?.isShowing() == true) return@launch
+            if (!settings.enabled && !settings.notificationCapsule.enabled &&
+                !settings.clipboardBall.enabled
+            ) {
+                stopSelf()
+            }
+        }
+    }
+
+    private suspend fun insertToFocused(content: ClipFloatContent): Boolean = when (content.kind) {
+        ClipKind.TEXT -> GestureCommand.insertTextFocused?.invoke(content.text)?.let {
+            it == hunoia.luno.action.controller.TextInserter.Result.Inserted ||
+                it == hunoia.luno.action.controller.TextInserter.Result.InsertedViaClipboard
+        } ?: false
+        ClipKind.IMAGE -> copyClipFloatImage(content) &&
+            GestureCommand.pasteImageFocused?.invoke() ==
+            hunoia.luno.action.controller.ImageInserter.Result.Pasted
+    }
+
+    private suspend fun copyClipFloatImage(content: ClipFloatContent): Boolean =
+        ClipboardCenter.copyImageFileToClipboard(content.imagePath, content.mime)
+
+    private fun shareClipFloat(content: ClipFloatContent): Boolean = when (content.kind) {
+        ClipKind.TEXT -> shareText(this, content.text)
+        ClipKind.IMAGE -> content.imageFile?.let { file ->
+            FileOutput.share(this, file, content.mime ?: "image/*", file.name)
+        } ?: false
+    }
+
+    private suspend fun insertAtPoint(content: ClipFloatContent, x: Int, y: Int): Boolean =
+        when (content.kind) {
+            ClipKind.TEXT -> GestureCommand.insertText?.invoke(content.text, x, y)?.let {
+                it == hunoia.luno.action.controller.TextInserter.Result.Inserted ||
+                    it == hunoia.luno.action.controller.TextInserter.Result.InsertedViaClipboard
+            } ?: false
+            ClipKind.IMAGE -> GestureCommand.pasteImageAt?.invoke(
+                content.imagePath.orEmpty(),
+                content.mime,
+                x,
+                y,
+            ) == hunoia.luno.action.controller.ImageInserter.Result.Pasted
+        }
+
+    private val clipFloatHost = object : ClipFloatWindow.Host {
+        override fun onInsert(content: ClipFloatContent) {
+            closeClipFloat()
+            scope.launch(Dispatchers.IO) {
+                delay(CLIP_FLOAT_SETTLE_MS)
+                if (!insertToFocused(content)) {
+                    showToast(hunoia.luno.floatball.R.string.clip_float_no_target)
+                }
+            }
+        }
+
+        override fun onSend(content: ClipFloatContent) {
+            closeClipFloat()
+            scope.launch(Dispatchers.IO) {
+                delay(CLIP_FLOAT_SETTLE_MS)
+                if (!insertToFocused(content) && !shareClipFloat(content)) {
+                    showToast(hunoia.luno.floatball.R.string.clip_float_no_target)
+                }
+            }
+        }
+
+        override fun onSendAt(content: ClipFloatContent, x: Int, y: Int) {
+            closeClipFloat()
+            scope.launch(Dispatchers.IO) {
+                delay(CLIP_FLOAT_SETTLE_MS)
+                insertAtPoint(content, x, y)
+            }
+        }
+
+        override fun onCopy(content: ClipFloatContent) {
+            closeClipFloat()
+            scope.launch(Dispatchers.IO) {
+                val ok = when (content.kind) {
+                    ClipKind.TEXT -> ClipboardCenter.copy(content.text)
+                    ClipKind.IMAGE -> copyClipFloatImage(content)
+                }
+                showToast(
+                    if (ok) {
+                        hunoia.luno.floatball.R.string.clip_float_copied
+                    } else {
+                        hunoia.luno.floatball.R.string.clip_float_copy_failed
+                    },
+                )
+            }
+        }
+
+        override fun onClose() {
+            clipFloat?.let { SurfaceController.unregister(it.surfaceId) }
+            clipFloat = null
+            maybeStopIfIdle()
+        }
+
+        override fun onSettingsChanged(settings: ClipFloatSettings) {
+            if (destroying) return
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    hunoia.luno.domain.floatball.FloatBallSettingsCenter
+                        .updateClipFloatSettings(settings)
+                }
+            }
+        }
+    }
+
     companion object {
         private const val TAG = LOG_TAG
         private const val CHANNEL_ID = "float_ball"
         private const val NOTIFICATION_ID = 2002
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
+        private var currentRef: WeakReference<FloatBallService>? = null
+
+        const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
+        private const val EXTRA_CLIP_ID = "clip_float_id"
+
+        /** 面板 / 剪贴板页显式钉一条内容到屏幕上；窗口归本服务，跨进程只传条目 id。 */
+        fun showClipFloat(context: Context, entryId: String) {
+            // 宿主已在跑（面板 / 球 / 胶囊任一开启）：直接走进程内调用，避免后台再
+            // startForegroundService 触发 Android 12+ 的前台服务启动限制。
+            currentRef?.get()?.let { running ->
+                running.showClipFloatById(entryId)
+                return
+            }
+            runCatching {
+                context.startForegroundService(
+                    Intent(context, FloatBallService::class.java)
+                        .setAction(ACTION_SHOW_CLIP_FLOAT)
+                        .putExtra(EXTRA_CLIP_ID, entryId),
+                )
+            }.onFailure { Log.e(TAG, "show clip float FAILED", it) }
+        }
 
         /** IME 底边轮询间隔（事件型 insets 的兜底；支持推播的 ROM 由窗口监听即时处理）。 */
         private const val IME_POLL_MS = 500L
@@ -1663,6 +1872,12 @@ class FloatBallService : Service() {
 
         /** 用户滑掉后同 key 更新不再弹出的 LRU 容量（时间窗见设置）。 */
         private const val CAPSULE_DISMISSED_KEYS_MAX = 8
+
+        /** 悬浮窗关闭后等目标应用重新可交互再插入 / 粘贴。 */
+        private const val CLIP_FLOAT_SETTLE_MS = 200L
+
+        /** 悬浮窗关闭后多久检查宿主是否还有常驻用途。 */
+        private const val CLIP_FLOAT_IDLE_STOP_MS = 3_000L
 
         /** 设置开关变更 / 开机自启都走这里。必须是 startForegroundService。 */
         fun start(context: Context) {

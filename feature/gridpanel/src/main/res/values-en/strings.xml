@@ -39,6 +39,7 @@
     <string name="app_drawer_disabled_app">This app is frozen</string>
     <string name="grid_panel_clipboard_image">Image</string>
     <string name="grid_panel_clipboard_empty">No clipboard history</string>
+    <string name="grid_panel_clipboard_float">Show as floating window</string>
     <string name="grid_panel_clipboard_copy">Copy</string>
     <string name="grid_panel_clipboard_delete">Delete</string>
     <string name="grid_panel_clipboard_clear">Clear all</string>

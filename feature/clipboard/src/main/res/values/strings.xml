@@ -31,6 +31,8 @@
     <string name="clipboard_history_group">历史</string>
     <string name="clipboard_pinned_badge">已固定</string>
     <string name="clipboard_capacity">固定 %1$d 条 · 未固定 %2$d 条 / 上限 %3$d 条</string>
+    <string name="clipboard_float">悬浮显示</string>
+    <string name="clipboard_pinned_group">固定</string>
     <string name="clipboard_settings_group">记录设置</string>
     <string name="clipboard_record_enabled">记录剪贴板</string>
     <string name="clipboard_record_enabled_hint">关闭后不再记录新内容</string>

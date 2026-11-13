@@ -16,9 +16,16 @@ data class ClipboardSettings(
     val recordEnabled: Boolean = true,
     /** 未固定条目上限；超出范围时由 [coerced] 收敛。 */
     val maxEntries: Int = ClipboardHistoryMaxEntries,
+    /** 剪贴板悬浮窗：位置 / 缩放 / 透明度。 */
+    val clipFloat: ClipFloatSettings = ClipFloatSettings(),
 ) {
     fun coerced(): ClipboardSettings {
         val clamped = maxEntries.coerceIn(ClipboardMaxEntriesRange.first, ClipboardMaxEntriesRange.last)
-        return if (clamped == maxEntries) this else copy(maxEntries = clamped)
+        val safeFloat = clipFloat.coerced()
+        return if (clamped == maxEntries && safeFloat == clipFloat) {
+            this
+        } else {
+            copy(maxEntries = clamped, clipFloat = safeFloat)
+        }
     }
 }

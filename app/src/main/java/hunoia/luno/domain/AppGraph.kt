@@ -4,7 +4,9 @@ import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.facade.Facades
 import hunoia.luno.facade.BackupFacade
 import hunoia.luno.facade.ClipboardFacade
+import hunoia.luno.facade.ClipFloatFacade
 import hunoia.luno.domain.clipboard.ClipboardUseCases
+import hunoia.luno.domain.system.ClipFloatUseCase
 import hunoia.luno.domain.log.LogCenter
 import hunoia.luno.facade.LogFacade
 import hunoia.luno.domain.link.LinkSettingsActions
@@ -50,6 +52,10 @@ object AppGraph : Facades {
     /** 剪贴板写入敏感口径 + 图片 OCR 结果页。 */
     override val clipboard: ClipboardFacade
         get() = ClipboardUseCases
+
+    /** 剪贴板悬浮窗显式入口：页面只提交条目 id，窗口归常驻服务。 */
+    override val clipFloat: ClipFloatFacade
+        get() = ClipFloatUseCase
 
     fun overrideSystem(facade: SystemFacade?) {
         systemOverride = facade

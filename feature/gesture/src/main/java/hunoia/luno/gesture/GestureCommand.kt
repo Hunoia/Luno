@@ -37,4 +37,22 @@ object GestureCommand {
 
     /** 在屏幕坐标处注入文本（剪贴板部件拖入输入框）。 */
     var insertText: (suspend (text: String, x: Int, y: Int) -> hunoia.luno.action.controller.TextInserter.Result)? = null
+
+    /** 在无障碍焦点输入框里注入文本（悬浮窗「输入到输入框」）。 */
+    var insertTextFocused: (suspend (text: String) -> hunoia.luno.action.controller.TextInserter.Result)? = null
+
+    /** 把剪贴板里已有的图片粘进焦点输入框（调用方先把图片写进剪贴板）。 */
+    var pasteImageFocused: (suspend () -> hunoia.luno.action.controller.ImageInserter.Result)? = null
+
+
+    /**
+     * 把本地图片副本写进剪贴板，再在屏幕坐标处粘贴。
+     * 图片没有 `ACTION_SET_TEXT`，只能依赖目标编辑器支持 `ACTION_PASTE`。
+     */
+    var pasteImageAt: (suspend (
+        imagePath: String,
+        mime: String?,
+        x: Int,
+        y: Int,
+    ) -> hunoia.luno.action.controller.ImageInserter.Result)? = null
 }

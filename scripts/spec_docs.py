@@ -70,7 +70,11 @@ def backup_domains_doc() -> str:
     enum_match = re.search(r"enum class BackupDomain\s*\{(.*?)\}", backup, re.S)
     domains = []
     if enum_match:
-        domains = [item.strip() for item in enum_match.group(1).split(",") if item.strip()]
+        body = enum_match.group(1)
+        # 枚举常量上允许写 KDoc / 行注释；表格只取常量名，不能把注释带进名称。
+        body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+        body = re.sub(r"//[^\n]*", "", body)
+        domains = [item.strip() for item in body.split(",") if item.strip()]
     versions = dict(re.findall(r"const val (\w+) = (\d+)", backup))
 
     registry = read(

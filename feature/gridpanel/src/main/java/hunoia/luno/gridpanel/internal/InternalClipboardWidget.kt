@@ -1,7 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -34,45 +32,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import hunoia.luno.runtime.surface.ClipFloatDispatch
 import hunoia.luno.gridpanel.R
-import hunoia.luno.action.controller.TextInserter
-import hunoia.luno.bridge.ui.hapticLongPress
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.ClipKind
 import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
-import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.LocalGridPanelDragGhost
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.component.PressIconButton
-
-/** 拖拽落点后等面板窗口真正摘掉的时间（退场动画 + 移除）。 */
-private const val PanelCloseSettleMs = 260L
 
 /**
  * 剪贴板页面部件：历史列表（文本 + 图片缩略图，最新在最前）。
@@ -94,6 +74,7 @@ fun ClipboardPageCell(
     enabled: Boolean = true,
 ) {
     val closePanel = LocalGridPanelClose.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val ghost = LocalGridPanelDragGhost.current
     val history by ClipboardCenter.history.collectAsState(initial = ClipboardHistory())
@@ -123,27 +104,7 @@ fun ClipboardPageCell(
      */
     fun dropToInput(text: String, screenPosition: Offset) {
         ghost?.end()
-        closePanel()
-        val insertText = hunoia.luno.gesture.GestureCommand.insertText
-        if (insertText == null) {
-            showToast(R.string.toast_accessibility_required)
-            return
-        }
-        val x = screenPosition.x.roundToInt()
-        val y = screenPosition.y.roundToInt()
-        val launchScope = AppContext.applicationScope ?: return
-        launchScope.launch(Dispatchers.Default) {
-            // 等淡出动画播完、窗口真正摘掉：面板窗口还在时它会把下面应用窗口顶成
-            // 非交互窗口，无障碍的 `windows` 列表里根本看不到目标应用。
-            delay(PanelCloseSettleMs)
-            when (insertText(text, x, y)) {
-                TextInserter.Result.Inserted -> Unit
-                TextInserter.Result.InsertedViaClipboard ->
-                    showToast(R.string.grid_panel_clipboard_pasted_via_clipboard)
-                // 找不到输入框 / 写入失败：静默收口，不弹提示。
-                TextInserter.Result.NoTarget, TextInserter.Result.Failed -> Unit
-            }
-        }
+        dropTextToInput(text, screenPosition, closePanel)
     }
 
     if (history.entries.isEmpty()) {
@@ -153,6 +114,9 @@ fun ClipboardPageCell(
         )
         return
     }
+    val imageLabel = stringResource(R.string.grid_panel_clipboard_image)
+    // 固定项永远排在前面：并入剪贴板后它就是「随手可取」的那一组。
+    val ordered = history.pinned + history.unpinned
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
         contentPadding = PaddingValues(vertical = 2.dp),
@@ -160,11 +124,15 @@ fun ClipboardPageCell(
         // 编辑态禁用内部滚动：否则在部件上拖会滚列表而不拖项。
         userScrollEnabled = enabled,
     ) {
-        items(history.entries, key = { it.id }) { entry ->
+        items(ordered, key = { it.id }) { entry ->
             HistoryRow(
                 entry = entry,
                 enabled = enabled,
                 onCopy = { copyAndClose(entry) },
+                onFloat = {
+                    ClipFloatDispatch.show?.invoke(context, entry.id)
+                    closePanel()
+                },
                 onDelete = {
                     scope.launch {
                         runCatching { ClipboardCenter.remove(entry.id) }
@@ -176,13 +144,25 @@ fun ClipboardPageCell(
                     }
                 },
                 onDragStart = { windowPos, _ ->
-                    entry.text.takeIf { entry.kind == ClipKind.TEXT && it.isNotBlank() }
-                        ?.let { ghost?.begin(it, windowPos) }
+                    when {
+                        entry.kind == ClipKind.TEXT && entry.text.isNotBlank() ->
+                            ghost?.begin(entry.text, windowPos)
+                        entry.kind == ClipKind.IMAGE && !entry.imagePath.isNullOrBlank() ->
+                            ghost?.begin(imageLabel, windowPos)
+                    }
                 },
                 onDrag = { windowPos, _ -> ghost?.move(windowPos) },
                 onDragEnd = { screenPos ->
-                    entry.text.takeIf { entry.kind == ClipKind.TEXT && it.isNotBlank() }
-                        ?.let { dropToInput(it, screenPos) }
+                    when {
+                        entry.kind == ClipKind.TEXT && entry.text.isNotBlank() ->
+                            dropToInput(entry.text, screenPos)
+                        entry.kind == ClipKind.IMAGE -> entry.imagePath
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { path ->
+                                ghost?.end()
+                                dropImageToInput(path, entry.mime, screenPos, closePanel)
+                            }
+                    }
                 },
                 onDragCancel = { ghost?.showChrome(); ghost?.end() },
                 onDragThresholdPassed = { ghost?.hideChrome() },
@@ -191,13 +171,14 @@ fun ClipboardPageCell(
     }
 }
 
-/** 历史行：文本（两行省略）或图片缩略图 + 三点菜单（复制 / 删除 / 清空全部）。
- * 手势：短按写回并关面板；文本长按拿起后可拖到面板外的输入框（见 [dropToInput]）。 */
+/** 历史行：文本（两行省略）或图片缩略图 + 三点菜单（复制 / 悬浮 / 删除 / 清空全部）。
+ * 手势：短按写回并关面板；文本长按拖出插入，图片长按拖出粘贴（见 [dropToInput]）。 */
 @Composable
 private fun HistoryRow(
     entry: ClipboardEntry,
     enabled: Boolean,
     onCopy: () -> Unit,
+    onFloat: () -> Unit,
     onDelete: () -> Unit,
     onClearAll: () -> Unit,
     onDragStart: (windowPos: Offset, screenPos: Offset) -> Unit,
@@ -210,18 +191,21 @@ private fun HistoryRow(
     val onCard = gridPanelOnCardColor
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
-    val draggable = entry.kind == ClipKind.TEXT && entry.text.isNotBlank()
+    val draggable = when (entry.kind) {
+        ClipKind.TEXT -> entry.text.isNotBlank()
+        ClipKind.IMAGE -> !entry.imagePath.isNullOrBlank()
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(containerShape(ItemCorner * 0.5f))
             .then(
                 if (enabled) {
-                    Modifier.clipDrag(
+                    Modifier.itemDrag(
                         key = entry.id,
                         draggable = draggable,
-                        handlers = ClipDragHandlers(
-                            onCopy = onCopy,
+                        handlers = ItemDragHandlers(
+                            onTap = onCopy,
                             onDragStart = onDragStart,
                             onDrag = onDrag,
                             onDragEnd = onDragEnd,
@@ -283,6 +267,12 @@ private fun HistoryRow(
                         text = { Text(stringResource(R.string.grid_panel_clipboard_copy)) },
                         onClick = { menuOpen = false; onCopy() },
                     )
+                    if (!entry.sensitive) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.grid_panel_clipboard_float)) },
+                            onClick = { menuOpen = false; onFloat() },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.grid_panel_clipboard_delete)) },
                         onClick = { menuOpen = false; onDelete() },
@@ -343,108 +333,3 @@ private fun EmptyClipboardHint(vertical: Boolean, modifier: Modifier = Modifier)
     }
 }
 
-/** 剪贴板条目拖拽手势的回调。 */
-private class ClipDragHandlers(
-    val onCopy: () -> Unit,
-    val onDragStart: (windowPos: Offset, screenPos: Offset) -> Unit,
-    val onDrag: (windowPos: Offset, screenPos: Offset) -> Unit,
-    val onDragEnd: (screenPos: Offset) -> Unit,
-    val onDragCancel: () -> Unit,
-    val onDragThresholdPassed: () -> Unit,
-)
-
-/**
- * 剪贴板条目的统一手势：短按复制；文本长按拿起后可拖到面板外的输入框。
- *
- * [draggable] = false（图片条目）：长按不进入拖拽，抬手只做点按复制。
- * 两个坐标系的换算都由布局坐标直接给出：幽灵用窗口坐标，落点用屏幕坐标
- * （叠加层/圆角修正下手算窗口原点会偏）。
- */
-@Composable
-private fun Modifier.clipDrag(
-    key: Any,
-    draggable: Boolean,
-    handlers: ClipDragHandlers,
-): Modifier {
-    val view = LocalView.current
-    val viewConfiguration = LocalViewConfiguration.current
-    val dragSlopPx = with(LocalDensity.current) { 8.dp.toPx() }
-    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    var origin by remember { mutableStateOf(Offset.Zero) }
-    return this
-        .onGloballyPositioned {
-            coords = it
-            origin = it.positionInWindow()
-        }
-        .pointerInput(key, draggable) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                // 吃掉 down：面板根的「点空白关窗 / 长按进编辑」不再把这次按压当自己的。
-                // 列表滚动不受影响：scrollable 用 requireUnconsumed=false 看后续移动。
-                down.consume()
-                // 长按前：抬手 = 点按复制；滑出 slop = 让给列表滚动/面板翻页。
-                var tapUp: PointerInputChange? = null
-                val longPressed = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        when {
-                            change.isConsumed -> break
-                            !change.pressed -> {
-                                tapUp = change
-                                break
-                            }
-                            (change.position - down.position).getDistance() >
-                                viewConfiguration.touchSlop -> break
-                        }
-                    }
-                } == null
-                if (!longPressed) {
-                    val up = tapUp
-                    if (up != null) {
-                        up.consume()
-                        handlers.onCopy()
-                    }
-                    return@awaitEachGesture
-                }
-                if (!draggable) {
-                    // 图片条目：长按没有可拖的内容，等同一次点按。
-                    handlers.onCopy()
-                    return@awaitEachGesture
-                }
-                // 长按成立：拿起。之后手指移动就是拖拽，抬手按落点找输入框。
-                view.hapticLongPress()
-                var moved = 0f
-                var lastLocal = down.position
-                fun windowOf(local: Offset) = coords?.localToWindow(local) ?: (origin + local)
-                fun screenOf(local: Offset) = coords?.localToScreen(local) ?: (origin + local)
-                handlers.onDragStart(windowOf(lastLocal), screenOf(lastLocal))
-                var crossed = false
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) {
-                        change.consume()
-                        break
-                    }
-                    val delta = change.positionChange()
-                    if (delta != Offset.Zero) {
-                        moved += delta.getDistance()
-                        change.consume()
-                        lastLocal = change.position
-                        handlers.onDrag(windowOf(lastLocal), screenOf(lastLocal))
-                        if (!crossed && moved >= dragSlopPx) {
-                            crossed = true
-                            // 越过阈值：面板本体淡出，只留幽灵（窗口留着接手势）。
-                            handlers.onDragThresholdPassed()
-                        }
-                    }
-                }
-                if (moved >= dragSlopPx) {
-                    handlers.onDragEnd(screenOf(lastLocal))
-                } else {
-                    handlers.onDragCancel()
-                }
-            }
-        }
-}

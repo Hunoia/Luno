@@ -18,7 +18,8 @@ object BackupVersions {
     /** 2：待办提醒（`TodoItem.reminder`）与全局推迟时长（`TodoConfig.reminderSnoozeMinutes`）。 */
     const val TODO = 2
     const val ANNOTATE = 1
-    const val CLIPBOARD = 1
+    /** 2：剪贴板设置增加悬浮窗（位置 / 缩放 / 透明度）。 */
+    const val CLIPBOARD = 2
     const val APP_CONTROL = 1
 }
 

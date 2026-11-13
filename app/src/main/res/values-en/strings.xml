@@ -430,6 +430,8 @@
 
     <string name="log_settings_group">Recording settings</string>
     <string name="clipboard_settings_entry">Clipboard</string>
+    <string name="share_clipboard_saved">Saved and pinned to clipboard</string>
+    <string name="share_clipboard_failed">Could not save to clipboard</string>
     <string name="app_control_settings_entry">App freeze</string>
     <string name="log_settings_title">Runtime log</string>
     <string name="log_settings_recording">Record to file</string>

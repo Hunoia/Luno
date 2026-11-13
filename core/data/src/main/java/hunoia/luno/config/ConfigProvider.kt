@@ -88,7 +88,8 @@ object ConfigProvider {
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
     suspend fun getAppControlSettings(): AppControlSettings = stores._appControlSettings.data.first()
-    suspend fun getClipboardSettings(): ClipboardSettings = stores._clipboardSettings.data.first()
+    suspend fun getClipboardSettings(): ClipboardSettings =
+        stores._clipboardSettings.data.first().coerced()
     suspend fun getAutoBackup(): AutoBackupSettings = stores._autoBackup.data.first()
 
     suspend fun updateAutoBackup(transform: suspend (AutoBackupSettings) -> AutoBackupSettings) {

@@ -84,6 +84,9 @@ class App : Application(), SingletonImageLoader.Factory {
         appScope.launch(Dispatchers.IO) {
             runCatching { hunoia.luno.clipboard.ClipboardCenter.onProcessStart() }
         }
+        hunoia.luno.runtime.surface.ClipFloatDispatch.show = { context, id ->
+            hunoia.luno.runtime.floatball.FloatBallService.showClipFloat(context, id)
+        }
         Events.initScope(appScope) { isMainThread() }
         // 桌面小部件实时同步（architecture §7.5）：进程启动即订阅配置流。
         // receiver onUpdate 只在放置/周期更新触发，进程重启后不保证重发，故在此兜底。
