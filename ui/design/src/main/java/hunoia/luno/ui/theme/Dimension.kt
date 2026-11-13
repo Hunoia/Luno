@@ -94,7 +94,7 @@ val RowIconBadgeIconSize = 20.dp
 
 // Quick launcher panel
 // 面板底色只用 surfaceContainerHigh 一层，图标与按键都不自带底色方块，
-// 所以这里的间距 token 同时是图标尺寸算式的输入，改动要连带看 QuickAppLauncherContent.kt 的 iconSizePx。
+// 所以这里的间距 token 同时是图标尺寸算式的输入，改动要连带看 QuickLaunchBody.kt 的 iconSizePx。
 val PanelPaddingHorizontal = 12.dp
 val PanelPaddingVertical = 10.dp
 
@@ -102,8 +102,8 @@ val PanelPaddingVertical = 10.dp
 val CandidateColumnWidth = 64.dp
 val CandidateRowSpacing = 2.dp
 
-// 单行候选项的高度上下界。AdjustPanel 用它界定高度滑块行程，
-// QuickAppLauncherContent.kt 用下界兜底 —— 两边必须同源，见 requiredContentHeight。
+// 单行候选项的高度上下界。QuickLaunchBody 用下界兜底面板内容高度，
+// 见 requiredContentHeight。
 val CandidateMinHeight = 40.dp
 val CandidateMaxHeight = 96.dp
 

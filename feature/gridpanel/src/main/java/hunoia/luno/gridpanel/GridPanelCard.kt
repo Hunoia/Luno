@@ -544,7 +544,7 @@ fun GridPanelCard(
         // 编辑态加项入口：默认右下角；面板手柄占右下角时让到左下，两个抓手不叠。
         // 拖拽中隐藏：此时加项没有意义，而且它会挡住底部的页拾取浮层。
         AnimatedVisibility(
-            visible = editMode && state.draggingId == null,
+            visible = editMode && singleContent == null && state.draggingId == null,
             modifier = Modifier
                 .align(
                     if (editMode && resizeCorner == ResizeCorner.BOTTOM_END) {

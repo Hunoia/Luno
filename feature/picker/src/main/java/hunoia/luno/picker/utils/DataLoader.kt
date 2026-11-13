@@ -23,6 +23,7 @@ import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.config.model.withOrientation
 import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
+import hunoia.luno.gridpanel.SinglePanelCatalog
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.bridge.launcher.LauncherInfo
@@ -622,7 +623,8 @@ internal suspend fun loadDataBody(
     // 全局动作面板列表：选择页一行一个具名面板。
     val actionSettings = TuneConfig.getAction()
     val actionPanels = actionSettings.actionPanels.panels
-    val gridPanels = actionSettings.actionGridPanels.panels
+    val gridPanels = actionSettings.actionGridPanels.panels +
+        SinglePanelCatalog.shells(AppContext.get(), actionSettings)
     // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）。
     val pickerExcluded = ActionDefinitions.pickerExcludedTypeIds()
     val button = buttons.find { it.id == actionSelect.gestureButtonId }

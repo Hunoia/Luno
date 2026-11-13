@@ -13,14 +13,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.GridPanelGeometry
+import hunoia.luno.config.model.singlePanelWidgetId
+import hunoia.luno.bridge.system.canDrawOverlays
+import hunoia.luno.bridge.system.gotoOverlaySettings
+import hunoia.luno.bridge.ui.showToastLong
 import hunoia.luno.gridpanel.ui.GridPanelDragGhostLayer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
 import hunoia.luno.runtime.overlay.OverlayPanelHost
@@ -34,6 +41,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.motionMillis
 import hunoia.luno.core.LOG_TAG
+import kotlinx.coroutines.launch
 
 /**
  * 面板悬浮窗（TYPE_APPLICATION_OVERLAY）：网格 / 单功能两种内容模式共用同一 Surface。
@@ -127,8 +135,10 @@ object GridPanelOverlay : OverlayPanelHost(
      * 走容器的路径（触钮/侧滑/子手势）由 executor 解析面板后调 [show]。
      */
     fun showIfExists(actionSettings: ActionSettings, panelId: String, anchorX: Int, anchorY: Int) {
-        val panel = actionSettings.actionGridPanels.panelById(panelId) ?: return
-        show(panel.id, anchorX, anchorY)
+        val exists = actionSettings.actionGridPanels.panelById(panelId) != null ||
+            singlePanelWidgetId(panelId) != null
+        if (!exists) return
+        show(panelId, anchorX, anchorY)
     }
 
     fun show(panelId: String, anchorX: Int, anchorY: Int) {
@@ -139,6 +149,12 @@ object GridPanelOverlay : OverlayPanelHost(
         // 锁屏不开面板：TYPE_APPLICATION_OVERLAY 会被 keyguard 盖住，
         // 开了也只会在解锁后突然冒出；锁屏触发一律拒绝。
         if (isKeyguardLocked()) return
+        // 没有悬浮窗权限时 attach 会静默失败；先给引导，避免「点了没反应」。
+        if (!context.canDrawOverlays()) {
+            showToastLong(R.string.grid_panel_need_overlay_permission)
+            context.gotoOverlaySettings()
+            return
+        }
         // 新一次展示不复用上一轮部件点击留下的拉起候选。
         if (!shownEventPosted) PanelAppWidgetHostView.clearTapCandidate()
         // 面板项里引用自身（旧数据/手改配置）：已经显示的就是这块面板，重复 show 只会
@@ -294,13 +310,19 @@ object GridPanelOverlay : OverlayPanelHost(
                 .collectAsStateWithLifecycle(initialValue = hunoia.luno.config.model.SubGestureSettings())
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
+            val landscape = LocalConfiguration.current.orientation ==
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val scope = rememberCoroutineScope()
+            val singleRef = SinglePanelCatalog.resolveRef(context, settings, panelIdState)
+            val resolvedPanel = singleRef?.second ?: settings.actionGridPanels.panelById(panelIdState)
             // 拖拽幽灵：跟着手指跨越面板边界，必须画在整个面板之上（格子会被裁剪）。
             val dragGhost = remember(panelIdState) { GridPanelDragGhost() }
             // 动作库为空会让库引用项掉图标、嵌套面板项显示裸 typeId。
             CompositionLocalProvider(
                 LocalActionLibraryEntries provides library.entries,
                 LocalActionPanels provides settings.actionPanels.panels,
-                LocalGridPanels provides settings.actionGridPanels.panels,
+                LocalGridPanels provides settings.actionGridPanels.panels +
+                    SinglePanelCatalog.shells(context, settings),
                 LocalSubGestures provides subGestureSettings.subGestures,
                 // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
                 LocalGridPanelClose provides { closeForLaunch() },
@@ -309,9 +331,27 @@ object GridPanelOverlay : OverlayPanelHost(
                 Box(Modifier.fillMaxSize()) {
                     GridPanelRoot(
                     panelId = panelIdState,
-                    panel = settings.actionGridPanels.panelById(panelIdState),
+                    panel = resolvedPanel,
                     anchorX = anchorXState,
                     anchorY = anchorYState,
+                    singleContent = singleRef?.first?.let { single ->
+                        { metrics, editMode ->
+                            hunoia.luno.gridpanel.SinglePanelContent(
+                                panel = single,
+                                metrics = metrics,
+                                editMode = editMode,
+                            )
+                        }
+                    },
+                    onCommitGeometry = singleRef?.first?.let { single ->
+                        { geometry: GridPanelGeometry ->
+                            scope.launch {
+                                hunoia.luno.domain.gridpanel.GridPanelCenter.updateSinglePanel(single.widgetId) {
+                                    if (landscape) it.copy(landscape = geometry) else it.copy(portrait = geometry)
+                                }
+                            }
+                        }
+                    },
                     dispatch = { action, x, y ->
                         val handled = hunoia.luno.gesture.GestureCommand.forwardPanelTap
                             ?.invoke(

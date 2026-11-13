@@ -3,7 +3,6 @@ package hunoia.luno.ui.settings.action.gridpanel
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.OutlinedTextField
@@ -23,34 +22,27 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.PanelMode
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.withOrientation
-import hunoia.luno.gridpanel.SinglePanelFunctionOptions
-import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /**
- * 面板属性编辑：名称 / 类型 / 透明度 / 背景模糊 / 离屏边距。
- * 网格面板的项与列数在面板内管理；单功能面板选功能在这里，运行态只换功能与缩放。
- * 页数是派生值（编辑态滑到末尾虚页落项即建页）；列数只在编辑态双指调整；
- * 卡片宽高只在面板内的缩放手柄调整，不在这里重复给数值入口。
+ * 网格面板属性编辑：名称 / 透明度 / 背景模糊 / 离屏边距。
+ * 网格面板的项与列数在面板内管理；页数是派生值（编辑态滑到末尾虚页落项即建页）；
+ * 列数只在编辑态双指调整；卡片宽高只在面板内的缩放手柄调整。
  * 装载必须显式 collect：拿到 DataStore 真实值前不能判「面板不存在」，首帧空配置会误报。
  */
 @Composable
@@ -66,8 +58,6 @@ fun GridPanelEditScreen(
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showFunctionPicker by remember { mutableStateOf(false) }
-    var pendingModeSwitch by remember { mutableStateOf<PanelMode?>(null) }
     LaunchedEffect(panelId) {
         TuneConfig.action.collect { settings ->
             panel = settings.actionGridPanels.panelById(panelId)
@@ -91,32 +81,6 @@ fun GridPanelEditScreen(
                 val latest = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
                 settings.copy(actionGridPanels = settings.actionGridPanels.withPanel(transform(latest)))
             }
-        }
-    }
-
-    fun switchMode(target: PanelMode) {
-        scope.launch {
-            TuneConfig.updateAction { settings ->
-                val latest = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
-                // 模式切换是破坏性的：两种模式的数据互不相干，留着只会形成「看不见但还在」的双轨。
-                val next = latest.copy(
-                    mode = target,
-                    singleWidgetId = null,
-                    singleParams = null,
-                    // 单功能模式没有列数入口，内部列数固定回默认 4：避免从 6 列网格切过来后
-                    // 应用抽屉图标列数继承旧值，又无处可改。
-                    portrait = latest.portrait.copy(
-                        items = emptyList(),
-                        geometry = latest.portrait.geometry.copy(columnCount = GridPanelDefaults.ColumnCount),
-                    ),
-                    landscape = latest.landscape.copy(
-                        items = emptyList(),
-                        geometry = latest.landscape.geometry.copy(columnCount = GridPanelDefaults.ColumnCount),
-                    ),
-                )
-                settings.copy(actionGridPanels = settings.actionGridPanels.withPanel(next))
-            }
-            hunoia.luno.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -165,26 +129,6 @@ fun GridPanelEditScreen(
                     },
                 )
             }
-            pendingModeSwitch?.let { target ->
-                val toSingle = target == PanelMode.Single
-                ConfirmDialog(
-                    onDismissRequest = { pendingModeSwitch = null },
-                    title = stringResource(
-                        if (toSingle) hunoia.luno.gridpanel.R.string.single_panel_to_single_title
-                        else hunoia.luno.gridpanel.R.string.single_panel_to_grid_title,
-                    ),
-                    text = stringResource(
-                        if (toSingle) hunoia.luno.gridpanel.R.string.single_panel_to_single_message
-                        else hunoia.luno.gridpanel.R.string.single_panel_to_grid_message,
-                    ),
-                    confirmLabel = stringResource(hunoia.luno.gridpanel.R.string.single_panel_switch),
-                    destructive = true,
-                    onConfirm = {
-                        pendingModeSwitch = null
-                        switchMode(target)
-                    },
-                )
-            }
         },
     ) {
         item {
@@ -201,30 +145,6 @@ fun GridPanelEditScreen(
         }
         item {
             LunoGroup {
-                LunoSettingsRow(
-                    title = stringResource(hunoia.luno.gridpanel.R.string.single_panel_mode),
-                    subtitle = if (current.isSingle) {
-                        stringResource(hunoia.luno.gridpanel.R.string.single_panel_mode_single)
-                    } else {
-                        stringResource(hunoia.luno.gridpanel.R.string.single_panel_mode_grid)
-                    },
-                    shape = if (current.isSingle) segmentedShape(0, 2) else segmentedShape(0, 1),
-                    onClick = {
-                        pendingModeSwitch = if (current.isSingle) PanelMode.Grid else PanelMode.Single
-                    },
-                )
-                if (current.isSingle) {
-                    LunoSettingsRow(
-                        title = stringResource(hunoia.luno.gridpanel.R.string.single_panel_function),
-                        subtitle = singleFunctionLabel(current.singleWidgetId),
-                        shape = segmentedShape(1, 2),
-                        onClick = { showFunctionPicker = true },
-                    )
-                }
-            }
-        }
-        item {
-            LunoGroup {
                 var localAlpha by remember(current.cardAlpha) { mutableFloatStateOf(current.cardAlpha) }
                 LunoTextSlider(
                     value = localAlpha,
@@ -234,7 +154,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).roundToInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
                     steps = 0,
-                    shape = segmentedShape(0, 5),
+                    shape = segmentedShape(0, 3),
                 )
                 // 背景模糊：0 = 关闭；无级拖动、按 1dp 落盘。
                 var localBlur by remember(current.blurRadiusDp) {
@@ -251,12 +171,12 @@ fun GridPanelEditScreen(
                     },
                     valueRange = GridPanelDefaults.MinBlurRadiusDp..GridPanelDefaults.MaxBlurRadiusDp,
                     steps = 0,
-                    shape = segmentedShape(1, 5),
+                    shape = segmentedShape(1, 3),
                 )
                 // 跟随触发点的三个边距（横竖屏各存一份，这里编辑当前朝向）。
                 SurfacePlacementSliders(
                     placement = current.orientation(isLandscape()).geometry.placement,
-                    shapeAt = { index -> segmentedShape(index + 2, 5) },
+                    shapeAt = { index -> segmentedShape(index + 2, 3) },
                     onCommit = { next ->
                         update {
                             it.withOrientation(isLandscape()) { o ->
@@ -267,37 +187,6 @@ fun GridPanelEditScreen(
                 )
             }
         }
-    }
-
-    if (showFunctionPicker) {
-        val scrollState = rememberScrollState()
-        LunoSheet(
-            onDismissRequest = { showFunctionPicker = false },
-            showDragHandle = true,
-            scrollState = OptimizedScrollState.Scroll(scrollState),
-        ) {
-            Text(
-                text = stringResource(hunoia.luno.gridpanel.R.string.single_panel_pick_title),
-                modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
-            )
-            SinglePanelFunctionOptions(
-                currentWidgetId = current.singleWidgetId,
-                onPick = { widgetId ->
-                    showFunctionPicker = false
-                    update { it.copy(singleWidgetId = widgetId, singleParams = null) }
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun singleFunctionLabel(widgetId: String?): String {
-    val widget = widgetId?.takeIf { it.isNotBlank() }?.let(PanelWidgetRegistry::byId)
-    return when {
-        widget != null -> stringResource(widget.labelRes)
-        widgetId.isNullOrBlank() -> stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_unset)
-        else -> stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing)
     }
 }
 

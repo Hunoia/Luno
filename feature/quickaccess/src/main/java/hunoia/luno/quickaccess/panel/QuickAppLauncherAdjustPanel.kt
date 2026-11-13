@@ -16,28 +16,38 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.quickaccess.R
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
+import hunoia.luno.quickaccess.R
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.SurfacePlacementSliders
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
+/**
+ * 设置页使用的快速启动内容设置：与面板内调整页共用同一份控件与持久化。
+ */
+@Composable
+fun QuickLauncherSettingsContent() {
+    QuickAppLauncherAdjustPanel(onSettingsChanged = {})
+}
+
+/**
+ * 快速启动内容设置：只调内容项（候选行 / 搜索列数 / 键高 / 短按小窗）。
+ * 面板外框宽高与位置归承载它的 `GridPanel`，这里不再出现第二套面板几何。
+ */
 @Composable
 internal fun QuickAppLauncherAdjustPanel(
     onSettingsChanged: (QuickAppLauncherSettings) -> Unit,
-    /** 内嵌到面板时只留内容相关项；面板宽高 / placement 由面板卡片负责。 */
-    showPanelGeometry: Boolean = true,
 ) {
-    val settings by hunoia.luno.domain.search.SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
+    val settings by hunoia.luno.domain.search.SearchCenter.launcher
+        .collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
-    // 当前朝向：横屏下调的就是横屏那份几何，实时跟随旋转
+    // 当前朝向：横屏下调的就是横屏那份内容布局，实时跟随旋转。
     val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val pending = remember(settings, landscape) { mutableStateOf(settings.layout(landscape)) }
@@ -46,46 +56,12 @@ internal fun QuickAppLauncherAdjustPanel(
         onSettingsChanged(settings.withLayout(landscape) { next })
     }
     fun commit() {
-        coroutineScope.launch { hunoia.luno.domain.search.SearchCenter.updateLauncherLayout(pending.value, landscape) }
+        coroutineScope.launch {
+            hunoia.luno.domain.search.SearchCenter.updateLauncherLayout(pending.value, landscape)
+        }
     }
 
-    val screenH = LocalConfiguration.current.screenHeightDp
-    val kd = pending.value.keyHeightDp.dp
-    val minPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMinHeight)
-    val maxPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMaxHeight)
-    val heightMin = (minPanel / screenH.dp).coerceIn(
-        QuickLauncherGeometry.MinContentHeightFraction,
-        QuickLauncherGeometry.MaxContentHeightFraction,
-    )
-    val heightMax = (maxPanel / screenH.dp).coerceIn(
-        QuickLauncherGeometry.MinContentHeightFraction,
-        QuickLauncherGeometry.MaxContentHeightFraction,
-    )
-
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (showPanelGeometry) {
-            LunoTextSlider(
-                value = pending.value.contentHeightFraction,
-                onValueChange = { preview(pending.value.copy(contentHeightFraction = it)) },
-                onValueChangeFinished = { commit() },
-                text = stringResource(R.string.quick_app_launcher_content_height),
-                valueDisplay = { "${(it * 100).roundToInt()}%" },
-                valueRange = heightMin..heightMax,
-            )
-            LunoTextSlider(
-                value = pending.value.panelWidthFraction,
-                onValueChange = { preview(pending.value.copy(panelWidthFraction = it)) },
-                onValueChangeFinished = { commit() },
-                text = stringResource(R.string.quick_app_launcher_panel_width),
-                valueDisplay = { "${(it * 100).roundToInt()}%" },
-                valueRange = QuickLauncherGeometry.MinPanelWidthFraction..QuickLauncherGeometry.MaxPanelWidthFraction,
-            )
-            SurfacePlacementSliders(
-                placement = pending.value.placement,
-                onPreview = { next -> preview(pending.value.copy(placement = next)) },
-                onCommit = { commit() },
-            )
-        }
         LunoTextSlider(
             value = pending.value.candidateRows.toFloat(),
             onValueChange = { preview(pending.value.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
@@ -113,10 +89,7 @@ internal fun QuickAppLauncherAdjustPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = 12.dp,
-                    vertical = 12.dp,
-                ),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {

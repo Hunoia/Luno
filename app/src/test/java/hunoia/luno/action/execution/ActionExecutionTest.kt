@@ -49,7 +49,6 @@ class ActionExecutionTest {
     }
 
     private class FakeSurfaceHost : SurfaceHost {
-        override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) = Unit
         override fun showQuickSearch() = Unit
         override fun showSpeechRecognition(): Boolean = false
         override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) = Unit

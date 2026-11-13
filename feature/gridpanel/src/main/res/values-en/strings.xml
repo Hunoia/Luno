@@ -2,24 +2,10 @@
 <resources>
     <string name="action_panel_missing">Panel no longer exists; go back and re-add</string>
     <string name="grid_panel_add_item">Add panel item</string>
+    <string name="grid_panel_need_overlay_permission">Opening the panel needs "Display over other apps"; opening settings</string>
     <string name="single_panel_function">Function</string>
-    <string name="single_panel_function_unset">No function selected</string>
-    <string name="single_panel_function_missing">Function unavailable; select again</string>
-    <string name="single_panel_pick_title">Choose panel function</string>
-    <string name="single_panel_pick_empty">No function available for a full panel</string>
-    <string name="single_panel_change_function">Change function</string>
-    <string name="single_panel_choose_function">Choose function</string>
-    <string name="single_panel_cancel">Cancel</string>
-    <string name="single_panel_mode">Panel type</string>
-    <string name="single_panel_mode_grid">Grid</string>
+    <string name="single_panel_function_missing">Function unavailable</string>
     <string name="single_panel_mode_single">Single function</string>
-    <string name="single_panel_to_single_title">Switch to single-function panel</string>
-    <string name="single_panel_to_single_message">The current grid layout will be cleared and cannot be restored.</string>
-    <string name="single_panel_to_grid_title">Switch to grid panel</string>
-    <string name="single_panel_to_grid_message">The current function selection will be cleared and cannot be restored.</string>
-    <string name="single_panel_switch">Switch</string>
-    <string name="single_panel_summary">Single · %1$s</string>
-    <string name="single_panel_summary_unset">Single · not set</string>
     <string name="toast_accessibility_required">Accessibility service required</string>
     <string name="grid_panel_internal_media">Media control</string>
     <string name="grid_panel_internal_volume">Volume control</string>

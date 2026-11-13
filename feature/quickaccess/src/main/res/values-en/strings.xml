@@ -4,12 +4,9 @@
     <string name="more">More</string>
     <string name="quick_app_launcher_adjust">Adjust panel</string>
     <string name="quick_app_launcher_candidate_rows">Candidate app rows</string>
-    <string name="quick_app_launcher_content_height">Height</string>
     <string name="quick_app_launcher_clear_input">Clear input</string>
     <string name="quick_app_launcher_grid_columns">Search columns</string>
     <string name="quick_app_launcher_key_height">Key height</string>
-    <string name="quick_app_launcher_panel_width">Width</string>
-    <string name="quick_launcher_need_overlay_permission">Opening the launch panel needs "Display over other apps"; opening settings</string>
     <string name="quick_launcher_start_failed">Failed to open launch panel</string>
     <string name="quick_search_app_disabled">Disabled</string>
     <string name="quick_search_clear">Clear</string>

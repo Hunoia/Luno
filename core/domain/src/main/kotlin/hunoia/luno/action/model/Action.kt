@@ -225,9 +225,6 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = "internal.buttonsVisibility"
     }
-    data object QuickAppLauncher : Action {
-        override val typeId: String = "internal.quickAppLauncher"
-    }
     /**
      * 悬浮球显隐：`hideForMs = 0` 直接改 enabled 存量，后求值/后执行的覆盖先生效。
      * `visible = null` 表示切换。`hideForMs > 0` 为临时隐藏（只摘运行时窗口，到期自动恢复，

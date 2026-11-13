@@ -66,8 +66,6 @@ internal object InternalActionGroup : ActionGroup {
         // 原「隐藏触钮」合并进本动作的临时隐藏模式。
         ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.Visibility),
-        ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.ENTRY, Capability.None,
-            icon = Icons.Default.Apps),
         ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.Adjust),
         ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.ENTRY, Capability.None,
@@ -104,7 +102,6 @@ internal object InternalActionGroup : ActionGroup {
                 p.long("hideForMs", 0),
             )
         }
-        ActionMappingRegistry.register("internal.quickAppLauncher") { Action.QuickAppLauncher }
         ActionMappingRegistry.register("internal.floatBallVisibility") { p ->
             Action.FloatBallVisibility(
                 when (p.str("visible", "toggle")) {

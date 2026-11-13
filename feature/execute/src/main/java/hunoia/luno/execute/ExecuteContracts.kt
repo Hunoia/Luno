@@ -36,7 +36,6 @@ interface ExecuteEnvironment {
  * 也不持有配置模型（小窗设置等由实现侧读）。
  */
 interface SurfaceHost {
-    fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int)
     fun showQuickSearch()
     /** 调起系统语音识别弹窗；结果由 Surface Activity 处理。 */
     fun showSpeechRecognition(): Boolean

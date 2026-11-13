@@ -461,7 +461,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 注意：这里**不**释放常驻面板窗口。manifest 没声明 android:configChanges，
         // 无障碍服务不一定收得到这个回调（实测旋转后进程 PID 不变、回调未确认送达），
         // 靠它做旋转重建不可靠。旋转后的尺寸修正在 UI 层做 ——
-        // QuickAppLauncherRoot 监听 LocalConfiguration 的 orientation 变化后重算窗口与图标尺寸。
+        // QuickLaunchBody / GridPanel 监听 LocalConfiguration 的 orientation 变化后重算内容与图标尺寸。
         if (!::gestureCoordinator.isInitialized) return
         gestureCoordinator.onConfigurationChanged(newConfig)
     }

@@ -193,7 +193,7 @@ class InternalExecutors : ActionExecutor {
     override val supportedTypes: Set<String> = setOf(
         Action.NONE_TYPE_ID, "internal.subGesture",
         "internal.buttonsVisibility", "internal.floatBallVisibility",
-        "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
+        "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
         "internal.recentsPicker",
@@ -206,15 +206,6 @@ class InternalExecutors : ActionExecutor {
             is Action.SubGesture -> ActionResult.Success()
             is Action.ButtonsVisibility -> executeButtonsVisibility(action, context)
             is Action.FloatBallVisibility -> executeFloatBallVisibility(action, context)
-            is Action.QuickAppLauncher -> {
-                // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。
-                val anchor = context.touchPosition ?: run {
-                    val dm = context.environment.appContext.resources.displayMetrics
-                    dm.widthPixels / 2 to dm.heightPixels / 2
-                }
-                context.surfaces.toggleQuickAppLauncher(anchor.first, anchor.second)
-                ActionResult.Success()
-            }
             is Action.QuickSearch -> {
                 context.surfaces.showQuickSearch()
                 ActionResult.Success()

@@ -80,9 +80,9 @@ private const val ExitEditTapGuardMillis = 150L
 private const val TAG = "GridPanel"
 
 /**
- * 面板根：网格模式下是固定网格 + 跨格项 + 简版多页；单功能模式下是整页一个功能。
+ * 面板根：网格面板是固定网格 + 跨格项 + 简版多页；单功能面板通过 [singleContent] 注入整页功能。
  * 运行态点项执行、长按空白进编辑；编辑态显示删除角标与尺寸手柄、可拖拽落位。
- * 单功能编辑态只保留面板缩放手柄与换功能入口。
+ * 单功能编辑态只保留面板缩放手柄，不再有换功能入口。
  * 本函数只管生命周期与落盘：几何在 [rememberGridMetrics]，拖拽/缩放在
  * [GridPanelState]，渲染在 GridPanelCard / GridPanelLayer。
  */
@@ -101,6 +101,10 @@ fun GridPanelRoot(
     onRegisterCloseAnimated: ((() -> Unit) -> Unit)?,
     /** 注册返回键处理器：组合先行消费（编辑态退编辑），未消费由浮窗关闭。 */
     onRegisterBackHandler: (((() -> Boolean)) -> Unit)? = null,
+    /** 非 null = 单功能面板内容；参数为卡片几何与当前编辑态。 */
+    singleContent: (@Composable (GridMetrics, Boolean) -> Unit)? = null,
+    /** 单功能面板的几何落盘口：网格走默认的 actionGridPanels 更新。 */
+    onCommitGeometry: ((hunoia.luno.config.model.GridPanelGeometry) -> Unit)? = null,
 ) {
     // 进出场用一张 Animatable 管进度（位移/缩放/alpha 在 Card 里派生）：语义可证伪，
     // 不依赖服务进程里 animate*AsState 的收敛。时长直接传 MotionPanel*：Compose 的
@@ -137,18 +141,13 @@ fun GridPanelRoot(
     // panel 短暂为 null 时沿用上一次有效页数：否则 pageCount 会闪成 1，
     // 映射效果把 pager 重锚到低位，回来后当前页和循环起点都丢了。
     var lastKnownPageCount by remember(panelId) {
-        mutableIntStateOf(panel?.pageCount(landscape) ?: 1)
+        mutableIntStateOf(panel?.orientation(landscape)?.derivedPageCount ?: 1)
     }
-    val pageCount = panel?.pageCount(landscape) ?: lastKnownPageCount
+    val pageCount = panel?.orientation(landscape)?.derivedPageCount ?: lastKnownPageCount
     LaunchedEffect(pageCount) {
         if (panel != null) lastKnownPageCount = pageCount
     }
     var editMode by remember(panelId) { mutableStateOf(false) }
-    // 单功能面板的「换功能」清单：在卡内切换，不弹跨进程选择页。
-    var showFunctionPicker by remember(panelId) { mutableStateOf(false) }
-    LaunchedEffect(editMode) {
-        if (!editMode) showFunctionPicker = false
-    }
     // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
     // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
     // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
@@ -156,7 +155,7 @@ fun GridPanelRoot(
     // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
     // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
     // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
-    val effectivePages = if (panel?.isSingle == true) 1 else pageCount + if (editMode) 1 else 0
+    val effectivePages = pageCount + if (editMode) 1 else 0
     var mappingPages by remember(panelId) { mutableIntStateOf(pageCount) }
     // pager 页数恒为极大值：页数若真的收缩到 1，PagerState 会把高位的循环索引钳回
     // 0，之后再进编辑态右滑（索引减）就滑不动了。单页不滑改用 userScrollEnabled。
@@ -224,9 +223,6 @@ fun GridPanelRoot(
 
     // 横竖屏分别取几何：尺寸拖拽期间用本地预览，松手才落盘。
     val orientation = panel.orientation(landscape)
-    // 单功能选择的本地真身：落盘回流有延迟，选中后先换内容，避免闪一帧「未选择」。
-    var localSingleWidgetId by remember(panelId) { mutableStateOf(panel.singleWidgetId) }
-    LaunchedEffect(panel.singleWidgetId) { localSingleWidgetId = panel.singleWidgetId }
     val serverGeometry = orientation.geometry
     var localGeometry by remember(panelId, landscape) { mutableStateOf(serverGeometry) }
     LaunchedEffect(serverGeometry) { localGeometry = serverGeometry }
@@ -281,21 +277,6 @@ fun GridPanelRoot(
                 }
             }.onFailure { Log.w(TAG, "$failureTag: ${it.message}") }
             if (cleanupResources) PanelResources.cleanup()
-        }
-    }
-
-    /** 面板级字段（模式 / 单功能选择）的落盘单口，与朝向无关。 */
-    fun updateWholePanel(failureTag: String, transform: (GridPanel) -> GridPanel) {
-        scope.launch {
-            runCatching {
-                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id)
-                        ?: return@updateActionSettings settings
-                    settings.copy(
-                        actionGridPanels = settings.actionGridPanels.withPanel(transform(latest)),
-                    )
-                }
-            }.onFailure { Log.w(TAG, "$failureTag: ${it.message}") }
         }
     }
 
@@ -488,13 +469,18 @@ fun GridPanelRoot(
         panelResizeStartSize = null
         val finalGeo = localGeometry
         // 保留预览位置到面板关闭：尺寸落盘回流后不再跳回 anchor 推导位。
-        updatePanel("panel resize commit failed") {
-            it.copy(
-                geometry = it.geometry.copy(
-                    cardWidthFraction = finalGeo.cardWidthFraction,
-                    cardHeightFraction = finalGeo.cardHeightFraction,
-                ),
-            )
+        val commit = onCommitGeometry
+        if (commit != null) {
+            commit(finalGeo)
+        } else {
+            updatePanel("panel resize commit failed") {
+                it.copy(
+                    geometry = it.geometry.copy(
+                        cardWidthFraction = finalGeo.cardWidthFraction,
+                        cardHeightFraction = finalGeo.cardHeightFraction,
+                    ),
+                )
+            }
         }
         Log.i(
             TAG,
@@ -578,7 +564,6 @@ fun GridPanelRoot(
     LaunchedEffect(state) {
         onRegisterBackHandler?.invoke {
             when {
-                showFunctionPicker -> { showFunctionPicker = false; true }
                 state.draggingId != null -> { state.cancelDrag(); true }
                 state.resizingId != null -> { state.cancelResize(); true }
                 editMode -> { exitEditMode(); true }
@@ -604,9 +589,7 @@ fun GridPanelRoot(
                     onTap = {
                         // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
                         if (closing) return@detectTapGestures
-                        if (showFunctionPicker) {
-                            showFunctionPicker = false
-                        } else if (editMode) {
+                        if (editMode) {
                             exitEditMode()
                             suppressItemTapUntil =
                                 SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
@@ -631,7 +614,7 @@ fun GridPanelRoot(
             panelId = panel.id,
             editMode = editMode,
             pageCount = pageCount,
-            showIndicator = !panel.isSingle && (pageCount > 1 || editMode),
+            showIndicator = singleContent == null && (pageCount > 1 || editMode),
             mappingPages = mappingPages,
             placement = placement,
             cornerPx = cornerPx,
@@ -711,7 +694,7 @@ fun GridPanelRoot(
             onPanelResizeDelta = ::updatePanelResize,
             onPanelResizeEnd = ::endPanelResize,
             pinchColumns = pinchColumns,
-            onPinchColumns = if (panel.isSingle) {
+            onPinchColumns = if (singleContent != null) {
                 null
             } else {
                 { target, final ->
@@ -723,31 +706,8 @@ fun GridPanelRoot(
                     }
                 }
             },
-            singleContent = if (panel.isSingle) {
-                { cardMetrics ->
-                    SinglePanelContent(
-                        panel = panel.copy(
-                            singleWidgetId = localSingleWidgetId,
-                            singleParams = panel.singleParams.takeIf {
-                                localSingleWidgetId == panel.singleWidgetId
-                            },
-                        ),
-                        metrics = cardMetrics,
-                        editMode = editMode,
-                        pickerVisible = showFunctionPicker,
-                        onOpenPicker = { showFunctionPicker = true },
-                        onClosePicker = { showFunctionPicker = false },
-                        onPickFunction = { widgetId ->
-                            showFunctionPicker = false
-                            localSingleWidgetId = widgetId
-                            updateWholePanel("single panel function commit failed") {
-                                it.copy(singleWidgetId = widgetId, singleParams = null)
-                            }
-                        },
-                    )
-                }
-            } else {
-                null
+            singleContent = singleContent?.let { content ->
+                { cardMetrics -> content(cardMetrics, editMode) }
             },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。

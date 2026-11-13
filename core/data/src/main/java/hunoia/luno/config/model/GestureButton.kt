@@ -2,6 +2,8 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.core.data.R
+import hunoia.luno.core.domain.GRID_PANEL_PARAM_PANEL_ID
+import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
@@ -41,7 +43,12 @@ object GestureButtonDefaults {
     )
     val LongSlideActions = DirectionActions()
     val SlideHoldActions = DirectionActions(
-        mapOf(3 to StoredAction.of("internal.quickAppLauncher"))
+        mapOf(
+            3 to StoredAction.of(
+                GRID_PANEL_TYPE_ID,
+                GRID_PANEL_PARAM_PANEL_ID to singlePanelRefId(SinglePanelIds.QUICK_LAUNCH),
+            ),
+        ),
     )
     val LongSlideHoldActions = DirectionActions(
         mapOf(3 to StoredAction.of("internal.quickSearch"))

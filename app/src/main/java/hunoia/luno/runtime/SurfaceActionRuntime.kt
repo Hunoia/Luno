@@ -198,13 +198,6 @@ object SurfaceActionRuntime {
     private fun surfaces(context: Context): SurfaceHost = object : SurfaceHost {
         private val launcher by lazy { appLauncher(context) }
 
-        override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
-            if (hunoia.luno.gridpanel.QuickLaunchPanelRouting.showIfConfigured(actionSettings, anchorX, anchorY)) {
-                return
-            }
-            hunoia.luno.quickaccess.QuickAppLauncherOverlay.show(anchorX, anchorY)
-        }
-
         override fun showQuickSearch() {
             hunoia.luno.quickaccess.QuickSearchActivity.start(context)
         }

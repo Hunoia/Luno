@@ -26,11 +26,8 @@ import hunoia.luno.core.LOG_TAG
 /**
  * 快速启动的内容态：应用列表 / 排序 / 查询词 / 键盘 / 拉起。
  *
- * 不再持有窗口、scrim、进出场与关闭编排 —— 这些归宿主：
- * - 独立快速启动面板由 `QuickAppLauncherState` 包一层窗口会话；
- * - 单功能面板由 `internal.quickLaunch` 部件直接复用本类，关闭走面板自己的 `LocalGridPanelClose`。
- *
- * 这样两处共享同一份搜索 / 键盘 / 候选 / 启动语义，不会各维护一套。
+ * 不持有窗口、scrim、进出场与关闭编排 —— 这些归承载它的单功能面板。
+ * 搜索 / 键盘 / 候选 / 启动语义只在这里维护一份。
  */
 class QuickLaunchContentState(
     private val context: Context,

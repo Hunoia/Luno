@@ -39,13 +39,22 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 
 /**
+ * 面板展开后所需的内容高度：键盘三行 + 键盘行间距 + 候选项 + 间距 + 卡片上下内边距。
+ * [QuickLaunchBody] 用它兜底面板高度下限，避免键盘 / 候选项被裁；只此一份。
+ */
+internal fun requiredContentHeight(
+    keyHeight: Dp,
+    candidateRows: Int,
+    candidateRowHeight: Dp,
+): Dp = keyHeight * KeyboardRowCount + KeyboardGap * 2 +
+    candidateRowHeight * candidateRows + KeyboardGap + PanelPaddingVertical * 2
+
+/**
  * 快速启动的纯内容：候选行 + 键盘 / 应用网格，加上可选的调整页。
  *
  * 宿主负责窗口、进出场、Card 背景与最终关闭：
- * - 独立快速启动面板（`QuickAppLauncherRoot`）传快速启动几何；
- * - 单功能面板（`internal.quickLaunch`）传面板卡片尺寸。
- *
- * 搜索、键盘、候选、启动语义只在这里维护一份。
+ * - 单功能面板（`internal.quickLaunch`）传面板卡片尺寸；
+ * - 搜索、键盘、候选、启动语义只在这里维护一份。
  */
 @Composable
 fun QuickLaunchBody(
@@ -53,8 +62,6 @@ fun QuickLaunchBody(
     panelWidth: Dp,
     panelHeight: Dp,
     modifier: Modifier = Modifier,
-    /** 内嵌到面板时隐藏面板宽高 / placement：这些由面板卡片自己负责。 */
-    showPanelGeometrySettings: Boolean = false,
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
@@ -251,7 +258,6 @@ fun QuickLaunchBody(
                         contentHeight = contentHeight,
                         onUpdateLayout = { state.setPreviewLayout(it) },
                         onNavigateToApp = { currentPage = Page.App; state.keyboardExpanded = true },
-                        showPanelGeometry = showPanelGeometrySettings,
                     )
                 }
             }

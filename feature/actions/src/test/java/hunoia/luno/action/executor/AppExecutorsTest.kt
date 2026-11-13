@@ -38,7 +38,6 @@ class AppExecutorsTest {
         var miniWindow: Pair<String, Pair<Int, Int>?>? = null
         var openUrlAnchor: Pair<Int, Int>? = null
 
-        override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) = Unit
         override fun showQuickSearch() = Unit
         override fun showSpeechRecognition(): Boolean = false
         override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) = Unit
@@ -73,6 +72,7 @@ class AppExecutorsTest {
         }
         override fun shareFile(): ActionResult = ActionResult.Success()
         override fun showScreenPick(): Boolean = false
+        override fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean = false
         override fun showScreenAnnotate(): Boolean = false
         override fun openImageAnnotate(): Boolean = false
         override fun showOcrSegmentText(text: String): Boolean = false

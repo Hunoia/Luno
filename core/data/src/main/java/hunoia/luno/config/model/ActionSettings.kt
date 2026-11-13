@@ -17,6 +17,11 @@ data class ActionSettings(
     val actionPanels: ActionPanelSettings = ActionPanelSettings(),
     /** 全局网格面板列表；同样必须留在本域内，否则运行时读不到。 */
     val actionGridPanels: GridPanelSettings = GridPanelSettings(),
+    /**
+     * 单功能面板配置：每个支持整页的功能一块，固定由注册表决定清单。
+     * 未配置的功能使用默认几何，因此这里为空时面板仍存在。
+     */
+    val singlePanels: SinglePanelSettings = SinglePanelSettings(),
     /** 悬浮球；同样必须留在本域内，否则运行时读不到。 */
     val floatBall: FloatBallSettings = FloatBallSettings(),
     /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */

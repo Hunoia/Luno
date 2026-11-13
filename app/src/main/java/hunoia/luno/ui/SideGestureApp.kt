@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,6 +59,7 @@ import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelEdit
+import hunoia.luno.ui.navigation.SinglePanelEdit
 import hunoia.luno.ui.navigation.HabitList
 import hunoia.luno.ui.navigation.HabitEdit
 import hunoia.luno.ui.navigation.TodoList
@@ -142,6 +144,7 @@ import hunoia.luno.config.model.AdvancedSettings
 @Composable
 fun SideGestureApp(navController: NavHostController = rememberNavController()) {
     SideGestureTheme {
+        val context = LocalContext.current
         val durationMs = ANIMATION_DURATION_MS
         val actionLibrarySettings by ActionLibrary.settings
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
@@ -188,7 +191,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
             LocalActionPanels provides actionSettings.actionPanels.panels,
-            LocalGridPanels provides actionSettings.actionGridPanels.panels,
+            LocalGridPanels provides actionSettings.actionGridPanels.panels +
+                hunoia.luno.gridpanel.SinglePanelCatalog.shells(context, actionSettings),
             LocalSubGestures provides subGestureSettings.subGestures,
             LocalListStyle provides advancedSettings.listStyle,
         ) {
@@ -449,7 +453,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     ActionPanelListScreen(
                         onBack = { navController.popBackStack() },
                         onEditActionPanel = { panelId -> navController.navigate(ActionPanelEdit(panelId)) },
+                        onEditSinglePanel = { widgetId -> navController.navigate(SinglePanelEdit(widgetId)) },
                         onEditGridPanel = { panelId -> navController.navigate(GridPanelEdit(panelId)) },
+                    )
+                }
+                myComposable<SinglePanelEdit> {
+                    hunoia.luno.ui.settings.action.gridpanel.SinglePanelEditScreen(
+                        widgetId = it.toRoute<SinglePanelEdit>().widgetId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<ActionPanelEdit> {

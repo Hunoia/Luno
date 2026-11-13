@@ -206,7 +206,7 @@ fun RecentAppsBlocklistScreen(
                                 if (icon == null) {
                                     LaunchedEffect(iconKey) {
                                         // 快甩全量列表时每行都会进这里：限流，别让几百行同时发起
-                                        // 图标加载（口径同 QuickAppLauncherState 的预热并发）。
+                                        // 图标加载（口径同 QuickLaunchContentState 的预热并发）。
                                         iconLoadGate.withPermit {
                                             val bitmap = withContext(Dispatchers.IO) {
                                                 item.getIcon(AppContext.get())?.let { it.toIconBitmap(iconPx) }

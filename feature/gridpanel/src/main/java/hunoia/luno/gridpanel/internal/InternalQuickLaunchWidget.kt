@@ -15,7 +15,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.core.domain.AppLaunchAction
@@ -32,7 +31,7 @@ private const val TAG = "QuickLaunchWidget"
 /**
  * 整页快速启动：候选行 + 搜索键盘 + 应用网格，仅作为单功能面板内容。
  *
- * 与独立快速启动面板共用 [QuickLaunchContentState] / [QuickLaunchBody]：
+ * 与快速启动单功能面板共用 [QuickLaunchContentState] / [QuickLaunchBody]：
  * 搜索、键盘、候选、启动语义只有一份。宿主差异在这里收口：
  * - 关闭走面板的 `LocalGridPanelClose`（启动成功即收面板）；
  * - 小窗锚点取面板打开时的触点；
@@ -66,7 +65,7 @@ fun QuickLaunchPanelCell(
         QuickLaunchContentState(
             context = context,
             coroutineScope = scope,
-            initialSettings = initialSettings as QuickAppLauncherSettings,
+            initialSettings = initialSettings,
             requestEnableDisabledPackage = { packageName, callback ->
                 enabler.request(packageName) { success ->
                     if (!success) {
@@ -121,7 +120,6 @@ fun QuickLaunchPanelCell(
             panelWidth = maxWidth,
             panelHeight = maxHeight,
             modifier = Modifier.fillMaxSize(),
-            showPanelGeometrySettings = false,
         )
     }
 }

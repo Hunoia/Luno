@@ -21,7 +21,7 @@ import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
+import hunoia.luno.gridpanel.SinglePanelCatalog
 import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -36,17 +36,17 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
- * 全局面板列表（决策 5：多个具名面板）。
+ * 全局面板列表。
  *
- * 动作面板与网格面板合并一页：内容全局一份、可被多个触钮复用；动作选择页里一行一个面板，
- * 触钮上配「动作面板」动作即引用其中一个。
- * 顶部挂「动作面板样式」全局配置入口（点击弹底部配置面板）。
- * 新增走右下角 FAB（弹菜单选动作/网格面板），删除在编辑页右上角。
+ * 单功能面板固定三块（剪贴板 / 应用抽屉 / 快速启动），由注册表驱动、不可新建 / 删除 /
+ * 改名；点击直接进入对应面板设置。网格面板仍可新建多个，动作选择页一行一个具名面板。
+ * 顶部挂「动作面板样式」全局配置入口。
  */
 @Composable
 fun ActionPanelListScreen(
     onBack: () -> Unit,
     onEditActionPanel: (String) -> Unit,
+    onEditSinglePanel: (String) -> Unit,
     onEditGridPanel: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -55,6 +55,7 @@ fun ActionPanelListScreen(
     val gestureSettings by TuneConfig.gesture
         .collectAsStateWithLifecycle(initialValue = GestureSettings())
     val panels = actionSettings.actionPanels.panels
+    val singleWidgets = SinglePanelCatalog.widgets()
     val gridPanels = actionSettings.actionGridPanels.panels
     var showStyle by remember { mutableStateOf(false) }
     // 样式项已超过一屏：内容滚动与 sheet 下滑由 LunoSheet 的 nestedScroll 衔接。
@@ -70,15 +71,7 @@ fun ActionPanelListScreen(
 
     fun createGridPanel() {
         scope.launch {
-            val panel = hunoia.luno.config.model.GridPanel.create()
-            TuneConfig.updateAction { it.copy(actionGridPanels = it.actionGridPanels.withPanel(panel)) }
-            onEditGridPanel(panel.id)
-        }
-    }
-
-    fun createSinglePanel() {
-        scope.launch {
-            val panel = GridPanel.createSingle()
+            val panel = GridPanel.create()
             TuneConfig.updateAction { it.copy(actionGridPanels = it.actionGridPanels.withPanel(panel)) }
             onEditGridPanel(panel.id)
         }
@@ -88,6 +81,18 @@ fun ActionPanelListScreen(
         title = stringResource(R.string.action_panel_list_group),
         onBack = onBack,
         sections = listOf(
+            PanelListSection(
+                title = stringResource(R.string.single_panels),
+                emptyHint = "",
+                icon = Icons.Default.Widgets,
+                rows = singleWidgets.map { widget ->
+                    PanelListRow(
+                        id = widget.id,
+                        title = stringResource(widget.labelRes),
+                        subtitle = stringResource(hunoia.luno.gridpanel.R.string.single_panel_mode_single),
+                    )
+                },
+            ),
             PanelListSection(
                 title = stringResource(R.string.action_panels),
                 emptyHint = stringResource(R.string.action_panel_empty_hint),
@@ -115,8 +120,9 @@ fun ActionPanelListScreen(
         ),
         onEditPanel = { sectionIndex, row ->
             when (sectionIndex) {
-                0 -> onEditActionPanel(row.id)
-                1 -> onEditGridPanel(row.id)
+                0 -> onEditSinglePanel(row.id)
+                1 -> onEditActionPanel(row.id)
+                2 -> onEditGridPanel(row.id)
             }
         },
         createItems = listOf(
@@ -129,11 +135,6 @@ fun ActionPanelListScreen(
                 label = stringResource(R.string.grid_panel_add),
                 icon = Icons.Default.GridView,
                 onClick = ::createGridPanel,
-            ),
-            PanelCreateItem(
-                label = stringResource(R.string.grid_panel_add_single),
-                icon = Icons.Default.Widgets,
-                onClick = ::createSinglePanel,
             ),
         ),
         header = {
@@ -175,24 +176,11 @@ fun ActionPanelListScreen(
 }
 
 @Composable
-private fun gridPanelSummary(panel: GridPanel): String {
-    if (panel.isSingle) {
-        val widget = panel.singleWidgetId?.takeIf { it.isNotBlank() }?.let(PanelWidgetRegistry::byId)
-        return if (widget == null) {
-            stringResource(hunoia.luno.gridpanel.R.string.single_panel_summary_unset)
-        } else {
-            stringResource(
-                hunoia.luno.gridpanel.R.string.single_panel_summary,
-                stringResource(widget.labelRes),
-            )
-        }
-    }
-    return stringResource(
-        R.string.grid_panel_summary,
-        panel.portrait.items.size,
-        panel.portrait.geometry.columnCount,
-    )
-}
+private fun gridPanelSummary(panel: GridPanel): String = stringResource(
+    R.string.grid_panel_summary,
+    panel.portrait.items.size,
+    panel.portrait.geometry.columnCount,
+)
 
 @Composable
 private fun actionPanelStyleSummary(style: ArcStyle): String {

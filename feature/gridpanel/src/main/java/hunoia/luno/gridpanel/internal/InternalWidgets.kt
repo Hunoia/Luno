@@ -21,11 +21,11 @@ object InternalWidgetIds {
     const val BRIGHTNESS = "internal.brightness"
     const val RECENTS = "internal.recents"
     /** 页面类部件：整块可滚动的剪贴板历史（默认跨格，内部纵向滚动）。 */
-    const val CLIPBOARD = "internal.clipboardPage"
+    const val CLIPBOARD = hunoia.luno.config.model.SinglePanelIds.CLIPBOARD
     /** 页面类部件：整块可滚动的应用抽屉（与快速启动器共用应用列表）。 */
-    const val APP_DRAWER = "internal.appDrawer"
+    const val APP_DRAWER = hunoia.luno.config.model.SinglePanelIds.APP_DRAWER
     /** 整页快速启动：搜索键盘 + 候选行 + 应用网格，仅作为单功能面板内容。 */
-    const val QUICK_LAUNCH = "internal.quickLaunch"
+    const val QUICK_LAUNCH = hunoia.luno.config.model.SinglePanelIds.QUICK_LAUNCH
     /** 习惯历史：近 N 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
     const val HABIT_HISTORY = "internal.habitHistory"
     /** 习惯热力图：近 90 天热力格 + 连续天数（params 存 HabitWidgetParams）。 */

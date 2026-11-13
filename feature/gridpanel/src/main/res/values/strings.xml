@@ -2,24 +2,10 @@
 <resources>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="grid_panel_add_item">添加面板项</string>
+    <string name="grid_panel_need_overlay_permission">打开面板需要「显示在其他应用上层」权限，正在前往设置</string>
     <string name="single_panel_function">功能</string>
-    <string name="single_panel_function_unset">未选择功能</string>
-    <string name="single_panel_function_missing">功能已失效，请重新选择</string>
-    <string name="single_panel_pick_title">选择面板功能</string>
-    <string name="single_panel_pick_empty">没有可用于整页面板的功能</string>
-    <string name="single_panel_change_function">更换功能</string>
-    <string name="single_panel_choose_function">选择功能</string>
-    <string name="single_panel_cancel">取消</string>
-    <string name="single_panel_mode">面板类型</string>
-    <string name="single_panel_mode_grid">网格</string>
+    <string name="single_panel_function_missing">功能已失效</string>
     <string name="single_panel_mode_single">单功能</string>
-    <string name="single_panel_to_single_title">切换为单功能面板</string>
-    <string name="single_panel_to_single_message">当前网格布局会被清空，且不可撤销。</string>
-    <string name="single_panel_to_grid_title">切换为网格面板</string>
-    <string name="single_panel_to_grid_message">当前功能选择会被清空，且不可撤销。</string>
-    <string name="single_panel_switch">切换</string>
-    <string name="single_panel_summary">单功能 · %1$s</string>
-    <string name="single_panel_summary_unset">单功能 · 未选择</string>
     <string name="toast_accessibility_required">需要无障碍服务</string>
     <string name="grid_panel_internal_media">媒体控制</string>
     <string name="grid_panel_internal_volume">音量调节</string>

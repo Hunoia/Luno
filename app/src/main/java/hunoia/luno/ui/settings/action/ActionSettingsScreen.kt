@@ -166,7 +166,9 @@ fun ActionSettingsTab(
                         title = stringResource(R.string.action_panel_list_group),
                         subtitle = stringResource(
                             R.string.action_panel_count,
-                            actionSettings.actionPanels.panels.size + actionSettings.actionGridPanels.panels.size,
+                            actionSettings.actionPanels.panels.size +
+                                actionSettings.actionGridPanels.panels.size +
+                                hunoia.luno.gridpanel.SinglePanelCatalog.widgets().size,
                         ),
                         shape = segmentedShape(1, 5),
                         onClick = onNavToActionPanels,

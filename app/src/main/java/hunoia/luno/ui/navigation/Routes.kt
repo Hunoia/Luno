@@ -77,6 +77,13 @@ data class GridPanelEdit(
     val panelId: String,
 )
 
+/** 单功能面板设置：widgetId 固定，决定是哪块功能面板。 */
+@Keep
+@Serializable
+data class SinglePanelEdit(
+    val widgetId: String,
+)
+
 /** 习惯管理列表（主设置 → 习惯）。 */
 @Keep
 @Serializable

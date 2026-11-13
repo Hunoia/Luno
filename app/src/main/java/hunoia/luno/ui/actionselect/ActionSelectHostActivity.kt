@@ -67,7 +67,11 @@ class ActionSelectHostActivity : ComponentActivity() {
                     LocalNavController provides navController,
                     LocalActionLibraryEntries provides actionLibrarySettings.entries,
                     LocalActionPanels provides actionSettings.actionPanels.panels,
-                    LocalGridPanels provides actionSettings.actionGridPanels.panels,
+                    LocalGridPanels provides actionSettings.actionGridPanels.panels +
+                        hunoia.luno.gridpanel.SinglePanelCatalog.shells(
+                            hunoia.luno.core.AppContext.get(),
+                            actionSettings,
+                        ),
                     LocalSubGestures provides subGestureSettings.subGestures,
                 ) {
                     // 参数解不出来（applyIntent 已 finish）时画空壳，别碰选择页内容。
