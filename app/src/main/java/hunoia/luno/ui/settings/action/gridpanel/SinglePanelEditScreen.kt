@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
@@ -42,7 +43,7 @@ fun SinglePanelEditScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    fun isLandscape(): Boolean = context.resources.configuration.orientation ==
+    val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(widgetId) { mutableStateOf<SinglePanel?>(null) }
@@ -108,11 +109,11 @@ fun SinglePanelEditScreen(
                     shape = segmentedShape(1, 5),
                 )
                 SurfacePlacementSliders(
-                    placement = current.geometry(isLandscape()).placement,
+                    placement = current.geometry(landscape).placement,
                     shapeAt = { index -> segmentedShape(index + 2, 5) },
                     onCommit = { next ->
                         update {
-                            if (isLandscape()) {
+                            if (landscape) {
                                 it.copy(landscape = it.landscape.copy(placement = next))
                             } else {
                                 it.copy(portrait = it.portrait.copy(placement = next))
