@@ -320,7 +320,7 @@ internal object BallInboxReducer {
     private fun isExpired(item: BallItem, nowMs: Long, config: BallInboxConfig): Boolean {
         if (item.pinned) return false
         if (nowMs < item.receivedAtElapsedMs) return false
-        return nowMs - item.receivedAtElapsedMs >= config.ttlFor(item.source)
+        return nowMs - item.receivedAtElapsedMs >= item.effectiveTtlMs(config)
     }
 
     private fun BallInboxState.bump(): BallInboxState = copy(revision = revision + 1)

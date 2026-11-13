@@ -71,6 +71,12 @@ class FloatBallWindow(
     private val onImeLiftChanged: (Float) -> Unit = {},
     /** 窗口收到 IME insets 事件：服务侧立即轮询一次绝对值（事件值仅作触发信号，不直接采信）。 */
     private val onImeInsetsHint: (Int) -> Unit = {},
+    /** 内容球固定图标（通知球 / 建议球）；null = 按单击动作的图标。 */
+    private val fixedIcon: Any? = null,
+    /** 无徽标时的内容描述；null = 智能球文案。 */
+    private val idleDescription: String? = null,
+    /** 有未读时的内容描述生成器；null = 智能球未读文案。 */
+    private val badgeDescription: ((Int) -> String)? = null,
 ) {
     private val wm: WindowManager get() = context.windowManager()
 
@@ -261,7 +267,8 @@ class FloatBallWindow(
         val tv = badgeView ?: return
         if (badge == null || !badge.visible) {
             tv.visibility = View.GONE
-            view?.contentDescription = context.getString(R.string.smart_ball_content_desc)
+            view?.contentDescription =
+                idleDescription ?: context.getString(R.string.smart_ball_content_desc)
             return
         }
         val label = when {
@@ -270,10 +277,11 @@ class FloatBallWindow(
         }
         tv.text = label
         tv.visibility = View.VISIBLE
-        val description = if (badge.showPinOnly) {
-            context.getString(R.string.smart_ball_pinned_only)
-        } else {
-            context.getString(R.string.smart_ball_unread, badge.unpinnedCount + badge.pinnedCount)
+        val total = badge.unpinnedCount + badge.pinnedCount
+        val description = when {
+            badgeDescription != null -> badgeDescription.invoke(total)
+            badge.showPinOnly -> context.getString(R.string.smart_ball_pinned_only)
+            else -> context.getString(R.string.smart_ball_unread, total)
         }
         view?.contentDescription = description
         updateBadgeGravity()
@@ -413,6 +421,8 @@ class FloatBallWindow(
         lockHidden = false
         panelHidden = false
         visuallyHidden = false
+        capsuleActive = false
+        idleSuppressed = false
         view = null
         rootView = null
         composeView = null
@@ -940,7 +950,8 @@ class FloatBallWindow(
                     .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
+                val icon = fixedIcon
+                    ?: actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
                 when (icon) {
                     is ImageVector -> Image(
                         imageVector = icon,

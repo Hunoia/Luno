@@ -62,7 +62,7 @@
     <string name="button_visibility_summary_show">Show</string>
     <string name="button_visibility_target">Target element</string>
     <string name="button_visibility_target_all">All elements</string>
-    <string name="button_visibility_target_clipboard_ball">Clipboard bubble</string>
+    <string name="button_visibility_target_clipboard_ball">Suggestion capsule</string>
     <string name="button_visibility_target_zones">Recognition zones</string>
     <string name="gesture_global_zone">Recognition zone</string>
     <string name="gesture_global_zone_full">Full screen</string>

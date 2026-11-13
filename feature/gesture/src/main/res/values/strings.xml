@@ -62,7 +62,7 @@
     <string name="button_visibility_summary_show">显示</string>
     <string name="button_visibility_target">作用元素</string>
     <string name="button_visibility_target_all">全部元素</string>
-    <string name="button_visibility_target_clipboard_ball">剪贴板气泡</string>
+    <string name="button_visibility_target_clipboard_ball">建议胶囊</string>
     <string name="button_visibility_target_zones">识别区</string>
     <string name="gesture_global_zone">识别区</string>
     <string name="gesture_global_zone_full">全屏</string>
