@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.5.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.5.1)" variant="all" version="9.5.1">
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON, LayoutParams.FLAG_DIM_BEHIND, LayoutParams.FLAG_BLUR_BEHIND, LayoutParams.FLAG_NOT_FOCUSABLE, LayoutParams.FLAG_NOT_TOUCHABLE, LayoutParams.FLAG_NOT_TOUCH_MODAL, LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING, LayoutParams.FLAG_KEEP_SCREEN_ON, LayoutParams.FLAG_LAYOUT_IN_SCREEN, LayoutParams.FLAG_LAYOUT_NO_LIMITS, LayoutParams.FLAG_FULLSCREEN, LayoutParams.FLAG_FORCE_NOT_FULLSCREEN, LayoutParams.FLAG_DITHER, LayoutParams.FLAG_SECURE, LayoutParams.FLAG_SCALED, LayoutParams.FLAG_IGNORE_CHEEK_PRESSES, LayoutParams.FLAG_LAYOUT_INSET_DECOR, LayoutParams.FLAG_ALT_FOCUSABLE_IM, LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH, LayoutParams.FLAG_SHOW_WHEN_LOCKED, LayoutParams.FLAG_SHOW_WALLPAPER, LayoutParams.FLAG_TURN_SCREEN_ON, LayoutParams.FLAG_DISMISS_KEYGUARD, LayoutParams.FLAG_SPLIT_TOUCH, LayoutParams.FLAG_HARDWARE_ACCELERATED, LayoutParams.FLAG_LAYOUT_IN_OVERSCAN, LayoutParams.FLAG_TRANSLUCENT_STATUS, LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, LayoutParams.FLAG_LOCAL_FOCUS_MODE, LayoutParams.FLAG_LAYOUT_ATTACHED_IN_DECOR, LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS"
+        errorLine1="                TRUSTED_OVERLAY_FLAG"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateOverlay.kt"
+            line="308"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON, LayoutParams.FLAG_DIM_BEHIND, LayoutParams.FLAG_BLUR_BEHIND, LayoutParams.FLAG_NOT_FOCUSABLE, LayoutParams.FLAG_NOT_TOUCHABLE, LayoutParams.FLAG_NOT_TOUCH_MODAL, LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING, LayoutParams.FLAG_KEEP_SCREEN_ON, LayoutParams.FLAG_LAYOUT_IN_SCREEN, LayoutParams.FLAG_LAYOUT_NO_LIMITS, LayoutParams.FLAG_FULLSCREEN, LayoutParams.FLAG_FORCE_NOT_FULLSCREEN, LayoutParams.FLAG_DITHER, LayoutParams.FLAG_SECURE, LayoutParams.FLAG_SCALED, LayoutParams.FLAG_IGNORE_CHEEK_PRESSES, LayoutParams.FLAG_LAYOUT_INSET_DECOR, LayoutParams.FLAG_ALT_FOCUSABLE_IM, LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH, LayoutParams.FLAG_SHOW_WHEN_LOCKED, LayoutParams.FLAG_SHOW_WALLPAPER, LayoutParams.FLAG_TURN_SCREEN_ON, LayoutParams.FLAG_DISMISS_KEYGUARD, LayoutParams.FLAG_SPLIT_TOUCH, LayoutParams.FLAG_HARDWARE_ACCELERATED, LayoutParams.FLAG_LAYOUT_IN_OVERSCAN, LayoutParams.FLAG_TRANSLUCENT_STATUS, LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, LayoutParams.FLAG_LOCAL_FOCUS_MODE, LayoutParams.FLAG_LAYOUT_ATTACHED_IN_DECOR, LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS"
+        errorLine1="                TRUSTED_OVERLAY_FLAG"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateOverlay.kt"
+            line="384"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var cropMinZoom by remember { mutableStateOf(AnnotateOps.MIN_VIEW_ZOOM) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateCanvas.kt"
+            line="169"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var viewTransformGeneration by remember { mutableStateOf(0) }"
+        errorLine2="                                              ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateCanvas.kt"
+            line="177"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var safeViewZoom by mutableStateOf(1f)"
+        errorLine2="                        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/model/AnnotateDocument.kt"
+            line="24"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    private var cropResetToken by mutableStateOf(0)"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateOverlay.kt"
+            line="133"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val out = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/render/AnnotateExporter.kt"
+            line="30"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="                if (visibility == View.VISIBLE) positionPanel(wm)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/ui/AnnotateOverlay.kt"
+            line="464"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
+        errorLine1="    val checkpoint = canvas.save()"
+        errorLine2="                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/render/AnnotateRenderer.kt"
+            line="552"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
+        errorLine1="    val checkpoint = canvas.save()"
+        errorLine2="                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/render/AnnotateRenderer.kt"
+            line="617"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
+        errorLine1="    val checkpoint = canvas.save()"
+        errorLine2="                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/render/AnnotateRenderer.kt"
+            line="709"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val scaled = Bitmap.createScaledBitmap(bitmap, smallW, smallH, true)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/annotate/render/BaseImage.kt"
+            line="49"
+            column="22"/>
+    </issue>
+
+</issues>

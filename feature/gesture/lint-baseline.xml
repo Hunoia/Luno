@@ -1,0 +1,466 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.5.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.5.1)" variant="all" version="9.5.1">
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.vibrateForActionPanel: android.permission.VIBRATE"
+        errorLine1="                        gestureSettings?.let { vibrateForActionPanel(it) }"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/gesturepanel/ActionPanelMenu.kt"
+            line="291"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateFor: android.permission.VIBRATE"
+        errorLine1="                    b.tryVibrateFor(GestureTriggerType.LongPress)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/GestureState.kt"
+            line="126"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateFor: android.permission.VIBRATE"
+        errorLine1="            result.button.tryVibrateFor(GestureTriggerType.Tap)"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/GestureState.kt"
+            line="256"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateFor: android.permission.VIBRATE"
+        errorLine1="        button.tryVibrateFor(type)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/GestureState.kt"
+            line="345"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateHoldFire: android.permission.VIBRATE"
+        errorLine1="        if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/SubGestureState.kt"
+            line="105"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateOverlay: android.permission.VIBRATE"
+        errorLine1="        if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/SubGestureState.kt"
+            line="105"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibratePress: android.permission.VIBRATE"
+        errorLine1="        activeSubGesture?.tryVibratePress()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/SubGestureState.kt"
+            line="113"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateTimeout: android.permission.VIBRATE"
+        errorLine1="            expired?.tryVibrateTimeout()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/SubGestureState.kt"
+            line="223"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by VibrationTriggersKt.tryVibrateFor: android.permission.VIBRATE"
+        errorLine1="        subGesture.tryVibrateFor(triggerType)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/SubGestureState.kt"
+            line="251"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow`"
+        errorLine1="                service.takeScreenshotOfWindow(windowId, mainExecutor, callback)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/text/ScreenTextPreCapture.kt"
+            line="138"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON, LayoutParams.FLAG_DIM_BEHIND, LayoutParams.FLAG_BLUR_BEHIND, LayoutParams.FLAG_NOT_FOCUSABLE, LayoutParams.FLAG_NOT_TOUCHABLE, LayoutParams.FLAG_NOT_TOUCH_MODAL, LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING, LayoutParams.FLAG_KEEP_SCREEN_ON, LayoutParams.FLAG_LAYOUT_IN_SCREEN, LayoutParams.FLAG_LAYOUT_NO_LIMITS, LayoutParams.FLAG_FULLSCREEN, LayoutParams.FLAG_FORCE_NOT_FULLSCREEN, LayoutParams.FLAG_DITHER, LayoutParams.FLAG_SECURE, LayoutParams.FLAG_SCALED, LayoutParams.FLAG_IGNORE_CHEEK_PRESSES, LayoutParams.FLAG_LAYOUT_INSET_DECOR, LayoutParams.FLAG_ALT_FOCUSABLE_IM, LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH, LayoutParams.FLAG_SHOW_WHEN_LOCKED, LayoutParams.FLAG_SHOW_WALLPAPER, LayoutParams.FLAG_TURN_SCREEN_ON, LayoutParams.FLAG_DISMISS_KEYGUARD, LayoutParams.FLAG_SPLIT_TOUCH, LayoutParams.FLAG_HARDWARE_ACCELERATED, LayoutParams.FLAG_LAYOUT_IN_OVERSCAN, LayoutParams.FLAG_TRANSLUCENT_STATUS, LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, LayoutParams.FLAG_LOCAL_FOCUS_MODE, LayoutParams.FLAG_LAYOUT_ATTACHED_IN_DECOR, LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS"
+        errorLine1="                TRUSTED_OVERLAY_FLAG"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="279"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/style/ActionPanelStyleConfigContent.kt"
+            line="64"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;apps&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;button_visibility_apps_count&quot;>%1$d apps&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-en/strings.xml"
+            line="40"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;apps&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;button_visibility_recent_apps_count&quot;>%1$d apps disabled&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-en/strings.xml"
+            line="99"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;elements&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;button_visibility_target_count&quot;>%1$d elements&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-en/strings.xml"
+            line="100"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `RecentsPickerOverlay` which has field `view` pointing to `View`); this is a memory leak"
+        errorLine1="/**"
+        errorLine2="^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/recentspicker/RecentsPickerOverlay.kt"
+            line="40"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var centerDegrees: Float by mutableStateOf(0f)"
+        errorLine2="                                ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/gesturepanel/ActionPanelState.kt"
+            line="29"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var itemSizePx: Float by mutableStateOf(0f)"
+        errorLine2="                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/gesturepanel/ActionPanelState.kt"
+            line="37"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var selectedIndex: Int by mutableStateOf(-1)"
+        errorLine2="                              ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/gesturepanel/ActionPanelState.kt"
+            line="39"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var localBtnWidth by remember(gestureButton.bounds.width) { mutableStateOf(gestureButton.bounds.width.coerceIn(MinGestureButtonLength, maxWidth)) }"
+        errorLine2="                                                                    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/button/GestureButtonPropertyCards.kt"
+            line="54"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var localBtnHeight by remember(gestureButton.bounds.height) { mutableStateOf(gestureButton.bounds.height.coerceIn(MinGestureButtonLength, maxHeight)) }"
+        errorLine2="                                                                      ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/button/GestureButtonPropertyCards.kt"
+            line="55"
+            column="71"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var localBtnX by remember(gestureButton.bounds.x) { mutableStateOf(gestureButton.bounds.x) }"
+        errorLine2="                                                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/button/GestureButtonPropertyCards.kt"
+            line="56"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var localBtnY by remember(gestureButton.bounds.y) { mutableStateOf(gestureButton.bounds.y) }"
+        errorLine2="                                                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/button/GestureButtonPropertyCards.kt"
+            line="57"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    var lastWallpaperChangeMs by remember { mutableStateOf(0L) }"
+        errorLine2="                                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/GestureOverlayView.kt"
+            line="35"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var triggerDirection: Int by mutableStateOf(0)"
+        errorLine2="                                 ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/GestureState.kt"
+            line="65"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var actionDirection: Int by mutableStateOf(0)"
+        errorLine2="                                ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/GestureState.kt"
+            line="67"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var draft by remember(value) { mutableStateOf(value) }"
+        errorLine2="                                   ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/global/GlobalGestureZoneEditor.kt"
+            line="450"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="        val clickPulse = mutableStateOf(clickPulseKey)"
+        errorLine2="                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/pointer/PointerOverlay.kt"
+            line="51"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var blankScrollSensitivityPercent by mutableStateOf(100)"
+        errorLine2="                                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/recentspicker/RecentsPickerState.kt"
+            line="38"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var iconSizeDp by mutableStateOf(60)"
+        errorLine2="                      ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/recentspicker/RecentsPickerState.kt"
+            line="42"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    private var originX by mutableStateOf(0)"
+        errorLine2="                           ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="211"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    private var originY by mutableStateOf(0)"
+        errorLine2="                           ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="212"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var cardHeightPx by remember { mutableStateOf(0f) }"
+        errorLine2="                                   ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="1470"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var cardWidthPx by remember { mutableStateOf(0f) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="1471"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var circleRadius by remember { mutableStateOf(0f) }"
+        errorLine2="                                   ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/settings/subgesture/SubGestureAngleContent.kt"
+            line="338"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var accumulator by mutableStateOf(0f)"
+        errorLine2="                       ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/VolumeScrubState.kt"
+            line="14"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var accumulatorX by mutableStateOf(0f)"
+        errorLine2="                        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gesture/VolumeScrubState.kt"
+            line="16"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="                        Bitmap.createScaledBitmap("
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="667"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="                        val scaled = Bitmap.createScaledBitmap("
+        errorLine2="                                     ^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/ScreenPickOverlay.kt"
+            line="1136"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="            setOnTouchListener { _, event ->"
+        errorLine2="                               ^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/TransientOverlayController.kt"
+            line="20"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="            setOnTouchListener { _, event ->"
+        errorLine2="                               ^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/overlay/TransientOverlayController.kt"
+            line="45"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="            setOnTouchListener { _, event ->"
+        errorLine2="                               ^">
+        <location
+            file="src/main/java/hunoia/luno/runtime/volume/VolumeScrubOverlay.kt"
+            line="37"
+            column="32"/>
+    </issue>
+
+</issues>

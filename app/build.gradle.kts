@@ -70,10 +70,6 @@ android {
             applicationIdSuffix = ".debug"
         }
     }
-    lint {
-        abortOnError = false
-        lintConfig = file("lint.xml")
-    }
     buildFeatures {
         compose = true
         buildConfig = true

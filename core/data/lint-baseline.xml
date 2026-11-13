@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.5.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.5.1)" variant="all" version="9.5.1">
+
+    <issue
+        id="UnnecessaryArrayInit"
+        message="This initialization lambda (`{ 0 }`) is unnecessary and is less efficient"
+        errorLine1="    if (n &lt;= 1) return boundaries to IntArray(n) { 0 }"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/config/model/DirectionAngle.kt"
+            line="159"
+            column="50"/>
+    </issue>
+
+</issues>
