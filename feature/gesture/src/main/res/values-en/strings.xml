@@ -129,6 +129,7 @@
     <string name="slide_hold_action">Short swipe hold</string>
     <string name="sub_gesture">Sub-gesture</string>
     <string name="sub_gesture_angles">Sub-gesture angle</string>
+    <string name="sub_gesture_angle_guide">Angle guide</string>
     <string name="sub_gesture_timeout_label">Sub-gesture timeout</string>
     <string name="sub_gesture_timeout_value">%1$d s</string>
     <string name="tap_action">Tap</string>

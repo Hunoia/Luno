@@ -129,6 +129,7 @@
     <string name="slide_hold_action">短滑停留</string>
     <string name="sub_gesture">子手势</string>
     <string name="sub_gesture_angles">子手势角度</string>
+    <string name="sub_gesture_angle_guide">角度示意</string>
     <string name="sub_gesture_timeout_label">子手势超时</string>
     <string name="sub_gesture_timeout_value">%1$d秒</string>
     <string name="tap_action">单击</string>

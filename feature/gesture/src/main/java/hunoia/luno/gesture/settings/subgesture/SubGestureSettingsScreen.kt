@@ -297,20 +297,26 @@ fun SubGestureSettingsScreen(
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.sub_gesture_angles),
                                 icon = Icons.Default.Straighten,
-                                shape = segmentedShape(0, 4),
+                                shape = segmentedShape(0, 5),
                                 onClick = { showGestureAngles = true },
                             )
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_vibration),
                                 icon = Icons.Default.Vibration,
-                                shape = segmentedShape(1, 4),
+                                shape = segmentedShape(1, 5),
                                 onClick = { showSubVibrationSettings = true },
                             )
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_trigger_distance),
                                 icon = Icons.Default.Tune,
-                                shape = segmentedShape(2, 4),
+                                shape = segmentedShape(2, 5),
                                 onClick = { showSubTriggerDistanceSettings = true },
+                            )
+                            LunoSwitchRow(
+                                onCheckedChange = { vm.onSubShowAngleGuideChange(it) },
+                                checked = gesture.showAngleGuide,
+                                title = stringResource(id = R.string.sub_gesture_angle_guide),
+                                shape = segmentedShape(3, 5),
                             )
                             LunoTextSlider(
                                 value = gesture.timeoutMs.toFloat(),
