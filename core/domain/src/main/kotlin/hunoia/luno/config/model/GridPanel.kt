@@ -21,6 +21,11 @@ import java.util.UUID
 data class GridPanel(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
+    /**
+     * 底栏图标：图标库 key（见 `IconPalette`）或自定义文字（首个字符当作字标）。
+     * `null` = 没设过：底栏回退到名称首字，名称也空时用默认网格图标。
+     */
+    val icon: String? = null,
     val portrait: GridPanelOrientation = GridPanelOrientation(),
     val landscape: GridPanelOrientation = GridPanelOrientation(),
     /** 卡片本体透明度：0–1，半透明透出原背景；0 = 纯模糊/完全透明底。 */

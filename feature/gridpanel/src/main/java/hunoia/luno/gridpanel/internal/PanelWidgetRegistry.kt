@@ -1,7 +1,19 @@
 package hunoia.luno.gridpanel.internal
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Brightness6
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.gridpanel.R
 
 /** 内置部件渲染时拿到的上下文。 */
@@ -31,6 +43,11 @@ data class PanelWidgetContentScope(
 data class PanelWidget(
     val id: String,
     val labelRes: Int,
+    /**
+     * 底栏 / 列表用图标。单功能面板进底栏时必须有一个，因此不是可空字段：
+     * 忘了给图标会在编译期就挂，不会拖到运行时才出现空 tab。
+     */
+    val icon: ImageVector,
     val defaultSpanX: Int,
     val defaultSpanY: Int,
     val minSpanX: Int = 1,
@@ -75,6 +92,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.MEDIA,
                 labelRes = R.string.grid_panel_internal_media,
+                icon = Icons.Default.PlayArrow,
                 defaultSpanX = 4,
                 defaultSpanY = 2,
                 minSpanX = 2,
@@ -92,6 +110,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.VOLUME,
                 labelRes = R.string.grid_panel_internal_volume,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 defaultSpanX = 4,
                 defaultSpanY = 1,
             ) { scope ->
@@ -107,6 +126,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.BRIGHTNESS,
                 labelRes = R.string.grid_panel_internal_brightness,
+                icon = Icons.Default.Brightness6,
                 defaultSpanX = 4,
                 defaultSpanY = 1,
             ) { scope ->
@@ -122,6 +142,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.RECENTS,
                 labelRes = R.string.grid_panel_internal_recents,
+                icon = Icons.Default.History,
                 defaultSpanX = 4,
                 defaultSpanY = 1,
             ) { scope ->
@@ -137,6 +158,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.CLIPBOARD,
                 labelRes = R.string.grid_panel_internal_clipboard,
+                icon = Icons.Default.ContentPaste,
                 defaultSpanX = 4,
                 defaultSpanY = 3,
                 minSpanX = 2,
@@ -155,6 +177,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.APP_DRAWER,
                 labelRes = R.string.grid_panel_internal_app_drawer,
+                icon = Icons.Default.Apps,
                 defaultSpanX = 4,
                 defaultSpanY = 4,
                 minSpanX = 2,
@@ -173,6 +196,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.QUICK_LAUNCH,
                 labelRes = R.string.grid_panel_internal_quick_launch,
+                icon = Icons.Default.Keyboard,
                 defaultSpanX = 4,
                 defaultSpanY = 4,
                 minSpanX = 2,
@@ -190,6 +214,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.HABIT_HISTORY,
                 labelRes = R.string.grid_panel_internal_habit_history,
+                icon = Icons.Default.CheckCircle,
                 defaultSpanX = 2,
                 defaultSpanY = 2,
                 minSpanX = 2,
@@ -209,6 +234,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.HABIT_HEATMAP,
                 labelRes = R.string.grid_panel_internal_habit_heatmap,
+                icon = Icons.Default.GridOn,
                 defaultSpanX = 2,
                 defaultSpanY = 2,
                 minSpanX = 2,
@@ -226,6 +252,7 @@ object PanelWidgetRegistry {
             PanelWidget(
                 id = InternalWidgetIds.TODO,
                 labelRes = R.string.grid_panel_internal_todo,
+                icon = Icons.Default.List,
                 defaultSpanX = 2,
                 defaultSpanY = 2,
                 minSpanX = 1,

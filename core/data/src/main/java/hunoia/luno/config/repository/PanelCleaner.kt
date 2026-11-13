@@ -56,6 +56,8 @@ object PanelCleaner {
                     )
                 },
             ),
+            // 底栏成员也是面板引用：不摘掉就是一个点了没反应的 tab。
+            panelDock = settings.panelDock.withoutMember(deletedId),
             floatBall = settings.floatBall.copy(
                 tapAction = settings.floatBall.tapAction.cleanOne(shouldRemove),
             ),

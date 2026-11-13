@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,10 +26,14 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.withOrientation
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.actions.library.IconPickerSheet
+import hunoia.luno.gridpanel.PanelDockCatalog
+import hunoia.luno.gridpanel.ui.PanelDockGlyph
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
@@ -36,6 +42,7 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.RowIconSize
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -58,6 +65,7 @@ fun GridPanelEditScreen(
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showIconPicker by remember { mutableStateOf(false) }
     LaunchedEffect(panelId) {
         TuneConfig.action.collect { settings ->
             panel = settings.actionGridPanels.panelById(panelId)
@@ -97,6 +105,17 @@ fun GridPanelEditScreen(
             )
         },
         dialogs = {
+            if (showIconPicker) {
+                IconPickerSheet(
+                    onDismissRequest = { showIconPicker = false },
+                    currentKey = current.icon,
+                    defaultIcon = Icons.Default.GridView,
+                    onPick = { key ->
+                        showIconPicker = false
+                        update { it.copy(icon = key) }
+                    },
+                )
+            }
             if (showDeleteConfirm) {
                 // 引用数在弹窗打开时现查：引用可能刚在别的页面改过。
                 var referenceCount by remember { mutableStateOf(0) }
@@ -142,6 +161,24 @@ fun GridPanelEditScreen(
                     .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                 shape = LargeShape,
             )
+        }
+        item {
+            LunoGroup {
+                LunoSettingsRow(
+                    title = stringResource(R.string.grid_panel_icon),
+                    subtitle = stringResource(R.string.grid_panel_icon_hint),
+                    leading = {
+                        PanelDockGlyph(
+                            icon = PanelDockCatalog.iconFor(current),
+                            size = RowIconSize,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    shape = segmentedShape(0, 1),
+                    onClick = { showIconPicker = true },
+                )
+            }
         }
         item {
             LunoGroup {

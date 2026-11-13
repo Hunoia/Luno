@@ -21,9 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -31,6 +33,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import hunoia.luno.gridpanel.ui.PanelDockAnchor
+import hunoia.luno.gridpanel.ui.PanelDockGap
+import hunoia.luno.gridpanel.ui.PanelDockHeight
+import hunoia.luno.gridpanel.ui.PanelDockLayer
+import hunoia.luno.gridpanel.ui.PanelDockPadding
+import hunoia.luno.gridpanel.ui.PanelDockSession
+import hunoia.luno.gridpanel.ui.PanelDockTabMaxWidth
+import hunoia.luno.gridpanel.ui.PanelDockTabMinWidth
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.panel.awaitPanelExitFrame
 import hunoia.luno.core.domain.StoredAction
@@ -60,6 +70,7 @@ import hunoia.luno.gridpanel.geometry.keepCardHeightFraction
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
+import hunoia.luno.gridpanel.geometry.resolvePanelDockPlacement
 import hunoia.luno.gridpanel.geometry.resolvePanelResize
 import hunoia.luno.ui.theme.panelSpec
 import hunoia.luno.ui.theme.tween
@@ -105,6 +116,13 @@ fun GridPanelRoot(
     singleContent: (@Composable (GridMetrics, Boolean) -> Unit)? = null,
     /** 单功能面板的几何落盘口：网格走默认的 actionGridPanels 更新。 */
     onCommitGeometry: ((hunoia.luno.config.model.GridPanelGeometry) -> Unit)? = null,
+    /**
+     * 底栏成员（已解析、已过滤悬空）。**空 = 不显示底栏**：连可用高度都不扣，
+     * 面板定位与没有这个功能时完全一致。可见性判定在 [PanelDockCatalog]。
+     */
+    dockEntries: List<PanelDockEntry> = emptyList(),
+    /** 点底栏 tab：由浮层换内容，不重开面板。 */
+    onSwitchPanel: (String) -> Unit = {},
 ) {
     // 进出场用一张 Animatable 管进度（位移/缩放/alpha 在 Card 里派生）：语义可证伪，
     // 不依赖服务进程里 animate*AsState 的收敛。时长直接传 MotionPanel*：Compose 的
@@ -237,7 +255,17 @@ fun GridPanelRoot(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
-    val cardFraction = geo.cardWidthFraction
+    // 底栏在打开面板时冻结（位置 / 外观 / 卡片宽度），之后切换面板不重算。
+    // 状态必须声明在 cardFraction 之前：冻结后的面板宽度要反过来参与几何计算。
+    var dockSession by remember { mutableStateOf<PanelDockSession?>(null) }
+    // 底栏一关闭（总开关关 / 成员不足）就丢掉冻结值：重新开启时重新按当前面板定位。
+    LaunchedEffect(dockEntries.isEmpty()) {
+        if (dockEntries.isEmpty()) dockSession = null
+    }
+    val activeDockSession = dockSession.takeIf { dockEntries.isNotEmpty() }
+    // 有底栏时统一用打开那一刻的面板宽度：切换面板只换内容不换宽度，
+    // 否则每切一次卡和底栏都会重新对齐一次。
+    val cardFraction = (activeDockSession?.cardWidthFraction ?: geo.cardWidthFraction)
         .coerceIn(
             GridPanelDefaults.MinCardWidthFraction,
             GridPanelDefaults.MaxCardWidthFraction,
@@ -293,10 +321,26 @@ fun GridPanelRoot(
         updatePanel("grid panel commitAll failed", cleanupResources) { it.copy(items = next) }
     }
 
+    /**
+     * 底栏切面板前先把本地改动落盘：换内容会重建本函数的全部状态（editMode / localItems /
+     * pager），没落盘的拖拽与删除会静默丢失。无改动时不写盘，避免每切一次都发一次 DataStore。
+     */
+    fun commitBeforeSwitch() {
+        if (localItems != lastWritten) {
+            updatePanel("panel dock switch commit failed") { it.copy(items = localItems) }
+        }
+    }
+
     val view = LocalView.current
     // 走 LocalConfiguration 而不是 displayMetrics：组合必须订阅配置变化才会在转屏后
     // 重算（只读 metrics 的组合不会重组）。
     val configuration = LocalConfiguration.current
+    // 系统栏安全区与悬浮球同源（:core:bridge）：只避让可见状态栏 / 导航栏，左右贴物理边。
+    // 按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
+    // 声明在 metrics 之前：底栏预留要当“额外的底部边距”算进可用高度。
+    val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
+    val insetsTop = barSafeArea.top
+    val insetsBottom = barSafeArea.bottom
     // 提前取渲染几何常量：metrics 声明在 commitPinchColumns 之后，而保持卡高的反推
     // 需要这些不随列数变化的量（screen/gridPad/indicator 固定，gap 随列数另取）。
     val density = LocalDensity.current
@@ -310,6 +354,23 @@ fun GridPanelRoot(
     val renderScreenH = with(density) { configuration.screenHeightDp.dp.toPx() }
     val renderGridPad = with(density) { GridPadding.toPx() }
     val renderIndicator = with(density) { (IndicatorHeight * 2).toPx() }
+    val dockGapPx = with(density) { PanelDockGap.toPx() }
+    val dockStaticReservePx = with(density) { (PanelDockHeight + PanelDockGap).toPx() }
+    // 底栏当「额外的底部边距」：没冻结时用固定预算，冻结后按底栏上沿反推卡高上限，
+    // 保证切换后的高面板是向上长，而不是盖住底栏。
+    val reservedBottomPx = when {
+        dockEntries.isEmpty() -> insetsBottom.toFloat()
+        activeDockSession == null -> insetsBottom + dockStaticReservePx
+        else -> renderScreenH - activeDockSession.placement.topY + dockGapPx + insetsTop
+    }
+    // 缩放用的「底边不可用带」与上面的「卡高上限」不是同一个量：
+    // resolvePanelResize 已经自己减了 insetsBottom，这里只补底栏占掉的那一段。
+    val resizeBottomReservePx = when {
+        dockEntries.isEmpty() -> 0f
+        activeDockSession == null -> dockStaticReservePx
+        else -> (renderScreenH - activeDockSession.placement.topY + dockGapPx - insetsBottom)
+            .coerceAtLeast(0f)
+    }
 
     // 手势预览：按目标列数重排一份临时项，拖动过程中卡片能实时「放大/缩小」。
     // expandRows = true 保证缩列只把项往下挤，不静默丢项（面板内没有确认弹窗）。
@@ -348,12 +409,14 @@ fun GridPanelRoot(
         // 调列数保持视觉卡高：卡高已连续，列数变化只影响行数派生，不顺带改高度。
         val baseCardH = gridPanelCardHeight(
             columns = baseColumns,
-            cardW = renderScreenW * geo.cardWidthFraction,
+            cardW = renderScreenW * cardFraction,
             cardHeightFraction = geo.cardHeightFraction,
             screenH = renderScreenH,
             gridPad = renderGridPad,
             indicator = renderIndicator,
             gap = with(density) { gapFor(baseColumns).toPx() },
+            // 与渲染一致的上限：否则调完列数反推出的比例会被底栏夹一次，视觉卡高就变了。
+            maxCardHeightPx = (renderScreenH - reservedBottomPx).coerceAtLeast(0f),
         )
         val newFracH = keepCardHeightFraction(baseCardH, renderScreenH)
         localGeometry = localGeometry.copy(columnCount = cols, cardHeightFraction = newFracH)
@@ -371,11 +434,7 @@ fun GridPanelRoot(
         Log.i(TAG, "pinch columns committed: $baseColumns -> $cols, heightFraction $newFracH")
     }
 
-    // 系统栏安全区与悬浮球同源（:core:bridge）：只避让可见状态栏 / 导航栏，左右贴物理边。
-    // 按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
-    val barSafeArea = remember(configuration) { view.context.windowManager().systemBarsSafeArea() }
-    val insetsTop = barSafeArea.top
-    val insetsBottom = barSafeArea.bottom
+    // 系统栏安全区（声明已上提到 metrics 之前）。
 
     // 行数按页计算（页内占用各自撑）：一个 metrics 服务整个 pager，若占用取全部页的
     // 最大值，新加页/少内容页会和最满的页一样高。base metrics 只带可见行数（+编辑态
@@ -385,6 +444,7 @@ fun GridPanelRoot(
         columns, cardFraction, heightFraction,
         0,
         extraRows = editExtraRows,
+        reservedBottomPx = reservedBottomPx,
     )
     val metricsState = rememberUpdatedState(metrics)
     // state 在 metricsForPage 之后创建；用 ref 打破循环，拖拽过程中的行数要按
@@ -403,6 +463,7 @@ fun GridPanelRoot(
     val topGapPx = with(density) { placement.topGapDp.dp.toPx() }
     val bottomGapPx = with(density) { placement.bottomGapDp.dp.toPx() }
     val cornerPx = rememberCardCornerPx(placement.sideMarginDp)
+
 
     // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
     var panelResizeCorner by remember(panelId, landscape) {
@@ -423,6 +484,47 @@ fun GridPanelRoot(
         mutableStateOf<Offset?>(null)
     }
     val minWidthFraction = GridPanelDefaults.MinCardWidthFraction
+
+    // 底栏冻结：只在「第一次拿到卡片实际尺寸」与「用户拖缩放手柄期间」重算。
+    // 第一次算完之后就钉住 —— 切换面板不重算（那是「底栏不动」的口径），
+    // 缩放期间跟随（用户主动拖，底栏必须跟手），松手后就是新的钉住位置。
+    //
+    // 用 snapshotFlow 收卡片上报，而不是在组合里读锚点：卡片的几何是在它自己的
+    // SideEffect 里写的，父层读到的第一帧必然是 0，而「父层的 SideEffect 写在可跳过的
+    // if 组里」时重组不会再登记它 —— 表现就是正常态永远冻不住、进编辑态后突然出现。
+    val dockAnchor = remember(panel.id) { PanelDockAnchor() }
+    // 冻结逻辑包在 lambda 里再 rememberUpdatedState：协程里要读的是「当前」的
+    // metrics / 面板 / 间距，而不是启动那一刻的快照（切换面板后会变）。
+    val freezeDock = rememberUpdatedState {
+        val cardHeight = dockAnchor.cardHeightPx
+        val needsFreeze = dockSession == null || panelResizeCorner != null
+        if (cardHeight > 0f && needsFreeze) {
+            val next = PanelDockSession(
+                placement = resolvePanelDockPlacement(
+                    cardX = dockAnchor.position.x,
+                    cardY = dockAnchor.position.y,
+                    cardWidthPx = metrics.cardW,
+                    cardHeightPx = cardHeight,
+                    gapPx = dockGapPx,
+                    tabCount = dockEntries.size,
+                    maxTabWidthPx = with(density) { PanelDockTabMaxWidth.toPx() },
+                    minTabWidthPx = with(density) { PanelDockTabMinWidth.toPx() },
+                    insetPx = with(density) { PanelDockPadding.toPx() },
+                ),
+                cardWidthFraction = cardFraction,
+                cardAlpha = panel.cardAlpha,
+                blurRadiusPx = blurRadiusPx,
+                panelId = panel.id,
+            )
+            // 相同值不写回：避免与重组互相触发。
+            if (next != dockSession) dockSession = next
+        }
+    }
+    LaunchedEffect(dockEntries.isEmpty()) {
+        if (dockEntries.isEmpty()) return@LaunchedEffect
+        snapshotFlow { Triple(dockAnchor.position, dockAnchor.cardHeightPx, panelResizeCorner) }
+            .collect { freezeDock.value() }
+    }
 
     fun beginPanelResize(corner: ResizeCorner, cardLeft: Float, cardTop: Float) {
         panelResizeStartGeometry = localGeometry
@@ -454,6 +556,7 @@ fun GridPanelRoot(
             indicator = metrics.indicator,
             gap = metrics.gap,
             minWidthFraction = minWidthFraction,
+            reservedBottomPx = resizeBottomReservePx,
         )
         localGeometry = startGeo.copy(
             cardWidthFraction = result.cardWidthFraction,
@@ -581,12 +684,15 @@ fun GridPanelRoot(
     // 根 Box：点按 + 长按空白进出编辑。
     // 长按只收**空白**的事件：项的手势层会在触发时消费同一路事件，
     // detectTapGestures 见 consumed 即取消 —— 消费链天然就是判定域。
+    // 底栏是唯一例外：它是卡的兄弟、不在卡内，必须显式按矩形排除，否则点胶囊等于点空白。
+    val dockBounds = remember { mutableStateOf<Rect?>(null) }
     Box(
         Modifier
             .fillMaxSize()
             .pointerInput(editMode) {
                 detectTapGestures(
-                    onTap = {
+                    onTap = { offset ->
+                        if (dockBounds.value?.contains(offset) == true) return@detectTapGestures
                         // 退场动画期间不再接受任何点击：窗口还在，眨眼间点项会把动作再执行一遍。
                         if (closing) return@detectTapGestures
                         if (editMode) {
@@ -597,7 +703,8 @@ fun GridPanelRoot(
                             onClose()
                         }
                     },
-                    onLongPress = {
+                    onLongPress = { offset ->
+                        if (dockBounds.value?.contains(offset) == true) return@detectTapGestures
                         if (!editMode && !closing) {
                             view.hapticLongPress()
                             editMode = true
@@ -709,6 +816,10 @@ fun GridPanelRoot(
             singleContent = singleContent?.let { content ->
                 { cardMetrics -> content(cardMetrics, editMode) }
             },
+            dockReservePx = resizeBottomReservePx,
+            dockAnchorPlacement = activeDockSession?.placement,
+            dockGapPx = dockGapPx,
+            dockAnchor = dockAnchor.takeIf { dockEntries.isNotEmpty() },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
                 // 循环模式下 pager 索引先换算回真实页/虚页。用 currentPage：连续快滑
@@ -726,6 +837,21 @@ fun GridPanelRoot(
                 if (!started) showToast(R.string.toast_select_page_failed)
             },
         )
+        // 底栏：位置与外观在打开时冻结，切换面板不动（卡反过来以底栏为锚点）。
+        val frozenDock = activeDockSession
+        if (dockEntries.isNotEmpty() && frozenDock != null) {
+            PanelDockLayer(
+                entries = dockEntries,
+                selectedId = panel.id,
+                onSelect = { id ->
+                    commitBeforeSwitch()
+                    onSwitchPanel(id)
+                },
+                session = frozenDock,
+                anchor = dockAnchor,
+                onBounds = { dockBounds.value = it },
+            )
+        }
         }
     }
 }

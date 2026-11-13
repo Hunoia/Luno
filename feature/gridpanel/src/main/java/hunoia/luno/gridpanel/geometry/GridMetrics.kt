@@ -190,11 +190,19 @@ fun gridPanelCardHeight(
     gridPad: Float,
     indicator: Float,
     gap: Float,
+    /**
+     * 可用高度上限 px（默认不限）：底栏开启时 = 屏高 − 系统栏安全区 − 底栏预留。
+     * 只在比例算出来放不下时生效 —— 常规面板（如 0.62）观感不变，
+     * 被夹住的只有本来就顶到屏幕边的极端配置。
+     */
+    maxCardHeightPx: Float = Float.POSITIVE_INFINITY,
 ): Float {
     val innerW = cardW - gridPad * 2
     val cellW = (innerW - gap * (columns - 1)) / columns.coerceAtLeast(1)
     val minH = gridPad * 2 + indicator + cellW
-    return (screenH * cardHeightFraction).coerceAtLeast(minH)
+    // 上限比一行还矮时仍保住一行：宁可盖到底栏，也不出 0 高卡片。
+    val cap = maxOf(maxCardHeightPx, minH)
+    return (screenH * cardHeightFraction).coerceIn(minH, cap)
 }
 
 /**
@@ -216,6 +224,11 @@ fun rememberGridMetrics(
     occupiedRows: Int,
     /** 行数尾额外空行：编辑态传 [hunoia.luno.config.model.EditRowExtra]，运行态 0。 */
     extraRows: Int = DynamicRowExtra,
+    /**
+     * 底部不可用高度 px：系统栏安全区 + 面板底栏预留（底栏关闭时只含前者）。
+     * 卡高上限 = 屏高 − 该值，直接当“额外的底部边距”用（architecture §7.2）。
+     */
+    reservedBottomPx: Float = 0f,
 ): GridMetrics {
     val density = LocalDensity.current
     // 走 LocalConfiguration 而不是 displayMetrics：组合必须订阅配置变化才会在转屏后
@@ -238,6 +251,7 @@ fun rememberGridMetrics(
         gridPad,
         indicator,
         gap,
+        reservedBottomPx,
     ) {
         val cardW = screenW * cardWidthFraction
         val innerW = cardW - gridPad * 2
@@ -252,6 +266,7 @@ fun rememberGridMetrics(
             gridPad = gridPad,
             indicator = indicator,
             gap = gap,
+            maxCardHeightPx = screenH - reservedBottomPx,
         )
         val visibleRows = rowsForCardHeight(cardH, cellH, gap, gridPad, indicator)
         val rows = maxOf(visibleRows, occupiedRows.coerceAtLeast(0)) + extraRows

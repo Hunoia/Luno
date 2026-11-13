@@ -41,6 +41,8 @@ fun resolvePanelResize(
     maxWidthFraction: Float = GridPanelDefaults.MaxCardWidthFraction,
     minHeightFraction: Float = GridPanelDefaults.MinCardHeightFraction,
     maxHeightFraction: Float = GridPanelDefaults.MaxCardHeightFraction,
+    /** 底栏预留（px）：底部夹取要把它当额外底部边距，否则拖到底会盖住底栏。 */
+    reservedBottomPx: Float = 0f,
 ): PanelResizeResult {
     val startW = startSize.x
     val startH = startSize.y
@@ -66,7 +68,7 @@ fun resolvePanelResize(
     val maxH = (if (corner.isTop) {
         anchorBottom - insetsTop - topGapPx
     } else {
-        (screenH - insetsBottom - bottomGapPx) - startPos.y
+        (screenH - insetsBottom - bottomGapPx - reservedBottomPx) - startPos.y
     }).coerceAtLeast(minH)
     val upperH = minOf(screenH * maxHeightFraction, maxH)
     val newH = if (upperH <= minH) upperH else (startH + heightDelta).coerceIn(minH, upperH)
@@ -114,11 +116,14 @@ fun choosePanelResizeCorner(
     sideMarginPx: Float,
     topGapPx: Float,
     bottomGapPx: Float,
+    /** 底栏预留（px）：底栏不占的“屏底”才算可贴边空间。 */
+    reservedBottomPx: Float = 0f,
 ): ResizeCorner {
     val leftBound = sideMarginPx
     val rightBound = (screenWidth - sideMarginPx).coerceAtLeast(leftBound)
     val topBound = (insetsTop + topGapPx).coerceAtLeast(0f)
-    val bottomBound = (screenHeight - insetsBottom - bottomGapPx).coerceAtLeast(topBound)
+    val bottomBound = (screenHeight - insetsBottom - bottomGapPx - reservedBottomPx)
+        .coerceAtLeast(topBound)
     val leftGap = (cardLeft - leftBound).coerceAtLeast(0f)
     val rightGap = (rightBound - (cardLeft + cardWidth)).coerceAtLeast(0f)
     val topGap = (cardTop - topBound).coerceAtLeast(0f)

@@ -99,6 +99,21 @@ class PanelCleanerTest {
     }
 
     @Test
+    fun `dock members pointing at the deleted panel are dropped`() {
+        // 底栏成员与手势绑定是同一套面板引用 id：不摘掉就是一个点了没反应的 tab。
+        val settings = ActionSettings(
+            panelDock = hunoia.luno.config.model.PanelDockSettings(
+                enabled = true,
+                members = listOf("target", "keep"),
+            ),
+        )
+        val cleaned = PanelCleaner.clean(settings, "target")
+        assertEquals(listOf("keep"), cleaned.panelDock.members)
+        // 总开关不属于引用关系，删除面板不能把底栏一并关掉。
+        assertTrue(cleaned.panelDock.enabled)
+    }
+
+    @Test
     fun `cleans gesture slots sub gestures and float ball`() {
         val buttons = listOf(
             GestureButton(id = "1", tapActions = actionPanelRef("target")),

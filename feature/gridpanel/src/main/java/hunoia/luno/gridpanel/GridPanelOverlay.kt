@@ -315,6 +315,14 @@ object GridPanelOverlay : OverlayPanelHost(
             val scope = rememberCoroutineScope()
             val singleRef = SinglePanelCatalog.resolveRef(context, settings, panelIdState)
             val resolvedPanel = singleRef?.second ?: settings.actionGridPanels.panelById(panelIdState)
+            // 底栏成员：总开关 + 至少两块面板才渲染；否则连高度都不预留。
+            val dockEntries = remember(settings) {
+                if (hunoia.luno.gridpanel.PanelDockCatalog.isVisible(settings)) {
+                    hunoia.luno.gridpanel.PanelDockCatalog.entries(context, settings)
+                } else {
+                    emptyList()
+                }
+            }
             // 拖拽幽灵：跟着手指跨越面板边界，必须画在整个面板之上（格子会被裁剪）。
             val dragGhost = remember(panelIdState) { GridPanelDragGhost() }
             // 动作库为空会让库引用项掉图标、嵌套面板项显示裸 typeId。
@@ -381,6 +389,10 @@ object GridPanelOverlay : OverlayPanelHost(
                     onCloseAnimated = { closeImmediate() },
                     onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                     onRegisterBackHandler = { handler -> backHandler = handler },
+                    dockEntries = dockEntries,
+                    // 只换内容：不走 show()——不重挂窗、不重算前台快照、
+                    // 不重过锁屏/悬浮窗权限检查、不重发 Shown/Dismissed（面板计数不动）。
+                    onSwitchPanel = { id -> panelIdState = id },
                     )
                     GridPanelDragGhostLayer(dragGhost)
                 }

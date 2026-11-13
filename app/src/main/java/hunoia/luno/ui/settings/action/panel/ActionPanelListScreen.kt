@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,6 +23,7 @@ import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.gridpanel.PanelDockCatalog
 import hunoia.luno.gridpanel.SinglePanelCatalog
 import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.component.row.LunoGroup
@@ -58,6 +61,7 @@ fun ActionPanelListScreen(
     val singleWidgets = SinglePanelCatalog.widgets()
     val gridPanels = actionSettings.actionGridPanels.panels
     var showStyle by remember { mutableStateOf(false) }
+    var showDock by remember { mutableStateOf(false) }
     // 样式项已超过一屏：内容滚动与 sheet 下滑由 LunoSheet 的 nestedScroll 衔接。
     val styleScrollState = rememberScrollState()
 
@@ -143,12 +147,26 @@ fun ActionPanelListScreen(
                     icon = Icons.Default.Gesture,
                     title = stringResource(R.string.action_panel_style),
                     subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(0, 2),
                     onClick = { showStyle = true },
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.ViewCarousel,
+                    title = stringResource(R.string.panel_dock),
+                    subtitle = panelDockSummary(actionSettings),
+                    shape = segmentedShape(1, 2),
+                    onClick = { showDock = true },
                 )
             }
         },
     )
+
+    if (showDock) {
+        PanelDockSheet(
+            settings = actionSettings,
+            onDismissRequest = { showDock = false },
+        )
+    }
 
     if (showStyle) {
         LunoSheet(
@@ -172,6 +190,17 @@ fun ActionPanelListScreen(
                 scrollState = styleScrollState,
             )
         }
+    }
+}
+
+@Composable
+private fun panelDockSummary(settings: ActionSettings): String {
+    val context = LocalContext.current
+    val count = remember(settings) { PanelDockCatalog.entries(context, settings).size }
+    return if (!settings.panelDock.enabled) {
+        stringResource(R.string.panel_dock_off)
+    } else {
+        stringResource(R.string.panel_dock_on_summary, count)
     }
 }
 

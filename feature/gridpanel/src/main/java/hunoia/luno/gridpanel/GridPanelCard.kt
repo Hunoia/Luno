@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,16 +70,19 @@ import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.core.PageDrop
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.IndicatorHeight
+import hunoia.luno.gridpanel.geometry.PanelDockPlacement
 import hunoia.luno.gridpanel.geometry.ResizeCorner
 import hunoia.luno.gridpanel.geometry.choosePanelResizeCorner
 import hunoia.luno.gridpanel.geometry.isLeft
 import hunoia.luno.gridpanel.geometry.isTop
+import hunoia.luno.gridpanel.geometry.resolveDockAnchoredCard
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.PanelBlurHost
 import hunoia.luno.gridpanel.ui.BlurState
+import hunoia.luno.gridpanel.ui.PanelDockAnchor
 import hunoia.luno.gridpanel.ui.PageDotSlot
 import hunoia.luno.config.model.SurfacePlacement
 import hunoia.luno.config.model.coerced
@@ -161,6 +165,14 @@ fun GridPanelCard(
      * 卡片定位、进场、模糊、旋转与缩放手柄仍由本卡片统一负责。
      */
     singleContent: (@Composable (GridMetrics) -> Unit)? = null,
+    /** 底栏预留高度 px（含底栏 + 间距，0 = 无底栏）：定位与缩放都要当额外底部边距。 */
+    dockReservePx: Float = 0f,
+    /** 底栏冻结位置（非 null = 卡片以底栏为锚点：底边永远 = 底栏上沿 − 间距）。 */
+    dockAnchorPlacement: PanelDockPlacement? = null,
+    /** 卡与底栏之间的间距 px（仅 [dockAnchorPlacement] 非 null 时用）。 */
+    dockGapPx: Float = 0f,
+    /** 底栏定位信息上报口：底栏是卡片的兄弟，需要跟着卡的位移 / 尺寸 / 进场进度走。 */
+    dockAnchor: PanelDockAnchor? = null,
 ) {
     val density = LocalDensity.current
     val view = LocalView.current
@@ -170,17 +182,33 @@ fun GridPanelCard(
     val indicatorPx = with(density) { IndicatorHeight.toPx() }
     val gridPadPx = with(density) { GridPadding.toPx() }
     val safePlacement = placement.coerced()
-    val target = safePlacement.resolveTopLeft(
-        anchorX = anchorX,
-        anchorY = anchorY,
-        widthPx = metrics.cardW,
-        heightPx = metrics.cardH,
-        screenWidthPx = metrics.screenW.roundToInt(),
-        screenHeightPx = metrics.screenH.roundToInt(),
-        safeTopPx = insetsTop,
-        safeBottomPx = insetsBottom,
-        density = density.density,
-    )
+    // 有底栏时以底栏为锚点（打开时冻结的矩形）：切换面板只换内容，卡向上长 / 向下缩，
+    // 底边永远贴着底栏；没有底栏时仍按触发点定位。
+    val dockFrame = dockAnchorPlacement
+    val target = if (dockFrame != null) {
+        resolveDockAnchoredCard(
+            dockCenterX = dockFrame.centerX,
+            dockTopY = dockFrame.topY,
+            cardWidthPx = metrics.cardW,
+            cardHeightPx = metrics.cardH,
+            screenWidthPx = metrics.screenW,
+            sideMarginPx = with(density) { safePlacement.sideMarginDp.dp.toPx() },
+            gapPx = dockGapPx,
+            safeTopPx = insetsTop.toFloat(),
+        )
+    } else {
+        safePlacement.resolveTopLeft(
+            anchorX = anchorX,
+            anchorY = anchorY,
+            widthPx = metrics.cardW,
+            heightPx = metrics.cardH,
+            screenWidthPx = metrics.screenW.roundToInt(),
+            screenHeightPx = metrics.screenH.roundToInt(),
+            safeTopPx = insetsTop,
+            safeBottomPx = insetsBottom + dockReservePx.roundToInt(),
+            density = density.density,
+        )
+    }
     val targetPosX = target.x
     val targetPosY = target.y
     // 出现 / 收口走位移（ui-guidelines §3「面板」）：首尾位置相同、只往触发锚点方向
@@ -226,12 +254,22 @@ fun GridPanelCard(
         sideMarginPx = sideMarginPx,
         topGapPx = topGapPx,
         bottomGapPx = bottomGapPx,
+        reservedBottomPx = dockReservePx,
     )
     // 转屏 / 改网格尺寸时卡片要挪位置：首帧直接对齐（别从 0 飞过来），之后平滑过渡。
     val posAnimX = remember { Animatable(targetPosX) }
     val posAnimY = remember { Animatable(targetPosY) }
     val drawX = positionOverride?.x ?: posAnimX.value
     val drawY = positionOverride?.y ?: posAnimY.value
+    // 底栏在 layout / draw 阶段读这几个值：逐帧跟随不会触发重组。
+    if (dockAnchor != null) {
+        SideEffect {
+            dockAnchor.position = Offset(drawX, drawY)
+            dockAnchor.cardHeightPx = metrics.cardH
+            dockAnchor.progress = appearance
+            dockAnchor.appearSlide = appearDir * appearSlidePx
+        }
+    }
     LaunchedEffect(targetPosX, targetPosY) {
         if (appearance < 0.99f) {
             posAnimX.snapTo(targetPosX)
