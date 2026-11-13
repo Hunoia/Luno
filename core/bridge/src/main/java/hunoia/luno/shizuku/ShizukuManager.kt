@@ -32,6 +32,7 @@ import rikka.shizuku.SystemServiceHelper
 object ShizukuManager {
 
     private const val RequestCode = 41051
+    private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
 
     private val autoPermissionMutex = Mutex()
     private val permissionMutex = Mutex()
@@ -197,6 +198,25 @@ object ShizukuManager {
             updateStatus()
             granted
         }
+    }
+
+    /**
+     * 让 Shizuku 变为可用：binder 活着就请求授权，binder 不在就拉起 Shizuku 应用。
+     *
+     * 修的是「启动 Shizuku」按钮在 Shizuku 未运行时什么都不做（[autoRequestPermissionIfNeeded]
+     * 遇到 binder 不在直接返回 false，用户点了没反应）。返回 false = Shizuku 未安装 / 无法拉起。
+     */
+    suspend fun requestOrLaunch(): Boolean {
+        if (isBinderAlive()) return requestPermission()
+        return launchApp()
+    }
+
+    /** 拉起 Shizuku 应用；未安装时返回 false，由调用方提示。 */
+    fun launchApp(): Boolean {
+        val context = AppContext.get()
+        val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE) ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching { context.startActivity(intent) }.isSuccess
     }
 
     // ---- Shell Execution ----

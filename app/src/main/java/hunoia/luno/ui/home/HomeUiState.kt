@@ -45,7 +45,9 @@ data class UiState(
             permissionGranted = false,
         ),
     ),
-    /** 主页权限状态卡：各特权权限的当前授权快照（有缺失时才显示卡片）。 */
+    /** 各特权权限的当前授权快照；主页只从中数缺口，明细在授权页。 */
     val privilegedPermissionStatus: List<PrivilegedPermissionStatus> = emptyList(),
+    /** 主页「一键授权」进行中：按钮置忙，避免重复触发。 */
+    val isGrantingPermissions: Boolean = false,
     val renameDialogTarget: RenameTarget? = null,
 )

@@ -86,29 +86,64 @@ object PrivilegedPermissionUseCase {
 
     /** 用 Shizuku 只授这一项。 */
     suspend fun grant(context: Context, permission: PrivilegedPermission): Boolean =
+        grant(context, listOf(permission)).let { it.total > 0 && it.failed == 0 }
+
+    /**
+     * 只授指定项：逐项走各自的 shell 命令，已授权项直接成功（幂等）。
+     * 与 [grantAll] 的区别是**不额外扩权**到未请求的运行期权限。
+     */
+    suspend fun grant(
+        context: Context,
+        permissions: List<PrivilegedPermission>,
+    ): PrivilegedGrantSummary {
+        if (permissions.isEmpty()) return PrivilegedGrantSummary()
+        val results = permissions.map { grantOne(context, it) }
+        return PrivilegedGrantSummary(
+            total = results.size,
+            failed = results.count { !it.ok },
+        ).also { summary ->
+            LunoLog.i(
+                LOG_TAG,
+                "grant pkg=${context.packageName} requested=${permissions.joinToString()} " +
+                    "failed=${summary.failed} results=" +
+                    results.joinToString { "${it.item}:${it.ok}:${it.detail}" },
+            )
+        }
+    }
+
+    private suspend fun grantOne(context: Context, permission: PrivilegedPermission): PrivilegedGrants.Result =
         when (permission) {
-            PrivilegedPermission.OVERLAY -> PrivilegedGrants.ensureOverlay(context).ok
+            PrivilegedPermission.OVERLAY -> PrivilegedGrants.ensureOverlay(context)
             PrivilegedPermission.ACCESSIBILITY -> PrivilegedGrants.ensureAccessibilityService(
                 context,
                 ComponentName(context, SideGestureService::class.java).flattenToString(),
-            ).ok
+            )
             PrivilegedPermission.NOTIFICATION_LISTENER ->
                 PrivilegedGrants.ensureNotificationListener(
                     context,
                     NotificationAccess.listenerComponent(context).flattenToString(),
-                ).ok
+                )
             PrivilegedPermission.WRITE_SECURE_SETTINGS ->
-                PrivilegedGrants.ensureWriteSecureSettings(context).ok
-            PrivilegedPermission.BATTERY -> PrivilegedGrants.ensureBatteryWhitelist(context).ok
-            PrivilegedPermission.NOTIFICATIONS -> PrivilegedGrants.ensureNotifications(context).ok
-            // 以下 Shizuku 授不了，只能手动去系统设置开，UI 走「去设置」。
+                PrivilegedGrants.ensureWriteSecureSettings(context)
+            PrivilegedPermission.BATTERY -> PrivilegedGrants.ensureBatteryWhitelist(context)
+            PrivilegedPermission.NOTIFICATIONS -> PrivilegedGrants.ensureNotifications(context)
+            // Shizuku 授不了的特殊 / 隐私敏感权限：只能手动去系统设置开，UI 走「去设置」。
             PrivilegedPermission.MANAGE_FILES,
             PrivilegedPermission.WRITE_SYSTEM_SETTINGS,
-            PrivilegedPermission.NOTIFICATION_POLICY -> false
+            PrivilegedPermission.NOTIFICATION_POLICY ->
+                PrivilegedGrants.Result(
+                    item = PrivilegedGrants.Item.Permission(permission.name),
+                    ok = false,
+                    detail = "只能手动去系统设置开启",
+                )
             // 标准运行期权限：Shizuku `pm grant`。
             else -> permission.androidPermission?.let {
-                PrivilegedGrants.ensurePermission(context, it).ok
-            } ?: false
+                PrivilegedGrants.ensurePermission(context, it)
+            } ?: PrivilegedGrants.Result(
+                item = PrivilegedGrants.Item.Permission(permission.name),
+                ok = false,
+                detail = "没有可用的授权途径",
+            )
         }
 
     suspend fun grantAll(context: Context): PrivilegedGrantSummary {

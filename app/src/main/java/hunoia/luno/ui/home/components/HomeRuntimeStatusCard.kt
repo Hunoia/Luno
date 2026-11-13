@@ -56,8 +56,6 @@ private val HomePrimaryIssue.descRes: Int?
     get() = when (this) {
         HomePrimaryIssue.AccessibilityDisabled -> R.string.home_status_accessibility_desc
         HomePrimaryIssue.GestureDisabled -> R.string.home_status_gesture_desc
-        HomePrimaryIssue.ShizukuNotRunning -> R.string.home_status_shizuku_not_running_desc
-        HomePrimaryIssue.ShizukuNotAuthorized -> R.string.home_status_shizuku_not_authorized_desc
         HomePrimaryIssue.KeepAliveDisabled -> R.string.home_status_keep_alive_desc
         HomePrimaryIssue.None -> null
     }

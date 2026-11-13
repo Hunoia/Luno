@@ -99,6 +99,16 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
         }
     }
 
+    // Shizuku 未运行时请求授权是空操作，先把 Shizuku 应用拉起来，别留「点了没反应」。
+    fun fixShizuku() {
+        scope.launch {
+            val acted = runCatching { ShizukuManager.requestOrLaunch() }.getOrDefault(false)
+            if (!acted) showToast(R.string.perm_shizuku_unavailable)
+            ShizukuManager.updateStatus()
+            tick++
+        }
+    }
+
     fun showAll() {
         scope.launch {
             val ok = runCatching { StatusBarIconHidingUseCase.showAll(context) }
@@ -119,20 +129,15 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
         bottomContentPadding = FloatingContentBottom,
     ) {
         when {
+            // 与无障碍管理页共用同一组原因 / 动作文案，页面差异由上下文自己承担。
             !shizukuStatus.isReady -> NoticeBanner(
-                message = stringResource(R.string.status_bar_icons_banner_shizuku),
-                actionLabel = stringResource(R.string.status_bar_icons_banner_shizuku_action),
-                onAction = {
-                    scope.launch {
-                        runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
-                        ShizukuManager.updateStatus()
-                        tick++
-                    }
-                },
+                message = stringResource(R.string.perm_shizuku_not_running),
+                actionLabel = stringResource(R.string.perm_fix_shizuku),
+                onAction = ::fixShizuku,
             )
             !state.canWrite -> NoticeBanner(
-                message = stringResource(R.string.status_bar_icons_banner_write_secure),
-                actionLabel = stringResource(R.string.status_bar_icons_banner_write_secure_action),
+                message = stringResource(R.string.perm_write_secure_missing),
+                actionLabel = stringResource(R.string.perm_grant_one),
                 onAction = {
                     scope.launch {
                         runCatching { ShizukuManager.ensureWriteSecureSettings() }

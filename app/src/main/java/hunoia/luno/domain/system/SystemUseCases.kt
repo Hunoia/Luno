@@ -48,6 +48,11 @@ object SystemUseCases : SystemFacade {
     override suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary =
         PrivilegedPermissionUseCase.grantAll(context)
 
+    override suspend fun grantPrivilegedPermissions(
+        context: Context,
+        permissions: List<PrivilegedPermission>,
+    ): PrivilegedGrantSummary = PrivilegedPermissionUseCase.grant(context, permissions)
+
     override fun fontScale(context: Context): Float =
         hunoia.luno.bridge.system.SystemFontScale.get(context)
 

@@ -58,6 +58,7 @@ import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.facade.missingHomePermissions
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.component.sheet.toColorSpec
@@ -457,12 +458,22 @@ fun HomeScreen(
                             }
 
                             item(key = "permission_status") {
-                                // 权限状态卡：仅在存在缺失权限时出现（有缺失才提示，无缺失不占空间）。
+                                // 权限状态卡：一行摘要 + 一键授权；无缺失时不组合（不占空间）。
                                 val missing = uiState.privilegedPermissionStatus.missingHomePermissions()
                                 if (missing.isNotEmpty()) {
                                     HomePermissionStatusCard(
-                                        missing = missing,
+                                        missingCount = missing.size,
+                                        shizukuReady = uiState.shizukuStatus.isReady,
+                                        isGranting = uiState.isGrantingPermissions,
                                         onOpen = onNavToPrivilegedPermissions,
+                                        onGrant = {
+                                            // Shizuku 不可用时跳授权页：修 Shizuku 的入口在那里。
+                                            if (uiState.shizukuStatus.isReady) {
+                                                vm.grantMissingHomePermissions()
+                                            } else {
+                                                onNavToPrivilegedPermissions()
+                                            }
+                                        },
                                     )
                                 }
                             }

@@ -39,6 +39,17 @@ interface SystemFacade {
     /** 一键补齐：返回成功/失败计数，没拿到 Shizuku 时 total=0。 */
     suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary
 
+    /**
+     * 只授指定项，权限范围由调用方决定。
+     *
+     * 与 [grantAllPrivilegedPermissions] 的区别是**不静默扩权**：后者会连带授予清单里
+     * 声明的全部运行期权限（相机 / 通讯录 / 短信等），主页「一键授权」不能走那条路。
+     */
+    suspend fun grantPrivilegedPermissions(
+        context: Context,
+        permissions: List<PrivilegedPermission>,
+    ): PrivilegedGrantSummary
+
     /** 系统字号（`font_scale`），范围 [hunoia.luno.bridge.system.SystemFontScale.MIN]..[hunoia.luno.bridge.system.SystemFontScale.MAX]。 */
     fun fontScale(context: Context): Float
 

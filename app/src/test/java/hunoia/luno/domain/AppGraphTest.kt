@@ -54,6 +54,11 @@ class AppGraphTest {
             context: Context,
         ): PrivilegedGrantSummary = PrivilegedGrantSummary(total = 0)
 
+        override suspend fun grantPrivilegedPermissions(
+            context: Context,
+            permissions: List<PrivilegedPermission>,
+        ): PrivilegedGrantSummary = PrivilegedGrantSummary(total = 0)
+
         override fun fontScale(context: Context): Float = 1.0f
 
         override fun canWriteSystemSettings(context: Context): Boolean = false

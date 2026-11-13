@@ -1,6 +1,7 @@
 package hunoia.luno.ui.home
 
 import hunoia.luno.facade.Facades
+import hunoia.luno.facade.missingHomePermissions
 
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
@@ -19,6 +20,7 @@ import hunoia.luno.config.model.resolveDisplayName
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import hunoia.luno.core.AppContext
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.shizuku.ShizukuManager
@@ -314,6 +316,38 @@ class HomeVM(private val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
                     privilegedPermissionStatus = facades.system.privilegedPermissionStatus(context),
                 ).withRuntimeStatus()
             }
+        }
+    }
+
+    /**
+     * 主页「一键授权」：只补主页跟踪的缺失项。
+     *
+     * 不走 `grantAllPrivilegedPermissions`：那会把清单里声明的相机 / 通讯录 / 短信等
+     * 运行期权限一并授掉，属于静默扩权。Shizuku 不可用时由屏幕层跳授权页，这里不盲试。
+     * 授权在进程内完成（不离开页面），所以完成后必须主动重读快照，不能等 ON_RESUME。
+     */
+    fun grantMissingHomePermissions() {
+        if (uiState.isGrantingPermissions) return
+        viewModelScope.launch {
+            updateUiState { it.copy(isGrantingPermissions = true) }
+            val context = AppContext.get()
+            val missing = uiState.privilegedPermissionStatus.missingHomePermissions()
+            val summary = runCatching {
+                facades.system.grantPrivilegedPermissions(context, missing)
+            }.getOrNull()
+            updateUiState { it.copy(isGrantingPermissions = false) }
+            when {
+                summary == null || summary.total == 0 -> showToast(R.string.privileged_grant_failed)
+                summary.failed > 0 ->
+                    showToast(
+                        context.resources.getQuantityString(
+                            R.plurals.privileged_grant_partial,
+                            summary.failed,
+                            summary.failed,
+                        ),
+                    )
+            }
+            updatePermissionState()
         }
     }
 

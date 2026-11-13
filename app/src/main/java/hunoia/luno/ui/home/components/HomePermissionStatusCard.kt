@@ -2,60 +2,54 @@ package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.facade.PrivilegedPermission
-import hunoia.luno.facade.PrivilegedPermissionStatus
+import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.settings.permission.hint
-import hunoia.luno.ui.settings.permission.title
-
-/** 主页权限状态卡关注的权限：核心（悬浮窗/无障碍）、通知（使用权/通知）、系统（写设置/电池）。 */
-internal val homeTrackedPermissions: List<PrivilegedPermission> = listOf(
-    PrivilegedPermission.OVERLAY,
-    PrivilegedPermission.ACCESSIBILITY,
-    PrivilegedPermission.NOTIFICATION_LISTENER,
-    PrivilegedPermission.NOTIFICATIONS,
-    PrivilegedPermission.WRITE_SECURE_SETTINGS,
-    PrivilegedPermission.BATTERY,
-)
-
-/** 从权限快照挑出「关注且未授权」的项；有缺失时主页才显示权限状态卡。 */
-internal fun List<PrivilegedPermissionStatus>.missingHomePermissions(): List<PrivilegedPermission> {
-    val granted = this.filter { it.granted }.map { it.permission }.toSet()
-    return homeTrackedPermissions.filterNot { it in granted }
-}
 
 /**
- * 主页权限状态卡：仅在存在缺失权限时出现，列出每一项缺失权限，点任意行去授权总览页。
- * 放在运行状态卡下方；无缺失时不组合（不占空间）。
+ * 主页权限状态卡：**一行摘要 + 右侧一键授权**，无分组标题，逐项解释留给授权页。
+ *
+ * - 只数缺口，不分类：`missing` 里「必须」与「降级」不分开，主页不承担解释成本（授权页才列明细）。
+ * - 点行去授权页；点右侧按钮在本页就直接补当前缺失项（只补被跟踪的这几项，不静默扩权）。
+ * - Shizuku 不可用时按钮降级为「需 Shizuku」并跳授权页：那里才有修 Shizuku 的入口，
+ *   主页不做「点了没反应」的授权尝试。
+ * - 无缺失时调用方不组合本卡（不占空间）。
  */
 @Composable
 fun HomePermissionStatusCard(
-    missing: List<PrivilegedPermission>,
+    missingCount: Int,
+    shizukuReady: Boolean,
+    isGranting: Boolean,
     onOpen: () -> Unit,
+    onGrant: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LunoGroup(
-        title = stringResource(R.string.home_permission_status_title),
-        modifier = modifier,
-    ) {
-        LunoSegmentedGroup {
-            missing.forEach { permission ->
-                item { shape ->
-                    LunoSettingsRow(
-                        title = permission.title(),
-                        subtitle = permission.hint(),
-                        icon = Icons.Filled.Warning,
-                        shape = shape,
-                        onClick = onOpen,
+    LunoGroup(modifier = modifier) {
+        LunoSettingsRow(
+            title = pluralStringResource(R.plurals.home_permission_pending, missingCount, missingCount),
+            // 副标题只说标题没说的（怎么进去），不重复“未授权”这个状态。
+            subtitle = stringResource(R.string.home_permission_pending_hint),
+            icon = Icons.Filled.Warning,
+            onClick = onOpen,
+            trailing = {
+                PressTextButton(onClick = onGrant, enabled = !isGranting) {
+                    Text(
+                        text = stringResource(
+                            when {
+                                isGranting -> R.string.privileged_granting
+                                shizukuReady -> R.string.home_permission_grant
+                                else -> R.string.home_permission_grant_needs_shizuku
+                            },
+                        ),
                     )
                 }
-            }
-        }
+            },
+        )
     }
 }

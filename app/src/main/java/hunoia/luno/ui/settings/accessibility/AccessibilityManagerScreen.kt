@@ -104,6 +104,17 @@ fun AccessibilityManagerScreen(
         tick++
     }
 
+    // Shizuku 未运行时 `autoRequestPermissionIfNeeded` 直接返回 false（binder 不在），
+    // 只调它等于按钮点了没反应；这里统一走「不在就拉起 Shizuku 应用」。
+    fun fixShizuku() {
+        scope.launch {
+            val acted = runCatching { ShizukuManager.requestOrLaunch() }.getOrDefault(false)
+            if (!acted) showToast(R.string.perm_shizuku_unavailable)
+            ShizukuManager.updateStatus()
+            refresh()
+        }
+    }
+
     fun toggle(entry: A11yServiceEntry, target: Boolean) {
         if (togglingId != null) return
         scope.launch {
@@ -131,20 +142,15 @@ fun AccessibilityManagerScreen(
         },
     ) {
         when {
+            // 文案只写原因，动作只写动词：句子里不再复述按钮要做什么。
             !shizukuStatus.isReady -> NoticeBanner(
-                message = stringResource(R.string.a11y_banner_shizuku),
-                actionLabel = stringResource(R.string.a11y_banner_shizuku_action),
-                onAction = {
-                    scope.launch {
-                        runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
-                        ShizukuManager.updateStatus()
-                        refresh()
-                    }
-                },
+                message = stringResource(R.string.perm_shizuku_not_running),
+                actionLabel = stringResource(R.string.perm_fix_shizuku),
+                onAction = ::fixShizuku,
             )
             !hasWriteSecure -> NoticeBanner(
-                message = stringResource(R.string.a11y_banner_write_secure),
-                actionLabel = stringResource(R.string.a11y_banner_write_secure_action),
+                message = stringResource(R.string.perm_write_secure_missing),
+                actionLabel = stringResource(R.string.perm_grant_one),
                 onAction = {
                     scope.launch {
                         runCatching { ShizukuManager.ensureWriteSecureSettings() }
