@@ -1,5 +1,6 @@
 package hunoia.luno.gridpanel.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -21,8 +22,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.GridPanelDragGhost
-import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.containerShape
+import kotlin.math.roundToInt
 
 /**
  * 面板根层的拖拽幽灵：**中心**对准手指、不被格子裁剪。不吃触摸（没有 pointerInput），
@@ -48,7 +49,10 @@ fun GridPanelDragGhostLayer(ghost: GridPanelDragGhost, modifier: Modifier = Modi
             shape = containerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            shadowElevation = 8.dp,
+            // 跟手幽灵不加阴影：它贴着卡片裁形与窗口边界移动，阴影边缘必被切；而且
+            // 逐帧重绘阴影要额外离屏层。层级用描边 + 底色差（ui-guidelines §4.6）。
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+            shadowElevation = 0.dp,
         ) {
             Text(
                 text = ghost.text,

@@ -43,7 +43,7 @@ worktree_exists() {
 enable_sparse() {
     # docs worktree 只看文档；代码仍在 docs 分支的提交树里，只是不检出。
     git -C "$DOCS_WT" sparse-checkout init --no-cone >/dev/null 2>&1 || true
-    git -C "$DOCS_WT" sparse-checkout set '/.gitignore' '/docs/' >/dev/null 2>&1 || true
+    git -C "$DOCS_WT" sparse-checkout set '/.gitignore' '/docs/' '/AGENTS.md' >/dev/null 2>&1 || true
 }
 
 install_hooks() {
@@ -186,27 +186,41 @@ import sys
 p = sys.argv[1]
 lines = open(p, encoding="utf-8").read().splitlines()
 out = ["docs" if line in ("docs", "docs/") else line for line in lines]
-if "docs" not in out:
-    out.append("docs")
+# 实体在 docs worktree，其余工作区靠软链接挂接，故这两个条目必须被忽略。
+for needed in ("docs", "AGENTS.md"):
+    if needed not in out:
+        out.append(needed)
 open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY
 }
 
+# 单个条目：实体在 docs worktree，其余工作区用软链接挂接。
+# 已是软链接则跳过；是真实文件则跳过并提示，避免覆盖用户内容。
+link_one() {
+    local wt="$1" item="$2"
+    local target="$DOCS_WT/$item"
+    [ -e "$target" ] || return 0
+    [ -L "$wt/$item" ] && return 0
+    if [ -e "$wt/$item" ]; then
+        echo "skip: $wt/$item 是真实文件；先备份/移走再跑 init：$wt" >&2
+        return 0
+    fi
+    ln -s "$(realpath --relative-to="$wt" "$target")" "$wt/$item"
+    echo "linked $wt/$item -> $target"
+}
+
+# docs 目录与根目录 AGENTS.md 都由本函数统一挂接；新增条目加进 LINKED_ITEMS。
+LINKED_ITEMS="docs AGENTS.md"
+
 link_worktrees() {
-    local wt
+    local wt item
     git -C "$MAIN_ROOT" worktree list --porcelain | awk '/^worktree /{print substr($0,10)}' | while read -r wt; do
         [ "$wt" = "$DOCS_WT" ] && continue
         [ -d "$wt" ] || continue
         ensure_ignore "$wt"
-        if [ -L "$wt/docs" ]; then
-            continue
-        fi
-        if [ -e "$wt/docs" ]; then
-            echo "skip: $wt/docs 是真实目录；先备份/移走再跑 init：$wt" >&2
-            continue
-        fi
-        ln -s "$(realpath --relative-to="$wt" "$DOCS_WT/docs")" "$wt/docs"
-        echo "linked $wt/docs -> $DOCS_WT/docs"
+        for item in $LINKED_ITEMS; do
+            link_one "$wt" "$item"
+        done
     done
 }
 
@@ -332,7 +346,7 @@ cmd_commit() {
         cd "$DOCS_WT"
         # 放行本子命令触发的 commit/amend：pre-commit 只认这一个开关。
         export LUNO_DOCS_COMMIT=1
-        git add -A docs .gitignore
+        git add -A docs .gitignore AGENTS.md
 
         if [ -z "$msg" ]; then
             msg="docs: update specs ($(date +%Y-%m-%d\ %H:%M))"

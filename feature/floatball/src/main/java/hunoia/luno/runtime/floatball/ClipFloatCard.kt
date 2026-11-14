@@ -139,10 +139,12 @@ internal fun ClipFloatCard(
                 color = if (lifted) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    // 没有阴影可用，靠描边把卡片和任意跨应用底图分开（见 ui-guidelines §4.6）。
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 },
             ),
-            shadowElevation = 8.dp,
+            // 窗口尺寸 == 卡片尺寸：加阴影只会被窗口裁成四角的暗楔形（§4.6 硬规则）。
+            shadowElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier
@@ -235,6 +237,7 @@ private fun ActionBar(
         color = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+        // 动作条在卡片内部（离窗口边界 ≥8dp），阴影能完整画出来，不受「窗口 == 内容」限制。
         shadowElevation = 4.dp,
     ) {
         Column {
@@ -309,8 +312,9 @@ internal fun ClipFloatDragGhost(content: ClipFloatContent) {
         shape = CapsuleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
-        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+        // ghost 窗口是 WRAP_CONTENT、正好包住胶囊，阴影同样会被裁掉（§4.6 硬规则）。
+        shadowElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
