@@ -65,9 +65,11 @@
     <string name="clip_float_insert">Insert into field</string>
     <string name="clip_float_send">Send to current app</string>
     <string name="clip_float_copy">Copy</string>
-    <string name="clip_float_alpha">Opacity</string>
     <string name="clip_float_close">Close</string>
     <string name="clip_float_no_target">No editable field found</string>
     <string name="clip_float_copied">Copied</string>
     <string name="clip_float_copy_failed">Copy failed</string>
+    <string name="clip_float_text">Text</string>
+    <string name="clip_float_release_insert">Release to insert</string>
+    <string name="clip_float_release_paste">Release to paste</string>
 </resources>
