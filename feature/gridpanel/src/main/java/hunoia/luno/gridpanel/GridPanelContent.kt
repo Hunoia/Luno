@@ -935,6 +935,7 @@ fun GridPanelRoot(
                 session = frozenDock,
                 anchor = dockAnchor,
                 cornerPx = cornerPx,
+                hiddenForDrag = dragGhost?.chromeHidden == true,
                 onBounds = { dockBounds.value = it },
             )
         }

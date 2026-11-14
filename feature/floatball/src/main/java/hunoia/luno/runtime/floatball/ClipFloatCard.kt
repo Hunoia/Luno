@@ -9,12 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,9 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,11 +50,8 @@ import hunoia.luno.config.model.ClipFloatPeekWidth
 import hunoia.luno.config.model.ClipKind
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.pressClickable
-import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
-import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.theme.overlaySpec
 import hunoia.luno.ui.theme.ShapeExtraSmall
 import hunoia.luno.ui.theme.containerShape
@@ -67,7 +59,7 @@ import hunoia.luno.ui.theme.containerShape
 /**
  * 剪贴板悬浮卡片。
  *
- * 三层结构：拖动把手（纯视觉锚点）→ 内容预览 → 底部点按浮起的动作条。
+ * 两层结构：内容预览 → 底部点按浮起的动作条。
  * 卡片内不出现常驻按钮、不出现四角缩放点、不做玻璃：跨应用没有同源底图，
  * 叠 haze 只会得到一层脏色（ui-guidelines §4.6）。
  *
@@ -80,12 +72,14 @@ internal fun ClipFloatCard(
     barOpen: Boolean,
     lifted: Boolean,
     resizable: Boolean,
+    /** 停靠态只露一条，不进入长按提起 / 投递，避免在 48dp 可见段上误触发。 */
+    liftable: Boolean,
     onTap: () -> Unit,
     onLiftStart: () -> Unit,
     onLiftCancel: () -> Unit,
     onLiftRelease: (Offset) -> Unit,
-    onLiftDragStart: () -> Unit,
-    onLiftDrag: (Offset) -> Unit,
+    onLiftMoveStart: (Offset) -> Unit,
+    onLiftMove: (Offset) -> Unit,
     onMoveStart: (Offset) -> Unit,
     onMoveTo: (Offset) -> Unit,
     onMoveEnd: () -> Unit,
@@ -94,8 +88,6 @@ internal fun ClipFloatCard(
     onResizeEnd: () -> Unit,
     onPinch: (Float) -> Unit,
     onPinchEnd: () -> Unit,
-    onInsert: () -> Unit,
-    onSend: () -> Unit,
     onCopy: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -104,13 +96,14 @@ internal fun ClipFloatCard(
     val latest = rememberUpdatedState(
         ClipFloatGesture.Handlers(
             resizable = resizable,
+            liftable = liftable,
             barOpen = barOpen,
             onTap = onTap,
             onLiftStart = onLiftStart,
             onLiftCancel = onLiftCancel,
             onLiftRelease = onLiftRelease,
-            onLiftDragStart = onLiftDragStart,
-            onLiftDrag = onLiftDrag,
+            onLiftMoveStart = onLiftMoveStart,
+            onLiftMove = onLiftMove,
             onMoveStart = onMoveStart,
             onMoveTo = onMoveTo,
             onMoveEnd = onMoveEnd,
@@ -155,21 +148,6 @@ internal fun ClipFloatCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(DRAG_STRIP_HEIGHT)
-                        .padding(top = 6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
                         .weight(1f)
                         .padding(horizontal = CONTENT_PADDING_H, vertical = CONTENT_PADDING_V),
                 ) {
@@ -193,8 +171,6 @@ internal fun ClipFloatCard(
 
         ActionBar(
             visible = barOpen,
-            onInsert = onInsert,
-            onSend = onSend,
             onCopy = onCopy,
             onClose = onClose,
             modifier = Modifier
@@ -207,16 +183,14 @@ internal fun ClipFloatCard(
 }
 
 /**
- * 底部动作条：点卡片才出现，2×2 等分排列。
+ * 底部动作条：点卡片才出现，复制 / 关闭两颗圆形按钮排成一行。
  *
- * 只放图标不放长文案：窗口最窄 140dp，一行塞不下 4 个 48dp 命中区，
- * 而 2.0× 字体下带标签的行必然截断（ui-guidelines §1.5 / §2.3）。
+ * 只放图标不放长文案：窗口最窄 140dp，两颗 48dp 命中区 + 6dp 间距 = 102dp，
+ * 留出边距仍放得下；带标签的行在 2.0× 字体下必然截断（ui-guidelines §1.5 / §2.3）。
  */
 @Composable
 private fun ActionBar(
     visible: Boolean,
-    onInsert: () -> Unit,
-    onSend: () -> Unit,
     onCopy: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -228,33 +202,21 @@ private fun ActionBar(
         label = "clipFloatBar",
     )
     if (alpha <= 0.01f) return
-    Surface(
+    Row(
         modifier = modifier.graphicsLayer {
             this.alpha = alpha
             translationY = (1f - alpha) * ACTION_BAR_SLIDE.toPx()
         },
-        shape = SmallShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
-        // 动作条在卡片内部（离窗口边界 ≥8dp），阴影能完整画出来，不受「窗口 == 内容」限制。
-        shadowElevation = 4.dp,
+        horizontalArrangement = Arrangement.spacedBy(ACTION_BUTTON_GAP),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
-            Row(Modifier.fillMaxWidth()) {
-                ActionButton(Icons.Default.ContentCopy, R.string.clip_float_copy, onCopy)
-                ActionButton(Icons.Default.Close, R.string.clip_float_close, onClose)
-            }
-            Row(Modifier.fillMaxWidth()) {
-                ActionButton(Icons.Default.Edit, R.string.clip_float_insert, onInsert)
-                ActionButton(Icons.Default.Share, R.string.clip_float_send, onSend)
-            }
-        }
+        ActionButton(Icons.Default.ContentCopy, R.string.clip_float_copy, onCopy)
+        ActionButton(Icons.Default.Close, R.string.clip_float_close, onClose)
     }
 }
 
 @Composable
-private fun RowScope.ActionButton(
+private fun ActionButton(
     icon: ImageVector,
     labelRes: Int,
     onClick: () -> Unit,
@@ -262,17 +224,24 @@ private fun RowScope.ActionButton(
     val label = stringResource(labelRes)
     Box(
         modifier = Modifier
-            .weight(1f)
-            .heightIn(min = MinInteractiveSize)
+            .size(MinInteractiveSize)
             .pressClickable(onClickLabel = label, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(RowIconSize),
-        )
+        Surface(
+            modifier = Modifier.size(ACTION_BUTTON_SIZE),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    modifier = Modifier.size(ACTION_ICON_SIZE),
+                )
+            }
+        }
     }
 }
 
@@ -305,48 +274,13 @@ private fun BoxScope.PeekStrip(peekSide: Int, content: ClipFloatContent) {
     }
 }
 
-/** 拖出投递时的跟手胶囊：说明这一条会被插入还是粘贴。 */
-@Composable
-internal fun ClipFloatDragGhost(content: ClipFloatContent) {
-    Surface(
-        shape = CapsuleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
-        // ghost 窗口是 WRAP_CONTENT、正好包住胶囊，阴影同样会被裁掉（§4.6 硬规则）。
-        shadowElevation = 0.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = if (content.kind == ClipKind.IMAGE) Icons.Default.Image else Icons.Default.TextFields,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = stringResource(
-                    if (content.kind == ClipKind.IMAGE) {
-                        R.string.clip_float_release_paste
-                    } else {
-                        R.string.clip_float_release_insert
-                    },
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
-private val DRAG_STRIP_HEIGHT = 20.dp
 private val CONTENT_PADDING_H = 12.dp
 private val CONTENT_PADDING_V = 4.dp
 private val ACTION_BAR_MARGIN = 8.dp
 private val ACTION_BAR_SLIDE = 8.dp
+private val ACTION_BUTTON_SIZE = 40.dp
+private val ACTION_ICON_SIZE = 20.dp
+private val ACTION_BUTTON_GAP = 6.dp
 
 /** 文本预览上限（ui-guidelines §4.6）。 */
 private const val CONTENT_MAX_LINES = 6

@@ -51,8 +51,10 @@ internal data class ClipFloatContent(
  *
  * 交互口径（ui-guidelines §4.6）：
  * - 内容区拖动 = 移窗；四角 36dp 内起手 = 直接调宽高（不画示意手柄）；双指捏合 = 等比缩放；
- * - 点一下 = 底部动作条（复制 / 插入 / 发送 / 关闭），再点一次收起；
- * - 长按 = 提起态；此后拖动 = 拖出投递（ghost 跟手），松手不动 = 动作条；
+ * - 点一下 = 底部动作条（复制 / 关闭），再点一次收起；
+ * - 长按 = 提起态（描边高亮 + 轻震，不做几何放大）；此后拖动 = 卡片本身跟手移动，
+ *   松手按落点投递并回到提起位置，不关窗；松手不动 = 动作条；
+ * - 停靠态只露一条：点按恢复 / 直接拖动恢复并继续移窗，不进入长按投递；
  * - 靠近左右边缘松手 = 停靠：卡片移出屏外，只留 [ClipFloatPeekWidth]；点一下可见段恢复。
  *
  * 窗口是临时 Surface：息屏 / 锁屏由宿主关闭，解锁不自动恢复；位置 / 尺寸 / 停靠侧
@@ -64,10 +66,6 @@ internal class ClipFloatWindow(
 ) : SurfaceHandle {
 
     interface Host {
-        fun onInsert(content: ClipFloatContent)
-
-        fun onSend(content: ClipFloatContent)
-
         fun onSendAt(content: ClipFloatContent, x: Int, y: Int)
 
         fun onCopy(content: ClipFloatContent)
@@ -87,7 +85,6 @@ internal class ClipFloatWindow(
 
     /** 退场动画期间仍挂在系统上的旧窗口；新内容进城前先摘掉，避免两层叠着淡出。 */
     private var exitingRoot: FrameLayout? = null
-    private var ghostRoot: FrameLayout? = null
 
     private val contentState = mutableStateOf<ClipFloatContent?>(null)
 
@@ -159,12 +156,13 @@ internal class ClipFloatWindow(
                         barOpen = barState.value,
                         lifted = liftState.value,
                         resizable = peekState.intValue == ClipFloatPeekNone,
+                        liftable = peekState.intValue == ClipFloatPeekNone,
                         onTap = ::handleTap,
                         onLiftStart = ::beginLift,
                         onLiftCancel = ::cancelLift,
                         onLiftRelease = ::endDragOut,
-                        onLiftDragStart = ::beginDragOut,
-                        onLiftDrag = ::dragOutTo,
+                        onLiftMoveStart = ::beginLiftMove,
+                        onLiftMove = ::moveLift,
                         onMoveStart = ::beginMove,
                         onMoveTo = ::moveTo,
                         onMoveEnd = ::finishMove,
@@ -173,9 +171,10 @@ internal class ClipFloatWindow(
                         onResizeEnd = ::finishResize,
                         onPinch = ::applyScale,
                         onPinchEnd = ::finishResize,
-                        onInsert = { host.onInsert(content) },
-                        onSend = { host.onSend(content) },
-                        onCopy = { host.onCopy(content) },
+                        onCopy = {
+                            barState.value = false
+                            host.onCopy(content)
+                        },
                         onClose = { close() },
                     )
                 }
@@ -226,7 +225,6 @@ internal class ClipFloatWindow(
         peekState.intValue = ClipFloatPeekNone
         positionAnimator?.cancel()
         positionAnimator = null
-        removeGhost()
         if (v != null) {
             if (animated) {
                 v.animate().cancel()
@@ -279,7 +277,6 @@ internal class ClipFloatWindow(
             context.removeWindow(it)
             exitingRoot = null
         }
-        removeGhost()
     }
 
     // ---- 几何 ----
@@ -577,113 +574,62 @@ internal class ClipFloatWindow(
     private fun isLandscape(): Boolean =
         context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // ---- 提起态与拖出投递 ----
+    // ---- 提起态与投递移动 ----
 
+    private var liftStartX = 0
+    private var liftStartY = 0
+    private var liftMoved = false
+
+    /** 长按提起：只切描边 + 轻震，不缩放窗口根。窗口尺寸 == 卡片尺寸，放大必被裁。 */
     private fun beginLift() {
         liftState.value = true
-        root?.animate()?.scaleX(LIFT_SCALE)?.scaleY(LIFT_SCALE)
-            ?.setInterpolator(DecelerateInterpolator())
-            ?.setDuration(motionMillis(MotionFamily.Overlay).toLong())
-            ?.start()
+        liftMoved = false
+        val lp = root?.layoutParams as? WindowManager.LayoutParams
+        liftStartX = lp?.x ?: 0
+        liftStartY = lp?.y ?: 0
     }
 
+    /** 提起被取消（二指按下 / ACTION_CANCEL）：没完成的投递不落位，回退到提起前位置。 */
     private fun cancelLift() {
         liftState.value = false
-        removeGhost()
+        if (!liftMoved) return
+        liftMoved = false
         val v = root ?: return
-        v.animate().alpha(1f).scaleX(1f).scaleY(1f)
-            .setInterpolator(DecelerateInterpolator())
-            .setDuration(motionMillis(MotionFamily.Overlay).toLong())
-            .start()
+        val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.x = liftStartX
+        lp.y = liftStartY
+        wm.safeUpdateViewLayout(v, lp)
     }
 
-    private fun beginDragOut() {
-        barState.value = false
-        val content = contentState.value ?: return
-        showGhost(content)
-        root?.animate()?.alpha(DRAG_OUT_DIM)
-            ?.setDuration(motionMillis(MotionFamily.Overlay).toLong())
-            ?.start()
+    /**
+     * 长按后越过阈值：卡片本身跟着手指移动，松手投递。
+     *
+     * 与普通拖动移窗的区别只在松手结算：这里不写位置，松手 `onSendAt` 后回到提起前的位置，
+     * 卡片继续保留。
+     */
+    private fun beginLiftMove(screen: Offset) {
+        liftMoved = true
+        beginMove(screen)
     }
 
-    private fun dragOutTo(screen: Offset) {
-        moveGhost(screen)
+    private fun moveLift(screen: Offset) {
+        moveTo(screen)
     }
 
     private fun endDragOut(screen: Offset) {
         val content = contentState.value ?: return
-        removeGhost()
-        close(animated = false)
+        liftState.value = false
+        liftMoved = false
+        barState.value = false
+        // 投递不落位：settings 仍是提起前的位置，按 FloatingSnap 动画回去。
+        applyGeometry(animate = true)
         host.onSendAt(content, screen.x.roundToInt(), screen.y.roundToInt())
-    }
-
-    // ---- ghost（第二层小窗，只跟手不接触摸） ----
-
-    @SuppressLint("RtlHardcoded")
-    private fun showGhost(content: ClipFloatContent) {
-        removeGhost()
-        val compose = ComposeView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-            setContent {
-                SideGestureTheme { ClipFloatDragGhost(content) }
-            }
-        }
-        val created = FrameLayout(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            addView(compose)
-            // ComposeView 解析父级上下文时会先看 parent 的 ViewTree*Owner；只挂 Compose 自己不够，
-            // 缺了这行 attach 时直接抛 ViewTreeLifecycleOwner not found（服务进程整个挂掉）。
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-        }
-        val params = WindowManager.LayoutParams().apply {
-            type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            format = PixelFormat.TRANSLUCENT
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-            width = WindowManager.LayoutParams.WRAP_CONTENT
-            height = WindowManager.LayoutParams.WRAP_CONTENT
-            gravity = Gravity.LEFT or Gravity.TOP
-            alpha = 0f
-        }
-        if (!wm.safeAddView(created, params)) return
-        ghostRoot = created
-        created.animate().alpha(1f)
-            .setDuration(motionMillis(MotionFamily.Overlay).toLong())
-            .start()
-    }
-
-    private fun moveGhost(screen: Offset) {
-        val ghost = ghostRoot ?: return
-        val params = ghost.layoutParams as? WindowManager.LayoutParams ?: return
-        val (screenW, screenH) = screenBounds()
-        val width = if (ghost.width > 0) ghost.width else dp2px(GHOST_FALLBACK_W)
-        val height = if (ghost.height > 0) ghost.height else dp2px(GHOST_FALLBACK_H)
-        val x = (screen.x - width / 2f).roundToInt()
-        val y = (screen.y - height - dp2px(GHOST_FINGER_GAP)).roundToInt()
-        params.x = x.coerceIn(0, max(0, screenW - width))
-        params.y = y.coerceIn(0, max(0, screenH - height))
-        wm.safeUpdateViewLayout(ghost, params)
-    }
-
-    private fun removeGhost() {
-        val ghost = ghostRoot ?: return
-        ghostRoot = null
-        context.removeWindow(ghost)
     }
 
     private companion object {
         const val SURFACE_ID = "clip-float"
         const val SNAP_DP = 24f
         const val INTRO_SCALE = 0.85f
-        const val LIFT_SCALE = 1.03f
-        const val DRAG_OUT_DIM = 0.35f
-        const val GHOST_FINGER_GAP = 16f
-        const val GHOST_FALLBACK_W = 120f
-        const val GHOST_FALLBACK_H = 36f
 
         /** 捏合时小于这个量不改尺寸：事件比帧密，逐帧改窗口会抖。 */
         const val MIN_SCALE_STEP_DP = 0.35f

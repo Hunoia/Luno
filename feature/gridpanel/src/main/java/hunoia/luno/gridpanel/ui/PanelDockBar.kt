@@ -125,7 +125,10 @@ data class PanelDockSession(
  * 底栏层：宽度与位置都来自冻结值，只跟随卡片的出现进度做 alpha / 位移（不缩放）。
  *
  * [onBounds] 回传底栏在窗口内的矩形：根层的「点空白关面板 / 退编辑」用它做排除，
- * 否则点到胶囊会被当成点空白，面板直接关掉。
+ * 否则点到胶囊会被当成点空白，面板直接关掉。拖拽隐去时回传 null，表示底栏不再占位。
+ *
+ * [hiddenForDrag] 与卡片共用 `dragGhost.chromeHidden`：底栏是卡的兄弟、不在卡内，
+ * 只隐藏卡片会让幽灵卡拖拽时底栏挂在屏上。
  */
 @Composable
 fun PanelDockLayer(
@@ -136,7 +139,9 @@ fun PanelDockLayer(
     anchor: PanelDockAnchor,
     /** 当前面板卡的圆角（px）：底栏与卡同源，切换面板后跟着当前卡走，不做冻结。 */
     cornerPx: Float,
-    onBounds: (Rect) -> Unit,
+    /** 拖拽幽灵把面板本体淡出时，底栏跟着一起隐去（底栏不在卡内，必须显式同步）。 */
+    hiddenForDrag: Boolean = false,
+    onBounds: (Rect?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty()) return
@@ -152,6 +157,9 @@ fun PanelDockLayer(
     val scrollable = placement.needsScroll
     val view = LocalView.current
     val selectedIndex = entries.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
+    // 命中矩形自己留一份：hiddenForDrag 翻回 false 时 onGloballyPositioned 不一定再发，
+    // 不能只靠它把矩形还给根层，否则恢复后点底栏会被当成点空白。
+    var windowBounds by remember { mutableStateOf<Rect?>(null) }
 
     // 入口放不下时横滑：选中项必须在可视区内，否则「当前在哪块面板」看不出来。
     LaunchedEffect(placement, selectedId, scrollable) {
@@ -172,19 +180,30 @@ fun PanelDockLayer(
             .width(widthDp)
             .height(PanelDockHeight)
             .graphicsLayer {
-                val p = anchor.progress.coerceIn(0f, 1f)
-                alpha = (p / PanelFadeTailFraction).coerceIn(0f, 1f)
-                // 与卡片同一条出现位移，但不做缩放：底栏被缩放会变成一条线。
-                val remaining = 1f - p
-                translationX = anchor.appearSlide.x * remaining
-                translationY = anchor.appearSlide.y * remaining
+                if (hiddenForDrag) {
+                    alpha = 0f
+                } else {
+                    val p = anchor.progress.coerceIn(0f, 1f)
+                    alpha = (p / PanelFadeTailFraction).coerceIn(0f, 1f)
+                    // 与卡片同一条出现位移，但不做缩放：底栏被缩放会变成一条线。
+                    val remaining = 1f - p
+                    translationX = anchor.appearSlide.x * remaining
+                    translationY = anchor.appearSlide.y * remaining
+                }
             }
             .zIndex(2f)
-            .onGloballyPositioned { onBounds(it.boundsInWindow()) },
+            .onGloballyPositioned {
+                windowBounds = it.boundsInWindow()
+                onBounds(if (hiddenForDrag) null else windowBounds)
+            },
     ) {
+        // hidden 变化不会触发 onGloballyPositioned；显式同步命中矩形。
+        LaunchedEffect(hiddenForDrag, windowBounds) {
+            onBounds(if (hiddenForDrag) null else windowBounds)
+        }
         // 面板同款：真实背景模糊垫底，上面才是「卡色」与描边。
         PanelBlurHost(
-            enabled = session.blurRadiusPx > 0,
+            enabled = session.blurRadiusPx > 0 && !hiddenForDrag && anchor.progress > 0.01f,
             radiusPx = session.blurRadiusPx,
             cornerRadiusPx = cornerPx,
             modifier = Modifier.matchParentSize(),

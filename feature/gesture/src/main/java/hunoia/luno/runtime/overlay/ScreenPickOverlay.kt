@@ -111,6 +111,12 @@ private val PickBlue = Color(0xFF1A73E8)
 /** 命中容差（dp）：文字节点 bounds 常比触点小一圈，贴边按会漏。 */
 private const val HitToleranceDp = 6f
 
+/** 等按下时预捕获文字的额外预算（捕获本身已有 250ms 遍历 + 300ms 逐字坐标）。 */
+private const val PRE_CAPTURE_TEXT_WAIT_MS = 600L
+
+/** 等按下时预捕获截图的预算；截图通常早于文字完成。 */
+private const val PRE_CAPTURE_CAPTURE_WAIT_MS = 800L
+
 /** 面板退场后的额外停一拍：截图前再确认一次画面已稳定。 */
 private const val PanelPostSettleMs = 80L
 
@@ -259,7 +265,7 @@ class ScreenPickOverlay(
     }
 
     /** 返回是否成功挂窗（锁屏/挂窗被拒返回 false，动作层据此判失败）。 */
-    fun show(preCapture: PickCapture? = null): Boolean {
+    fun show(preCapture: PickCapture? = null, deferCapture: Boolean = false): Boolean {
         if (overlayView != null) {
             preCapture?.let { adoptPreCapture(it) }
             return true
@@ -333,7 +339,8 @@ class ScreenPickOverlay(
         composeView.post { correctWindowOriginOnce(composeView) }
         if (preCapture != null) {
             adoptPreCapture(preCapture)
-        } else {
+        } else if (!deferCapture) {
+            // 有按下时预捕获句柄但截图还没到时暂不截：等它到达，避免拍到应用的长按菜单。
             captureWhenSettled(session)
         }
         return true
@@ -368,8 +375,28 @@ class ScreenPickOverlay(
         y: Int,
         preCapture: ScreenPreCapture? = null,
     ): Boolean {
-        if (!show(preCapture?.capture)) return false
-        beginPortal(x, y, preCapture?.text)
+        val waitingCapture = preCapture != null && preCapture.capture == null && preCapture.awaitingCapture
+        if (!show(preCapture?.capture, deferCapture = waitingCapture)) {
+            // 已从注册表取走的预捕获句柄由本层负责回收；挂窗失败时不能留给注册表。
+            preCapture?.discard()
+            return false
+        }
+        if (waitingCapture) {
+            val token = session
+            host.coroutineScope.launch {
+                val late = preCapture?.awaitCapture(PRE_CAPTURE_CAPTURE_WAIT_MS)
+                if (token != session) {
+                    // 层已关：预捕获位图由本层接管，没人用就立即回收。
+                    late?.bitmap?.let { if (!it.isRecycled) it.recycle() }
+                } else if (late != null) {
+                    adoptPreCapture(late)
+                } else {
+                    // 预捕获截图彻底失败才退到现场截图；文字识别仍只用按下快照。
+                    captureWhenSettled(session)
+                }
+            }
+        }
+        beginPortal(x, y, preCapture)
         return true
     }
 
@@ -425,9 +452,9 @@ class ScreenPickOverlay(
     private fun beginPortal(
         screenX: Int,
         screenY: Int,
-        snapshot: TextSnapshot? = null,
+        preCapture: ScreenPreCapture? = null,
     ) {
-        textSnapshot = snapshot
+        textSnapshot = preCapture?.text
         portalAnchor = Offset(screenX.toFloat(), screenY.toFloat())
         portalFinger = portalAnchor
         portalContent = PortalContent()
@@ -438,7 +465,16 @@ class ScreenPickOverlay(
         portalJob?.cancel()
         // 节点树遍历是成百上千次 Binder 调用，绝不上主线程。
         portalJob = host.coroutineScope.launch {
-            val liveSnapshot = if (snapshot == null) {
+            // 全屏手势已经预捕获了按下时的节点树：只等它，不在触发瞬间重读。
+            // Shizuku 路径不拦截触摸，触发时应用自己的长按菜单已经弹出。
+            val snapshot = if (preCapture != null) {
+                preCapture.text ?: withTimeoutOrNull(PRE_CAPTURE_TEXT_WAIT_MS) {
+                    preCapture.awaitText(PRE_CAPTURE_TEXT_WAIT_MS)
+                }
+            } else {
+                null
+            }
+            val liveSnapshot = if (preCapture == null && snapshot == null) {
                 withContext(Dispatchers.Default) {
                     runCatching {
                         A11yTextSnapshotReader(host.accessibilityService, host.context.packageName)
@@ -449,7 +485,7 @@ class ScreenPickOverlay(
                 null
             }
             val effective = snapshot ?: liveSnapshot ?: TextSnapshot.Empty
-            if (snapshot == null && liveSnapshot != null) textSnapshot = liveSnapshot
+            if (snapshot != null || liveSnapshot != null) textSnapshot = effective
             val hit = withContext(Dispatchers.Default) {
                 snapshotHit(effective, screenX, screenY)
             }
@@ -458,7 +494,7 @@ class ScreenPickOverlay(
                 Log.i(
                     LOG_TAG,
                     "screen pick hit text=${hit?.text?.length ?: 0} image=${hit?.imageBounds != null} " +
-                        "snapshot=${snapshot != null}",
+                        "snapshot=${snapshot != null} preCapture=${preCapture != null}",
                 )
             }
             // 条码自动检测：命中图片/布局区域时裁剪识别；命中则出条码卡（优先于图片/文字卡）。

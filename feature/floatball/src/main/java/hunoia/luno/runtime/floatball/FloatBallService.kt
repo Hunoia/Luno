@@ -28,9 +28,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.bridge.system.SelfWriteGuard
-import hunoia.luno.bridge.system.FileOutput
 import hunoia.luno.bridge.system.canDrawOverlays
-import hunoia.luno.bridge.system.shareText
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
@@ -1207,25 +1205,8 @@ class FloatBallService : Service() {
         }
     }
 
-    private suspend fun insertToFocused(content: ClipFloatContent): Boolean = when (content.kind) {
-        ClipKind.TEXT -> GestureCommand.insertTextFocused?.invoke(content.text)?.let {
-            it == hunoia.luno.action.controller.TextInserter.Result.Inserted ||
-                it == hunoia.luno.action.controller.TextInserter.Result.InsertedViaClipboard
-        } ?: false
-        ClipKind.IMAGE -> copyClipFloatImage(content) &&
-            GestureCommand.pasteImageFocused?.invoke() ==
-            hunoia.luno.action.controller.ImageInserter.Result.Pasted
-    }
-
     private suspend fun copyClipFloatImage(content: ClipFloatContent): Boolean =
         ClipboardCenter.copyImageFileToClipboard(content.imagePath, content.mime)
-
-    private fun shareClipFloat(content: ClipFloatContent): Boolean = when (content.kind) {
-        ClipKind.TEXT -> shareText(this, content.text)
-        ClipKind.IMAGE -> content.imageFile?.let { file ->
-            FileOutput.share(this, file, content.mime ?: "image/*", file.name)
-        } ?: false
-    }
 
     private suspend fun insertAtPoint(content: ClipFloatContent, x: Int, y: Int): Boolean =
         when (content.kind) {
@@ -1242,36 +1223,16 @@ class FloatBallService : Service() {
         }
 
     private val clipFloatHost = object : ClipFloatWindow.Host {
-        override fun onInsert(content: ClipFloatContent) {
-            closeClipFloat()
-            scope.launch(Dispatchers.IO) {
-                delay(CLIP_FLOAT_SETTLE_MS)
-                if (!insertToFocused(content)) {
-                    showToast(hunoia.luno.floatball.R.string.clip_float_no_target)
-                }
-            }
-        }
-
-        override fun onSend(content: ClipFloatContent) {
-            closeClipFloat()
-            scope.launch(Dispatchers.IO) {
-                delay(CLIP_FLOAT_SETTLE_MS)
-                if (!insertToFocused(content) && !shareClipFloat(content)) {
-                    showToast(hunoia.luno.floatball.R.string.clip_float_no_target)
-                }
-            }
-        }
-
         override fun onSendAt(content: ClipFloatContent, x: Int, y: Int) {
-            closeClipFloat()
             scope.launch(Dispatchers.IO) {
                 delay(CLIP_FLOAT_SETTLE_MS)
-                insertAtPoint(content, x, y)
+                if (!insertAtPoint(content, x, y)) {
+                    showToast(hunoia.luno.floatball.R.string.clip_float_no_target)
+                }
             }
         }
 
         override fun onCopy(content: ClipFloatContent) {
-            closeClipFloat()
             scope.launch(Dispatchers.IO) {
                 val ok = when (content.kind) {
                     ClipKind.TEXT -> ClipboardCenter.copy(content.text)

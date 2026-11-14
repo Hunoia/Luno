@@ -16,8 +16,8 @@ import kotlin.math.hypot
  *
  * - 起手在四角 [CORNER_DP] 半径内 → 调尺寸（四角自由），其余 → 移窗；
  * - 位移不超过 touchSlop 就抬手 → 点按（展开 / 收起动作条，停靠态下是恢复）；
- * - 按住 [LONG_PRESS_MS] 不动 → 提起态；此后位移超过 8dp → 拖出投递，
- *   抬手不动 → 动作条；
+ * - 按住 [LONG_PRESS_MS] 不动 → 提起态；此后位移超过 8dp → 卡片跟手移动，
+ *   松手投递；抬手不动 → 动作条；停靠态不进入提起态；
  * - 第二根手指落下 → 等比缩放，并中止长按 / 移窗 / 调尺寸 / 投递。
  */
 internal class ClipFloatGesture(
@@ -33,14 +33,16 @@ internal class ClipFloatGesture(
      */
     data class Handlers(
         val resizable: Boolean,
+        /** 停靠态只露一条：不进入长按提起 / 投递。 */
+        val liftable: Boolean,
         /** 动作条展开时，底部那一块归 Compose 按钮，仲裁器整段让开。 */
         val barOpen: Boolean,
         val onTap: () -> Unit,
         val onLiftStart: () -> Unit,
         val onLiftCancel: () -> Unit,
         val onLiftRelease: (Offset) -> Unit,
-        val onLiftDragStart: () -> Unit,
-        val onLiftDrag: (Offset) -> Unit,
+        val onLiftMoveStart: (Offset) -> Unit,
+        val onLiftMove: (Offset) -> Unit,
         val onMoveStart: (Offset) -> Unit,
         val onMoveTo: (Offset) -> Unit,
         val onMoveEnd: () -> Unit,
@@ -100,7 +102,7 @@ internal class ClipFloatGesture(
                     // 命中角就立刻进入缩放：起点尺寸要在第一次 MOVE 之前拿到。
                     resizing = true
                     handlers.onResizeStart(corner, startRaw)
-                } else {
+                } else if (handlers.liftable) {
                     handler.postDelayed(longPressRunnable, LONG_PRESS_MS)
                 }
             }
@@ -137,16 +139,17 @@ internal class ClipFloatGesture(
                 }
                 currentRaw = Offset(event.rawX, event.rawY)
                 if (lifting) {
-                    handlers.onLiftDrag(currentRaw)
+                    handlers.onLiftMove(currentRaw)
                     return true
                 }
                 if (lifted) {
                     if ((currentRaw - startRaw).getDistance() > dragOutSlop) {
-                        // 越过阈值的那一帧同时开 ghost，之后每帧只跟手。
+                        // 越过阈值的那一帧进入投递移动：卡片本身跟手，松手投递。
+                        // 用按下点做 move 基准，第一帧不会补跳阈值那一段位移。
                         lifted = false
                         lifting = true
-                        handlers.onLiftDragStart()
-                        handlers.onLiftDrag(currentRaw)
+                        handlers.onLiftMoveStart(startRaw)
+                        handlers.onLiftMove(currentRaw)
                     }
                     return true
                 }
@@ -243,7 +246,7 @@ internal class ClipFloatGesture(
         }
     }
 
-    /** 动作条占用的底部高度：2×48dp 命中区 + 上下各 8dp 边距。 */
+    /** 动作条占用的底部高度：一行 48dp 命中区 + 上下各 8dp 边距。 */
     private fun barBlockPx(): Float = BAR_RESERVED_DP * view.resources.displayMetrics.density
 
     private fun span(event: MotionEvent): Float {
@@ -263,9 +266,9 @@ internal const val CORNER_BR = 3
 /** 四角缩放的命中半径；不画任何标记，靠起手位置区分移窗。 */
 private const val CORNER_DP = 36f
 
-/** 提起后要移动这么远才算「拖出投递」，否则抬手就是动作条。 */
+/** 提起后要移动这么远才进入投递移动，否则抬手就是动作条。 */
 private const val LIFT_DRAG_DP = 8f
 
-private const val BAR_RESERVED_DP = 112f
+private const val BAR_RESERVED_DP = 64f
 
 private const val LONG_PRESS_MS = 400L
