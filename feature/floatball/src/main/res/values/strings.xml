@@ -96,6 +96,16 @@
     <string name="float_ball_suggestion_link_dispatch_hint">链接建议点开后交给哪个应用，以及未命中时怎么处理</string>
 
     <string name="float_ball_color">球颜色</string>
+    <string name="float_ball_custom_icon">自定义图标</string>
+    <string name="float_ball_custom_icon_default">默认</string>
+    <string name="float_ball_custom_icon_set">已自定义</string>
+    <string name="float_ball_custom_icon_reset">恢复默认图标</string>
+    <string name="float_ball_custom_icon_crop_title">调整图标</string>
+    <string name="float_ball_custom_icon_crop_hint">拖动调整位置，双指缩放大小；圆形外区域不会显示</string>
+    <string name="float_ball_custom_icon_copy_failed">图标保存失败</string>
+    <string name="float_ball_custom_icon_alpha">图标透明度</string>
+    <string name="float_ball_custom_icon_pause_when_idle">静置时暂停动图</string>
+    <string name="float_ball_custom_icon_pause_when_idle_subtitle">球静置时动图停在首帧，省电</string>
     <string name="float_ball_enabled">显示悬浮球</string>
     <string name="float_ball_follow_hand">跟手换边</string>
     <string name="float_ball_follow_hand_subtitle">触钮碰哪侧，球就挪到哪侧</string>

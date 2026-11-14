@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.core.domain.StoredAction
@@ -45,6 +46,7 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.bridge.ui.SystemBarsSafeArea
+import java.io.File
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
@@ -171,7 +173,8 @@ class FloatBallWindow(
 
     private var dragging = false
     private var pressed = false
-    private var idled = false
+    // Compose 快照状态：球面里的静置暂停（动图切首帧）要跟着它重组。
+    private var idled by mutableStateOf(false)
 
     /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
     private var transferring = false
@@ -954,7 +957,23 @@ class FloatBallWindow(
 
     @Composable
     private fun BallFace(modifier: Modifier = Modifier) {
+        val densityContext = LocalContext.current
         val size = with(LocalDensity.current) { ballPx.toDp() }
+        // 自定义球面图标：非空且文件存在时全球面（去掉圆底/描边），否则回退默认圆底+动作图标。
+        val customIconPath = settings.customIconPath
+        if (customIconPath != null && File(customIconPath).exists()) {
+            CustomBallIcon(
+                context = densityContext,
+                model = File(customIconPath),
+                scale = settings.customIconScale,
+                offsetX = settings.customIconOffsetX,
+                offsetY = settings.customIconOffsetY,
+                alpha = settings.customIconAlpha,
+                paused = idled && settings.customIconPauseWhenIdle,
+                modifier = modifier.size(size),
+            )
+            return
+        }
         val accent = settings.colorSpec.toMarkColor()
         Box(
             modifier = modifier.size(size),

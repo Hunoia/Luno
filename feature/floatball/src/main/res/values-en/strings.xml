@@ -96,6 +96,16 @@
     <string name="float_ball_suggestion_link_dispatch_hint">Which app opens link suggestions, and what happens when no app matches</string>
 
     <string name="float_ball_color">Ball color</string>
+    <string name="float_ball_custom_icon">Custom icon</string>
+    <string name="float_ball_custom_icon_default">Default</string>
+    <string name="float_ball_custom_icon_set">Custom</string>
+    <string name="float_ball_custom_icon_reset">Restore default icon</string>
+    <string name="float_ball_custom_icon_crop_title">Adjust icon</string>
+    <string name="float_ball_custom_icon_crop_hint">Drag to position, pinch to zoom; the area outside the circle is not shown</string>
+    <string name="float_ball_custom_icon_copy_failed">Failed to save icon</string>
+    <string name="float_ball_custom_icon_alpha">Icon opacity</string>
+    <string name="float_ball_custom_icon_pause_when_idle">Pause animation when idle</string>
+    <string name="float_ball_custom_icon_pause_when_idle_subtitle">Freezes the animation on the first frame when the ball is idle, saving battery</string>
     <string name="float_ball_enabled">Show float ball</string>
     <string name="float_ball_follow_hand">Follow hand to switch sides</string>
     <string name="float_ball_follow_hand_subtitle">Ball moves to the side the gesture button touches</string>

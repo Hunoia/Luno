@@ -33,6 +33,7 @@ dependencies {
         exclude(group = "net.engawapg.lib")
     }
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)

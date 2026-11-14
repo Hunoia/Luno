@@ -76,6 +76,25 @@ data class FloatBallSettings(
     val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
     /** 两条队列的 TTL 与容量。 */
     val inbox: BallInboxSettings = BallInboxSettings(),
+    /**
+     * 自定义球面图标文件路径（filesDir/floatball_icon/ 下的绝对路径，选中时从内容 URI 复制，
+     * 不依赖临时授权）。null = 默认彩色圆底 + 动作图标。
+     * GIF 动画 / PNG / WebP 静态均支持（Coil GifDecoder，见 App.newImageLoader）。
+     */
+    val customIconPath: String? = null,
+    /**
+     * 自定义图标在球面内的缩放（裁剪预览确认值；1.0 = 填满球径）。
+     * 与 [customIconOffsetX]/[customIconOffsetY] 一起构成 `graphicsLayer` 变换。
+     */
+    val customIconScale: Float = 1f,
+    /** 自定义图标横向偏移（归一化，-0.5..0.5）。 */
+    val customIconOffsetX: Float = 0f,
+    /** 自定义图标纵向偏移（归一化，-0.5..0.5）。 */
+    val customIconOffsetY: Float = 0f,
+    /** 自定义图标整体透明度（0.1..1.0；0.1 下限防止完全透明找不着球）。 */
+    val customIconAlpha: Float = 1f,
+    /** 静置时暂停动图动画（与球静置变暗缩小同判定点），省电。 */
+    val customIconPauseWhenIdle: Boolean = false,
 ) {
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait
@@ -245,5 +264,10 @@ object FloatBallDefaults {
     const val InboxCapacity = 10
     const val InboxCapacityMin = 5
     const val InboxCapacityMax = 20
+
+    /** 自定义图标透明度默认值与滑杆上下限（下限 0.1：全透明会让球找不着）。 */
+    const val CustomIconAlpha = 1f
+    const val CustomIconAlphaMin = 0.1f
+    const val CustomIconAlphaMax = 1f
 
 }
