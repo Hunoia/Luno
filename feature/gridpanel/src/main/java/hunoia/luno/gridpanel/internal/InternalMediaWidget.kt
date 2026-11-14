@@ -288,8 +288,6 @@ private val ThumbSize = 30.dp
 /** 文字列下限：封面在左时，右半至少要能放一个歌名。 */
 private val TextMinWidth = 56.dp
 
-private val MediaPadH = 10.dp
-private val MediaPadV = 8.dp
 private val MediaGap = 6.dp
 /** 三键容器固定高度：Column 按整列高测量非 weight 子件，键尺寸须自己钉死，文字侧用 weight 吸收压力。 */
 private fun keysHeight(m: MediaMetrics): Dp =
@@ -512,7 +510,7 @@ private fun SessionBlock(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(horizontal = MediaPadH, vertical = MediaPadV),
+            .padding(WidgetInnerPadding),
     ) {
         val m = mediaMetrics(maxWidth, maxHeight, vertical = false, thumbOnly = true)
         Column(
@@ -575,7 +573,7 @@ private fun SingleSessionCell(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(horizontal = MediaPadH, vertical = MediaPadV),
+            .padding(WidgetInnerPadding),
     ) {
         val m = mediaMetrics(maxWidth, maxHeight, vertical, thumbOnly = false)
         val texts: @Composable (Modifier) -> Unit = { m2 ->

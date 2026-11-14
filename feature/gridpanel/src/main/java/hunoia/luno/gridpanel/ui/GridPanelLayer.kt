@@ -310,9 +310,13 @@ fun GridPanelLayer(
                         }
 
                         is GridPanelItem.Kind.Internal -> {
+                            // 与普通动作项同一块底：整格铺满的填充底（不再是线框），
+                            // 内容也裁到同一圈 ItemCorner，滚动列表不会越过圆角。
+                            val itemShape = containerShape(ItemCorner)
                             Box(
                                 Modifier
                                     .fillMaxSize()
+                                    .clip(itemShape)
                                     // 内置部件的触摸（滑杆/按钮）不属于「部件点击」：
                                     // 取消第三方部件留下的拉起候选，防止之后音量变化
                                     // 触发的前台包变化误关面板。
@@ -328,16 +332,15 @@ fun GridPanelLayer(
                                         }
                                     },
                             ) {
-                                // 面板已经有一层区域模糊：内置部件背景只补描边，不再二次模糊。
+                                // 面板已经有一层区域模糊：内置部件底与动作项同色，不再二次模糊。
                                 if (kind.showBackground) {
                                     Box(
                                         Modifier
                                             .matchParentSize()
-                                            .border(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.outlineVariant
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceVariant
                                                     .copy(alpha = 0.55f),
-                                                containerShape(ItemCorner),
+                                                itemShape,
                                             ),
                                     )
                                 }
@@ -356,6 +359,7 @@ fun GridPanelLayer(
                                             itemSpanY = item.spanY,
                                             enabled = !editMode,
                                             params = kind.params,
+                                            isGridItem = true,
                                             onReconfigure = { actions.onReconfigureInternal(item) },
                                         ),
                                     )

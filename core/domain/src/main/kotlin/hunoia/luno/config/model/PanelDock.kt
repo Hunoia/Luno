@@ -5,8 +5,10 @@ import kotlinx.serialization.Serializable
 
 object PanelDockDefaults {
     /**
-     * 底栏成员上限。底栏是固定宽 tab、不滚动的胶囊（见 ui-guidelines §4.2），
-     * 再多就会溢出屏幕；需要更多入口时应该分面板，而不是把胶囊拉成传送带。
+     * 底栏成员上限。底栏默认是固定宽 tab 的胶囊（见 ui-guidelines §4.2）：
+     * 全部放得下时用与主页同款的 pill + 拖动切换；只有卡窄到 tab 缩至 48dp
+     * 命中区仍放不下时才回退横向滚动。需要更多入口时应该分面板，
+     * 而不是把胶囊拉成传送带。
      */
     const val MaxMembers = 6
 

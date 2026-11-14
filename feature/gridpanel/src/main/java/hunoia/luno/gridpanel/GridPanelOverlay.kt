@@ -358,6 +358,8 @@ object GridPanelOverlay : OverlayPanelHost(
                     GridPanelRoot(
                     panelId = panelIdState,
                     panel = resolvedPanel,
+                    panelAppearance = resolvedPanel?.effectiveAppearance(settings.panelAppearance)
+                        ?: settings.panelAppearance,
                     anchorX = anchorXState,
                     anchorY = anchorYState,
                     singleContent = singleRef?.first?.let { single ->

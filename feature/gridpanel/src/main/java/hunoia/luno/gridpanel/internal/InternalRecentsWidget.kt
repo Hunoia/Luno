@@ -72,7 +72,7 @@ fun RecentAppsCell(
             modifier = modifier
                 .fillMaxSize()
                 .alpha(0.45f)
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = WidgetInnerPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -87,7 +87,7 @@ fun RecentAppsCell(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .padding(WidgetInnerPadding),
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {
         for (row in 0 until spanY) {

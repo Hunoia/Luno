@@ -59,6 +59,7 @@ import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.config.model.GridPanelOrientation
+import hunoia.luno.config.model.PanelAppearance
 import hunoia.luno.config.model.withOrientation
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.GridMetrics
@@ -119,6 +120,8 @@ fun GridPanelRoot(
     anchorX: Int,
     anchorY: Int,
     dispatch: (action: StoredAction, screenX: Int, screenY: Int) -> Boolean,
+    /** 已解析的面板外观：卡透明度 / 模糊 / 边距；全局默认或在面板编辑页覆盖后由宿主传入。 */
+    panelAppearance: PanelAppearance = PanelAppearance(),
     /** 跳动作选择页；返回 false 表示没跳起来，调用方负责把面板放回可见。 */
     onPickItem: (GridPanelItemPick) -> Boolean,
     onClose: () -> Unit,
@@ -333,7 +336,10 @@ fun GridPanelRoot(
         )
     val heightFraction = geo.cardHeightFraction
         .coerceIn(GridPanelDefaults.MinCardHeightFraction, GridPanelDefaults.MaxCardHeightFraction)
-    val cardAlpha = panel.cardAlpha.coerceIn(GridPanelDefaults.MinCardAlpha, GridPanelDefaults.MaxCardAlpha)
+    val cardAlpha = panelAppearance.cardAlpha.coerceIn(
+        GridPanelDefaults.MinCardAlpha,
+        GridPanelDefaults.MaxCardAlpha,
+    )
 
     // 项列表的本地真身：拖拽要连续多次落位，DataStore 回流有延迟，直接渲染
     // panel.items 会在快速拖动时被旧快照回跳。回流同步只认「与 lastWritten
@@ -407,7 +413,7 @@ fun GridPanelRoot(
     val density = LocalDensity.current
     // 模糊半径按面板配置转 px；0 表示关闭。隐藏 API 不可用时由 UI 层静默降级。
     val blurRadiusPx = with(density) {
-        panel.blurRadiusDp
+        panelAppearance.blurRadiusDp
             .coerceIn(GridPanelDefaults.MinBlurRadiusDp, GridPanelDefaults.MaxBlurRadiusDp)
             .dp.toPx().roundToInt()
     }
@@ -519,7 +525,7 @@ fun GridPanelRoot(
         val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
         if (rows == m.rows) m else m.copy(rows = rows)
     }
-    val placement = geo.placement.coerced()
+    val placement = panelAppearance.placement(landscape).coerced()
     val sideMarginPx = with(density) { placement.sideMarginDp.dp.toPx() }
     val topGapPx = with(density) { placement.topGapDp.dp.toPx() }
     val bottomGapPx = with(density) { placement.bottomGapDp.dp.toPx() }
@@ -554,7 +560,7 @@ fun GridPanelRoot(
                     insetPx = with(density) { PanelDockPadding.toPx() },
                 ),
                 cardWidthFraction = cardFraction,
-                cardAlpha = panel.cardAlpha,
+                cardAlpha = cardAlpha,
                 blurRadiusPx = blurRadiusPx,
                 panelId = panel.id,
             )

@@ -49,8 +49,9 @@ import hunoia.luno.gridpanel.PanelDockIcon
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.geometry.PanelDockPlacement
 import hunoia.luno.gridpanel.geometry.needsScroll
+import hunoia.luno.ui.component.FloatingBottomBarDefaults
+import hunoia.luno.ui.component.FloatingTabRow
 import hunoia.luno.ui.component.TextIconGlyph
-import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.PanelFadeTailFraction
 import hunoia.luno.ui.theme.containerShape
 import kotlin.math.roundToInt
@@ -149,6 +150,8 @@ fun PanelDockLayer(
     }
     val listState = rememberLazyListState()
     val scrollable = placement.needsScroll
+    val view = LocalView.current
+    val selectedIndex = entries.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
 
     // 入口放不下时横滑：选中项必须在可视区内，否则「当前在哪块面板」看不出来。
     LaunchedEffect(placement, selectedId, scrollable) {
@@ -194,47 +197,78 @@ fun PanelDockLayer(
             // 入口少时整条居中聚拢；多到放不下时 LazyRow 自己滚动。
             contentAlignment = Alignment.Center,
         ) {
-            LazyRow(
-                state = listState,
-                modifier = Modifier
-                    // wrapContentWidth：入口少时按内容宽居中；多到放不下时按底栏宽裁切并滚动。
-                    .wrapContentWidth()
-                    .height(PanelDockHeight),
-                contentPadding = PaddingValues(horizontal = PanelDockPadding),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                itemsIndexed(entries, key = { _, entry -> entry.id }) { _, entry ->
-                    PanelDockTab(
-                        entry = entry,
-                        isSelected = entry.id == selectedId,
-                        width = tabWidthDp,
-                        onClick = { onSelect(entry.id) },
-                    )
+            if (scrollable) {
+                // 回退分支：放不下时横向滚动，选中态退回静态圆角块（没有 pill，手势归滚动）。
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier
+                        // wrapContentWidth：入口少时按内容宽居中；多到放不下时按底栏宽裁切并滚动。
+                        .wrapContentWidth()
+                        .height(PanelDockHeight),
+                    contentPadding = PaddingValues(horizontal = PanelDockPadding),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    itemsIndexed(entries, key = { _, entry -> entry.id }) { _, entry ->
+                        PanelDockScrollTab(
+                            entry = entry,
+                            isSelected = entry.id == selectedId,
+                            width = tabWidthDp,
+                            onClick = {
+                                view.hapticTick()
+                                onSelect(entry.id)
+                            },
+                        )
+                    }
                 }
+            } else {
+                // 与主页底栏同源：点击 + 拖动切换，滑动 pill 跟手、按压放大并带速度倾斜。
+                // 每颗 tab 自己不缩放、不加 ripple，选中态只由 pill 表达（§5.3）。
+                FloatingTabRow(
+                    items = entries,
+                    selectedIndex = { selectedIndex },
+                    onSelected = { index ->
+                        view.hapticTick()
+                        entries.getOrNull(index)?.let { onSelect(it.id) }
+                    },
+                    tabWidth = tabWidthDp,
+                    colors = FloatingBottomBarDefaults.colors(),
+                    tabHeight = PanelDockHeight - PanelDockPadding * 2,
+                    modifier = Modifier.align(Alignment.Center),
+                    iconContent = { entry, index ->
+                        PanelDockGlyph(
+                            icon = entry.icon,
+                            size = PanelDockIconSize,
+                            contentDescription = entry.label,
+                            tint = if (index == selectedIndex) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    },
+                )
             }
         }
     }
 }
 
 /**
- * 一个 tab：选中态用面板自己的语言表达（圆角块 + primary），不用主页底栏那颗指示 pill。
- * 点击切换；没有横滑切 tab —— 横向手势归底栏自己的滚动。
+ * 放不下时的回退 tab（横向滚动分支）：选中态退回静态圆角块，点击切换。
+ * 没有横滑切 tab —— 横向手势归底栏自己的滚动；也不做每 tab 缩放，反馈只留振动。
  */
 @Composable
-private fun PanelDockTab(
+private fun PanelDockScrollTab(
     entry: PanelDockEntry,
     isSelected: Boolean,
     width: Dp,
     onClick: () -> Unit,
 ) {
-    val view = LocalView.current
     val interactions = remember { MutableInteractionSource() }
     val tileShape = remember { containerShape(ItemCorner) }
     Box(
         modifier = Modifier
             .width(width)
             .height(PanelDockHeight - PanelDockPadding * 2)
-            .pressScale(interactions)
             .clip(tileShape)
             .then(
                 if (isSelected) {
@@ -247,10 +281,8 @@ private fun PanelDockTab(
                 interactionSource = interactions,
                 indication = null,
                 role = Role.Tab,
-            ) {
-                view.hapticTick()
-                onClick()
-            }
+                onClick = onClick,
+            )
             .semantics { selected = isSelected },
         contentAlignment = Alignment.Center,
     ) {

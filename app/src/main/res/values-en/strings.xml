@@ -165,6 +165,11 @@
     <string name="grid_panel_icon">Dock icon</string>
     <string name="grid_panel_icon_hint">Uses the first character of the name when unset</string>
     <string name="panel_dock">Panel bottom bar</string>
+    <string name="panel_appearance">Panel appearance</string>
+    <string name="panel_appearance_hint">Global defaults; each panel can override</string>
+    <string name="panel_appearance_follow_global">Follow global appearance</string>
+    <string name="panel_appearance_follow_global_hint">Card opacity, background blur, and margins use the global values in Panel appearance.</string>
+    <string name="panel_appearance_custom_hint">Turn off to adjust this panel separately; defaults come from the global appearance.</string>
     <string name="panel_dock_off">Off</string>
     <string name="panel_dock_on_summary">On · %1$d panels</string>
     <string name="panel_dock_enabled">Enable bottom bar</string>

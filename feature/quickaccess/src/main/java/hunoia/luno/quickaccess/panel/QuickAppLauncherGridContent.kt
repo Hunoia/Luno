@@ -32,7 +32,6 @@ internal fun CandidateAppRows(
     apps: List<AppInfo>,
     disabledPkgs: Set<String>,
     candidateHeight: Dp,
-    iconSizePx: Int,
     rows: Int = 1,
     onClick: (AppInfo, Boolean) -> Unit,
     onLongPress: (AppInfo, Boolean) -> Unit,
@@ -66,7 +65,6 @@ internal fun CandidateAppRows(
                             val isDisabled = app.packageName in disabledPkgs
                             AppItem(
                                 app = app,
-                                iconSizePx = iconSizePx,
                                 iconHeight = iconHeight,
                                 onClick = { onClick(app, isDisabled) },
                                 onLongPress = { onLongPress(app, isDisabled) }
@@ -87,7 +85,6 @@ internal fun AppGrid(
     gridAtTop: Boolean,
     keyboardExpanded: Boolean,
     gridHeight: Dp,
-    iconSizePx: Int,
     gridColumns: Int = 4,
     onExpandKeyboard: () -> Unit,
     onClick: (AppInfo, Boolean) -> Unit,
@@ -115,7 +112,6 @@ internal fun AppGrid(
             apps = apps,
             disabledPkgs = disabledPkgs,
             gridState = gridState,
-            iconSizePx = iconSizePx,
             gridColumns = gridColumns,
             onClick = onClick,
             onLongPress = onLongPress,
@@ -140,7 +136,6 @@ fun AppGridContent(
     apps: List<AppInfo>,
     disabledPkgs: Set<String>,
     gridState: LazyGridState,
-    iconSizePx: Int,
     gridColumns: Int = 4,
     onClick: (AppInfo, Boolean) -> Unit,
     onLongPress: (AppInfo, Boolean) -> Unit,
@@ -166,7 +161,6 @@ fun AppGridContent(
             val isDisabled = app.packageName in disabledPkgs
             AppItem(
                 app = app,
-                iconSizePx = iconSizePx,
                 onClick = { onClick(app, isDisabled) },
                 onLongPress = { onLongPress(app, isDisabled) },
                 enabled = enabled,

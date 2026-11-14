@@ -10,6 +10,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 
 /**
+ * 网格项内容的内边距：动作项铺满整格，内置部件也用同一档 4dp，
+ * 不再按部件自行叠 6 / 8 / 10 / 14dp（否则相邻格的边缘对不齐）。
+ *
+ * 同值镜像 `TileInnerPadding`，但不引用 `Dimension.kt`：主题 token 初始化会拉起
+ * 形状库，unit test 的 JVM 版本带不动（同 `DockDimension.kt` 的口径）。
+ */
+internal val WidgetInnerPadding = 4.dp
+
+/**
  * 内置小部件（Compose 自绘，不走 AppWidgetHost）的定义与内容。
  * 不挂整格级手势：编辑态拖拽/缩放由层根 gridLayerGestures 接管。
  */
@@ -81,13 +90,7 @@ fun internalWidgetMinSpan(widgetId: String): Pair<Int, Int> =
     PanelWidgetRegistry.byId(widgetId)?.let { it.minSpanX to it.minSpanY } ?: (1 to 1)
 
 /**
- * 滑条所在容器的内边距。格子是方格（cellH == cellW），横向的上下内边距必须与
- * 竖向的左右内边距等量（都 8dp）：不然 1×4 的轨道比 4×1 的粗一圈，两个方向
- * 放一起看很别扭。竖向格只有一格宽（1×4 约 52dp），横向按 4dp 给 —— 早先留 10dp
- * 会吃掉三分之一轨道，「没吃满宽度」的真凶是这里，不是 fill。
+ * 滑条所在容器的内边距。格子是方格（cellH == cellW），四个方向统一取
+ * [WidgetInnerPadding]：1×4 的轨道宽与 4×1 的轨道高才会一致。
  */
-internal fun sliderPadding(vertical: Boolean): PaddingValues = if (vertical) {
-    PaddingValues(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)
-} else {
-    PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-}
+internal fun sliderPadding(): PaddingValues = PaddingValues(WidgetInnerPadding)

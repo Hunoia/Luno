@@ -22,6 +22,11 @@ val CompactToolbarHeight = SubMinInteractiveSize
 val CompactControlIconSize = 20.dp
 val RowIconSize = 24.dp
 val BadgeIconSize = 16.dp
+/**
+ * 面板内应用图标的固定解码上限：请求不随面板拖拽 / 缩放尺寸逐帧变化，
+ * 否则 Coil 会每帧重建请求并重新解码，表现就是图标不停闪（§4.6 性能约束）。
+ */
+val AppIconDecodeSize = 96.dp
 val TopBarPaddingExtra = 8.dp
 val TopBarTitlePadding = 12.dp
 
@@ -31,6 +36,8 @@ val ListSpacing = 16.dp
 val ListItemVerticalPadding = 12.dp
 val CardInnerSpacing = 8.dp
 val SliderInnerPadding = 12.dp
+/** 滑杆 thumb 宽度：与 M3 Slider 默认 handle 同宽，拖动映射按轨道净宽（总宽 − thumb）换算。 */
+val SliderThumbWidth = 20.dp
 val ContentBottom = 24.dp
 val FloatingContentBottom = 120.dp
 val SheetListMaxHeight = 420.dp

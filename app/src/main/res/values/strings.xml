@@ -174,6 +174,11 @@
     <string name="grid_panel_icon">底栏图标</string>
     <string name="grid_panel_icon_hint">未设置时使用名称首字</string>
     <string name="panel_dock">面板底栏</string>
+    <string name="panel_appearance">面板外观</string>
+    <string name="panel_appearance_hint">全局默认，单个面板可覆盖</string>
+    <string name="panel_appearance_follow_global">跟随全局外观</string>
+    <string name="panel_appearance_follow_global_hint">卡片透明度、背景模糊与边距使用「面板外观」里的全局值。</string>
+    <string name="panel_appearance_custom_hint">关闭后本面板单独调整；默认值取自全局外观。</string>
     <string name="panel_dock_off">已关闭</string>
     <string name="panel_dock_on_summary">已启用 · %1$d 块</string>
     <string name="panel_dock_enabled">启用底栏</string>

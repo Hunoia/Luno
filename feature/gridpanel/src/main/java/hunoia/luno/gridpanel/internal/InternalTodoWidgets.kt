@@ -119,12 +119,12 @@ internal fun TodoListCell(
             .clip(containerShape(ItemCorner))
             .semantics { contentDescription = cellDesc },
     ) {
-        val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)
+        val contentW = (maxWidth - WidgetInnerPadding * 2).coerceAtLeast(24.dp)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(10.dp),
+                .padding(WidgetInnerPadding),
         ) {
             // 标题行：主色点 + 「待办 · N」（N = 未完成数）+ 右侧「+」添加按钮。
             Row(

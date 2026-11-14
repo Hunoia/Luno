@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -12,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.bridge.ui.showToast
@@ -25,14 +23,9 @@ import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.quickaccess.query.AppSearch
 import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.runtime.surface.SurfaceDispatch
-import hunoia.luno.ui.theme.AppItemPadding
-import hunoia.luno.ui.theme.GridCellSpacing
 
 /** 抽屉网格的内边距：格子只有面板的一小块，留 4dp 让图标别贴边。 */
 private val DrawerPadding = 4.dp
-
-/** 图标预取尺寸下限：太小的格子算出的 px 会让 Coil 拿到比实际显示更糊的图。 */
-private const val MinIconPx = 24
 
 /**
  * 应用抽屉页面部件：整块可滚动的全量应用网格，点按启动、长按按 `tapOpensMiniWindow`
@@ -89,46 +82,38 @@ fun AppDrawerCell(
         }
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val columns = spanX.coerceIn(2, 6)
-        val cellWidth = (maxWidth - DrawerPadding * 2 - GridCellSpacing * (columns - 1)) / columns
-        // AppItem 自己留 AppItemPadding，图标实际显示宽度要再扣掉两侧。
-        val iconSizePx = with(LocalDensity.current) {
-            (cellWidth - AppItemPadding * 2).toPx().toInt().coerceAtLeast(MinIconPx)
-        }
-        val gridState = rememberLazyGridState()
-        // 抽屉每次重新打开都从第一行开始。
-        // 不能只看「空 → 非空」：应用列表打开后还会从「无使用统计」重排成
-        // 「按使用频率」，LazyGrid 会跟着旧首项 key 下移，正表现为从第二行开始。
-        // 所以按整份列表复位，顺序一变就拉回顶部。
-        LaunchedEffect(apps) {
-            if (apps.isNotEmpty()) gridState.scrollToItem(0)
-        }
-        AppGridContent(
-            apps = apps,
-            disabledPkgs = appList.disabledPkgs,
-            gridState = gridState,
-            iconSizePx = iconSizePx,
-            gridColumns = columns,
-            onClick = { app, isDisabled ->
-                when {
-                    !enabled -> Unit
-                    // 禁用应用静默忽略会让人以为点坏了：给一句提示。
-                    isDisabled -> showToast(R.string.app_drawer_disabled_app)
-                    else -> launch(app, launcherSettings.tapOpensMiniWindow)
-                }
-            },
-            onLongPress = { app, isDisabled ->
-                when {
-                    !enabled -> Unit
-                    isDisabled -> showToast(R.string.app_drawer_disabled_app)
-                    else -> launch(app, !launcherSettings.tapOpensMiniWindow)
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(DrawerPadding),
-            userScrollEnabled = enabled,
-            enabled = enabled,
-        )
+    val columns = spanX.coerceIn(2, 6)
+    val gridState = rememberLazyGridState()
+    // 抽屉每次重新打开都从第一行开始。
+    // 不能只看「空 → 非空」：应用列表打开后还会从「无使用统计」重排成
+    // 「按使用频率」，LazyGrid 会跟着旧首项 key 下移，正表现为从第二行开始。
+    // 所以按整份列表复位，顺序一变就拉回顶部。
+    LaunchedEffect(apps) {
+        if (apps.isNotEmpty()) gridState.scrollToItem(0)
     }
+    AppGridContent(
+        apps = apps,
+        disabledPkgs = appList.disabledPkgs,
+        gridState = gridState,
+        gridColumns = columns,
+        onClick = { app, isDisabled ->
+            when {
+                !enabled -> Unit
+                // 禁用应用静默忽略会让人以为点坏了：给一句提示。
+                isDisabled -> showToast(R.string.app_drawer_disabled_app)
+                else -> launch(app, launcherSettings.tapOpensMiniWindow)
+            }
+        },
+        onLongPress = { app, isDisabled ->
+            when {
+                !enabled -> Unit
+                isDisabled -> showToast(R.string.app_drawer_disabled_app)
+                else -> launch(app, !launcherSettings.tapOpensMiniWindow)
+            }
+        },
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(DrawerPadding),
+        userScrollEnabled = enabled,
+        enabled = enabled,
+    )
 }

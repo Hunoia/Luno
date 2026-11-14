@@ -112,16 +112,16 @@ internal fun HabitHeatmapCell(
             .fillMaxSize()
             .clip(containerShape(ItemCorner)),
     ) {
-        // 与点阵部件一致：扣 10dp 内边距，再扣固定标题行高得到网格区。
-        val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)
-        val contentH = (maxHeight - 20.dp).coerceAtLeast(24.dp)
+        // 与点阵部件一致：扣 WidgetInnerPadding × 2，再扣固定标题行高得到网格区。
+        val contentW = (maxWidth - WidgetInnerPadding * 2).coerceAtLeast(24.dp)
+        val contentH = (maxHeight - WidgetInnerPadding * 2).coerceAtLeast(24.dp)
         val gridHeight = (contentH - HabitTitleHeight - HabitTitleGap).coerceAtLeast(16.dp)
         val geometry = habitHeatmapGeometry(contentW, gridHeight)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(10.dp),
+                .padding(WidgetInnerPadding),
         ) {
             // 标题行：主色点 + 「名 · streak 天」；点击打开主应用对应编辑页（并关面板）。
             Row(

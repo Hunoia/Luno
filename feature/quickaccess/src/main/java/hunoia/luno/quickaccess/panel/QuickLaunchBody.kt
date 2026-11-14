@@ -58,7 +58,6 @@ internal fun requiredContentHeight(
 @Composable
 fun QuickLaunchBody(
     state: QuickLaunchContentState,
-    panelWidth: Dp,
     panelHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -103,7 +102,6 @@ fun QuickLaunchBody(
         }
     }
     val contentHeight = (panelHeight - PanelPaddingVertical * 2).coerceAtLeast(1.dp)
-    val contentWidth = (panelWidth - PanelPaddingHorizontal * 2).coerceAtLeast(1.dp)
     val candidateRows = geo.candidateRows.coerceIn(1, 3)
     val keyHeight = geo.keyHeightDp.dp
     val keyboardHeight = keyHeight * KeyboardRowCount + KeyboardGap * 2
@@ -113,24 +111,12 @@ fun QuickLaunchBody(
     val canExpandKeyboard = contentHeight >= minContentHeight
     val effectiveKeyboardExpanded = state.keyboardExpanded && canExpandKeyboard
     val candidateHeight = (contentHeight - keyboardHeight - KeyboardGap).coerceAtLeast(1.dp)
-    val iconGridCols = geo.gridColumns.coerceIn(3, 5)
-    val iconSizePx = with(density) {
-        // 候选项：列宽固定 CandidateColumnWidth，减去 AppItem 的 AppItemPadding×2。
-        // iconHeight 往往远大于它 —— AppItem 是 height(iconHeight).fillMaxWidth()
-        // 配 ContentScale.Fit，图标实际只渲染 min(宽, 高) 见方，所以按宽算而不是按框高算。
-        val candidateDp = minOf(
-            CandidateColumnWidth - AppItemPadding * 2,
-            candidateHeight / candidateRows - AppItemPadding * 2
-        )
-        // 网格格子：(内容宽 - 列间距) / 列数 - AppItem 内边距×2
-        val gridCellDp = (contentWidth - GridCellSpacing * (iconGridCols - 1)) / iconGridCols -
-            AppItemPadding * 2
-        maxOf(candidateDp, gridCellDp).roundToPx().coerceAtLeast(1)
-    }
+    // 图标解码尺寸固定：不随面板拖拽 / 缩放逐帧变化，避免 Coil 每帧重建请求而闪烁。
+    val iconDecodePx = with(density) { AppIconDecodeSize.roundToPx() }
     // 预热当前查询命中列表的前几个。放在 LaunchedEffect 而不是 token 的写点上，
     // 是为了快速连打时自动取消上一次预热，只留最终查询的那一批。
-    LaunchedEffect(state.tokens, state.appListState, iconSizePx) {
-        state.prewarmIcons(state.filteredApps, iconSizePx)
+    LaunchedEffect(state.tokens, state.appListState) {
+        state.prewarmIcons(state.filteredApps, iconDecodePx)
     }
     Column(
         modifier
@@ -181,7 +167,6 @@ fun QuickLaunchBody(
                                     apps = state.filteredApps,
                                     disabledPkgs = state.appListState.disabledPkgs,
                                     candidateHeight = candidateHeight,
-                                    iconSizePx = iconSizePx,
                                     rows = candidateRows,
                                     onClick = { app, isDisabled ->
                                         state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow)
@@ -239,7 +224,6 @@ fun QuickLaunchBody(
                                     gridAtTop = gridAtTop,
                                     keyboardExpanded = effectiveKeyboardExpanded,
                                     gridHeight = contentHeight,
-                                    iconSizePx = iconSizePx,
                                     gridColumns = geo.gridColumns,
                                     onExpandKeyboard = { state.expandKeyboard() },
                                     onClick = { app, isDisabled ->

@@ -27,8 +27,8 @@ fun singlePanelWidgetId(panelId: String): String? =
 /**
  * 单功能面板：每个支持整页的功能一块，固定存在、不可新建、不可删除、不可改名。
  *
- * 与 [GridPanel] 是两种独立配置类型：这里没有项列表、页数和名称；只保留面板外观几何与
- * 该功能自己的参数。功能清单由 `PanelWidgetRegistry.singlePanelWidgets` 决定，配置只覆盖默认值。
+ * 与 [GridPanel] 是两种独立配置类型：这里没有项列表、页数和名称；只保留面板几何、
+ * 外观覆盖与功能自己的参数。功能清单由 `PanelWidgetRegistry.singlePanelWidgets` 决定，配置只覆盖默认值。
  *
  * 横竖屏完全分开：[portrait] / [landscape] 各持一份几何，转屏后读另一份。
  */
@@ -39,15 +39,15 @@ data class SinglePanel(
     val widgetId: String,
     val portrait: GridPanelGeometry = GridPanelGeometry(),
     val landscape: GridPanelGeometry = GridPanelGeometry(),
-    /** 卡片本体透明度：0–1，半透明透出原背景；0 = 纯模糊/完全透明底。 */
-    val cardAlpha: Float = GridPanelDefaults.CardAlpha,
-    /** 面板与内置部件背景的模糊半径（dp，0 = 关闭）。 */
-    val blurRadiusDp: Float = GridPanelDefaults.BlurRadiusDp,
+    /** 面板外观覆盖；`null` = 跟随 [ActionSettings.panelAppearance] 的全局默认。 */
+    val appearance: PanelAppearance? = null,
     /** 功能自己的参数（JSON 串，口径同 `GridPanelItem.Kind.Internal.params`）。 */
     val params: String? = null,
 ) {
     fun geometry(landscape: Boolean): GridPanelGeometry =
         if (landscape) this.landscape else this.portrait
+
+    fun effectiveAppearance(global: PanelAppearance): PanelAppearance = appearance.orGlobal(global)
 
     val refId: String get() = singlePanelRefId(widgetId)
 }

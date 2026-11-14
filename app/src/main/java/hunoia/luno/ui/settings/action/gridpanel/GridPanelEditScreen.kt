@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,18 +22,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanel
-import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.withOrientation
+import hunoia.luno.config.model.PanelAppearance
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.actions.library.IconPickerSheet
 import hunoia.luno.gridpanel.PanelDockCatalog
 import hunoia.luno.gridpanel.ui.PanelDockGlyph
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
-import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
@@ -43,7 +39,6 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
@@ -64,11 +59,13 @@ fun GridPanelEditScreen(
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
+    var globalAppearance by remember { mutableStateOf(PanelAppearance()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showIconPicker by remember { mutableStateOf(false) }
     LaunchedEffect(panelId) {
         TuneConfig.action.collect { settings ->
             panel = settings.actionGridPanels.panelById(panelId)
+            globalAppearance = settings.panelAppearance
             loaded = true
         }
     }
@@ -182,50 +179,23 @@ fun GridPanelEditScreen(
         }
         item {
             LunoGroup {
-                var localAlpha by remember(current.cardAlpha) { mutableFloatStateOf(current.cardAlpha) }
-                LunoTextSlider(
-                    value = localAlpha,
-                    onValueChange = { value -> localAlpha = value.percentStep() },
-                    onValueChangeFinished = { update { it.copy(cardAlpha = localAlpha) } },
-                    text = stringResource(R.string.grid_panel_card_alpha),
-                    valueDisplay = { "${(it * 100).roundToInt()}%" },
-                    valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
-                    steps = 0,
-                    shape = segmentedShape(0, 3),
-                )
-                // 背景模糊：0 = 关闭；无级拖动、按 1dp 落盘。
-                var localBlur by remember(current.blurRadiusDp) {
-                    mutableFloatStateOf(current.blurRadiusDp)
-                }
-                val blurOffLabel = stringResource(R.string.grid_panel_blur_off)
-                LunoTextSlider(
-                    value = localBlur,
-                    onValueChange = { value -> localBlur = value.roundToInt().toFloat() },
-                    onValueChangeFinished = { update { it.copy(blurRadiusDp = localBlur) } },
-                    text = stringResource(R.string.grid_panel_blur_radius),
-                    valueDisplay = { v ->
-                        if (v <= 0f) blurOffLabel else "${v.roundToInt()}dp"
-                    },
-                    valueRange = GridPanelDefaults.MinBlurRadiusDp..GridPanelDefaults.MaxBlurRadiusDp,
-                    steps = 0,
-                    shape = segmentedShape(1, 3),
-                )
-                // 跟随触发点的三个边距（横竖屏各存一份，这里编辑当前朝向）。
-                SurfacePlacementSliders(
-                    placement = current.orientation(isLandscape()).geometry.placement,
-                    shapeAt = { index -> segmentedShape(index + 2, 3) },
-                    onCommit = { next ->
-                        update {
-                            it.withOrientation(isLandscape()) { o ->
-                                o.copy(geometry = o.geometry.copy(placement = next))
-                            }
+                val ownAppearance = current.appearance
+                val appearanceRows = if (ownAppearance == null) 1 else 6
+                PanelAppearanceControls(
+                    appearance = ownAppearance,
+                    global = globalAppearance,
+                    landscape = isLandscape(),
+                    shapeAt = { index -> segmentedShape(index, appearanceRows) },
+                    onFollowGlobalChange = { follow ->
+                        update { panel ->
+                            panel.copy(
+                                appearance = if (follow) null else globalAppearance,
+                            )
                         }
                     },
+                    onCommit = { next -> update { it.copy(appearance = next) } },
                 )
             }
         }
     }
 }
-
-/** 百分比滑杆：连续拖动、按 1% 量化后落盘。 */
-private fun Float.percentStep(): Float = (this * 100f).roundToInt() / 100f

@@ -48,7 +48,6 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +69,7 @@ import hunoia.luno.annotate.render.exportPixelSize
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.component.input.LunoSlider
 import hunoia.luno.ui.component.PressFilledIconButton
 import hunoia.luno.ui.component.PressIconButton
 
@@ -402,7 +402,7 @@ private fun SizeSlider(
     onValueChange: (Float) -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-        Slider(
+        LunoSlider(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,

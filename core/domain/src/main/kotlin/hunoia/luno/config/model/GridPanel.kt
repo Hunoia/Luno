@@ -28,16 +28,13 @@ data class GridPanel(
     val icon: String? = null,
     val portrait: GridPanelOrientation = GridPanelOrientation(),
     val landscape: GridPanelOrientation = GridPanelOrientation(),
-    /** 卡片本体透明度：0–1，半透明透出原背景；0 = 纯模糊/完全透明底。 */
-    val cardAlpha: Float = GridPanelDefaults.CardAlpha,
-    /**
-     * 面板与内置部件背景的模糊半径（dp，0 = 关闭）。
-     * 默认开启；旧配置没有该字段时按默认值反序列化（不做迁移）。
-     */
-    val blurRadiusDp: Float = GridPanelDefaults.BlurRadiusDp,
+    /** 面板外观覆盖；`null` = 跟随 [ActionSettings.panelAppearance] 的全局默认。 */
+    val appearance: PanelAppearance? = null,
 ) {
     fun orientation(landscape: Boolean): GridPanelOrientation =
         if (landscape) this.landscape else this.portrait
+
+    fun effectiveAppearance(global: PanelAppearance): PanelAppearance = appearance.orGlobal(global)
 
     companion object {
         fun create(name: String = ""): GridPanel = GridPanel(name = name)
@@ -68,6 +65,7 @@ data class GridPanelOrientation(
 /**
  * 面板几何（横竖屏各一份）：列数、卡片宽高占屏比例。卡片高度由比例决定，
  * 可见行数由此反推；格子保持方格，超出靠纵向滚动。
+ * 跟随触发点的边距属于 [PanelAppearance]，与卡透明度 / 模糊同属全局默认 + 单面板覆盖。
  */
 @Serializable
 @Keep
@@ -75,8 +73,6 @@ data class GridPanelGeometry(
     val columnCount: Int = GridPanelDefaults.ColumnCount,
     val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
     val cardHeightFraction: Float = GridPanelDefaults.CardHeightFraction,
-    /** 跟随触发点的三个边距：横向贴触发侧，竖向跟随触发点（上下保留最小间距）。 */
-    val placement: SurfacePlacement = SurfacePlacement(),
 )
 
 /** 行数不设限：实际行数 = max(显示行数，占用行数) + [extraRows]（编辑态 [EditRowExtra]）。 */

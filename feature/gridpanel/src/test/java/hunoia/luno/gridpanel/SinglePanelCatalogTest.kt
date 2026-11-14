@@ -1,6 +1,7 @@
 package hunoia.luno.gridpanel
 
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.PanelAppearance
 import hunoia.luno.config.model.SinglePanel
 import hunoia.luno.config.model.SinglePanelIds
 import hunoia.luno.config.model.SinglePanelSettings
@@ -27,10 +28,13 @@ class SinglePanelCatalogTest {
 
     @Test
     fun `stored config overrides defaults`() {
-        val stored = SinglePanel(widgetId = SinglePanelIds.CLIPBOARD, cardAlpha = 0.4f)
+        val stored = SinglePanel(
+            widgetId = SinglePanelIds.CLIPBOARD,
+            appearance = PanelAppearance(cardAlpha = 0.4f),
+        )
         val settings = ActionSettings(
             singlePanels = SinglePanelSettings(panels = listOf(stored)),
         )
-        assertEquals(0.4f, SinglePanelCatalog.resolve(settings, SinglePanelIds.CLIPBOARD).cardAlpha)
+        assertEquals(0.4f, SinglePanelCatalog.resolve(settings, SinglePanelIds.CLIPBOARD).appearance?.cardAlpha)
     }
 }

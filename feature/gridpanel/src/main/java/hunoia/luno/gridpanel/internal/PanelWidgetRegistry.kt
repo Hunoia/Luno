@@ -31,6 +31,11 @@ data class PanelWidgetContentScope(
     /** 每实例配置（JSON 串，见 architecture §9.2）：无参部件为 null，有参部件自行解析。 */
     val params: String? = null,
     /**
+     * 是否作为网格项渲染（而不是单功能面板整页）。
+     * 网格项不再叠旧版 6–14dp 外边距，页面仍沿用各自原有的整页内边距。
+     */
+    val isGridItem: Boolean = false,
+    /**
      * 部件请求重新配置（如习惯部件指向的习惯被删后重选目标）：面板层接住后打开选择页，
      * 选中新部件时**原位替换**该项。无配置需求的部件忽略此回调。
      */
@@ -172,6 +177,7 @@ object PanelWidgetRegistry {
                     spanX = scope.spanX,
                     spanY = scope.spanY,
                     enabled = scope.enabled,
+                    gridItem = scope.isGridItem,
                 )
             },
         )

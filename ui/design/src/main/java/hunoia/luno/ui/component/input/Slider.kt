@@ -4,7 +4,10 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.theme.SliderInnerPadding
+import hunoia.luno.ui.theme.SliderThumbWidth
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -34,6 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 
 @Composable
@@ -147,7 +154,7 @@ fun LunoTextSlider(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LunoSlider(
+fun LunoSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -183,18 +190,107 @@ internal fun LunoSlider(
         }
     }
 
-    Slider(
-        value = localValue,
-        onValueChange = { value ->
-            localValue = value
-            safeOnLiveValueChange?.invoke(value)
-            safeOnValueChange(value)
-        },
-        modifier = modifier,
-        enabled = enabled,
-        onValueChangeFinished = safeOnValueChangeFinished,
-        interactionSource = interactionSource,
-        valueRange = valueRange,
-        steps = stepCount,
-    )
+    Box(modifier = modifier) {
+        Slider(
+            value = localValue,
+            onValueChange = { value ->
+                localValue = value
+                safeOnLiveValueChange?.invoke(value)
+                safeOnValueChange(value)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            onValueChangeFinished = safeOnValueChangeFinished,
+            interactionSource = interactionSource,
+            valueRange = valueRange,
+            steps = stepCount,
+        )
+        if (enabled) {
+            // M3 Slider 自带「点轨道跳值」与按下即改值；这里用上层手势层接管：
+            // 只有横向拖动才改值，点击不跳值，竖向 / 交叉轴滑动不消费、交给父级滚动。
+            // 无障碍调整仍走底层 Slider 的 semantics，不受这层影响。
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .horizontalSliderDrag(
+                        valueRange = valueRange,
+                        steps = stepCount,
+                        currentValue = { localValue },
+                        interactionSource = interactionSource,
+                        onValueChange = { value ->
+                            localValue = value
+                            safeOnLiveValueChange?.invoke(value)
+                            safeOnValueChange(value)
+                        },
+                        onValueChangeFinished = { safeOnValueChangeFinished?.invoke() },
+                    ),
+            )
+        }
+    }
+}
+
+/** 滑杆只接受横向拖动：点按不跳值，竖向 / 交叉轴先过阈值时不消费、交给父级滚动。 */
+internal fun Modifier.horizontalSliderDrag(
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    currentValue: () -> Float,
+    interactionSource: MutableInteractionSource,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+): Modifier = pointerInput(valueRange, steps, interactionSource) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val press = PressInteraction.Press(down.position)
+        interactionSource.tryEmit(press)
+        val baseValue = currentValue()
+        val start = down.position
+        // M3 轨道两端各留半个 thumb，拖动映射要扣掉，否则指尖没到边值就到底。
+        val trackPx = (size.width - SliderThumbWidth.toPx()).coerceAtLeast(1f)
+        var dragging = false
+        var dragStart: DragInteraction.Start? = null
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (change.changedToUp()) {
+                if (dragging) change.consume()
+                break
+            }
+            val dx = change.position.x - start.x
+            val dy = change.position.y - start.y
+            if (!dragging) {
+                val slop = viewConfiguration.touchSlop
+                if (abs(dx) < slop && abs(dy) < slop) continue
+                // 交叉轴先过阈值：不消费，父级 verticalScroll 继续接管。
+                if (abs(dy) > abs(dx)) {
+                    interactionSource.tryEmit(PressInteraction.Cancel(press))
+                    return@awaitEachGesture
+                }
+                dragging = true
+                dragStart = DragInteraction.Start()
+                interactionSource.tryEmit(dragStart)
+            }
+            change.consume()
+            val raw = baseValue + dx / trackPx * (valueRange.endInclusive - valueRange.start)
+            onValueChange(snapToRange(raw, valueRange, steps))
+        }
+        if (dragging) {
+            dragStart?.let { interactionSource.tryEmit(DragInteraction.Stop(it)) }
+            onValueChangeFinished()
+        }
+        interactionSource.tryEmit(PressInteraction.Release(press))
+    }
+}
+
+private fun snapToRange(
+    raw: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+): Float {
+    val clamped = raw.coerceIn(range.start, range.endInclusive)
+    if (steps <= 0) return clamped
+    val span = range.endInclusive - range.start
+    if (span <= 0f) return range.start
+    val interval = span / (steps + 1)
+    return (range.start + ((clamped - range.start) / interval).roundToInt() * interval)
+        .coerceIn(range.start, range.endInclusive)
 }

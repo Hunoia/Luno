@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -133,7 +134,6 @@ internal fun KeyboardRow(
 @Composable
 internal fun AppItem(
     app: AppInfo,
-    iconSizePx: Int,
     iconHeight: Dp? = null,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
@@ -162,8 +162,10 @@ internal fun AppItem(
         } else {
             Modifier.fillMaxWidth().aspectRatio(1f)
         }.clip(MediumShape)
-        val request = remember(app.packageName, iconSizePx, app.userId, app.className) {
-            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx, app.userId)
+        val density = LocalDensity.current
+        val request = remember(app.packageName, app.userId, app.className, density) {
+            val decodePx = with(density) { AppIconDecodeSize.roundToPx() }
+            QuickLaunchFacade.appIconRequest(context, app.packageName, decodePx, app.userId)
         }
         // 图标压在面板底色上，不再叠一层占位底色（面板底是唯一的一层底色）。
         // Box 留着是因为图标异步到位时尺寸不能变——用 matchParentSize 而不是 if/else，
