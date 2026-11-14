@@ -176,6 +176,10 @@ sealed interface Action {
     data object ImageEdit : Action {
         override val typeId: String = "image.edit"
     }
+    /** 拍照识别：先拍照或从相册选图，再框选区域 OCR（结果页内完成），不依赖无障碍。 */
+    data object PhotoRecognize : Action {
+        override val typeId: String = "image.recognize"
+    }
     data object SplitScreen : Action {
         override val typeId: String = "accessibility.splitScreen"
     }

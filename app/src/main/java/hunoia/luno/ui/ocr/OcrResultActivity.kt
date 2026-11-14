@@ -446,8 +446,9 @@ private fun OcrResultScreen(
     }
     // 初始来源就是 OCR（框选 / 幽灵卡无 a11y）时也要触发懒加载；
     // 原先只在用户切换来源时调用 loadOcr，先开页后会停在空列表而不是 loading。
+    // 拍照识别（deferOcrToSelection）跳过这步：先框选再识别，不白 OCR 整图。
     LaunchedEffect(source) {
-        if (source == ResultSource.Ocr) loadOcr()
+        if (source == ResultSource.Ocr && !payload.deferOcrToSelection) loadOcr()
     }
     // 剪贴板 OCR 动作：懒加载完成后自动从图片视图切回文本（用户手动切过形态则不切）。
     LaunchedEffect(ocrLoaded) {

@@ -265,6 +265,9 @@ object SurfaceActionRuntime {
         override fun openImageAnnotate(): Boolean =
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(context)
 
+        override fun openPhotoRecognize(): Boolean =
+            hunoia.luno.ui.photo.PhotoRecognizeActivity.start(context)
+
         override fun showOcrSegmentText(text: String): Boolean =
             hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(context, text)
 

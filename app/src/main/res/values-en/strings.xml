@@ -319,6 +319,13 @@
     <string name="ocr_result_failed">Operation failed, please retry</string>
     <string name="ocr_result_image_decode_failed">Failed to decode image</string>
     <string name="ocr_model_missing_hint">OCR model not installed; import it in screen recognition settings</string>
+    <string name="photo_recognize_title">Recognize photo</string>
+    <string name="photo_recognize_hint">Take a photo or pick one from the gallery, then select the region to recognize</string>
+    <string name="photo_recognize_camera">Take photo</string>
+    <string name="photo_recognize_gallery">Pick from gallery</string>
+    <string name="photo_recognize_capture_failed">Capture failed or cancelled</string>
+    <string name="photo_recognize_decode_failed">Failed to decode image</string>
+    <string name="photo_recognize_need_camera_permission">Camera permission is required to take a photo; you can pick from the gallery instead</string>
     <string name="ocr_result_copied">Copied</string>
     <string name="ocr_result_source_a11y">Accessibility</string>
     <string name="ocr_result_source_ocr">OCR</string>

@@ -429,6 +429,9 @@ class GestureCoordinator(
         override fun openImageAnnotate(): Boolean =
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(host.context)
 
+        override fun openPhotoRecognize(): Boolean =
+            hunoia.luno.ui.photo.PhotoRecognizeActivity.start(host.context)
+
         override fun showOcrSegmentText(text: String): Boolean =
             hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(host.context, text)
 
