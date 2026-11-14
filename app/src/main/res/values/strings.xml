@@ -306,6 +306,10 @@
     <string name="perm_read_media_video_hint">搜索来源需要</string>
     <string name="perm_read_media_audio">读取音频</string>
     <string name="perm_read_media_audio_hint">搜索来源需要</string>
+    <string name="perm_app_list">应用列表权限</string>
+    <string name="perm_app_list_hint">HyperOS / MIUI 专有；未授权时应用、快捷方式与搜索为空</string>
+    <string name="apps_permission_required">需要「应用列表」权限才能显示应用和快捷方式</string>
+    <string name="apps_permission_settings">去设置</string>
     <!-- ===== 首页运行状态卡（自 debug APK 资源还原） ===== -->
 
     <!-- ===== 无障碍开关复位提示（自 debug APK 资源还原） ===== -->

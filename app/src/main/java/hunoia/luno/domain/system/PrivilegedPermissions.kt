@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import hunoia.luno.facade.PrivilegedGrantSummary
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.facade.PrivilegedPermissionStatus
+import hunoia.luno.facade.PERMISSION_GET_INSTALLED_APPS
 import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.bridge.system.NotificationAccess
 import hunoia.luno.service.SideGestureService
@@ -24,9 +25,21 @@ object PrivilegedPermissionUseCase {
     private const val LOG_TAG = "PrivilegedPermissions"
 
     fun status(context: Context): List<PrivilegedPermissionStatus> =
-        PrivilegedPermission.entries.map { permission ->
-            PrivilegedPermissionStatus(permission, isGranted(context, permission))
-        }
+        PrivilegedPermission.entries
+            .filter { isAvailable(context, it) }
+            .map { permission ->
+                PrivilegedPermissionStatus(permission, isGranted(context, permission))
+            }
+
+    /**
+     * 厂商权限不是所有 ROM 都定义（如 HyperOS 的获取应用列表）：探测不到就整项隐藏，
+     * 否则会永久显示一条「未授权」而用户无处可开。
+     */
+    private fun isAvailable(context: Context, permission: PrivilegedPermission): Boolean =
+        permission != PrivilegedPermission.GET_INSTALLED_APPS ||
+            runCatching {
+                context.packageManager.getPermissionInfo(PERMISSION_GET_INSTALLED_APPS, 0)
+            }.isSuccess
 
     fun isGranted(context: Context, permission: PrivilegedPermission): Boolean = when (permission) {
         PrivilegedPermission.OVERLAY -> Settings.canDrawOverlays(context)
@@ -111,8 +124,16 @@ object PrivilegedPermissionUseCase {
         }
     }
 
-    private suspend fun grantOne(context: Context, permission: PrivilegedPermission): PrivilegedGrants.Result =
-        when (permission) {
+    private suspend fun grantOne(context: Context, permission: PrivilegedPermission): PrivilegedGrants.Result {
+        // Shizuku 授不了的特殊 / 隐私敏感 / 厂商权限：只能手动去系统设置开，UI 走「去设置」或系统对话框。
+        if (!permission.shizukuGrantable) {
+            return PrivilegedGrants.Result(
+                item = PrivilegedGrants.Item.Permission(permission.name),
+                ok = false,
+                detail = "只能手动去系统设置开启",
+            )
+        }
+        return when (permission) {
             PrivilegedPermission.OVERLAY -> PrivilegedGrants.ensureOverlay(context)
             PrivilegedPermission.ACCESSIBILITY -> PrivilegedGrants.ensureAccessibilityService(
                 context,
@@ -127,15 +148,6 @@ object PrivilegedPermissionUseCase {
                 PrivilegedGrants.ensureWriteSecureSettings(context)
             PrivilegedPermission.BATTERY -> PrivilegedGrants.ensureBatteryWhitelist(context)
             PrivilegedPermission.NOTIFICATIONS -> PrivilegedGrants.ensureNotifications(context)
-            // Shizuku 授不了的特殊 / 隐私敏感权限：只能手动去系统设置开，UI 走「去设置」。
-            PrivilegedPermission.MANAGE_FILES,
-            PrivilegedPermission.WRITE_SYSTEM_SETTINGS,
-            PrivilegedPermission.NOTIFICATION_POLICY ->
-                PrivilegedGrants.Result(
-                    item = PrivilegedGrants.Item.Permission(permission.name),
-                    ok = false,
-                    detail = "只能手动去系统设置开启",
-                )
             // 标准运行期权限：Shizuku `pm grant`。
             else -> permission.androidPermission?.let {
                 PrivilegedGrants.ensurePermission(context, it)
@@ -145,6 +157,7 @@ object PrivilegedPermissionUseCase {
                 detail = "没有可用的授权途径",
             )
         }
+    }
 
     suspend fun grantAll(context: Context): PrivilegedGrantSummary {
         val results = runCatching {

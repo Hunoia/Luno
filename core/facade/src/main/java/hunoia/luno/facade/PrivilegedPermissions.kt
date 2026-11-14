@@ -15,6 +15,14 @@ enum class PrivilegedPermissionGroup {
 }
 
 /**
+ * HyperOS / MIUI 专有的「获取应用列表」权限。
+ *
+ * 未授权时 `LauncherApps` / `PackageManager` 只返回本应用：应用清单、快捷方式、搜索与
+ * 动作选择页都会是空表，而且没有任何异常可捕获。部分 ROM 不定义该权限，探测不到时应整项隐藏。
+ */
+const val PERMISSION_GET_INSTALLED_APPS = "com.android.permission.GET_INSTALLED_APPS"
+
+/**
  * 一项特权授权：能查状态、能跳对应系统设置页、能用 Shizuku 直接授予。
  *
  * 放在 domain：UI 只认门面，不直接触达 `:service` 的组件类与 `runtime` 的实现。
@@ -26,7 +34,10 @@ enum class PrivilegedPermission(
     val group: PrivilegedPermissionGroup,
     /** Shizuku 能否直接授予：不能的（特殊 / 隐私敏感权限）只能手动去系统设置开，但仍要列出来。 */
     val shizukuGrantable: Boolean,
-    /** 标准 `android.permission.*` 运行期权限名；非空走 checkSelfPermission / `pm grant`，null 走上面的特殊判定。 */
+    /**
+     * 可直接 `checkSelfPermission` 的权限名：标准 `android.permission.*` 走运行期判定，也可以是
+     * 厂商权限（如 [PERMISSION_GET_INSTALLED_APPS]）。非空走 checkSelfPermission，null 走特殊判定。
+     */
     val androidPermission: String? = null,
     /** 是否进主页摘要卡：缺了会影响 Luno 自身功能。其余项只在授权页列出，不打扰主页。 */
     val homeTracked: Boolean = false,
@@ -50,6 +61,8 @@ enum class PrivilegedPermission(
     READ_MEDIA_IMAGES(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = true, androidPermission = Manifest.permission.READ_MEDIA_IMAGES),
     READ_MEDIA_VIDEO(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = true, androidPermission = Manifest.permission.READ_MEDIA_VIDEO),
     READ_MEDIA_AUDIO(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = true, androidPermission = Manifest.permission.READ_MEDIA_AUDIO),
+    // 厂商权限：Shizuku 的 `pm grant` 授不了（不是 dangerous），只能应用内拉起系统对话框或手动开。
+    GET_INSTALLED_APPS(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = false, androidPermission = PERMISSION_GET_INSTALLED_APPS),
 }
 
 data class PrivilegedPermissionStatus(

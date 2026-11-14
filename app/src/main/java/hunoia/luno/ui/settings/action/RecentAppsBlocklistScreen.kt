@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -40,6 +41,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.core.domain.AppInfo
@@ -58,7 +60,6 @@ import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.EmptyStatePaddingVertical
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
@@ -100,7 +101,11 @@ fun RecentAppsBlocklistScreen(
     // 进入页面只重排一次：配置与列表都就绪后，把已选项排到前面。
     var initialOrderApplied by remember { mutableStateOf(false) }
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
-        if (granted) loaded = false
+        if (granted) {
+            // 刚授权：清掉进程级缓存里的空表，再触发重读。
+            QuickLaunchFacade.invalidateAppListCaches(AppContext.get())
+            loaded = false
+        }
     }
 
     suspend fun loadApps() {
@@ -124,7 +129,8 @@ fun RecentAppsBlocklistScreen(
 
     LaunchedEffect(permissionState.isGranted, loaded) {
         if (!permissionState.isGranted) {
-            permissionState.launchPermissionRequest()
+            // 永久拒绝后再申请不会弹框，交给空态里的按钮去设置页。
+            if (!permissionState.deniedForever) permissionState.launchPermissionRequest()
         } else if (!loaded) {
             loadApps()
             loaded = true
@@ -165,14 +171,31 @@ fun RecentAppsBlocklistScreen(
         ) {
             if (!permissionState.isGranted) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(vertical = EmptyStatePaddingVertical),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    PressTextButton(onClick = { permissionState.launchPermissionRequest() }) {
-                        Text(stringResource(R.string.request_get_apps_permission))
-                    }
+                    EmptyState(
+                        icon = Icons.Outlined.Lock,
+                        message = stringResource(R.string.apps_permission_required),
+                        action = {
+                            PressTextButton(
+                                onClick = {
+                                    if (permissionState.deniedForever) {
+                                        AppContext.get().gotoAppDetailSettings()
+                                    } else {
+                                        permissionState.launchPermissionRequest()
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    stringResource(
+                                        if (permissionState.deniedForever) R.string.apps_permission_settings
+                                        else R.string.request_get_apps_permission,
+                                    ),
+                                )
+                            }
+                        },
+                    )
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {

@@ -27,8 +27,10 @@ import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +62,7 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.model.qualifiedName
 import hunoia.luno.picker.UiState.SelectedRecord
@@ -69,6 +72,7 @@ import hunoia.luno.picker.components.rowSettingsSubtitle
 import hunoia.luno.actions.library.actionLibraryParamSummary
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.actions.library.displayNameRes
+import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
@@ -288,7 +292,15 @@ internal fun ActionPage(
                     ),
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                 ) {
-                    val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
+                    // 缺「应用列表」权限时，应用 / 快捷方式清单恒为空且无异常可捕获：
+                    // 只要这一屏本应列出它们（全部 / 应用 chip / 搜索），就必须给出授权去向，
+                    // 否则看起来就是「没有应用」。动作库不受影响，仍正常展示。
+                    val appsPermissionRequired = !permissionState.isGranted &&
+                        (type == null || type == TYPE_APP || query.isNotBlank())
+                    val hasAnyContent = appsPermissionRequired ||
+                        grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() ||
+                        filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() ||
+                        filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
                     if ((query.isNotEmpty() || type != null) && !hasAnyContent) {
                         item {
                             EmptyState(
@@ -299,6 +311,34 @@ internal fun ActionPage(
                             )
                         }
                     } else {
+                        if (appsPermissionRequired) {
+                            item(key = "apps_permission") {
+                                EmptyState(
+                                    icon = Icons.Outlined.Lock,
+                                    message = stringResource(R.string.apps_permission_required),
+                                    action = {
+                                        PressTextButton(
+                                            onClick = {
+                                                // 系统对话框才是正路；只有在被永久拒绝、再申请
+                                                // 也不会弹框时才退回应用详情页。
+                                                if (permissionState.deniedForever) {
+                                                    context.gotoAppDetailSettings()
+                                                } else {
+                                                    permissionState.launchPermissionRequest()
+                                                }
+                                            },
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    if (permissionState.deniedForever) R.string.apps_permission_settings
+                                                    else R.string.request_get_apps_permission,
+                                                ),
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                        }
                         if (filteredInternalWidgets.isNotEmpty()) {
                             // 内置部件置顶：没有 provider 卡那么多东西，直接一行卡片。
                             stickyHeader(key = "widget_internal") {

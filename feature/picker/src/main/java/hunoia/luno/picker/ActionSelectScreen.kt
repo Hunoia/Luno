@@ -144,19 +144,15 @@ fun ActionSelectContent(
             },
         ) { topPadding, hazeState ->
             Column(modifier = Modifier.fillMaxSize()) {
-                    val permissionState = rememberGetInstalledAppsPermissionState { granted ->
-                        if (granted) {
-                            vm.updateAppInfos()
-                            vm.updateShortcutInfos()
-                        }
-                    }
-                    LaunchedEffect(Unit) {
-                        if (permissionState.isGranted) {
-                            vm.updateAppInfos()
-                            vm.updateShortcutInfos()
-                        }
-                    }
                     val context = LocalContext.current
+                    val permissionState = rememberGetInstalledAppsPermissionState()
+                    // 首次进入与授权状态变化都重扫：先清进程级缓存（AppQuery / 应用清单 /
+                    // 搜索索引），否则刚授权仍会读到缓存下来的空表；撤销后同样重扫成空表。
+                    LaunchedEffect(permissionState.isGranted) {
+                        QuickLaunchFacade.invalidateAppListCaches(context)
+                        vm.updateAppInfos()
+                        vm.updateShortcutInfos()
+                    }
                     var currentLauncherInfo: LauncherInfo? by remember { mutableStateOf(null) }
                     val shortcutLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                         coroutineScope.launch {

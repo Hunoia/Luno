@@ -298,6 +298,10 @@
     <string name="perm_read_media_video_hint">Needed by video search</string>
     <string name="perm_read_media_audio">Read audio</string>
     <string name="perm_read_media_audio_hint">Needed by audio search</string>
+    <string name="perm_app_list">App list permission</string>
+    <string name="perm_app_list_hint">HyperOS / MIUI only; apps, shortcuts and search are empty until granted</string>
+    <string name="apps_permission_required">App list permission is required to show apps and shortcuts</string>
+    <string name="apps_permission_settings">Settings</string>
     <!-- ===== Home runtime status card (restored from debug APK resources) ===== -->
 
     <!-- ===== Accessibility switch reset hint (restored from debug APK resources) ===== -->
