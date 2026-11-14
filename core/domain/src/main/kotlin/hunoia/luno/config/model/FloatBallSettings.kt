@@ -46,6 +46,28 @@ data class CapsuleBallPosition(
         else copy(portrait = transform(this.portrait ?: base))
 }
 
+/**
+ * 一颗内容球的自定义图标（通知球 / 建议球各一份，互不跟随）。
+ *
+ * [path] 为 null 表示用该球自己的默认面：通知球显示通知应用图标（无通知时铃铛），
+ * 建议球显示灯泡。内容球**不读**主球的 [FloatBallSettings.customIconPath]，
+ * 主球换图不会连带改掉胶囊球。
+ */
+@Serializable
+@Keep
+data class BallCustomIcon(
+    /** filesDir/floatball_icon/ 下的绝对路径；null = 未自定义。 */
+    val path: String? = null,
+    /** 图标在球面内的缩放（1.0 = 填满球径）。 */
+    val scale: Float = 1f,
+    /** 归一化横向偏移（-0.5..0.5）。 */
+    val offsetX: Float = 0f,
+    /** 归一化纵向偏移（-0.5..0.5）。 */
+    val offsetY: Float = 0f,
+    /** 整体透明度（0.1..1.0）。 */
+    val alpha: Float = 1f,
+)
+
 @Serializable
 @Keep
 data class FloatBallSettings(
@@ -137,6 +159,10 @@ data class NotificationCapsuleSettings(
     val enabled: Boolean = false,
     /** 通知球独立跟手：手势碰哪侧，通知球就挪到哪侧。 */
     val followHand: Boolean = false,
+    /** 通知球自定义图标；未设置时用通知应用图标 / 铃铛，不跟随主球。 */
+    val customIcon: BallCustomIcon = BallCustomIcon(),
+    /** 通知球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
+    val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
     /** 应用黑名单：这些包的通知不弹胶囊。 */
@@ -158,6 +184,10 @@ data class ClipboardBallSettings(
     val enabled: Boolean = false,
     /** 建议球独立跟手：手势碰哪侧，建议球就挪到哪侧。 */
     val followHand: Boolean = false,
+    /** 建议球自定义图标；未设置时用灯泡，不跟随主球。 */
+    val customIcon: BallCustomIcon = BallCustomIcon(),
+    /** 建议球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
+    val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
     /** 通用「文本 → 建议」规则表；空表 = 关闭规则识别（内置链接识别仍保留）。 */
     val rules: List<SuggestionRule> = SuggestionRuleDefaults.rules,
     /**
@@ -209,6 +239,9 @@ object FloatBallDefaults {
     const val IdleDimDelayMs = 3_000L
     const val IdleDimDelayMsMin = 0L
     const val IdleDimDelayMsMax = 8_000L
+
+    /** 内容球（通知 / 建议）静置变暗默认值：0 = 关，不改变原先的常亮行为。 */
+    const val CapsuleIdleDimDelayMs = 0L
 
     const val IdleDimAlpha = 0.5f
 
@@ -262,8 +295,8 @@ object FloatBallDefaults {
 
     /** 统一收件箱容量默认值与滑杆上下限。 */
     const val InboxCapacity = 10
-    const val InboxCapacityMin = 5
-    const val InboxCapacityMax = 20
+    const val InboxCapacityMin = 1
+    const val InboxCapacityMax = 10
 
     /** 自定义图标透明度默认值与滑杆上下限（下限 0.1：全透明会让球找不着）。 */
     const val CustomIconAlpha = 1f

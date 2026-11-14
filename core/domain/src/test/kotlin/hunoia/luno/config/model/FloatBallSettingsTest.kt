@@ -68,6 +68,22 @@ class FloatBallSettingsTest {
                 notificationCapacity = 6,
                 suggestionCapacity = 8,
             ),
+            // 主球与两颗内容球的图标各自独立：序列化往返不能串。
+            customIconPath = "/data/main.gif",
+            notificationCapsule = NotificationCapsuleSettings(
+                customIcon = BallCustomIcon(path = "/data/notification.png", scale = 1.2f),
+                idleDimDelayMs = 2_500L,
+            ),
+            clipboardBall = ClipboardBallSettings(
+                customIcon = BallCustomIcon(
+                    path = "/data/suggestion.webp",
+                    scale = 1.4f,
+                    offsetX = 0.1f,
+                    offsetY = -0.2f,
+                    alpha = 0.8f,
+                ),
+                idleDimDelayMs = 4_000L,
+            ),
         )
 
         val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
@@ -75,6 +91,13 @@ class FloatBallSettingsTest {
         )
 
         assertEquals(settings, decoded)
+        // 内容球图标互不跟随：各读各的 path。
+        assertEquals("/data/main.gif", decoded.customIconPath)
+        assertEquals("/data/notification.png", decoded.notificationCapsule.customIcon.path)
+        assertEquals("/data/suggestion.webp", decoded.clipboardBall.customIcon.path)
+        // 静置变暗各自独立：两颗内容球不跟随主球。
+        assertEquals(2_500L, decoded.notificationCapsule.idleDimDelayMs)
+        assertEquals(4_000L, decoded.clipboardBall.idleDimDelayMs)
     }
 
     @Test

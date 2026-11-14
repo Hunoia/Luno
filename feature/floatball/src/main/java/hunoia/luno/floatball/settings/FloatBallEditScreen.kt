@@ -8,9 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,6 +32,7 @@ import hunoia.luno.floatball.R
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.BallCustomIcon
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
@@ -52,10 +49,7 @@ import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
-import java.io.File
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * 悬浮球设置页：只负责主球自身外观与单击动作。
@@ -85,15 +79,8 @@ fun FloatBallEditScreen(
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var showColorPicker by remember { mutableStateOf(false) }
-    // 自定义图标：选中待裁剪的 URI（非空 = 显示裁剪预览）；裁剪确认后复制到 filesDir。
-    var pendingIconUri by remember { mutableStateOf<android.net.Uri?>(null) }
-
-    val iconPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent(),
-    ) { uri ->
-        // GetContent 只在当前任务存活期间授权读取，确认后立即复制到 filesDir（见 onIconConfirm）。
-        if (uri != null) pendingIconUri = uri
-    }
+    // 自定义图标：选图 → 裁剪 → 落盘统一由 BallCustomIconSetting 托管。
+    val iconPicker = rememberBallIconPickerState()
 
     // 从系统悬浮窗设置回来时重查（授权与撤销都要）：横幅消隐要跟手，服务也要 nudge ——
     // 授权回来服务要从无权限的隐藏态亮回；撤销时系统已拆走悬浮窗，nudge 让服务摘窗回收，
@@ -121,71 +108,24 @@ fun FloatBallEditScreen(
         }
     }
 
-    /**
-     * 复制所选图标到 filesDir/floatball_icon/，返回绝对路径；失败返回 null。
-     *
-     * 文件名带时间戳保证唯一：`CustomBallIcon` 以 `File` 为 Coil model，
-     * `File.equals` 只看路径 —— 固定名（icon.gif）换同类图时路径不变，
-     * Coil 判定 model 未变就不重载，球面卡在旧图。
-     */
-    fun copyIconToFiles(uri: android.net.Uri): String? {
-        val dir = File(context.filesDir, CUSTOM_ICON_DIR).apply { mkdirs() }
-        val ext = when (context.contentResolver.getType(uri)) {
-            "image/gif" -> "gif"
-            "image/png" -> "png"
-            "image/webp" -> "webp"
-            "image/jpeg", "image/jpg" -> "jpg"
-            else -> "img"
-        }
-        val target = File(dir, "icon_${System.currentTimeMillis()}.$ext")
-        val copied = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
-            } != null
-        }.getOrDefault(false)
-        return if (copied) target.absolutePath else null
-    }
+    /** 主球的扁平图标字段 ↔ 共用图标模型：内容球的同名字段各自独立，互不跟随。 */
+    val mainIcon = BallCustomIcon(
+        path = floatBall.customIconPath,
+        scale = floatBall.customIconScale,
+        offsetX = floatBall.customIconOffsetX,
+        offsetY = floatBall.customIconOffsetY,
+        alpha = floatBall.customIconAlpha,
+    )
 
-    /** 裁剪确认：复制文件 + 写设置（路径 / 缩放 / 偏移）。新文件替换旧文件。 */
-    fun onIconConfirm(uri: android.net.Uri, scale: Float, offsetX: Float, offsetY: Float) {
-        val oldPath = floatBall.customIconPath
-        scope.launch {
-            val path = withContext(Dispatchers.IO) { copyIconToFiles(uri) }
-            if (path == null) {
-                hunoia.luno.bridge.ui.showToast(R.string.float_ball_custom_icon_copy_failed)
-                return@launch
-            }
-            withContext(Dispatchers.IO) {
-                // 旧文件删除失败不阻塞（留 orphan 由下次覆盖清理）。
-                if (oldPath != null) runCatching { File(oldPath).delete() }
-            }
-            update {
-                it.copy(
-                    customIconPath = path,
-                    customIconScale = scale,
-                    customIconOffsetX = offsetX,
-                    customIconOffsetY = offsetY,
-                )
-            }
-        }
-    }
-
-    /** 恢复默认图标：清字段 + 删除已复制的文件（失败不阻塞，留 orphan 由下次覆盖清理）。 */
-    fun resetCustomIcon() {
-        scope.launch {
-            val old = floatBall.customIconPath
-            withContext(Dispatchers.IO) {
-                if (old != null) runCatching { File(old).delete() }
-            }
-            update {
-                it.copy(
-                    customIconPath = null,
-                    customIconScale = 1f,
-                    customIconOffsetX = 0f,
-                    customIconOffsetY = 0f,
-                    customIconAlpha = FloatBallDefaults.CustomIconAlpha,
-                )
-            }
+    fun writeMainIcon(icon: BallCustomIcon) {
+        update {
+            it.copy(
+                customIconPath = icon.path,
+                customIconScale = icon.scale,
+                customIconOffsetX = icon.offsetX,
+                customIconOffsetY = icon.offsetY,
+                customIconAlpha = icon.alpha,
+            )
         }
     }
 
@@ -218,21 +158,12 @@ fun FloatBallEditScreen(
                     },
                 )
             }
-            pendingIconUri?.let { uri ->
-                IconCropSheet(
-                    context = context,
-                    uri = uri,
-                    initialScale = floatBall.customIconScale,
-                    initialOffsetX = floatBall.customIconOffsetX,
-                    initialOffsetY = floatBall.customIconOffsetY,
-                    initialAlpha = floatBall.customIconAlpha,
-                    onDismiss = { pendingIconUri = null },
-                    onConfirm = { scale, offsetX, offsetY ->
-                        pendingIconUri = null
-                        onIconConfirm(uri, scale, offsetX, offsetY)
-                    },
-                )
-            }
+            BallCustomIconSheet(
+                context = context,
+                picker = iconPicker,
+                current = mainIcon,
+                onChange = ::writeMainIcon,
+            )
         },
     ) {
         if (!overlayGranted) {
@@ -288,39 +219,14 @@ fun FloatBallEditScreen(
                 var localAlpha by remember {
                     mutableFloatStateOf(floatBall.customIconAlpha)
                 }
-                LunoSettingsRow(
-                    title = stringResource(R.string.float_ball_custom_icon),
-                    subtitle = if (hasCustomIcon) {
-                        stringResource(R.string.float_ball_custom_icon_set)
-                    } else {
-                        stringResource(R.string.float_ball_custom_icon_default)
-                    },
-                    icon = Icons.Default.Image,
-                    shape = segmentedShape(0, count),
-                    leading = {
-                        if (hasCustomIcon) {
-                            // 行内缩略预览：与球面同一渲染路径，实时反映当前缩放/偏移/透明度。
-                            hunoia.luno.runtime.floatball.CustomBallIcon(
-                                context = context,
-                                model = File(floatBall.customIconPath!!),
-                                scale = floatBall.customIconScale,
-                                offsetX = floatBall.customIconOffsetX,
-                                offsetY = floatBall.customIconOffsetY,
-                                alpha = floatBall.customIconAlpha,
-                                modifier = Modifier.size(MarkColorSize),
-                            )
-                        }
-                    },
-                    onClick = { iconPicker.launch("image/*") },
+                BallCustomIconRows(
+                    context = context,
+                    icon = mainIcon,
+                    startIndex = 0,
+                    rowCount = count,
+                    onPick = iconPicker::pick,
+                    onReset = { resetBallIcon(scope, mainIcon, ::writeMainIcon) },
                 )
-                if (hasCustomIcon) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.float_ball_custom_icon_reset),
-                        icon = Icons.Default.Refresh,
-                        shape = segmentedShape(1, count),
-                        onClick = ::resetCustomIcon,
-                    )
-                }
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_color),
                     icon = Icons.Default.Palette,
@@ -398,5 +304,4 @@ fun FloatBallEditScreen(
     }
 }
 
-/** 自定义图标落盘目录（相对 filesDir）。 */
-private const val CUSTOM_ICON_DIR = "floatball_icon"
+/** 自定义图标落盘目录（相对 filesDir）：与内容球共用，见 [BALL_ICON_DIR]。 */

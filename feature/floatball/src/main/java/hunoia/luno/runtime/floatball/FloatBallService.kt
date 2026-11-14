@@ -1500,7 +1500,7 @@ class FloatBallService : Service() {
             updateSettings()
         }
 
-        /** 合成内容球设置：固定图标、无单击动作、无静置变暗；跟手按各自开关。 */
+        /** 合成内容球设置：固定图标、无单击动作；跟手 / 图标 / 静置按各自配置。 */
         fun updateSettings() {
             val base = settings
             val portrait = when (source) {
@@ -1511,13 +1511,29 @@ class FloatBallService : Service() {
                 BallSource.NOTIFICATION -> base.notificationBall(landscape = true)
                 BallSource.SUGGESTION -> base.suggestionBall(landscape = true)
             }
+            // 图标与静置都按球各取各的：内容球不继承主球配置。
+            val icon = when (source) {
+                BallSource.NOTIFICATION -> base.notificationCapsule.customIcon
+                BallSource.SUGGESTION -> base.clipboardBall.customIcon
+            }
+            val idleDimMs = when (source) {
+                BallSource.NOTIFICATION -> base.notificationCapsule.idleDimDelayMs
+                BallSource.SUGGESTION -> base.clipboardBall.idleDimDelayMs
+            }
             val synthesized = base.copy(
                 enabled = true,
                 tapAction = null,
-                idleDimDelayMs = 0L,
+                idleDimDelayMs = idleDimMs,
                 followHand = followHandEnabled,
                 portrait = portrait,
                 landscape = landscapePosition,
+                customIconPath = icon.path,
+                customIconScale = icon.scale,
+                customIconOffsetX = icon.offsetX,
+                customIconOffsetY = icon.offsetY,
+                customIconAlpha = icon.alpha,
+                // 内容球不提供「静置暂停动图」开关；保持动画播放。
+                customIconPauseWhenIdle = false,
             )
             ball.updateSettings(synthesized)
             bubble.updateSettings(base)

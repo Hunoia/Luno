@@ -59,6 +59,9 @@ fun NotificationCapsuleSettingsScreen(
     var localAutoHide by remember(capsule.autoHideMs) {
         mutableFloatStateOf(capsule.autoHideMs.toFloat())
     }
+    var localIdleDim by remember(capsule.idleDimDelayMs) {
+        mutableFloatStateOf(capsule.idleDimDelayMs.toFloat())
+    }
     var localSuppressMs by remember(capsule.dismissSuppressMs) {
         mutableFloatStateOf(capsule.dismissSuppressMs.toFloat())
     }
@@ -70,6 +73,8 @@ fun NotificationCapsuleSettingsScreen(
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
+    // 通知球自己的图标：未设置时仍显示通知应用图标 / 铃铛，不再继承主球。
+    val iconPicker = rememberBallIconPickerState()
     var notifAccessGranted by remember {
         mutableStateOf(facades.system.isNotificationAccessGranted(context))
     }
@@ -104,6 +109,16 @@ fun NotificationCapsuleSettingsScreen(
         title = stringResource(R.string.float_ball_notification_group),
         onBack = onBack,
         state = listState,
+        sheets = {
+            BallCustomIconSheet(
+                context = context,
+                picker = iconPicker,
+                current = capsule.customIcon,
+                onChange = { icon ->
+                    update { it.copy(notificationCapsule = it.notificationCapsule.copy(customIcon = icon)) }
+                },
+            )
+        },
     ) {
         if (!overlayGranted) {
             item(key = "permission") {
@@ -139,10 +154,30 @@ fun NotificationCapsuleSettingsScreen(
             }
         }
 
+        item(key = "icon") {
+            val hasIcon = capsule.customIcon.path != null
+            LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
+                BallCustomIconRows(
+                    context = context,
+                    icon = capsule.customIcon,
+                    startIndex = 0,
+                    rowCount = if (hasIcon) 2 else 1,
+                    onPick = iconPicker::pick,
+                    onReset = {
+                        resetBallIcon(scope, capsule.customIcon) { icon ->
+                            update {
+                                it.copy(notificationCapsule = it.notificationCapsule.copy(customIcon = icon))
+                            }
+                        }
+                    },
+                )
+            }
+        }
+
         item(key = "behavior") {
             val suppress = capsule.dismissSuppressEnabled
             // 抑制时长只在开关打开时出现：条数会变，段形按实际条数算。
-            val rowCount = if (suppress) 8 else 7
+            val rowCount = if (suppress) 9 else 8
             LunoGroup(title = stringResource(R.string.float_ball_notification_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_notification_enabled),
@@ -167,6 +202,24 @@ fun NotificationCapsuleSettingsScreen(
                     shape = segmentedShape(1, rowCount),
                 )
                 LunoTextSlider(
+                    value = localIdleDim,
+                    onValueChange = { value -> localIdleDim = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    idleDimDelayMs = localIdleDim.toLong(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_idle_dim_delay),
+                    valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
+                    valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
+                        FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
+                    shape = segmentedShape(2, rowCount),
+                )
+                LunoTextSlider(
                     value = localAutoHide,
                     onValueChange = { value -> localAutoHide = value },
                     onValueChangeFinished = {
@@ -182,7 +235,7 @@ fun NotificationCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.CapsuleAutoHideMsMin.toFloat()..
                         FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(2, rowCount),
+                    shape = segmentedShape(3, rowCount),
                 )
                 LunoTextSlider(
                     value = localTtl,
@@ -196,7 +249,7 @@ fun NotificationCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.InboxNotificationTtlMsMin.toFloat()..
                         FloatBallDefaults.InboxNotificationTtlMsMax.toFloat(),
-                    shape = segmentedShape(3, rowCount),
+                    shape = segmentedShape(4, rowCount),
                 )
                 LunoTextSlider(
                     value = localCapacity,
@@ -214,7 +267,7 @@ fun NotificationCapsuleSettingsScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(4, rowCount),
+                    shape = segmentedShape(5, rowCount),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_suppress_dismiss),
@@ -228,7 +281,7 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(5, rowCount),
+                    shape = segmentedShape(6, rowCount),
                 )
                 if (suppress) {
                     LunoTextSlider(
@@ -247,7 +300,7 @@ fun NotificationCapsuleSettingsScreen(
                         valueDisplay = { "${(it / 1000).toInt()} s" },
                         valueRange = FloatBallDefaults.CapsuleDismissSuppressMsMin.toFloat()..
                             FloatBallDefaults.CapsuleDismissSuppressMsMax.toFloat(),
-                        shape = segmentedShape(6, rowCount),
+                        shape = segmentedShape(7, rowCount),
                     )
                 }
                 LunoSettingsRow(
@@ -264,7 +317,7 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(if (suppress) 7 else 6, rowCount),
+                    shape = segmentedShape(if (suppress) 8 else 7, rowCount),
                     onClick = onNavToNotificationBlocklist,
                 )
             }
