@@ -59,12 +59,14 @@ import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.BallSource
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionItem
-import hunoia.luno.runtime.floatball.inbox.SuggestionKind
 import hunoia.luno.runtime.floatball.inbox.effectiveTtlMs
 import hunoia.luno.runtime.floatball.inbox.stableHash
 import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
 import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
+import hunoia.luno.runtime.floatball.suggestion.CompiledSuggestionRules
 import hunoia.luno.runtime.floatball.suggestion.SuggestionFactory
+import hunoia.luno.runtime.floatball.suggestion.SuggestionRuleEngine
+import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
@@ -127,6 +129,10 @@ class FloatBallService : Service() {
     /** 链接分发配置（随 actionSettings 流更新）：建议胶囊识别目标应用时读它。 */
     private var linkDispatch: LinkDispatchSettings = LinkDispatchSettings()
 
+    /** 建议规则编译结果：配置更新时重建，事件到达时只做匹配。 */
+    private var suggestionRules: CompiledSuggestionRules =
+        SuggestionRuleEngine.compile(emptyList())
+
     /** Surface 隐藏状态机：面板计数 + 临时隐藏，窗口动作仍由本服务负责。 */
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
@@ -173,10 +179,23 @@ class FloatBallService : Service() {
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
 
-    // ---- 跟随持机手（试验，仅主球） ----
+    // ---- 跟随持机手（三球各自独立） ----
+
+    /**
+     * 换边请求的唯一扇出点：命令口（触钮/正常手势，占绝大多数）与事件口共用。
+     *
+     * 主球与两个内容球各自按自己的开关决定是否接收；三者互不带动。
+     * 返回值 = 任一球接收了请求（命令口只用于日志/调试，动作不受它影响）。
+     */
+    private val followHandBroadcast: (Boolean) -> Boolean = { leftSide ->
+        val mainAccepted = requestFollowHandSwap(leftSide)
+        val notificationAccepted = notificationSlot.requestFollowHandSwap(leftSide)
+        val suggestionAccepted = suggestionSlot.requestFollowHandSwap(leftSide)
+        mainAccepted || notificationAccepted || suggestionAccepted
+    }
 
     private val touchSideSubscriber: (TouchButtonSideEvent) -> Unit = { event ->
-        requestFollowHandSwap(event.leftSide)
+        followHandBroadcast(event.leftSide)
     }
 
     private var pendingFollowHandSide: Boolean? = null
@@ -226,7 +245,7 @@ class FloatBallService : Service() {
         ensureImeObserver()
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
-        FloatBallCommand.requestFollowHandSwap = ::requestFollowHandSwap
+        FloatBallCommand.requestFollowHandSwap = followHandBroadcast
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
         hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
@@ -315,6 +334,7 @@ class FloatBallService : Service() {
                     settings = newSettings
                     visibilitySettings = config.buttonVisibility
                     linkDispatch = config.action.linkDispatch
+                    suggestionRules = SuggestionRuleEngine.compile(newSettings.clipboardBall.rules)
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(newSettings)
                     notificationSlot.updateSettings()
@@ -538,7 +558,7 @@ class FloatBallService : Service() {
         val settleKey = pulse.key ?: "${pulse.packageName}:${pulse.title}"
         if (notificationSlot.settleJobs.size >= SETTLE_JOBS_MAX) {
             Log.w(TAG, "settle jobs overflow, skip settle pkg=${pulse.packageName}")
-            routePulse(pulse)
+            scope.launch { routePulse(pulse) }
             return
         }
         notificationSlot.settleJobs.remove(settleKey)?.cancel()
@@ -557,20 +577,26 @@ class FloatBallService : Service() {
     }
 
     /**
-     * 验证码只进建议胶囊；建议胶囊关闭时回退到通知胶囊。
-     * 验证码通知不双弹，所以命中验证码后直接结束。
+     * 规则命中：全部进建议胶囊，且不再进通知胶囊（沿用旧验证码不双弹语义）。
+     * 建议胶囊关闭或规则表为空时回退到通知胶囊。
      */
-    private fun routePulse(pulse: NotificationPulse) {
+    private suspend fun routePulse(pulse: NotificationPulse) {
         val key = pulse.key ?: "${pulse.packageName}:${pulse.title}"
-        val code = SuggestionFactory.verificationCode(
-            pulse = pulse,
-            sourceKey = key,
-            nowMs = SystemClock.elapsedRealtime(),
-            ttlMs = FloatBallDefaults.CodeTtlMs,
-        )
-        if (code != null && settings.clipboardBall.enabled) {
-            if (!suggestionSlot.isDismissed(code.sourceKey)) {
-                suggestionSlot.enqueue(code, makeCurrent = !suggestionSlot.manualSession)
+        val items = if (settings.clipboardBall.enabled && !suggestionRules.isEmpty) {
+            withContext(Dispatchers.Default) {
+                SuggestionFactory.fromNotification(
+                    pulse = pulse,
+                    rules = suggestionRules,
+                    sourceKey = key,
+                    nowMs = SystemClock.elapsedRealtime(),
+                )
+            }
+        } else {
+            emptyList()
+        }
+        if (items.isNotEmpty()) {
+            if (!suggestionSlot.isDismissed(key)) {
+                suggestionSlot.enqueueAll(items, makeCurrent = !suggestionSlot.manualSession)
             }
             return
         }
@@ -603,7 +629,7 @@ class FloatBallService : Service() {
     private suspend fun readClip(): ClipboardContent? = ClipboardCenter.readCurrent()
 
     /**
-     * 剪贴板变化：只识别链接，不再构造普通文本/图片预览。
+     * 剪贴板变化：先跑自定义规则，再补内置链接识别。
      * 返回值 = 这次变化已处理（可推进已读基线）。
      */
     private suspend fun onClipboardContent(content: ClipboardContent): Boolean {
@@ -616,10 +642,18 @@ class FloatBallService : Service() {
         }
         val now = SystemClock.elapsedRealtime()
         val sourceKey = stableHash(content.text)
-        val item = SuggestionFactory.link(content.text, sourceKey, now) ?: return true
+        val items = withContext(Dispatchers.Default) {
+            SuggestionFactory.fromClipboard(
+                text = content.text,
+                rules = suggestionRules,
+                sourceKey = sourceKey,
+                nowMs = now,
+            )
+        }
+        if (items.isEmpty()) return true
         if (suggestionSlot.isDismissed(sourceKey)) return true
-        suggestionSlot.enqueue(item, makeCurrent = !suggestionSlot.manualSession)
-        resolveSuggestionTarget(item)
+        suggestionSlot.enqueueAll(items, makeCurrent = !suggestionSlot.manualSession)
+        items.forEach(::resolveSuggestionTarget)
         return true
     }
 
@@ -690,30 +724,29 @@ class FloatBallService : Service() {
             SuggestionAction.IGNORE -> suggestionSlot.removeAndAdvance(itemId)
             SuggestionAction.COPY -> copySuggestion(item)
             SuggestionAction.OPEN -> openSuggestionLink(item)
-            SuggestionAction.SHARE -> shareSuggestionLink(item)
+            SuggestionAction.SHARE -> shareSuggestion(item)
         }
     }
 
     private fun copySuggestion(item: SuggestionItem) {
         scope.launch(Dispatchers.IO) {
-            val ok = when (item.kind) {
-                SuggestionKind.CODE -> {
-                    val code = item.code ?: return@launch
-                    // 敏感 + 不入历史：验证码只能待在内存剪贴板里。
-                    ClipboardCenter.write(
-                        content = ClipboardContent.Text(code, sensitive = true),
-                        label = null,
-                        record = false,
-                    )
-                }
-
-                SuggestionKind.LINK -> {
-                    val url = item.primaryUrl ?: return@launch
-                    ClipboardCenter.write(ClipboardContent.Text(url), label = "链接")
-                }
+            val value = if (item.ruleId == null) {
+                item.primaryUrl ?: item.text
+            } else {
+                item.text
+            }
+            val ok = if (item.sensitive) {
+                // 敏感 + 不入历史：规则捕获的验证码/取件码只能待在内存剪贴板里。
+                ClipboardCenter.write(
+                    content = ClipboardContent.Text(value, sensitive = true),
+                    label = null,
+                    record = false,
+                )
+            } else {
+                ClipboardCenter.write(ClipboardContent.Text(value), label = item.title)
             }
             if (!ok) {
-                Log.w(TAG, "suggestion copy failed kind=${item.kind}")
+                Log.w(TAG, "suggestion copy failed sensitive=${item.sensitive}")
                 showToast(getString(R.string.suggestion_copy_failed))
                 return@launch
             }
@@ -745,7 +778,7 @@ class FloatBallService : Service() {
             return
         }
         if (linkDispatch.capsuleTap == LinkTapMode.SHARE) {
-            shareSuggestionLink(item)
+            shareSuggestion(item)
             return
         }
         scope.launch {
@@ -781,13 +814,17 @@ class FloatBallService : Service() {
         onResult(launched)
     }
 
-    private fun shareSuggestionLink(item: SuggestionItem) {
-        val urls = item.urls
-        if (urls.isEmpty()) return
+    private fun shareSuggestion(item: SuggestionItem) {
+        val value = if (item.ruleId == null && item.urls.isNotEmpty()) {
+            item.urls.joinToString("\n")
+        } else {
+            item.text
+        }
+        if (value.isBlank()) return
         val launched = runCatching {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, urls.joinToString("\n"))
+                putExtra(Intent.EXTRA_TEXT, value)
             }
             startActivity(
                 Intent.createChooser(send, null)
@@ -983,13 +1020,30 @@ class FloatBallService : Service() {
         }
     }
 
-    private fun persistContentBallPosition(source: BallSource, x: Float, y: Float) {
+    /**
+     * 落盘内容球位置。
+     *
+     * [side] 为 null 表示手动拖动：按 x 判定左右并写对应高度锚点；
+     * 换边落定时显式传入侧别，避免浮点误差把锚点写到另一侧。
+     */
+    private fun persistContentBallPosition(
+        source: BallSource,
+        x: Float,
+        y: Float,
+        side: Boolean? = null,
+    ) {
         val landscape = isLandscapeNow()
+        val left = side ?: (x < 0.5f)
         val base = when (source) {
             BallSource.NOTIFICATION -> settings.notificationBall(landscape)
             BallSource.SUGGESTION -> settings.suggestionBall(landscape)
         }
-        val updated = base.copy(x = x, y = y)
+        val updated = base.copy(
+            x = x,
+            y = y,
+            leftAnchorY = if (left) y else base.leftAnchorY,
+            rightAnchorY = if (!left) y else base.rightAnchorY,
+        )
         settings = if (source == BallSource.NOTIFICATION) {
             settings.copy(
                 notificationBallPosition = settings.notificationBallPosition
@@ -1010,7 +1064,12 @@ class FloatBallService : Service() {
                         BallSource.NOTIFICATION -> floatBall.notificationBall(landscape)
                         BallSource.SUGGESTION -> floatBall.suggestionBall(landscape)
                     }
-                    val position = baseCurrent.copy(x = x, y = y)
+                    val position = baseCurrent.copy(
+                        x = x,
+                        y = y,
+                        leftAnchorY = if (left) y else baseCurrent.leftAnchorY,
+                        rightAnchorY = if (!left) y else baseCurrent.rightAnchorY,
+                    )
                     current.copy(
                         floatBall = if (source == BallSource.NOTIFICATION) {
                             floatBall.copy(
@@ -1042,11 +1101,11 @@ class FloatBallService : Service() {
             // 不探头、不补播：队列与徽标保留（决策 9）。
             notificationSlot.hideCapsule()
             suggestionSlot.hideCapsule()
-            if (suggestionSlot.hasUnexpiredCode()) suggestionSlot.pendingCodePop = true
+            if (suggestionSlot.hasUnexpiredSensitive()) suggestionSlot.pendingSensitivePop = true
         } else {
             ensureImeObserver()
             seedClipboardBaseline()
-            if (suggestionSlot.consumePendingCodePop()) suggestionSlot.showCurrent()
+            if (suggestionSlot.consumePendingSensitivePop()) suggestionSlot.showCurrent()
         }
         ensureClipboardPoller()
     }
@@ -1329,12 +1388,27 @@ class FloatBallService : Service() {
         /** 建议滑掉后的同源重弹抑制（仅建议）。 */
         val dismissedSuggestionKeys = LinkedHashMap<String, Long>()
 
-        var pendingCodePop = false
+        var pendingSensitivePop = false
+
+        /** 跟手换边：球未显示/胶囊展开时的待处理侧别与重试任务。 */
+        var pendingFollowHandSide: Boolean? = null
+        var followHandRetryJob: Job? = null
+
+        /** 通知球当前显示的应用图标包名；null = 铃铛。 */
+        var notificationIconPackage: String? = null
+        var notificationIconSizePx = 0
+        var notificationIconJob: Job? = null
 
         val enabled: Boolean
             get() = when (source) {
                 BallSource.NOTIFICATION -> settings.notificationCapsule.enabled
                 BallSource.SUGGESTION -> settings.clipboardBall.enabled
+            }
+
+        val followHandEnabled: Boolean
+            get() = when (source) {
+                BallSource.NOTIFICATION -> settings.notificationCapsule.followHand
+                BallSource.SUGGESTION -> settings.clipboardBall.followHand
             }
 
         val visibilityTarget: String
@@ -1409,7 +1483,7 @@ class FloatBallService : Service() {
             updateSettings()
         }
 
-        /** 合成内容球设置：固定图标、无单击动作、无静置变暗、不跟手。 */
+        /** 合成内容球设置：固定图标、无单击动作、无静置变暗；跟手按各自开关。 */
         fun updateSettings() {
             val base = settings
             val portrait = when (source) {
@@ -1424,12 +1498,17 @@ class FloatBallService : Service() {
                 enabled = true,
                 tapAction = null,
                 idleDimDelayMs = 0L,
-                followHand = false,
+                followHand = followHandEnabled,
                 portrait = portrait,
                 landscape = landscapePosition,
             )
             ball.updateSettings(synthesized)
             bubble.updateSettings(base)
+            val iconSize = DensityProvider.dp2px(base.sizeDp)
+            if (source == BallSource.NOTIFICATION && iconSize != notificationIconSizePx) {
+                notificationIconSizePx = iconSize
+                refreshNotificationIcon(force = true)
+            }
         }
 
         fun applyConfig(next: BallInboxConfig) {
@@ -1446,7 +1525,165 @@ class FloatBallService : Service() {
             refreshBadge()
         }
 
-        fun enqueue(item: BallItem, makeCurrent: Boolean): BallInboxChange {
+        /** 通知球图标跟队列最新一条走；[force] 用于球大小变化后按新尺寸重取。 */
+        fun refreshNotificationIcon(force: Boolean = false) {
+            if (source != BallSource.NOTIFICATION) return
+            val pkg = (state.items.firstOrNull() as? NotificationItem)?.packageName
+            if (!force && pkg == notificationIconPackage && notificationIconJob?.isActive != true) {
+                return
+            }
+            notificationIconPackage = pkg
+            notificationIconJob?.cancel()
+            notificationIconJob = null
+            if (pkg == null) {
+                ball.setFixedIcon(Icons.Default.Notifications)
+                return
+            }
+            val sizePx = notificationIconSizePx.takeIf { it > 0 }
+                ?: DensityProvider.dp2px(settings.sizeDp)
+            notificationIconJob = scope.launch(Dispatchers.IO) {
+                SearchIconCache.ensureAll(
+                    this@FloatBallService,
+                    listOf(SearchIconCache.Key(pkg)),
+                    sizePx,
+                )
+                val bitmap = SearchIconCache.get(pkg, sizePx)
+                withContext(Dispatchers.Main.immediate) {
+                    if (notificationIconPackage == pkg) {
+                        ball.setFixedIcon(bitmap ?: Icons.Default.Notifications)
+                    }
+                }
+            }
+        }
+
+        // ---- 跟手换边（每个内容球独立） ----
+
+        /**
+         * 请求换到 [leftSide] 侧。[showing] 期间只挂起，收胶囊时结算；
+         * 球未显示时直接改落盘侧别。返回是否接收（跟手关闭 / 来源禁用 = false）。
+         */
+        fun requestFollowHandSwap(leftSide: Boolean): Boolean {
+            if (!followHandEnabled || !enabled) return false
+            if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+                scope.launch { requestFollowHandSwap(leftSide) }
+                return true
+            }
+            pendingFollowHandSide = leftSide
+            tryFollowHandSwap()
+            return true
+        }
+
+        private fun tryFollowHandSwap() {
+            val side = pendingFollowHandSide ?: return
+            if (!followHandEnabled || !enabled) {
+                pendingFollowHandSide = null
+                return
+            }
+            // 胶囊展开时先别把球从手指下挪走；收起时再结算。
+            if (showing) return
+            if (side == currentSide()) {
+                pendingFollowHandSide = null
+                return
+            }
+            // 锁屏/未挂窗时不做传送动画：直接改落盘侧别，下一次出现就在手势侧。
+            if (!visible || isScreenLocked()) {
+                persistContentBallSide(side)
+                pendingFollowHandSide = null
+                return
+            }
+            if (ball.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) {
+                followHandRetryJob?.cancel()
+                followHandRetryJob = null
+            } else {
+                scheduleFollowHandRetry()
+            }
+        }
+
+        private fun scheduleFollowHandRetry() {
+            if (followHandRetryJob?.isActive == true) return
+            followHandRetryJob = scope.launch {
+                var attempts = 0
+                while (attempts < FOLLOW_HAND_RETRY_MAX) {
+                    delay(FOLLOW_HAND_RETRY_MS)
+                    if (pendingFollowHandSide == null) return@launch
+                    if (!followHandEnabled || !enabled) {
+                        pendingFollowHandSide = null
+                        return@launch
+                    }
+                    if (showing) return@launch
+                    val side = pendingFollowHandSide ?: return@launch
+                    if (side == currentSide()) {
+                        pendingFollowHandSide = null
+                        return@launch
+                    }
+                    if (!visible || isScreenLocked()) {
+                        persistContentBallSide(side)
+                        pendingFollowHandSide = null
+                        return@launch
+                    }
+                    if (ball.repositionTo(side, followHandAnchorY(side)) {
+                            onFollowHandLanded(side)
+                        }
+                    ) {
+                        return@launch
+                    }
+                    attempts++
+                }
+                pendingFollowHandSide = null
+            }
+        }
+
+        private fun currentSide(): Boolean {
+            if (visible) return ball.isOnLeft()
+            return savedBallPosition().x < 0.5f
+        }
+
+        private fun savedBallPosition() = when (source) {
+            BallSource.NOTIFICATION -> settings.notificationBall(isLandscapeNow())
+            BallSource.SUGGESTION -> settings.suggestionBall(isLandscapeNow())
+        }
+
+        private fun followHandAnchorY(side: Boolean): Float {
+            val position = savedBallPosition()
+            return (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
+        }
+
+        private fun onFollowHandLanded(side: Boolean) {
+            if (pendingFollowHandSide == side) pendingFollowHandSide = null
+            val (px, py) = ball.currentPosition()
+            val width = DensityProvider.screenWidthPx
+            val height = DensityProvider.screenHeightPx
+            if (width <= 0 || height <= 0) return
+            persistContentBallPosition(source, px / width, py / height, side)
+        }
+
+        /** 球未显示时直接改落盘侧别：下一次出现就在手势侧。 */
+        private fun persistContentBallSide(side: Boolean) {
+            val width = DensityProvider.screenWidthPx
+            val height = DensityProvider.screenHeightPx
+            if (width <= 0 || height <= 0) return
+            val ballPx = DensityProvider.dp2px(settings.sizeDp)
+            val x = BallPlacement.edgeX(side, width, ballPx) / width
+            persistContentBallPosition(source, x, followHandAnchorY(side), side)
+        }
+
+        /**
+         * 批量入队：按传入顺序倒序逐个 reduce，保证第 1 条在最上面。
+         * 只在最后 show 一次，避免中间项闪一下。
+         */
+        fun enqueueAll(items: List<BallItem>, makeCurrent: Boolean) {
+            if (items.isEmpty()) return
+            for (index in items.indices.reversed()) {
+                enqueue(items[index], makeCurrent = makeCurrent && index == 0, show = false)
+            }
+            showIfNeeded()
+        }
+
+        fun enqueue(
+            item: BallItem,
+            makeCurrent: Boolean,
+            show: Boolean = true,
+        ): BallInboxChange {
             val now = SystemClock.elapsedRealtime()
             val change = BallInboxReducer.reduce(
                 state,
@@ -1467,8 +1704,9 @@ class FloatBallService : Service() {
                 scheduleTtl()
                 return change
             }
-            if (item is SuggestionItem && item.kind == SuggestionKind.CODE && isScreenLocked()) {
-                pendingCodePop = true
+            // 敏感建议（规则捕获的非链接文本）锁屏时不自动弹，解锁后补播。
+            if (item is SuggestionItem && item.sensitive && isScreenLocked()) {
+                pendingSensitivePop = true
             }
             if (manualSession || !allowed) {
                 if (showing && manualSession) {
@@ -1478,8 +1716,14 @@ class FloatBallService : Service() {
                 scheduleTtl()
                 return change
             }
-            showCurrent()
+            if (show) showIfNeeded()
             return change
+        }
+
+        /** 有内容且不在手动会话时，保证胶囊处于展示态。 */
+        private fun showIfNeeded() {
+            if (state.current == null || manualSession || !allowed) return
+            showCurrent()
         }
 
         fun showCurrent() {
@@ -1517,6 +1761,7 @@ class FloatBallService : Service() {
                 ball.setCapsuleActive(false)
                 ball.setIdleSuppressed(false)
                 refreshBadge()
+                tryFollowHandSwap()
                 return
             }
             showing = false
@@ -1526,12 +1771,16 @@ class FloatBallService : Service() {
                 // 胶囊收起后清掉已过期项：验证码过期即失，不留在球徽标里。
                 prune()
                 refreshWindows()
+                // 收起后才能安全换边；挂起的手势侧别在这里结算。
+                tryFollowHandSwap()
             }
         }
 
         fun refreshBadge() {
             val badge = state.badge
             ball.setBadge(if (showing || !badge.visible) null else badge)
+            // 通知球球面跟队列最新一条：所有队列变更最终都会走到这里。
+            refreshNotificationIcon()
         }
 
         fun scheduleAutoHide() {
@@ -1693,7 +1942,7 @@ class FloatBallService : Service() {
             bubble.showCopied(item.id)
             scope.launch {
                 delay(COPIED_FEEDBACK_MS)
-                if (item.kind == SuggestionKind.CODE) {
+                if (item.sensitive) {
                     if (state.currentId == item.id) removeAndAdvance(item.id)
                     else if (state.items.any { it.id == item.id }) bubble.clearCopied()
                 } else if (state.items.any { it.id == item.id }) {
@@ -1727,17 +1976,32 @@ class FloatBallService : Service() {
             return BubbleAnchor(left, top, left + size, top + size)
         }
 
-        fun hasUnexpiredCode(): Boolean {
-            val item = state.current as? SuggestionItem ?: return false
-            if (item.kind != SuggestionKind.CODE) return false
-            val age = SystemClock.elapsedRealtime() - item.receivedAtElapsedMs
-            return age in 0 until item.effectiveTtlMs(config)
+        /** 锁屏期间是否还有未过期的敏感建议：解锁后据此补播。 */
+        fun hasUnexpiredSensitive(): Boolean {
+            val now = SystemClock.elapsedRealtime()
+            return state.items.any { item ->
+                item is SuggestionItem && item.sensitive &&
+                    (now - item.receivedAtElapsedMs) in 0 until item.effectiveTtlMs(config)
+            }
         }
 
-        fun consumePendingCodePop(): Boolean {
-            if (!pendingCodePop) return false
-            pendingCodePop = false
-            return hasUnexpiredCode()
+        fun consumePendingSensitivePop(): Boolean {
+            if (!pendingSensitivePop) return false
+            pendingSensitivePop = false
+            val now = SystemClock.elapsedRealtime()
+            val target = state.items.firstOrNull { item ->
+                item is SuggestionItem && item.sensitive &&
+                    (now - item.receivedAtElapsedMs) in 0 until item.effectiveTtlMs(config)
+            } ?: return false
+            if (target.id != state.currentId) {
+                state = BallInboxReducer.reduce(
+                    state,
+                    BallInboxAction.Select(target.id),
+                    now,
+                    config,
+                ).state
+            }
+            return true
         }
 
         fun isDismissed(key: String?): Boolean {

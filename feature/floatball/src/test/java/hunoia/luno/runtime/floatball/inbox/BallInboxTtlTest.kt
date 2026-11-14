@@ -35,7 +35,6 @@ class BallInboxTtlTest {
     )
 
     private fun clip(text: String, at: Long) = SuggestionItem(
-        kind = SuggestionKind.LINK,
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",
@@ -63,13 +62,11 @@ class BallInboxTtlTest {
     @Test
     fun `fixed code ttl outlives the queue default`() {
         val code = SuggestionItem(
-            kind = SuggestionKind.CODE,
             sourceKey = "k",
             title = "验证码",
             text = "1234",
             receivedAtElapsedMs = 0L,
             ttlMs = 300_000L,
-            code = "1234",
         )
         val state = add(BallInboxState(), code, nowMs = 0).state
 

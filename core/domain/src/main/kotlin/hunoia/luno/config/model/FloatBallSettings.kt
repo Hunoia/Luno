@@ -116,6 +116,8 @@ fun FloatBallSettings.withPosition(
 @Keep
 data class NotificationCapsuleSettings(
     val enabled: Boolean = false,
+    /** 通知球独立跟手：手势碰哪侧，通知球就挪到哪侧。 */
+    val followHand: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
     /** 应用黑名单：这些包的通知不弹胶囊。 */
@@ -135,6 +137,10 @@ data class NotificationCapsuleSettings(
 @Keep
 data class ClipboardBallSettings(
     val enabled: Boolean = false,
+    /** 建议球独立跟手：手势碰哪侧，建议球就挪到哪侧。 */
+    val followHand: Boolean = false,
+    /** 通用「文本 → 建议」规则表；空表 = 关闭规则识别（内置链接识别仍保留）。 */
+    val rules: List<SuggestionRule> = SuggestionRuleDefaults.rules,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
     /**
@@ -225,9 +231,6 @@ object FloatBallDefaults {
     const val InboxSuggestionTtlMs = 300_000L
     const val InboxSuggestionTtlMsMin = 60_000L
     const val InboxSuggestionTtlMsMax = 1_800_000L
-
-    /** 验证码固定保存 5 分钟：不提供设置项。 */
-    const val CodeTtlMs = 300_000L
 
     /** 三球默认落点：右缘纵向错开。 */
     const val NotificationBallY = 0.30f

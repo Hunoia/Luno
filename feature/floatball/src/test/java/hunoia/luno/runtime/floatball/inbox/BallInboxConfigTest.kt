@@ -30,13 +30,11 @@ class BallInboxConfigTest {
     fun `item ttl overrides the source default`() {
         val config = BallInboxConfig(notificationTtlMs = 2_000L, suggestionTtlMs = 5_000L)
         val code = SuggestionItem(
-            kind = SuggestionKind.CODE,
             sourceKey = "k",
             title = "验证码",
             text = "1234",
             receivedAtElapsedMs = 0L,
             ttlMs = 300_000L,
-            code = "1234",
         )
 
         assertEquals(300_000L, code.effectiveTtlMs(config))

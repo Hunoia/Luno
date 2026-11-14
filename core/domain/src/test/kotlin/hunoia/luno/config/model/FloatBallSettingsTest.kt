@@ -76,4 +76,46 @@ class FloatBallSettingsTest {
 
         assertEquals(settings, decoded)
     }
+
+    @Test
+    fun `legacy settings without rules fall back to the default code rules`() {
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            """
+            {
+              "clipboardBall": { "enabled": true }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            SuggestionRuleDefaults.rules.map { it.id },
+            decoded.clipboardBall.rules.map { it.id },
+        )
+    }
+
+    @Test
+    fun `suggestion rules round trip and support upsert remove`() {
+        val rule = SuggestionRule(
+            id = "custom",
+            name = "取件码",
+            pattern = "取件码\\s*(\\S+)",
+            action = SuggestionRuleAction.SHARE,
+            enabled = false,
+        )
+        val settings = FloatBallSettings(
+            clipboardBall = ClipboardBallSettings(rules = listOf(rule)),
+        )
+
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            JsonSerializer.encodeToString(settings),
+        )
+
+        assertEquals(listOf(rule), decoded.clipboardBall.rules)
+        val updated = decoded.clipboardBall
+            .upsertRule(rule.copy(name = "已改名"))
+            .upsertRule(SuggestionRule(id = "new", pattern = "x"))
+        assertEquals(listOf("custom", "new"), updated.rules.map { it.id })
+        assertEquals("已改名", updated.rules.first().name)
+        assertEquals(listOf("new"), updated.removeRule("custom").rules.map { it.id })
+    }
 }

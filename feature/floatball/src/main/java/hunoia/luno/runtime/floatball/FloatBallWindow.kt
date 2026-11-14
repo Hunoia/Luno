@@ -32,8 +32,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -91,6 +94,20 @@ class FloatBallWindow(
 
     /** 当前朝向：决定读 portrait 还是 landscape 落点。 */
     private var landscape = false
+
+    /**
+     * 球面固定图标：ImageVector / TextIcon / ImageBitmap。
+     *
+     * Compose 读快照状态；通知球的应用图标会在运行期替换（[setFixedIcon]），
+     * 不能再用不可变的构造参数。null = 按单击动作取图标。
+     */
+    private var fixedIconState by mutableStateOf(fixedIcon)
+
+    /** 运行期替换球面图标；通知球用来显示最新通知的应用图标。 */
+    fun setFixedIcon(icon: Any?) {
+        if (fixedIconState === icon || fixedIconState == icon) return
+        fixedIconState = icon
+    }
 
     private val arbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onDragged(dx, dy) },
@@ -950,7 +967,7 @@ class FloatBallWindow(
                     .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = fixedIcon
+                val icon = fixedIconState
                     ?: actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
                 when (icon) {
                     is ImageVector -> Image(
@@ -958,6 +975,15 @@ class FloatBallWindow(
                         contentDescription = null,
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                         modifier = Modifier.size(size / 2),
+                    )
+
+                    is ImageBitmap -> Image(
+                        bitmap = icon,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
                     )
 
                     is TextIcon -> TextIconGlyph(

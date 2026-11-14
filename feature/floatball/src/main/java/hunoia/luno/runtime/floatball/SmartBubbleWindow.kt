@@ -74,7 +74,7 @@ import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionItem
-import hunoia.luno.runtime.floatball.inbox.SuggestionKind
+import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.toMarkColor
@@ -1034,27 +1034,26 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     @Composable
-    private fun suggestionTitle(item: SuggestionItem): String = when (item.kind) {
-        SuggestionKind.CODE -> stringResource(R.string.suggestion_code)
-        SuggestionKind.LINK -> item.targetLabel ?: stringResource(R.string.suggestion_link)
-    }
-
-    @Composable
-    private fun suggestionBody(item: SuggestionItem): String = when (item.kind) {
-        SuggestionKind.CODE -> item.code.orEmpty()
-        SuggestionKind.LINK -> {
-            if (item.linkCount > 1) {
-                stringResource(R.string.suggestion_link_count, item.linkCount)
-            } else {
-                item.primaryUrl.orEmpty()
-            }
+    private fun suggestionTitle(item: SuggestionItem): String {
+        if (item.ruleId == null) {
+            return item.targetLabel ?: stringResource(R.string.suggestion_link)
         }
+        return item.title.ifBlank { stringResource(R.string.suggestion_generic) }
     }
 
     @Composable
-    private fun suggestionActionLabel(item: SuggestionItem): String = when (item.kind) {
-        SuggestionKind.CODE -> stringResource(R.string.suggestion_copy)
-        SuggestionKind.LINK -> item.targetLabel?.let {
+    private fun suggestionBody(item: SuggestionItem): String {
+        if (item.ruleId == null && item.linkCount > 1) {
+            return stringResource(R.string.suggestion_link_count, item.linkCount)
+        }
+        return item.text
+    }
+
+    @Composable
+    private fun suggestionActionLabel(item: SuggestionItem): String = when (item.action) {
+        SuggestionPrimaryAction.COPY -> stringResource(R.string.suggestion_copy)
+        SuggestionPrimaryAction.SHARE -> stringResource(R.string.suggestion_share)
+        SuggestionPrimaryAction.OPEN -> item.targetLabel?.let {
             stringResource(R.string.suggestion_open_target, it)
         } ?: stringResource(R.string.suggestion_open)
     }
@@ -1076,20 +1075,26 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         SuggestionAction.CLOSE -> Icons.Default.Close
     }
 
-    private fun menuActions(item: SuggestionItem): List<SuggestionAction> = when (item.kind) {
-        SuggestionKind.CODE -> listOf(
-            SuggestionAction.COPY,
-            SuggestionAction.IGNORE,
-            SuggestionAction.CLOSE,
-        )
+    private fun menuActions(item: SuggestionItem): List<SuggestionAction> {
+        val actions = mutableListOf<SuggestionAction>()
+        when (item.action) {
+            SuggestionPrimaryAction.OPEN -> if (item.urls.isNotEmpty()) {
+                actions += SuggestionAction.OPEN
+            }
 
-        SuggestionKind.LINK -> listOf(
-            SuggestionAction.OPEN,
-            SuggestionAction.COPY,
-            SuggestionAction.SHARE,
-            SuggestionAction.IGNORE,
-            SuggestionAction.CLOSE,
-        )
+            SuggestionPrimaryAction.SHARE -> actions += SuggestionAction.SHARE
+            SuggestionPrimaryAction.COPY -> Unit
+        }
+        if (SuggestionAction.COPY !in actions) actions += SuggestionAction.COPY
+        if (item.urls.isNotEmpty() && SuggestionAction.SHARE !in actions) {
+            actions += SuggestionAction.SHARE
+        }
+        if (item.urls.isNotEmpty() && SuggestionAction.OPEN !in actions) {
+            actions += SuggestionAction.OPEN
+        }
+        actions += SuggestionAction.IGNORE
+        actions += SuggestionAction.CLOSE
+        return actions
     }
 
     @Composable
@@ -1099,14 +1104,14 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         size: androidx.compose.ui.unit.Dp,
     ) {
         val target = item.targetPackage
-        if (item.kind == SuggestionKind.LINK && target != null) {
+        if (target != null) {
             AppIcon(packageName = target, tint = contentColor, size = size)
         } else {
             Icon(
-                imageVector = if (item.kind == SuggestionKind.CODE) {
-                    Icons.Default.Lock
-                } else {
-                    Icons.Default.Link
+                imageVector = when {
+                    item.sensitive -> Icons.Default.Lock
+                    item.urls.isNotEmpty() -> Icons.Default.Link
+                    else -> Icons.Default.ContentCopy
                 },
                 contentDescription = null,
                 tint = contentColor.copy(alpha = 0.9f),
@@ -1192,8 +1197,9 @@ internal enum class SuggestionAction {
     CLOSE,
 }
 
-/** 建议项的主动作：验证码复制，链接打开。 */
-internal fun SuggestionItem.primaryAction(): SuggestionAction = when (kind) {
-    SuggestionKind.CODE -> SuggestionAction.COPY
-    SuggestionKind.LINK -> SuggestionAction.OPEN
+/** 建议项的主动作：由规则动作决定；创建阶段已把无链接的 OPEN 降级为 COPY。 */
+internal fun SuggestionItem.primaryAction(): SuggestionAction = when (action) {
+    SuggestionPrimaryAction.COPY -> SuggestionAction.COPY
+    SuggestionPrimaryAction.OPEN -> SuggestionAction.OPEN
+    SuggestionPrimaryAction.SHARE -> SuggestionAction.SHARE
 }

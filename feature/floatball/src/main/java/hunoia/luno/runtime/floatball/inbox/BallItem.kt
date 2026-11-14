@@ -50,32 +50,37 @@ internal data class NotificationItem(
     override fun withPinned(pinned: Boolean): BallItem = this
 }
 
-/** 建议类型：验证码只提供「复制」；链接提供「打开 / 复制 / 分享」。 */
-internal enum class SuggestionKind {
-    CODE,
-    LINK,
+/** 建议主动作：由规则的 action 决定，OPEN 捕获不到链接时创建阶段已降级为 COPY。 */
+internal enum class SuggestionPrimaryAction {
+    COPY,
+    OPEN,
+    SHARE,
 }
 
 /**
- * 建议项（验证码或链接）。
+ * 建议项（规则命中或内置链接识别）。
  *
  * [sourceKey] 是来源去重键（通知 key / 剪贴板内容指纹），用于「滑掉后短时间同源抑制重弹」。
- * 验证码正文可能敏感：本类的 [toString] 刻意只保留类型与哈希 ID，不输出正文。
+ * 捕获文本可能敏感：本类的 [toString] 刻意只保留类型与哈希 ID，不输出正文。
  */
 internal data class SuggestionItem(
-    val kind: SuggestionKind,
     val sourceKey: String,
     override val title: String,
     override val text: String,
     override val receivedAtElapsedMs: Long,
     override val ttlMs: Long? = null,
-    val code: String? = null,
+    /** null = 内置链接识别；非 null = 命中的规则。 */
+    val ruleId: String? = null,
+    val action: SuggestionPrimaryAction = SuggestionPrimaryAction.COPY,
+    /** 非链接捕获结果按敏感文本处理：复制不入历史、锁屏不自动弹。 */
+    val sensitive: Boolean = false,
     val urls: List<String> = emptyList(),
     val targetPackage: String? = null,
     val targetLabel: String? = null,
     override val pinned: Boolean = false,
 ) : BallItem {
-    override val id: String = "sug:${stableHash("$kind|$sourceKey|${code ?: urls.joinToString("|")}")}"
+    override val id: String =
+        "sug:${stableHash("${ruleId ?: "link"}|$sourceKey|$text|${urls.joinToString("|")}")}"
     override val source: BallSource = BallSource.SUGGESTION
 
     val primaryUrl: String? get() = urls.firstOrNull()
@@ -83,9 +88,9 @@ internal data class SuggestionItem(
 
     override fun withPinned(pinned: Boolean): BallItem = copy(pinned = pinned)
 
-    /** 防泄露：验证码与链接正文不进日志。 */
+    /** 防泄露：规则捕获文本与链接正文不进日志。 */
     override fun toString(): String =
-        "SuggestionItem(kind=$kind, id=$id, sourceKey=${sourceKey.take(8)}, pinned=$pinned)"
+        "SuggestionItem(rule=${ruleId ?: "link"}, id=$id, sourceKey=${sourceKey.take(8)}, pinned=$pinned)"
 }
 
 /** 内容指纹哈希（sha-256 前 16 位十六进制），稳定且不落原文。 */
