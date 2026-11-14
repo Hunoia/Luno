@@ -161,7 +161,7 @@
         errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.2-bin.zip"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/wrapper/gradle-wrapper.properties"
+            file="$HOME/Amyfile/Luno/gradle/wrapper/gradle-wrapper.properties"
             line="4"
             column="17"/>
     </issue>
@@ -172,7 +172,7 @@
         errorLine1="collection = &quot;1.5.0&quot;"
         errorLine2="             ~~~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/libs.versions.toml"
+            file="$HOME/Amyfile/Luno/gradle/libs.versions.toml"
             line="9"
             column="14"/>
     </issue>
@@ -183,7 +183,7 @@
         errorLine1="androidx-savedstate = { group = &quot;androidx.savedstate&quot;, name = &quot;savedstate&quot;, version = &quot;1.3.1&quot; }"
         errorLine2="                                                                                      ~~~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/libs.versions.toml"
+            file="$HOME/Amyfile/Luno/gradle/libs.versions.toml"
             line="37"
             column="87"/>
     </issue>
@@ -194,7 +194,7 @@
         errorLine1="kotlinSerialization = &quot;1.12.0&quot;"
         errorLine2="                      ~~~~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/libs.versions.toml"
+            file="$HOME/Amyfile/Luno/gradle/libs.versions.toml"
             line="7"
             column="23"/>
     </issue>
@@ -205,7 +205,7 @@
         errorLine1="hiddenapibypass = &quot;6.1&quot;"
         errorLine2="                  ~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/libs.versions.toml"
+            file="$HOME/Amyfile/Luno/gradle/libs.versions.toml"
             line="18"
             column="19"/>
     </issue>
@@ -216,7 +216,7 @@
         errorLine1="orgJson = &quot;20240303&quot;"
         errorLine2="          ~~~~~~~~~~">
         <location
-            file="$HOME/Amyfile/Luno-dev-ws/gradle/libs.versions.toml"
+            file="$HOME/Amyfile/Luno/gradle/libs.versions.toml"
             line="20"
             column="11"/>
     </issue>
@@ -263,17 +263,6 @@
             file="src/main/java/hunoia/luno/ui/settings/backup/AutoBackupSettingsScreen.kt"
             line="72"
             column="19"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="                summary.failed > 0 -> showToast(context.getString(R.string.privileged_grant_partial, summary.failed))"
-        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/ui/settings/permission/PrivilegedPermissionsScreen.kt"
-            line="167"
-            column="49"/>
     </issue>
 
     <issue
@@ -382,7 +371,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values-en/strings.xml"
-            line="82"
+            line="87"
             column="5"/>
     </issue>
 
@@ -427,17 +416,6 @@
         <location
             file="src/main/res/values-en/strings.xml"
             line="214"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="PluralsCandidate"
-        message="Formatting %d followed by words (&quot;item&quot;): This should probably be a plural rather than a string"
-        errorLine1="    &lt;string name=&quot;privileged_grant_partial&quot;>%1$d item(s) not granted; retry or set manually&lt;/string>"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values-en/strings.xml"
-            line="218"
             column="5"/>
     </issue>
 
