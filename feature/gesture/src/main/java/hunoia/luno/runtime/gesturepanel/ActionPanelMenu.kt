@@ -324,6 +324,7 @@ internal fun ActionPanelIcon(
     iconSize: Dp,
     bitmapIconSize: Dp = iconSize,
     scale: Float = 1f,
+    tint: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
     val actionIcon = actionIcon(action = action)
     val iconModifier = Modifier.graphicsLayer {
@@ -335,12 +336,12 @@ internal fun ActionPanelIcon(
             modifier = iconModifier.size(iconSize),
             imageVector = actionIcon,
             contentDescription = null,
-            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
+            colorFilter = ColorFilter.tint(tint)
         )
         is TextIcon -> TextIconGlyph(
             text = actionIcon.text,
             size = iconSize,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = tint,
             modifier = iconModifier,
         )
         else -> AsyncImage(

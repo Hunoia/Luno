@@ -73,9 +73,7 @@
     <string name="grid_panel_empty_items">Empty panel. Long-press blank space to edit and add items.</string>
     <string name="grid_panel_empty_items_edit">This page is still empty. Tap "+" at the top-right to add an action or widget.</string>
     <string name="todo_add">Add todo</string>
-    <string name="todo_create_title">New todo</string>
     <string name="todo_delete">Delete</string>
-    <string name="todo_edit_title">Edit todo</string>
     <string name="todo_empty">No todos yet; tap the top-right to create</string>
     <string name="todo_list_title">Todos</string>
     <string name="todo_save">Save</string>
@@ -91,10 +89,12 @@
     <!-- Todo reminders -->
     <string name="todo_reminder_add">Add reminder</string>
     <string name="todo_reminder_edit">Edit reminder</string>
-    <string name="todo_reminder_remove">Remove</string>
-    <string name="todo_reminder_title">Todo reminder</string>
-    <string name="todo_reminder_confirm">OK</string>
-    <string name="todo_reminder_expired">Time has passed; choose a future time</string>
+    <string name="todo_reminder_confirm_collapse">Confirm and collapse</string>
+    <string name="todo_reminder_clear">Remove reminder</string>
+    <string name="todo_reminder_entry">Reminder</string>
+    <string name="todo_reminder_day_today">Today</string>
+    <string name="todo_reminder_day_tomorrow">Tomorrow</string>
+    <string name="todo_reminder_day_date">%1$d/%2$d</string>
     <string name="todo_reminder_expired_short">Expired</string>
     <string name="todo_reminder_today">Today %1$s</string>
     <string name="todo_reminder_tomorrow">Tomorrow %1$s</string>
@@ -103,7 +103,6 @@
     <string name="todo_reminder_time">%1$02d:%2$02d</string>
     <string name="todo_reminder_notification_body">Reminder · %1$s</string>
     <string name="todo_reminder_overdue_body">Overdue · %1$s</string>
-    <string name="todo_reminder_dialog_status">Reminder time: %1$s</string>
     <string name="todo_reminder_snooze_minutes">Snooze %1$d min</string>
     <string name="todo_reminder_snooze_hours">Snooze %1$d h</string>
     <string name="todo_reminder_snooze_hours_minutes">Snooze %1$d h %2$d min</string>

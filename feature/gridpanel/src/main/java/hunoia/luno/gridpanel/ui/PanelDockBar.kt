@@ -139,10 +139,10 @@ fun PanelDockLayer(
     anchor: PanelDockAnchor,
     /** 当前面板卡的圆角（px）：底栏与卡同源，切换面板后跟着当前卡走，不做冻结。 */
     cornerPx: Float,
-    /** 拖拽幽灵把面板本体淡出时，底栏跟着一起隐去（底栏不在卡内，必须显式同步）。 */
-    hiddenForDrag: Boolean = false,
     onBounds: (Rect?) -> Unit,
     modifier: Modifier = Modifier,
+    /** 拖拽幽灵把面板本体淡出时，底栏跟着一起隐去（底栏不在卡内，必须显式同步）。 */
+    hiddenForDrag: Boolean = false,
 ) {
     if (entries.isEmpty()) return
     val density = LocalDensity.current

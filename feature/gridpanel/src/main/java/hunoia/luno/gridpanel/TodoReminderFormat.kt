@@ -69,21 +69,6 @@ object TodoReminderFormat {
         )
     }
 
-    /** 编辑弹窗里的状态行：已过期只显示「已过期」，未来时间带「提醒时间：」前缀。 */
-    fun dialogStatus(
-        context: Context,
-        reminder: TodoReminder,
-        nowMillis: Long = System.currentTimeMillis(),
-        zone: ZoneId = ZoneId.systemDefault(),
-    ): String = if (reminder.isPast(nowMillis, zone)) {
-        context.getString(R.string.todo_reminder_expired_short)
-    } else {
-        context.getString(
-            R.string.todo_reminder_dialog_status,
-            relativeTimeText(context, reminder, zone),
-        )
-    }
-
     /**
      * 编辑弹窗收起态的提醒摘要：`今天 14:40` / `明天 09:00` / `10月2日 09:00` / `已过期`。
      *

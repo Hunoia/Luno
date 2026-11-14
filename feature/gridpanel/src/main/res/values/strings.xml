@@ -73,9 +73,7 @@
     <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
     <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
     <string name="todo_add">新建待办</string>
-    <string name="todo_create_title">新建待办</string>
     <string name="todo_delete">删除</string>
-    <string name="todo_edit_title">编辑待办</string>
     <string name="todo_empty">还没有待办，点右上角新建</string>
     <string name="todo_list_title">待办</string>
     <string name="todo_save">保存</string>
@@ -91,14 +89,12 @@
     <!-- 待办提醒 -->
     <string name="todo_reminder_add">添加提醒</string>
     <string name="todo_reminder_edit">修改提醒</string>
-    <string name="todo_reminder_remove">删除</string>
-    <string name="todo_reminder_title">待办提醒</string>
-    <string name="todo_reminder_collapse">收起提醒</string>
+    <string name="todo_reminder_confirm_collapse">确认并收起</string>
+    <string name="todo_reminder_clear">删除提醒</string>
+    <string name="todo_reminder_entry">提醒</string>
     <string name="todo_reminder_day_today">今天</string>
     <string name="todo_reminder_day_tomorrow">明天</string>
     <string name="todo_reminder_day_date">%1$d/%2$d</string>
-    <string name="todo_reminder_confirm">确定</string>
-    <string name="todo_reminder_expired">时间已过，请选择未来的时间</string>
     <string name="todo_reminder_expired_short">已过期</string>
     <string name="todo_reminder_today">今天 %1$s</string>
     <string name="todo_reminder_tomorrow">明天 %1$s</string>
@@ -107,7 +103,6 @@
     <string name="todo_reminder_time">%1$02d:%2$02d</string>
     <string name="todo_reminder_notification_body">提醒时间 · %1$s</string>
     <string name="todo_reminder_overdue_body">已过期 · %1$s</string>
-    <string name="todo_reminder_dialog_status">提醒时间：%1$s</string>
     <string name="todo_reminder_snooze_minutes">推迟 %1$d 分钟</string>
     <string name="todo_reminder_snooze_hours">推迟 %1$d 小时</string>
     <string name="todo_reminder_snooze_hours_minutes">推迟 %1$d 小时 %2$d 分钟</string>
