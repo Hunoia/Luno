@@ -141,6 +141,11 @@ data class ClipboardBallSettings(
     val followHand: Boolean = false,
     /** 通用「文本 → 建议」规则表；空表 = 关闭规则识别（内置链接识别仍保留）。 */
     val rules: List<SuggestionRule> = SuggestionRuleDefaults.rules,
+    /**
+     * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则或可分发链接时弹建议。
+     * 默认关；开启即对**所有**规则生效（规则不分来源，见 architecture §7.4 的情景识别边界）。
+     */
+    val sceneEnabled: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
     /**

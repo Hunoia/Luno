@@ -60,7 +60,7 @@ internal enum class SuggestionPrimaryAction {
 /**
  * 建议项（规则命中或内置链接识别）。
  *
- * [sourceKey] 是来源去重键（通知 key / 剪贴板内容指纹），用于「滑掉后短时间同源抑制重弹」。
+ * [sourceKey] 是来源去重键（通知 key / 剪贴板内容指纹 / 界面指纹），用于「滑掉后短时间同源抑制重弹」。
  * 捕获文本可能敏感：本类的 [toString] 刻意只保留类型与哈希 ID，不输出正文。
  */
 internal data class SuggestionItem(
@@ -78,6 +78,11 @@ internal data class SuggestionItem(
     val targetPackage: String? = null,
     val targetLabel: String? = null,
     override val pinned: Boolean = false,
+    /**
+     * 情景识别来源的界面指纹；非 null 表示这一项属于某次界面扫描，
+     * 新一次扫描到达时按 [BallInboxAction.DropScene] 整批替换。null = 通知 / 剪贴板来源。
+     */
+    val sceneKey: String? = null,
 ) : BallItem {
     override val id: String =
         "sug:${stableHash("${ruleId ?: "link"}|$sourceKey|$text|${urls.joinToString("|")}")}"

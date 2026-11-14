@@ -42,6 +42,7 @@ import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
+import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkTapMode
@@ -198,6 +199,11 @@ class FloatBallService : Service() {
         followHandBroadcast(event.leftSide)
     }
 
+    /** 情景识别结果（手势侧事件驱动扫描后推送）→ 建议胶囊。 */
+    private val sceneSubscriber: (ScreenSceneEvent) -> Unit = { event ->
+        onScreenScene(event)
+    }
+
     private var pendingFollowHandSide: Boolean? = null
     private var followHandRetryJob: Job? = null
 
@@ -245,6 +251,7 @@ class FloatBallService : Service() {
         ensureImeObserver()
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
+        Events.subscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = followHandBroadcast
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
@@ -295,6 +302,7 @@ class FloatBallService : Service() {
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
+        Events.unsubscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = null
         followHandRetryJob?.cancel()
         followHandRetryJob = null
@@ -383,6 +391,9 @@ class FloatBallService : Service() {
         if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) {
             lastSeenClip = null
             suggestionSlot.clear()
+        } else if (!settings.clipboardBall.sceneEnabled) {
+            // 情景识别关掉：清掉界面上留下的情景建议，剪贴板来源的项保留。
+            suggestionSlot.replaceScene(null, emptyList(), makeCurrent = false)
         }
         ensureClipboardPoller()
     }
@@ -655,6 +666,43 @@ class FloatBallService : Service() {
         suggestionSlot.enqueueAll(items, makeCurrent = !suggestionSlot.manualSession)
         items.forEach(::resolveSuggestionTarget)
         return true
+    }
+
+    /**
+     * 情景识别结果：跑规则 + 可分发链接，整批替换掉上一屏的情景建议。
+     *
+     * 文本很长，规则编译是缓存过的（[suggestionRules]），但匹配仍放后台，别卡事件派发线程。
+     * 同一屏的抑制沿用建议胶囊的滑掉窗口（10s），与剪贴板来源同口径。
+     */
+    private fun onScreenScene(event: ScreenSceneEvent) {
+        if (!gestureEnabledSnapshot) return
+        val clipball = settings.clipboardBall
+        if (!clipball.enabled || !clipball.sceneEnabled) return
+        if (isScreenLocked()) return
+        // 滑掉后 10 秒内不再为同一屏重弹（同一条抑制表，sourceKey 带 scene: 前缀）。
+        if (suggestionSlot.isDismissed("scene:${event.screenKey}")) return
+        val now = SystemClock.elapsedRealtime()
+        scope.launch(Dispatchers.Default) {
+            val items = SuggestionFactory.fromScene(
+                text = event.text,
+                screenKey = event.screenKey,
+                rules = suggestionRules,
+                linkRules = linkDispatch.rules,
+                linkDispatchEnabled = linkDispatch.enabled,
+                nowMs = now,
+            )
+            if (!gestureEnabledSnapshot) return@launch
+            // 窗口挂/摘必须在主线程（Compose 的 LifecycleOwner 只在主线程 attach），
+            // 所以规则匹配留在后台，队列变更与目标解析回主线程。
+            withContext(Dispatchers.Main) {
+                suggestionSlot.replaceScene(
+                    scanKey = event.screenKey,
+                    items = items,
+                    makeCurrent = !suggestionSlot.manualSession,
+                )
+                items.forEach(::resolveSuggestionTarget)
+            }
+        }
     }
 
     /** 链接目标应用涉及 PackageManager：放后台解析，当前项已切走则丢弃。 */
@@ -1135,6 +1183,14 @@ class FloatBallService : Service() {
 
     // ---- 主球点按 ----
 
+    /** 长按建议球：用户显式要求扫一次当前界面，绕过同屏去重。 */
+    private fun onSuggestionBallLongPressed() {
+        val clipball = settings.clipboardBall
+        if (!gestureEnabledSnapshot || !clipball.enabled || !clipball.sceneEnabled) return
+        val accepted = GestureCommand.requestSceneScan?.invoke(true) ?: false
+        if (!accepted) showToast(getString(R.string.scene_scan_unavailable))
+    }
+
     private fun onBallTapped() {
         val action = settings.tapAction ?: return
         dispatchTapAction(action, ballCenterX(), ballCenterY())
@@ -1444,7 +1500,7 @@ class FloatBallService : Service() {
                 },
             ).apply {
                 onTap = { onContentBallTapped() }
-                onLongPress = null
+                onLongPress = { if (source == BallSource.SUGGESTION) onSuggestionBallLongPressed() }
                 onDragStarted = { if (showing) hideCapsule() }
                 onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
@@ -1677,6 +1733,36 @@ class FloatBallService : Service() {
                 enqueue(items[index], makeCurrent = makeCurrent && index == 0, show = false)
             }
             showIfNeeded()
+        }
+
+        /**
+         * 情景识别的整批替换：先丢掉别的界面留下的情景项，再入队这一屏的。
+         *
+         * [scanKey] 是本次扫描的界面指纹 —— 同屏重复推送时自己的项被保留（合并到队首），
+         * 不会闪一下；[scanKey] 为 null = 该功能刚关闭，清空全部情景项。
+         * 剪贴板 / 通知来源的项不受影响。
+         */
+        fun replaceScene(scanKey: String?, items: List<BallItem>, makeCurrent: Boolean) {
+            val dropped = BallInboxReducer.reduce(
+                state,
+                BallInboxAction.DropScene(scanKey),
+                SystemClock.elapsedRealtime(),
+                config,
+            )
+            state = dropped.state
+            if (items.isNotEmpty()) {
+                enqueueAll(items, makeCurrent = makeCurrent)
+            } else {
+                when {
+                    state.items.isEmpty() -> {
+                        hideCapsule()
+                        refreshWindows()
+                    }
+                    showing -> showCurrent()
+                    else -> refreshBadge()
+                }
+                scheduleTtl()
+            }
         }
 
         fun enqueue(

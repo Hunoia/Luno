@@ -87,6 +87,12 @@
     <string name="float_ball_suggestion_presets_none">已全部添加</string>
     <string name="float_ball_suggestion_presets_added">已添加 %1$d 条规则</string>
     <string name="float_ball_suggestion_link_dispatch">链接分发设置</string>
+    <string name="float_ball_suggestion_scene_group">情景识别</string>
+    <string name="float_ball_suggestion_scene_enabled">读取当前界面</string>
+    <string name="float_ball_suggestion_scene_enabled_subtitle">界面稳定后读一次无障碍文本；命中规则或链接分发规则时弹建议</string>
+    <string name="float_ball_suggestion_scene_need_a11y">需要无障碍服务</string>
+    <string name="float_ball_suggestion_scene_need_a11y_hint">点此开启无障碍服务，情景识别才能读到界面文本</string>
+    <string name="scene_scan_unavailable">无障碍服务未开启，无法读取当前界面</string>
     <string name="float_ball_suggestion_link_dispatch_hint">链接建议点开后交给哪个应用，以及未命中时怎么处理</string>
 
     <string name="float_ball_color">球颜色</string>

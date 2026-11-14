@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.floatball.suggestion
 
+import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.SuggestionRuleAction
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.link.LinkUrls
@@ -7,7 +8,7 @@ import hunoia.luno.runtime.floatball.inbox.SuggestionItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
 
 /**
- * 建议项构造：通知/剪贴板文本按规则抓取，剪贴板再补内置链接识别。
+ * 建议项构造：通知 / 剪贴板 / 当前界面文本按规则抓取，剪贴板与情景识别再补内置链接识别。
  * 纯逻辑（链接目标应用解析留给服务层），方便 JVM 单测。
  */
 internal object SuggestionFactory {
@@ -60,6 +61,53 @@ internal object SuggestionFactory {
                 sensitive = false,
                 urls = linkUrls,
             )
+        }
+        return items
+    }
+
+    /**
+     * 情景识别（当前界面文本）：规则命中 + 只提示可分发的链接。
+     *
+     * 链接口径比剪贴板窄：剪贴板是用户主动复制的，任何 http(s) 都值得提示；界面里几乎处处是
+     * 链接（浏览器、聊天页、网页正文），未命中「链接分发」规则的只能走分享回退，弹出来只是噪声。
+     * 所以 [linkRules] 为空或分发总开关关闭时不出链接建议 —— 用户先配规则才有「打开链接」。
+     */
+    fun fromScene(
+        text: String,
+        screenKey: String,
+        rules: CompiledSuggestionRules,
+        linkRules: List<LinkDispatchRule>,
+        linkDispatchEnabled: Boolean,
+        nowMs: Long,
+    ): List<SuggestionItem> {
+        if (text.isBlank()) return emptyList()
+        val sourceKey = "scene:$screenKey"
+        val hits = rules.match(text)
+        val hitUrls = hits
+            .flatMap { LinkUrls.extractUrls(it.value) }
+            .toSet()
+        val items = ArrayList<SuggestionItem>(hits.size + 1)
+        hits.forEach { hit ->
+            items += ruleItem(hit, sourceKey, nowMs).copy(sceneKey = screenKey)
+        }
+        if (linkDispatchEnabled && linkRules.isNotEmpty()) {
+            val linkUrls = LinkUrls.extractUrls(text)
+                .filterNot { it in hitUrls }
+                .filter { LinkUrls.firstMatch(it, linkRules) != null }
+                .distinct()
+            if (linkUrls.isNotEmpty()) {
+                items += SuggestionItem(
+                    sourceKey = sourceKey,
+                    title = LinkLabel,
+                    text = linkUrls.first(),
+                    receivedAtElapsedMs = nowMs,
+                    ttlMs = null,
+                    action = SuggestionPrimaryAction.OPEN,
+                    sensitive = false,
+                    urls = linkUrls,
+                    sceneKey = screenKey,
+                )
+            }
         }
         return items
     }

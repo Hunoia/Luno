@@ -1,5 +1,6 @@
 package hunoia.luno.floatball.settings
 
+import android.content.Context
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -25,6 +26,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
+import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
@@ -83,6 +85,10 @@ fun SuggestionCapsuleSettingsScreen(
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
+    // 情景识别依赖无障碍服务连接；从权限页回来时重新读一次。
+    var sceneReady by remember {
+        mutableStateOf(sceneA11yEnabled(context))
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -92,6 +98,7 @@ fun SuggestionCapsuleSettingsScreen(
                     overlayGranted = granted
                     facades.system.refreshFloatBall(context)
                 }
+                sceneReady = sceneA11yEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -220,6 +227,36 @@ fun SuggestionCapsuleSettingsScreen(
             }
         }
 
+        item(key = "scene") {
+            LunoGroup(title = stringResource(R.string.float_ball_suggestion_scene_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_suggestion_scene_enabled),
+                    subtitle = stringResource(R.string.float_ball_suggestion_scene_enabled_subtitle),
+                    checked = clipball.sceneEnabled,
+                    onCheckedChange = { checked ->
+                        update {
+                            it.copy(
+                                clipboardBall = it.clipboardBall.copy(sceneEnabled = checked),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(0, 2),
+                )
+                if (clipball.sceneEnabled && !sceneReady) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_suggestion_scene_need_a11y),
+                        subtitle = stringResource(R.string.float_ball_suggestion_scene_need_a11y_hint),
+                        icon = Icons.AutoMirrored.Filled.OpenInNew,
+                        shape = segmentedShape(1, 2),
+                        onClick = {
+                            sceneReady = sceneA11yEnabled(context)
+                            context.gotoAccessibilitySettings()
+                        },
+                    )
+                }
+            }
+        }
+
         item(key = "presets") {
             val presetCount = addable.size
             val addedMessage =
@@ -303,3 +340,21 @@ internal fun ruleActionLabel(rule: SuggestionRule): String = when (rule.action) 
     hunoia.luno.config.model.SuggestionRuleAction.OPEN -> stringResource(R.string.float_ball_suggestion_rule_action_open)
     hunoia.luno.config.model.SuggestionRuleAction.SHARE -> stringResource(R.string.float_ball_suggestion_rule_action_share)
 }
+
+/** 无障碍服务类的简单类名（`SideGestureService`）；与 `:app` 里的声明保持同步。 */
+private const val SCENE_A11Y_SERVICE_CLASS = "SideGestureService"
+
+/**
+ * 情景识别靠无障碍服务读界面文本，设置页得告诉用户「服务没开」。
+ *
+ * 读不到服务连接状态：`SideGestureService` 在 `:service` 进程、设置页在主进程，跨进程的
+ * 单例槽位在这里永远是 null。改查系统设置 —— `ENABLED_ACCESSIBILITY_SERVICES` 是进程无关的
+ * 事实源，权限正常时不再误报「需要无障碍服务」。
+ *
+ * 本模块不能反向依赖 `:app`，所以类名只能按字符串比对；包名先收窄到本应用，避免误判同名类。
+ */
+private fun sceneA11yEnabled(context: Context): Boolean =
+    hunoia.luno.bridge.system.AccessibilitySettings.enabledComponents(context).any { component ->
+        component.packageName == context.packageName &&
+            component.className.substringAfterLast('.') == SCENE_A11Y_SERVICE_CLASS
+    }

@@ -18,6 +18,13 @@ internal sealed interface BallInboxAction {
 
     data class ClearSource(val source: BallSource) : BallInboxAction
 
+    /**
+     * 情景识别的整批替换：移除来自其他界面的建议项（当前项/队列里的过期场景）。
+     *
+     * [keepScanKey] 传当前这一屏的指纹 = 「同屏重扫不闪」；传 null = 该功能关闭时清干净。
+     */
+    data class DropScene(val keepScanKey: String? = null) : BallInboxAction
+
     /** keepId 通常是气泡当前显示项：TTL 到期也先保留，等气泡隐藏后再清。 */
     data class Prune(val keepId: String? = null) : BallInboxAction
 
@@ -47,6 +54,7 @@ internal object BallInboxReducer {
         is BallInboxAction.Remove -> remove(state, action.id)
         is BallInboxAction.SetPinned -> setPinned(state, action, nowMs, config)
         is BallInboxAction.ClearSource -> clearSource(state, action.source)
+        is BallInboxAction.DropScene -> dropScene(state, action.keepScanKey)
         is BallInboxAction.Prune -> prune(state, action.keepId, nowMs, config)
         BallInboxAction.Trim -> trim(state, config)
         is BallInboxAction.Select -> select(state, action.id)
@@ -210,6 +218,31 @@ internal object BallInboxReducer {
             state = state.copy(items = remaining, currentId = newCurrentId).bump(),
             removed = removed,
             currentChanged = newCurrentId != state.currentId,
+        )
+    }
+
+    private fun dropScene(state: BallInboxState, keepScanKey: String?): BallInboxChange {
+        val removed = state.items.filter { item ->
+            item is SuggestionItem && item.sceneKey != null && item.sceneKey != keepScanKey
+        }
+        if (removed.isEmpty()) return BallInboxChange(state)
+
+        val removedIds = removed.mapTo(HashSet()) { it.id }
+        val remaining = state.items.filterNot { it.id in removedIds }
+        val currentId = state.currentId
+        val currentRemoved = currentId != null && currentId in removedIds
+        val newCurrentId = when {
+            !currentRemoved -> currentId
+            remaining.isEmpty() -> null
+            else -> selectAfterRemoval(
+                remaining = remaining,
+                removedIndex = state.items.indexOfFirst { it.id == currentId },
+            )
+        }
+        return BallInboxChange(
+            state = state.copy(items = remaining, currentId = newCurrentId).bump(),
+            removed = removed,
+            currentChanged = newCurrentId != currentId,
         )
     }
 

@@ -87,6 +87,12 @@
     <string name="float_ball_suggestion_presets_none">All presets added</string>
     <string name="float_ball_suggestion_presets_added">Added %1$d rules</string>
     <string name="float_ball_suggestion_link_dispatch">Link dispatch settings</string>
+    <string name="float_ball_suggestion_scene_group">Screen scene detection</string>
+    <string name="float_ball_suggestion_scene_enabled">Read the current screen</string>
+    <string name="float_ball_suggestion_scene_enabled_subtitle">Reads accessibility text when the screen settles; suggests when a rule or a link dispatch rule matches</string>
+    <string name="float_ball_suggestion_scene_need_a11y">Accessibility service required</string>
+    <string name="float_ball_suggestion_scene_need_a11y_hint">Tap to turn on the accessibility service so scene detection can read screen text</string>
+    <string name="scene_scan_unavailable">Accessibility service is off; the screen can not be read</string>
     <string name="float_ball_suggestion_link_dispatch_hint">Which app opens link suggestions, and what happens when no app matches</string>
 
     <string name="float_ball_color">Ball color</string>

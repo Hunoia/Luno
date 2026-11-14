@@ -44,6 +44,11 @@ object GestureCommand {
     /** 把剪贴板里已有的图片粘进焦点输入框（调用方先把图片写进剪贴板）。 */
     var pasteImageFocused: (suspend () -> hunoia.luno.action.controller.ImageInserter.Result)? = null
 
+    /**
+     * 情景识别：立即扫一次当前界面（长按建议球）。
+     * [force] = true 跳过同屏去重；返回是否受理（无障碍服务未就绪时 false）。
+     */
+    var requestSceneScan: ((force: Boolean) -> Boolean)? = null
 
     /**
      * 把本地图片副本写进剪贴板，再在屏幕坐标处粘贴。
