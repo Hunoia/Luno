@@ -8,14 +8,17 @@ package hunoia.luno.runtime.floatball
  * 表现就是「动作触发了但球没换边」。触钮路径改为直接调这里；其他手势仍走事件，
  * 但两边最终都落到同一套「记录目标侧 + 球空闲时重试」逻辑。
  *
+ * 一次触点侧别由 [FloatBallService] 扇出给主球与两个内容球，各自按自己的
+ * 跟手开关独立处理 —— 只分发主球会让胶囊永远换不过去。
+ *
  * 由 [FloatBallService] 在 `onCreate` 注入、`onDestroy` 清空；球未运行时为 null。
  */
 object FloatBallCommand {
     /**
-     * 触点落在 [leftSide] 侧：请求球换到该侧。
+     * 触点落在 [leftSide] 侧：请求三球各自换到该侧。
      *
-     * 返回值只表示球是否接收了这次请求（已在同侧 / 已开始换位 / 已排队重试）；
-     * 动作照常执行，不受返回值影响。`false` = 跟手关闭、球不可见或命令未注册。
+     * 返回值只表示是否有球接收了这次请求（任一球跟手开启且已排上/已开始换位）；
+     * 动作照常执行，不受返回值影响。`false` = 三球都没接（跟手全关 / 全不可见）或命令未注册。
      */
     var requestFollowHandSwap: ((leftSide: Boolean) -> Boolean)? = null
 }

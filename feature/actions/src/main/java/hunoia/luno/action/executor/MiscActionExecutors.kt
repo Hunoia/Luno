@@ -19,6 +19,7 @@ class MiscActionExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "image.edit",
+        "image.recognize",
         "internal.clipboardSegment",
         "internal.clipboardOcr",
     )
@@ -26,6 +27,10 @@ class MiscActionExecutors : ActionExecutor {
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult = when (action) {
         is Action.ImageEdit -> {
             val opened = context.surfaces.openImageAnnotate()
+            if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+        }
+        is Action.PhotoRecognize -> {
+            val opened = context.surfaces.openPhotoRecognize()
             if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
         }
         is Action.ClipboardSegment -> executeClipboardSegment(context)

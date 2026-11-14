@@ -27,8 +27,10 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.facade.PrivilegedPermissionGroup
+import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SectionBadge
@@ -58,6 +60,7 @@ internal fun PrivilegedPermission.title(): String = stringResource(
         PrivilegedPermission.READ_MEDIA_IMAGES -> R.string.perm_read_media_images
         PrivilegedPermission.READ_MEDIA_VIDEO -> R.string.perm_read_media_video
         PrivilegedPermission.READ_MEDIA_AUDIO -> R.string.perm_read_media_audio
+        PrivilegedPermission.GET_INSTALLED_APPS -> R.string.perm_app_list
     },
 )
 
@@ -81,6 +84,7 @@ internal fun PrivilegedPermission.hint(): String = stringResource(
         PrivilegedPermission.READ_MEDIA_IMAGES -> R.string.perm_read_media_images_hint
         PrivilegedPermission.READ_MEDIA_VIDEO -> R.string.perm_read_media_video_hint
         PrivilegedPermission.READ_MEDIA_AUDIO -> R.string.perm_read_media_audio_hint
+        PrivilegedPermission.GET_INSTALLED_APPS -> R.string.perm_app_list_hint
     },
 )
 
@@ -198,6 +202,12 @@ fun PrivilegedPermissionsScreen(
         }
     }
 
+    // 厂商「获取应用列表」权限没有可直达的系统页：行内直接拉起系统对话框；被永久拒绝时退回应用详情。
+    val installedAppsPermission = rememberGetInstalledAppsPermissionState { granted ->
+        if (granted) QuickLaunchFacade.invalidateAppListCaches(context)
+        refresh()
+    }
+
     val statuses = remember(tick) { facades.system.privilegedPermissionStatus(context) }
     // 按功能域分组：组顺序取枚举声明顺序，组内取 status 顺序。
     val missingCount = remember(statuses) { statuses.count { !it.granted } }
@@ -258,24 +268,41 @@ fun PrivilegedPermissionsScreen(
                     val stateDesc = stringResource(
                         if (granted) R.string.perm_state_granted else R.string.perm_state_missing,
                     )
+                    // 获取应用列表没有直达系统页：应用内拉起系统对话框，永久拒绝后才退回应用详情。
+                    val requestInstalledApps: () -> Unit = {
+                        if (installedAppsPermission.deniedForever) openSettings(permission)
+                        else installedAppsPermission.launchPermissionRequest()
+                    }
                     LunoSettingsRow(
                         modifier = Modifier.semantics { stateDescription = stateDesc },
                         title = permission.title(),
                         subtitle = permission.hint(),
                         shape = segmentedShape(index, groupStatuses.size),
-                        onClick = if (
+                        onClick = when {
+                            permission == PrivilegedPermission.GET_INSTALLED_APPS ->
+                                requestInstalledApps
                             permission == PrivilegedPermission.ACCESSIBILITY ||
-                            permission == PrivilegedPermission.WRITE_SECURE_SETTINGS
-                        ) {
-                            onNavToAccessibilityManager
-                        } else if (permission.hasSettingsPage) {
-                            { openSettings(permission) }
-                        } else {
-                            null
+                                permission == PrivilegedPermission.WRITE_SECURE_SETTINGS ->
+                                onNavToAccessibilityManager
+                            permission.hasSettingsPage -> { { openSettings(permission) } }
+                            else -> null
                         },
                         trailing = when {
                             // 已授权：用徽标说明状态，不再靠副标题变色。
                             granted -> { { SectionBadge(text = stringResource(R.string.perm_state_granted)) } }
+                            // 厂商权限：系统对话框才是正路，不给「去设置」这种多跳一次的死路。
+                            permission == PrivilegedPermission.GET_INSTALLED_APPS -> {
+                                {
+                                    PressTextButton(onClick = requestInstalledApps) {
+                                        Text(
+                                            text = stringResource(
+                                                if (installedAppsPermission.deniedForever) R.string.perm_go_settings
+                                                else R.string.perm_grant_one,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
                             // Shizuku 授不了（特殊 / 隐私敏感权限）：给看得见的「去设置」，不让人猜。
                             !permission.shizukuGrantable -> {
                                 {

@@ -217,6 +217,20 @@
             android:theme="@style/Theme.SideGesture.Annotate"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 拍照识别页：:service 透明 Activity（动作 image.recognize）。
+             相机走系统相机 App（ACTION_IMAGE_CAPTURE + FileProvider 输出），页面内有
+             「拍照 / 从相册选」两入口；拍完/选完进 OCR 结果页拖框识别。
+             不能加 noHistory：系统相机/相册选择器一上屏会把本页结掉，结果回不来。 -->
+        <activity
+            android:name=".ui.photo.PhotoRecognizeActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.photorecognize"
+            android:theme="@style/Theme.SideGesture.Transparent" />
+
         <activity
             android:name=".ui.share.ShareFilePickActivity"
             android:excludeFromRecents="true"

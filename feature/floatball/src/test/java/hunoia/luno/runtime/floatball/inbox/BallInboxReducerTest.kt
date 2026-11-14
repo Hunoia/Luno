@@ -42,7 +42,6 @@ class BallInboxReducerTest {
     )
 
     private fun clip(text: String, at: Long = 0L) = SuggestionItem(
-        kind = SuggestionKind.LINK,
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",

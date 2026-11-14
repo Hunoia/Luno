@@ -72,7 +72,14 @@ fun ClipboardPageCell(
     spanY: Int = 3,
     /** 编辑态=false：条目点按/菜单全禁，事件让给层根拖拽/缩放。 */
     enabled: Boolean = true,
+    /** 网格项用与动作项同档的 4dp 内边距；单功能面板整页保留原有的 8/6dp。 */
+    gridItem: Boolean = false,
 ) {
+    val outerPadding = if (gridItem) {
+        PaddingValues(WidgetInnerPadding)
+    } else {
+        PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+    }
     val closePanel = LocalGridPanelClose.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -110,7 +117,7 @@ fun ClipboardPageCell(
     if (history.entries.isEmpty()) {
         EmptyClipboardHint(
             vertical = spanY > spanX,
-            modifier = modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = modifier.fillMaxSize().padding(outerPadding),
         )
         return
     }
@@ -118,7 +125,7 @@ fun ClipboardPageCell(
     // 固定项永远排在前面：并入剪贴板后它就是「随手可取」的那一组。
     val ordered = history.pinned + history.unpinned
     LazyColumn(
-        modifier = modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = modifier.fillMaxSize().padding(outerPadding),
         contentPadding = PaddingValues(vertical = 2.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
         // 编辑态禁用内部滚动：否则在部件上拖会滚列表而不拖项。

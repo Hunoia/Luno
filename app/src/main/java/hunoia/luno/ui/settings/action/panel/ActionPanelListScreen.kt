@@ -4,6 +4,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.Widgets
@@ -35,6 +36,7 @@ import hunoia.luno.ui.component.screen.PanelListScreen
 import hunoia.luno.ui.component.screen.PanelListSection
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.OptimizedScrollState
+import hunoia.luno.ui.settings.action.gridpanel.PanelAppearanceConfigContent
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -62,8 +64,10 @@ fun ActionPanelListScreen(
     val gridPanels = actionSettings.actionGridPanels.panels
     var showStyle by remember { mutableStateOf(false) }
     var showDock by remember { mutableStateOf(false) }
+    var showAppearance by remember { mutableStateOf(false) }
     // 样式项已超过一屏：内容滚动与 sheet 下滑由 LunoSheet 的 nestedScroll 衔接。
     val styleScrollState = rememberScrollState()
+    val appearanceScrollState = rememberScrollState()
 
     fun createActionPanel() {
         scope.launch {
@@ -147,15 +151,22 @@ fun ActionPanelListScreen(
                     icon = Icons.Default.Gesture,
                     title = stringResource(R.string.action_panel_style),
                     subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
                     onClick = { showStyle = true },
                 )
                 LunoSettingsRow(
                     icon = Icons.Default.ViewCarousel,
                     title = stringResource(R.string.panel_dock),
                     subtitle = panelDockSummary(actionSettings),
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(1, 3),
                     onClick = { showDock = true },
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(R.string.panel_appearance),
+                    subtitle = stringResource(R.string.panel_appearance_hint),
+                    shape = segmentedShape(2, 3),
+                    onClick = { showAppearance = true },
                 )
             }
         },
@@ -188,6 +199,22 @@ fun ActionPanelListScreen(
                     scope.launch { TuneConfig.updateGesture { it.copy(actionPanelLongPressMs = ms) } }
                 },
                 scrollState = styleScrollState,
+            )
+        }
+    }
+
+    if (showAppearance) {
+        LunoSheet(
+            onDismissRequest = { showAppearance = false },
+            showDragHandle = true,
+            scrollState = OptimizedScrollState.Scroll(appearanceScrollState),
+        ) {
+            PanelAppearanceConfigContent(
+                appearance = actionSettings.panelAppearance,
+                onCommit = { next ->
+                    scope.launch { TuneConfig.updateAction { it.copy(panelAppearance = next) } }
+                },
+                scrollState = appearanceScrollState,
             )
         }
     }

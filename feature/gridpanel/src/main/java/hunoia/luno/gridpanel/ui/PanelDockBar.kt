@@ -49,8 +49,9 @@ import hunoia.luno.gridpanel.PanelDockIcon
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.geometry.PanelDockPlacement
 import hunoia.luno.gridpanel.geometry.needsScroll
+import hunoia.luno.ui.component.FloatingBottomBarDefaults
+import hunoia.luno.ui.component.FloatingTabRow
 import hunoia.luno.ui.component.TextIconGlyph
-import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.PanelFadeTailFraction
 import hunoia.luno.ui.theme.containerShape
 import kotlin.math.roundToInt
@@ -124,7 +125,10 @@ data class PanelDockSession(
  * 底栏层：宽度与位置都来自冻结值，只跟随卡片的出现进度做 alpha / 位移（不缩放）。
  *
  * [onBounds] 回传底栏在窗口内的矩形：根层的「点空白关面板 / 退编辑」用它做排除，
- * 否则点到胶囊会被当成点空白，面板直接关掉。
+ * 否则点到胶囊会被当成点空白，面板直接关掉。拖拽隐去时回传 null，表示底栏不再占位。
+ *
+ * [hiddenForDrag] 与卡片共用 `dragGhost.chromeHidden`：底栏是卡的兄弟、不在卡内，
+ * 只隐藏卡片会让幽灵卡拖拽时底栏挂在屏上。
  */
 @Composable
 fun PanelDockLayer(
@@ -135,8 +139,10 @@ fun PanelDockLayer(
     anchor: PanelDockAnchor,
     /** 当前面板卡的圆角（px）：底栏与卡同源，切换面板后跟着当前卡走，不做冻结。 */
     cornerPx: Float,
-    onBounds: (Rect) -> Unit,
+    onBounds: (Rect?) -> Unit,
     modifier: Modifier = Modifier,
+    /** 拖拽幽灵把面板本体淡出时，底栏跟着一起隐去（底栏不在卡内，必须显式同步）。 */
+    hiddenForDrag: Boolean = false,
 ) {
     if (entries.isEmpty()) return
     val density = LocalDensity.current
@@ -149,6 +155,11 @@ fun PanelDockLayer(
     }
     val listState = rememberLazyListState()
     val scrollable = placement.needsScroll
+    val view = LocalView.current
+    val selectedIndex = entries.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
+    // 命中矩形自己留一份：hiddenForDrag 翻回 false 时 onGloballyPositioned 不一定再发，
+    // 不能只靠它把矩形还给根层，否则恢复后点底栏会被当成点空白。
+    var windowBounds by remember { mutableStateOf<Rect?>(null) }
 
     // 入口放不下时横滑：选中项必须在可视区内，否则「当前在哪块面板」看不出来。
     LaunchedEffect(placement, selectedId, scrollable) {
@@ -169,19 +180,30 @@ fun PanelDockLayer(
             .width(widthDp)
             .height(PanelDockHeight)
             .graphicsLayer {
-                val p = anchor.progress.coerceIn(0f, 1f)
-                alpha = (p / PanelFadeTailFraction).coerceIn(0f, 1f)
-                // 与卡片同一条出现位移，但不做缩放：底栏被缩放会变成一条线。
-                val remaining = 1f - p
-                translationX = anchor.appearSlide.x * remaining
-                translationY = anchor.appearSlide.y * remaining
+                if (hiddenForDrag) {
+                    alpha = 0f
+                } else {
+                    val p = anchor.progress.coerceIn(0f, 1f)
+                    alpha = (p / PanelFadeTailFraction).coerceIn(0f, 1f)
+                    // 与卡片同一条出现位移，但不做缩放：底栏被缩放会变成一条线。
+                    val remaining = 1f - p
+                    translationX = anchor.appearSlide.x * remaining
+                    translationY = anchor.appearSlide.y * remaining
+                }
             }
             .zIndex(2f)
-            .onGloballyPositioned { onBounds(it.boundsInWindow()) },
+            .onGloballyPositioned {
+                windowBounds = it.boundsInWindow()
+                onBounds(if (hiddenForDrag) null else windowBounds)
+            },
     ) {
+        // hidden 变化不会触发 onGloballyPositioned；显式同步命中矩形。
+        LaunchedEffect(hiddenForDrag, windowBounds) {
+            onBounds(if (hiddenForDrag) null else windowBounds)
+        }
         // 面板同款：真实背景模糊垫底，上面才是「卡色」与描边。
         PanelBlurHost(
-            enabled = session.blurRadiusPx > 0,
+            enabled = session.blurRadiusPx > 0 && !hiddenForDrag && anchor.progress > 0.01f,
             radiusPx = session.blurRadiusPx,
             cornerRadiusPx = cornerPx,
             modifier = Modifier.matchParentSize(),
@@ -194,47 +216,78 @@ fun PanelDockLayer(
             // 入口少时整条居中聚拢；多到放不下时 LazyRow 自己滚动。
             contentAlignment = Alignment.Center,
         ) {
-            LazyRow(
-                state = listState,
-                modifier = Modifier
-                    // wrapContentWidth：入口少时按内容宽居中；多到放不下时按底栏宽裁切并滚动。
-                    .wrapContentWidth()
-                    .height(PanelDockHeight),
-                contentPadding = PaddingValues(horizontal = PanelDockPadding),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                itemsIndexed(entries, key = { _, entry -> entry.id }) { _, entry ->
-                    PanelDockTab(
-                        entry = entry,
-                        isSelected = entry.id == selectedId,
-                        width = tabWidthDp,
-                        onClick = { onSelect(entry.id) },
-                    )
+            if (scrollable) {
+                // 回退分支：放不下时横向滚动，选中态退回静态圆角块（没有 pill，手势归滚动）。
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier
+                        // wrapContentWidth：入口少时按内容宽居中；多到放不下时按底栏宽裁切并滚动。
+                        .wrapContentWidth()
+                        .height(PanelDockHeight),
+                    contentPadding = PaddingValues(horizontal = PanelDockPadding),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    itemsIndexed(entries, key = { _, entry -> entry.id }) { _, entry ->
+                        PanelDockScrollTab(
+                            entry = entry,
+                            isSelected = entry.id == selectedId,
+                            width = tabWidthDp,
+                            onClick = {
+                                view.hapticTick()
+                                onSelect(entry.id)
+                            },
+                        )
+                    }
                 }
+            } else {
+                // 与主页底栏同源：点击 + 拖动切换，滑动 pill 跟手、按压放大并带速度倾斜。
+                // 每颗 tab 自己不缩放、不加 ripple，选中态只由 pill 表达（§5.3）。
+                FloatingTabRow(
+                    items = entries,
+                    selectedIndex = { selectedIndex },
+                    onSelected = { index ->
+                        view.hapticTick()
+                        entries.getOrNull(index)?.let { onSelect(it.id) }
+                    },
+                    tabWidth = tabWidthDp,
+                    colors = FloatingBottomBarDefaults.colors(),
+                    tabHeight = PanelDockHeight - PanelDockPadding * 2,
+                    modifier = Modifier.align(Alignment.Center),
+                    iconContent = { entry, index ->
+                        PanelDockGlyph(
+                            icon = entry.icon,
+                            size = PanelDockIconSize,
+                            contentDescription = entry.label,
+                            tint = if (index == selectedIndex) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    },
+                )
             }
         }
     }
 }
 
 /**
- * 一个 tab：选中态用面板自己的语言表达（圆角块 + primary），不用主页底栏那颗指示 pill。
- * 点击切换；没有横滑切 tab —— 横向手势归底栏自己的滚动。
+ * 放不下时的回退 tab（横向滚动分支）：选中态退回静态圆角块，点击切换。
+ * 没有横滑切 tab —— 横向手势归底栏自己的滚动；也不做每 tab 缩放，反馈只留振动。
  */
 @Composable
-private fun PanelDockTab(
+private fun PanelDockScrollTab(
     entry: PanelDockEntry,
     isSelected: Boolean,
     width: Dp,
     onClick: () -> Unit,
 ) {
-    val view = LocalView.current
     val interactions = remember { MutableInteractionSource() }
     val tileShape = remember { containerShape(ItemCorner) }
     Box(
         modifier = Modifier
             .width(width)
             .height(PanelDockHeight - PanelDockPadding * 2)
-            .pressScale(interactions)
             .clip(tileShape)
             .then(
                 if (isSelected) {
@@ -247,10 +300,8 @@ private fun PanelDockTab(
                 interactionSource = interactions,
                 indication = null,
                 role = Role.Tab,
-            ) {
-                view.hapticTick()
-                onClick()
-            }
+                onClick = onClick,
+            )
             .semantics { selected = isSelected },
         contentAlignment = Alignment.Center,
     ) {

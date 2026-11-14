@@ -117,7 +117,6 @@ fun QuickLaunchPanelCell(
     ) {
         QuickLaunchBody(
             state = state,
-            panelWidth = maxWidth,
             panelHeight = maxHeight,
             modifier = Modifier.fillMaxSize(),
         )

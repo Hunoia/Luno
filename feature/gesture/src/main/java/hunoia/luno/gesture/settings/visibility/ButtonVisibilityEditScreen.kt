@@ -203,7 +203,7 @@ fun ButtonVisibilityEditScreen(
             }
             if (showScreenPicker) {
                 LunoSheet(onDismissRequest = { showScreenPicker = false }) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = stringResource(R.string.button_visibility_screens),
                             style = MaterialTheme.typography.titleLarge,
@@ -256,6 +256,7 @@ fun ButtonVisibilityEditScreen(
                     value = current.name,
                     placeholder = stringResource(R.string.button_visibility_name_hint),
                     onValueChange = { draft = current.copy(name = it) },
+                    shape = segmentedShape(0, 1),
                 )
             }
         }
@@ -313,7 +314,7 @@ private fun TargetPickerSheet(
     onTargetToggle: (String, Boolean) -> Unit,
 ) {
     LunoSheet(onDismissRequest = onDismissRequest) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = stringResource(R.string.button_visibility_target),
                 style = MaterialTheme.typography.titleLarge,

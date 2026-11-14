@@ -67,7 +67,6 @@ fun ActionPanelStyleConfigContent(
             .fillMaxWidth()
             .heightIn(max = maxHeight)
             .verticalScroll(scrollState)
-            .padding(horizontal = PageGutter)
             .padding(top = PageGutter, bottom = ContentBottom),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {

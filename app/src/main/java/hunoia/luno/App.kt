@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import com.aaron.compose.component.UDFComponentDefaults
 import hunoia.luno.ui.UDFComponentDefaultsImpl
@@ -39,6 +40,8 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(AppIconFetcherFactory())
                 add(AppIconKeyer)
+                // 悬浮球自定义 GIF 图标：动图解码，:service 进程复用本单例。
+                add(GifDecoder.Factory())
             }
             .memoryCache {
                 MemoryCache.Builder()

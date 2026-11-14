@@ -4,6 +4,7 @@ import android.content.Context
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelOrientation
+import hunoia.luno.config.model.PanelAppearance
 import hunoia.luno.config.model.SinglePanel
 import hunoia.luno.config.model.singlePanelWidgetId
 import hunoia.luno.gridpanel.internal.PanelWidget
@@ -35,20 +36,23 @@ object SinglePanelCatalog {
      * 把单功能面板转成面板引用所需的网格壳：只填 id / 展示名 / 几何 / 外观。
      * 运行时与嵌套面板显示都走这一份，避免各处再写一套 `single:` 解析。
      */
-    fun shell(context: Context, panel: SinglePanel): GridPanel? {
+    fun shell(
+        context: Context,
+        panel: SinglePanel,
+        globalAppearance: PanelAppearance,
+    ): GridPanel? {
         val name = label(context, panel.widgetId) ?: return null
         return GridPanel(
             id = panel.refId,
             name = name,
             portrait = GridPanelOrientation(geometry = panel.portrait),
             landscape = GridPanelOrientation(geometry = panel.landscape),
-            cardAlpha = panel.cardAlpha,
-            blurRadiusDp = panel.blurRadiusDp,
+            appearance = panel.effectiveAppearance(globalAppearance),
         )
     }
 
     fun shells(context: Context, settings: ActionSettings): List<GridPanel> =
-        all(settings).mapNotNull { shell(context, it) }
+        all(settings).mapNotNull { shell(context, it, settings.panelAppearance) }
 
     /** 面板引用 id → 单功能面板；不是单功能引用返回 null。 */
     fun resolveRef(
@@ -58,7 +62,7 @@ object SinglePanelCatalog {
     ): Pair<SinglePanel, GridPanel>? {
         val widgetId = singlePanelWidgetId(panelId) ?: return null
         val single = resolve(settings, widgetId)
-        val shell = shell(context, single) ?: return null
+        val shell = shell(context, single, settings.panelAppearance) ?: return null
         return single to shell
     }
 }

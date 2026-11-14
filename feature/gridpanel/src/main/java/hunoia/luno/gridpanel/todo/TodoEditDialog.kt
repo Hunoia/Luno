@@ -5,7 +5,9 @@ import android.view.View
 import android.view.ViewTreeObserver
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,12 +19,13 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,8 +47,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -86,9 +92,9 @@ import kotlin.coroutines.resume
  * 待办编辑弹窗（应用内列表页 / 面板部件 / 桌面部件共用）。
  *
  * [todoId] 为空 = 新增；非空 = 编辑（预填文字与提醒，额外提供删除）。
- * 右上角闹钟图标 / 提醒摘要行把提醒选择器**内联展开**在卡片里：标题与输入框保持可见，
- * 不换页、不嵌套二级弹层（ui-guidelines §3.2-5 / §4.4）；展开内容是「日期 / 时 / 分」三列滚轮，
- * 提醒视图不需要键盘。已完成的待办隐藏闹钟入口。
+ * 输入框下方是闹钟图标 / 提醒入口：点一下把「日期 / 时 / 分」三列滚轮**内联展开**在卡片里，
+ * 再点一次确认并收起；不换页、不嵌套二级弹层（ui-guidelines §3.2-5 / §4.4）。
+ * 主取消 / 保存操作行始终位于卡片底部；已完成的待办隐藏闹钟入口。
  *
  * 窗口 / 遮罩 / 进出场动画由 [AnchoredDialog] 统一提供；写回 [TodoCenter] 后先播退场再关闭，
  * [onChanged] 在写成功后调用（桌面部件用来立即刷新）。
@@ -125,6 +131,9 @@ fun TodoEditDialog(
         }
     }
     var reminderExpanded by rememberSaveable(todoId) { mutableStateOf(false) }
+    var reminderDraft by rememberSaveable(todoId, stateSaver = ReminderSaver) {
+        mutableStateOf<TodoReminder?>(null)
+    }
 
     val scope = rememberCoroutineScope()
     val isEdit = existing != null
@@ -147,7 +156,7 @@ fun TodoEditDialog(
             if (trimmed.isEmpty()) return
             // 不收键盘：关窗时 AnchoredDialog 统一 hide + 等 IME 落定，键盘和卡片同一段退场。
             val text = trimmed
-            val targetReminder = reminder
+            val targetReminder = if (reminderExpanded) reminderDraft ?: reminder else reminder
             scope.launch {
                 if (existing == null) {
                     TodoCenter.addTodo(
@@ -167,8 +176,16 @@ fun TodoEditDialog(
 
         // 展开提醒不打断输入态：不收键盘、不清焦点（曾试着等 IME 收起再展开，键盘下滑和卡片
         // 长高叠在一起更卡）。键盘在场时卡片整体被 imePadding 顶到键盘上方，超高由卡片内滚动兜底。
-        fun expandReminder() {
-            reminderExpanded = true
+        fun toggleReminder() {
+            if (reminderExpanded) {
+                // 第二次点闹钟 = 确认当前滚轮选择并收起；没收到滚轮回调就保留原值。
+                reminderDraft?.let { reminder = it }
+                reminderDraft = null
+                reminderExpanded = false
+            } else {
+                reminderDraft = null
+                reminderExpanded = true
+            }
         }
 
         // 自动聚焦 + 弹键盘。焦点要提前要：等 window focus 再 requestFocus，
@@ -190,43 +207,6 @@ fun TodoEditDialog(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(
-                    if (isEdit) R.string.todo_edit_title else R.string.todo_create_title,
-                ),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            // 已完成的待办不提醒：隐藏闹钟入口。
-            if (existing?.done != true) {
-                PressIconButton(
-                    onClick = {
-                        if (reminderExpanded) reminderExpanded = false else expandReminder()
-                    },
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Alarm,
-                        contentDescription = stringResource(
-                            when {
-                                reminderExpanded -> R.string.todo_reminder_collapse
-                                reminder == null -> R.string.todo_reminder_add
-                                else -> R.string.todo_reminder_edit
-                            },
-                        ),
-                        tint = if (reminder == null) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                    )
-                }
-            }
-        }
         OutlinedTextField(
             value = textValue,
             onValueChange = { textValue = it },
@@ -239,41 +219,43 @@ fun TodoEditDialog(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
         )
-        // 展开 / 收起：内容直接换，卡片高度由 cardModifier 的 animateContentSize 过渡（不做二级弹层）。
-        if (reminderExpanded) {
-            TodoReminderWheels(
-                initial = reminder,
-                onCancel = { reminderExpanded = false },
-                onConfirm = {
-                    reminder = it
+        // 已完成的待办不提醒：隐藏闹钟入口。
+        if (existing?.done != true) {
+            ReminderEntryRow(
+                expanded = reminderExpanded,
+                reminder = reminder,
+                draft = reminderDraft,
+                onToggle = { toggleReminder() },
+                onClear = {
+                    reminder = null
+                    reminderDraft = null
                     reminderExpanded = false
                 },
             )
-        } else {
-            reminder?.let {
-                ReminderSummary(
-                    reminder = it,
-                    enabled = existing?.done != true,
-                    onClick = ::expandReminder,
-                )
-            }
-            TodoDialogActions(
-                deleteLabel = if (isEdit) stringResource(R.string.todo_delete) else null,
-                onDelete = {
-                    existing?.let { todo ->
-                        scope.launch {
-                            TodoCenter.deleteTodo(todo.id)
-                            curOnChanged()
-                            dismiss()
-                        }
-                    }
-                },
-                confirmLabel = stringResource(R.string.todo_save),
-                confirmEnabled = trimmed.isNotEmpty(),
-                onCancel = dismiss,
-                onConfirm = { submit() },
+        }
+        // 展开 / 收起：滚轮留在原卡里，主操作行始终是底部的取消 / 保存。
+        if (reminderExpanded) {
+            TodoReminderWheels(
+                initial = reminder,
+                onSelectionChange = { reminderDraft = it },
             )
         }
+        TodoDialogActions(
+            deleteLabel = if (isEdit) stringResource(R.string.todo_delete) else null,
+            onDelete = {
+                existing?.let { todo ->
+                    scope.launch {
+                        TodoCenter.deleteTodo(todo.id)
+                        curOnChanged()
+                        dismiss()
+                    }
+                }
+            },
+            confirmLabel = stringResource(R.string.todo_save),
+            confirmEnabled = trimmed.isNotEmpty(),
+            onCancel = dismiss,
+            onConfirm = { submit() },
+        )
     }
 
     // 展开提醒后卡片变高（大字体下更高），统一保留滚动兜底；滚轮自己是嵌套滚动的子节点，
@@ -307,92 +289,149 @@ fun TodoEditDialog(
 }
 
 /**
- * 提醒摘要行（收起态）：图标 + 「今天 10:00」+ 展开箭头，点行展开滚轮。
+ * 提醒入口（输入框下方）：闹钟图标 + 收起态时间 / 展开态滚轮当前值 + 清除按钮。
  *
- * 与闹钟图标同一入口；命中区按 [MinInteractiveSize]（可点行的默认可访问性基线，
- * 不是 §4.8 的紧凑工具条例外）。
+ * 点图标展开；展开后再点 = 确认当前滚轮值并收起。展开态给图标加浅色圆底，
+ * 表示“这次点击会确认并收起”，不换图标。
  */
 @Composable
-private fun ReminderSummary(
-    reminder: TodoReminder,
-    enabled: Boolean,
-    onClick: () -> Unit,
+private fun ReminderEntryRow(
+    expanded: Boolean,
+    reminder: TodoReminder?,
+    draft: TodoReminder?,
+    onToggle: () -> Unit,
+    onClear: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val past = reminder.isPast(System.currentTimeMillis(), ZoneId.systemDefault())
-    val label = TodoReminderFormat.dialogSummary(
-        LocalContext.current.applicationContext,
-        reminder,
+    val context = LocalContext.current
+    val shown = if (expanded) draft ?: reminder else reminder
+    val past = shown?.isPast(System.currentTimeMillis(), ZoneId.systemDefault()) == true
+    val label = shown?.let {
+        TodoReminderFormat.dialogSummary(context.applicationContext, it)
+    } ?: stringResource(R.string.todo_reminder_entry)
+    val labelColor = when {
+        past -> scheme.error
+        shown != null -> scheme.onSurface
+        else -> scheme.onSurfaceVariant
+    }
+    val iconTint = if (expanded || shown != null) scheme.primary else scheme.onSurfaceVariant
+    val toggleLabel = stringResource(
+        when {
+            expanded -> R.string.todo_reminder_confirm_collapse
+            reminder == null -> R.string.todo_reminder_add
+            else -> R.string.todo_reminder_edit
+        },
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = MinInteractiveSize)
-            .pressClickable(enabled = enabled, onClick = onClick),
+            .heightIn(min = MinInteractiveSize),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = Icons.Default.Alarm,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = if (past) scheme.error else scheme.primary,
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (past) scheme.error else scheme.onSurfaceVariant,
-        )
-        Icon(
-            imageVector = Icons.Default.ExpandMore,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = scheme.onSurfaceVariant,
-        )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = MinInteractiveSize)
+                .pressClickable(onClickLabel = toggleLabel, onClick = onToggle),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (expanded) scheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Alarm,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = iconTint,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = labelColor,
+            )
+        }
+        if (reminder != null) {
+            PressIconButton(onClick = onClear) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.todo_reminder_clear),
+                    modifier = Modifier.size(20.dp),
+                    tint = scheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
 /**
- * 提醒选择器（展开态）：日期 / 时 / 分三列滚轮 + 状态行 + 操作行，全部在同一张卡片里。
+ * 提醒选择器（展开态）：日期 / 时 / 分三列滚轮，全部在同一张卡片里。
  *
- * 日期列只给未来 [ReminderDayCount] 天（今天起），所以「选到过去」只能来自今天 + 已过的钟点；
- * 该情况保留原有校验：状态行转红、确定禁用。已过期或超出一年的旧提醒不作初值，默认「一小时后」。
+ * 今天只列未来时间：时列从当前小时开始，分列在当前小时只给下一分钟起；
+ * 今天已经没有未来分钟时日期列直接从明天开始。滚轮本身滚不到过去，
+ * 不再需要单独的“已过期”状态行或确认校验。
  */
 @Composable
 private fun TodoReminderWheels(
     initial: TodoReminder?,
-    onCancel: () -> Unit,
-    onConfirm: (TodoReminder?) -> Unit,
+    onSelectionChange: (TodoReminder) -> Unit,
 ) {
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
-    // 每次重组重取「现在」：弹窗停留几分钟后，过期校验仍按真实时间判断。
-    val now = System.currentTimeMillis()
-    val todayEpochDay = LocalDate.now(zone).toEpochDay()
-    val days = remember(todayEpochDay) {
-        (0 until ReminderDayCount).map { todayEpochDay + it }
-    }
-    val hours = remember { (0 until 24).toList() }
-    val minutes = remember { (0 until 60).toList() }
-    val fallback = remember(days) {
-        val oneHourLater = LocalDateTime.now(zone).plusHours(1)
+    // 展开时取一次“现在”：滚轮列不随后续分钟跳动收缩；本次弹窗内选到的时间始终是未来。
+    val nowDateTime = remember { LocalDateTime.now(zone) }
+    val nowMillis = remember(nowDateTime) { nowDateTime.atZone(zone).toInstant().toEpochMilli() }
+    val todayEpochDay = nowDateTime.toLocalDate().toEpochDay()
+    val earliestTodayMinute = nowDateTime.hour * 60 + nowDateTime.minute + 1
+    val todayHasFuture = earliestTodayMinute < TodoReminder.MinutesPerDay
+    val firstDay = if (todayHasFuture) todayEpochDay else todayEpochDay + 1
+    val days = remember(firstDay) { (0 until ReminderDayCount).map { firstDay + it } }
+    val fallback = remember(nowDateTime, days) {
+        val oneHourLater = nowDateTime.plusHours(1)
         TodoReminder(
             day = oneHourLater.toLocalDate().toEpochDay().coerceIn(days.first(), days.last()),
             minuteOfDay = oneHourLater.hour * 60 + oneHourLater.minute,
         )
     }
-    // 已过期的旧提醒不作为初值：一进展开态就卡在「不能确定」没有意义，直接给「一小时后」；
-    // 原提醒仍在收起态的摘要行显示「已过期」，取消即可保留。
+    // 已过期或超出一年的旧提醒不作初值；收起态仍显示“已过期”，展开后默认“一小时后”。
     val seed = initial
-        ?.takeIf { !it.isPast(now, zone) && it.day in days.first()..days.last() }
+        ?.takeIf { !it.isPast(nowMillis, zone) && it.day in days.first()..days.last() }
         ?: fallback
-    var day by rememberSaveable(initial) { mutableLongStateOf(seed.day) }
-    var minuteOfDay by rememberSaveable(initial) { mutableIntStateOf(seed.minuteOfDay) }
-    val selected = TodoReminder(day = day, minuteOfDay = minuteOfDay)
+    var day by rememberSaveable(initial, firstDay) { mutableLongStateOf(seed.day) }
+    var minuteOfDay by rememberSaveable(initial, firstDay) { mutableIntStateOf(seed.minuteOfDay) }
+    val firstHour = earliestTodayMinute / 60
+    val firstMinute = earliestTodayMinute % 60
+    val effectiveMinuteOfDay = if (day == todayEpochDay) {
+        minuteOfDay.coerceAtLeast(earliestTodayMinute)
+            .coerceAtMost(TodoReminder.MinutesPerDay - 1)
+    } else {
+        minuteOfDay.coerceIn(0, TodoReminder.MinutesPerDay - 1)
+    }
+    val selected = TodoReminder(day = day, minuteOfDay = effectiveMinuteOfDay)
     val selectedHour = selected.hour
     val selectedMinute = selected.minute
-    val past = selected.isPast(now, zone)
+    val hours = remember(day, todayEpochDay, firstHour) {
+        if (day == todayEpochDay) (firstHour..23).toList() else (0..23).toList()
+    }
+    val minutes = remember(day, todayEpochDay, selectedHour, firstHour, firstMinute) {
+        if (day == todayEpochDay && selectedHour == firstHour) {
+            (firstMinute..59).toList()
+        } else {
+            (0..59).toList()
+        }
+    }
+    // 日期切回今天时把选中值夹到第一个合法分钟；显示与回调都用 effective 值。
+    LaunchedEffect(effectiveMinuteOfDay) {
+        if (effectiveMinuteOfDay != minuteOfDay) minuteOfDay = effectiveMinuteOfDay
+    }
+    LaunchedEffect(selected) { onSelectionChange(selected) }
 
     val todayLabel = stringResource(R.string.todo_reminder_day_today)
     val tomorrowLabel = stringResource(R.string.todo_reminder_day_tomorrow)
@@ -413,60 +452,39 @@ private fun TodoReminderWheels(
         }
     }
 
-    Text(
-        text = stringResource(R.string.todo_reminder_title),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ListSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        WheelColumn(
-            values = days,
-            initialIndex = (day - todayEpochDay).toInt().coerceIn(0, days.lastIndex),
-            onSelected = { day = days[it] },
-            label = dayLabel,
-            modifier = Modifier.weight(1.6f),
-        )
-        WheelColumn(
-            values = hours,
-            initialIndex = selectedHour,
-            onSelected = { hour -> minuteOfDay = hour * 60 + selectedMinute },
-            label = ::wheelNumber,
-            modifier = Modifier.weight(1f),
-        )
-        WheelColumn(
-            values = minutes,
-            initialIndex = selectedMinute,
-            onSelected = { minute -> minuteOfDay = selectedHour * 60 + minute },
-            label = ::wheelNumber,
-            modifier = Modifier.weight(1f),
-        )
+        key(firstDay) {
+            WheelColumn(
+                values = days,
+                initialIndex = days.indexOf(day).coerceAtLeast(0),
+                onSelected = { day = days[it] },
+                label = dayLabel,
+                modifier = Modifier.weight(1.6f),
+            )
+        }
+        key(day) {
+            WheelColumn(
+                values = hours,
+                initialIndex = hours.indexOf(selectedHour).coerceAtLeast(0),
+                onSelected = { hour -> minuteOfDay = hours[hour] * 60 + selectedMinute },
+                label = ::wheelNumber,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        key(day, selectedHour) {
+            WheelColumn(
+                values = minutes,
+                initialIndex = minutes.indexOf(selectedMinute).coerceAtLeast(0),
+                onSelected = { minute -> minuteOfDay = selectedHour * 60 + minutes[minute] },
+                label = ::wheelNumber,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
-    Text(
-        text = if (past) {
-            stringResource(R.string.todo_reminder_expired)
-        } else {
-            TodoReminderFormat.dialogStatus(context.applicationContext, selected)
-        },
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (past) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-    )
-    TodoDialogActions(
-        deleteLabel = if (initial != null) stringResource(R.string.todo_reminder_remove) else null,
-        // 删除提醒：清空数据并收起（保存时随待办一起写回）。
-        onDelete = { onConfirm(null) },
-        confirmLabel = stringResource(R.string.todo_reminder_confirm),
-        confirmEnabled = !past,
-        onCancel = onCancel,
-        onConfirm = { onConfirm(selected) },
-    )
 }
 
 /** 日期列向前给多少天：一年足够覆盖「写个待办顺便定个日子」，再多滚轮也不好找。 */

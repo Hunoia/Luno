@@ -29,6 +29,12 @@ data class OcrResultPayload(
      * 剪贴板 OCR 动作使用，让用户先看到被识别的内容再等文本。
      */
     val preferImage: Boolean = false,
+    /**
+     * 只等用户框选再识别：初始不自动 OCR 整图（识屏/剪贴板都想要「开页即出文本」，
+     * 拍照识别想先框选）。置 true 时 OCR 只在用户拖框（`reOcrSelection`）或显式切到
+     * OCR 来源时触发；`preferImage` 必须同时为 true，否则文本框会是空的。
+     */
+    val deferOcrToSelection: Boolean = false,
 ) {
     /** 有没有可用的 OCR 来源：已识别文本或可懒加载的识别入口。 */
     val hasOcrSource: Boolean

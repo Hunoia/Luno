@@ -414,6 +414,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.pasteImageAt = { path, mime, x, y ->
             pasteImageAt(path, mime, x, y)
         }
+        // 长按建议球「立即扫一次当前界面」：扫描器惰性创建，开关判定在协调器侧。
+        hunoia.luno.gesture.GestureCommand.requestSceneScan = { force ->
+            gestureCoordinator.requestSceneScan(force)
+        }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
             // 横屏用 freeform 小窗打开选择页（复用现有小窗几何，含 MIUI 合成补偿）；

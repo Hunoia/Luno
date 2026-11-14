@@ -17,7 +17,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +53,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -380,10 +380,7 @@ fun LinkDispatchSettingsScreen(
                 subtitle = stringResource(R.string.link_dispatch_rules_order),
             ) {
                 if (rules.isEmpty()) {
-                    Surface(
-                        shape = LargeShape,
-                        color = MaterialTheme.colorScheme.surfaceBright,
-                    ) {
+                    LunoGroupItem(shape = segmentedShape(0, 1)) {
                         EmptyState(message = stringResource(R.string.link_dispatch_rules_empty))
                     }
                 } else {

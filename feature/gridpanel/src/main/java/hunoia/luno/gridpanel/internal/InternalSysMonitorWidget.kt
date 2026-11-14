@@ -84,7 +84,6 @@ private const val ShellMaxChars = 200_000
 /** 列表行高：固定高度，图标 + 文字 + 双数值。 */
 private val SysRowH = 30.dp
 private val SysIconSize = 20.dp
-private val SysPad = 10.dp
 
 /** 一个应用（按 uid 聚合）的占用快照。 */
 data class AppUsage(
@@ -315,7 +314,7 @@ internal fun SysMonitorCell(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(SysPad)
+            .padding(WidgetInnerPadding)
             .semantics { contentDescription = desc },
     ) {
         // 汇总：内存 + CPU 两条 QS 风格细条。

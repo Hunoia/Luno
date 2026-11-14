@@ -17,15 +17,15 @@ class SinglePanelTest {
 
     @Test
     fun `settings keep one panel per widget`() {
-        val first = SinglePanel(widgetId = SinglePanelIds.CLIPBOARD, cardAlpha = 0.5f)
-        val replacement = first.copy(cardAlpha = 0.8f)
+        val first = SinglePanel(widgetId = SinglePanelIds.CLIPBOARD, appearance = PanelAppearance(cardAlpha = 0.5f))
+        val replacement = first.copy(appearance = PanelAppearance(cardAlpha = 0.8f))
         val settings = SinglePanelSettings()
             .withPanel(first)
             .withPanel(SinglePanel(widgetId = SinglePanelIds.APP_DRAWER))
             .withPanel(replacement)
 
         assertEquals(2, settings.panels.size)
-        assertEquals(0.8f, settings.panelByWidgetId(SinglePanelIds.CLIPBOARD)?.cardAlpha)
+        assertEquals(0.8f, settings.panelByWidgetId(SinglePanelIds.CLIPBOARD)?.appearance?.cardAlpha)
         assertEquals(
             first.refId,
             settings.panelByRefId(singlePanelRefId(SinglePanelIds.CLIPBOARD))?.refId,

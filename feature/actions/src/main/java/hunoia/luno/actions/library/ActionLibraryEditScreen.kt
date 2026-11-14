@@ -347,7 +347,7 @@ private fun ActivityPickerSheet(
             Text(
                 text = stringResource(R.string.select_activity_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                modifier = Modifier.padding(vertical = CardInnerSpacing),
             )
             AppSearchBar(
                 query = query,
@@ -355,7 +355,7 @@ private fun ActivityPickerSheet(
                 placeholder = stringResource(R.string.search_activity_hint),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    .padding(vertical = CardInnerSpacing),
             )
             if (filtered.isEmpty()) {
                 EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results))
@@ -366,7 +366,7 @@ private fun ActivityPickerSheet(
                         .fillMaxWidth()
                         .heightIn(max = SheetListMaxHeight)
                         .padding(top = CardInnerSpacing),
-                    contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
+                    contentPadding = PaddingValues(bottom = CardInnerSpacing),
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                 ) {
                     itemsIndexed(filtered, key = { _, activity -> activity.className }) { index, activity ->

@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.spring
 import androidx.compose.material3.LocalContentColor as M3LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +53,10 @@ import androidx.compose.ui.util.fastRoundToInt
 import hunoia.luno.ui.animation.DampedDragAnimation
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.TileInnerPadding
+import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Immutable
 class FloatingBottomBarColors(
@@ -74,9 +81,12 @@ object FloatingBottomBarDefaults {
 /**
  * 底栏 tab 行：只画 tab、指示 pill 与拖拽切换，不画玻璃容器。
  *
- * 调用方（[HomeDock] 的导航胶囊）负责玻璃、阴影、形变与裁剪；这里按传入的 [tabWidth]
- * 用 [requiredWidth] 测量，父容器窄于 tab 行时只做裁剪，不挤压 tab。停靠栏的 tab 宽会随
- * 功能球显隐变化，因此 [tabWidth] 允许是动画值。
+ * 调用方（[HomeDock] 的导航胶囊、类型 chip 底栏）负责玻璃、阴影、形变与裁剪；这里按传入的
+ * [tabWidth] 用 [requiredWidth] 测量，父容器窄于 tab 行时只做裁剪，不挤压 tab。停靠栏的 tab
+ * 宽会随功能球显隐变化，因此 [tabWidth] 允许是动画值。
+ *
+ * [rubberBand] 为 true 时，拖到首尾之外整条内容跟着走、松手弹回（类型 chip 底栏用）；
+ * 停靠栏的胶囊本身就在形变，不需要这层位移。
  */
 @Composable
 fun <T> FloatingTabRow(
@@ -88,6 +98,7 @@ fun <T> FloatingTabRow(
     modifier: Modifier = Modifier,
     /** tab 行高；主页三球停靠栏的胶囊内容高是 52，默认沿用整条底栏的 56。 */
     tabHeight: Dp = BottomBarHeight,
+    rubberBand: Boolean = false,
     iconContent: @Composable (item: T, index: Int) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -100,6 +111,26 @@ fun <T> FloatingTabRow(
     // 拖动继续驱动同一个动画，落点也按新宽度换算。否则会拖着一个被丢弃的实例，
     // 表现就是胶囊展开后 pill 不跟手、短拖不切页。
     val tabWidthPxState = rememberUpdatedState(tabWidthPx)
+
+    // 橡皮筋：拖到首尾之外时整条内容被带着走，松手弹回。幅度取胶囊内边距，按越界比例缓出。
+    val rubberBandPx = with(density) { TileInnerPadding.toPx() }
+    val stripWidthPxState = rememberUpdatedState(tabWidthPx * tabsCount)
+    val rubberBandOffset = remember { Animatable(0f) }
+    val panelOffset by remember(rubberBandPx) {
+        derivedStateOf {
+            if (!rubberBand) {
+                0f
+            } else {
+                val stripWidthPx = stripWidthPxState.value
+                if (stripWidthPx <= 0f) {
+                    0f
+                } else {
+                    val fraction = (rubberBandOffset.value / stripWidthPx).fastCoerceIn(-1f, 1f)
+                    rubberBandPx * (if (fraction < 0f) -1f else 1f) * EaseOut.transform(abs(fraction))
+                }
+            }
+        }
+    }
 
     var currentIndex by remember { mutableIntStateOf(selectedIndex()) }
     val selectedIndexUpdated by rememberUpdatedState(selectedIndex)
@@ -135,9 +166,15 @@ fun <T> FloatingTabRow(
                     onSelectedUpdated(targetIndex)
                 }
                 updateValue(targetIndex.toFloat())
+                if (rubberBand) {
+                    animationScope.launch { rubberBandOffset.animateTo(0f, spring(1f, 300f, 0.5f)) }
+                }
             },
             onDragCancelled = {
                 updateValue(currentIndex.toFloat())
+                if (rubberBand) {
+                    animationScope.launch { rubberBandOffset.animateTo(0f, spring(1f, 300f, 0.5f)) }
+                }
             },
             onDrag = { _, dragAmount ->
                 val widthPx = tabWidthPxState.value
@@ -146,6 +183,12 @@ fun <T> FloatingTabRow(
                         (targetValue + dragAmount.x / widthPx * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, (tabsCount - 1).toFloat()),
                     )
+                    if (rubberBand) {
+                        // 越界量单独记：DampedDragAnimation 的值本身被夹在首尾之间。
+                        animationScope.launch {
+                            rubberBandOffset.snapTo(rubberBandOffset.value + dragAmount.x)
+                        }
+                    }
                 }
             },
         )
@@ -211,7 +254,8 @@ fun <T> FloatingTabRow(
     Box(
         modifier = modifier
             .requiredWidth(tabWidth * tabsCount)
-            .height(tabHeight),
+            .height(tabHeight)
+            .graphicsLayer { translationX = panelOffset },
     ) {
         Row(
             Modifier

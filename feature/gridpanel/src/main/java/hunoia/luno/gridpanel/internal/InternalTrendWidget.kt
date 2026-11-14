@@ -86,7 +86,7 @@ internal fun TrendWidgetCell(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(10.dp),
+            .padding(WidgetInnerPadding),
     ) {
         Row(
             modifier = Modifier

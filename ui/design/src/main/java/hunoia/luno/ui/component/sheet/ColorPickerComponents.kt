@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -18,6 +19,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
+import hunoia.luno.ui.component.input.horizontalSliderDrag
 import hunoia.luno.ui.theme.CanvasStrokeWidth
 import hunoia.luno.ui.theme.CanvasThumbRadius
 import hunoia.luno.ui.theme.LargeShape
@@ -158,6 +161,8 @@ internal fun ColorSlider(
     val density = LocalDensity.current
     val tile = with(density) { 8.dp.toPx() }
     val thumbSize = CanvasThumbRadius * 2
+    val interactionSource = remember { MutableInteractionSource() }
+    val latestValue by rememberUpdatedState(value)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -203,6 +208,7 @@ internal fun ColorSlider(
                 value = value,
                 onValueChange = onValueChange,
                 valueRange = 0f..1f,
+                interactionSource = interactionSource,
                 colors = SliderDefaults.colors(
                     // 轨道全透明：渐变由底下两层画，M3 自绘轨会盖掉棋盘。
                     activeTrackColor = Color.Transparent,
@@ -228,6 +234,19 @@ internal fun ColorSlider(
                             },
                     )
                 },
+            )
+            // 与 LunoSlider 同一手势：只认横向拖动、点按不跳值、纵向让给父级滚动。
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .horizontalSliderDrag(
+                        valueRange = 0f..1f,
+                        steps = 0,
+                        currentValue = { latestValue },
+                        interactionSource = interactionSource,
+                        onValueChange = onValueChange,
+                        onValueChangeFinished = {},
+                    ),
             )
         }
     }

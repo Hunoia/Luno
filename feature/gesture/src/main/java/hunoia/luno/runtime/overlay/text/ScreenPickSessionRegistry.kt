@@ -45,6 +45,6 @@ object ScreenPickSessionRegistry {
     }
 
     private fun recycle(preCapture: ScreenPreCapture) {
-        preCapture.capture?.bitmap?.let { if (!it.isRecycled) it.recycle() }
+        preCapture.discard()
     }
 }

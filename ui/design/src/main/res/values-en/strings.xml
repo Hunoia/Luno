@@ -6,6 +6,10 @@
     <string name="go_back">Back</string>
     <string name="search_clear_cd">Clear</string>
     <string name="search_hint_all">Search</string>
+    <string name="group_collapse">Collapse</string>
+    <string name="group_expand">Expand</string>
+    <string name="group_state_expanded">Expanded</string>
+    <string name="group_state_collapsed">Collapsed</string>
     <string name="color_picker_theme_tab">Theme color</string>
     <string name="custom">Custom</string>
     <string name="color_picker_wheel">Hue &amp; saturation</string>

@@ -21,12 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonAngle
@@ -38,12 +36,12 @@ import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.directionLabel
-import hunoia.luno.ui.component.row.LocalInDividedCard
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.groupItemClip
+import hunoia.luno.ui.component.row.groupItemSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.containerShape
 
 /** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
@@ -102,21 +100,11 @@ fun ExpandableGestureActionCard(
         bottomEnd = ContainerRadius,
     )
     // 大卡分割线风格：由外层 LunoGroup 托底并画行间分割线，卡片自身不能再裁圆角 / 留缝。
-    val inDividedCard = LocalInDividedCard.current
-    val outerModifier = if (inDividedCard) {
-        Modifier.fillMaxWidth()
-    } else {
-        Modifier.fillMaxWidth().clip(outerShape)
-    }
-    val contentModifier = if (inDividedCard) {
-        Modifier.fillMaxWidth()
-    } else {
-        Modifier.fillMaxWidth().clip(contentShape)
-    }
-    val spacing = if (inDividedCard) 0.dp else SegmentedGap
+    // 两风格的口径统一在 ui:design 的 groupItemClip / groupItemSpacing。
+    val spacing = groupItemSpacing()
     Column(
-        modifier = outerModifier,
-        verticalArrangement = if (inDividedCard) Arrangement.Top else Arrangement.spacedBy(spacing),
+        modifier = Modifier.fillMaxWidth().groupItemClip(outerShape),
+        verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         LunoSettingsRow(
             title = title,
@@ -139,8 +127,8 @@ fun ExpandableGestureActionCard(
             exit = shrinkVertically() + fadeOut(),
         ) {
             Column(
-                modifier = contentModifier,
-                verticalArrangement = if (inDividedCard) Arrangement.Top else Arrangement.spacedBy(spacing),
+                modifier = Modifier.fillMaxWidth().groupItemClip(contentShape),
+                verticalArrangement = Arrangement.spacedBy(spacing),
             ) {
                 content()
             }
@@ -230,9 +218,7 @@ private fun <T> RowGroup(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(
-            if (LocalInDividedCard.current) 0.dp else SegmentedGap,
-        ),
+        verticalArrangement = Arrangement.spacedBy(groupItemSpacing()),
     ) {
         items.forEachIndexed { index, value ->
             item(index, value)

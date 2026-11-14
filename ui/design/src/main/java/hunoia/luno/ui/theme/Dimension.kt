@@ -22,6 +22,11 @@ val CompactToolbarHeight = SubMinInteractiveSize
 val CompactControlIconSize = 20.dp
 val RowIconSize = 24.dp
 val BadgeIconSize = 16.dp
+/**
+ * 面板内应用图标的固定解码上限：请求不随面板拖拽 / 缩放尺寸逐帧变化，
+ * 否则 Coil 会每帧重建请求并重新解码，表现就是图标不停闪（§4.6 性能约束）。
+ */
+val AppIconDecodeSize = 96.dp
 val TopBarPaddingExtra = 8.dp
 val TopBarTitlePadding = 12.dp
 
@@ -31,6 +36,8 @@ val ListSpacing = 16.dp
 val ListItemVerticalPadding = 12.dp
 val CardInnerSpacing = 8.dp
 val SliderInnerPadding = 12.dp
+/** 滑杆 thumb 宽度：与 M3 Slider 默认 handle 同宽，拖动映射按轨道净宽（总宽 − thumb）换算。 */
+val SliderThumbWidth = 20.dp
 val ContentBottom = 24.dp
 val FloatingContentBottom = 120.dp
 val SheetListMaxHeight = 420.dp
@@ -86,7 +93,17 @@ val BottomBarTabWidth = 76.dp
 // Segmented list tokens
 val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp
-val SegmentedGap = 1.dp
+
+/** 分段列表的行间缝合缝：全仓唯一缝宽，页面不得另传 `contentSpacing`。 */
+val SegmentedGap = 2.dp
+
+/**
+ * 组头徽标胶囊的纵向内边距。
+ *
+ * 不复用 [SegmentedGap]：缝宽是列表几何，徽标内边距是文字呼吸空间，两者语义无关，
+ * 改缝宽不该连带改徽标高度。
+ */
+val BadgeVerticalPadding = 2.dp
 // OCR 分词 chip 可见高度；命中区与之同高，行距即 chip 高，分词排版更紧凑。
 val OcrChipMinHeight = 32.dp
 
@@ -112,6 +129,22 @@ val CandidateMaxHeight = 96.dp
 // 网格 cell 与 AppItem 的内边距
 val GridCellSpacing = 4.dp
 val AppItemPadding = 4.dp
+
+// 应用抽屉的组头（⭐ 常用区 / 字母）：上留白拉开与上一节的距离，下留白贴近本节图标
+val AppSectionHeaderTopPadding = 6.dp
+val AppSectionHeaderBottomPadding = 2.dp
+val AppSectionHeaderIconSize = 16.dp
+
+// 字母索引条（应用抽屉边缘滑杆）：只显示当前附近 3–7 个字母，窗口跟手滑动。
+// 条目高 = 可用高 / 字母数，夹在实测字高（字形不被裁剪）与 ItemMaxHeight 之间；
+// 连三个完整字母都放不下就整条隐藏（宁可没有滑杆，也不给一排裁掉半截的字）。
+val LetterIndexTouchWidth = 28.dp
+val LetterIndexIdealItemHeight = 32.dp
+val LetterIndexItemMaxHeight = 40.dp
+val LetterIndexItemVerticalPadding = 2.dp
+val LetterIndexHorizontalPadding = 4.dp
+val LetterIndexBubbleSize = 40.dp
+val LetterIndexBubbleGap = 4.dp
 
 // 键盘：行间距与键间距共用一个值
 val KeyboardGap = 6.dp

@@ -7,7 +7,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,11 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.RectangleShape
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
@@ -39,15 +34,15 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.groupItemClip
+import hunoia.luno.ui.component.row.groupItemSpacing
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.TextInputDialog
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.containerShape
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
@@ -205,44 +200,31 @@ internal fun EngineEditFields(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-        // 基本信息：三行连成一张整卡（底色由外层统一铺，分割线两侧露出的也是卡色），
-        // 行间用两头不接边的分割线分隔。
-        LunoGroup(
-            title = stringResource(R.string.search_engine_basic_group),
-            contentSpacing = 0.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(LargeShape)
-                    .background(MaterialTheme.colorScheme.surfaceBright),
-            ) {
-                LunoInputRow(
-                    label = stringResource(R.string.search_engine_name),
-                    value = state.name,
-                    onValueChange = { state.name = it },
-                    placeholder = stringResource(R.string.search_engine_name_hint),
-                    shape = RectangleShape,
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
-                LunoInputRow(
-                    label = stringResource(R.string.search_engine_icon_text),
-                    value = state.iconText,
-                    onValueChange = { state.iconText = it.take(2) },
-                    placeholder = stringResource(R.string.search_engine_icon_text_hint),
-                    shape = RectangleShape,
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
-                LunoInputRow(
-                    label = stringResource(R.string.search_engine_trigger),
-                    value = state.trigger,
-                    onValueChange = { state.trigger = it },
-                    placeholder = "bb",
-                    subtitle = state.triggerError?.let { stringResource(it) }.orEmpty(),
-                    isError = state.triggerError != null,
-                    shape = RectangleShape,
-                )
-            }
+        // 基本信息：三行同属一组，分段风格是三个圆角块，大卡风格是一张卡 + 行间分割线。
+        LunoGroup(title = stringResource(R.string.search_engine_basic_group)) {
+            LunoInputRow(
+                label = stringResource(R.string.search_engine_name),
+                value = state.name,
+                onValueChange = { state.name = it },
+                placeholder = stringResource(R.string.search_engine_name_hint),
+                shape = segmentedShape(0, 3),
+            )
+            LunoInputRow(
+                label = stringResource(R.string.search_engine_icon_text),
+                value = state.iconText,
+                onValueChange = { state.iconText = it.take(2) },
+                placeholder = stringResource(R.string.search_engine_icon_text_hint),
+                shape = segmentedShape(1, 3),
+            )
+            LunoInputRow(
+                label = stringResource(R.string.search_engine_trigger),
+                value = state.trigger,
+                onValueChange = { state.trigger = it },
+                placeholder = "bb",
+                subtitle = state.triggerError?.let { stringResource(it) }.orEmpty(),
+                isError = state.triggerError != null,
+                shape = segmentedShape(2, 3),
+            )
         }
         OpenModeCard(state)
         if (!state.isShareImage) {
@@ -341,12 +323,20 @@ private fun OpenModeCard(state: EngineEditState) {
         bottomStart = ContainerRadius,
         bottomEnd = ContainerRadius,
     )
+    val spacing = groupItemSpacing()
     LunoGroup(title = stringResource(R.string.search_engine_open_mode)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(LargeShape),
-            verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                .groupItemClip(
+                    containerShape(
+                        topStart = ContainerRadius,
+                        topEnd = ContainerRadius,
+                        bottomStart = ContainerRadius,
+                        bottomEnd = ContainerRadius,
+                    ),
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing),
         ) {
             LunoSettingsRow(
                 title = stringResource(current.second),
@@ -371,8 +361,8 @@ private fun OpenModeCard(state: EngineEditState) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(contentShape),
-                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                        .groupItemClip(contentShape),
+                    verticalArrangement = Arrangement.spacedBy(spacing),
                 ) {
                     modes.forEachIndexed { index, (mode, labelRes, descRes) ->
                         val bottom = if (index == modes.lastIndex) ContainerRadius else ConnectionRadius

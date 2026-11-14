@@ -2,6 +2,7 @@ package hunoia.luno.action.definitions
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Image
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
@@ -30,10 +31,18 @@ internal object ImageActionGroup : ActionGroup {
             Capability.None,
             icon = Icons.Default.Image,
         ),
+        ActionDefinition(
+            "image.recognize",
+            "拍照识别",
+            ActionCategory.GESTURE_TOOL,
+            Capability.None,
+            icon = Icons.Default.Camera,
+        ),
     )
 
     override fun installDecoders() {
         ActionMappingRegistry.register("screen.annotate") { Action.ScreenAnnotate }
         ActionMappingRegistry.register("image.edit") { Action.ImageEdit }
+        ActionMappingRegistry.register("image.recognize") { Action.PhotoRecognize }
     }
 }

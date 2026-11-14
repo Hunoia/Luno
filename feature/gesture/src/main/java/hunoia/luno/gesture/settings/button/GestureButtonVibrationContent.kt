@@ -3,6 +3,7 @@ package hunoia.luno.gesture.settings.button
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.LunoColumn
@@ -16,7 +17,8 @@ fun GestureButtonVibrationContent(
     button: GestureButton,
     vm: GestureButtonSettingsVM
 ) {
-    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+    // 横向边距由 LunoSheet 统一提供，这里只排纵向间距。
+    LunoColumn(contentPadding = 0.dp, verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         LunoGroup(title = stringResource(R.string.vibration_group_slide)) {
             LunoSegmentedGroup {
                 item { shape -> LunoSwitchRow(

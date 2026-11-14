@@ -62,7 +62,6 @@ import hunoia.luno.ui.theme.CanvasThumbRadius
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -123,7 +122,7 @@ private fun DirectionAngleContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding)
+            .padding(vertical = ListItemVerticalPadding)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

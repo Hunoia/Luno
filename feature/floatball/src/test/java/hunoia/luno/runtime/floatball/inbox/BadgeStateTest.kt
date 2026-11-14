@@ -31,7 +31,6 @@ class BadgeStateTest {
         ).state
 
     private fun clip(text: String, at: Long = 1L) = SuggestionItem(
-        kind = SuggestionKind.LINK,
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",

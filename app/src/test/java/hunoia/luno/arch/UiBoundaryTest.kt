@@ -130,6 +130,23 @@ class UiBoundaryTest {
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
+    @Test
+    fun `滑杆手势只在 ui design 封装里实现`() {
+        // 所有滑杆必须走 LunoSlider：只认横向拖动、点按不跳值、纵向交给父级滚动
+        // （ui-guidelines §4.10）。页面直接引 M3 Slider 会绕过这层手势。
+        // 设计系统内部可以组合 M3 Slider（如颜色滑块），页面 / feature 不得绕过封装。
+        val designRoot = "ui/design/src/main/java/"
+        val problems = productionFiles
+            .filterNot { it.repoPath().startsWith(designRoot) }
+            .flatMap { file ->
+                file.imports
+                    .map { it.name }
+                    .filter { it == "androidx.compose.material3.Slider" }
+                    .map { "${file.repoPath()} 直接引用 M3 Slider" }
+            }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
     /** main 源集下的 `res/values*` XML（跳过 build 目录，否则会扫到生成物）。 */
     private fun resValuesXml(): List<File> =
         File("..").walkTopDown()

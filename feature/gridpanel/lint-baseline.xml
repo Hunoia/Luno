@@ -144,49 +144,6 @@
             column="18"/>
     </issue>
 
-    <issue
-        id="MissingTranslation"
-        message="&quot;todo_reminder_collapse&quot; is not translated in &quot;en&quot; (English)"
-        errorLine1="    &lt;string name=&quot;todo_reminder_collapse&quot;>收起提醒&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="103"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
-        message="&quot;todo_reminder_day_today&quot; is not translated in &quot;en&quot; (English)"
-        errorLine1="    &lt;string name=&quot;todo_reminder_day_today&quot;>今天&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="104"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
-        message="&quot;todo_reminder_day_tomorrow&quot; is not translated in &quot;en&quot; (English)"
-        errorLine1="    &lt;string name=&quot;todo_reminder_day_tomorrow&quot;>明天&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="105"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
-        message="&quot;todo_reminder_day_date&quot; is not translated in &quot;en&quot; (English)"
-        errorLine1="    &lt;string name=&quot;todo_reminder_day_date&quot;>%1$d/%2$d&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="106"
-            column="13"/>
-    </issue>
 
     <issue
         id="PluralsCandidate"

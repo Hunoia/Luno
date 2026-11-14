@@ -16,4 +16,8 @@
     <files-path
         name="clipboard_images"
         path="clipboard_images/" />
+    <!-- 拍照识别的系统相机输出：cacheDir/camera_capture/，拍完即解码，不留档。 -->
+    <cache-path
+        name="camera_capture"
+        path="camera_capture/" />
 </paths>

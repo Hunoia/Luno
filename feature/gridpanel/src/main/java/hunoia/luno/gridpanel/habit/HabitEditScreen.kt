@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -67,9 +66,12 @@ import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.input.WheelColumn
 import hunoia.luno.ui.component.input.wheelNumber
+import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
@@ -79,7 +81,6 @@ import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.gridpanel.ui.snoozeDurationLabel
-import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.HabitCalendarCellGap
 import hunoia.luno.ui.theme.HabitCalendarHeaderGap
@@ -379,7 +380,7 @@ fun HabitEditScreen(
         },
     ) {
         LunoGroup(title = stringResource(R.string.habit_name)) {
-            OutlinedTextField(
+            LunoCardInput(
                 value = shownName,
                 onValueChange = { value ->
                     state.name = value
@@ -393,17 +394,14 @@ fun HabitEditScreen(
                         scheduleFlush()
                     }
                 },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.habit_name_hint)) },
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                placeholder = stringResource(R.string.habit_name_hint),
+                shape = segmentedShape(0, 1),
             )
         }
         LunoGroup {
             LunoSettingsRow(
                 title = stringResource(R.string.habit_color),
+                shape = segmentedShape(0, 1),
                 leading = {
                     Box(
                         Modifier
@@ -428,6 +426,7 @@ fun HabitEditScreen(
                 text = stringResource(R.string.habit_interval_summary, shownInterval),
                 valueRange = 1f..30f,
                 steps = 28,
+                shape = segmentedShape(0, 1),
             )
         }
         LunoGroup(title = stringResource(R.string.habit_daily_target)) {
@@ -440,9 +439,11 @@ fun HabitEditScreen(
                 text = stringResource(R.string.habit_daily_target_summary, shownTarget),
                 valueRange = 1f..HabitMaxDailyTarget.toFloat(),
                 steps = HabitMaxDailyTarget - 2,
+                shape = segmentedShape(0, 1),
             )
         }
         LunoGroup(title = stringResource(R.string.habit_reminder)) {
+            val reminderRowCount = if (shownReminderEnabled) shownReminders.size + 3 else 1
             LunoSwitchRow(
                 title = stringResource(R.string.habit_reminder_enable),
                 checked = shownReminderEnabled,
@@ -453,6 +454,7 @@ fun HabitEditScreen(
                     }
                     scheduleFlush()
                 },
+                shape = segmentedShape(0, reminderRowCount),
             )
             if (shownReminderEnabled) {
                 shownReminders.forEachIndexed { index, reminder ->
@@ -463,6 +465,7 @@ fun HabitEditScreen(
                             reminder.hour,
                             reminder.minute,
                         ),
+                        shape = segmentedShape(index + 1, reminderRowCount),
                         onClick = {
                             state.dialog = null
                             state.showSnoozeDialog = false
@@ -492,6 +495,7 @@ fun HabitEditScreen(
                     subtitle = if (atMax) stringResource(R.string.habit_reminder_max) else "",
                     icon = Icons.Default.Add,
                     enabled = !atMax,
+                    shape = segmentedShape(shownReminders.size + 1, reminderRowCount),
                     onClick = {
                         state.editingReminderIndex = null
                         state.showTimePicker = true
@@ -500,6 +504,7 @@ fun HabitEditScreen(
                 LunoSettingsRow(
                     title = stringResource(R.string.habit_snooze),
                     subtitle = snoozeDurationLabel(shownSnoozeMinutes),
+                    shape = segmentedShape(shownReminders.size + 2, reminderRowCount),
                     onClick = { state.showSnoozeDialog = true },
                 )
             }
@@ -544,22 +549,24 @@ private fun HabitHeatmapCard(
 ) {
     val description = stringResource(R.string.habit_heatmap_desc)
     LunoGroup(title = stringResource(R.string.habit_heatmap)) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
-            contentAlignment = Alignment.Center,
-        ) {
-            HabitHeatmapGrid(
-                geometry = habitHeatmapGeometryFillWidth(maxWidth),
-                today = today,
-                checks = config.checks[habitId].orEmpty(),
-                counts = config.counts[habitId].orEmpty(),
-                target = target,
-                habitColor = color,
-                baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                modifier = Modifier.semantics { contentDescription = description },
-            )
+        LunoGroupItem(shape = segmentedShape(0, 1)) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
+                contentAlignment = Alignment.Center,
+            ) {
+                HabitHeatmapGrid(
+                    geometry = habitHeatmapGeometryFillWidth(maxWidth),
+                    today = today,
+                    checks = config.checks[habitId].orEmpty(),
+                    counts = config.counts[habitId].orEmpty(),
+                    target = target,
+                    habitColor = color,
+                    baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    modifier = Modifier.semantics { contentDescription = description },
+                )
+            }
         }
     }
 }
@@ -743,56 +750,58 @@ private fun RecentChecksGrid(
     // today 右侧（未来）与窗口前（前导对齐）留空。
     val todayPos = 4 * 7 + (LocalDate.ofEpochDay(today).dayOfWeek.value - 1)
     LunoGroup(title = stringResource(R.string.habit_recent_checks)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
-        ) {
-            // 顶部星期单字（一~日），与下方列对齐。
-            Row(modifier = Modifier.fillMaxWidth()) {
-                weekdays.forEach { weekday ->
-                    Text(
-                        text = weekday,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = outline.copy(alpha = HabitWeekdayAlpha),
-                    )
+        LunoGroupItem(shape = segmentedShape(0, 1)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
+            ) {
+                // 顶部星期单字（一~日），与下方列对齐。
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    weekdays.forEach { weekday ->
+                        Text(
+                            text = weekday,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = outline.copy(alpha = HabitWeekdayAlpha),
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.height(HabitCalendarHeaderGap))
-            // 35 槽：pos = row*7+col；dayOffset = todayPos-pos（0=today，>0=过去，<0=未来）。
-            for (row in 0 until 5) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(HabitCalendarCellGap),
-                ) {
-                    for (col in 0 until 7) {
-                        val dayOffset = todayPos - (row * 7 + col)
-                        if (dayOffset < 0 || dayOffset > 29) {
-                            Spacer(
-                                Modifier
-                                    .weight(1f)
-                                    .heightIn(min = HabitDayCellMinHeight),
-                            )
-                        } else {
-                            val day = today - dayOffset
-                            val state = habitDayState(checks, day, interval, today)
-                            val checked = config.isChecked(habitId, day)
-                            val count = config.countOf(habitId, day, target)
-                            val date = LocalDate.ofEpochDay(day)
-                            DayDotCell(
-                                month = date.monthValue,
-                                day = date.dayOfMonth,
-                                visual = state.visual(),
-                                stateLabel = state.label(),
-                                isToday = dayOffset == 0,
-                                palette = palette,
-                                count = count,
-                                target = target,
-                                onClick = { onDayClick(day, !checked) },
-                                modifier = Modifier.weight(1f),
-                            )
+                Spacer(Modifier.height(HabitCalendarHeaderGap))
+                // 35 槽：pos = row*7+col；dayOffset = todayPos-pos（0=today，>0=过去，<0=未来）。
+                for (row in 0 until 5) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(HabitCalendarCellGap),
+                    ) {
+                        for (col in 0 until 7) {
+                            val dayOffset = todayPos - (row * 7 + col)
+                            if (dayOffset < 0 || dayOffset > 29) {
+                                Spacer(
+                                    Modifier
+                                        .weight(1f)
+                                        .heightIn(min = HabitDayCellMinHeight),
+                                )
+                            } else {
+                                val day = today - dayOffset
+                                val state = habitDayState(checks, day, interval, today)
+                                val checked = config.isChecked(habitId, day)
+                                val count = config.countOf(habitId, day, target)
+                                val date = LocalDate.ofEpochDay(day)
+                                DayDotCell(
+                                    month = date.monthValue,
+                                    day = date.dayOfMonth,
+                                    visual = state.visual(),
+                                    stateLabel = state.label(),
+                                    isToday = dayOffset == 0,
+                                    palette = palette,
+                                    count = count,
+                                    target = target,
+                                    onClick = { onDayClick(day, !checked) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }

@@ -155,6 +155,8 @@ fun ColorPickerBottomSheet(
     LunoSheet(
         onDismissRequest = onDismissRequest,
         scrollState = OptimizedScrollState.Scroll(scrollState),
+        // 颜色盘底部是通栏操作条（自带顶角与内容内边距），整层不再叠 gutter。
+        horizontalPadding = 0.dp,
     ) {
         Column(
             modifier = Modifier

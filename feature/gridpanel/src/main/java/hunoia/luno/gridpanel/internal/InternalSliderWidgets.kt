@@ -5,7 +5,6 @@ import android.content.Intent
 import android.media.AudioManager
 import android.provider.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -79,11 +78,10 @@ private fun QsSlider(
     BoxWithConstraints(
         modifier = modifier
             .clip(CircleShape)
-            // 轨道底衬半透明 + 细描边：全透明的话 0% 时整条轨道消失，只剩填充
-            // 一截悬在卡面上；半透既托住滑条形状，又不抢填充的 primary。描边勾出
-            // 胶囊边缘，背景关掉时轨道也有清晰的轮廓。
+            // 轨道底衬半透明：全透明的话 0% 时整条轨道消失，只剩填充
+            // 一截悬在卡面上；半透既托住滑条形状，又不抢填充的 primary。
+            // 不再画描边：网格项已有与动作项同色的填充底，双层底/双线会显得脏。
             .background(onCard.copy(alpha = 0.12f))
-            .border(1.dp, onCard.copy(alpha = 0.14f), CircleShape)
             .then(
                 // enabled=false（编辑态）时不挂手势：事件落到层根的拖拽/缩放上，
                 // 不然编辑态拖滑条 = 既改音量又拖部件。
@@ -228,7 +226,7 @@ fun VolumeSliderCell(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(sliderPadding(vertical)),
+            .padding(sliderPadding()),
         contentAlignment = Alignment.Center,
     ) {
         QsSlider(
@@ -317,7 +315,7 @@ fun BrightnessSliderCell(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(sliderPadding(vertical)),
+            .padding(sliderPadding()),
         contentAlignment = Alignment.Center,
     ) {
         QsSlider(

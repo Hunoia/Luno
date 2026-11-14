@@ -27,6 +27,11 @@ data class ActionSettings(
      * 未配置的功能使用默认几何，因此这里为空时面板仍存在。
      */
     val singlePanels: SinglePanelSettings = SinglePanelSettings(),
+    /**
+     * 全局面板外观：网格 / 单功能面板的默认卡透明度、模糊半径与边距。
+     * 单面板 `appearance == null` 时跟随这里；必须留在本域内，否则 `:service` 运行时读不到。
+     */
+    val panelAppearance: PanelAppearance = PanelAppearance(),
     /** 悬浮球；同样必须留在本域内，否则运行时读不到。 */
     val floatBall: FloatBallSettings = FloatBallSettings(),
     /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */

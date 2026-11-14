@@ -17,13 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.ListStyle
+import hunoia.luno.ui.theme.BadgeVerticalPadding
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.groupItemShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -44,7 +45,9 @@ fun segmentedShape(index: Int, count: Int): Shape {
     val isSingle = count <= 1
     val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
     val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
-    return containerShape(
+    // 位置随形状透传：大卡分割线风格靠它判断条目上方是否还有条目（含选中段切角）。
+    return groupItemShape(
+        index = index,
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
@@ -66,11 +69,10 @@ fun LunoSegmentedGroup(
 ) {
     val scope = SegmentedGroupScope()
     scope.content()
-    // 大卡分割线风格：行间由分割线分隔，不能再用分段式的 1dp 缝。
-    val effectiveSpacing = if (LocalInDividedCard.current) 0.dp else contentSpacing
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(effectiveSpacing),
+        // 大卡分割线风格：行间由分割线分隔，缝归零。
+        verticalArrangement = Arrangement.spacedBy(groupItemSpacing(contentSpacing)),
     ) {
         scope.items.forEachIndexed { index, item ->
             item(segmentedShape(index, scope.items.size))
@@ -99,7 +101,8 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Shape
         neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
     val top = if (index == 0 || !sameAsNeighbor(index - 1)) ContainerRadius else ConnectionRadius
     val bottom = if (index == count - 1 || !sameAsNeighbor(index + 1)) ContainerRadius else ConnectionRadius
-    return containerShape(
+    return groupItemShape(
+        index = index,
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
@@ -110,8 +113,11 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Shape
 /**
  * 分组容器。
  *
- * 组间距 [ListSpacing]，组内间距 [contentSpacing]（1dp 圆角缝合），默认值即可，
- * 不要显式传。组头右侧可挂状态徽标，[badgeError] 时走 error 色。
+ * 组间距 [ListSpacing]，组内间距 [contentSpacing]（默认 [SegmentedGap]，圆角缝合），
+ * 默认值即可，不要显式传。组头右侧可挂状态徽标，[badgeError] 时走 error 色。
+ *
+ * 大卡分割线风格下：整组一张大圆角卡片，`contentSpacing` 不生效，行间由
+ * [LunoGroupItem] / 行组件顶部的缩进分割线分隔。
  * 标题下第一项不是等高容器（如裸输入框）时，可传小一点的 [titleBottomSpacing]
  * 让视觉间距与其他组一致。
  */
@@ -178,20 +184,6 @@ fun LunoGroup(
     }
 }
 
-/**
- * 大卡分割线风格下，行是否应在自身顶部画分割线（首行 / 单项除外）。
- *
- * 依据行传入的分段形状判定：顶角为 [ConnectionRadius] 说明不是组首，
- * 需在其上画线。覆盖 `segmentedShape` 的中段与尾段两种组合；
- * `selectedSegmentedShape` 的选中段边界行会少画一条线，属可接受的视觉近似。
- */
-internal fun showsDividedCardTopLine(shape: Shape): Boolean {
-    val connection = ConnectionRadius
-    val middle = containerShape(connection, connection, connection, connection)
-    val last = containerShape(connection, connection, ContainerRadius, ContainerRadius)
-    return shape == middle || shape == last
-}
-
 @Composable
 fun SectionBadge(
     text: String,
@@ -212,7 +204,7 @@ fun SectionBadge(
             else MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(
                 horizontal = CardInnerSpacing,
-                vertical = SegmentedGap,
+                vertical = BadgeVerticalPadding,
             ),
             maxLines = 1,
         )

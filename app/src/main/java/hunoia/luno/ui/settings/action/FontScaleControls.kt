@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.Density
 import hunoia.luno.R
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -43,7 +43,7 @@ internal fun FontScaleControls(
 
     Column(
         modifier = Modifier
-            .padding(PageGutter)
+            .padding(vertical = PageGutter)
             .padding(bottom = ContentBottom),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
@@ -78,7 +78,7 @@ internal fun FontScaleControls(
             title = stringResource(R.string.font_scale_sample_group),
             subtitle = stringResource(R.string.font_scale_sample_hint),
         ) {
-            Surface(
+            LunoGroupItem(
                 modifier = Modifier.fillMaxWidth(),
                 shape = segmentedShape(0, 1),
                 color = MaterialTheme.colorScheme.surfaceBright,

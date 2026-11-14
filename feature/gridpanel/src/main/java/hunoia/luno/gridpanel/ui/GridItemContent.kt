@@ -34,12 +34,14 @@ import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.gridpanel.R
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.panelTileContainer
+import hunoia.luno.ui.theme.AppIconDecodeSize
 
 /**
  * 网格图标固定解码上限：面板拖拽/缩放只改布局尺寸，不再让 Coil 按每个像素尺寸
  * 重新生成请求。图标源最多按这个上限解码，再交给 Compose 缩放到实际格子大小。
+ * 值统一走 [AppIconDecodeSize]，应用抽屉 / 快捷启动共用同一口径。
  */
-private val GridIconDecodeSize = 96.dp
 
 /**
  * 动作格内容：应用图标（图片型）不铺底色、占满整格（自带圆角/形状）；
@@ -62,7 +64,8 @@ fun ActionItemCell(
                 color = if (isAppIcon) {
                     Color.Transparent
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                    // 与内置部件底、快捷启动键盘键同一块 token。
+                    panelTileContainer()
                 },
                 shape = containerShape(ItemCorner),
             ),
@@ -94,7 +97,7 @@ fun GridItemIcon(model: Any?, iconSize: Dp) {
         else -> {
             val context = LocalContext.current
             val density = LocalDensity.current
-            val decodePx = with(density) { GridIconDecodeSize.roundToPx() }
+            val decodePx = with(density) { AppIconDecodeSize.roundToPx() }
             // 请求只随图标源变化，不随面板尺寸变化；crossfade 关闭：图标重新呈现时
             // 不再叠一层淡入，拖拽缩放期间不会逐帧闪烁。
             val request = remember(model, decodePx) {

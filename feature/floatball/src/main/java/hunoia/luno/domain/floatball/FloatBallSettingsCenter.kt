@@ -20,7 +20,7 @@ object FloatBallSettingsCenter {
         transform: suspend (ActionSettings) -> ActionSettings,
     ) = ConfigProvider.updateActionSettings(transform)
 
-    /** 剪贴板悬浮窗配置（位置 / 缩放 / 透明度）随剪贴板设置同域存取。 */
+    /** 剪贴板悬浮窗配置（位置 / 尺寸 / 停靠侧）随剪贴板设置同域存取。 */
     suspend fun getClipFloatSettings(): ClipFloatSettings =
         ConfigProvider.getClipboardSettings().clipFloat
 

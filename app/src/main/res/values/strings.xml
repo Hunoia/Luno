@@ -174,6 +174,11 @@
     <string name="grid_panel_icon">底栏图标</string>
     <string name="grid_panel_icon_hint">未设置时使用名称首字</string>
     <string name="panel_dock">面板底栏</string>
+    <string name="panel_appearance">面板外观</string>
+    <string name="panel_appearance_hint">全局默认，单个面板可覆盖</string>
+    <string name="panel_appearance_follow_global">跟随全局外观</string>
+    <string name="panel_appearance_follow_global_hint">卡片透明度、背景模糊与边距使用「面板外观」里的全局值。</string>
+    <string name="panel_appearance_custom_hint">关闭后本面板单独调整；默认值取自全局外观。</string>
     <string name="panel_dock_off">已关闭</string>
     <string name="panel_dock_on_summary">已启用 · %1$d 块</string>
     <string name="panel_dock_enabled">启用底栏</string>
@@ -301,6 +306,10 @@
     <string name="perm_read_media_video_hint">搜索来源需要</string>
     <string name="perm_read_media_audio">读取音频</string>
     <string name="perm_read_media_audio_hint">搜索来源需要</string>
+    <string name="perm_app_list">应用列表权限</string>
+    <string name="perm_app_list_hint">HyperOS / MIUI 专有；未授权时应用、快捷方式与搜索为空</string>
+    <string name="apps_permission_required">需要「应用列表」权限才能显示应用和快捷方式</string>
+    <string name="apps_permission_settings">去设置</string>
     <!-- ===== 首页运行状态卡（自 debug APK 资源还原） ===== -->
 
     <!-- ===== 无障碍开关复位提示（自 debug APK 资源还原） ===== -->
@@ -318,6 +327,13 @@
     <string name="ocr_result_failed">操作失败，请重试</string>
     <string name="ocr_result_image_decode_failed">图片解码失败</string>
     <string name="ocr_model_missing_hint">OCR模型未安装，请到识屏设置导入</string>
+    <string name="photo_recognize_title">拍照识别</string>
+    <string name="photo_recognize_hint">拍一张或从相册选图，识别界面里再框选要识别的区域</string>
+    <string name="photo_recognize_camera">拍照</string>
+    <string name="photo_recognize_gallery">从相册选择</string>
+    <string name="photo_recognize_capture_failed">拍照失败或已取消</string>
+    <string name="photo_recognize_decode_failed">图片解码失败</string>
+    <string name="photo_recognize_need_camera_permission">需要相机权限才能拍照，可改用从相册选择</string>
     <string name="ocr_result_copied">已复制</string>
     <string name="ocr_result_source_a11y">无障碍</string>
     <string name="ocr_result_source_ocr">OCR</string>

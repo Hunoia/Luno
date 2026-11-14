@@ -11,6 +11,7 @@ import hunoia.luno.R
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.segmentedShape
 
 /**
  * 主页权限状态卡：**一行摘要 + 右侧一键授权**，无分组标题，逐项解释留给授权页。
@@ -37,6 +38,7 @@ fun HomePermissionStatusCard(
             subtitle = stringResource(R.string.home_permission_pending_hint),
             icon = Icons.Filled.Warning,
             onClick = onOpen,
+            shape = segmentedShape(0, 1),
             trailing = {
                 PressTextButton(onClick = onGrant, enabled = !isGranting) {
                     Text(

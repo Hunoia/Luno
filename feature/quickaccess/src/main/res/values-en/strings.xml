@@ -3,6 +3,7 @@
     <!-- Quick launch / search panel strings. -->
     <string name="more">More</string>
     <string name="quick_app_launcher_adjust">Adjust panel</string>
+    <string name="app_drawer_favorites">Frequently used</string>
     <string name="quick_app_launcher_candidate_rows">Candidate app rows</string>
     <string name="quick_app_launcher_clear_input">Clear input</string>
     <string name="quick_app_launcher_grid_columns">Search columns</string>

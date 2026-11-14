@@ -703,19 +703,16 @@ private fun AddTriggerSheet(
         (1..3).filter { pickedKind.allowsFingers(it) }
     }
     LunoSheet(onDismissRequest = onDismissRequest) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = hunoia.luno.ui.theme.PageGutter)) {
-            Text(
-                text = stringResource(R.string.gesture_global_trigger_add),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(vertical = hunoia.luno.ui.theme.PageGutter),
-            )
-        }
+        Text(
+            text = stringResource(R.string.gesture_global_trigger_add),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(vertical = hunoia.luno.ui.theme.PageGutter),
+        )
         androidx.compose.foundation.lazy.LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 bottom = hunoia.luno.ui.theme.ContentBottom,
             ),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(SegmentedGap),
-            modifier = Modifier.padding(horizontal = hunoia.luno.ui.theme.PageGutter),
         ) {
             items(GlobalGestureKind.entries.size) { index ->
                 val kind = GlobalGestureKind.entries[index]
@@ -757,7 +754,7 @@ private fun TriggerFingersSheet(
         Text(
             text = stringResource(R.string.gesture_global_trigger_fingers),
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(horizontal = hunoia.luno.ui.theme.PageGutter, vertical = hunoia.luno.ui.theme.PageGutter),
+            modifier = Modifier.padding(vertical = hunoia.luno.ui.theme.PageGutter),
         )
         fingers.fastForEach { count ->
             LunoSelectableRow(

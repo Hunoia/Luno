@@ -72,9 +72,15 @@ import hunoia.luno.ui.navigation.PointerAdjust
 import hunoia.luno.ui.navigation.PointerSettings
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
+import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
+import hunoia.luno.ui.navigation.FloatBallSuggestionCapsule
+import hunoia.luno.ui.navigation.SuggestionRuleEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
+import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
+import hunoia.luno.floatball.settings.SuggestionCapsuleSettingsScreen
+import hunoia.luno.floatball.settings.SuggestionRuleEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
 import hunoia.luno.gesture.settings.SubGestureEditor
@@ -103,7 +109,6 @@ import hunoia.luno.ui.settings.action.AppearanceSettingsScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
 import hunoia.luno.link.settings.LinkDispatchEditScreen
 import hunoia.luno.link.settings.LinkDispatchSettingsScreen
-import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
@@ -248,6 +253,12 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
+                        onNavToNotificationCapsuleSettings = {
+                            navController.navigate(FloatBallNotificationCapsule)
+                        },
+                        onNavToSuggestionCapsuleSettings = {
+                            navController.navigate(FloatBallSuggestionCapsule)
+                        },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
@@ -426,7 +437,26 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onEditTapAction = {
                             navController.navigate(ActionSelect(floatBallSlot = FloatBallSlot.TAP))
                         },
+                    )
+                }
+                myComposable<FloatBallNotificationCapsule> {
+                    NotificationCapsuleSettingsScreen(
+                        onBack = { navController.popBackStack() },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
+                    )
+                }
+                myComposable<FloatBallSuggestionCapsule> {
+                    SuggestionCapsuleSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditRule = { ruleId -> navController.navigate(SuggestionRuleEdit(ruleId)) },
+                        onCreateRule = { navController.navigate(SuggestionRuleEdit()) },
+                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
+                    )
+                }
+                myComposable<SuggestionRuleEdit> {
+                    SuggestionRuleEditScreen(
+                        ruleId = it.toRoute<SuggestionRuleEdit>().ruleId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<ButtonVisibility> {

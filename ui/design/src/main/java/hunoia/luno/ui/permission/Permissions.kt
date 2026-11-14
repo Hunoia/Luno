@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import hunoia.luno.facade.PERMISSION_GET_INSTALLED_APPS
 
 data class PermissionState(
     val isGranted: Boolean,
@@ -57,8 +58,8 @@ fun rememberPermissionState(
         onPermissionResult(granted)
     }
 
-    val isGranted = remember(tick) {
-        !context.supportsPermission() ||
+    val isGranted = remember(tick, permission) {
+        !context.hasPermissionDefined(permission) ||
             ContextCompat.checkSelfPermission(context, permission) ==
             PackageManager.PERMISSION_GRANTED
     }
@@ -74,13 +75,11 @@ fun rememberGetInstalledAppsPermissionState(
     onPermissionResult: (Boolean) -> Unit = {}
 ): PermissionState = rememberPermissionState(PERMISSION_GET_INSTALLED_APPS, onPermissionResult)
 
-private fun Context.supportsPermission(): Boolean {
-    return try {
-        packageManager.getPermissionInfo(PERMISSION_GET_INSTALLED_APPS, 0)
-        true
-    } catch (_: Exception) {
-        false
-    }
-}
-
-const val PERMISSION_GET_INSTALLED_APPS = "com.android.permission.GET_INSTALLED_APPS"
+/**
+ * 权限是否由本 ROM 定义：厂商权限（如「获取应用列表」）在其它 ROM 上可能不存在，
+ * 那种情况下按「无需授权」处理，避免永远显示未授权。必须传实际要查的权限名——
+ * 拿固定权限去探测会把别的权限一并误判成已授权。
+ */
+private fun Context.hasPermissionDefined(permission: String): Boolean = runCatching {
+    packageManager.getPermissionInfo(permission, 0)
+}.isSuccess

@@ -219,7 +219,6 @@ fun LogSettingsScreen(onBack: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter)
                     .padding(bottom = PageGutter),
             ) {
                 Text(
@@ -252,7 +251,6 @@ fun LogSettingsScreen(onBack: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter)
                     .padding(bottom = PageGutter),
             ) {
                 Text(

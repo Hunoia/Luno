@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -32,11 +33,13 @@ import hunoia.luno.config.model.upsert
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -241,13 +244,11 @@ fun LinkDispatchEditScreen(
                 onCheckedChange = { enabled = it },
                 shape = segmentedShape(0, 2),
             )
-            LabeledTextField(
+            LunoInputRow(
+                label = stringResource(R.string.link_dispatch_rule_name),
                 value = name,
                 onValueChange = { name = it },
-                label = stringResource(R.string.link_dispatch_rule_name),
-                isError = false,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                shape = segmentedShape(1, 2),
             )
         }
         LunoGroup(title = stringResource(R.string.link_dispatch_rule_match_group)) {
@@ -257,51 +258,48 @@ fun LinkDispatchEditScreen(
                 LinkMatchType.REGEX to stringResource(R.string.link_dispatch_match_regex),
                 LinkMatchType.EXACT to stringResource(R.string.link_dispatch_match_exact),
             )
+            // 行数取决于测试结果是否显示：测试 URL 空时这一块整块不渲染。
+            val ruleRowCount = if (testUrl.isBlank()) 4 else 5
             ChoiceRow(
                 title = stringResource(R.string.link_dispatch_rule_match_type),
                 subtitle = stringResource(R.string.link_dispatch_rule_match_type_hint),
                 options = matchOptions.map { it.second },
                 selectedIndex = matchOptions.indexOfFirst { it.first == matchType }.coerceAtLeast(0),
                 onSelect = { index -> matchType = matchOptions[index].first },
-                shape = segmentedShape(0, 2),
+                shape = segmentedShape(0, ruleRowCount),
             )
-            LabeledTextField(
+            LunoInputRow(
+                label = stringResource(R.string.link_dispatch_rule_pattern),
                 value = pattern,
                 onValueChange = { pattern = it },
-                label = stringResource(R.string.link_dispatch_rule_pattern),
-                isError = pattern.isBlank() || regexError,
-                singleLine = true,
                 placeholder = stringResource(R.string.link_dispatch_rule_pattern_hint),
-                modifier = Modifier.fillMaxWidth(),
+                subtitle = if (regexError) {
+                    stringResource(R.string.link_dispatch_rule_regex_invalid)
+                } else {
+                    ""
+                },
+                isError = pattern.isBlank() || regexError,
+                shape = segmentedShape(1, ruleRowCount),
             )
-            if (regexError) {
-                Text(
-                    text = stringResource(R.string.link_dispatch_rule_regex_invalid),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            LabeledTextField(
+            LunoCardInput(
                 value = excludeText,
                 onValueChange = { excludeText = it },
                 label = stringResource(R.string.link_dispatch_rule_exclude),
-                isError = false,
-                singleLine = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_exclude_hint),
-                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                minLines = 3,
+                shape = segmentedShape(2, ruleRowCount),
             )
-            LabeledTextField(
+            LunoInputRow(
+                label = stringResource(R.string.link_dispatch_rule_test),
                 value = testUrl,
                 onValueChange = { testUrl = it },
-                label = stringResource(R.string.link_dispatch_rule_test),
-                isError = false,
-                singleLine = true,
                 placeholder = stringResource(R.string.link_dispatch_rule_test_hint),
-                modifier = Modifier.fillMaxWidth(),
+                shape = segmentedShape(3, ruleRowCount),
             )
             TestMatchResult(
                 testUrl = testUrl,
+                shape = segmentedShape(4, ruleRowCount),
                 draft = initial.copy(
                     name = name.trim(),
                     enabled = enabled,
@@ -326,7 +324,7 @@ fun LinkDispatchEditScreen(
                 subtitle = stringResource(R.string.link_dispatch_rule_via_browser_hint),
                 checked = viaBrowser,
                 onCheckedChange = { viaBrowser = it },
-                shape = if (viaBrowser) segmentedShape(0, 3) else segmentedShape(0, 1),
+                shape = if (viaBrowser) segmentedShape(0, 3) else segmentedShape(0, 4),
             )
             if (viaBrowser) {
                 LunoSettingsRow(
@@ -352,7 +350,7 @@ fun LinkDispatchEditScreen(
                     subtitle = stringResource(R.string.link_dispatch_rule_resolve_hint),
                     checked = resolveShortLink,
                     onCheckedChange = { resolveShortLink = it },
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, 4),
                 )
                 LunoSettingsRow(
                     title = stringResource(R.string.link_dispatch_rule_target_app),
@@ -363,35 +361,31 @@ fun LinkDispatchEditScreen(
                     },
                     subtitleColor = if (targetPackage.isBlank()) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant,
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(2, 4),
                     onClick = { showAppPicker = true },
                 )
-                LabeledTextField(
+                LunoInputRow(
+                    label = stringResource(R.string.link_dispatch_rule_target_activity),
                     value = targetActivity,
                     onValueChange = { targetActivity = it },
-                    label = stringResource(R.string.link_dispatch_rule_target_activity),
-                    isError = false,
-                    singleLine = true,
                     placeholder = stringResource(R.string.link_dispatch_rule_target_activity_hint),
-                    modifier = Modifier.fillMaxWidth(),
+                    shape = segmentedShape(3, 4),
                 )
             }
         }
         LunoGroup(title = stringResource(R.string.link_dispatch_rule_advanced_group)) {
-            LabeledTextField(
+            LunoCardInput(
                 value = template,
                 onValueChange = { template = it },
                 label = stringResource(R.string.link_dispatch_rule_template),
-                isError = false,
-                singleLine = true,
                 placeholder = stringResource(R.string.link_dispatch_rule_template_hint),
-                modifier = Modifier.fillMaxWidth(),
+                shape = segmentedShape(0, 3),
             )
             LunoSwitchRow(
                 title = stringResource(R.string.link_dispatch_rule_mini_window),
                 checked = miniWindow,
                 onCheckedChange = { miniWindow = it },
-                shape = segmentedShape(1, 2),
+                shape = segmentedShape(1, 3),
             )
             val missOptions = listOf(
                 null to stringResource(R.string.link_dispatch_rule_miss_global),
@@ -422,6 +416,7 @@ private fun TestMatchResult(
     testUrl: String,
     draft: LinkDispatchRule,
     otherRules: List<LinkDispatchRule>,
+    shape: Shape,
 ) {
     val context = LocalContext.current
     if (testUrl.isBlank()) return
@@ -436,24 +431,26 @@ private fun TestMatchResult(
     val targetLabel by produceState(initialValue = null as String?, matched?.id, testUrl) {
         value = matched?.let { Links.resolvedTargetOf(context, it, testUrl.trim())?.label }
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        Text(
-            text = if (matched == null) {
-                stringResource(R.string.link_dispatch_rule_test_miss)
-            } else {
-                stringResource(
-                    R.string.link_dispatch_rule_test_hit,
-                    matched.name.ifBlank { matched.pattern },
-                    targetLabel ?: stringResource(R.string.link_dispatch_rule_no_target),
-                )
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = if (matched == null) MaterialTheme.colorScheme.onSurfaceVariant
-            else MaterialTheme.colorScheme.primary,
-        )
+    LunoGroupItem(shape = shape) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = if (matched == null) {
+                    stringResource(R.string.link_dispatch_rule_test_miss)
+                } else {
+                    stringResource(
+                        R.string.link_dispatch_rule_test_hit,
+                        matched.name.ifBlank { matched.pattern },
+                        targetLabel ?: stringResource(R.string.link_dispatch_rule_no_target),
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (matched == null) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }

@@ -169,6 +169,9 @@ dependencies {
     // 此前全靠 fastcompose 传递带入，显式声明防其变更时断裂。
     implementation(libs.coil)
     implementation(libs.coil.compose)
+    // coil-gif：悬浮球自定义 GIF 图标解码（GifDecoder.Factory 注册到 :app 的 SingletonImageLoader，
+    // :service 进程复用同一 Application 类，单例 ImageLoader 全局生效）。
+    implementation(libs.coil.gif)
     // fastcompose 挂名的传递依赖 app 字节码零引用（hilt/accompanist/zoomable），排除收敛解析图；
     // utilcodex（UDFComponentDefaults 基类）与 coil 为 fastcompose 类真实引用，不能排。
     // com.google.android.material 不能排：app 启动图标的 ic_launcher_background res 引用其

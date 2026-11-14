@@ -36,8 +36,6 @@ import hunoia.luno.ui.theme.DockBallSize
 import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGap
 import hunoia.luno.ui.theme.DockGutter
-import hunoia.luno.ui.theme.DockMaxWidth
-import hunoia.luno.ui.theme.DockMinTabWidth
 import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.MotionSwapOut
@@ -58,21 +56,20 @@ class HomeDockTab(
 )
 
 /**
- * 三球停靠栏的纯几何：宽屏限宽、窄屏压缩 tab。
+ * 三球停靠栏的几何：宽屏限宽、窄屏压缩 tab。
  *
  * 一行固定三槽：展开的胶囊 + 两颗收起球。tab 宽按槽位数扣掉两颗球、两个间隙和胶囊内边距：
  * `(dockWidth - 2×(球+间隙) - 2×内边距) / tabCount`。
  *
- * 只依赖 [hunoia.luno.ui.theme.DockDimension] 的纯尺寸 token；`BottomBarTabWidth` /
- * `TileInnerPadding` 由调用方传入，避免这里触发 `Dimension.kt` 的类初始化
- * （见 DockDimension.kt 的说明）。
+ * 算术委托给 [FloatingBarLayout]，与类型 chip 底栏共用同一份；这里只固定「收起槽 = 球 + 间隙」
+ * 这条三球专属规则。`BottomBarTabWidth` / `TileInnerPadding` 由调用方传入，避免这里触发
+ * `Dimension.kt` 的类初始化（见 DockDimension.kt 的说明）。
  */
 object HomeDockLayout {
     /** 三槽：一个展开的胶囊 + 两颗球，槽与槽之间各一个间隙。 */
     const val CollapsedSlots = 2
 
-    fun dockWidth(availableWidth: Dp): Dp =
-        if (availableWidth > DockMaxWidth) DockMaxWidth else availableWidth
+    fun dockWidth(availableWidth: Dp): Dp = FloatingBarLayout.barWidth(availableWidth)
 
     fun tabWidth(
         dockWidth: Dp,
@@ -80,14 +77,16 @@ object HomeDockLayout {
         maxTabWidth: Dp,
         innerPadding: Dp,
         collapsedSlots: Int = CollapsedSlots,
-    ): Dp {
-        if (tabCount <= 0) return maxTabWidth
-        val fixed = (DockBallSize + DockGap) * collapsedSlots + innerPadding * 2
-        return ((dockWidth - fixed) / tabCount).coerceIn(DockMinTabWidth, maxTabWidth)
-    }
+    ): Dp = FloatingBarLayout.tabWidth(
+        barWidth = dockWidth,
+        tabCount = tabCount,
+        maxTabWidth = maxTabWidth,
+        innerPadding = innerPadding,
+        reservedWidth = (DockBallSize + DockGap) * collapsedSlots,
+    )
 
     fun capsuleWidth(tabWidth: Dp, tabCount: Int, innerPadding: Dp): Dp =
-        tabWidth * tabCount + innerPadding * 2
+        FloatingBarLayout.capsuleWidth(tabWidth, tabCount, innerPadding)
 
     /** 整组实际宽度：展开的胶囊 + 两颗球 + 两个间隙。 */
     fun rowWidth(capsuleWidth: Dp, collapsedSlots: Int = CollapsedSlots): Dp =
