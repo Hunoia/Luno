@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
@@ -77,8 +76,10 @@ import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.PressIconButton
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
+/** 应用与快捷方式合成一颗 chip：两者都是「从别的 app 取入口」，合并后底栏少一格。 */
 private const val TYPE_APP = "app"
-private const val TYPE_SHORTCUT = "shortcut"
+/** 旧版本单独保存的快捷方式筛选值，恢复时并到合并后的 chip。 */
+private const val TYPE_SHORTCUT_LEGACY = "shortcut"
 private const val TYPE_WIDGET = "widget"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -119,6 +120,13 @@ internal fun ActionPage(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
+    // 旧版本「快捷方式」是独立 chip；合并后归一化，避免恢复出任何 chip 都不匹配的空列表。
+    val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
+    // 合并后的三组（应用 / 新建快捷方式 / 快捷方式）可收起；搜索时强制展开且不显示箭头，
+    // 避免搜索结果被收起状态藏住。
+    var appsCollapsed by rememberSaveable { mutableStateOf(false) }
+    var createShortcutsCollapsed by rememberSaveable { mutableStateOf(false) }
+    var launchShortcutsCollapsed by rememberSaveable { mutableStateOf(false) }
     var settingsAction by remember { mutableStateOf<StoredAction?>(null) }
     settingsAction?.let { editing ->
         ActionRowSettingsSheet(
@@ -130,14 +138,23 @@ internal fun ActionPage(
         )
     }
     val context = LocalContext.current
-    val typeChips = remember(context, showWidgetChip) {
+    val allCategoriesLabel = stringResource(R.string.all_categories)
+    val libraryAndRuleLabel = stringResource(R.string.action_library_and_rules)
+    val appsAndShortcutsLabel = stringResource(R.string.apps_and_shortcuts)
+    val widgetChipLabel = stringResource(R.string.grid_panel_add_widget)
+    val typeChips = remember(
+        showWidgetChip,
+        allCategoriesLabel,
+        libraryAndRuleLabel,
+        appsAndShortcutsLabel,
+        widgetChipLabel,
+    ) {
         buildList {
-            add(ActionTypeChip(null, context.getString(R.string.all_categories), Icons.Default.AllInclusive))
-            add(ActionTypeChip(TYPE_LIBRARY_AND_RULE, context.getString(R.string.action_library_and_rules), Icons.AutoMirrored.Filled.LibraryBooks))
-            add(ActionTypeChip(TYPE_APP, context.getString(R.string.tab_apps), Icons.Default.Apps))
-            add(ActionTypeChip(TYPE_SHORTCUT, context.getString(R.string.tab_shortcuts), Icons.Default.Bolt))
+            add(ActionTypeChip(null, allCategoriesLabel, Icons.Default.AllInclusive))
+            add(ActionTypeChip(TYPE_LIBRARY_AND_RULE, libraryAndRuleLabel, Icons.AutoMirrored.Filled.LibraryBooks))
+            add(ActionTypeChip(TYPE_APP, appsAndShortcutsLabel, Icons.Default.Apps))
             if (showWidgetChip) {
-                add(ActionTypeChip(TYPE_WIDGET, context.getString(R.string.grid_panel_add_widget), Icons.Default.Widgets))
+                add(ActionTypeChip(TYPE_WIDGET, widgetChipLabel, Icons.Default.Widgets))
             }
         }
     }
@@ -153,7 +170,7 @@ internal fun ActionPage(
             modifier = Modifier
                 .fillMaxSize()
                 .appHazeSource(hazeState),
-            targetState = selectedType,
+            targetState = normalizedType,
             transitionSpec = {
                 val forward = chipIndexOf(targetState) > chipIndexOf(initialState)
                 val enter = slideInHorizontally(
@@ -227,7 +244,7 @@ internal fun ActionPage(
                 } else emptyList()
             }
             val filteredCreateShortcuts = remember(createShortcuts, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_SHORTCUT || query.isNotBlank()) {
+                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
                     createShortcuts.filter {
                         if (query.isBlank()) true
                         else it.label.contains(query, ignoreCase = true) ||
@@ -236,7 +253,7 @@ internal fun ActionPage(
                 } else emptyList()
             }
             val filteredLaunchShortcuts = remember(launchShortcuts, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_SHORTCUT || query.isNotBlank()) {
+                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
                     launchShortcuts.filter {
                         if (query.isBlank()) true
                         else it.label.contains(query, ignoreCase = true) ||
@@ -407,37 +424,71 @@ internal fun ActionPage(
                             }
                         }
                         if (filteredApps.isNotEmpty()) {
+                            val appsExpanded = query.isNotBlank() || !appsCollapsed
                             stickyHeader(key = "apps") {
-                                SheetGroupHeader(stringResource(R.string.tab_apps))
+                                if (query.isBlank()) {
+                                    SheetGroupHeader(
+                                        title = stringResource(R.string.tab_apps),
+                                        expanded = appsExpanded,
+                                        onToggleExpanded = { appsCollapsed = !appsCollapsed },
+                                    )
+                                } else {
+                                    // 搜索态：结果必须全展开，分组头不显示收起箭头。
+                                    SheetGroupHeader(stringResource(R.string.tab_apps))
+                                }
                             }
-                            itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.identity}" }) { index, item ->
-                                AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
-                                    onSelect = { onSelectApp(item) },
-                                    onLongClick = { onAppLongClick(item) },
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                    shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
+                            if (appsExpanded) {
+                                itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.identity}" }) { index, item ->
+                                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
+                                        onSelect = { onSelectApp(item) },
+                                        onLongClick = { onAppLongClick(item) },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                        shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
+                                }
                             }
                         }
                         if (filteredCreateShortcuts.isNotEmpty()) {
+                            val createShortcutsExpanded = query.isNotBlank() || !createShortcutsCollapsed
                             stickyHeader(key = "create_shortcuts") {
-                                SheetGroupHeader(stringResource(R.string.create_shortcut))
+                                if (query.isBlank()) {
+                                    SheetGroupHeader(
+                                        title = stringResource(R.string.create_shortcut),
+                                        expanded = createShortcutsExpanded,
+                                        onToggleExpanded = { createShortcutsCollapsed = !createShortcutsCollapsed },
+                                    )
+                                } else {
+                                    SheetGroupHeader(stringResource(R.string.create_shortcut))
+                                }
                             }
-                            items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                                LauncherInfoItem(launcherInfo = item,
-                                    isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                    onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                            if (createShortcutsExpanded) {
+                                items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
+                                    LauncherInfoItem(launcherInfo = item,
+                                        isShortcutInfoSelected = { selectedRecord.isSelected(it) },
+                                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                                }
                             }
                         }
                         if (filteredLaunchShortcuts.isNotEmpty()) {
+                            val launchShortcutsExpanded = query.isNotBlank() || !launchShortcutsCollapsed
                             stickyHeader(key = "launch_shortcuts") {
-                                SheetGroupHeader(stringResource(R.string.launch_shortcut))
+                                if (query.isBlank()) {
+                                    SheetGroupHeader(
+                                        title = stringResource(R.string.launch_shortcut),
+                                        expanded = launchShortcutsExpanded,
+                                        onToggleExpanded = { launchShortcutsCollapsed = !launchShortcutsCollapsed },
+                                    )
+                                } else {
+                                    SheetGroupHeader(stringResource(R.string.launch_shortcut))
+                                }
                             }
-                            items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                                LauncherInfoItem(launcherInfo = item,
-                                    isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                    onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                            if (launchShortcutsExpanded) {
+                                items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
+                                    LauncherInfoItem(launcherInfo = item,
+                                        isShortcutInfoSelected = { selectedRecord.isSelected(it) },
+                                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                                }
                             }
                         }
                 }
@@ -449,7 +500,7 @@ internal fun ActionPage(
             query = query,
             onQueryChange = { query = it },
             typeChips = typeChips,
-            selectedType = selectedType,
+            selectedType = normalizedType,
             onSelectedTypeChange = { selectedType = it },
             hazeState = hazeState,
             onHeightChange = { bottomBarHeightPx = it },
