@@ -58,9 +58,7 @@ internal fun SettingChoiceList(
     LunoGroup(title = title) {
         options.forEachIndexed { index, label ->
             LunoSelectableRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter),
+                modifier = Modifier.fillMaxWidth(),
                 title = label,
                 selected = index == selectedIndex,
                 onSelectedChange = { checked -> if (checked) onSelect(index) },
@@ -82,9 +80,7 @@ internal fun SettingMultiChoiceList(
     LunoGroup(title = title) {
         options.forEachIndexed { index, (id, label) ->
             LunoSelectableRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter),
+                modifier = Modifier.fillMaxWidth(),
                 title = label,
                 selected = id in selectedIds,
                 onSelectedChange = { checked -> onToggle(id, checked) },

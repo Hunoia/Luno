@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.PanelAppearance
@@ -37,7 +36,6 @@ import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.launch
 
@@ -155,7 +153,7 @@ fun GridPanelEditScreen(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    .padding(vertical = CardInnerSpacing),
                 shape = LargeShape,
             )
         }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.gesture.R
@@ -340,7 +341,7 @@ private fun SubGestureVibrationContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+    LunoColumn(contentPadding = 0.dp, verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         LunoGroup(title = stringResource(R.string.vibration_group_slide)) {
             LunoSwitchRow(
                 onCheckedChange = { vm.onSubSlideVibrateChange(it) },
@@ -404,7 +405,7 @@ private fun SubGestureTriggerDistanceContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+    LunoColumn(contentPadding = 0.dp, verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         GestureSlideTriggerDistanceContent(
             slideTriggerDistance = gesture.triggerDistance,
             onSlideTriggerDistanceChange = vm::onSubTriggerDistanceChange,

@@ -36,6 +36,8 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.gridpanel.ui.PanelDockGlyph
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.launch
 
@@ -73,8 +75,8 @@ fun PanelDockSheet(
         Column(
             modifier = Modifier
                 .verticalScroll(scrollState)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             LunoGroup {
                 LunoSwitchRow(

@@ -35,7 +35,6 @@ import hunoia.luno.actions.R
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.PressFilledTonalButton
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.theme.PageMatchIconSize
 import hunoia.luno.ui.theme.TileInnerPadding
@@ -66,8 +65,7 @@ fun IconPickerSheet(
             columns = GridCells.Fixed(4),
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = PageGutter),
+                .weight(1f),
             contentPadding = PaddingValues(bottom = CardInnerSpacing),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
@@ -100,7 +98,7 @@ fun IconPickerSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                .padding(vertical = CardInnerSpacing),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {

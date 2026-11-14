@@ -45,7 +45,6 @@ import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -203,11 +202,7 @@ private fun ServiceDetailSheet(
     LunoSheet(onDismissRequest = onDismissRequest, showDragHandle = true) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(
-                    start = PageGutter,
-                    end = PageGutter,
-                    bottom = ListSpacing,
-                ),
+                modifier = Modifier.padding(bottom = ListSpacing),
             ) {
                 Text(text = entry.label, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.size(CardInnerSpacing))

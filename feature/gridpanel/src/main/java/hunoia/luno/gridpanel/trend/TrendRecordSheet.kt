@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +30,6 @@ import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -72,8 +70,7 @@ fun TrendRecordSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding()
-                .padding(horizontal = PageGutter),
+                .imePadding(),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             Text(

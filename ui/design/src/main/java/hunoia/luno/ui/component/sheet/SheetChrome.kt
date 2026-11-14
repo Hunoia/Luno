@@ -20,6 +20,7 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressTextButton
 
+/** 弹层标题行：左右边距由 [LunoSheet] 统一提供，这里只留纵向呼吸空间。 */
 @Composable
 fun SheetHeader(
     title: String,
@@ -29,7 +30,7 @@ fun SheetHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+            .padding(vertical = CardInnerSpacing),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {

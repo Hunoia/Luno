@@ -36,8 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
@@ -149,22 +147,7 @@ internal fun LunoRowBase(
             .then(clickableModifier)
             .clip(if (inDividedCard) RectangleShape else shape)
             .background(background)
-            .then(
-                if (inDividedCard && showsDividedCardTopLine(shape)) {
-                    Modifier.drawBehind {
-                        val start = dividerStartInset.toPx()
-                        val end = size.width - RowInnerPadding.toPx()
-                        drawLine(
-                            color = colorScheme.outlineVariant.copy(alpha = 0.6f),
-                            start = Offset(start, 0f),
-                            end = Offset(end, 0f),
-                            strokeWidth = 1.dp.toPx(),
-                        )
-                    }
-                } else {
-                    Modifier
-                },
-            )
+            .then(Modifier.groupItemTopLine(shape, dividerStartInset))
             .semantics(mergeDescendants = true) {
                 if (selectable) this.selected = selected
             },
@@ -369,12 +352,11 @@ fun LunoSwitchRow(
     )
 }
 
-/** 行组件自绘背景时的内部横向内边距：与 M3 ListItem 一致。 */
-private val RowInnerPadding = 16.dp
-
 /**
  * 行内输入行：标签左、无边框输入右（右对齐），底色与触控高度对齐 [LunoSettingsRow]，
  * 供编辑页把短字段收进 [LunoGroup] 分段卡片。错误态输入值与 [subtitle] 走 error 色。
+ *
+ * 外形走 [LunoGroupItem]：分段风格是独立圆角块，大卡分割线风格由组卡片托底并补分割线。
  */
 @Composable
 fun LunoInputRow(
@@ -389,63 +371,63 @@ fun LunoInputRow(
     singleLine: Boolean = true,
     shape: Shape = LargeShape,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(colorScheme.surfaceBright),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MinInteractiveSize)
-                .padding(horizontal = RowInnerPadding),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                color = colorScheme.onSurfaceVariant,
-            )
-            // 占位与输入叠在同一个定宽容器里：宽度必须落在 BasicTextField 本体上
-            // （decorationBox 的核心文本节点拿松约束自适宽，TextAlign.End 不生效）。
-            Box(modifier = Modifier.weight(1f)) {
-                if (value.isEmpty() && placeholder.isNotEmpty()) {
-                    Text(
-                        text = placeholder,
-                        style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.End),
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                        textAlign = TextAlign.End,
-                        color = if (isError) colorScheme.error else colorScheme.onSurface,
-                    ),
-                    cursorBrush = SolidColor(colorScheme.primary),
-                    singleLine = singleLine,
-                    keyboardOptions = keyboardOptions,
-                )
-            }
-        }
-        if (subtitle.isNotEmpty()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isError) colorScheme.error else subtitleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    LunoGroupItem(shape = shape, modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = RowInnerPadding, end = RowInnerPadding, bottom = 10.dp),
-            )
+                    .heightIn(min = MinInteractiveSize)
+                    .padding(horizontal = RowInnerPadding),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colorScheme.onSurfaceVariant,
+                )
+                // 占位与输入叠在同一个定宽容器里：宽度必须落在 BasicTextField 本体上
+                // （decorationBox 的核心文本节点拿松约束自适宽，TextAlign.End 不生效）。
+                Box(modifier = Modifier.weight(1f)) {
+                    if (value.isEmpty() && placeholder.isNotEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.End),
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                            textAlign = TextAlign.End,
+                            color = if (isError) colorScheme.error else colorScheme.onSurface,
+                        ),
+                        cursorBrush = SolidColor(colorScheme.primary),
+                        singleLine = singleLine,
+                        keyboardOptions = keyboardOptions,
+                    )
+                }
+                trailing?.invoke()
+            }
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isError) colorScheme.error else subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = RowInnerPadding, end = RowInnerPadding, bottom = 10.dp),
+                )
+            }
         }
     }
 }
@@ -453,58 +435,78 @@ fun LunoInputRow(
 /**
  * 卡内无边框输入：组标题作标签，卡内只有输入与常驻提示行，网址模板这类长内容用。
  * 底色与行组件一致；错误态输入值与 [supportingText] 走 error 色。
+ * 外形走 [LunoGroupItem]，与 [LunoInputRow] 同一套分段 / 大卡两风格规则。
  */
 @Composable
 fun LunoCardInput(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    label: String = "",
     placeholder: String = "",
     supportingText: String = "",
     isError: Boolean = false,
     singleLine: Boolean = true,
+    minLines: Int = 1,
     shape: Shape = LargeShape,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(colorScheme.surfaceBright)
-            .padding(horizontal = RowInnerPadding, vertical = 12.dp),
-    ) {
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            textStyle = MaterialTheme.typography.titleMedium.copy(
-                color = if (isError) colorScheme.error else colorScheme.onSurface,
-            ),
-            cursorBrush = SolidColor(colorScheme.primary),
-            singleLine = singleLine,
-            keyboardOptions = keyboardOptions,
-            decorationBox = { innerField ->
-                Box(Modifier.fillMaxWidth()) {
-                    if (value.isEmpty() && placeholder.isNotEmpty()) {
-                        Text(
-                            text = placeholder,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    innerField()
-                }
-            },
-        )
-        if (supportingText.isNotEmpty()) {
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isError) colorScheme.error else colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+    LunoGroupItem(shape = shape, modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = RowInnerPadding, vertical = 12.dp),
+        ) {
+            // 组标题能充当标签时留空；组里混有多种输入（如「排除内容」）时必须显式给。
+            if (label.isNotEmpty()) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        color = if (isError) colorScheme.error else colorScheme.onSurface,
+                    ),
+                    cursorBrush = SolidColor(colorScheme.primary),
+                    singleLine = singleLine,
+                    minLines = minLines,
+                    keyboardOptions = keyboardOptions,
+                    decorationBox = { innerField ->
+                        Box(Modifier.fillMaxWidth()) {
+                            if (value.isEmpty() && placeholder.isNotEmpty()) {
+                                Text(
+                                    text = placeholder,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            innerField()
+                        }
+                    },
+                )
+                trailing?.invoke()
+            }
+            if (supportingText.isNotEmpty()) {
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isError) colorScheme.error else colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
     }
 }

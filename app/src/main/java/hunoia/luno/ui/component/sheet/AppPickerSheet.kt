@@ -102,7 +102,7 @@ fun AppPickerSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    .padding(vertical = CardInnerSpacing),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
@@ -136,7 +136,7 @@ fun AppPickerSheet(
                     onQueryChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                        .padding(vertical = CardInnerSpacing),
                     placeholder = stringResource(R.string.search_app_hint),
                 )
                 if (loading) {
@@ -148,7 +148,7 @@ fun AppPickerSheet(
                             .fillMaxWidth()
                             .heightIn(max = SheetListMaxHeight)
                             .padding(top = CardInnerSpacing),
-                        contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
+                        contentPadding = PaddingValues(bottom = CardInnerSpacing),
                         verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                     ) {
                         if (filteredApps.isEmpty()) {
@@ -193,7 +193,7 @@ fun AppPickerSheet(
                             onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
                             onDismissRequest()
                         },
-                        modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                        modifier = Modifier.padding(vertical = CardInnerSpacing),
                     )
                 }
             }

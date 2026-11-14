@@ -93,7 +93,17 @@ val BottomBarTabWidth = 76.dp
 // Segmented list tokens
 val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp
-val SegmentedGap = 1.dp
+
+/** 分段列表的行间缝合缝：全仓唯一缝宽，页面不得另传 `contentSpacing`。 */
+val SegmentedGap = 2.dp
+
+/**
+ * 组头徽标胶囊的纵向内边距。
+ *
+ * 不复用 [SegmentedGap]：缝宽是列表几何，徽标内边距是文字呼吸空间，两者语义无关，
+ * 改缝宽不该连带改徽标高度。
+ */
+val BadgeVerticalPadding = 2.dp
 // OCR 分词 chip 可见高度；命中区与之同高，行距即 chip 高，分词排版更紧凑。
 val OcrChipMinHeight = 32.dp
 

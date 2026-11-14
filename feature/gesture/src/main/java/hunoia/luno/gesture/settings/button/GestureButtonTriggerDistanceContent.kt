@@ -172,7 +172,7 @@ fun GestureSlideTriggerDistanceContent(
         }
     }
     if (scrollState != null) {
-        LunoColumn(scrollState = scrollState) { content() }
+        LunoColumn(scrollState = scrollState, contentPadding = 0.dp) { content() }
     } else {
         content()
     }

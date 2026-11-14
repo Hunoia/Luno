@@ -5,6 +5,7 @@ import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.theme.SliderInnerPadding
 import hunoia.luno.ui.theme.SliderThumbWidth
+import hunoia.luno.ui.component.row.LunoGroupItem
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,11 +52,8 @@ private fun SliderSurface(
     sliderValueHint: Pair<String, String>? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceBright,
-    ) {
+    // 外形走组内条目容器：分段风格是独立圆角块，大卡分割线风格由组卡片托底并补分割线。
+    LunoGroupItem(shape = shape, modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

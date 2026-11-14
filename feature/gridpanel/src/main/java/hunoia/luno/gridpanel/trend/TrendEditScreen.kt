@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,9 +48,12 @@ import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.WheelColumn
 import hunoia.luno.ui.component.input.wheelNumber
+import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
@@ -225,55 +227,45 @@ private fun TrendEditForm(
         },
     ) {
         LunoGroup(title = stringResource(R.string.trend_edit_name)) {
-            OutlinedTextField(
+            LunoCardInput(
                 value = name,
                 onValueChange = { name = it },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.trend_edit_name_hint)) },
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = 8.dp),
+                placeholder = stringResource(R.string.trend_edit_name_hint),
+                shape = segmentedShape(0, 1),
             )
         }
         LunoGroup(title = stringResource(R.string.trend_edit_unit)) {
-            OutlinedTextField(
+            LunoCardInput(
                 value = unit,
                 onValueChange = { unit = it },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.trend_edit_unit_hint)) },
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = 8.dp),
-            )
-            Text(
-                text = stringResource(R.string.trend_edit_unit_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = PageGutter),
+                placeholder = stringResource(R.string.trend_edit_unit_hint),
+                supportingText = stringResource(R.string.trend_edit_unit_note),
+                shape = segmentedShape(0, 1),
             )
         }
         LunoGroup(title = stringResource(R.string.trend_edit_decimals)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = PageGutter),
-                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
-                (0..TrendMaxDecimals).forEach { digits ->
-                    PressFilterChip(
-                        selected = decimals == digits,
-                        onClick = { decimals = digits },
-                        label = { Text(stringResource(R.string.trend_edit_decimals_value, digits)) },
-                    )
+            LunoGroupItem(shape = segmentedShape(0, 1)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = PageGutter, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                ) {
+                    (0..TrendMaxDecimals).forEach { digits ->
+                        PressFilterChip(
+                            selected = decimals == digits,
+                            onClick = { decimals = digits },
+                            label = { Text(stringResource(R.string.trend_edit_decimals_value, digits)) },
+                        )
+                    }
                 }
             }
         }
         LunoGroup(title = stringResource(R.string.trend_edit_color)) {
             LunoSettingsRow(
                 title = stringResource(R.string.trend_edit_color),
+                shape = segmentedShape(0, 1),
                 leading = {
                     Box(
                         Modifier
@@ -286,45 +278,41 @@ private fun TrendEditForm(
             )
         }
         LunoGroup(title = stringResource(R.string.trend_edit_target)) {
-            OutlinedTextField(
+            LunoCardInput(
                 value = targetText,
                 onValueChange = { targetText = it },
-                singleLine = true,
-                trailingIcon = { Text(unit) },
-                placeholder = { Text(stringResource(R.string.trend_edit_target_hint)) },
-                shape = MaterialTheme.shapes.large,
+                placeholder = stringResource(R.string.trend_edit_target_hint),
+                supportingText = stringResource(R.string.trend_edit_target_note),
+                shape = segmentedShape(0, 2),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = 8.dp),
+                trailing = unit.takeIf { it.isNotBlank() }?.let { suffix ->
+                    { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                },
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = PageGutter),
-                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
-                TrendGoalDirection.entries.forEach { item ->
-                    PressFilterChip(
-                        selected = direction == item,
-                        onClick = { direction = item },
-                        label = { Text(trendGoalLabel(item)) },
-                    )
+            LunoGroupItem(shape = segmentedShape(1, 2)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = PageGutter, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                ) {
+                    TrendGoalDirection.entries.forEach { item ->
+                        PressFilterChip(
+                            selected = direction == item,
+                            onClick = { direction = item },
+                            label = { Text(trendGoalLabel(item)) },
+                        )
+                    }
                 }
             }
-            Text(
-                text = stringResource(R.string.trend_edit_target_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = PageGutter),
-            )
         }
         LunoGroup(title = stringResource(R.string.trend_edit_reminder)) {
             LunoSwitchRow(
                 title = stringResource(R.string.trend_edit_reminder_enable),
                 checked = reminderEnabled,
                 onCheckedChange = { reminderEnabled = it },
+                shape = segmentedShape(0, if (reminderEnabled) 3 else 1),
             )
             if (reminderEnabled) {
                 LunoSettingsRow(
@@ -335,13 +323,16 @@ private fun TrendEditForm(
                         reminderMinute,
                     ),
                     onClick = { showTimePicker = true },
+                    shape = segmentedShape(1, 3),
                 )
-                Text(
-                    text = stringResource(R.string.trend_edit_reminder_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = PageGutter),
-                )
+                LunoGroupItem(shape = segmentedShape(2, 3)) {
+                    Text(
+                        text = stringResource(R.string.trend_edit_reminder_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
+                    )
+                }
             }
         }
     }

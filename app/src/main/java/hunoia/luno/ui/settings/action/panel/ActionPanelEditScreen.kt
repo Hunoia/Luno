@@ -188,7 +188,7 @@ fun ActionPanelEditScreen(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    .padding(vertical = CardInnerSpacing),
                 shape = LargeShape,
             )
         }

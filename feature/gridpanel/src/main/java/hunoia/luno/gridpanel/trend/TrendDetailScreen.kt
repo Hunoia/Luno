@@ -38,6 +38,7 @@ import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
@@ -136,41 +137,46 @@ fun TrendDetailScreen(
     ) {
         SummaryCard(metric = metric, stats = stats)
         LunoGroup(title = stringResource(R.string.trend_detail_chart)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = PageGutter),
-                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
-                TrendRange.entries.forEach { item ->
-                    PressFilterChip(
-                        selected = item == range,
-                        onClick = { rangeName = item.name },
-                        label = { Text(trendRangeLabel(item)) },
-                    )
+            LunoGroupItem(shape = segmentedShape(0, 2)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = PageGutter, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                ) {
+                    TrendRange.entries.forEach { item ->
+                        PressFilterChip(
+                            selected = item == range,
+                            onClick = { rangeName = item.name },
+                            label = { Text(trendRangeLabel(item)) },
+                        )
+                    }
                 }
             }
-            TrendChart(
-                entries = entries,
-                target = metric.target,
-                decimals = metric.safeDecimals,
-                unit = metric.unit,
-                color = metric.colorSpec.toColor(),
-                range = range,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(horizontal = PageGutter),
-            )
+            LunoGroupItem(shape = segmentedShape(1, 2)) {
+                TrendChart(
+                    entries = entries,
+                    target = metric.target,
+                    decimals = metric.safeDecimals,
+                    unit = metric.unit,
+                    color = metric.colorSpec.toColor(),
+                    range = range,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .padding(horizontal = PageGutter, vertical = 12.dp),
+                )
+            }
         }
         LunoGroup(title = stringResource(R.string.trend_detail_records)) {
             if (entries.isEmpty()) {
-                Column(modifier = Modifier.padding(horizontal = PageGutter)) {
+                LunoGroupItem(shape = segmentedShape(0, 1)) {
                     Text(
                         text = stringResource(R.string.trend_detail_no_entries),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
                     )
                 }
             } else {
