@@ -34,6 +34,7 @@ import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.gridpanel.R
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.panelTileContainer
 import hunoia.luno.ui.theme.AppIconDecodeSize
 
 /**
@@ -63,7 +64,8 @@ fun ActionItemCell(
                 color = if (isAppIcon) {
                     Color.Transparent
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                    // 与内置部件底、快捷启动键盘键同一块 token。
+                    panelTileContainer()
                 },
                 shape = containerShape(ItemCorner),
             ),

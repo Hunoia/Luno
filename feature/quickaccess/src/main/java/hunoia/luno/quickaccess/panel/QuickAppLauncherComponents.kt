@@ -109,8 +109,9 @@ internal fun KeyboardRow(
                         ),
                     // 功能键与字母键共用一层底色，不再用 tertiary/secondary 二分：
                     // 靠图标（Tune / ClearAll）和末行首末位置区分。
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    // 底色走与面板动作格同一块 token（ui-guidelines §2.1 颜色令牌）。
+                    color = panelTileContainer(),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         when (key) {

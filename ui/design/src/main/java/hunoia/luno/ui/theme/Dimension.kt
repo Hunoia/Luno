@@ -120,6 +120,22 @@ val CandidateMaxHeight = 96.dp
 val GridCellSpacing = 4.dp
 val AppItemPadding = 4.dp
 
+// 应用抽屉的组头（⭐ 常用区 / 字母）：上留白拉开与上一节的距离，下留白贴近本节图标
+val AppSectionHeaderTopPadding = 6.dp
+val AppSectionHeaderBottomPadding = 2.dp
+val AppSectionHeaderIconSize = 16.dp
+
+// 字母索引条（应用抽屉边缘滑杆）：只显示当前附近 3–7 个字母，窗口跟手滑动。
+// 条目高 = 可用高 / 字母数，夹在实测字高（字形不被裁剪）与 ItemMaxHeight 之间；
+// 连三个完整字母都放不下就整条隐藏（宁可没有滑杆，也不给一排裁掉半截的字）。
+val LetterIndexTouchWidth = 28.dp
+val LetterIndexIdealItemHeight = 32.dp
+val LetterIndexItemMaxHeight = 40.dp
+val LetterIndexItemVerticalPadding = 2.dp
+val LetterIndexHorizontalPadding = 4.dp
+val LetterIndexBubbleSize = 40.dp
+val LetterIndexBubbleGap = 4.dp
+
 // 键盘：行间距与键间距共用一个值
 val KeyboardGap = 6.dp
 val KeyboardRowCount = 3

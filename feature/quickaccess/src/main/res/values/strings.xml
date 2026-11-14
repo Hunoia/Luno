@@ -3,6 +3,7 @@
     <!-- 快速启动/搜索面板文案。 -->
     <string name="more">更多</string>
     <string name="quick_app_launcher_adjust">调整面板</string>
+    <string name="app_drawer_favorites">常用应用</string>
     <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
     <string name="quick_app_launcher_clear_input">清空输入</string>
     <string name="quick_app_launcher_grid_columns">搜索列数</string>

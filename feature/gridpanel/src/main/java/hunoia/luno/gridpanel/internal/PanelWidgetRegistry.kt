@@ -36,6 +36,11 @@ data class PanelWidgetContentScope(
      */
     val isGridItem: Boolean = false,
     /**
+     * 部件请求改写自己的 params（JSON 串）。仅单功能面板提供（写回 `SinglePanel.params`），
+     * 网格项为 `null`：网格项的参数只经选择页 [onReconfigure] 改。
+     */
+    val onUpdateParams: ((String) -> Unit)? = null,
+    /**
      * 部件请求重新配置（如习惯部件指向的习惯被删后重选目标）：面板层接住后打开选择页，
      * 选中新部件时**原位替换**该项。无配置需求的部件忽略此回调。
      */
@@ -197,6 +202,9 @@ object PanelWidgetRegistry {
                     spanX = scope.spanX,
                     spanY = scope.spanY,
                     enabled = scope.enabled,
+                    isGridItem = scope.isGridItem,
+                    params = scope.params,
+                    onUpdateParams = scope.onUpdateParams,
                 )
             },
         )

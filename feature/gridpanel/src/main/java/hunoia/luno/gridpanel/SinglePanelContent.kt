@@ -5,13 +5,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.SinglePanel
+import hunoia.luno.domain.gridpanel.GridPanelCenter
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.internal.PanelWidgetContentScope
 import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
+import kotlinx.coroutines.launch
 
 /**
  * 单功能面板整页内容：固定渲染该功能，不再有「选择 / 切换功能」入口。
@@ -27,6 +30,7 @@ internal fun SinglePanelContent(
     metrics: GridMetrics,
     editMode: Boolean,
 ) {
+    val scope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize()) {
         val widget = PanelWidgetRegistry.byId(panel.widgetId)
             ?.takeIf { it.supportsSinglePanel }
@@ -49,6 +53,12 @@ internal fun SinglePanelContent(
                 // 编辑态禁用内容交互：此时手势归面板缩放。
                 enabled = !editMode,
                 params = panel.params,
+                // 参数写回唯一入口：部件给 JSON，落盘职责留在这里（配置写入不进 Action）。
+                onUpdateParams = { json ->
+                    scope.launch {
+                        GridPanelCenter.updateSinglePanel(panel.widgetId) { it.copy(params = json) }
+                    }
+                },
                 onReconfigure = null,
             ),
         )

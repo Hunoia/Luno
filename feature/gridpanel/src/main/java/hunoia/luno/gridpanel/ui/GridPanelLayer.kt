@@ -58,6 +58,7 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.panelTileContainer
 import hunoia.luno.gridpanel.gesture.gridItemPressFeedback
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
 import hunoia.luno.gridpanel.internal.PanelWidgetContentScope
@@ -338,8 +339,7 @@ fun GridPanelLayer(
                                         Modifier
                                             .matchParentSize()
                                             .background(
-                                                MaterialTheme.colorScheme.surfaceVariant
-                                                    .copy(alpha = 0.55f),
+                                                panelTileContainer(),
                                                 itemShape,
                                             ),
                                     )

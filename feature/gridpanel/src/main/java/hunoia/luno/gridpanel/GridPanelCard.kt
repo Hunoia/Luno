@@ -50,8 +50,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -64,7 +62,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.gridpanel.R
-import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.gridpanel.ui.pinchToColumns
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.core.PageDrop
@@ -642,70 +640,6 @@ fun GridPanelCard(
                     resizeCornerOverride = null
                 },
             )
-        }
-    }
-}
-
-/** 编辑态双指调列数：只在出现第二根手指后接管，单指事件完全不消费。 */
-private fun Modifier.pinchToColumns(
-    enabled: Boolean,
-    currentColumns: () -> Int,
-    onColumns: (target: Int, final: Boolean) -> Unit,
-): Modifier {
-    if (!enabled) return this
-    return pointerInput(Unit) {
-        awaitEachGesture {
-            val first = awaitFirstDown(
-                requireUnconsumed = false,
-                pass = PointerEventPass.Initial,
-            )
-            var firstId: PointerId = first.id
-            var secondId: PointerId? = null
-            var startSpan = 0f
-            var baseColumns = currentColumns()
-            var lastTarget = baseColumns
-            var pinching = false
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                val pressed = event.changes.filter { it.pressed }
-                if (!pinching) {
-                    if (pressed.size >= 2) {
-                        val a = pressed[0]
-                        val b = pressed[1]
-                        firstId = a.id
-                        secondId = b.id
-                        startSpan = (a.position - b.position).getDistance()
-                        baseColumns = currentColumns()
-                        lastTarget = baseColumns
-                        pinching = startSpan > 0f
-                    } else if (pressed.isEmpty()) {
-                        break
-                    }
-                }
-                if (pinching) {
-                    val a = event.changes.firstOrNull { it.id == firstId && it.pressed }
-                    val b = event.changes.firstOrNull { it.id == secondId && it.pressed }
-                    if (a == null || b == null) {
-                        event.changes.forEach { it.consume() }
-                        break
-                    }
-                    val span = (a.position - b.position).getDistance()
-                    if (startSpan > 0f) {
-                        // 放大手势 = 格子变大 = 列数变少；缩小手势 = 列数变多。
-                        val target = (baseColumns / (span / startSpan)).roundToInt()
-                            .coerceIn(
-                                GridPanelDefaults.MinColumnCount,
-                                GridPanelDefaults.MaxColumnCount,
-                            )
-                        if (target != lastTarget) {
-                            lastTarget = target
-                            onColumns(target, false)
-                        }
-                    }
-                    event.changes.forEach { it.consume() }
-                }
-            }
-            if (pinching) onColumns(lastTarget, true)
         }
     }
 }
