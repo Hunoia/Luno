@@ -6,6 +6,10 @@
     <string name="go_back">返回</string>
     <string name="search_clear_cd">清除</string>
     <string name="search_hint_all">搜索</string>
+    <string name="group_collapse">收起</string>
+    <string name="group_expand">展开</string>
+    <string name="group_state_expanded">已展开</string>
+    <string name="group_state_collapsed">已收起</string>
     <string name="color_picker_theme_tab">主题色</string>
     <string name="custom">自定义</string>
     <string name="color_picker_wheel">色相与饱和度</string>

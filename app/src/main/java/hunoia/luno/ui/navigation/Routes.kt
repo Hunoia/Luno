@@ -156,6 +156,23 @@ data class PointerAdjust(val follow: Boolean)
 @Serializable
 data object FloatBallEdit
 
+/** 通知胶囊独立设置页（与悬浮球/建议胶囊并列）。 */
+@Keep
+@Serializable
+data object FloatBallNotificationCapsule
+
+/** 建议胶囊独立设置页（规则表入口）。 */
+@Keep
+@Serializable
+data object FloatBallSuggestionCapsule
+
+/** 建议规则编辑页；ruleId 为空 = 新增。 */
+@Keep
+@Serializable
+data class SuggestionRuleEdit(
+    val ruleId: String = "",
+)
+
 /** 运行日志：开关、最近日志预览、清空与导出。 */
 @Keep
 @Serializable

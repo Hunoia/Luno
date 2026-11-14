@@ -23,60 +23,10 @@
             column="37"/>
     </issue>
 
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="            add(ActionTypeChip(null, context.getString(R.string.all_categories), Icons.Default.AllInclusive))"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="135"
-            column="38"/>
-    </issue>
 
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="            add(ActionTypeChip(TYPE_LIBRARY_AND_RULE, context.getString(R.string.action_library_and_rules), Icons.AutoMirrored.Filled.LibraryBooks))"
-        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="136"
-            column="55"/>
-    </issue>
 
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="            add(ActionTypeChip(TYPE_APP, context.getString(R.string.tab_apps), Icons.Default.Apps))"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="137"
-            column="42"/>
-    </issue>
 
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="            add(ActionTypeChip(TYPE_SHORTCUT, context.getString(R.string.tab_shortcuts), Icons.Default.Bolt))"
-        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="138"
-            column="47"/>
-    </issue>
 
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="                add(ActionTypeChip(TYPE_WIDGET, context.getString(R.string.grid_panel_add_widget), Icons.Default.Widgets))"
-        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="140"
-            column="49"/>
-    </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"

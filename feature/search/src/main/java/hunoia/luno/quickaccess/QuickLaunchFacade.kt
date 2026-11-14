@@ -4,8 +4,11 @@ import android.content.Context
 import coil3.request.ImageRequest
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.quickaccess.query.AppCatalog
+import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.quickaccess.query.AppQuery
+import hunoia.luno.quickaccess.query.DisabledAppQuery
 import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.quickaccess.query.LauncherIconQuery
 import hunoia.luno.quickaccess.launch.Launcher
@@ -30,6 +33,20 @@ object QuickLaunchFacade {
         AppCatalog.query(context, includeDisabled = true).apps
     } catch (_: Exception) {
         emptyList()
+    }
+
+    /**
+     * 应用列表权限刚变更：同步清掉本进程缓存，再广播让其它进程（`:app` / `:service`）重建
+     * 清单与搜索索引。
+     *
+     * 没权限时扫出来的空表会被 [AppQuery] / [AppListRepository] 缓存住，只授权不刷新会一直空；
+     * 广播复用包变更通道（`ACTION_LOCAL_PACKAGE_CHANGED`），跨进程也能落到。
+     */
+    fun invalidateAppListCaches(context: Context) {
+        AppQuery.invalidateLauncherCache()
+        DisabledAppQuery.invalidate()
+        AppListRepository.refresh()
+        PackageChangeReceiver.notifyLocalPackageChanged(context)
     }
 
     fun queryShortcutActivities(context: Context, allowRepeatPackage: Boolean = true): List<LauncherInfo> =

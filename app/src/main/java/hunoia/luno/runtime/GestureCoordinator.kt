@@ -136,6 +136,55 @@ class GestureCoordinator(
     }
 
     /**
+     * 情景识别：无障碍事件驱动的当前界面文本读取（建议胶囊的第三来源）。
+     *
+     * 不做常驻轮询、不扫后台窗口：只有界面内容/窗口状态真的变化、且空闲到
+     * [hunoia.luno.runtime.scene.SceneScanScheduler] 判定可扫时才走一次带预算的树遍历。
+     * 开关与锁屏判定在 SceneScanGate，关闭时每条事件只付一次比较。
+     */
+    private var sceneScanner: hunoia.luno.runtime.scene.ScreenSceneScanner? = null
+
+    /** 场景扫描器在 [onSetOverlay] 里建：无障碍连接之后才有窗口可扫。 */
+    private fun sceneScannerImpl(): hunoia.luno.runtime.scene.ScreenSceneScanner? = sceneScanner
+        ?: hunoia.luno.runtime.scene.ScreenSceneScanner(
+        
+            service = host.accessibilityService,
+            ownPackage = host.context.packageName,
+            scope = host.coroutineScope,
+            contextOf = ::sceneScanContext,
+            // 自家全屏浮层（动作面板/网格面板/识屏层）在屏时，读到的不是用户在看的界面。
+            surfaceBusy = {
+                val service = hunoia.luno.service.SideGestureService.current
+                openPanels.hasOpenPanels ||
+                    service == null ||
+                    service.isScreenPickVisible() ||
+                    service.isScreenPickPortalVisible() ||
+                    service.isOwnUiForeground()
+            },
+            publish = { event -> hunoia.luno.core.Events.post(event) },
+        ).also { sceneScanner = it }
+
+    /** 情景识别的判定上下文：开关 + 锁屏/息屏 + 桌面（桌面没有可分发的界面内容）。 */
+    private fun sceneScanContext(): hunoia.luno.runtime.scene.SceneScanContext {
+        val state = runtimeSettingsStore.snapshot()
+        val floatBall = state.actionSettings.floatBall
+        val clipball = floatBall.clipboardBall
+        val locked = environmentTracker.isNowInLockScreenPage
+        return hunoia.luno.runtime.scene.SceneScanContext(
+            enabled = state.initialSettings.gestureEnabled &&
+                floatBall.enabled &&
+                clipball.enabled &&
+                clipball.sceneEnabled,
+            locked = locked,
+            interactive = !locked,
+            launcher = host.nowInLauncher(),
+        )
+    }
+
+    /** 用户显式要求扫一次（长按建议球）。返回是否受理，false = 无障碍服务不可用。 */
+    fun requestSceneScan(force: Boolean): Boolean = sceneScannerImpl()?.requestNow(force) ?: false
+
+    /**
      * 识别区手势运行时：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。
      * 识别、起点保护、区命中都在运行时空；命中后仍走 `ActionRequest → Dispatcher`。
      */
@@ -379,6 +428,9 @@ class GestureCoordinator(
 
         override fun openImageAnnotate(): Boolean =
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(host.context)
+
+        override fun openPhotoRecognize(): Boolean =
+            hunoia.luno.ui.photo.PhotoRecognizeActivity.start(host.context)
 
         override fun showOcrSegmentText(text: String): Boolean =
             hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(host.context, text)
@@ -1017,6 +1069,7 @@ class GestureCoordinator(
     fun onSetOverlay() {
         if (started) return
         started = true
+        sceneScannerImpl()
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator start")
         hunoia.luno.runtime.surface.SurfaceController.register(buttonSurfaceHandle)
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener { startWidgetLaunchPoll() }
@@ -1117,6 +1170,8 @@ class GestureCoordinator(
 
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         previousAppTracker.onAccessibilityEvent(event)
+        // 情景识别：同一条事件，只在这条热路径上多做一次门禁判定。
+        sceneScannerImpl()?.onAccessibilityEvent(event)
         val beforePackage = environmentTracker.currentPackageName
         environmentTracker.onAccessibilityEvent(event)
         // 新应用先到的往往不是 WINDOW_STATE_CHANGED：只要事件来自一个点击时不可见的
@@ -1224,6 +1279,9 @@ class GestureCoordinator(
         hunoia.luno.runtime.dispatch.ActionDispatch.installAwaitable(null)
         openPanels.close()
         runtimeSettingsStore.stop()
+        // 惰性创建：没建过就不为释放而创建。
+        sceneScanner?.release()
+        sceneScanner = null
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
         // 只在真的建过时释放：这三个对象是惰性创建的，没建过就不该为了 release 而创建。

@@ -3,7 +3,6 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,8 +26,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
+import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.core.domain.AppInfo
@@ -38,7 +40,6 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
-import hunoia.luno.ui.theme.EmptyStatePaddingVertical
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,8 +67,13 @@ fun AppPickerSheet(
     var searchQuery by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
-        if (granted) loaded = false
+        if (granted) {
+            // 刚授权：清单可能已被缓存成空表，清缓存后再触发一次重读。
+            QuickLaunchFacade.invalidateAppListCaches(AppContext.get())
+            loaded = false
+        }
     }
     suspend fun loadApps() {
         loading = true
@@ -78,7 +84,8 @@ fun AppPickerSheet(
     }
     LaunchedEffect(permissionState.isGranted, loaded) {
         if (!permissionState.isGranted) {
-            permissionState.launchPermissionRequest()
+            // 被永久拒绝后再申请不会弹框，留给用户点空态里的按钮去设置。
+            if (!permissionState.deniedForever) permissionState.launchPermissionRequest()
         } else if (!loaded) {
             loadApps()
             loaded = true
@@ -120,16 +127,25 @@ fun AppPickerSheet(
                 }
             }
             if (!permissionState.isGranted) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = EmptyStatePaddingVertical),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PressTextButton(onClick = { permissionState.launchPermissionRequest() }) {
-                        Text(stringResource(R.string.request_get_apps_permission))
-                    }
-                }
+                EmptyState(
+                    icon = Icons.Outlined.Lock,
+                    message = stringResource(R.string.apps_permission_required),
+                    action = {
+                        PressTextButton(
+                            onClick = {
+                                if (permissionState.deniedForever) context.gotoAppDetailSettings()
+                                else permissionState.launchPermissionRequest()
+                            },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (permissionState.deniedForever) R.string.apps_permission_settings
+                                    else R.string.request_get_apps_permission,
+                                ),
+                            )
+                        }
+                    },
+                )
             } else {
                 AppSearchBar(
                     query = searchQuery,

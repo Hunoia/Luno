@@ -32,9 +32,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.core.domain.StoredAction
@@ -42,6 +46,7 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.bridge.ui.SystemBarsSafeArea
+import java.io.File
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
@@ -91,6 +96,20 @@ class FloatBallWindow(
 
     /** 当前朝向：决定读 portrait 还是 landscape 落点。 */
     private var landscape = false
+
+    /**
+     * 球面固定图标：ImageVector / TextIcon / ImageBitmap。
+     *
+     * Compose 读快照状态；通知球的应用图标会在运行期替换（[setFixedIcon]），
+     * 不能再用不可变的构造参数。null = 按单击动作取图标。
+     */
+    private var fixedIconState by mutableStateOf(fixedIcon)
+
+    /** 运行期替换球面图标；通知球用来显示最新通知的应用图标。 */
+    fun setFixedIcon(icon: Any?) {
+        if (fixedIconState === icon || fixedIconState == icon) return
+        fixedIconState = icon
+    }
 
     private val arbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onDragged(dx, dy) },
@@ -154,7 +173,8 @@ class FloatBallWindow(
 
     private var dragging = false
     private var pressed = false
-    private var idled = false
+    // Compose 快照状态：球面里的静置暂停（动图切首帧）要跟着它重组。
+    private var idled by mutableStateOf(false)
 
     /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
     private var transferring = false
@@ -937,7 +957,23 @@ class FloatBallWindow(
 
     @Composable
     private fun BallFace(modifier: Modifier = Modifier) {
+        val densityContext = LocalContext.current
         val size = with(LocalDensity.current) { ballPx.toDp() }
+        // 自定义球面图标：非空且文件存在时全球面（去掉圆底/描边），否则回退默认圆底+动作图标。
+        val customIconPath = settings.customIconPath
+        if (customIconPath != null && File(customIconPath).exists()) {
+            CustomBallIcon(
+                context = densityContext,
+                model = File(customIconPath),
+                scale = settings.customIconScale,
+                offsetX = settings.customIconOffsetX,
+                offsetY = settings.customIconOffsetY,
+                alpha = settings.customIconAlpha,
+                paused = idled && settings.customIconPauseWhenIdle,
+                modifier = modifier.size(size),
+            )
+            return
+        }
         val accent = settings.colorSpec.toMarkColor()
         Box(
             modifier = modifier.size(size),
@@ -950,7 +986,7 @@ class FloatBallWindow(
                     .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = fixedIcon
+                val icon = fixedIconState
                     ?: actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
                 when (icon) {
                     is ImageVector -> Image(
@@ -958,6 +994,15 @@ class FloatBallWindow(
                         contentDescription = null,
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                         modifier = Modifier.size(size / 2),
+                    )
+
+                    is ImageBitmap -> Image(
+                        bitmap = icon,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
                     )
 
                     is TextIcon -> TextIconGlyph(

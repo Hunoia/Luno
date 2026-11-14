@@ -75,6 +75,7 @@ class AppExecutorsTest {
         override fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean = false
         override fun showScreenAnnotate(): Boolean = false
         override fun openImageAnnotate(): Boolean = false
+        override fun openPhotoRecognize(): Boolean = false
         override fun showOcrSegmentText(text: String): Boolean = false
         override suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult =
             ActionResult.Success()
