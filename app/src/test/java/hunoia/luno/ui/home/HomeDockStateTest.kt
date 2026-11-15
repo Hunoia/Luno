@@ -3,6 +3,7 @@ package hunoia.luno.ui.home
 import hunoia.luno.ui.component.DefaultHomeDockSide
 import hunoia.luno.ui.component.HomeDockSide
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -72,5 +73,23 @@ class HomeDockStateTest {
             MainTab.Habits,
             collapsedBallTab(MainTab.Home, HomeDockSide.SECONDARY, MainTab.Settings),
         )
+    }
+
+    @Test
+    fun `非主页 tab 按返回固定回主页`() {
+        for (tab in MainTab.entries.filter { it != MainTab.Home }) {
+            assertEquals(tab.name, MainTab.Home, homeBackTargetTab(tab, overlayOpen = false))
+        }
+    }
+
+    @Test
+    fun `主页 tab 按返回不拦截`() {
+        assertNull(homeBackTargetTab(MainTab.Home, overlayOpen = false))
+    }
+
+    @Test
+    fun `弹层打开时返回先关弹层`() {
+        assertNull(homeBackTargetTab(MainTab.Habits, overlayOpen = true))
+        assertNull(homeBackTargetTab(MainTab.Settings, overlayOpen = true))
     }
 }
