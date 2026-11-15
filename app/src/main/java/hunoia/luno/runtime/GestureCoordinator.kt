@@ -380,8 +380,8 @@ class GestureCoordinator(
 
         override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = volumeScrubRuntime.show(
             hunoia.luno.config.model.VolumeScrubConfig(
-                stepThresholdDp = stepThresholdDp
-                    ?: hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp,
+                stepThresholdDp = runtimeSettingsStore.snapshot().actionSettings.gestureTools
+                    .volumeScrubStepThresholdDp,
             ),
         )
 
@@ -456,66 +456,11 @@ class GestureCoordinator(
             )
         }
 
-        override suspend fun setFloatBallVisible(
-            visible: Boolean?,
-            hideForMs: Long,
-        ): hunoia.luno.core.domain.ActionResult {
-            if (hideForMs > 0) {
-                Events.post(hunoia.luno.runtime.floatball.FloatBallTempHideEvent(hideForMs))
-                return hunoia.luno.core.domain.ActionResult.Success()
-            }
-            val ok = runCatching {
-                var enabled = false
-                ConfigProvider.updateActionSettings { current ->
-                    enabled = visible ?: !current.floatBall.enabled
-                    current.copy(floatBall = current.floatBall.copy(enabled = enabled))
-                }
-                // 服务不在跑的场景（装更新时 restore 读到关闭态没拉球，随后规则把球启用）：
-                // 只写盘上的值没有 settings flow 消费，必须把服务拉起来球才会回来。
-                if (enabled) hunoia.luno.runtime.floatball.FloatBallService.start(host.context)
-                true
-            }.getOrDefault(false)
-            return if (ok) {
-                hunoia.luno.core.domain.ActionResult.Success()
-            } else {
-                hunoia.luno.core.domain.ActionResult.Failed(
-                    hunoia.luno.core.domain.ActionFailure.ExecutionFailed,
-                )
-            }
-        }
-
-        override suspend fun setButtonsVisible(
-            visible: Boolean,
-            target: hunoia.luno.action.model.ButtonTarget,
-            buttonIds: List<String>,
-            hideForMs: Long,
-        ): hunoia.luno.core.domain.ActionResult {
-            if (hideForMs > 0) {
-                val allIds = runtimeSettingsStore.snapshot().gestureButtons.map { it.id }
-                buttonHideRuntime.hideTemporarily(
-                    hunoia.luno.action.model.resolveButtonTargetIds(target, allIds, buttonIds),
-                    hideForMs,
-                )
-                return hunoia.luno.core.domain.ActionResult.Success()
-            }
-            val ok = runCatching {
-                ConfigProvider.updateGestureButtons { list ->
-                    val ids = hunoia.luno.action.model.resolveButtonTargetIds(
-                        target,
-                        list.map { it.id },
-                        buttonIds,
-                    )
-                    list.map { button -> if (button.id in ids) button.copy(enabled = visible) else button }
-                }
-                true
-            }.getOrDefault(false)
-            return if (ok) {
-                hunoia.luno.core.domain.ActionResult.Success()
-            } else {
-                hunoia.luno.core.domain.ActionResult.Failed(
-                    hunoia.luno.core.domain.ActionFailure.ExecutionFailed,
-                )
-            }
+        override fun hideTriggerButton(buttonId: String) {
+            buttonHideRuntime.hideTemporarily(
+                listOf(buttonId),
+                runtimeSettingsStore.snapshot().actionSettings.gestureTools.triggerButtonHideMs,
+            )
         }
     }
 
@@ -673,6 +618,7 @@ class GestureCoordinator(
                 gestureSettings = state.gestureSettings,
                 subGestureSettings = state.subGestureSettings,
                 actionPanelStyle = state.actionSettings.actionPanelStyle,
+                gestureTools = state.actionSettings.gestureTools,
             ),
         )
         if (recreated) motionEventInput.reset()

@@ -82,7 +82,7 @@ import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.twotone.CheckCircle
 import androidx.compose.material.icons.twotone.Checklist
 import androidx.compose.material.icons.twotone.ShowChart
-import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.actions.library.libraryCategoryOf
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.domain.system.PermissionStateUseCase
@@ -158,6 +158,8 @@ fun HomeScreen(
     onNavToActionPanels: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToPointerSettings: () -> Unit = {},
+    onNavToRecentsSettings: () -> Unit = {},
+    onNavToGestureToolsSettings: () -> Unit = {},
     onNavToAppearanceSettings: () -> Unit = {},
     onNavToLinkDispatch: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
@@ -578,6 +580,8 @@ fun HomeScreen(
                             onNavToButtonVisibility = onNavToButtonVisibility,
                             onNavToMiniWindowSettings = onNavToMiniWindowSettings,
                             onNavToPointerSettings = onNavToPointerSettings,
+                            onNavToRecentsSettings = onNavToRecentsSettings,
+                            onNavToGestureToolsSettings = onNavToGestureToolsSettings,
                             onNavToScreenPickSettings = onNavToScreenPickSettings,
                             onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
                             onNavToAccessibilityManager = onNavToAccessibilityManager,
@@ -608,7 +612,7 @@ private fun LibraryTypeMenu(
 ) {
     val grouped = remember(expanded) {
         ActionCatalog.libraryDefinitions()
-            .sortedBy { ActionDefinitions.categoryOrder(it.category) }
+            .sortedBy { libraryCategoryOf(it.typeId).ordinal }
     }
     DropdownMenu(
         expanded = expanded,

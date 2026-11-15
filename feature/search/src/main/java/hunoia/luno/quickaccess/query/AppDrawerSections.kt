@@ -9,6 +9,9 @@ import hunoia.luno.core.domain.AppInfo
  */
 data class AppSection(val letter: Char, val apps: List<AppInfo>)
 
+/** 字母序分节的一次分组结果（泛型版见 [AppDrawerSections.alphabeticalSectionsOf]）。 */
+data class AlphabeticalSection<T>(val letter: Char, val items: List<T>)
+
 /** 字母滑杆的一个条目：⭐ 常用区（仅在有常用应用时出现）或某个字母节。 */
 sealed interface AppIndexEntry {
     /** 顶部常用区（⭐）。 */
@@ -127,6 +130,49 @@ object AppDrawerSections {
         // sortApps 做过的「分身紧跟主应用」在稳定切分后仍然成立。
         return AppDrawerLayout(top, sections)
     }
+
+    /**
+     * 纯字母序分节：不掺使用频率、不置顶，字母节按 A–# 排列、节内按全拼 → 原串 → 标题排。
+     *
+     * 动作选择页用它：那里找应用靠「我记得它叫什么」，不是「我常用它」，
+     * 右侧字母滑杆要能稳定跳到某个字母。抽屉仍走 [layout]（使用频率序 + 常用区）。
+     */
+    fun alphabeticalSections(apps: List<AppInfo>): List<AppSection> =
+        alphabeticalSectionsOf(apps) { it.label }.map { AppSection(it.letter, it.items) }
+
+    /**
+     * 任意列表的字母分节（同一个标签 -> 拼音口径）。[labelOf] 取用于排序的标题，
+     * 同标签条目（分身）保持入参顺序，稳定排序不会把分身拆开。
+     */
+    fun <T> alphabeticalSectionsOf(
+        items: List<T>,
+        labelOf: (T) -> String,
+    ): List<AlphabeticalSection<T>> {
+        if (items.isEmpty()) return emptyList()
+        // `#` 恒排最后：先按"是不是 OTHER"排，再按拼音、原串、标题排。
+        val keyed = items.map { item ->
+            val label = labelOf(item)
+            val index = AppSearch.buildIndex(label)
+            AlphabeticalItem(item, initialOf(label), index.pinyin, index.raw)
+        }.sortedWith(
+            compareBy(
+                { it.letter == OTHER },
+                { it.pinyin },
+                { it.raw },
+                { labelOf(it.item) },
+            ),
+        )
+        val groups = LinkedHashMap<Char, MutableList<T>>()
+        keyed.forEach { groups.getOrPut(it.letter) { ArrayList() }.add(it.item) }
+        return groups.map { AlphabeticalSection(it.key, it.value) }
+    }
+
+    private data class AlphabeticalItem<T>(
+        val item: T,
+        val letter: Char,
+        val pinyin: String,
+        val raw: String,
+    )
 
     /** 首字母：中文取拼音首字母（复用 [AppSearch] 索引），其余只认 A–Z。 */
     private fun initialOf(label: String): Char {

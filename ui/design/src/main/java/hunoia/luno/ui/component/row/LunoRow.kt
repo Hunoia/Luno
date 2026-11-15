@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,6 +89,8 @@ internal fun LunoRowBase(
     selectionRole: Role = Role.Checkbox,
     containerColor: Color? = null,
     selectedContainerColor: Color? = null,
+    /** 可展开行等需要播报「已展开 / 已收起」时传入；null = 不额外播报。 */
+    stateDescription: String? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
@@ -150,6 +153,7 @@ internal fun LunoRowBase(
             .then(Modifier.groupItemTopLine(shape, dividerStartInset))
             .semantics(mergeDescendants = true) {
                 if (selectable) this.selected = selected
+                stateDescription?.let { this.stateDescription = it }
             },
         headlineContent = headline ?: {
             Text(
@@ -241,6 +245,8 @@ fun LunoSettingsRow(
     trailing: (@Composable () -> Unit)? = null,
     shape: Shape = LargeShape,
     enabled: Boolean = true,
+    /** 可展开行等需要播报「已展开 / 已收起」时传入。 */
+    stateDescription: String? = null,
 ) {
     LunoRowBase(
         title = title,
@@ -257,6 +263,7 @@ fun LunoSettingsRow(
         trailing = trailing ?: chevron.takeIf { enabled && onClick != null },
         onClick = onClick,
         onLongClick = onLongClick,
+        stateDescription = stateDescription,
     )
 }
 

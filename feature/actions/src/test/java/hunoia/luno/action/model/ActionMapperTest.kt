@@ -127,39 +127,40 @@ class ActionMapperTest {
     }
 
     @Test
-    fun `recents picker config decode falls back to defaults`() {
+    fun `recents picker reads layout from action and feel from global config`() {
         val horizontal = StoredAction(
             "internal.recentsPicker",
             buildJsonObject {
                 put("layout", JsonPrimitive("HORIZONTAL"))
+                // 旧动作里的手感参数按约定忽略，运行时只认全局设置。
                 put("sensitivityPercent", JsonPrimitive("250"))
                 put("iconSizeDp", JsonPrimitive("84"))
             },
         )
-        val config = horizontal.recentsPickerConfigOrDefault()
-        assertEquals(RecentsPickerLayout.HORIZONTAL, config.layout)
-        assertEquals(250, config.blankScrollSensitivityPercent)
-        assertEquals(84, config.iconSizeDp)
-
-        // 未写参数落默认（100 / 60），脏值同样回落默认。
-        val default = StoredAction("internal.recentsPicker", JsonObject(emptyMap()))
-        assertEquals(100, default.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
-        assertEquals(60, default.recentsPickerConfigOrDefault().iconSizeDp)
-
-        val dirty = StoredAction(
-            "internal.recentsPicker",
-            buildJsonObject {
-                put("sensitivityPercent", JsonPrimitive("abc"))
-                put("iconSizeDp", JsonPrimitive("xyz"))
-            },
+        val config = horizontal.recentsPickerConfigOrDefault(
+            sensitivityPercent = 180,
+            iconSizeDp = 72,
         )
-        assertEquals(100, dirty.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
-        assertEquals(60, dirty.recentsPickerConfigOrDefault().iconSizeDp)
+        assertEquals(RecentsPickerLayout.HORIZONTAL, config.layout)
+        assertEquals(180, config.blankScrollSensitivityPercent)
+        assertEquals(72, config.iconSizeDp)
 
-        // 非本动作类型读不到参数，也落默认。
+        // 未写参数落默认布局，手感仍来自全局值。
+        val default = StoredAction("internal.recentsPicker", JsonObject(emptyMap()))
+        val defaultConfig = default.recentsPickerConfigOrDefault(
+            sensitivityPercent = 130,
+            iconSizeDp = 64,
+        )
+        assertEquals(RecentsPickerLayout.VERTICAL, defaultConfig.layout)
+        assertEquals(130, defaultConfig.blankScrollSensitivityPercent)
+        assertEquals(64, defaultConfig.iconSizeDp)
+
+        // 非本动作类型读不到布局，也落默认。
         val other = StoredAction("internal.volumeScrub", JsonObject(emptyMap()))
-        assertEquals(100, other.recentsPickerConfigOrDefault().blankScrollSensitivityPercent)
-        assertEquals(60, other.recentsPickerConfigOrDefault().iconSizeDp)
+        assertEquals(
+            RecentsPickerLayout.VERTICAL,
+            other.recentsPickerConfigOrDefault().layout,
+        )
     }
 
     @Test

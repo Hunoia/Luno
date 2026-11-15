@@ -18,6 +18,16 @@ data object ScreenPickSettings
 @Serializable
 data object RecentAppsBlocklist
 
+/** 最近应用全局手感：灵敏度 / 图标大小 / 黑名单入口。 */
+@Keep
+@Serializable
+data object RecentsSettings
+
+/** 手势工具全局手感：滑动调音量灵敏度。 */
+@Keep
+@Serializable
+data object GestureToolsSettings
+
 /** 链接分发设置（规则列表 + 胶囊/未命中行为）。 */
 @Keep
 @Serializable

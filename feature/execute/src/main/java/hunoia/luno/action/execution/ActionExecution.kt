@@ -141,7 +141,12 @@ data class ExecutorContext(
     /** 触发上下文（全屏手势锚点 / 会话 id）；非全屏手势链路为 null。 */
     val triggerContext: hunoia.luno.core.domain.TriggerContext? = null,
 ) {
-    /** 只对触发钮生效的临时隐藏；非手势链路没有来源按钮时静默跳过。 */
+    /** 临时隐藏触发本次动作的触钮；非手势按钮链路没有来源时静默跳过。 */
+    fun hideTriggerButton() {
+        sourceButtonId?.let { surfaces.hideTriggerButton(it) }
+    }
+
+    /** 只对触发钮生效的临时隐藏（无障碍点击等内部用途）；非手势链路没有来源按钮时静默跳过。 */
     fun hideGestureButton(delayMs: Long) {
         sourceButtonId?.let { surfaces.hideGestureButton(it, delayMs) }
     }

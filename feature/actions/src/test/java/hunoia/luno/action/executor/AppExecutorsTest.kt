@@ -5,7 +5,6 @@ import android.net.Uri
 import hunoia.luno.action.controller.IntentController
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
@@ -79,14 +78,7 @@ class AppExecutorsTest {
         override fun showOcrSegmentText(text: String): Boolean = false
         override suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult =
             ActionResult.Success()
-        override suspend fun setFloatBallVisible(visible: Boolean?, hideForMs: Long): ActionResult =
-            ActionResult.Success()
-        override suspend fun setButtonsVisible(
-            visible: Boolean,
-            target: ButtonTarget,
-            buttonIds: List<String>,
-            hideForMs: Long,
-        ): ActionResult = ActionResult.Success()
+        override fun hideTriggerButton(buttonId: String) = Unit
     }
 
     private object FakeMessages : ExecuteMessages {

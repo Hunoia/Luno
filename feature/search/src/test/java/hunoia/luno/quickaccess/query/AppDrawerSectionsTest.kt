@@ -119,3 +119,42 @@ class AppDrawerSectionsTest {
         assertEquals(listOf(primary, clone), w.apps)
     }
 }
+
+/**
+ * 选择页用的纯字母序：不掺使用频率、不进「常用」区，`#` 置尾；
+ * 同标签条目（分身）保持入参顺序，不能被排序拆开。
+ */
+class AlphabeticalSectionsTest {
+
+    private fun app(label: String, pkg: String = "pkg.$label", userId: Int = 0) =
+        AppInfo(packageName = pkg, className = "$pkg.Main", label = label, userId = userId)
+
+    @Test
+    fun `sorts by pinyin initial and puts other section last`() {
+        val apps = listOf(
+            app("微信", "pkg.wx"),
+            app("Alipay", "pkg.alipay"),
+            app("4K 壁纸", "pkg.wall"),
+            app("淘宝", "pkg.tb"),
+        )
+
+        val sections = AppDrawerSections.alphabeticalSections(apps)
+
+        assertEquals(listOf('A', 'T', 'W', '#'), sections.map { it.letter })
+        assertEquals(listOf("Alipay"), sections[0].apps.map { it.label })
+        assertEquals(listOf("淘宝"), sections[1].apps.map { it.label })
+        assertEquals(listOf("微信"), sections[2].apps.map { it.label })
+        assertEquals(listOf("4K 壁纸"), sections[3].apps.map { it.label })
+    }
+
+    @Test
+    fun `keeps duplicate labels together in input order`() {
+        val main = app("微信", "pkg.wx", userId = 0)
+        val clone = app("微信", "pkg.wx", userId = 10)
+
+        val sections = AppDrawerSections.alphabeticalSectionsOf(listOf(clone, main)) { it.label }
+
+        assertEquals(1, sections.size)
+        assertEquals(listOf(clone, main), sections.single().items)
+    }
+}

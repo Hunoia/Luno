@@ -16,10 +16,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AppDrawerWidgetParams
@@ -32,10 +35,16 @@ import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.ui.pinchToColumns
+import hunoia.luno.quickaccess.R as QuickAccessR
 import hunoia.luno.quickaccess.panel.SectionedAppGridContent
 import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.quickaccess.query.AppIndexEntry
 import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.runtime.surface.SurfaceDispatch
+import hunoia.luno.ui.component.IndexBar
+import hunoia.luno.ui.component.IndexBarEntry
+import hunoia.luno.ui.component.IndexBarSide
+import hunoia.luno.ui.component.rememberIndexBarMetrics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -160,16 +169,39 @@ fun AppDrawerCell(
         configuration.screenWidthDp.dp.toPx()
     }
     val side = if (panelAnchor == null || panelAnchor.first < screenWidthPx / 2f) {
-        LetterIndexSide.Start
+        IndexBarSide.Start
     } else {
-        LetterIndexSide.End
+        IndexBarSide.End
     }
     // 滑杆压在网格边缘：给内容补同侧内边距，图标不会被字母条盖住。
     // 单功能面板没有格子的圆角裁切，滑杆可以一直贴到自己的边缘。
     val indexInset = if (isGridItem) DrawerPadding else 0.dp
     val entries = layout.indexEntries
+    // 滑杆条目与抽屉分组 1:1（⭐ + 字母），跳转 / 高亮都按 key 对齐，不另存下标。
+    val favoritesLabel = stringResource(QuickAccessR.string.app_drawer_favorites)
+    val barEntries = remember(entries, favoritesLabel) {
+        entries.map { entry ->
+            when (entry) {
+                AppIndexEntry.Favorites -> IndexBarEntry(
+                    key = "favorites",
+                    label = favoritesLabel,
+                    icon = Icons.Filled.Star,
+                )
+                is AppIndexEntry.Letter -> IndexBarEntry(
+                    key = entry.letter.toString(),
+                    label = entry.letter.toString(),
+                )
+            }
+        }
+    }
     val activeEntry by remember(layout) {
         derivedStateOf { layout.entryAt(gridState.firstVisibleItemIndex) }
+    }
+    val activeKey = activeEntry?.let { entry ->
+        when (entry) {
+            AppIndexEntry.Favorites -> "favorites"
+            is AppIndexEntry.Letter -> entry.letter.toString()
+        }
     }
     val scope = rememberCoroutineScope()
     var jumpJob by remember { mutableStateOf<Job?>(null) }
@@ -199,12 +231,12 @@ fun AppDrawerCell(
         ),
     ) {
         // 尺寸实测（含大字体下的字高）：与滑杆自己算的是同一份，宽度不会错位。
-        val indexMetrics = rememberLetterIndexMetrics(entries, maxHeight)
+        val indexMetrics = rememberIndexBarMetrics(barEntries, maxHeight)
         val indexFits = enabled && indexMetrics.visible && entries.isNotEmpty()
         val indexWidth = if (indexFits) indexMetrics.barWidth else 0.dp
         val contentPadding = PaddingValues(
-            start = DrawerPadding + if (side == LetterIndexSide.Start) indexWidth else 0.dp,
-            end = DrawerPadding + if (side == LetterIndexSide.End) indexWidth else 0.dp,
+            start = DrawerPadding + if (side == IndexBarSide.Start) indexWidth else 0.dp,
+            end = DrawerPadding + if (side == IndexBarSide.End) indexWidth else 0.dp,
             top = DrawerPadding,
             bottom = DrawerPadding,
         )
@@ -234,13 +266,14 @@ fun AppDrawerCell(
             enabled = enabled,
         )
         if (indexFits) {
-            LetterIndexBar(
-                entries = entries,
+            IndexBar(
+                entries = barEntries,
                 metrics = indexMetrics,
-                activeEntry = activeEntry,
+                activeKey = activeKey,
                 side = side,
-                onJump = { entry ->
-                    val index = layout.headerItemIndex(entry)
+                onJump = { barEntry ->
+                    val entry = entries.firstOrNull { it.indexKey() == barEntry.key }
+                    val index = entry?.let(layout::headerItemIndex) ?: -1
                     if (index >= 0) {
                         // 拖动时连续发跳转：只留最新一次，避免上一跳还在跑新跳又插队。
                         jumpJob?.cancel()
@@ -249,10 +282,16 @@ fun AppDrawerCell(
                 },
                 modifier = Modifier
                     .align(
-                        if (side == LetterIndexSide.Start) Alignment.CenterStart else Alignment.CenterEnd,
+                        if (side == IndexBarSide.Start) Alignment.CenterStart else Alignment.CenterEnd,
                     )
                     .padding(horizontal = indexInset),
             )
         }
     }
+}
+
+/** 滑杆条目的稳定 key：⭐ 用固定串，字母用字面值（与 [IndexBarEntry.key] 同一口径）。 */
+private fun AppIndexEntry.indexKey(): String = when (this) {
+    AppIndexEntry.Favorites -> "favorites"
+    is AppIndexEntry.Letter -> letter.toString()
 }

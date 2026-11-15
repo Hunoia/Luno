@@ -1,9 +1,14 @@
 package hunoia.luno.picker
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -11,11 +16,16 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import android.appwidget.AppWidgetProviderInfo
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -23,8 +33,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.outlined.Lock
@@ -42,6 +55,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -50,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.picker.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.action.definitions.ActionGroupSpec
+import hunoia.luno.action.definitions.ActionVariant
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.core.domain.matchesQuery
 import hunoia.luno.core.domain.StoredAction
@@ -63,19 +81,32 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.bridge.system.gotoAppDetailSettings
-import hunoia.luno.quickaccess.model.identity
-import hunoia.luno.quickaccess.model.qualifiedName
+import hunoia.luno.quickaccess.query.AppDrawerSections
 import hunoia.luno.picker.UiState.SelectedRecord
 import hunoia.luno.picker.components.ActionRowSettingsSheet
 import hunoia.luno.picker.components.RowSettingsActionTypeIds
+import hunoia.luno.picker.components.rowSettingsHasSettings
 import hunoia.luno.picker.components.rowSettingsSubtitle
 import hunoia.luno.actions.library.actionLibraryParamSummary
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.actions.library.displayNameRes
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
+import hunoia.luno.ui.component.row.GroupItemCorners
+import hunoia.luno.ui.component.row.groupItemSpacing
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedCorners
 import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.IndexBar
+import hunoia.luno.ui.component.IndexBarEntry
+import hunoia.luno.ui.component.IndexBarSide
+import hunoia.luno.ui.component.rememberIndexBarMetrics
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.PressIconButton
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
@@ -126,12 +157,12 @@ internal fun ActionPage(
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     // 旧版本「快捷方式」是独立 chip；合并后归一化，避免恢复出任何 chip 都不匹配的空列表。
     val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
-    // 合并后的三组（应用 / 新建快捷方式 / 快捷方式）可收起；搜索时强制展开且不显示箭头，
-    // 避免搜索结果被收起状态藏住。
-    var appsCollapsed by rememberSaveable { mutableStateOf(false) }
-    var createShortcutsCollapsed by rememberSaveable { mutableStateOf(false) }
-    var launchShortcutsCollapsed by rememberSaveable { mutableStateOf(false) }
+    // 应用区按字母分节，每个应用行各自可展开；不再有顶层「应用 / 快捷方式」两个折叠组。
     var settingsAction by remember { mutableStateOf<StoredAction?>(null) }
+    /** 已展开的组 key；进页时只自动展开包含当前选中项的组。转屏保持。 */
+    var expandedGroups by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    /** 已展开的应用行（按 [AppShortcutEntry.rowKey]）：快捷方式挂在应用下方。 */
+    var expandedApps by rememberSaveable { mutableStateOf(emptyList<String>()) }
     settingsAction?.let { editing ->
         ActionRowSettingsSheet(
             action = editing,
@@ -195,14 +226,34 @@ internal fun ActionPage(
             LaunchedEffect(query) {
                 if (listState.firstVisibleItemIndex > 0) listState.scrollToItem(0)
             }
-            val filteredActions = remember(actions, query, type, subGestures, actionLibraryEntries) {
+            val searchableActions = remember(actions, selectedRecord.action) {
+                // 按 typeId 去重：行尾设置可能把改过的具体动作追加进列表，
+                // 同一张变体表只展开一次，避免搜索结果出现重复行。
+                val seenVariantTypes = mutableSetOf<String>()
+                actions.flatMap { action ->
+                    val definition = ActionDefinitions.byTypeId(action.typeId)
+                    if (definition != null && definition.variants.isNotEmpty()) {
+                        if (!seenVariantTypes.add(action.typeId)) {
+                            emptyList()
+                        } else {
+                            definition.variants.map { variant ->
+                                variant.concreteAction(action.typeId, actions, selectedRecord.action)
+                            }
+                        }
+                    } else {
+                        listOf(action)
+                    }
+                }
+            }
+            val filteredActions = remember(actions, searchableActions, query, type, subGestures, actionLibraryEntries) {
                 when {
                     // 小部件这一屏不列动作：小部件不是 StoredAction，混进来会让选中类型不可证伪。
                     type == TYPE_WIDGET -> emptyList()
                     type != null && query.isBlank() -> emptyList()
                     type == TYPE_LIBRARY_AND_RULE -> emptyList()
                     query.isBlank() -> actions
-                    else -> actions.filter {
+                    // 搜索按具体预设展开：搜「Wi-Fi」「媒体音量增加」也能命中组内子行。
+                    else -> searchableActions.filter {
                         context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, actionPanels, gridPanels, emptyIfNone = false)
                             .contains(query, ignoreCase = true)
                     }
@@ -222,6 +273,28 @@ internal fun ActionPage(
                     }
                 }
             }
+            // 搜索态直接平铺具体动作；非搜索态按组收起。
+            val pickerNodes = remember(grouped, query, selectedRecord.action) {
+                if (query.isNotBlank()) {
+                    emptyMap()
+                } else {
+                    grouped.mapValues { (_, categoryActions) ->
+                        buildPickerNodes(categoryActions, selectedRecord.action)
+                    }
+                }
+            }
+            val selectedGroupKeys = remember(pickerNodes, selectedRecord) {
+                pickerNodes.values.flatten()
+                    .filterIsInstance<PickerNode.Group>()
+                    .filter { group -> group.children.any { selectedRecord.isSelected(it) } }
+                    .map { it.group.key }
+                    .toSet()
+            }
+            LaunchedEffect(selectedGroupKeys) {
+                if (selectedGroupKeys.isNotEmpty()) {
+                    expandedGroups = (expandedGroups + selectedGroupKeys).distinct()
+                }
+            }
             val filteredLibraryEntries = remember(actionLibraryEntries, query, type) {
                 if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_LIBRARY_AND_RULE || query.isNotBlank()) {
                     actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
@@ -233,39 +306,36 @@ internal fun ActionPage(
                     emptyMap()
                 } else {
                     filteredLibraryEntries
-                        .groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED }
+                        .groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.SYSTEM }
                         .toList()
                         .sortedBy { (category, _) -> ActionDefinitions.categoryOrder(category) }
                         .toMap(LinkedHashMap())
                 }
             }
-            val filteredApps = remember(appInfos, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
-                    appInfos.filter {
-                        if (query.isBlank()) true
-                        else it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
-                    }
-                } else emptyList()
+            // 应用与快捷方式按包名合并：同一应用只出现一次，快捷方式挂在应用行下。
+            val appShortcutEntries = remember(appInfos, createShortcuts, launchShortcuts) {
+                buildAppShortcutEntries(appInfos, createShortcuts, launchShortcuts)
             }
-            val filteredCreateShortcuts = remember(createShortcuts, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
-                    createShortcuts.filter {
-                        if (query.isBlank()) true
-                        else it.label.contains(query, ignoreCase = true) ||
-                            it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
-                    }
-                } else emptyList()
+            val filteredAppEntries = remember(appShortcutEntries, query, type) {
+                if (type == TYPE_WIDGET) {
+                    emptyList()
+                } else if (type == TYPE_APP || query.isNotBlank()) {
+                    appShortcutEntries
+                        .filter { it.matchesQuery(query) }
+                        .map { it.filterChildren(query) }
+                } else {
+                    emptyList()
+                }
             }
-            val filteredLaunchShortcuts = remember(launchShortcuts, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
-                    launchShortcuts.filter {
-                        if (query.isBlank()) true
-                        else it.label.contains(query, ignoreCase = true) ||
-                            it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
-                    }
-                } else emptyList()
+            // 选择页的应用区按拼音字母分节（A–#、节内全拼序）；不用抽屉的「常用置顶」：
+            // 这里找应用靠名字，滑杆要能稳定落到某个字母。
+            val appSections = remember(filteredAppEntries) {
+                AppDrawerSections.alphabeticalSectionsOf(filteredAppEntries) { it.app.label }
             }
-                val filteredWidgets = remember(widgetGroups, query, type) {
+            val indexBarEntries = remember(appSections) {
+                appSections.map { IndexBarEntry(key = it.letter.toString(), label = it.letter.toString()) }
+            }
+            val filteredWidgets = remember(widgetGroups, query, type) {
                     if (type != TYPE_WIDGET) emptyList()
                     else widgetGroups.searchBy(query)
                 }
@@ -274,23 +344,67 @@ internal fun ActionPage(
                 if (type != TYPE_WIDGET) emptyList()
                 else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }
             }
-            val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
+            val appsPermissionRequired = !permissionState.isGranted &&
+                (type == null || type == TYPE_APP || query.isNotBlank())
+            // 应用区的起始 item 下标：滑杆跳转只认这套「前面有几颗 item」的同一份计数，
+            // 不在 LazyColumn 里另存映射。每个分类 = 标题 + 一张组卡；每个字母节 = 标题 + 一张组卡。
+            val appsStartIndex =
+                (if (appsPermissionRequired) 1 else 0) +
+                    (if (filteredInternalWidgets.isNotEmpty()) 2 else 0) +
+                    filteredWidgets.size * 2 +
+                    grouped.entries.sumOf { (category, _) -> if (category == ActionCategory.NONE) 1 else 2 } +
+                    if (groupedLibraryEntries.isNotEmpty()) {
+                        groupedLibraryEntries.size * 2
+                    } else if (filteredLibraryEntries.isNotEmpty()) {
+                        2
+                    } else {
+                        0
+                    }
+            val selectedAppKey = remember(filteredAppEntries, selectedRecord) {
+                filteredAppEntries.firstOrNull { entry ->
+                    entry.shortcuts.any { selectedRecord.isSelected(it) }
+                }?.rowKey
+            }
+            // 进页自动展开「已选快捷方式」所在应用并滚到其字母节；之后用户再选别的行不抢滚动。
+            var didInitialAppJump by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(appSections, selectedAppKey) {
+                if (selectedAppKey == null) return@LaunchedEffect
+                expandedApps = (expandedApps + selectedAppKey).distinct()
+                if (didInitialAppJump) return@LaunchedEffect
+                val sectionIndex = appSections.indexOfFirst { section ->
+                    section.items.any { it.rowKey == selectedAppKey }
+                }
+                if (sectionIndex >= 0) {
+                    listState.requestScrollToItem(appsStartIndex + sectionIndex * 2)
+                    didInitialAppJump = true
+                }
+            }
             // 搜索态 ↔ 非搜索态整表切换时直接换一颗 LazyColumn：旧结果行不会带着
             // animateItem 退场动画和新分类全集同帧叠在一起。普通筛选（type chip）
             // 不建新列表，仍走同一颗 LazyColumn。
-            key(query.isBlank()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val bottomInset = with(density) { bottomBarHeightPx.toDp() }
+                val indexBarMetrics = rememberIndexBarMetrics(
+                    entries = indexBarEntries,
+                    availableHeight = maxHeight - bottomInset,
+                )
+                val showIndexBar = appSections.isNotEmpty() && indexBarMetrics.visible
+                Box(Modifier.fillMaxSize()) {
+                key(query.isBlank()) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
+                        end = contentPadding.calculateEndPadding(LocalLayoutDirection.current) +
+                            if (showIndexBar) indexBarMetrics.barWidth else 0.dp,
                         top = contentPadding.calculateTopPadding(),
                         // 底栏悬浮在列表之上：尾部留出「底栏实测高 + 页底留白」，否则最后几行永远
                         // 滚不到玻璃上方；底栏高度含导航栏/IME inset，键盘弹起时这里自动跟着让位。
-                        bottom = with(density) { bottomBarHeightPx.toDp() } + ContentBottom,
+                        bottom = bottomInset + ContentBottom,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                    // 组与组之间用 ListSpacing；组内分段圆角仍由 LunoGroup 的 contentSpacing 管。
+                    verticalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     // 缺「应用列表」权限时，应用 / 快捷方式清单恒为空且无异常可捕获：
                     // 只要这一屏本应列出它们（全部 / 应用 chip / 搜索），就必须给出授权去向，
@@ -298,8 +412,7 @@ internal fun ActionPage(
                     val appsPermissionRequired = !permissionState.isGranted &&
                         (type == null || type == TYPE_APP || query.isNotBlank())
                     val hasAnyContent = appsPermissionRequired ||
-                        grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() ||
-                        filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() ||
+                        grouped.isNotEmpty() || appSections.isNotEmpty() || filteredLibraryEntries.isNotEmpty() ||
                         filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
                     if ((query.isNotEmpty() || type != null) && !hasAnyContent) {
                         item {
@@ -345,16 +458,20 @@ internal fun ActionPage(
                                 SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
                             }
                             item(key = "widget_internal_row") {
-                                LazyRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                ) {
-                                    items(
-                                        items = filteredInternalWidgets,
-                                        key = { def -> "internal_${def.id}" },
-                                    ) { def ->
-                                        InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
+                                LunoGroup {
+                                    LunoGroupItem(shape = segmentedShape(0, 1)) {
+                                        LazyRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                        ) {
+                                            items(
+                                                items = filteredInternalWidgets,
+                                                key = { def -> "internal_${def.id}" },
+                                            ) { def ->
+                                                InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -366,20 +483,24 @@ internal fun ActionPage(
                                     WidgetGroupHeaderRow(group)
                                 }
                                 item(key = "widget_row_${group.appLabel}") {
-                                    LazyRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                    ) {
-                                        items(
-                                            items = group.providers,
-                                            key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
-                                        ) { info ->
-                                            WidgetPreviewCard(
-                                                info = info,
-                                                span = widgetSpanOf(info),
-                                                onSelect = { onSelectWidget(info) },
-                                            )
+                                    LunoGroup {
+                                        LunoGroupItem(shape = segmentedShape(0, 1)) {
+                                            LazyRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                            ) {
+                                                items(
+                                                    items = group.providers,
+                                                    key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
+                                                ) { info ->
+                                                    WidgetPreviewCard(
+                                                        info = info,
+                                                        span = widgetSpanOf(info),
+                                                        onSelect = { onSelectWidget(info) },
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -387,42 +508,136 @@ internal fun ActionPage(
                         }
                         if (grouped.isNotEmpty()) {
                             grouped.forEach { (category, categoryActions) ->
-                                val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }
-                                // 「无」单独置顶，不显示组标题。
                                 if (category != ActionCategory.NONE) {
                                     stickyHeader(key = "cat_${category.name}") {
                                         SheetGroupHeader(stringResource(id = category.displayNameRes))
                                     }
                                 }
-                                itemsIndexed(
-                                    items = categoryActions,
-                                    key = { _, it -> "${it.typeId}:${it.params}" }
-                                ) { index, item ->
-                                    ActionItem(
-                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                        action = item,
-                                        actionLabel = context.actionTextWithSubGesture(
-                                            item,
-                                            subGestures,
-                                            actionLibraryEntries,
-                                            actionPanels,
-                                            gridPanels,
-                                            emptyIfNone = false,
-                                        ),
-                                        selected = selectedRecord.isSelected(item),
-                                        onSelect = { onSelect(item) },
-                                        subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
-                                        shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
-                                        trailing = if (item.typeId in RowSettingsActionTypeIds) {{
-                                            PressIconButton(onClick = { settingsAction = item }) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Settings,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                item(key = "cat_body_${category.name}") {
+                                    LunoGroup {
+                                        if (query.isNotBlank()) {
+                                            val flags = categoryActions.map { selectedRecord.isSelected(it) }
+                                            categoryActions.forEachIndexed { index, item ->
+                                                PickerActionRow(
+                                                    item = item,
+                                                    shape = selectedSegmentedShape(index, categoryActions.size, flags),
+                                                    selected = selectedRecord.isSelected(item),
+                                                    context = context,
+                                                    subGestures = subGestures,
+                                                    actionLibraryEntries = actionLibraryEntries,
+                                                    actionPanels = actionPanels,
+                                                    gridPanels = gridPanels,
+                                                    onSelect = { onSelect(item) },
+                                                    onGear = { settingsAction = item },
                                                 )
                                             }
-                                        }} else null,
-                                    )
+                                        } else {
+                                            val nodes = pickerNodes[category].orEmpty()
+                                            // 分类内累计行号：大卡分割线靠 shape 自带的位置判断上方是否还有行。
+                                            var rowIndex = 0
+                                            nodes.filterIsInstance<PickerNode.Group>().forEach { node ->
+                                                val expanded = node.group.key in expandedGroups
+                                                val childFlags = node.children.map { selectedRecord.isSelected(it) }
+                                                // 组行与子项共用同一分段块：行数 = 1（组行）+ 展开后的子项数。
+                                                val rowCount = if (expanded) node.children.size + 1 else 1
+                                                val blockFlags = listOf(childFlags.any { it }) + childFlags
+                                                val selectedChild = node.children.firstOrNull { selectedRecord.isSelected(it) }
+                                                val groupRowIndex = rowIndex
+                                                // 展开时底边缝合，收起时回到容器角：动画插值，不做形状硬切。
+                                                val bottomRadius by animateDpAsState(
+                                                    targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+                                                    animationSpec = tween(MotionSubtle),
+                                                    label = "pickerGroupBottomRadius",
+                                                )
+                                                PickerGroupRow(
+                                                    title = stringResource(node.group.labelRes),
+                                                    icon = actionIcon(selectedChild ?: node.children.first()),
+                                                    subtitle = if (selectedChild != null) {
+                                                        stringResource(
+                                                            R.string.action_group_selected,
+                                                            context.actionTextWithSubGesture(
+                                                                selectedChild,
+                                                                subGestures,
+                                                                actionLibraryEntries,
+                                                                actionPanels,
+                                                                gridPanels,
+                                                                emptyIfNone = false,
+                                                            ),
+                                                        )
+                                                    } else {
+                                                        stringResource(R.string.action_group_item_count, node.children.size)
+                                                    },
+                                                    expanded = expanded,
+                                                    shape = GroupItemCorners(
+                                                        topStart = ContainerRadius,
+                                                        topEnd = ContainerRadius,
+                                                        bottomStart = bottomRadius,
+                                                        bottomEnd = bottomRadius,
+                                                    ).shape(index = groupRowIndex),
+                                                    onToggle = {
+                                                        expandedGroups = if (expanded) {
+                                                            expandedGroups - node.group.key
+                                                        } else {
+                                                            expandedGroups + node.group.key
+                                                        }
+                                                    },
+                                                )
+                                                AnimatedVisibility(
+                                                    visible = expanded,
+                                                    enter = expandVertically() + fadeIn(),
+                                                    exit = shrinkVertically() + fadeOut(),
+                                                ) {
+                                                    Column(
+                                                        verticalArrangement = Arrangement.spacedBy(groupItemSpacing()),
+                                                    ) {
+                                                        node.children.forEachIndexed { index, item ->
+                                                            PickerActionRow(
+                                                                item = item,
+                                                                shape = selectedSegmentedCorners(
+                                                                    index = index + 1,
+                                                                    count = rowCount,
+                                                                    flags = blockFlags,
+                                                                    mergedTop = index == 0,
+                                                                ).shape(index = groupRowIndex + index + 1),
+                                                                selected = selectedRecord.isSelected(item),
+                                                                context = context,
+                                                                subGestures = subGestures,
+                                                                actionLibraryEntries = actionLibraryEntries,
+                                                                actionPanels = actionPanels,
+                                                                gridPanels = gridPanels,
+                                                                onSelect = { onSelect(item) },
+                                                                onGear = { settingsAction = item },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                rowIndex += rowCount
+                                            }
+                                            val leaves = nodes.filterIsInstance<PickerNode.Leaf>().map { it.action }
+                                            if (leaves.isNotEmpty()) {
+                                                val flags = leaves.map { selectedRecord.isSelected(it) }
+                                                val leavesStart = rowIndex
+                                                leaves.forEachIndexed { index, item ->
+                                                    PickerActionRow(
+                                                        item = item,
+                                                        shape = selectedSegmentedCorners(
+                                                            index = index,
+                                                            count = leaves.size,
+                                                            flags = flags,
+                                                        ).shape(index = leavesStart + index),
+                                                        selected = selectedRecord.isSelected(item),
+                                                        context = context,
+                                                        subGestures = subGestures,
+                                                        actionLibraryEntries = actionLibraryEntries,
+                                                        actionPanels = actionPanels,
+                                                        gridPanels = gridPanels,
+                                                        onSelect = { onSelect(item) },
+                                                        onGear = { settingsAction = item },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -431,110 +646,108 @@ internal fun ActionPage(
                                 stickyHeader(key = "lib_cat_${category.name}") {
                                     SheetGroupHeader(stringResource(id = category.displayNameRes))
                                 }
-                                val selectionFlags = entries.map { selectedRecord.isSelected(it.toStoredAction()) }
-                                itemsIndexed(items = entries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
-                                    val action = entry.toStoredAction()
-                                    ActionItem(
-                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                        action = action,
-                                        actionLabel = entry.name,
-                                        selected = selectedRecord.isSelected(action),
-                                        subtitle = actionLibraryParamSummary(entry, context),
-                                        onSelect = { onSelectLibraryEntry(entry) },
-                                        shape = selectedSegmentedShape(index, entries.size, selectionFlags),
-                                    )
+                                item(key = "lib_body_${category.name}") {
+                                    LunoGroup {
+                                        val selectionFlags = entries.map { selectedRecord.isSelected(it.toStoredAction()) }
+                                        entries.forEachIndexed { index, entry ->
+                                            val action = entry.toStoredAction()
+                                            ActionItem(
+                                                action = action,
+                                                actionLabel = entry.name,
+                                                selected = selectedRecord.isSelected(action),
+                                                subtitle = actionLibraryParamSummary(entry, context),
+                                                onSelect = { onSelectLibraryEntry(entry) },
+                                                shape = selectedSegmentedShape(index, entries.size, selectionFlags),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         } else if (filteredLibraryEntries.isNotEmpty()) {
                             stickyHeader(key = "lib_all") {
                                 SheetGroupHeader(stringResource(hunoia.luno.actions.R.string.action_library))
                             }
-                            val selectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
-                            itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
-                                val action = entry.toStoredAction()
-                                ActionItem(
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                    action = action,
-                                    actionLabel = entry.name,
-                                    selected = selectedRecord.isSelected(action),
-                                    subtitle = actionLibraryParamSummary(entry, context),
-                                    onSelect = { onSelectLibraryEntry(entry) },
-                                    shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
-                                )
-                            }
-                        }
-                        if (filteredApps.isNotEmpty()) {
-                            val appsExpanded = query.isNotBlank() || !appsCollapsed
-                            stickyHeader(key = "apps") {
-                                if (query.isBlank()) {
-                                    SheetGroupHeader(
-                                        title = stringResource(R.string.tab_apps),
-                                        expanded = appsExpanded,
-                                        onToggleExpanded = { appsCollapsed = !appsCollapsed },
-                                    )
-                                } else {
-                                    // 搜索态：结果必须全展开，分组头不显示收起箭头。
-                                    SheetGroupHeader(stringResource(R.string.tab_apps))
-                                }
-                            }
-                            if (appsExpanded) {
-                                itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.identity}" }) { index, item ->
-                                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
-                                        onSelect = { onSelectApp(item) },
-                                        onLongClick = { onAppLongClick(item) },
-                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                                        shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
+                            item(key = "lib_body_all") {
+                                LunoGroup {
+                                    val selectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
+                                    filteredLibraryEntries.forEachIndexed { index, entry ->
+                                        val action = entry.toStoredAction()
+                                        ActionItem(
+                                            action = action,
+                                            actionLabel = entry.name,
+                                            selected = selectedRecord.isSelected(action),
+                                            subtitle = actionLibraryParamSummary(entry, context),
+                                            onSelect = { onSelectLibraryEntry(entry) },
+                                            shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
+                                        )
+                                    }
                                 }
                             }
                         }
-                        if (filteredCreateShortcuts.isNotEmpty()) {
-                            val createShortcutsExpanded = query.isNotBlank() || !createShortcutsCollapsed
-                            stickyHeader(key = "create_shortcuts") {
-                                if (query.isBlank()) {
-                                    SheetGroupHeader(
-                                        title = stringResource(R.string.create_shortcut),
-                                        expanded = createShortcutsExpanded,
-                                        onToggleExpanded = { createShortcutsCollapsed = !createShortcutsCollapsed },
-                                    )
-                                } else {
-                                    SheetGroupHeader(stringResource(R.string.create_shortcut))
-                                }
+                        appSections.forEach { section ->
+                            stickyHeader(key = "app_header_${section.letter}") {
+                                SheetGroupHeader(section.letter.toString())
                             }
-                            if (createShortcutsExpanded) {
-                                items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                                    LauncherInfoItem(launcherInfo = item,
-                                        isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
-                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
-                                }
-                            }
-                        }
-                        if (filteredLaunchShortcuts.isNotEmpty()) {
-                            val launchShortcutsExpanded = query.isNotBlank() || !launchShortcutsCollapsed
-                            stickyHeader(key = "launch_shortcuts") {
-                                if (query.isBlank()) {
-                                    SheetGroupHeader(
-                                        title = stringResource(R.string.launch_shortcut),
-                                        expanded = launchShortcutsExpanded,
-                                        onToggleExpanded = { launchShortcutsCollapsed = !launchShortcutsCollapsed },
-                                    )
-                                } else {
-                                    SheetGroupHeader(stringResource(R.string.launch_shortcut))
-                                }
-                            }
-                            if (launchShortcutsExpanded) {
-                                items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                                    LauncherInfoItem(launcherInfo = item,
-                                        isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
-                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                            item(key = "app_body_${section.letter}") {
+                                LunoGroup {
+                                    var rowIndex = 0
+                                    section.items.forEach { entry ->
+                                        val expanded = entry.hasChildren &&
+                                            (query.isNotBlank() || entry.rowKey in expandedApps)
+                                        AppShortcutBlock(
+                                            index = rowIndex,
+                                            entry = entry,
+                                            expanded = expanded,
+                                            // 搜索态全部展开，箭头只会是假控件。
+                                            showToggle = query.isBlank() && entry.hasChildren,
+                                            selectedRecord = selectedRecord,
+                                            onSelectApp = onSelectApp,
+                                            onSelectShortcut = onSelectShortcut,
+                                            onAppLongClick = onAppLongClick,
+                                            onShortcutClick = onShortcutClick,
+                                            onToggleExpanded = {
+                                                expandedApps = if (expanded) {
+                                                    expandedApps - entry.rowKey
+                                                } else {
+                                                    expandedApps + entry.rowKey
+                                                }
+                                            },
+                                        )
+                                        rowIndex += if (expanded) {
+                                            1 + entry.createLaunchers.size + entry.shortcuts.size
+                                        } else {
+                                            1
+                                        }
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+                }
+                if (showIndexBar) {
+                    IndexBar(
+                        entries = indexBarEntries,
+                        metrics = indexBarMetrics,
+                        activeKey = appSections
+                            .getOrNull((listState.firstVisibleItemIndex - appsStartIndex).coerceAtLeast(0) / 2)
+                            ?.letter?.toString(),
+                        side = IndexBarSide.End,
+                        onJump = { entry ->
+                            val sectionIndex = appSections.indexOfFirst { it.letter.toString() == entry.key }
+                            if (sectionIndex >= 0) {
+                                listState.requestScrollToItem(appsStartIndex + sectionIndex * 2)
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .padding(bottom = bottomInset),
+                    )
+                }
                 }
             }
             }
-        }
         ActionSelectBottomBar(
             modifier = Modifier.align(Alignment.BottomCenter),
             query = query,
@@ -545,5 +758,236 @@ internal fun ActionPage(
             hazeState = hazeState,
             onHeightChange = { bottomBarHeightPx = it },
         )
+    }
+}
+/** 选择页的一行动作：组子项与单动作共用同一套渲染与行尾齿轮。 */
+@Composable
+private fun PickerActionRow(
+    item: StoredAction,
+    shape: Shape,
+    selected: Boolean,
+    context: android.content.Context,
+    subGestures: List<SubGesture>,
+    actionLibraryEntries: List<ActionLibraryEntry>,
+    actionPanels: List<ActionPanel>,
+    gridPanels: List<GridPanel>,
+    onSelect: () -> Unit,
+    onGear: () -> Unit,
+) {
+    val hasRowSettings = item.typeId in RowSettingsActionTypeIds && rowSettingsHasSettings(item)
+    ActionItem(
+        action = item,
+        actionLabel = context.actionTextWithSubGesture(
+            item,
+            subGestures,
+            actionLibraryEntries,
+            actionPanels,
+            gridPanels,
+            emptyIfNone = false,
+        ),
+        selected = selected,
+        onSelect = { onSelect() },
+        subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
+        shape = shape,
+        trailing = if (hasRowSettings) {{
+            PressIconButton(onClick = onGear) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }} else null,
+    )
+}
+
+/**
+ * 可展开组行：与动作行同规格（同高、同圆角、同图标列），但不可选中，
+ * 整行点按只展开/收起；收起时副标题显示已选子项或子项数量。
+ */
+@Composable
+private fun PickerGroupRow(
+    title: String,
+    icon: Any?,
+    subtitle: String,
+    expanded: Boolean,
+    shape: Shape,
+    onToggle: () -> Unit,
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(MotionSubtle),
+        label = "pickerGroupArrow",
+    )
+    LunoSettingsRow(
+        title = title,
+        subtitle = subtitle,
+        icon = icon as? ImageVector,
+        textIcon = icon as? TextIcon,
+        iconModel = icon?.takeIf { it !is ImageVector && it !is TextIcon },
+        onClick = onToggle,
+        shape = shape,
+        stateDescription = stringResource(
+            if (expanded) {
+                hunoia.luno.design.R.string.group_state_expanded
+            } else {
+                hunoia.luno.design.R.string.group_state_collapsed
+            },
+        ),
+        trailing = {
+            Icon(
+                modifier = Modifier
+                    .size(RowIconSize)
+                    .graphicsLayer { rotationZ = rotation },
+                imageVector = Icons.Default.ExpandMore,
+                contentDescription = null,
+            )
+        },
+    )
+}
+
+/** 带预设变体的动作在选择页展开成具体子行；无变体原样返回。 */
+private fun ActionVariant.concreteAction(
+    typeId: String,
+    pool: List<StoredAction>,
+    selected: StoredAction?,
+): StoredAction {
+    // 变体只定义「身份」；时长 / 具体触钮等可编辑参数要优先沿用已选或已改过的那一条，
+    // 否则每次重建列表都会把行尾设置里改过的内容丢掉。
+    val sameVariant: (StoredAction) -> Boolean = { candidate ->
+        candidate.typeId == typeId && candidate.params.isNotEmpty() && matches(candidate.params)
+    }
+    return selected?.takeIf(sameVariant)
+        ?: pool.firstOrNull(sameVariant)
+        ?: StoredAction.of(typeId, *params.map { it.key to it.value }.toTypedArray())
+}
+
+private sealed interface PickerNode {
+    data class Group(val group: ActionGroupSpec, val children: List<StoredAction>) : PickerNode
+    data class Leaf(val action: StoredAction) : PickerNode
+}
+
+/** 一个分类内的展示节点：组按 order 排在前面，其余单动作保持原顺序。 */
+private fun buildPickerNodes(
+    actions: List<StoredAction>,
+    selected: StoredAction?,
+): List<PickerNode> {
+    val groups = LinkedHashMap<ActionGroupSpec, MutableList<StoredAction>>()
+    val leaves = mutableListOf<StoredAction>()
+    // 同一 typeId 的变体表只展开一次；行尾设置追加的具体动作不再重复建组。
+    val seenVariantTypes = mutableSetOf<String>()
+    actions.forEach { action ->
+        val definition = ActionDefinitions.byTypeId(action.typeId)
+        if (definition != null && definition.variants.isNotEmpty()) {
+            if (!seenVariantTypes.add(action.typeId)) return@forEach
+            definition.variants.forEach { variant ->
+                val concrete = variant.concreteAction(action.typeId, actions, selected)
+                val group = variant.group
+                if (group != null) {
+                    groups.getOrPut(group) { mutableListOf() }.add(concrete)
+                } else {
+                    leaves.add(concrete)
+                }
+            }
+        } else {
+            val group = definition?.group
+            if (group != null) {
+                groups.getOrPut(group) { mutableListOf() }.add(action)
+            } else {
+                leaves.add(action)
+            }
+        }
+    }
+    return groups.entries.sortedBy { it.key.order }.map { PickerNode.Group(it.key, it.value) } +
+        leaves.map { PickerNode.Leaf(it) }
+}
+
+/**
+ * 应用行 + 快捷方式子行：应用本体是选中项，快捷方式挂在它下面。
+ * 收起时副标题给出「已选哪个快捷方式 / 一共几个」，展开后逐条列出创建器与已有快捷方式。
+ */
+@Composable
+private fun AppShortcutBlock(
+    index: Int,
+    entry: AppShortcutEntry,
+    expanded: Boolean,
+    showToggle: Boolean,
+    selectedRecord: SelectedRecord,
+    onSelectApp: (AppInfo) -> Unit,
+    onSelectShortcut: (LauncherInfo.ShortcutInfo) -> Unit,
+    onAppLongClick: (AppInfo) -> Unit,
+    onShortcutClick: (LauncherInfo) -> Unit,
+    onToggleExpanded: () -> Unit,
+) {
+    val shortcuts = entry.shortcuts
+    val selectedShortcut = shortcuts.firstOrNull { selectedRecord.isSelected(it) }
+    val blockIndex = index
+    val childFlags = entry.createLaunchers.map { false } + shortcuts.map { selectedRecord.isSelected(it) }
+    val blockFlags = listOf(selectedRecord.isSelected(entry.app)) + childFlags
+    val rowCount = if (expanded) childFlags.size + 1 else 1
+    val bottomRadius by animateDpAsState(
+        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        animationSpec = tween(MotionSubtle),
+        label = "appShortcutBottomRadius",
+    )
+    val subtitle = when {
+        selectedShortcut != null -> stringResource(
+            R.string.action_group_selected,
+            selectedShortcut.label,
+        )
+        shortcuts.isNotEmpty() -> stringResource(R.string.shortcut_count, shortcuts.size)
+        entry.createLaunchers.isNotEmpty() -> stringResource(R.string.create_shortcut)
+        else -> ""
+    }
+    AppShortcutRow(
+        appInfo = entry.app,
+        selected = selectedRecord.isSelected(entry.app),
+        expanded = expanded,
+        hasChildren = showToggle,
+        subtitle = subtitle,
+        onSelect = { onSelectApp(entry.app) },
+        onToggleExpanded = onToggleExpanded,
+        onLongClick = { onAppLongClick(entry.app) },
+        shape = GroupItemCorners(
+            topStart = ContainerRadius,
+            topEnd = ContainerRadius,
+            bottomStart = bottomRadius,
+            bottomEnd = bottomRadius,
+        ).shape(index = index),
+    )
+    AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(groupItemSpacing())) {
+            entry.createLaunchers.forEachIndexed { index, launcher ->
+                val childIndex = index + 1
+                CreateShortcutChildRow(
+                    launcherInfo = launcher,
+                    onClick = { onShortcutClick(launcher) },
+                    shape = selectedSegmentedCorners(
+                        index = childIndex,
+                        count = rowCount,
+                        flags = blockFlags,
+                        mergedTop = childIndex == 1,
+                    ).shape(index = blockIndex + childIndex),
+                )
+            }
+            shortcuts.forEachIndexed { child, shortcut ->
+                val childIndex = entry.createLaunchers.size + child + 1
+                ShortcutChildRow(
+                    shortcutInfo = shortcut,
+                    selected = selectedRecord.isSelected(shortcut),
+                    onSelect = { onSelectShortcut(shortcut) },
+                    shape = selectedSegmentedCorners(
+                        index = childIndex,
+                        count = rowCount,
+                        flags = blockFlags,
+                        mergedTop = childIndex == 1,
+                    ).shape(index = blockIndex + childIndex),
+                )
+            }
+        }
     }
 }

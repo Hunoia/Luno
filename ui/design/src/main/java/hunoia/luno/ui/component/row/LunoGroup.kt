@@ -88,26 +88,78 @@ class SegmentedGroupScope internal constructor() {
     }
 }
 
+/** 组内条目的四角半径。可展开组头要对底部半径做动画，先取角再建 Shape。 */
+data class GroupItemCorners(
+    val topStart: Dp,
+    val topEnd: Dp,
+    val bottomStart: Dp,
+    val bottomEnd: Dp,
+) {
+    fun shape(): Shape = containerShape(topStart, topEnd, bottomStart, bottomEnd)
+
+    /** 带组内位置的形状：大卡分割线靠 [index] 判断条目上方是否还有条目。 */
+    fun shape(index: Int): Shape =
+        groupItemShape(index, topStart, topEnd, bottomStart, bottomEnd)
+}
+
 /**
  * 可选中列表里第 index 项的圆角：按**选中段**而不是位置切角。
  *
  * 相邻同状态的行连成一段，段内边用 [ConnectionRadius] 缝合，段外边用
  * [ContainerRadius]，避免选中底色以方角渗进未选邻居。
  * `flags` 为 null 时退化为 [segmentedShape]。
+ *
+ * [mergedTop] / [mergedBottom] 强制该边与相邻行缝合，用于「可展开组头 +
+ * 子项」这类不同状态但必须共用同一分段块的场景；展开态组头不能被选中态
+ * 切角切开。
  */
-fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Shape {
-    if (flags == null) return segmentedShape(index, count)
-    fun sameAsNeighbor(neighbor: Int): Boolean =
-        neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
-    val top = if (index == 0 || !sameAsNeighbor(index - 1)) ContainerRadius else ConnectionRadius
-    val bottom = if (index == count - 1 || !sameAsNeighbor(index + 1)) ContainerRadius else ConnectionRadius
+fun selectedSegmentedShape(
+    index: Int,
+    count: Int,
+    flags: List<Boolean>?,
+    mergedTop: Boolean = false,
+    mergedBottom: Boolean = false,
+): Shape {
+    val corners = selectedSegmentedCorners(index, count, flags, mergedTop, mergedBottom)
     return groupItemShape(
         index = index,
-        topStart = top,
-        topEnd = top,
-        bottomStart = bottom,
-        bottomEnd = bottom,
+        topStart = corners.topStart,
+        topEnd = corners.topEnd,
+        bottomStart = corners.bottomStart,
+        bottomEnd = corners.bottomEnd,
     )
+}
+
+/** [selectedSegmentedShape] 的角半径版：给需要对单边半径做动画的可展开组头用。 */
+fun selectedSegmentedCorners(
+    index: Int,
+    count: Int,
+    flags: List<Boolean>?,
+    mergedTop: Boolean = false,
+    mergedBottom: Boolean = false,
+): GroupItemCorners {
+    if (flags == null && !mergedTop && !mergedBottom) {
+        val isSingle = count <= 1
+        val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
+        val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
+        return GroupItemCorners(top, top, bottom, bottom)
+    }
+    fun sameAsNeighbor(neighbor: Int): Boolean =
+        flags != null && neighbor in 0 until count &&
+            flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
+    val top = when {
+        mergedTop -> ConnectionRadius
+        flags == null -> if (index == 0) ContainerRadius else ConnectionRadius
+        index == 0 || !sameAsNeighbor(index - 1) -> ContainerRadius
+        else -> ConnectionRadius
+    }
+    val bottom = when {
+        mergedBottom -> ConnectionRadius
+        flags == null -> if (index == count - 1) ContainerRadius else ConnectionRadius
+        index == count - 1 || !sameAsNeighbor(index + 1) -> ContainerRadius
+        else -> ConnectionRadius
+    }
+    return GroupItemCorners(top, top, bottom, bottom)
 }
 
 /**

@@ -33,7 +33,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -58,10 +57,11 @@ fun ActionLibraryScreen(
     val uiState by vm.uiState.collectAsState()
     var iconPickerEntry by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     val filtered = remember(uiState.entries) {
-        uiState.entries
-            .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED) }
+        uiState.entries.sortedBy { entry -> libraryCategoryOf(entry.typeId).ordinal }
     }
-    val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED } }
+    val grouped = remember(filtered) {
+        filtered.groupBy { entry -> libraryCategoryOf(entry.typeId) }
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
             LazyColumn(

@@ -6,7 +6,6 @@ import android.content.Intent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.dispatcher.ActionDispatcher
 import hunoia.luno.core.domain.QueryParam
-import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ActionSettings
@@ -277,41 +276,7 @@ object SurfaceActionRuntime {
         ): hunoia.luno.core.domain.ActionResult =
             hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchImage(context, uri, mimeType)
 
-        override suspend fun setFloatBallVisible(
-            visible: Boolean?,
-            hideForMs: Long,
-        ): ActionResult {
-            if (hideForMs > 0) return ActionResult.Failed(ActionFailure.Unsupported)
-            val ok = runCatching {
-                var enabled = false
-                ConfigProvider.updateActionSettings { current ->
-                    enabled = visible ?: !current.floatBall.enabled
-                    current.copy(floatBall = current.floatBall.copy(enabled = enabled))
-                }
-                if (enabled) hunoia.luno.runtime.floatball.FloatBallService.start(context)
-                true
-            }.getOrDefault(false)
-            return if (ok) ActionResult.Success()
-            else ActionResult.Failed(ActionFailure.ExecutionFailed)
-        }
-
-        override suspend fun setButtonsVisible(
-            visible: Boolean,
-            target: hunoia.luno.action.model.ButtonTarget,
-            buttonIds: List<String>,
-            hideForMs: Long,
-        ): ActionResult {
-            if (hideForMs > 0) return ActionResult.Failed(ActionFailure.Unsupported)
-            val ok = runCatching {
-                ConfigProvider.updateGestureButtons { list ->
-                    val ids = resolveButtonTargetIds(target, list.map { it.id }, buttonIds)
-                    list.map { button -> if (button.id in ids) button.copy(enabled = visible) else button }
-                }
-                true
-            }.getOrDefault(false)
-            return if (ok) ActionResult.Success()
-            else ActionResult.Failed(ActionFailure.ExecutionFailed)
-        }
+        override fun hideTriggerButton(buttonId: String) = Unit
     }
 
     private fun appLauncher(context: Context): DefaultAppLauncher = DefaultAppLauncher(

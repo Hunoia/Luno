@@ -1,7 +1,6 @@
 package hunoia.luno.action.definitions
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Gesture
@@ -12,16 +11,12 @@ import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Widgets
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.RecentsPickerLayout
-import hunoia.luno.action.model.arrayOfStr
-import hunoia.luno.action.model.bool
 import hunoia.luno.action.model.enumValueOr
-import hunoia.luno.action.model.long
 import hunoia.luno.action.model.str
 import hunoia.luno.core.domain.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.core.domain.ACTION_PANEL_TYPE_ID
@@ -45,7 +40,7 @@ internal object InternalActionGroup : ActionGroup {
          * 引用由「一行一个具名面板」的合成行带入，所以这里不靠 `required` 来挡——
          * 与 `internal.gridPanel` 保持同一套排除理由（两套理由只会让加新面板类型时漏一处）。
          */
-        ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.ACTION_PANEL, Capability.None,
+        ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.PANEL, Capability.None,
             parameters = listOf(ParameterDefinition.Text(
                 key = ACTION_PANEL_PARAM_PANEL_ID,
                 label = "面板",
@@ -59,58 +54,42 @@ internal object InternalActionGroup : ActionGroup {
          * 进不了动作库新建页（`ActionCatalog.libraryDefinitions` 只收有参动作），
          * 不必占 `libraryExcluded`。
          */
-        ActionDefinition(GRID_PANEL_TYPE_ID, "面板", ActionCategory.GRID_PANEL, Capability.None,
+        ActionDefinition(GRID_PANEL_TYPE_ID, "面板", ActionCategory.PANEL, Capability.None,
             icon = Icons.Default.GridView),
-        // 参数改在动作选择页行尾设置按钮里配（弹窗），不设置落运行时默认值。
-        // 原「隐藏触钮」合并进本动作的临时隐藏模式。
-        ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.VISIBILITY, Capability.None,
-            icon = Icons.Default.Visibility),
-        ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.VISIBILITY, Capability.None,
-            icon = Icons.Default.Adjust),
-        ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.ENTRY, Capability.None,
+        // 显隐统一收进「设置 → 显隐」：显示/隐藏由场景规则覆盖。
+        // 选择页只留临时隐藏，且只作用于触发本次动作的触钮。
+        ActionDefinition("internal.hideTriggerButton", "临时隐藏", ActionCategory.VISIBILITY, Capability.None,
+            icon = Icons.Default.VisibilityOff),
+        ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.Search),
-        // 水平调节删掉，恒开；灵敏度在动作选择页行尾设置按钮里配。
+        // 灵敏度在设置 tab 的「手势工具」页里配，动作本身无参。
         ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.Widgets),
         ActionDefinition("internal.pointer", "指针", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.TouchApp),
-        // 最近应用滚动选择器：触发方式（按住/抬手）由手势类型自动决定，
-        // 排列方向在动作选择页行尾设置按钮里配。
+        // 最近应用滚动选择器：横向/竖向拆成两条单动作，布局不再走行尾设置。
         ActionDefinition("internal.recentsPicker", "最近应用", ActionCategory.GESTURE_TOOL, Capability.None,
-            icon = Icons.Default.FormatListBulleted),
+            icon = Icons.Default.FormatListBulleted,
+            variants = listOf(
+                ActionVariant("vertical", "最近应用（竖向）", mapOf("layout" to "VERTICAL")),
+                ActionVariant("horizontal", "最近应用（横向）", mapOf("layout" to "HORIZONTAL")),
+            )),
         // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
         ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.APP, Capability.None,
             icon = Icons.Default.SwapHoriz),
         // 剪贴板分词 / OCR：读剪贴板文本或图片，送 OCR 结果页（:service 进程内交接）。
         // 两动作都无参：选择页 / 触钮 / 子手势可选，动作库新建页不显示。
-        ActionDefinition("internal.clipboardSegment", "分词", ActionCategory.CLIPBOARD, Capability.None,
+        ActionDefinition("internal.clipboardSegment", "分词", ActionCategory.RECOGNITION, Capability.None,
             icon = Icons.Default.TextFields),
-        ActionDefinition("internal.clipboardOcr", "OCR识别", ActionCategory.CLIPBOARD, Capability.None,
+        ActionDefinition("internal.clipboardOcr", "OCR识别", ActionCategory.RECOGNITION, Capability.None,
             icon = Icons.Default.DocumentScanner),
     )
 
     override fun installDecoders() {
         ActionMappingRegistry.register(Action.NONE_TYPE_ID) { Action.None }
         ActionMappingRegistry.register("internal.subGesture") { Action.SubGesture }
-        ActionMappingRegistry.register("internal.buttonsVisibility") { p ->
-            Action.ButtonsVisibility(
-                p.bool("visible", false),
-                p.enumValueOr("target", ButtonTarget.ALL),
-                p.arrayOfStr("buttonIds"),
-                p.long("hideForMs", 0),
-            )
-        }
-        ActionMappingRegistry.register("internal.floatBallVisibility") { p ->
-            Action.FloatBallVisibility(
-                when (p.str("visible", "toggle")) {
-                    "true" -> true
-                    "false" -> false
-                    else -> null
-                },
-                p.long("hideForMs", 0),
-            )
-        }
+        ActionMappingRegistry.register("internal.hideTriggerButton") { Action.HideTriggerButton }
         ActionMappingRegistry.register("internal.gridPanel") { p ->
             Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
         }

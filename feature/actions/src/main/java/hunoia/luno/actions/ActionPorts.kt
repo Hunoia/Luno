@@ -68,7 +68,7 @@ object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
             hunoia.luno.core.domain.ActionSearchEntry(
                 key = "action:$typeId#${variant.key}",
                 group = "action",
-                label = variant.label,
+                label = variant.searchLabel ?: variant.label,
                 typeId = typeId,
                 icon = variant.icon ?: icon,
                 action = StoredAction.of(

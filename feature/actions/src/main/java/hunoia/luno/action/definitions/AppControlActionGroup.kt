@@ -17,12 +17,12 @@ internal object AppControlActionGroup : ActionGroup {
 
     override fun definitions(): List<ActionDefinition> = listOf(
         ActionDefinition(
-            "app.freezeOneKey", "冻结名单应用", ActionCategory.APP,
+            "app.freezeOneKey", "冻结", ActionCategory.APP,
             Capability.Shizuku,
             icon = Icons.Default.AcUnit,
         ),
         ActionDefinition(
-            "app.unfreezeOneKey", "解冻名单应用", ActionCategory.APP,
+            "app.unfreezeOneKey", "解冻", ActionCategory.APP,
             Capability.Shizuku,
             icon = Icons.Default.LockOpen,
         ),

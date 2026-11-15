@@ -192,7 +192,7 @@ class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         Action.NONE_TYPE_ID, "internal.subGesture",
-        "internal.buttonsVisibility", "internal.floatBallVisibility",
+        "internal.hideTriggerButton",
         "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
@@ -204,8 +204,11 @@ class InternalExecutors : ActionExecutor {
         return when (action) {
             is Action.None -> ActionResult.Success()
             is Action.SubGesture -> ActionResult.Success()
-            is Action.ButtonsVisibility -> executeButtonsVisibility(action, context)
-            is Action.FloatBallVisibility -> executeFloatBallVisibility(action, context)
+            is Action.HideTriggerButton -> {
+                // 只作用于触发本次动作的触钮；没有来源按钮（浮球/面板等）时静默跳过。
+                context.hideTriggerButton()
+                ActionResult.Success()
+            }
             is Action.QuickSearch -> {
                 context.surfaces.showQuickSearch()
                 ActionResult.Success()
@@ -248,25 +251,6 @@ class InternalExecutors : ActionExecutor {
         context.surfaces.showGridPanel(action.panelId, anchor.first, anchor.second)
         return ActionResult.Success()
     }
-
-    /**
-     * 悬浮球显隐：`hideForMs > 0` 走 [FloatBallTempHideEvent] 临时隐藏（FloatBallService
-     * 内存到期恢复，只摘窗口、不碰 enabled 存量，进程被杀即失效）；否则改
-     * [hunoia.luno.config.model.FloatBallSettings].enabled 存量。
-     * visible=null 为切换；`FloatBallService` 的 settings flow 会自动摘/挂球窗。
-     * 失败吞掉报 Failed，不抛。
-     */
-    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult =
-        context.surfaces.setFloatBallVisible(action.visible, action.hideForMs)
-
-    /**
-     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.setButtonsVisible] 临时隐藏
-     *（ButtonHideRuntime 到期自动恢复，不碰 enabled 存量，按 target/buttonIds 选作用钮，
-     * 原「隐藏触钮」动作语义）；否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
-     * 即规则列表顺序=优先级。
-     */
-    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult =
-        context.surfaces.setButtonsVisible(action.visible, action.target, action.buttonIds, action.hideForMs)
 }
 
 class ShellExecutor : ActionExecutor {

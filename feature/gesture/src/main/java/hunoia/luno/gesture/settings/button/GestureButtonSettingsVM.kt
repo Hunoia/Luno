@@ -176,8 +176,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
 
     fun saveSettings() {
         viewModelScope.launch {
-            // 按 id 定向合并：整表覆盖会把执行口（`internal.buttonsVisibility`）在 :service 侧
-            // 改过的 enabled 连同 UI 快照一起写回旧值。
+            // 按 id 定向合并：整表覆盖会把 :service 侧的运行态改动连同 UI 快照一起写回旧值。
             GestureConfig.updateButtons { current ->
                 val edited = uiState.gestureButtons.associateBy { it.id }
                 current.map { existing -> edited[existing.id] ?: existing }

@@ -88,6 +88,19 @@
 
     <!-- 悬浮球（2038 悬浮球触发方式） -->
     <string name="recent_apps_blocklist">最近应用黑名单</string>
+    <string name="recents_settings_title">最近应用</string>
+    <string name="recents_settings_motion_group">滚动与图标</string>
+    <string name="recents_settings_sensitivity">列表外滑动灵敏度</string>
+    <string name="recents_settings_icon_size">图标大小</string>
+    <string name="recents_settings_summary">灵敏度 %1$d%% · 图标 %2$d dp</string>
+    <string name="recents_settings_filter_group">过滤</string>
+    <string name="recents_settings_blocklist_count">%1$d 个应用</string>
+    <string name="gesture_tools_settings_title">手势工具</string>
+    <string name="gesture_tools_volume_group">滑动调音量</string>
+    <string name="gesture_tools_volume_scrub_sensitivity">灵敏度</string>
+    <string name="gesture_tools_trigger_hide_group">触钮临时隐藏</string>
+    <string name="gesture_tools_trigger_hide_duration">临时隐藏时长</string>
+    <string name="gesture_tools_summary">音量每格 %1$d dp · 临时隐藏 %2$d ms</string>
     <!-- 设置页（动作/快速搜索共用） -->
     <!-- 动作选择页行尾设置弹窗 -->
     <!-- 行尾设置弹窗标题 -->

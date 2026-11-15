@@ -17,7 +17,7 @@ internal object IntentActionGroup : ActionGroup {
 
     override fun definitions(): List<ActionDefinition> = listOf(
         ActionDefinition(
-            "intent.openUrl", "打开链接", ActionCategory.LINK_SHARE,
+            "intent.openUrl", "打开链接", ActionCategory.TEXT,
             Capability.None,
             listOf(
                 ParameterDefinition.Text("url", "URL"),
@@ -27,12 +27,12 @@ internal object IntentActionGroup : ActionGroup {
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ),
         ActionDefinition(
-            "intent.shareText", "分享剪贴板文本", ActionCategory.LINK_SHARE,
+            "intent.shareText", "分享剪贴板文本", ActionCategory.TEXT,
             Capability.None,
             icon = Icons.Default.Share,
         ),
         ActionDefinition(
-            "intent.shareFile", "分享文件", ActionCategory.LINK_SHARE,
+            "intent.shareFile", "分享文件", ActionCategory.TEXT,
             Capability.None,
             icon = Icons.Default.Upload,
         ),

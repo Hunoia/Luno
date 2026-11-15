@@ -14,17 +14,6 @@ import hunoia.luno.core.domain.VolumeDirection
  * 配置默认值：展示文案与默认值由各自层提供（见 `SettingsPage.label` 的 `:feature:actions` 扩展）。
  */
 
-/** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
-enum class ButtonTarget { ALL, EXCEPT, ONLY }
-
-/** 触钮显隐 target 解析：纯函数便于单测（与 Executors.ButtonsVisibility 同语义）。 */
-fun resolveButtonTargetIds(target: ButtonTarget, allIds: List<String>, selectedIds: List<String>): Set<String> =
-    when (target) {
-        ButtonTarget.ALL -> allIds.toSet()
-        ButtonTarget.EXCEPT -> allIds.filterNot { it in selectedIds }.toSet()
-        ButtonTarget.ONLY -> selectedIds.toSet()
-    }
-
 enum class MediaCommand { PLAY_PAUSE, NEXT, PREVIOUS, MUTE }
 
 sealed interface Action {
@@ -212,40 +201,21 @@ sealed interface Action {
     data object SubGesture : Action {
         override val typeId: String = "internal.subGesture"
     }
-    /**
-     * 触钮显隐。两个分支写的是**两份不同的存储**，不构成一个统一的“后写胜出”顺序：
-     *
-     * - `hideForMs = 0`：改 `GestureButton.enabled` 用户基线（DataStore，后写覆盖先写）；
-     * - `hideForMs > 0`：内存临时隐藏（`ButtonHideRuntime`，到期自动恢复，不碰 enabled 存量）。
-     *
-     * 临时隐藏到期后回到的是**当时的** enabled，期间被别的规则改过就会看到新基线。
-     * 原「隐藏触钮」动作合并于此。
-     */
-    data class ButtonsVisibility(
-        val visible: Boolean = true,
-        val target: ButtonTarget = ButtonTarget.ALL,
-        val buttonIds: List<String> = emptyList(),
-        val hideForMs: Long = 0,
-    ) : Action {
-        override val typeId: String = "internal.buttonsVisibility"
-    }
-    /**
-     * 悬浮球显隐：`hideForMs = 0` 直接改 enabled 存量，后求值/后执行的覆盖先生效。
-     * `visible = null` 表示切换。`hideForMs > 0` 为临时隐藏（只摘运行时窗口，到期自动恢复，
-     * 不碰 enabled 存量 —— 进程重启即失效）。
-     */
-    data class FloatBallVisibility(
-        val visible: Boolean? = null,
-        val hideForMs: Long = 0,
-    ) : Action {
-        override val typeId: String = "internal.floatBallVisibility"
-    }
     /** 网格面板：触点附近弹出网格快捷中心（panelId 引用全局具名面板，见 GridPanel）。 */
     data class GridPanel(val panelId: String) : Action {
         override val typeId: String = "internal.gridPanel"
     }
     data object QuickSearch : Action {
         override val typeId: String = "internal.quickSearch"
+    }
+    /**
+     * 临时隐藏触发本次动作的触钮。
+     *
+     * 只认执行上下文里的 `sourceButtonId`；时长由全局「手势工具」设置决定，
+     * 不写进动作参数，保证改设置立刻作用于已有绑定。
+     */
+    data object HideTriggerButton : Action {
+        override val typeId: String = "internal.hideTriggerButton"
     }
     data class VolumeScrub(
         /** 每档位移阈值（dp）；null = 未指定，由实现侧用配置默认值。本层不持默认值。 */

@@ -13,7 +13,7 @@ internal object AdvancedActionGroup : ActionGroup {
 
     override fun definitions(): List<ActionDefinition> = listOf(
         ActionDefinition(
-            "shell.custom", "自定义命令", ActionCategory.ADVANCED,
+            "shell.custom", "自定义命令", ActionCategory.SYSTEM,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.TextLarge("command", "Shell 命令"),

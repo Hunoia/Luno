@@ -38,6 +38,8 @@ data class ActionSettings(
     val recentAppsBlocklist: List<String> = emptyList(),
     /** 链接分发：剪贴板胶囊与「Luno 作为默认浏览器」两个入口共用的规则表。 */
     val linkDispatch: LinkDispatchSettings = LinkDispatchSettings(),
+    /** 手势工具全局参数：最近应用灵敏度/图标大小、滑动调音量灵敏度。 */
+    val gestureTools: GestureToolsSettings = GestureToolsSettings(),
     /**
      * 应用列表是否包含「无桌面入口的系统包」。
      * 统一应用清单（启动器 / 抽屉 / 搜索 / 选择弹层 / 黑名单）共用这一个开关。
@@ -49,6 +51,20 @@ data class ActionSettings(
 @Keep
 data class VolumeScrubConfig(
     val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
+)
+
+/** 手势工具的全局手感参数：不随单个动作保存，不同触钮共用同一套。 */
+@Serializable
+@Keep
+data class GestureToolsSettings(
+    /** 最近应用：列表外滑动灵敏度（百分比，100 = 1.0x）。 */
+    val recentsSensitivityPercent: Int = RecentsPickerSensitivityPercent,
+    /** 最近应用：图标边长 dp。 */
+    val recentsIconSizeDp: Int = RecentsPickerIconSizeDp,
+    /** 滑动调音量：每格音量对应的滑动阈值 dp。 */
+    val volumeScrubStepThresholdDp: Int = VolumeScrubStepThresholdDp,
+    /** 临时隐藏触发触钮的持续时长（ms）。 */
+    val triggerButtonHideMs: Long = hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs,
 )
 
 @Serializable

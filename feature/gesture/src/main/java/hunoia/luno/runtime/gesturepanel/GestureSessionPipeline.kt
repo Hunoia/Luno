@@ -6,7 +6,7 @@ import android.os.SystemClock
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.RecentsPickerLayout
 import hunoia.luno.action.model.recentsPickerConfigOrDefault
-import hunoia.luno.action.model.volumeScrubConfigOrDefault
+import hunoia.luno.action.model.volumeScrubConfig
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
@@ -15,6 +15,7 @@ import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GestureToolsSettings
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.isPlainSlideType
@@ -70,6 +71,7 @@ data class GesturePipelineSettings(
     val gestureSettings: GestureSettings = GestureSettings(),
     val subGestureSettings: SubGestureSettings = SubGestureSettings(),
     val actionPanelStyle: ActionPanelStyle = ArcStyle(),
+    val gestureTools: GestureToolsSettings = GestureToolsSettings(),
 )
 
 /**
@@ -324,7 +326,9 @@ class GestureSessionPipeline(
                         // 面板点选同样发生在 onUp 内，没有后续 UP 可清理状态，
                         // 一律交给全屏音量窗（它自己拖一次就关）。
                         "internal.volumeScrub" ->
-                            callbacks.onVolumeScrubOverlayRequested(hitAction.volumeScrubConfigOrDefault())
+                            callbacks.onVolumeScrubOverlayRequested(
+                                volumeScrubConfig(settings.gestureTools.volumeScrubStepThresholdDp),
+                            )
                         // 面板点选指针同理：全屏指针窗接管（拖一次、松手点击、自动关）。
                         "internal.pointer" ->
                             callbacks.onPointerShow(settings.gestureSettings.pointer)
@@ -495,7 +499,7 @@ class GestureSessionPipeline(
         }
         val enteredSubGesture = when (action.typeId) {
             "internal.volumeScrub" -> {
-                val config = action.volumeScrubConfigOrDefault()
+                val config = volumeScrubConfig(settings.gestureTools.volumeScrubStepThresholdDp)
                 if (dragInFlight) {
                     // 滑动途中确认：状态服务这次手势的剩余部分，UP 时会清。
                     volumeScrubState.activate(config)
@@ -701,7 +705,10 @@ class GestureSessionPipeline(
      * 按住/抬手/面板点选共用这一条：状态在 [recentsPickerState]，后续 onMove/onUp 只认它。
      */
     private fun showRecentsPicker(storedAction: StoredAction, touchPosition: Offset): Boolean {
-        val config = storedAction.recentsPickerConfigOrDefault()
+        val config = storedAction.recentsPickerConfigOrDefault(
+            sensitivityPercent = settings.gestureTools.recentsSensitivityPercent,
+            iconSizeDp = settings.gestureTools.recentsIconSizeDp,
+        )
         val apps = buildRecentsPickerApps()
         if (apps.isEmpty()) {
             showToast(R.string.recents_picker_empty)

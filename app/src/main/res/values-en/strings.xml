@@ -88,6 +88,19 @@
 
     <!-- Float ball (2038 float ball trigger mode) -->
     <string name="recent_apps_blocklist">Recent apps blocklist</string>
+    <string name="recents_settings_title">Recent apps</string>
+    <string name="recents_settings_motion_group">Scrolling &amp; icons</string>
+    <string name="recents_settings_sensitivity">Off-list scroll sensitivity</string>
+    <string name="recents_settings_icon_size">Icon size</string>
+    <string name="recents_settings_summary">Sensitivity %1$d%% · icon %2$d dp</string>
+    <string name="recents_settings_filter_group">Filter</string>
+    <string name="recents_settings_blocklist_count">%1$d apps</string>
+    <string name="gesture_tools_settings_title">Gesture tools</string>
+    <string name="gesture_tools_volume_group">Volume scrub</string>
+    <string name="gesture_tools_volume_scrub_sensitivity">Sensitivity</string>
+    <string name="gesture_tools_trigger_hide_group">Temporary button hide</string>
+    <string name="gesture_tools_trigger_hide_duration">Hide duration</string>
+    <string name="gesture_tools_summary">Volume %1$d dp/step · temp hide %2$d ms</string>
     <!-- Settings page (shared by actions / quick search) -->
     <!-- Action selection row trailing settings dialog -->
     <!-- Row settings dialog title -->

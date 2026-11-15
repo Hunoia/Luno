@@ -89,7 +89,22 @@ data class ActionVariant(
     val params: Map<String, String>,
     /** 变体自己的图标（搜索结果按变体展示）；null = 用动作自身的图标。 */
     val icon: ImageVector? = null,
-)
+    /** 所属可展开组；null = 作为单动作行展示（如最近应用横向/竖向）。 */
+    val group: ActionGroupSpec? = null,
+    /** 搜索条目标签；null = 用 [label]。组内短标签不够区分时用完整的搜索词。 */
+    val searchLabel: String? = null,
+    /**
+     * 自定义匹配规则：组内预设带「可在行尾设置里改」的参数时，不能要求这些键与预设值
+     * 完全相等（否则改过时长/触钮的动作会被判成另一个变体）。null = 全部参数精确匹配。
+     */
+    val matchParams: ((JsonObject) -> Boolean)? = null,
+) {
+    /** 已存参数是否属于本变体。 */
+    fun matches(params: JsonObject): Boolean =
+        matchParams?.invoke(params) ?: this.params.all { (key, value) ->
+            (params[key] as? JsonPrimitive)?.contentOrNull == value
+        }
+}
 
 /**
  * 展示 / 编辑器投影。它同时实现纯契约 [hunoia.luno.core.domain.ActionMetadata]：
@@ -108,6 +123,8 @@ data class ActionDefinition(
     override val alternativeCapabilities: Set<Capability> = emptySet(),
     /** 合并式动作的预设变体；空 = 普通动作（见 [ActionVariant]）。 */
     val variants: List<ActionVariant> = emptyList(),
+    /** 选择页里归入哪个可展开组（定义级，如媒体控制/滚动）；null = 单行。 */
+    val group: ActionGroupSpec? = null,
 ) : hunoia.luno.core.domain.ActionMetadata {
 
     private val requiredTextKeyCache by lazy {
@@ -120,13 +137,9 @@ data class ActionDefinition(
     override val requiredTextKeys: Set<String>
         get() = requiredTextKeyCache
 
-    /** 按已存参数匹配变体：变体的每组键值都要命中；未命中/无变体返回 null。 */
+    /** 按已存参数匹配变体；未命中/无变体返回 null。 */
     fun variantOf(params: JsonObject): ActionVariant? =
-        variants.firstOrNull { variant ->
-            variant.params.all { (key, value) ->
-                (params[key] as? JsonPrimitive)?.contentOrNull == value
-            }
-        }
+        variants.firstOrNull { variant -> variant.matches(params) }
 
     /** 缺省变体：变体表的第一个。定义时把缺省项放最前，展示与执行才不会口径不一。 */
     val defaultVariant: ActionVariant? get() = variants.firstOrNull()

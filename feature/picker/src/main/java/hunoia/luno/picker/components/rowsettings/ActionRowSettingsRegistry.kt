@@ -2,26 +2,11 @@ package hunoia.luno.picker.components.rowsettings
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.config.model.GestureButton
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-
-/** 参数改在动作选择页行尾「设置」Sheet 里配的动作类型。 */
-object RowSettingsDefaults {
-    val VolumeScrubStepDp = ActionSettingsDefaults.VolumeScrubStepThresholdDp
-    val HideGestureButtonDelayMs = ActionSettingsDefaults.HideGestureButtonDelayMs
-    const val FloatBallVisible = "toggle"
-    const val ButtonsVisible = false
-    const val ButtonsTarget = "ALL"
-    const val AudioStream = "MUSIC"
-    const val VolumeDirection = "UP"
-    const val RecentsPickerLayout = "VERTICAL"
-    val RecentsPickerSensitivityPercent = ActionSettingsDefaults.RecentsPickerSensitivityPercent
-    val RecentsPickerIconSizeDp = ActionSettingsDefaults.RecentsPickerIconSizeDp
-}
 
 /** 行设置编辑器的上下文：草稿 + 数据 + 写回函数。 */
 class RowSettingsEditorScope(
@@ -51,6 +36,13 @@ data class ActionRowSettingsDescriptor(
     val subtitle: (params: JsonObject, context: Context) -> String,
     val canonicalize: (draft: JsonObject) -> JsonObject,
     val isValid: (draft: JsonObject) -> Boolean = { true },
+    /**
+     * 该行当前参数下是否需要行尾设置入口。组内预设把可见性/范围写进 params 后，
+     * 只有还需要选具体触钮或调时长时才显示齿轮；默认始终显示（兼容单行动作）。
+     */
+    val hasSettings: (params: JsonObject) -> Boolean = { true },
+    /** 行尾设置「重置」：只清可编辑项，保留预设身份参数。默认清空整份草稿。 */
+    val resetDraft: (params: JsonObject) -> JsonObject = { JsonObject(emptyMap()) },
     val editor: RowSettingsEditor,
 )
 
@@ -58,10 +50,6 @@ data class ActionRowSettingsDescriptor(
 object ActionRowSettingsRegistry {
 
     private val descriptors = LinkedHashMap<String, ActionRowSettingsDescriptor>()
-
-    init {
-        registerBuiltins()
-    }
 
     fun register(descriptor: ActionRowSettingsDescriptor) {
         require(descriptor.typeId.isNotBlank()) { "row settings typeId must not be blank" }
@@ -74,10 +62,6 @@ object ActionRowSettingsRegistry {
     fun byTypeId(typeId: String): ActionRowSettingsDescriptor? = descriptors[typeId]
 
     val typeIds: Set<String> get() = descriptors.keys.toSet()
-
-    private fun registerBuiltins() {
-        BuiltinRowSettings.registerAll(::register)
-    }
 }
 
 internal fun JsonObject.str(key: String, default: String): String =

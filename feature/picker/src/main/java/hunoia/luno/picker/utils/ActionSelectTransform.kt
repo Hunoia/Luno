@@ -199,10 +199,23 @@ internal fun selectActionTransform(state: UiState, action: StoredAction): UiStat
 
 /** 行尾设置弹窗确认：替换列表里的同型行；若它正是当前选中项，同步选中记录。 */
 internal fun updateActionParamsTransform(state: UiState, old: StoredAction, new: StoredAction): UiState {
-    if (old !in state.actions) return state
+    val oldVariant = ActionDefinitions.byTypeId(old.typeId)?.variants?.firstOrNull { it.matches(old.params) }
+    // 行尾设置打开的是选择页按变体表合成的行，它不一定已在 actions 里；
+    // 按「同一变体」定位，找不到就追加，否则改完的参数会丢。
+    fun sameRow(candidate: StoredAction): Boolean =
+        candidate == old || (
+            oldVariant != null && candidate.typeId == old.typeId &&
+                ActionDefinitions.byTypeId(candidate.typeId)?.variants
+                    ?.firstOrNull { it.matches(candidate.params) }?.key == oldVariant.key
+            )
+    val index = state.actions.indexOfFirst(::sameRow)
+    val actions = state.actions.toMutableList().apply {
+        if (index >= 0) this[index] = new else add(new)
+    }
+    val current = state.selectedRecord.action
     return state.copy(
-        actions = state.actions.map { if (it == old) new else it },
-        selectedRecord = if (state.selectedRecord.isSelected(old)) {
+        actions = actions,
+        selectedRecord = if (current != null && sameRow(current)) {
             state.selectedRecord.selectOne(new)
         } else {
             state.selectedRecord

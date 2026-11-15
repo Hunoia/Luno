@@ -3,7 +3,6 @@ package hunoia.luno.execute
 import android.content.Context
 import android.net.Uri
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.core.domain.ActionMetadata
 import hunoia.luno.core.domain.LaunchSpec
@@ -50,6 +49,9 @@ interface SurfaceHost {
 
     /** 临时隐藏触发钮（触发钮才隐藏；非手势链路无触发钮）。 */
     fun hideGestureButton(buttonId: String, delayMs: Long)
+
+    /** 按全局「手势工具」里的时长临时隐藏指定触钮。 */
+    fun hideTriggerButton(buttonId: String)
 
     /** 切到最近访问的非黑名单应用。 */
     suspend fun previousApp()
@@ -103,20 +105,6 @@ interface SurfaceHost {
 
     /** 剪贴板 OCR：解码图片并送 OCR 结果页识别；失败返回带因结果（含模型未就绪）。 */
     suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult
-
-    /**
-     * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
-     * 配置写入与 FloatBallService 都留在 Surface 层。
-     */
-    suspend fun setFloatBallVisible(visible: Boolean?, hideForMs: Long): ActionResult
-
-    /** 触钮显隐：`hideForMs > 0` 走临时隐藏（按 target/buttonIds 选作用钮），否则改 enabled 存量。 */
-    suspend fun setButtonsVisible(
-        visible: Boolean,
-        target: ButtonTarget,
-        buttonIds: List<String>,
-        hideForMs: Long,
-    ): ActionResult
 }
 
 /** 三态反馈文案与 Toast 出口：资源归属执行口之外，执行口只拿已本地化的字符串。 */
@@ -165,7 +153,7 @@ data class ExecuteCall(
      * 网格面板全屏浮层会让无障碍 `windows` 变空，不能用执行时的实时解析替代。
      */
     val foregroundHint: String? = null,
-    /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
+    /** 触发按钮 id：`internal.hideTriggerButton` 的临时隐藏作用于它。 */
     val sourceButtonId: String? = null,
 )
 

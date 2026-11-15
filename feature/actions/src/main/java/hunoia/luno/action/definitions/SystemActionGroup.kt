@@ -40,24 +40,26 @@ internal object SystemActionGroup : ActionGroup {
                             key = page.name,
                             label = page.label,
                             params = mapOf("page" to page.name),
+                            group = ActionGroupSpec.OpenSettings,
                         ),
                     )
                 }
             },
         ),
         ActionDefinition(
-            "system.volume", "音量控制", ActionCategory.SYSTEM,
+            "system.volume", "音量控制", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.AutoMirrored.Default.VolumeUp,
+            variants = volumeVariants(),
         ),
         // 剪贴板/媒体控制拆成无参数动作；密码长度用动作设置里的密码生成配置。
         ActionDefinition(
-            "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.CLIPBOARD,
+            "system.clipboardRandomName", "随机名称", ActionCategory.TEXT,
             Capability.None,
             icon = Icons.Default.ContentCopy,
         ),
         ActionDefinition(
-            "system.speechRecognize", "语音识别", ActionCategory.CLIPBOARD,
+            "system.speechRecognize", "语音识别", ActionCategory.RECOGNITION,
             Capability.None,
             icon = Icons.Default.Mic,
         ),
@@ -65,21 +67,25 @@ internal object SystemActionGroup : ActionGroup {
             "system.mediaPlayPause", "播放/暂停", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.PlayPause,
+            group = ActionGroupSpec.MediaControl,
         ),
         ActionDefinition(
             "system.mediaNext", "下一首", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.SkipNext,
+            group = ActionGroupSpec.MediaControl,
         ),
         ActionDefinition(
             "system.mediaPrevious", "上一首", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.SkipPrevious,
+            group = ActionGroupSpec.MediaControl,
         ),
         ActionDefinition(
             "system.mediaMute", "静音", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.VolumeOff,
+            group = ActionGroupSpec.MediaControl,
         ),
         ActionDefinition(
             "system.flashlight", "手电筒", ActionCategory.SYSTEM,
@@ -103,12 +109,49 @@ internal object SystemActionGroup : ActionGroup {
                             label = kind.label,
                             params = mapOf("kind" to kind.name),
                             icon = kind.icon,
+                            group = ActionGroupSpec.QuickToggle,
                         ),
                     )
                 }
             },
         ),
     )
+
+    /** 音量控制：6 种音频流 × 增大/减小，拆成两个可展开组。 */
+    private fun volumeVariants(): List<ActionVariant> {
+        val streams = listOf(
+            AudioStream.MUSIC to "媒体",
+            AudioStream.RING to "铃声",
+            AudioStream.NOTIFICATION to "通知",
+            AudioStream.ALARM to "闹钟",
+            AudioStream.VOICE to "通话",
+            AudioStream.SYSTEM to "系统",
+        )
+        return buildList {
+            streams.forEach { (stream, label) ->
+                add(
+                    ActionVariant(
+                        key = "UP_${stream.name}",
+                        label = label,
+                        params = mapOf("direction" to "UP", "stream" to stream.name),
+                        group = ActionGroupSpec.VolumeUp,
+                        searchLabel = "${label}音量增加",
+                    ),
+                )
+            }
+            streams.forEach { (stream, label) ->
+                add(
+                    ActionVariant(
+                        key = "DOWN_${stream.name}",
+                        label = label,
+                        params = mapOf("direction" to "DOWN", "stream" to stream.name),
+                        group = ActionGroupSpec.VolumeDown,
+                        searchLabel = "${label}音量减小",
+                    ),
+                )
+            }
+        }
+    }
 
     override fun installDecoders() {
         ActionMappingRegistry.register("system.openSettings") { p ->

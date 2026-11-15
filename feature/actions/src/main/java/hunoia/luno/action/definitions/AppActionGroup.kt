@@ -50,7 +50,7 @@ internal object AppActionGroup : ActionGroup {
         ),
         // 独立动作：MIUI 原生迷你浮窗，位置/互换在「动作设置→小窗」的迷你小窗分组。
         ActionDefinition(
-            "system.mini_window", "迷你小窗当前应用", ActionCategory.APP,
+            "system.mini_window", "迷你小窗", ActionCategory.APP,
             Capability.Shizuku,
             icon = Icons.Default.CropFree,
         ),

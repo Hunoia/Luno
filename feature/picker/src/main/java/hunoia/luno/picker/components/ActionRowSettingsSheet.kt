@@ -42,6 +42,10 @@ fun rowSettingsSubtitle(action: StoredAction, context: Context): String =
         ?.subtitle(action.params, context)
         .orEmpty()
 
+/** 当前参数下是否还有可配项（决定行尾齿轮是否显示）。 */
+fun rowSettingsHasSettings(action: StoredAction): Boolean =
+    ActionRowSettingsRegistry.byTypeId(action.typeId)?.hasSettings?.invoke(action.params) == true
+
 /**
  * 行尾设置 Sheet：描述符驱动，不再按 typeId 写中心分支。
  *
@@ -96,7 +100,7 @@ fun ActionRowSettingsSheet(
             SheetHeader(
                 title = stringResource(descriptor.titleRes),
                 trailing = {
-                    PressTextButton(onClick = { draft = JsonObject(emptyMap()) }) {
+                    PressTextButton(onClick = { draft = descriptor.resetDraft(action.params) }) {
                         Text(stringResource(R.string.row_settings_reset))
                     }
                 },

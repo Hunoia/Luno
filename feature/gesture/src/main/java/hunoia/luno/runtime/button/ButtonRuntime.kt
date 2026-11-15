@@ -21,7 +21,7 @@ import hunoia.luno.core.LOG_TAG
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 触钮临时隐藏（`internal.buttonsVisibility{hideForMs>0}` / `hideGestureButton`）。
+ * 触钮临时隐藏（`internal.hideTriggerButton` / `hideGestureButton`）。
  *
  * 只存在于内存：无持久化、进程重启即失效。读写都在主线程（执行口 `Dispatchers.Main.immediate`、
  * 刷新链在 `MainScope`），用并发容器只是为了不让“以后多一条写入方”直接变成数据竞争。
