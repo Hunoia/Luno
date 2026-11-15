@@ -147,7 +147,6 @@ class GestureCoordinator(
     /** 场景扫描器在 [onSetOverlay] 里建：无障碍连接之后才有窗口可扫。 */
     private fun sceneScannerImpl(): hunoia.luno.runtime.scene.ScreenSceneScanner? = sceneScanner
         ?: hunoia.luno.runtime.scene.ScreenSceneScanner(
-        
             service = host.accessibilityService,
             ownPackage = host.context.packageName,
             scope = host.coroutineScope,
@@ -164,12 +163,20 @@ class GestureCoordinator(
             publish = { event -> hunoia.luno.core.Events.post(event) },
         ).also { sceneScanner = it }
 
-    /** 情景识别的判定上下文：开关 + 锁屏/息屏 + 桌面（桌面没有可分发的界面内容）。 */
-    private fun sceneScanContext(): hunoia.luno.runtime.scene.SceneScanContext {
+    /**
+     * 情景识别的判定上下文：开关 + 规则 + 锁屏/息屏 + 桌面（桌面没有可分发的界面内容）。
+     *
+     * [eventPackage] 有值时就地判桌面（按包缓存，无 binder）；为 null（长按球的强制扫描）时
+     * 才去查当前前台包 —— 那是用户主动触发的一次，付得起。
+     */
+    private fun sceneScanContext(eventPackage: String?): hunoia.luno.runtime.scene.SceneScanContext {
         val state = runtimeSettingsStore.snapshot()
         val floatBall = state.actionSettings.floatBall
         val clipball = floatBall.clipboardBall
         val locked = environmentTracker.isNowInLockScreenPage
+        val linkDispatch = state.actionSettings.linkDispatch
+        val hasRules = clipball.rules.any { it.enabled && it.pattern.isNotBlank() } ||
+            (linkDispatch.enabled && linkDispatch.rules.isNotEmpty())
         return hunoia.luno.runtime.scene.SceneScanContext(
             enabled = state.initialSettings.gestureEnabled &&
                 floatBall.enabled &&
@@ -177,7 +184,8 @@ class GestureCoordinator(
                 clipball.sceneEnabled,
             locked = locked,
             interactive = !locked,
-            launcher = host.nowInLauncher(),
+            launcher = eventPackage?.let(host::isLauncherPackage) ?: host.nowInLauncher(),
+            hasRules = hasRules,
         )
     }
 

@@ -371,6 +371,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        ensureReportViewIds()
         if (!speechReceiverRegistered) {
             registerReceiver(
                 speechResultReceiver,
@@ -486,6 +487,26 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     override fun onInterrupt() {
     }
 
+    /**
+     * 补上 `FLAG_REPORT_VIEW_IDS`。
+     *
+     * 情景识别靠 `findAccessibilityNodeInfosByViewId` 定向读内置浏览器顶部那条域名
+     * （整棵树深度优先，带预算的遍历根本到不了标题栏）。但 XML 里的 flags 只在**服务被
+     * 重新绑定**时生效：应用更新后用户没去开关无障碍，就仍是旧 flags，读地址栏恒为空，
+     * 表现为「XWeb 页面拿不到真实链接、时灵时不灵」。运行时对齐一次就够了。
+     */
+    private fun ensureReportViewIds() {
+        val info = runCatching { serviceInfo }.getOrNull() ?: return
+        val required = android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        if (info.flags and required != 0) return
+        info.flags = info.flags or required
+        val applied = runCatching { serviceInfo = info }.isSuccess
+        hunoia.luno.core.LunoLog.i(
+            LOG_TAG,
+            "service: reportViewIds patched applied=$applied flags=${info.flags}",
+        )
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         // 注意：这里**不**释放常驻面板窗口。manifest 没声明 android:configChanges，
@@ -522,6 +543,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     override fun nowInLauncher(): Boolean {
         return QuickLaunchFacade.isLauncherPackage(this, getCurrentPackageName())
     }
+
+    override fun isLauncherPackage(packageName: String): Boolean =
+        QuickLaunchFacade.isLauncherPackage(this, packageName)
 
     override fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit) {
         disabledPackageEnabler.request(packageName, onResult)

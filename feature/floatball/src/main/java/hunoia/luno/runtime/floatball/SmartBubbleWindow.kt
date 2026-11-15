@@ -104,7 +104,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private var view: View? = null
     private var composeView: ComposeView? = null
-    private var exitingView: View? = null
+
+    /** hide() 的兜底任务：show() 复用时必须撤销，否则会把刚亮起的胶囊重新按下去。 */
+    private var hideFallback: Runnable? = null
 
     /** Compose 是否真正跑过一帧；用于兜底重挂内容（窗口 View 偶发不组合）。 */
     @Volatile
@@ -251,12 +253,30 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (existing != null &&
             existing.isAttachedToWindow &&
             existing.width > 0 &&
-            existing.height > 0 &&
-            (entering || existing.alpha > 0.05f)
+            existing.height > 0
         ) {
+            // 6A：收起后窗口留在 WindowManager 里（不可见 / 不可触摸），这里直接复用。
+            // 只有真被系统摘掉（isAttachedToWindow = false）才重建。
+            val hidden = existing.visibility != View.VISIBLE || existing.alpha <= 0.01f
             if (!contentReady) composeView?.setContent { CapsuleContent() }
             updateWindowLayout(existing)
-            existing.post { applyWindowBounds() }
+            applyBallTouchFlags(existing, wm, hidden = false)
+            // 退场动画可能还在跑：先停掉，否则它跑完会把刚复用的窗口又置为 INVISIBLE。
+            hideFallback?.let(mainHandler::removeCallbacks)
+            hideFallback = null
+            existing.animate().cancel()
+            existing.visibility = View.VISIBLE
+            if (hidden) {
+                existing.alpha = 0f
+                existing.post {
+                    if (view !== existing) return@post
+                    applyWindowBounds()
+                    startMorphIn(existing)
+                }
+            } else {
+                existing.alpha = 1f
+                existing.post { applyWindowBounds() }
+            }
             existing.postDelayed({
                 if (view === existing) {
                     if (contentReady) onReady?.invoke() else onUnavailable?.invoke()
@@ -267,7 +287,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (existing != null) {
             // 窗口被系统移除/卡在不可见态但字段未清：丢弃后重建。
             view = null
-            exitingView = null
             existing.animate().cancel()
             context.removeWindow(existing)
         }
@@ -369,7 +388,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     fun hide(onHidden: (() -> Unit)? = null) {
         bodyArbiter.cancel()
         val v = view
-        view = null
         entering = false
         enterPending = false
         pressed = false
@@ -378,8 +396,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         menuItemId = null
         copiedItemId = null
         offsetPx = 0f
-        contentReady = false
-        composeView = null
         dragDx = 0f
         dragDy = 0f
         dragAxis = DragAxis.NONE
@@ -388,13 +404,24 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         velocityTracker?.recycle()
         velocityTracker = null
         mainHandler.removeCallbacksAndMessages(null)
+        hideFallback = null
         if (v == null) {
             onHidden?.invoke()
             return
         }
+        // 6A：窗口常驻复用——收起只做“不可见 + 不可触摸”，保留 ComposeView 与 lifecycle
+        // owner；下一次 show() 直接复用，省掉重建窗口与首帧组合（实测 20–50ms）。
+        // 真正摘窗只在 detachNow()（服务销毁 / 关闭功能）时发生。
         applyBallTouchFlags(v, wm, hidden = true)
-        exitingView = v
         v.animate().cancel()
+        if (!v.isAttachedToWindow || v.visibility != View.VISIBLE || v.alpha <= 0.01f) {
+            v.visibility = View.INVISIBLE
+            v.alpha = 0f
+            v.scaleX = 1f
+            v.scaleY = 1f
+            onHidden?.invoke()
+            return
+        }
         v.pivotX = if (sideRight) v.width.toFloat() else 0f
         v.pivotY = v.height / 2f
         v.animate()
@@ -403,28 +430,35 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             .setDuration(motionMillis(MotionFamily.Floating).toLong())
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                if (exitingView === v) exitingView = null
-                context.removeWindow(v)
+                if (view === v) {
+                    v.visibility = View.INVISIBLE
+                    v.scaleX = 1f
+                    v.scaleY = 1f
+                }
                 onHidden?.invoke()
             }
             .start()
-        // 退场动画被意外 cancel 时兜底：移除旧窗并恢复球，避免“球隐藏 + 空白窗”。
-        mainHandler.postDelayed({
-            if (exitingView === v) {
-                exitingView = null
+        // 退场动画被意外 cancel 时兜底：窗口隐藏，但不再摘窗（下次 show 复用）。
+        val fallback = Runnable {
+            if (view === v && v.visibility != View.INVISIBLE) {
                 v.animate().cancel()
-                context.removeWindow(v)
+                v.visibility = View.INVISIBLE
+                v.alpha = 0f
+                v.scaleX = 1f
+                v.scaleY = 1f
                 onHidden?.invoke()
             }
-        }, motionMillis(MotionFamily.Floating) + 120L)
+        }
+        hideFallback = fallback
+        mainHandler.postDelayed(fallback, motionMillis(MotionFamily.Floating) + 120L)
     }
 
     fun detachNow() {
         bodyArbiter.cancel()
+        hideFallback?.let(mainHandler::removeCallbacks)
+        hideFallback = null
         val v = view
-        val exiting = exitingView
         view = null
-        exitingView = null
         entering = false
         enterPending = false
         pressed = false
@@ -444,10 +478,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             it.animate().cancel()
             context.removeWindow(it)
         }
-        exiting?.let {
-            it.animate().cancel()
-            context.removeWindow(it)
-        }
+        // 摘窗后不再保留 ComposeView / lifecycle owner：常驻复用只在“收起”期间。
+        composeView = null
+        contentReady = false
     }
 
     /** 球移动 / 键盘让位 / 转屏后重新贴边。 */

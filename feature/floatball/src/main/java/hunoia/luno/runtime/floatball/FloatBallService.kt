@@ -97,6 +97,13 @@ import hunoia.luno.core.LOG_TAG
 class FloatBallService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /**
+     * 情景识别的串行车道：同一屏会先推一次「只有文本」再补一次「带真实链接」的更新，
+     * 规则匹配放后台时若并发执行，后补的那条可能先落地、又被空结果覆盖，看着就像卡片闪没。
+     * 按到达顺序串行处理，首扫与补链接不会互相倒序。
+     */
+    private val sceneLane = Dispatchers.Default.limitedParallelism(1)
     private var settingsJob: Job? = null
     private var imeJob: Job? = null
 
@@ -679,8 +686,16 @@ class FloatBallService : Service() {
         if (isScreenLocked()) return
         // 滑掉后 10 秒内不再为同一屏重弹（同一条抑制表，sourceKey 带 scene: 前缀）。
         if (suggestionSlot.isDismissed("scene:${event.screenKey}")) return
+        // 链接补充：这一屏已有建议且已有内置链接项时，只换那一条，不重跑规则 / 不重排队列。
+        if (event.refinedUrl != null &&
+            linkDispatch.enabled &&
+            suggestionSlot.hasSceneLinkFor(event.screenKey)
+        ) {
+            refineSceneLink(event)
+            return
+        }
         val now = SystemClock.elapsedRealtime()
-        scope.launch(Dispatchers.Default) {
+        scope.launch(sceneLane) {
             val items = SuggestionFactory.fromScene(
                 text = event.text,
                 screenKey = event.screenKey,
@@ -688,8 +703,14 @@ class FloatBallService : Service() {
                 linkRules = linkDispatch.rules,
                 linkDispatchEnabled = linkDispatch.enabled,
                 nowMs = now,
+                sceneUrl = event.refinedUrl,
             )
             if (!gestureEnabledSnapshot) return@launch
+            // 同一屏的后续扫描没产出时不要覆盖已有建议：页面还在加载 / 标题栏一过性读不到，
+            // 都会得到空结果，把刚弹出来的卡片抹掉看着就像“时灵时不灵”。
+            if (items.isEmpty() && suggestionSlot.hasSceneItemsFor(event.screenKey)) {
+                return@launch
+            }
             // 窗口挂/摘必须在主线程（Compose 的 LifecycleOwner 只在主线程 attach），
             // 所以规则匹配留在后台，队列变更与目标解析回主线程。
             withContext(Dispatchers.Main) {
@@ -699,6 +720,35 @@ class FloatBallService : Service() {
                     makeCurrent = !suggestionSlot.manualSession,
                 )
                 items.forEach(::resolveSuggestionTarget)
+            }
+        }
+    }
+
+    /**
+     * 首扫之后补到真实链接：同一屏已有建议时，只重算内置链接项并原位替换。
+     *
+     * 规则命中项与队列顺序都不动 —— 二次推送换的只是链接候选，重跑规则 / DropScene /
+     * 窗口重新 layout 全是白付。规则项已经用掉的链接仍然排除，避免同一链接出两条。
+     */
+    private fun refineSceneLink(event: ScreenSceneEvent) {
+        val url = event.refinedUrl ?: return
+        scope.launch(sceneLane) {
+            val exclude = withContext(Dispatchers.Main) {
+                suggestionSlot.sceneRuleUrlsFor(event.screenKey)
+            }
+            val item = SuggestionFactory.sceneLinkItem(
+                text = event.text,
+                screenKey = event.screenKey,
+                linkRules = linkDispatch.rules,
+                nowMs = SystemClock.elapsedRealtime(),
+                sceneUrl = url,
+                excludeUrls = exclude,
+            ) ?: return@launch
+            if (!gestureEnabledSnapshot) return@launch
+            withContext(Dispatchers.Main) {
+                if (suggestionSlot.replaceSceneLink(event.screenKey, item)) {
+                    resolveSuggestionTarget(item)
+                }
             }
         }
     }
@@ -1710,6 +1760,46 @@ class FloatBallService : Service() {
                 enqueue(items[index], makeCurrent = makeCurrent && index == 0, show = false)
             }
             showIfNeeded()
+        }
+
+        /** 当前收件箱里是否已经有这一屏的情景建议。 */
+        fun hasSceneItemsFor(scanKey: String): Boolean =
+            state.items.any { (it as? SuggestionItem)?.sceneKey == scanKey }
+
+        /** 这一屏是否已经有一条内置链接项（`ruleId == null` 的情景项）。 */
+        fun hasSceneLinkFor(scanKey: String): Boolean = state.items.any {
+            val item = it as? SuggestionItem
+            item != null && item.sceneKey == scanKey && item.ruleId == null
+        }
+
+        /** 这一屏规则命中项里已用掉的链接：重建链接项时排除，避免同一链接两条。 */
+        fun sceneRuleUrlsFor(scanKey: String): Set<String> = state.items.asSequence()
+            .filterIsInstance<SuggestionItem>()
+            .filter { it.sceneKey == scanKey && it.ruleId != null }
+            .flatMap { it.urls.asSequence() }
+            .toSet()
+
+        /**
+         * 原位替换这一屏的内置链接项（链接补充专用）。
+         *
+         * 不动其余项、不动队列顺序；被替换的正好是当前项时，`currentId` 跟着换成新的 id。
+         * 返回 false = 这一屏没有链接项，交给完整路径处理。
+         */
+        fun replaceSceneLink(scanKey: String, item: SuggestionItem): Boolean {
+            val index = state.items.indexOfFirst {
+                val current = it as? SuggestionItem
+                current != null && current.sceneKey == scanKey && current.ruleId == null
+            }
+            if (index < 0) return false
+            val old = state.items[index] as SuggestionItem
+            val replacement = item.copy(pinned = old.pinned)
+            val items = state.items.toMutableList().also { it[index] = replacement }
+            state = state.copy(
+                items = items,
+                currentId = if (state.currentId == old.id) replacement.id else state.currentId,
+            )
+            if (showing) bubble.updateItems(state.items, state.currentIndex)
+            return true
         }
 
         /**

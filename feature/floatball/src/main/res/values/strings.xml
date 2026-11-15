@@ -92,6 +92,8 @@
     <string name="float_ball_suggestion_scene_enabled_subtitle">界面稳定后读一次无障碍文本；命中规则或链接分发规则时弹建议</string>
     <string name="float_ball_suggestion_scene_need_a11y">需要无障碍服务</string>
     <string name="float_ball_suggestion_scene_need_a11y_hint">点此开启无障碍服务，情景识别才能读到界面文本</string>
+    <string name="float_ball_suggestion_scene_need_shizuku">内置浏览器可拿真实链接</string>
+    <string name="float_ball_suggestion_scene_need_shizuku_hint">授权 Shizuku 后，微信 / QQ 等内置浏览器的界面能识别出完整链接而不是只有域名</string>
     <string name="scene_scan_unavailable">无障碍服务未开启，无法读取当前界面</string>
     <string name="float_ball_suggestion_link_dispatch_hint">链接建议点开后交给哪个应用，以及未命中时怎么处理</string>
 

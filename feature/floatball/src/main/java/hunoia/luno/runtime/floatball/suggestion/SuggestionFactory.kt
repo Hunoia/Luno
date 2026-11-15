@@ -71,6 +71,10 @@ internal object SuggestionFactory {
      * 链接口径比剪贴板窄：剪贴板是用户主动复制的，任何 http(s) 都值得提示；界面里几乎处处是
      * 链接（浏览器、聊天页、网页正文），未命中「链接分发」规则的只能走分享回退，弹出来只是噪声。
      * 所以 [linkRules] 为空或分发总开关关闭时不出链接建议 —— 用户先配规则才有「打开链接」。
+     *
+     * [sceneUrl] 是特权通道（Shizuku 读 XWeb 日志）拿到的当前页真实链接，已由生产者校验过
+     * 「属于这一屏」。它只是链接候选的头一条，判不判分发给 [linkRules] 说了算——与界面文本里
+     * 抽出来的链接完全同一个口径，不单开一条快捷路径。
      */
     fun fromScene(
         text: String,
@@ -79,8 +83,9 @@ internal object SuggestionFactory {
         linkRules: List<LinkDispatchRule>,
         linkDispatchEnabled: Boolean,
         nowMs: Long,
+        sceneUrl: String? = null,
     ): List<SuggestionItem> {
-        if (text.isBlank()) return emptyList()
+        if (text.isBlank() && sceneUrl == null) return emptyList()
         val sourceKey = "scene:$screenKey"
         val hits = rules.match(text)
         val hitUrls = hits
@@ -91,25 +96,52 @@ internal object SuggestionFactory {
             items += ruleItem(hit, sourceKey, nowMs).copy(sceneKey = screenKey)
         }
         if (linkDispatchEnabled && linkRules.isNotEmpty()) {
-            val linkUrls = LinkUrls.extractUrls(text)
-                .filterNot { it in hitUrls }
-                .filter { LinkUrls.firstMatch(it, linkRules) != null }
-                .distinct()
-            if (linkUrls.isNotEmpty()) {
-                items += SuggestionItem(
-                    sourceKey = sourceKey,
-                    title = LinkLabel,
-                    text = linkUrls.first(),
-                    receivedAtElapsedMs = nowMs,
-                    ttlMs = null,
-                    action = SuggestionPrimaryAction.OPEN,
-                    sensitive = false,
-                    urls = linkUrls,
-                    sceneKey = screenKey,
-                )
-            }
+            sceneLinkItem(
+                text = text,
+                screenKey = screenKey,
+                linkRules = linkRules,
+                nowMs = nowMs,
+                sceneUrl = sceneUrl,
+                excludeUrls = hitUrls,
+            )?.let { items += it }
         }
         return items
+    }
+
+    /**
+     * 内置链接项：从「界面文本里的 URL + 特权通道补到的真实 URL」里挑出命中分发规则的。
+     *
+     * 单独抽出来供链接补充只重算这一项（[fromScene] 的规则匹配部分在这条路径上完全跳过）。
+     */
+    fun sceneLinkItem(
+        text: String,
+        screenKey: String,
+        linkRules: List<LinkDispatchRule>,
+        nowMs: Long,
+        sceneUrl: String?,
+        excludeUrls: Set<String> = emptySet(),
+    ): SuggestionItem? {
+        if (linkRules.isEmpty()) return null
+        val candidates = buildList {
+            sceneUrl?.let(::add)
+            addAll(LinkUrls.extractUrls(text))
+        }
+        val linkUrls = candidates
+            .filterNot { it in excludeUrls }
+            .filter { LinkUrls.firstMatch(it, linkRules) != null }
+            .distinct()
+        if (linkUrls.isEmpty()) return null
+        return SuggestionItem(
+            sourceKey = "scene:$screenKey",
+            title = LinkLabel,
+            text = linkUrls.first(),
+            receivedAtElapsedMs = nowMs,
+            ttlMs = null,
+            action = SuggestionPrimaryAction.OPEN,
+            sensitive = false,
+            urls = linkUrls,
+            sceneKey = screenKey,
+        )
     }
 
     private fun ruleItem(

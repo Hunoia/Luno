@@ -12,6 +12,9 @@ interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
     val runtimePanelOverlay: RuntimePanelOverlay
 
     fun nowInLauncher(): Boolean
+
+    /** 只判某一个包是不是桌面（按包缓存，无 binder）；情景识别每条事件都要用。 */
+    fun isLauncherPackage(packageName: String): Boolean
     fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
     fun getCurrentPackageName(): String
 

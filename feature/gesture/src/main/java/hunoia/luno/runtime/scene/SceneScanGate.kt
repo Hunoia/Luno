@@ -10,6 +10,7 @@ internal enum class SceneScanDecision {
     Accepted,
     Disabled,
     NotSceneEvent,
+    NoRules,
     Locked,
     ScreenOff,
     NoPackage,
@@ -27,6 +28,12 @@ data class SceneScanContext(
     val locked: Boolean,
     val interactive: Boolean,
     val launcher: Boolean,
+    /**
+     * 至少有一条能命中的建议规则或链接分发规则。
+     *
+     * 全都没配时，扫出来的文本过了规则也只能得空结果 —— 这一次树遍历是纯浪费。
+     */
+    val hasRules: Boolean = true,
 )
 
 /**
@@ -51,6 +58,7 @@ internal object SceneScanGate {
     ): SceneScanDecision {
         if (!context.enabled) return SceneScanDecision.Disabled
         if (!isSceneEventType(eventType)) return SceneScanDecision.NotSceneEvent
+        if (!context.hasRules) return SceneScanDecision.NoRules
         if (context.locked) return SceneScanDecision.Locked
         if (!context.interactive) return SceneScanDecision.ScreenOff
         if (eventPackage.isNullOrBlank()) return SceneScanDecision.NoPackage
@@ -65,8 +73,11 @@ internal object SceneScanGate {
     /**
      * 界面内容变化 + 窗口状态变化 + 文本变化。桌面/系统栏的窗口变化事件不进来，
      * 避免「只是开了通知栏」就付一次树遍历。
+     *
+     * 调用方要先用它过滤：判定上下文（锁屏 / 前台包 / 桌面）是 binder 调用，
+     * 不能为一条永远不扫的事件（焦点、选区、窗口列表变化）付这份钱。
      */
-    private fun isSceneEventType(eventType: Int): Boolean = when (eventType) {
+    fun isSceneEventType(eventType: Int): Boolean = when (eventType) {
         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
         AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
         AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,

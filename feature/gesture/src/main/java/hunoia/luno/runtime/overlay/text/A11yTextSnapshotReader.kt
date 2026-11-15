@@ -44,6 +44,12 @@ class A11yTextSnapshotReader(
         /** 命中候选（落点在叶内）最多补逐字坐标的叶子数，按面积从小到大。 */
         private const val MAX_CHAR_CANDIDATES = 8
 
+        /** 地址栏定向读取的预算：几次 id 查询，正常 <20ms。 */
+        private const val ADDRESS_BAR_BUDGET_MS = 150L
+
+        /** 地址栏可能不在最顶层窗口里，最多试几个应用窗口。 */
+        private const val MAX_ADDRESS_WINDOWS = 3
+
         private val SYSTEM_UI_PACKAGES = setOf(
             "com.android.systemui",
             "com.miui.systemui",
@@ -56,43 +62,73 @@ class A11yTextSnapshotReader(
             "SurfaceView",
             "VideoView",
         )
+
+        /**
+         * 可能显示「当前页域名」的控件 id。
+         *
+         * 内置浏览器（微信 / QQ 的 XWeb）用框架布局的 `text2` 显示域名，浏览器类用自己的
+         * 地址栏。这是定向读取，不做遍历，所以只能枚举常见 id；认不出来就当没有。
+         */
+        private val ADDRESS_BAR_IDS = listOf(
+            "android:id/text2",
+            "com.android.chrome:id/url_bar",
+            "com.android.browser:id/url",
+            "com.tencent.mtt:id/url",
+            "com.UCMobile:id/url",
+            "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
+            "com.microsoft.emmx:id/url_bar",
+        )
     }
 
+    /**
+     * 抓一次快照。
+     *
+     * [textOnly] = 只收文本叶子（情景识别用）：不记图片 / 布局 / 逐字坐标，也不暂存节点引用。
+     * 这些产物只有长按取词消费，但每个叶子的 `AccessibilityNodeInfo` 与 rect 都是实打实的分配，
+     * 而本类跑在 `:service` 进程里，和胶囊 UI 共享堆 —— 省下来的分配就是少一次 GC 打在动画上。
+     */
     fun capture(
         downX: Int,
         downY: Int,
         startedAtMs: Long = SystemClock.uptimeMillis(),
         timeBudgetMs: Long = TIME_BUDGET_MS,
+        textOnly: Boolean = false,
     ): TextSnapshot {
         val deadline = startedAtMs + timeBudgetMs
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
+        // window.root 是最贵的单次 IPC 之一：取一次就复用，别在过滤和遍历里各取一次。
         val appWindows = windows
+            .asSequence()
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
-            .filterNot { isExcludedPackage(runCatching { it.root?.packageName?.toString() }.getOrNull()) }
             .sortedByDescending { it.layer }
+            .mapNotNull { window ->
+                val root = runCatching { window.root }.getOrNull() ?: return@mapNotNull null
+                val pkg = runCatching { root.packageName?.toString() }.getOrNull().orEmpty()
+                if (isExcludedPackage(pkg)) null else TargetWindow(window, root, pkg)
+            }
+            .toList()
 
-        val target = appWindows.firstOrNull()
-        val targetPackage = runCatching { target?.root?.packageName?.toString() }.getOrNull().orEmpty()
-        val targetIds = appWindows.mapNotNull { window ->
-            val pkg = runCatching { window.root?.packageName?.toString() }.getOrNull()
-            if (pkg == targetPackage) window.id else null
-        }.toSet()
+        val targetPackage = appWindows.firstOrNull()?.packageName.orEmpty()
+        val targetIds = appWindows
+            .filter { it.packageName == targetPackage }
+            .mapTo(HashSet()) { it.window.id }
 
         val leaves = ArrayList<TextLeaf>()
-        val images = ArrayList<ImageLeaf>()
-        val layoutRects = ArrayList<SnapshotRect>()
+        if (textOnly) leafNodes.clear()
+        val images = if (textOnly) null else ArrayList<ImageLeaf>()
+        val layoutRects = if (textOnly) null else ArrayList<SnapshotRect>()
         val visited = IntRef()
         var complete = true
         val occluders = ArrayList<SnapshotRect>()
 
-        for (window in appWindows) {
+        for (target in appWindows) {
+            val window = target.window
+            val root = target.root
             if (visited.value >= MAX_NODES || SystemClock.uptimeMillis() > deadline) {
                 complete = false
                 break
             }
-            val root = runCatching { window.root }.getOrNull() ?: continue
-            val windowPackage = runCatching { root.packageName?.toString() }.getOrNull().orEmpty()
-            if (isExcludedPackage(windowPackage)) continue
+            val windowPackage = target.packageName
 
             val windowRect = Rect()
             window.getBoundsInScreen(windowRect)
@@ -114,6 +150,7 @@ class A11yTextSnapshotReader(
                 layoutRects = layoutRects,
                 occluders = occluders,
                 windowArea = windowRect.width() * windowRect.height(),
+                collectLeafNodes = !textOnly,
             )
             if (timedOut) {
                 complete = false
@@ -127,22 +164,28 @@ class A11yTextSnapshotReader(
 
         // 逐字坐标 pass：只为落点所在叶子补（长按取词最精确的路径），
         // 框选裁字在无字符坐标时走相交比例回退，仍然可用。
-        fillCharBounds(leaves, downX, downY, deadline + CHAR_BUDGET_MS)
+        if (!textOnly) {
+            fillCharBounds(leaves, downX, downY, deadline + CHAR_BUDGET_MS)
+        }
 
         // 布局兜底：按下点所在的可视节点 bounds（含容器），按面积升序去重。
         // 文字/图片都没命中时，取最小的那个裁截图出图片卡，空白处不再是“无内容”。
         val layouts = layoutRects
-            .filter { it.contains(downX, downY) }
-            .distinct()
-            .sortedBy { it.area }
-            .take(32)
+            ?.filter { it.contains(downX, downY) }
+            ?.distinct()
+            ?.sortedBy { it.area }
+            ?.take(32)
+            .orEmpty()
 
         val deduped = TextSnapshotOps.dedupeAndOrder(leaves)
         val snapshot = TextSnapshot(
             leaves = deduped,
-            images = images.sortedBy { it.bounds.top / 16 }.distinctBy {
-                "${it.bounds.left},${it.bounds.top},${it.bounds.right},${it.bounds.bottom}"
-            },
+            images = images
+                ?.sortedBy { it.bounds.top / 16 }
+                ?.distinctBy {
+                    "${it.bounds.left},${it.bounds.top},${it.bounds.right},${it.bounds.bottom}"
+                }
+                .orEmpty(),
             layouts = layouts,
             capturedAtMs = startedAtMs,
             targetPackage = targetPackage,
@@ -159,6 +202,52 @@ class A11yTextSnapshotReader(
             )
         }
         return snapshot
+    }
+
+    /**
+     * 只读「这一屏顶部那条地址 / 域名」的候选文本，给情景识别的链接对账用。
+     *
+     * 为什么不用 [capture]：整棵树是深度优先的，内置浏览器把标题栏排在整个 WebView 之后，
+     * 而网页内容又慢又多（实测 347 个节点要 >500ms），带预算的遍历会在到达标题栏之前就
+     * 超时——本方法用定向 id 查询绕开这个顺序问题，只花几次 IPC。
+     *
+     * 返回原样文本，形状（能不能当 host）由调用方判定，这里不猜。
+     */
+    fun readAddressBarTexts(
+        startedAtMs: Long = SystemClock.uptimeMillis(),
+        timeBudgetMs: Long = ADDRESS_BAR_BUDGET_MS,
+    ): List<String> {
+        if (ADDRESS_BAR_IDS.isEmpty()) return emptyList()
+        val deadline = startedAtMs + timeBudgetMs
+        val windows = runCatching { service.windows }.getOrNull().orEmpty()
+        // 顶层窗口不一定是带地址栏那个（内置浏览器可能把网页与标题栏分在不同窗口），
+        // 按层级从高到低试几个，凑够候选就停。
+        val targets = windows
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .filterNot {
+                isExcludedPackage(runCatching { it.root?.packageName?.toString() }.getOrNull())
+            }
+            .sortedByDescending { it.layer }
+            .take(MAX_ADDRESS_WINDOWS)
+        val out = ArrayList<String>(ADDRESS_BAR_IDS.size)
+        for (window in targets) {
+            if (SystemClock.uptimeMillis() > deadline) break
+            val root = runCatching { window.root }.getOrNull() ?: continue
+            for (id in ADDRESS_BAR_IDS) {
+                if (SystemClock.uptimeMillis() > deadline) break
+                val nodes = runCatching { root.findAccessibilityNodeInfosByViewId(id) }
+                    .getOrNull()
+                    .orEmpty()
+                for (node in nodes) {
+                    val text = runCatching { node.text?.toString() }.getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: continue
+                    out += text
+                }
+            }
+            if (out.isNotEmpty()) break
+        }
+        return out
     }
 
     /**
@@ -181,6 +270,13 @@ class A11yTextSnapshotReader(
         leafNodes.clear()
     }
 
+    /** 一个待遍历的应用窗口：root 与包名一次取好（`window.root` 是贵调用）。 */
+    private class TargetWindow(
+        val window: AccessibilityWindowInfo,
+        val root: AccessibilityNodeInfo,
+        val packageName: String,
+    )
+
     /** 与遍历同步填充：每个已收叶子对应的节点（供逐字坐标 pass 复用）。 */
     private val leafNodes = ArrayList<AccessibilityNodeInfo?>()
 
@@ -193,10 +289,11 @@ class A11yTextSnapshotReader(
         deadline: Long,
         visited: IntRef,
         leaves: MutableList<TextLeaf>,
-        images: MutableList<ImageLeaf>,
-        layoutRects: MutableList<SnapshotRect>,
+        images: MutableList<ImageLeaf>?,
+        layoutRects: MutableList<SnapshotRect>?,
         occluders: List<SnapshotRect>,
         windowArea: Int,
+        collectLeafNodes: Boolean,
     ): Boolean {
         if (depth > MAX_DEPTH) return false
         if (visited.value >= MAX_NODES || SystemClock.uptimeMillis() > deadline) return true
@@ -221,11 +318,11 @@ class A11yTextSnapshotReader(
             }
             if (!fullyCovered) {
                 // 所有可视节点都记录布局 bounds（按下点命中的候选，供空白处截屏兜底）。
-                layoutRects += bounds
+                layoutRects?.add(bounds)
                 // 图片类节点一律按图片处理（长按取词只出图片卡，不把 alt/标签当文字）；
                 // 普通节点 text 为空时回退 contentDescription。
                 if (classLikeImage) {
-                    images += ImageLeaf(bounds, packageName, windowId)
+                    images?.add(ImageLeaf(bounds, packageName, windowId))
                 }
                 // 图片节点不回退 contentDescription（alt/标签不是屏上文字）；
                 // 普通节点 text 为空时回退 CD，但仅限小块控件：全屏容器的 CD 是
@@ -240,7 +337,7 @@ class A11yTextSnapshotReader(
                 if (!content.isNullOrEmpty() && content.length <= MAX_TEXT_CHARS) {
                     // 遍历阶段不取逐字坐标（每叶一次同步 IPC，会把预算吃光）；
                     // 节点先暂存，命中候选在 fillCharBounds 里按需补。
-                    leafNodes += node
+                    if (collectLeafNodes) leafNodes += node
                     leaves += TextLeaf(
                         text = content,
                         bounds = bounds,
@@ -272,6 +369,7 @@ class A11yTextSnapshotReader(
                 layoutRects = layoutRects,
                 occluders = occluders,
                 windowArea = windowArea,
+                collectLeafNodes = collectLeafNodes,
             )
             if (timedOut) return true
         }

@@ -8,6 +8,10 @@ package hunoia.luno.core
  *
  * [screenKey] 是「包名 + 文本」的指纹，只表示同一屏，不含原文；同屏再次扫描不会重复推送。
  * [text] 可能很长，日志与 [toString] 一律不得输出正文。
+ *
+ * [refinedUrl] 是特权补充通道（Shizuku 读 XWeb 日志）拿到的当前页真实链接，没有就保留为
+ * null。它同样是在进程内的一次性产物，不进任何持久化。首扫不等它：同一 [screenKey] 会先
+ * 以 null 推一次，补到链接后再推一次；消费者按 [screenKey] 整批替换即可。
  */
 data class ScreenSceneEvent(
     val text: String,
@@ -15,8 +19,11 @@ data class ScreenSceneEvent(
     val screenKey: String,
     /** true = 抓取预算用尽，只保证已抓到的部分可用。 */
     val truncated: Boolean = false,
+    /** 当前界面所在 WebView 的真实链接；仅当与界面上的地址栏域名一致时才带出。 */
+    val refinedUrl: String? = null,
 ) {
     /** 防泄露：界面正文不进日志。 */
     override fun toString(): String =
-        "ScreenSceneEvent(package=$packageName, key=$screenKey, chars=${text.length}, truncated=$truncated)"
+        "ScreenSceneEvent(package=$packageName, key=$screenKey, chars=${text.length}, " +
+            "truncated=$truncated, refinedUrl=${refinedUrl != null})"
 }

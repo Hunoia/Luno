@@ -36,6 +36,7 @@ import hunoia.luno.config.model.SuggestionRule
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.suggestion.SuggestionRulePresets
+import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
@@ -94,6 +95,9 @@ fun SuggestionCapsuleSettingsScreen(
     var sceneReady by remember {
         mutableStateOf(sceneA11yEnabled(context))
     }
+    // 真实链接（XWeb 日志）靠 Shizuku；没就绪时只是少一个特权通道。
+    val shizukuStatus by ShizukuManager.statusFlow.collectAsStateWithLifecycle()
+    val shizukuReady = shizukuStatus.isReady
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -279,6 +283,11 @@ fun SuggestionCapsuleSettingsScreen(
         }
 
         item(key = "scene") {
+            val needsA11y = clipball.sceneEnabled && !sceneReady
+            val needsShizuku = clipball.sceneEnabled && !shizukuReady
+            val rowCount = 1 + (if (needsA11y) 1 else 0) + (if (needsShizuku) 1 else 0)
+            val a11yIndex = 1
+            val shizukuIndex = 1 + (if (needsA11y) 1 else 0)
             LunoGroup(title = stringResource(R.string.float_ball_suggestion_scene_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_suggestion_scene_enabled),
@@ -291,18 +300,28 @@ fun SuggestionCapsuleSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, rowCount),
                 )
-                if (clipball.sceneEnabled && !sceneReady) {
+                if (needsA11y) {
                     LunoSettingsRow(
                         title = stringResource(R.string.float_ball_suggestion_scene_need_a11y),
                         subtitle = stringResource(R.string.float_ball_suggestion_scene_need_a11y_hint),
                         icon = Icons.AutoMirrored.Filled.OpenInNew,
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(a11yIndex, rowCount),
                         onClick = {
                             sceneReady = sceneA11yEnabled(context)
                             context.gotoAccessibilitySettings()
                         },
+                    )
+                }
+                if (needsShizuku) {
+                    // 真实链接靠特权通道读日志；没授权时情景识别仍可用，只是拿不到深链。
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_suggestion_scene_need_shizuku),
+                        subtitle = stringResource(R.string.float_ball_suggestion_scene_need_shizuku_hint),
+                        icon = Icons.Filled.Link,
+                        shape = segmentedShape(shizukuIndex, rowCount),
+                        onClick = { scope.launch { ShizukuManager.autoRequestPermissionIfNeeded() } },
                     )
                 }
             }
