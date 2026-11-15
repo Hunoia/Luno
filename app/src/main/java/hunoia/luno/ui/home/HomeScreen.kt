@@ -1,5 +1,6 @@
 package hunoia.luno.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -144,6 +145,18 @@ fun collapsedBallTab(
     else -> MainTab.Habits
 }
 
+/**
+ * 系统返回键在主页外壳里的落点：
+ * - 弹层开着 → null，先关弹层（ui-guidelines §3.2 第 5 条：返回键先关弹层再退页面）；
+ * - 非主页 tab → 主页（与左导航球「组外固定回主页」同语义，见 [collapsedBallTab]）；
+ * - 主页 tab → null，不拦截，交给系统退出应用。
+ */
+fun homeBackTargetTab(current: MainTab, overlayOpen: Boolean): MainTab? = when {
+    overlayOpen -> null
+    current != MainTab.Home -> MainTab.Home
+    else -> null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -265,6 +278,15 @@ fun HomeScreen(
                     showToast(R.string.gesture_switch_retry_failed)
                 }
             }
+        }
+
+        // 系统返回键：非主页 tab 先回主页，主页才退出应用；弹层开着时先关弹层。
+        val homeBackTarget = homeBackTargetTab(
+            mainTab,
+            colorPickerTarget != null || uiState.renameDialogTarget != null,
+        )
+        BackHandler(enabled = homeBackTarget != null) {
+            homeBackTarget?.let(::selectTab)
         }
 
         HomeShell(

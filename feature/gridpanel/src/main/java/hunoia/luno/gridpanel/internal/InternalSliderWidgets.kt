@@ -91,8 +91,11 @@ private fun QsSlider(
                     Modifier.pointerInput(Unit) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
-                            // 不 consume down：方向未定前父级（纵向 scroll / 横向 pager）
-                            // 也要能参与判定，否则从滑条起手的跨轴滑动会被整段吞掉。
+                            // 吃掉 down：面板根的「点空白关窗 / 长按空白进编辑」判定域靠消费链
+                            // （见 GridPanelContent 根 Box 的注释），不 consume 的话长按滑条会误进编辑态。
+                            // 跨轴滚动不受影响：scrollable / pager 起手用 requireUnconsumed=false 看
+                            // 后续移动，而这里只在主轴过 slop 后才消费 move（见下面 dragging 分支）。
+                            down.consume()
                             val verticalAxis = isVertical
                             // 相对拖动：按下不跳值。无论落指在轨道哪，都从当前值起按
                             // 「位移 / 轨长」算增量；没过 touchSlop 的纯点按不改值 ——

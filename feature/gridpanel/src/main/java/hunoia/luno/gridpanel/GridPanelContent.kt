@@ -731,13 +731,18 @@ fun GridPanelRoot(
     // 返回键优先级：拖拽中 → 取消拖拽；缩放中 → 取消缩放；编辑态 → 退编辑；否则交给浮窗。
     // 注册必须放在 state 之后（处理器要能读到当前拖拽/缩放状态），并且以 state 为 key：
     // 面板切换会重建 state，旧闭包不能留着。
+    // 编辑态走 panelBackAction 现读 editState.value：本处理器只在 state 变化时重注册，
+    // 读组合期 editMode 会停在 false —— 表现就是「编辑态按返回把面板关了」。
     LaunchedEffect(state) {
         onRegisterBackHandler?.invoke {
-            when {
-                state.draggingId != null -> { state.cancelDrag(); true }
-                state.resizingId != null -> { state.cancelResize(); true }
-                editMode -> { exitEditMode(); true }
-                else -> false
+            when (panelBackAction(state.draggingId, state.resizingId, editState.value)) {
+                PanelBackAction.CancelDrag -> { state.cancelDrag(); true }
+
+                PanelBackAction.CancelResize -> { state.cancelResize(); true }
+
+                PanelBackAction.ExitEdit -> { exitEditMode(); true }
+
+                PanelBackAction.Close -> false
             }
         }
     }
