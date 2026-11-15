@@ -522,7 +522,11 @@ fun GridPanelRoot(
         val pageItemsNow = stateRef[0]?.renderItems(page)
             ?: renderItemsState.value.filter { it.pageIndex == page }
         val occ = pageItemsNow.maxOfOrNull { it.bottom } ?: 0
-        val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
+        // 必须现读 editState.value，不能用组合期快照：metricsForPage 会被
+        // remember(panel.id) 里的 GridPanelState 长期持有，闭包里的 `editMode` 永远停在
+        // 首次组合的 false，编辑态尾行在拖拽/缩放里就消失了——表现是「拖到当前末行就停、
+        // 底部两行拖不进去」。底部恒多两行是设计意图，不能拿掉。
+        val rows = maxOf(m.rows, occ + if (editState.value) EditRowExtra else 0)
         if (rows == m.rows) m else m.copy(rows = rows)
     }
     val placement = panelAppearance.placement(landscape).coerced()

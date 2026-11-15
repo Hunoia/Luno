@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -190,9 +191,13 @@ internal fun TodoListCell(
             } else {
                 // 滚动只在运行态启用：编辑态滚动让给层根拖拽（镜像 clipboard userScrollEnabled）。
                 val scrollState = rememberScrollState()
+                val flingGate = remember(scrollState) {
+                    PanelFlingGate { scrollState.maxValue > 0 }
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .nestedScroll(flingGate)
                         .then(if (enabled) Modifier.verticalScroll(scrollState) else Modifier),
                     verticalArrangement = Arrangement.spacedBy(1.dp),
                 ) {

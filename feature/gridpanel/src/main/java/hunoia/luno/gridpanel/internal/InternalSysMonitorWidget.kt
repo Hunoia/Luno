@@ -1,18 +1,19 @@
 package hunoia.luno.gridpanel.internal
 
-import android.app.ActivityManager
-import android.content.Context
-import android.os.Process
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,340 +38,394 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import hunoia.luno.bridge.system.AppProcessUsage
+import hunoia.luno.bridge.system.DeviceStats
+import hunoia.luno.bridge.system.MemoryStats
+import hunoia.luno.bridge.system.ProcessStats
+import hunoia.luno.bridge.system.ProcessStatsSampler
+import hunoia.luno.bridge.system.SystemStatsReader
 import hunoia.luno.bridge.system.AppIcons
+import hunoia.luno.core.domain.DispatchOrigin
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.icon.rememberAppDrawable
-import hunoia.luno.ui.icon.rememberAppLabel
 import hunoia.luno.ui.theme.containerShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * 资源监控部件：内存/CPU 系统占用 + 各应用进程级占用列表。
+ * 资源监控部件：内存 / CPU 汇总（含曲线与每核占用）+ 各应用进程级占用列表。
  *
- * 数据源与权限（真机实测，HyperOS `/proc` 策略极严）：
- *  - 系统内存：`ActivityManager.getMemoryInfo`（瞬时值，无需任何权限）。
- *  - 系统 CPU + 各应用 CPU/RSS：**必须 Shizuku**。应用自身读不了 `/proc/stat` 与
- *    其它应用进程的 `/proc/<pid>/` 下的文件（Permission denied）；借 Shizuku 的 shell 身份
- *    一次性跑脚本读全量，输出 `TOTAL` + 每进程一行，应用侧再聚合。
- *  - PSS（`smaps_rollup`）连 shell 都读不了（Permission denied），内存用 RSS(VmRSS) 兜底。
- *  - Shizuku 未授权时降级：仅显示系统内存汇总 + 「点此授权」提示，CPU/应用列表不可用。
+ * 数据来源与刷新节奏：
+ *  - 内存 / GPU / 频率 / 温度 / 电池 / 网速 / 自身占用：1s。全部是廉价读取，不需要权限
+ *    （见 `:core:bridge` 的 `SystemStatsReader`）。整机「已用」= `MemTotal − MemAvailable`，
+ *    与 `free` / 系统一致；不能用 `availMem`（只是 `MemFree + Cached`，会把已用算大）。
+ *  - CPU + 各应用：2s，需要 Shizuku（应用读不了 `/proc/stat` 与其它 uid 的 `/proc/<pid>`）。
+ *    行内内存优先用 AMS 的 PSS（与系统任务管理器同口径），拿不到才退回 VmRSS。
+ *    进入组合后先补一帧 0.4s 的快速采样，让 CPU 立刻有差值；未授权时只显示自身占用。
+ *  - 两条循环都绑在组合生命周期上：面板关闭 / 翻到别的页就停，不驻留后台。
  *
- * 进程范围：uid ≥ [Process.FIRST_APPLICATION_UID] 的用户应用（含本应用自身），
- * 排除系统守护与内核线程；按 uid 聚合成应用行（共享 uid 取首个包名）。
+ * 交互：
+ *  - 点「内存 / CPU」标题 = 按该口径排序（单功能面板写回 params，网格项只在本地生效）。
+ *  - 列表头 A→Z 切换名称排序，Android 图标切换是否含系统应用。
+ *  - 点应用行 = 走 `app.details` 动作（SurfaceDispatch，不在部件里直接起 Activity）。
  */
 
-/** 1s 刷新间隔；CPU 差值采样需 ≥1s 才有意义。 */
-private const val SysRefreshMs = 1000L
+/** 内存 / 设备指标刷新间隔。 */
+private const val MemoryRefreshMs = 1000L
 
-/** shell 输出的行数上限保护（约数百进程 × 一行 20B，200K 富余）。 */
-private const val ShellMaxChars = 200_000
+/** 进程级采样间隔；shell 一次读全量，太密没有收益。 */
+private const val ProcRefreshMs = 2000L
 
-/** 列表行高：固定高度，图标 + 文字 + 双数值。 */
-private val SysRowH = 30.dp
-private val SysIconSize = 20.dp
+/** 首帧补采样延迟：CPU 差值需要一个 tick 窗口，0.4s 够用又不至于等两秒。 */
+private const val FirstSampleDelayMs = 400L
 
-/** 一个应用（按 uid 聚合）的占用快照。 */
-data class AppUsage(
-    val packageName: String,
-    /** 占系统总 CPU 容量的百分比（0..100，所有应用合计 ≤ 系统 CPU%）。 */
-    val cpuPct: Float,
-    /** RSS（VmRSS，常驻集）kB；PSS 在目标 ROM 拿不到，用 RSS 作为主显内存口径。 */
-    val rssKb: Long,
-)
+/** 低于该宽 / 高切紧凑排版：去掉曲线与列表头按钮，只留两条细条 + 列表。 */
+private val CompactMaxWidth = 210.dp
+private val CompactMaxHeight = 190.dp
 
-/** 一帧完整快照；应用列表已按综合分（内存优先 70/30）降序。 */
-data class SysMonitorSnapshot(
-    val totalMemKb: Long,
-    val usedMemKb: Long,
-    val cpuPct: Float,
-    /** 首帧无 CPU 基线时为 false，UI 显示「—」。 */
-    val hasCpuSample: Boolean,
-    val apps: List<AppUsage>,
-)
+/** 可点行 / 控件的最小高：密排自绘命中区，取 36dp 档（ui-guidelines §1.6 例外②）。 */
+private val SysRowH = 36.dp
+private val SysIconSize = 18.dp
 
-/** 单个 uid 的进程聚合。 */
-private class UidAgg {
-    var cpuTicks = 0L
-    var rssKb = 0L
-}
-
-/**
- * 采集器：只在 IO 线程调用。持有上一帧 CPU 基线（总 + 按 uid）做差值。
- * 基线在每次采样后推进，保证连续帧间隔恒为刷新周期。
- */
-private class SysMonitorSampler(private val context: Context) {
-    private val pm = context.packageManager
-    private val am = context.getSystemService(ActivityManager::class.java)
-    private var lastTotalCpu = -1L
-    private var lastIdleCpu = -1L
-    private val lastCpuByUid = HashMap<Int, Long>()
-    /** uid → 代表包名（跨进程 Binder 查询缓存；uid 稳定不增长）。 */
-    private val uidToPackage = HashMap<Int, String?>()
-
-    /** 授权状态翻转时清基线，避免降级/全量两套 pid 集合并出的差值跳变。 */
-    fun resetCpuBaseline() {
-        lastTotalCpu = -1L
-        lastIdleCpu = -1L
-        lastCpuByUid.clear()
-    }
-
-    /** Shizuku 已授权：以 shell 身份读 /proc 全量，覆盖所有用户应用。 */
-    suspend fun sample(): SysMonitorSnapshot {
-        val result = ShizukuManager.executeShell(SHIZUKU_SCRIPT, maxChars = ShellMaxChars)
-        val (totalCpu, idleCpu, aggByUid) = if (result.isSuccess) {
-            parseShellOutput(result.stdout)
-        } else {
-            Triple(-1L, -1L, emptyMap())
-        }
-        return build(totalCpu, idleCpu, aggByUid)
-    }
-
-    /** Shizuku 未授权：只有系统内存；CPU 与应用列表不可用。 */
-    fun sampleMemoryOnly(): SysMonitorSnapshot = build(-1L, -1L, emptyMap())
-
-    private fun build(totalCpu: Long, idleCpu: Long, aggByUid: Map<Int, UidAgg>): SysMonitorSnapshot {
-        val memInfo = am?.let {
-            runCatching { ActivityManager.MemoryInfo().also(it::getMemoryInfo) }.getOrNull()
-        }
-        val totalMemKb = (memInfo?.totalMem ?: 0L) / 1024L
-        val usedMemKb = (totalMemKb - (memInfo?.availMem ?: 0L) / 1024L).coerceAtLeast(0L)
-
-        val hasSample = lastTotalCpu >= 0 && totalCpu > lastTotalCpu
-        val totalDelta = if (hasSample) totalCpu - lastTotalCpu else 0L
-        val idleDelta = if (hasSample) idleCpu - lastIdleCpu else 0L
-        val sysCpuPct = if (hasSample && totalDelta > 0) {
-            ((totalDelta - idleDelta).toFloat() / totalDelta) * 100f
-        } else {
-            0f
-        }
-
-        val apps = ArrayList<AppUsage>(aggByUid.size)
-        for ((uid, agg) in aggByUid) {
-            val pkg = packageForUid(uid) ?: continue
-            val cpuPct = if (hasSample && totalDelta > 0) {
-                val prev = lastCpuByUid[uid] ?: 0L
-                // 进程重启/消失后 ticks 可能回退，钳到 0。
-                ((agg.cpuTicks - prev).coerceAtLeast(0L).toFloat() / totalDelta * 100f)
-                    .coerceIn(0f, 100f)
-            } else {
-                0f
-            }
-            apps.add(AppUsage(pkg, cpuPct, agg.rssKb))
-        }
-        // 综合分：内存优先 70/30（rss 占系统内存比例 + cpu 占比）。
-        val memTotal = totalMemKb.toFloat().coerceAtLeast(1f)
-        apps.sortByDescending { 0.7f * (it.rssKb.toFloat() / memTotal) + 0.3f * (it.cpuPct / 100f) }
-
-        // 推进基线供下一帧差值。
-        lastTotalCpu = totalCpu
-        lastIdleCpu = idleCpu
-        lastCpuByUid.clear()
-        for ((uid, agg) in aggByUid) lastCpuByUid[uid] = agg.cpuTicks
-
-        return SysMonitorSnapshot(
-            totalMemKb = totalMemKb,
-            usedMemKb = usedMemKb,
-            cpuPct = sysCpuPct,
-            hasCpuSample = hasSample,
-            apps = apps,
-        )
-    }
-
-    /** uid → 代表包名；无包名（isolated 等）返回 null 并缓存，避免每帧重复 Binder。 */
-    private fun packageForUid(uid: Int): String? = uidToPackage.getOrPut(uid) {
-        runCatching { pm.getPackagesForUid(uid) }
-            .getOrNull()
-            ?.firstOrNull { it.isNotBlank() }
-    }
-}
-
-/**
- * 解析 shell 脚本输出：
- * ```
- * TOTAL <total_cpu_ticks> <idle_ticks>
- * <pid> <uid> <cpu_ticks> <rss_kb>
- * ```
- */
-private fun parseShellOutput(stdout: String): Triple<Long, Long, Map<Int, UidAgg>> {
-    var totalCpu = -1L
-    var idleCpu = -1L
-    val aggByUid = LinkedHashMap<Int, UidAgg>()
-    for (line in stdout.lineSequence()) {
-        val parts = line.trim().split(' ')
-        if (parts.isEmpty() || parts[0].isEmpty()) continue
-        when (parts[0]) {
-            "TOTAL" -> {
-                totalCpu = parts.getOrNull(1)?.toLongOrNull() ?: -1L
-                idleCpu = parts.getOrNull(2)?.toLongOrNull() ?: -1L
-            }
-            else -> {
-                val pid = parts[0].toIntOrNull() ?: continue
-                val uid = parts.getOrNull(1)?.toIntOrNull() ?: continue
-                if (uid < Process.FIRST_APPLICATION_UID) continue
-                val cpu = parts.getOrNull(2)?.toLongOrNull() ?: 0L
-                val rss = parts.getOrNull(3)?.toLongOrNull() ?: 0L
-                val agg = aggByUid.getOrPut(uid) { UidAgg() }
-                agg.cpuTicks += cpu
-                agg.rssKb += rss
-            }
-        }
-    }
-    return Triple(totalCpu, idleCpu, aggByUid)
-}
-
-/**
- * 一次性 shell 脚本（mksh 内建实现，无外部进程开销）：
- * 读 `/proc/stat` 总 CPU + 每进程 uid/cpu/rss，跨 uid 读取依赖 Shizuku 的 shell 身份。
- * `set -- $rest 0 0 ...` 补齐尾部，保证 `${12}`/`${13}`（utime/stime）恒存在。
- * 用 `§` 作 `$` 占位再整体替换，规避 Kotlin 原始字符串的 `$` 插值歧义；
- * 脚本里的字面 `@`（`"$@"`）与占位符不冲突，替换后仍为 `"$@"`。
- */
-private val SHIZUKU_SCRIPT = """
-read -r s < /proc/stat
-set -- §s
-if [ §# -gt 0 ]; then shift; fi
-total=0; idle=0; i=0
-for v in "§@"; do
-  total=§((total + v))
-  i=§((i + 1))
-  if [ "§i" -eq 4 ] || [ "§i" -eq 5 ]; then idle=§((idle + v)); fi
-done
-echo "TOTAL §total §idle"
-for p in /proc/[0-9]*; do
-  pid=§{p##*/}
-  uid=0; rss=0
-  while read -r k v r; do
-    case "§k" in
-      Uid:) uid=§v ;;
-      VmRSS:) rss=§v ;;
-    esac
-  done < /proc/§pid/status
-  if [ "§uid" -lt 10000 ]; then continue; fi
-  if ! read -r s2 < /proc/§pid/stat; then continue; fi
-  t=§{s2##*)}
-  set -- §t 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-  cpu=§(( §{12} + §{13} ))
-  echo "§pid §uid §cpu §rss"
-done
-""".trimIndent().replace("§", "$")
-
-// ---- UI ----
+/** 应用行右侧两个数值列的固定宽：等宽右对齐，数值变化时不左右跳。 */
+private val SysCpuColW = 30.dp
+private val SysMemColW = 46.dp
 
 @Composable
 internal fun SysMonitorCell(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    params: String? = null,
+    onUpdateParams: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val onCard = gridPanelOnCardColor
-    val accent = MaterialTheme.colorScheme.primary
+    val accentMem = MaterialTheme.colorScheme.primary
+    val accentCpu = MaterialTheme.colorScheme.tertiary
     val scope = rememberCoroutineScope()
-    val status by ShizukuManager.statusFlow.collectAsState()
-    val shizukuOn = status.isReady
-    val sampler = remember { SysMonitorSampler(context.applicationContext) }
-    var snapshot by remember { mutableStateOf<SysMonitorSnapshot?>(null) }
 
-    // 进入组合即采样循环，离开组合自动取消（面板关闭即停，不驻留后台）。
-    // 授权状态翻转时清基线并重启循环。
-    LaunchedEffect(shizukuOn) {
-        if (shizukuOn) sampler.resetCpuBaseline()
+    val status by ShizukuManager.statusFlow.collectAsState()
+    val privileged = status.isReady
+    val reader = remember { SystemStatsReader(context.applicationContext) }
+    val sampler = remember { ProcessStatsSampler(context.applicationContext) }
+
+    val stored = remember(params) { parseSysMonitorParams(params) }
+    var sort by remember(stored) { mutableStateOf(SysSort.of(stored.sort)) }
+    var includeSystem by remember(stored) { mutableStateOf(stored.includeSystem) }
+
+    var memory by remember { mutableStateOf<MemoryStats?>(null) }
+    var device by remember { mutableStateOf(DeviceStats()) }
+    var frame by remember { mutableStateOf<ProcessStats?>(null) }
+    var selfCpu by remember { mutableStateOf(-1f) }
+    var selfPss by remember { mutableStateOf(0L) }
+    var memHistory by remember { mutableStateOf(emptyList<Float>()) }
+    var cpuHistory by remember { mutableStateOf(emptyList<Float>()) }
+    val orderState = remember { SysOrderState() }
+
+    fun persist(nextSort: SysSort, nextIncludeSystem: Boolean) {
+        onUpdateParams?.invoke(encodeSysMonitorParams(nextSort, nextIncludeSystem))
+    }
+
+    // 1s：内存 + 设备指标 + 自身占用（全部无需权限）。
+    LaunchedEffect(Unit) {
         while (true) {
-            snapshot = withContext(Dispatchers.IO) {
-                if (shizukuOn) sampler.sample() else sampler.sampleMemoryOnly()
+            val loaded = withContext(Dispatchers.IO) {
+                Quad(reader.readMemory(), reader.readDevice(), reader.selfCpuPct(), reader.selfPssKb())
             }
-            delay(SysRefreshMs)
+            memory = loaded.memory
+            device = loaded.device
+            selfCpu = loaded.selfCpu
+            selfPss = loaded.selfPss
+            memHistory = pushSample(memHistory, loaded.memory.usedFraction)
+            delay(MemoryRefreshMs)
         }
     }
 
-    val snap = snapshot
-    val memText = if (snap != null) {
-        val pct = if (snap.totalMemKb > 0) {
-            (snap.usedMemKb.toFloat() / snap.totalMemKb * 100).roundToInt()
-        } else 0
-        "$pct% · ${fmtKb(snap.usedMemKb)}/${fmtKb(snap.totalMemKb)}"
+    // 2s：CPU + 各应用（需要 Shizuku）。
+    LaunchedEffect(privileged) {
+        sampler.resetBaseline()
+        if (!privileged) {
+            frame = null
+            cpuHistory = emptyList()
+            return@LaunchedEffect
+        }
+        var first = true
+        while (true) {
+            val sampled = withContext(Dispatchers.IO) { sampler.sample() }
+            if (sampled != null) {
+                frame = sampled
+                if (sampled.cpu.hasSample) {
+                    cpuHistory = pushSample(cpuHistory, sampled.cpu.totalPct / 100f)
+                }
+            }
+            delay(if (first) FirstSampleDelayMs else ProcRefreshMs)
+            first = false
+        }
+    }
+
+    // 未授权时只有自身一行：内存口径换成 PSS（无权限拿不到全机进程 RSS）。
+    val selfRow = AppProcessUsage(
+        uid = context.applicationInfo.uid,
+        packageName = context.packageName,
+        label = stringResource(R.string.grid_panel_sys_self),
+        userId = context.applicationInfo.uid / 100000,
+        isSystem = false,
+        cpuPct = selfCpu.coerceIn(0f, 100f),
+        memKb = selfPss,
+    )
+    val allRows = if (privileged) frame?.apps.orEmpty() else listOf(selfRow)
+    val visibleRows = remember(allRows, includeSystem) {
+        if (includeSystem) allRows else allRows.filterNot { it.isSystem }
+    }
+    val totalMemKb = memory?.totalKb ?: 0L
+    val sortedRows = remember(visibleRows, sort, totalMemKb) {
+        sortAppRows(visibleRows, sort, totalMemKb, orderState.order).also { rows ->
+            if (rows.isNotEmpty()) {
+                orderState.order = rows.withIndex().associate { it.value.uid to it.index }
+            }
+        }
+    }
+
+    val mem = memory
+    val memUsedText = mem?.let { formatKb(it.usedKb) } ?: "—"
+    val memTotalText = mem?.let { formatKb(it.totalKb) } ?: "—"
+    val memPctText = if (mem != null && mem.totalKb > 0L) {
+        "${(mem.usedFraction * 100).roundToInt()}%"
     } else {
         "—"
     }
-    val cpuText = if (snap != null && snap.hasCpuSample) "${snap.cpuPct.roundToInt()}%" else "—"
-    val desc = stringResource(R.string.grid_panel_sys_desc, memText, cpuText)
+    val swapText = mem?.takeIf { it.swapUsedKb > 0L }
+        ?.let { stringResource(R.string.grid_panel_sys_swap, formatKb(it.swapUsedKb)) }
+    val memDetail = stringResource(R.string.grid_panel_sys_mem_detail, memUsedText, memTotalText)
 
-    Column(
+    val cpu = frame?.cpu
+    val cpuPctText = if (cpu != null && cpu.hasSample) "${cpu.totalPct.roundToInt()}%" else "—"
+    val tempC = device.temperatureC ?: device.battery?.temperatureC
+    val coresText = device.coreFreqMhz.takeIf { it.isNotEmpty() }
+        ?.let { stringResource(R.string.grid_panel_sys_cores, it.size) }
+    val freqText = device.coreFreqMhz.maxOrNull()?.let { formatFreqMhz(it) }
+    val tempText = tempC?.let { stringResource(R.string.grid_panel_sys_temp, it.roundToInt()) }
+    val cpuDetail = listOfNotNull(coresText, tempText, freqText).joinToString(" · ")
+
+    // 缓存 / Swap 从卡内明细移到卡外，与电池同一层；都属于整机指标，
+    // 放卡内会把两张卡撑成不同高，也吃紧条目的可读宽度。
+    val deviceParts = listOfNotNull(
+        mem?.let { stringResource(R.string.grid_panel_sys_cache, formatKb(it.cachedKb)) },
+        swapText,
+        device.gpuPct?.let { stringResource(R.string.grid_panel_sys_gpu, it.roundToInt()) },
+        device.battery?.let { stringResource(R.string.grid_panel_sys_battery, it.levelPct) },
+        device.takeIf { it.downBytesPerSec > 0L || it.upBytesPerSec > 0L }?.let {
+            stringResource(
+                R.string.grid_panel_sys_net,
+                formatBytesPerSec(it.downBytesPerSec),
+                formatBytesPerSec(it.upBytesPerSec),
+            )
+        },
+    )
+
+    val summaryDesc = stringResource(
+        R.string.grid_panel_sys_desc,
+        if (mem != null) "$memPctText $memUsedText/$memTotalText" else "—",
+        cpuPctText,
+    )
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(WidgetInnerPadding)
-            .semantics { contentDescription = desc },
+            .padding(WidgetInnerPadding),
     ) {
-        // 汇总：内存 + CPU 两条 QS 风格细条。
-        SummaryBar(
-            label = stringResource(R.string.grid_panel_sys_mem),
-            fraction = if (snap != null && snap.totalMemKb > 0) {
-                snap.usedMemKb.toFloat() / snap.totalMemKb
-            } else 0f,
-            text = memText,
-            accent = accent,
-            onCard = onCard,
-        )
-        Spacer(Modifier.height(5.dp))
-        SummaryBar(
-            label = stringResource(R.string.grid_panel_sys_cpu),
-            fraction = if (snap != null && snap.hasCpuSample) snap.cpuPct / 100f else 0f,
-            text = cpuText,
-            accent = accent,
-            onCard = onCard,
-        )
-        Spacer(Modifier.height(7.dp))
-
-        val apps = snap?.apps.orEmpty()
-        when {
-            !shizukuOn -> {
-                // 未授权：点此授权 Shizuku（跨 uid 读 /proc 的唯一途径）。
-                GrantHintCell(
-                    icon = Icons.Default.Speed,
-                    text = stringResource(R.string.grid_panel_sys_need_shizuku),
-                    vertical = false,
+        val compact = maxWidth < CompactMaxWidth || maxHeight < CompactMaxHeight
+        Column(
+            Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = summaryDesc },
+        ) {
+            if (compact) {
+                CompactMetricRow(
+                    label = stringResource(R.string.grid_panel_sys_mem),
+                    fraction = mem?.usedFraction ?: 0f,
+                    valueText = memPctText,
+                    accent = accentMem,
+                    onCard = onCard,
+                    selected = sort == SysSort.MEM,
                     enabled = enabled,
-                    onClick = { scope.launch { ShizukuManager.requestPermission() } },
-                    modifier = Modifier.fillMaxSize(),
+                    onClick = {
+                        sort = SysSort.MEM
+                        persist(SysSort.MEM, includeSystem)
+                    },
                 )
-            }
-            apps.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(R.string.grid_panel_sys_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = onCard.copy(alpha = 0.5f),
+                Spacer(Modifier.height(2.dp))
+                CompactMetricRow(
+                    label = stringResource(R.string.grid_panel_sys_cpu),
+                    fraction = cpu?.takeIf { it.hasSample }?.let { it.totalPct / 100f } ?: 0f,
+                    valueText = cpuPctText,
+                    accent = accentCpu,
+                    onCard = onCard,
+                    selected = sort == SysSort.CPU,
+                    enabled = enabled,
+                    onClick = {
+                        sort = SysSort.CPU
+                        persist(SysSort.CPU, includeSystem)
+                    },
+                )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MetricCard(
+                        label = stringResource(R.string.grid_panel_sys_mem),
+                        valueText = memPctText,
+                        detail = memDetail,
+                        history = memHistory,
+                        accent = accentMem,
+                        onCard = onCard,
+                        selected = sort == SysSort.MEM,
+                        corePct = emptyList(),
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            sort = SysSort.MEM
+                            persist(SysSort.MEM, includeSystem)
+                        },
+                    )
+                    MetricCard(
+                        label = stringResource(R.string.grid_panel_sys_cpu),
+                        valueText = cpuPctText,
+                        detail = cpuDetail,
+                        history = cpuHistory,
+                        accent = accentCpu,
+                        onCard = onCard,
+                        selected = sort == SysSort.CPU,
+                        corePct = cpu?.perCorePct.orEmpty(),
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            sort = SysSort.CPU
+                            persist(SysSort.CPU, includeSystem)
+                        },
                     )
                 }
             }
-            else -> {
-                // 滚动只在运行态启用：编辑态滚动让给层根拖拽（镜像 clipboard/todo）。
-                val scrollState = rememberScrollState()
-                Column(
+
+            if (deviceParts.isNotEmpty()) {
+                Spacer(Modifier.height(5.dp))
+                // 逐段换行：GPU / 电池 / 缓存 / 网速都是一个整体，不在段中间截断。
+                // compact 也显示（不隐藏），最多占两行。
+                FlowRow(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (enabled) Modifier.verticalScroll(scrollState) else Modifier),
-                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    maxLines = 2,
                 ) {
-                    apps.forEach { app ->
-                        AppRow(app = app, onCard = onCard)
+                    deviceParts.forEach { part ->
+                        Text(
+                            text = part,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = onCard.copy(alpha = 0.55f),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+            AppListHeader(
+                count = sortedRows.size,
+                sort = sort,
+                includeSystem = includeSystem,
+                onCard = onCard,
+                accent = accentMem,
+                enabled = enabled,
+                onToggleNameSort = {
+                    val next = if (sort == SysSort.NAME) SysSort.MEM else SysSort.NAME
+                    sort = next
+                    persist(next, includeSystem)
+                },
+                onToggleSystem = {
+                    includeSystem = !includeSystem
+                    persist(sort, includeSystem)
+                },
+            )
+
+            if (!privileged) {
+                GrantHintRow(
+                    enabled = enabled,
+                    accent = accentMem,
+                    onCard = onCard,
+                    onClick = { scope.launch { ShizukuManager.requestPermission() } },
+                )
+            }
+
+            val scrollState = rememberScrollState()
+            val flingGate = remember(scrollState) {
+                PanelFlingGate { scrollState.maxValue > 0 }
+            }
+            val loading = privileged && frame == null
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    // 编辑态把纵向滚动让给层根拖拽（与剪贴板 / 待办部件同口径）。
+                    // 非编辑态只拦惯性：拖到列表头后继续拖仍归面板，fling 不再带着面板跑。
+                    .nestedScroll(flingGate)
+                    .then(if (enabled) Modifier.verticalScroll(scrollState) else Modifier),
+            ) {
+                when {
+                    // 首帧还在等第一次 shell 采样：不先闪一下「暂无应用」。
+                    loading -> Unit
+                    sortedRows.isEmpty() -> {
+                        Box(Modifier.fillMaxWidth().heightIn(min = SysRowH), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.grid_panel_sys_empty),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = onCard.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                    else -> sortedRows.forEach { app ->
+                        AppRow(
+                            app = app,
+                            accent = accentMem,
+                            onCard = onCard,
+                            enabled = enabled,
+                            onOpenDetails = {
+                                SurfaceDispatch.dispatch(
+                                    action = StoredAction.of(
+                                        "app.details",
+                                        "packageName" to app.packageName,
+                                        "userId" to app.userId.toString(),
+                                    ),
+                                    origin = DispatchOrigin.PANEL,
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -377,20 +433,121 @@ internal fun SysMonitorCell(
     }
 }
 
-/** 一条 QS 风格细进度条：label + 轨道 + 数值。 */
+/** 一次 1s 采样的结果包（避免在协程里拼多个状态回写）。 */
+private class Quad(
+    val memory: MemoryStats,
+    val device: DeviceStats,
+    val selfCpu: Float,
+    val selfPss: Long,
+)
+
+private class SysOrderState {
+    var order: Map<Int, Int> = emptyMap()
+}
+
+/** 一张指标卡：标题（点按切换排序）+ 大数值 + 迷你曲线 + 明细。 */
 @Composable
-private fun SummaryBar(
+private fun MetricCard(
     label: String,
-    fraction: Float,
-    text: String,
+    valueText: String,
+    detail: String,
+    history: List<Float>,
     accent: Color,
     onCard: Color,
+    selected: Boolean,
+    corePct: List<Float>,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val shape = containerShape(ItemCorner - WidgetInnerPadding)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(if (selected) accent.copy(alpha = 0.12f) else onCard.copy(alpha = 0.05f))
+            .then(if (enabled) Modifier.pressClickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 7.dp, vertical = 5.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) accent else onCard.copy(alpha = 0.65f),
+                maxLines = 1,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = valueText,
+                style = MaterialTheme.typography.titleSmall,
+                color = onCard,
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Sparkline(
+            history = history,
+            color = accent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(16.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        // 固定槽位：CPU 卡有每核细条、内存卡没有。以前直接 if (corePct.isNotEmpty())
+        // 少画 8dp，两张卡并排时高度不等。空态也占同高。
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(5.dp),
+        ) {
+            if (corePct.isNotEmpty()) {
+                CoreBars(
+                    cores = corePct,
+                    color = accent,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = detail.ifEmpty { "—" },
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.55f),
+            // 明细长短不一（内存带缓存 / Swap，CPU 带核数 / 频率 / 温度）：固定两行，
+            // 两张卡高度始终相等；大字体下也能换行读全，不再单行 Ellipsis。
+            minLines = 2,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** 紧凑排版下的一条指标：标题 + 细条 + 百分比，点按切换排序。 */
+@Composable
+private fun CompactMetricRow(
+    label: String,
+    fraction: Float,
+    valueText: String,
+    accent: Color,
+    onCard: Color,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = SysRowH)
+            .clip(containerShape(ItemCorner - WidgetInnerPadding))
+            .then(if (selected) Modifier.background(accent.copy(alpha = 0.10f)) else Modifier)
+            .then(if (enabled) Modifier.pressClickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = onCard.copy(alpha = 0.6f),
+            color = if (selected) accent else onCard.copy(alpha = 0.7f),
+            maxLines = 1,
         )
         Spacer(Modifier.width(6.dp))
         Box(
@@ -409,7 +566,7 @@ private fun SummaryBar(
         }
         Spacer(Modifier.width(6.dp))
         Text(
-            text = text,
+            text = valueText,
             style = MaterialTheme.typography.labelSmall,
             color = onCard,
             maxLines = 1,
@@ -417,26 +574,223 @@ private fun SummaryBar(
     }
 }
 
-/** 一行应用：图标 + 名称 + CPU% + 内存(RSS)。 */
+/** 迷你曲线：历史百分比折线 + 下方淡填充；不足两个点不画。 */
 @Composable
-private fun AppRow(app: AppUsage, onCard: Color) {
-    val context = LocalContext.current
-    // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 AppIconCache）。
-    val icon = rememberAppDrawable("app/${app.packageName}") {
-        AppIcons.drawable(context, app.packageName)
+private fun Sparkline(
+    history: List<Float>,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        if (history.size < 2) return@Canvas
+        val stepX = size.width / (SysHistorySize - 1).coerceAtLeast(1)
+        val startIndex = SysHistorySize - history.size
+        val points = history.mapIndexed { index, value ->
+            Offset(
+                x = (startIndex + index) * stepX,
+                y = size.height - value.coerceIn(0f, 1f) * size.height,
+            )
+        }
+        val area = Path().apply {
+            moveTo(points.first().x, size.height)
+            points.forEach { lineTo(it.x, it.y) }
+            lineTo(points.last().x, size.height)
+            close()
+        }
+        drawPath(area, color.copy(alpha = 0.12f))
+        val line = Path().apply {
+            moveTo(points.first().x, points.first().y)
+            points.drop(1).forEach { lineTo(it.x, it.y) }
+        }
+        drawPath(
+            path = line,
+            color = color,
+            style = Stroke(
+                width = 1.5.dp.toPx(),
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            ),
+        )
+        // 当前值圆点跟着最新一个样本（而不是按单值画，避免和曲线错位）。
+        drawCircle(color = color, radius = 1.5.dp.toPx(), center = points.last())
     }
-    val label = rememberAppLabel("label/${app.packageName}", app.packageName) {
-        runCatching {
-            context.packageManager.getApplicationLabel(
-                context.packageManager.getApplicationInfo(app.packageName, 0),
-            ).toString()
-        }.getOrNull()
+}
+
+/** 每核占用：一组竖向细条，高度 = 该核占用。 */
+@Composable
+private fun CoreBars(
+    cores: List<Float>,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        cores.forEach { pct ->
+            val level = pct.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.16f)),
+            ) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .fillMaxHeight(level)
+                        .background(color.copy(alpha = 0.85f)),
+                )
+            }
+        }
     }
-    val cpuText = if (app.cpuPct > 0f) "${app.cpuPct.roundToInt()}%" else "0%"
+}
+
+/** 列表头：应用数 + 名称排序 / 含系统应用 两个 36dp 图标按钮。 */
+@Composable
+private fun AppListHeader(
+    count: Int,
+    sort: SysSort,
+    includeSystem: Boolean,
+    onCard: Color,
+    accent: Color,
+    enabled: Boolean,
+    onToggleNameSort: () -> Unit,
+    onToggleSystem: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(SysRowH),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.grid_panel_sys_apps),
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.55f),
+            maxLines = 1,
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.4f),
+            maxLines = 1,
+        )
+        Spacer(Modifier.weight(1f))
+        IconToggle(
+            icon = Icons.Default.SortByAlpha,
+            description = stringResource(R.string.grid_panel_sys_sort_name),
+            active = sort == SysSort.NAME,
+            onCard = onCard,
+            accent = accent,
+            enabled = enabled,
+            onClick = onToggleNameSort,
+        )
+        IconToggle(
+            icon = Icons.Default.Android,
+            description = stringResource(R.string.grid_panel_sys_show_system),
+            active = includeSystem,
+            onCard = onCard,
+            accent = accent,
+            enabled = enabled,
+            onClick = onToggleSystem,
+        )
+    }
+}
+
+@Composable
+private fun IconToggle(
+    icon: ImageVector,
+    description: String,
+    active: Boolean,
+    onCard: Color,
+    accent: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(SysRowH)
+            .clip(CircleShape)
+            .then(if (enabled) Modifier.pressClickable(onClick = onClick) else Modifier)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (active) accent else onCard.copy(alpha = 0.4f),
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+/** 未授权提示：说明「应用占用需要 Shizuku」并给出授权入口。 */
+@Composable
+private fun GrantHintRow(
+    enabled: Boolean,
+    accent: Color,
+    onCard: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = SysRowH)
+            .then(if (enabled) Modifier.pressClickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Speed,
+            contentDescription = null,
+            tint = accent.copy(alpha = 0.8f),
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(R.string.grid_panel_sys_need_shizuku),
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.7f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(R.string.grid_panel_sys_grant),
+            style = MaterialTheme.typography.labelSmall,
+            color = accent,
+            maxLines = 1,
+        )
+    }
+}
+
+/** 一行应用：图标 + 名称 + CPU% + 内存；点按打开系统应用详情。 */
+@Composable
+private fun AppRow(
+    app: AppProcessUsage,
+    accent: Color,
+    onCard: Color,
+    enabled: Boolean,
+    onOpenDetails: () -> Unit,
+) {
+    val context = LocalContext.current
+    val iconKey = "app/${app.userId}/${app.packageName}"
+    val icon = rememberAppDrawable(iconKey) {
+        AppIcons.drawable(context, app.packageName, userId = app.userId)
+    }
+    val isSelf = app.uid == android.os.Process.myUid()
+    val cpuText = if (app.cpuPct >= 0.5f) "${app.cpuPct.roundToInt()}%" else "—"
+    val memText = formatKb(app.memKb)
+    val rowDesc = stringResource(R.string.grid_panel_sys_row_desc, app.label, cpuText, memText)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = SysRowH)
+            .then(if (enabled) Modifier.pressClickable(onClick = onOpenDetails) else Modifier)
+            .semantics { contentDescription = rowDesc }
+            .padding(horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
@@ -454,38 +808,32 @@ private fun AppRow(app: AppUsage, onCard: Color) {
                 modifier = Modifier.size(SysIconSize),
             )
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         Text(
-            text = label,
+            text = app.label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
-            color = onCard,
+            color = if (isSelf) accent else onCard,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.width(6.dp))
         Text(
             text = cpuText,
+            modifier = Modifier.width(SysCpuColW),
             style = MaterialTheme.typography.labelSmall,
-            color = onCard.copy(alpha = 0.8f),
+            color = onCard.copy(alpha = if (cpuText == "—") 0.35f else 0.8f),
+            textAlign = TextAlign.End,
             maxLines = 1,
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         Text(
-            text = fmtKb(app.rssKb),
+            text = memText,
+            modifier = Modifier.width(SysMemColW),
             style = MaterialTheme.typography.labelSmall,
             color = onCard,
+            textAlign = TextAlign.End,
             maxLines = 1,
         )
-    }
-}
-
-/** kB → 可读尺寸：<1G 用 M，否则 G（一位小数）。 */
-private fun fmtKb(kb: Long): String {
-    val mb = kb / 1024f
-    return if (mb >= 1024f) {
-        String.format(Locale.US, "%.1fG", mb / 1024f)
-    } else {
-        "${mb.roundToInt()}M"
     }
 }

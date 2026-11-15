@@ -296,6 +296,8 @@ object PanelWidgetRegistry {
                 SysMonitorCell(
                     modifier = scope.modifier,
                     enabled = scope.enabled,
+                    params = scope.params,
+                    onUpdateParams = scope.onUpdateParams,
                 )
             },
         )

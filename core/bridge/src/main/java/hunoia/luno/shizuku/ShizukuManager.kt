@@ -1,5 +1,6 @@
 package hunoia.luno.shizuku
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -217,6 +218,54 @@ object ShizukuManager {
         val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE) ?: return false
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    // ---- 进程内存 ----
+
+    @Volatile
+    private var pssUnavailableLogged = false
+
+    /**
+     * 当前用户各运行进程的 PSS（kB），`pid → PSS`；失败 / 无权限返回 null。
+     *
+     * 为什么不用 `/proc/<pid>/smaps_rollup`：跨 uid 读 smaps 受 ptrace 权限限制，shell
+     * 也会被拒（只有 `status` 这类 0444 文件能读，所以直接采样只能拿到 VmRSS）。
+     * 走 AMS 的 `getProcessPss` 由 system_server 代读，结果与系统任务管理器同口径。
+     *
+     * pid 先取 `getRunningAppProcesses` 的结果：`getProcessPss` 对不在 AMS 进程表里的
+     * pid 会解引用空 proc（init 起的原生服务同样 uid ≥ 1000，不能拿 `/proc` 全量硬塞）。
+     * shell 持有 REAL_GET_TASKS，这两个接口在 shell 身份下可用；任何异常都当不可用。
+     */
+    fun processPssByPid(): Map<Int, Long>? {
+        if (!hasPermission()) return null
+        // 两次：getRunningAppProcesses 与 getProcessPss 之间进程刚好退出，AMS 那边会对
+        // 空 proc 解引用而抛异常。再取一次新列表基本就恢复；连续失败才当不可用。
+        repeat(2) {
+            val result = runCatching {
+                val running = HiddenApiBypass.invoke(
+                    amProxy::class.java, amProxy, "getRunningAppProcesses",
+                ) as? List<*> ?: return@runCatching null
+                val pids = running.mapNotNull {
+                    (it as? ActivityManager.RunningAppProcessInfo)?.pid
+                }.toIntArray()
+                if (pids.isEmpty()) return@runCatching emptyMap()
+                val pss = HiddenApiBypass.invoke(
+                    amProxy::class.java, amProxy, "getProcessPss", pids,
+                ) as? LongArray ?: return@runCatching null
+                val map = HashMap<Int, Long>(pids.size)
+                pids.forEachIndexed { index, pid ->
+                    val kb = pss.getOrNull(index) ?: 0L
+                    if (kb > 0L) map[pid] = kb
+                }
+                map
+            }.getOrNull()
+            if (result != null) return result
+        }
+        if (!pssUnavailableLogged) {
+            pssUnavailableLogged = true
+            hunoia.luno.core.LunoLog.w("ShizukuManager", "getProcessPss unavailable, fallback to VmRSS")
+        }
+        return null
     }
 
     // ---- Shell Execution ----

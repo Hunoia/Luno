@@ -37,21 +37,13 @@ class EdgeAutoScroll(
             stop()
             return
         }
-        val dir = when {
-            pointerY < bandPx -> -1
-            pointerY > viewport - bandPx -> 1
-            else -> 0
-        }
-        if (dir == 0) {
+        val signed = edgeScrollAt(viewport.toFloat(), pointerY, bandPx)
+        if (signed == null) {
             stop()
             return
         }
-        val depth = if (dir < 0) {
-            bandPx - pointerY
-        } else {
-            pointerY - (viewport - bandPx)
-        }
-        currentStep = maxStepPx * (depth / bandPx).coerceIn(0.25f, 1f)
+        val dir = if (signed < 0f) -1 else 1
+        currentStep = maxStepPx * kotlin.math.abs(signed)
         if (target === scroll && direction == dir && page == pageIndex) return
         job?.cancel()
         target = scroll
@@ -80,4 +72,23 @@ class EdgeAutoScroll(
         page = -1
         currentStep = 0f
     }
+}
+
+/**
+ * 边缘自动滚动的力道：负 = 向上，正 = 向下，null = 不在边缘。
+ *
+ * 带宽按可视高收窄到 **45%**：面板缩到只容一行时（viewport < 2×band）上下两条带会
+ * 叠在一起，`pointerY < band` 永远先命中上滚，于是拖到底部也只能往上滚，底部两行
+ * 永远拖不到。收窄后始终留出 10% 可视高的不滚死区。
+ */
+internal fun edgeScrollAt(viewport: Float, pointerY: Float, bandPx: Float): Float? {
+    if (viewport <= 0f || bandPx <= 0f) return null
+    val band = minOf(bandPx, viewport * 0.45f)
+    val depth = when {
+        pointerY < band -> (band - pointerY) / band
+        pointerY > viewport - band -> (pointerY - (viewport - band)) / band
+        else -> return null
+    }
+    val strength = depth.coerceIn(0.25f, 1f)
+    return if (pointerY < band) -strength else strength
 }

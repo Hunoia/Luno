@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -62,8 +64,8 @@ import hunoia.luno.ui.component.PressIconButton
  * `ClipboardCapture` 在常驻服务里统一做，本部件打开时补一次幂等 [ClipboardCenter.refresh]。
  *
  * 内外滚动约定：列表纵向滚动归本部件（`LazyColumn` 内嵌在面板的 `verticalScroll`
- * 里，Compose 嵌套滚动会在内层滚到底后把剩余拖动交给面板）；横向滑动不消费，
- * 留给面板翻页。
+ * 里）。拖到边界后的剩余**拖动**仍交给面板（可以继续滑面板），但 fling 到边界后
+ * 的剩余**惯性**由 [PanelFlingGate] 吃掉，不再带着面板跑；横向滑动不消费，留给翻页。
  */
 @Composable
 fun ClipboardPageCell(
@@ -124,8 +126,17 @@ fun ClipboardPageCell(
     val imageLabel = stringResource(R.string.grid_panel_clipboard_image)
     // 固定项永远排在前面：并入剪贴板后它就是「随手可取」的那一组。
     val ordered = history.pinned + history.unpinned
+    val listState = rememberLazyListState()
+    // 只拦惯性：列表 fling 到边后剩余速度不再带动面板；直接拖到边界仍会滑面板。
+    val flingGate = remember(listState) {
+        PanelFlingGate { listState.canScrollBackward || listState.canScrollForward }
+    }
     LazyColumn(
-        modifier = modifier.fillMaxSize().padding(outerPadding),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(outerPadding)
+            .nestedScroll(flingGate),
+        state = listState,
         contentPadding = PaddingValues(vertical = 2.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
         // 编辑态禁用内部滚动：否则在部件上拖会滚列表而不拖项。
