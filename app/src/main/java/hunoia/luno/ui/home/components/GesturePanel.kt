@@ -38,9 +38,8 @@ import hunoia.luno.gesture.settings.global.globalZoneLabel
 import hunoia.luno.ui.component.buttonTextCompose
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.component.row.groupItemSpacing
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.BadgeIconSize
 import hunoia.luno.ui.theme.toMarkColor
@@ -55,6 +54,7 @@ enum class GesturePanelSection {
     SubGesture,
     GlobalZone,
 }
+
 @Composable
 fun GesturePanel(
     gestureButtons: List<GestureButton>,
@@ -76,22 +76,34 @@ fun GesturePanel(
     onGestureButtonRename: (GestureButton) -> Unit = {},
     onSubGestureRename: (SubGesture) -> Unit = {},
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(ListSpacing),
-    ) {
+    // 三个分区在同一张组卡里连续编号。分区头与展开行都按「组内第几项」取形状，
+    // 大卡分割线风格才能在每个分区头 / 行上方画线；不能每个分区各自从 0 重排。
+    // 展开态同一时间只有一个分区（expandedSection 单值），行数只算展开的那个。
+    val expandedRowCount = when (expandedSection) {
+        GesturePanelSection.TouchButton -> gestureButtons.size
+        GesturePanelSection.SubGesture -> subGestures.size
+        GesturePanelSection.GlobalZone -> globalZones.size
+        null -> 0
+    }
+    val groupItemCount = 3 + expandedRowCount
+    val touchHeaderIndex = 0
+    val subHeaderIndex = touchHeaderIndex + 1 +
+        if (expandedSection == GesturePanelSection.TouchButton) gestureButtons.size else 0
+    val zoneHeaderIndex = subHeaderIndex + 1 +
+        if (expandedSection == GesturePanelSection.SubGesture) subGestures.size else 0
+
+    LunoGroup(title = stringResource(R.string.home_section_gesture)) {
         GestureSection(
             title = stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
             addContentDescription = stringResource(id = R.string.add_gesture_button),
             expanded = expandedSection == GesturePanelSection.TouchButton,
-            itemCount = gestureButtons.size,
+            index = touchHeaderIndex,
+            count = groupItemCount,
             onExpandedChange = { expanded ->
-                onExpandedChange(
-                    if (expanded) GesturePanelSection.TouchButton else null
-                )
+                onExpandedChange(if (expanded) GesturePanelSection.TouchButton else null)
             },
             onAdd = onAddGesture,
-        ) {
+        ) { rowStart ->
             gestureButtons.fastForEachIndexed { index, button ->
                 key(button.id) {
                     val markColor = button.colorSpec.toMarkColor()
@@ -100,7 +112,7 @@ fun GesturePanel(
                         checked = button.enabled,
                         onCheckedChange = { onGestureCheckedChange(button, it) },
                         onClick = { onGestureButtonClick(button) },
-                        shape = segmentedShape(index + 1, gestureButtons.size + 1),
+                        shape = segmentedShape(rowStart + index, groupItemCount),
                         leading = {
                             Row(
                                 // Row 默认 Top 对齐，颜色圆(20dp) 与铅笔(24dp) 高度不同会错位，显式居中。
@@ -124,14 +136,13 @@ fun GesturePanel(
             title = stringResource(id = hunoia.luno.gesture.R.string.sub_gesture),
             addContentDescription = stringResource(id = R.string.add_sub_gesture),
             expanded = expandedSection == GesturePanelSection.SubGesture,
-            itemCount = subGestures.size,
+            index = subHeaderIndex,
+            count = groupItemCount,
             onExpandedChange = { expanded ->
-                onExpandedChange(
-                    if (expanded) GesturePanelSection.SubGesture else null
-                )
+                onExpandedChange(if (expanded) GesturePanelSection.SubGesture else null)
             },
             onAdd = onAddSub,
-        ) {
+        ) { rowStart ->
             subGestures.fastForEachIndexed { index, gesture ->
                 key(gesture.id) {
                     LunoSwitchRow(
@@ -139,7 +150,7 @@ fun GesturePanel(
                         checked = gesture.enabled,
                         onCheckedChange = { onSubCheckedChange(gesture, it) },
                         onClick = { onSubGestureClick(gesture.id) },
-                        shape = segmentedShape(index + 1, subGestures.size + 1),
+                        shape = segmentedShape(rowStart + index, groupItemCount),
                         leading = {
                             Row(
                                 // 同上：显式居中，避免颜色圆与铅笔错位。
@@ -166,14 +177,13 @@ fun GesturePanel(
             title = stringResource(id = hunoia.luno.gesture.R.string.gesture_global_zone),
             addContentDescription = stringResource(id = hunoia.luno.gesture.R.string.gesture_global_zone_add),
             expanded = expandedSection == GesturePanelSection.GlobalZone,
-            itemCount = globalZones.size,
+            index = zoneHeaderIndex,
+            count = groupItemCount,
             onExpandedChange = { expanded ->
-                onExpandedChange(
-                    if (expanded) GesturePanelSection.GlobalZone else null
-                )
+                onExpandedChange(if (expanded) GesturePanelSection.GlobalZone else null)
             },
             onAdd = onAddGlobalZone,
-        ) {
+        ) { rowStart ->
             globalZones.fastForEachIndexed { index, zone ->
                 key(zone.id) {
                     LunoSwitchRow(
@@ -181,7 +191,7 @@ fun GesturePanel(
                         checked = zone.enabled,
                         onCheckedChange = { onGlobalZoneCheckedChange(zone, it) },
                         onClick = { onGlobalZoneClick(zone.id) },
-                        shape = segmentedShape(index + 1, globalZones.size + 1),
+                        shape = segmentedShape(rowStart + index, groupItemCount),
                         leading = {
                             RenameIcon(onClick = { onGlobalZoneRename(zone) })
                         },
@@ -191,22 +201,32 @@ fun GesturePanel(
         }
     }
 }
+
+/**
+ * 一个可折叠分区：组头 + 展开后的行。
+ *
+ * [index] / [count] 是**整组**里的位置（不是本分区内），展开行的起始位置是
+ * `index + 1`。这样组内分割线与首尾圆角跨分区连续。
+ */
 @Composable
 private fun GestureSection(
     title: String,
     addContentDescription: String,
     expanded: Boolean,
-    itemCount: Int,
+    index: Int,
+    count: Int,
     onExpandedChange: (Boolean) -> Unit,
     onAdd: () -> Unit,
-    content: @Composable () -> Unit,
+    content: @Composable (rowStart: Int) -> Unit,
 ) {
-    val totalItems = if (expanded) itemCount + 1 else 1
-    LunoGroup {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(groupItemSpacing()),
+    ) {
         LunoSettingsRow(
             title = title,
             onClick = { onExpandedChange(!expanded) },
-            shape = segmentedShape(0, totalItems),
+            shape = segmentedShape(index, count),
             leading = { SectionArrow(expanded = expanded) },
             trailing = {
                 SmallIconAction(
@@ -224,8 +244,11 @@ private fun GestureSection(
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut(),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
-                content()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(groupItemSpacing()),
+            ) {
+                content(index + 1)
             }
         }
     }

@@ -156,10 +156,12 @@ internal fun ActionPage(
     val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
     // 应用区按字母分节，每个应用行各自可展开；不再有顶层「应用 / 快捷方式」两个折叠组。
     var settingsAction by remember { mutableStateOf<StoredAction?>(null) }
-    /** 已展开的组 key；进页时只自动展开包含当前选中项的组。转屏保持。 */
-    var expandedGroups by rememberSaveable { mutableStateOf(emptyList<String>()) }
-    /** 已展开的应用行（按 [AppShortcutEntry.rowKey]）：快捷方式挂在应用下方。 */
-    var expandedApps by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    /**
+     * 当前展开的行：预设变体组与应用的快捷方式行**全局互斥**，同一时间最多展开一个。
+     * 值带前缀（`g:` 组 / `a:` 应用），两类 key 来源不同也不会撞。
+     * 进页时只自动展开包含当前选中项的那一个；搜索态则全部展开（不读这里）。
+     */
+    var expandedKey by rememberSaveable { mutableStateOf("") }
     settingsAction?.let { editing ->
         ActionRowSettingsSheet(
             action = editing,
@@ -302,9 +304,7 @@ internal fun ActionPage(
                     .toSet()
             }
             LaunchedEffect(selectedGroupKeys) {
-                if (selectedGroupKeys.isNotEmpty()) {
-                    expandedGroups = (expandedGroups + selectedGroupKeys).distinct()
-                }
+                selectedGroupKeys.firstOrNull()?.let { expandedKey = "g:$it" }
             }
             val filteredLibraryEntries = remember(actionLibraryEntries, query, type) {
                 if (type == TYPE_WIDGET) {
@@ -454,7 +454,8 @@ internal fun ActionPage(
             var didInitialAppJump by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(appSections, selectedAppKey) {
                 if (selectedAppKey == null) return@LaunchedEffect
-                expandedApps = (expandedApps + selectedAppKey).distinct()
+                // 与预设变体组互斥：进页 / 选中快捷方式时只留这一个应用展开。
+                expandedKey = "a:$selectedAppKey"
                 if (didInitialAppJump) return@LaunchedEffect
                 val sectionIndex = appSections.indexOfFirst { section ->
                     section.items.any { it.rowKey == selectedAppKey }
@@ -561,7 +562,7 @@ internal fun ActionPage(
                                             // 分类内累计行号：大卡分割线靠 shape 自带的位置判断上方是否还有行。
                                             var rowIndex = 0
                                             nodes.filterIsInstance<PickerNode.Group>().forEach { node ->
-                                                val expanded = node.group.key in expandedGroups
+                                                val expanded = expandedKey == "g:${node.group.key}"
                                                 val childFlags = node.children.map { selectedRecord.isSelected(it) }
                                                 // 组行与子项共用同一分段块：行数 = 1（组行）+ 展开后的子项数。
                                                 val rowCount = if (expanded) node.children.size + 1 else 1
@@ -600,10 +601,10 @@ internal fun ActionPage(
                                                         bottomEnd = bottomRadius,
                                                     ).shape(index = groupRowIndex),
                                                     onToggle = {
-                                                        expandedGroups = if (expanded) {
-                                                            expandedGroups - node.group.key
+                                                        expandedKey = if (expanded) {
+                                                            ""
                                                         } else {
-                                                            expandedGroups + node.group.key
+                                                            "g:${node.group.key}"
                                                         }
                                                     },
                                                 )
@@ -772,7 +773,7 @@ internal fun ActionPage(
                                     var rowIndex = 0
                                     section.items.forEach { entry ->
                                         val expanded = entry.hasChildren &&
-                                            (query.isNotBlank() || entry.rowKey in expandedApps)
+                                            (query.isNotBlank() || expandedKey == "a:${entry.rowKey}")
                                         AppShortcutBlock(
                                             index = rowIndex,
                                             entry = entry,
@@ -785,10 +786,10 @@ internal fun ActionPage(
                                             onAppLongClick = onAppLongClick,
                                             onShortcutClick = onShortcutClick,
                                             onToggleExpanded = {
-                                                expandedApps = if (expanded) {
-                                                    expandedApps - entry.rowKey
+                                                expandedKey = if (expanded) {
+                                                    ""
                                                 } else {
-                                                    expandedApps + entry.rowKey
+                                                    "a:${entry.rowKey}"
                                                 }
                                             },
                                         )
