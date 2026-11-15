@@ -1,6 +1,6 @@
 package hunoia.luno.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,19 +19,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -54,6 +58,8 @@ import hunoia.luno.ui.theme.LetterIndexTouchWidth
 import hunoia.luno.ui.theme.MotionPress
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 
 /**
  * 索引条的一个条目（字母 / ⭐ 之类的固定落点）。
@@ -98,7 +104,7 @@ data class IndexBarMetrics(
  * 按可用高度与实测字高选窗口大小。两条策略：
  *
  * 1. **全显优先**：高度够把所有条目一次画完时（选择页全屏、全屏抽屉），窗口 = 全部条目，
- *    不用按住滑，一眼看到所有落点；
+ *    条带不滚动、整块居中排开，一眼看到所有落点；
  * 2. 否则退回「字母更大」的跟手窗口：条目高 ≥ [LetterIndexIdealItemHeight] 时从 3 个
  *    往 [MaxWindow] 加，再高也只放大到 [LetterIndexItemMaxHeight]。
  *
@@ -205,10 +211,18 @@ private fun metricsOf(
 
 /**
  * 列表的索引条：**高度够就把所有条目一次画完**（全屏选择页常见），不够时只显示当前
- * 附近的 3–7 个条目，窗口跟手滑动，进出窗口的条目按距离渐隐；当前条目另有气泡
+ * 附近的 3–7 个条目，进出窗口的条目按距离渐隐；按压时另有气泡报出正中那一项
  * （手指压着的地方看不到字）。
  *
- * 映射仍是「整条高度比例取条目」：拖满全高走完首项→末项，因此快速跳转不需要长距离拖动。
+ * **窗口模式下选中位永远在条中心**：条目绕着固定的 [IndexBar] 中心滚，滚动的是拼音，
+ * 选中位不跟手跑；全显模式下条目整块排开，选中位就落在条目自己身上。
+ * - 点按（未过 touch slop）：**点哪个条目选哪个**——窗口模式按条目间距反推手指处的下标，
+ *   全显模式按整条高度比例落位；点得越快越准，不用先拖到眼前。
+ * - 拖动（过 slop 之后）：相对拖动，按下不跳，位移换算成条目位移——下滑条带向上（往 Z）、
+ *   上滑往 A，与「把条带往下拉」的直觉相反，是因为选中位固定在中心、移动的是条带本身。
+ *   窗口模式整条高 = 首项→末项（小窗口也能一条高扫完整段）；全显时条目铺满整条，
+ *   按一个条目高 = 一个字母 1:1 跟手，高亮就跟在手指下。
+ *
  * 显示吸附到整条目——位置动画走 [MotionPress]，不会停在两个条目中间。
  *
  * 只接受实际存在的条目（由调用方传入），所以每次跳转都有落点。
@@ -226,24 +240,32 @@ fun IndexBar(
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty() || !metrics.visible) return
-    val density = LocalDensity.current
     val scheme = MaterialTheme.colorScheme
     val currentJump by rememberUpdatedState(onJump)
-    // -1 = 未按压：窗口回到当前条目。
-    var pressedIndex by remember(entries) { mutableIntStateOf(-1) }
-    // 按压点（px）。跟手滑动时窗口贴着指尖，不用条目下标反推位置。
-    var fingerYPx by remember { mutableFloatStateOf(Float.NaN) }
+    var pressed by remember(entries) { mutableStateOf(false) }
 
     val idleIndex = remember(entries, activeKey) {
         entries.indexOfFirst { it.key == activeKey }.takeIf { it >= 0 } ?: 0
     }
-    val targetIndex = if (pressedIndex >= 0) pressedIndex else idleIndex
-    val animatedPos by animateFloatAsState(
-        targetValue = targetIndex.toFloat(),
-        animationSpec = tween(MotionPress),
-        label = "indexBarPos",
-    )
-    val currentIndex = animatedPos.roundToInt()
+    // 条带位置（条目下标，可带小数）。按压期间由手势直接驱动，松手再吸附回当前条目。
+    var stripPos by remember(entries) { mutableFloatStateOf(idleIndex.toFloat()) }
+    LaunchedEffect(idleIndex, pressed) {
+        // 按压期间手势拿着位置，别让回弹动画跟手指抢（动画重启晚一帧也别把它写回去）。
+        if (pressed) return@LaunchedEffect
+        animate(stripPos, idleIndex.toFloat(), animationSpec = tween(MotionPress)) { value, _ ->
+            if (!pressed) stripPos = value
+        }
+    }
+    val currentIndex = stripPos.roundToInt().coerceIn(0, entries.lastIndex)
+    // 跨字母轻振：只在按压拖动期间触发，松手回弹不震。
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(entries, pressed) {
+        if (!pressed) return@LaunchedEffect
+        snapshotFlow { stripPos.roundToInt() }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -252,17 +274,11 @@ fun IndexBar(
     ) {
         val barHeight = maxHeight
         val itemHeight = metrics.itemHeight
-        val windowHeight = itemHeight * metrics.windowCount
-        val halfWindow = windowHeight / 2
-        // 锚点 = 窗口中心（指尖位置）。夹住窗口，别让首尾条目被条边界裁掉。
-        val anchorRaw = if (pressedIndex >= 0 && !fingerYPx.isNaN()) {
-            with(density) { fingerYPx.toDp() }
-        } else {
-            barHeight / 2
-        }
-        val anchorMin = halfWindow
-        val anchorMax = (barHeight - halfWindow).coerceAtLeast(anchorMin)
-        val anchorY = anchorRaw.coerceIn(anchorMin, anchorMax)
+        // 全显：窗口 = 全部条目，条带不滚，整块垂直居中排开——真能「一眼看到所有落点」。
+        val fullDisplay = metrics.windowCount == entries.size
+        val stripTop = ((barHeight - itemHeight * entries.size) / 2).coerceAtLeast(0.dp)
+        // 窗口：锚点固定在条中心。滑动的是拼音，选中位置永远居中。
+        val centerY = barHeight / 2
         // 窗口边缘 0.5 个条目宽为渐隐带：进出窗口的条目连续淡入淡出，不会突然蹦出来。
         val half = (metrics.windowCount - 1) / 2f
 
@@ -272,50 +288,77 @@ fun IndexBar(
                 .clipToBounds()
                 .pointerInput(entries, itemHeight) {
                     val barHeightPx = size.height.toFloat()
+                    val itemHeightPx = itemHeight.toPx()
+                    val count = entries.size
+                    // 拖动灵敏度：窗口模式整条高 = 首项→末项（小窗口也能一条高扫完）；
+                    // 全显时条目铺满整条，按一个条目高 = 一个字母 1:1 跟手，高亮不会比手指快。
+                    val entriesPerPx = if (fullDisplay) 1f / itemHeightPx else count / barHeightPx
+                    val slop = viewConfiguration.touchSlop
+                    // 点按落位：手指指着哪个条目就选哪个，不能按整条高比例硬套——
+                    // 窗口模式屏上只排了 3–7 个条目，按整条高比例会把「点 C」才算到 N。
+                    // 全显模式条目铺满整条，按比例取下标正好就是手指下那一个。
+                    fun pickAt(pos: Float, base: Float): Int = if (fullDisplay) {
+                        val fraction = (pos / barHeightPx).coerceIn(0f, 0.9999f)
+                        (fraction * count).toInt().coerceIn(0, entries.lastIndex)
+                    } else {
+                        val rel = (pos - barHeightPx / 2f) / itemHeightPx
+                        (base + rel).roundToInt().coerceIn(0, entries.lastIndex)
+                    }
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        // 整条高度均分给所有条目：按比例取条目，拖满全高即走完首项→末项。
-                        fun pick(y: Float): Int {
-                            val fraction = (y / barHeightPx).coerceIn(0f, 0.9999f)
-                            return (fraction * entries.size).toInt().coerceIn(0, entries.lastIndex)
-                        }
+                        down.consume()
+                        // 起手位置就是当前落位：没过 slop 当点按（松手才跳），过了 slop 从这一点相对拖动。
+                        val startPos = stripPos
+                        val startY = down.position.y
+                        var index = startPos.roundToInt().coerceIn(0, entries.lastIndex)
+                        pressed = true
                         try {
-                            var index = pick(down.position.y)
-                            pressedIndex = index
-                            fingerYPx = down.position.y
-                            currentJump(entries[index])
-                            down.consume()
+                            var dragged = false
                             val pointerId = down.id
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == pointerId } ?: break
                                 if (!change.pressed) break
-                                // 先跟手：锚点用原始指尖位置，显示位置另有吸附动画。
-                                fingerYPx = change.position.y
-                                val next = pick(change.position.y)
-                                if (next != index) {
-                                    index = next
-                                    pressedIndex = next
-                                    currentJump(entries[next])
+                                if (!dragged && abs(change.position.y - startY) > slop) dragged = true
+                                if (dragged) {
+                                    // 位移换算成条目位移：下滑 → 下标增大 → 条带向上滚（往 Z）。
+                                    val pos = (startPos + (change.position.y - startY) * entriesPerPx)
+                                        .coerceIn(0f, entries.lastIndex.toFloat())
+                                    stripPos = pos
+                                    val next = pos.roundToInt()
+                                    if (next != index) {
+                                        index = next
+                                        currentJump(entries[next])
+                                    }
                                 }
                                 change.consume()
                             }
+                            if (!dragged) {
+                                val target = pickAt(startY, startPos)
+                                stripPos = target.toFloat()
+                                if (target != index) currentJump(entries[target])
+                            }
                         } finally {
                             // 手势被取消（切编辑态 / 父级抢事件）也要收气泡，不留残影。
-                            pressedIndex = -1
-                            fingerYPx = Float.NaN
+                            pressed = false
                         }
                     }
                 },
         ) {
             entries.forEachIndexed { i, entry ->
-                val rel = i - animatedPos
-                val alpha = ((half + 0.5f - abs(rel)) / 0.5f).coerceIn(0f, 1f)
+                val rel = i - stripPos
+                val alpha = if (fullDisplay) 1f else ((half + 0.5f - abs(rel)) / 0.5f).coerceIn(0f, 1f)
                 if (alpha <= 0.01f) return@forEachIndexed
                 val active = i == currentIndex
                 Box(
                     modifier = Modifier
-                        .offset(y = anchorY + itemHeight * rel - itemHeight / 2)
+                        .offset(
+                            y = if (fullDisplay) {
+                                stripTop + itemHeight * i
+                            } else {
+                                centerY + itemHeight * rel - itemHeight / 2
+                            },
+                        )
                         .fillMaxWidth()
                         .height(itemHeight)
                         // 读屏用户没法按住扫，给每个条目一条点击动作：语义节点不影响拖拽。
@@ -335,11 +378,16 @@ fun IndexBar(
                 }
             }
         }
-        if (pressedIndex >= 0) {
-            // 手指压住的条目在窗口里也看不到，气泡单独再报一次。
+        if (pressed) {
+            // 气泡报的是**正中那一项**（全显模式下是当前高亮项），不是指尖位置：
+            // 相对拖动下指尖跟选中项已经没有固定关系，跟着指尖跑只会对不上字。
             // 气泡必须画在**裁切视口之外**：它朝列表内侧溢出，画在里面会被 clipToBounds 整颗吃掉。
-            // 位置贴原始指尖（窗口为了不被裁会内收，气泡才是"你在这里"）。
-            val bubbleY = (with(density) { fingerYPx.toDp() } - LetterIndexBubbleSize / 2)
+            val bubbleCenter = if (fullDisplay) {
+                stripTop + itemHeight * (stripPos + 0.5f)
+            } else {
+                centerY
+            }
+            val bubbleY = (bubbleCenter - LetterIndexBubbleSize / 2)
                 .coerceIn(0.dp, (barHeight - LetterIndexBubbleSize).coerceAtLeast(0.dp))
             Surface(
                 shape = CircleShape,
@@ -348,10 +396,12 @@ fun IndexBar(
                 modifier = Modifier
                     .offset(
                         // 气泡永远朝列表内侧溢出：贴边滑杆在单元格被裁圆角，朝外会切掉半张。
+                        // 两侧必须镜像到**杆外侧**：Start 写成 +gap 会让 40dp 的气泡压在 28dp
+                        // 的杆上、正好顶在手指底下（左侧「贴手」、右侧正常的根因）。
                         x = if (side == IndexBarSide.End) {
                             -LetterIndexBubbleSize - LetterIndexBubbleGap
                         } else {
-                            LetterIndexBubbleGap
+                            metrics.barWidth + LetterIndexBubbleGap
                         },
                         y = bubbleY,
                     )
@@ -359,7 +409,7 @@ fun IndexBar(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     IndexBarItemContent(
-                        entry = entries[pressedIndex],
+                        entry = entries[currentIndex],
                         active = true,
                         style = MaterialTheme.typography.titleMedium,
                     )

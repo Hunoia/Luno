@@ -135,7 +135,8 @@ val AppSectionHeaderTopPadding = 6.dp
 val AppSectionHeaderBottomPadding = 2.dp
 val AppSectionHeaderIconSize = 16.dp
 
-// 字母索引条（应用抽屉边缘滑杆）：只显示当前附近 3–7 个字母，窗口跟手滑动。
+// 字母索引条（应用抽屉边缘滑杆）：高度够时整条全显，放不下只显示当前附近 3–7 个字母；
+// 选中位固定在条中心、滑动的是字母条本身（气泡贴在选中位内侧）。
 // 条目高 = 可用高 / 字母数，夹在实测字高（字形不被裁剪）与 ItemMaxHeight 之间；
 // 连三个完整字母都放不下就整条隐藏（宁可没有滑杆，也不给一排裁掉半截的字）。
 val LetterIndexTouchWidth = 28.dp
@@ -145,6 +146,36 @@ val LetterIndexItemVerticalPadding = 2.dp
 val LetterIndexHorizontalPadding = 4.dp
 val LetterIndexBubbleSize = 40.dp
 val LetterIndexBubbleGap = 4.dp
+
+// 动作选择页底部字母拨盘（LetterDial）：收起一行 / 按压展开成圆盘，
+// 字母贴圆周、指针在正上方。展开盘只画指针附近的窗口个字母。
+val LetterDialRowHeight = 30.dp
+val LetterDialRowItemWidth = 30.dp
+const val LetterDialRowVisibleCount = 5
+// 展开态：一大段圆弧（圆心远在屏幕下方），只在屏上露出顶部一段弧；
+// 弧顶相对底栏上线抬高 LetterDialApexRise；弧上总槽位 LetterDialArcVisibleCount，
+// 两端渐隐后清晰可见约 7 个。字母落在弧线内侧（朝圆心），不压在线上。
+val LetterDialApexRise = 96.dp
+const val LetterDialArcVisibleCount = 9
+val LetterDialArcBandWidth = 18.dp
+val LetterDialLetterInset = 26.dp
+// 收起态那一行距底栏留出的空隙，避免看起来压在底栏上。
+val LetterDialBarGap = 12.dp
+val LetterDialPointerWidth = 14.dp
+val LetterDialPointerHeight = 8.dp
+// 拖动灵敏度：按滑动速度分配，慢拖细、快拖粗。
+// 速度在 slow..fast（dp/ms）之间时，增益从 slow 线性升到 fast。
+const val LetterDialDragGainSlow = 0.55f
+const val LetterDialDragGainFast = 1.6f
+const val LetterDialDragSpeedSlow = 0.03f
+const val LetterDialDragSpeedFast = 0.5f
+// 贴边自动滚：左右各 30% 屏宽为触发带；带内越靠边、滑得越快则越快，
+// 满速 0.42 字母/帧 ≈ 25 字母/秒；停住时降到 floor 倍底速，仍持续滚。
+const val LetterDialEdgeBandFraction = 0.30f
+const val LetterDialEdgeSpeedMax = 0.42f
+const val LetterDialEdgeSpeedFloor = 0.4f
+// 列表自身滚动（拖 / fling）收起拨盘；拨盘刚跳转后的短暂 scroll-in-progress 不算。
+const val LetterDialCollapseGraceMillis = 200L
 
 // 键盘：行间距与键间距共用一个值
 val KeyboardGap = 6.dp

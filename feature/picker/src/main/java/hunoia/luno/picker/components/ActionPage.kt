@@ -17,24 +17,19 @@ import androidx.compose.foundation.layout.Arrangement
 import android.appwidget.AppWidgetProviderInfo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ExpandMore
@@ -46,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -103,10 +99,8 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedCorners
 import hunoia.luno.ui.component.SheetGroupHeader
-import hunoia.luno.ui.component.IndexBar
 import hunoia.luno.ui.component.IndexBarEntry
-import hunoia.luno.ui.component.IndexBarSide
-import hunoia.luno.ui.component.rememberIndexBarMetrics
+import hunoia.luno.ui.component.LetterDial
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.PressIconButton
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
@@ -222,6 +216,10 @@ internal fun ActionPage(
             label = "actionType",
         ) { type ->
             val listState = rememberLazyListState()
+            // 只取翻转值：列表滚动/停止状态用于让字母拨盘自动收起。
+            val listScrollInProgress by remember(listState) {
+                derivedStateOf { listState.isScrollInProgress }
+            }
             // 搜索词变化不换类型、不触发切换动画，但仍要回到列表顶部
             LaunchedEffect(query) {
                 if (listState.firstVisibleItemIndex > 0) listState.scrollToItem(0)
@@ -382,13 +380,8 @@ internal fun ActionPage(
             // 搜索态 ↔ 非搜索态整表切换时直接换一颗 LazyColumn：旧结果行不会带着
             // animateItem 退场动画和新分类全集同帧叠在一起。普通筛选（type chip）
             // 不建新列表，仍走同一颗 LazyColumn。
-            BoxWithConstraints(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
                 val bottomInset = with(density) { bottomBarHeightPx.toDp() }
-                val indexBarMetrics = rememberIndexBarMetrics(
-                    entries = indexBarEntries,
-                    availableHeight = maxHeight - bottomInset,
-                )
-                val showIndexBar = appSections.isNotEmpty() && indexBarMetrics.visible
                 Box(Modifier.fillMaxSize()) {
                 key(query.isBlank()) {
                 LazyColumn(
@@ -396,8 +389,7 @@ internal fun ActionPage(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = contentPadding.calculateEndPadding(LocalLayoutDirection.current) +
-                            if (showIndexBar) indexBarMetrics.barWidth else 0.dp,
+                        end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
                         top = contentPadding.calculateTopPadding(),
                         // 底栏悬浮在列表之上：尾部留出「底栏实测高 + 页底留白」，否则最后几行永远
                         // 滚不到玻璃上方；底栏高度含导航栏/IME inset，键盘弹起时这里自动跟着让位。
@@ -725,24 +717,23 @@ internal fun ActionPage(
                     }
                 }
                 }
-                if (showIndexBar) {
-                    IndexBar(
+                if (appSections.isNotEmpty()) {
+                    LetterDial(
                         entries = indexBarEntries,
-                        metrics = indexBarMetrics,
                         activeKey = appSections
                             .getOrNull((listState.firstVisibleItemIndex - appsStartIndex).coerceAtLeast(0) / 2)
                             ?.letter?.toString(),
-                        side = IndexBarSide.End,
                         onJump = { entry ->
                             val sectionIndex = appSections.indexOfFirst { it.letter.toString() == entry.key }
                             if (sectionIndex >= 0) {
                                 listState.requestScrollToItem(appsStartIndex + sectionIndex * 2)
                             }
                         },
+                        scrollInProgress = listScrollInProgress,
                         modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight()
-                            .padding(bottom = bottomInset),
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(bottom = bottomInset + LetterDialBarGap),
                     )
                 }
                 }
