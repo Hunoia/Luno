@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.domain.JsonSerializer
@@ -25,6 +26,7 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.picker.ActionSelect
 import hunoia.luno.picker.ActionSelectContent
+import hunoia.luno.ui.component.row.LocalListStyle
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
@@ -62,6 +64,8 @@ class ActionSelectHostActivity : ComponentActivity() {
                     .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
                 val subGestureSettings by GestureConfig.subGestures
                     .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+                val advancedSettings by TuneConfig.advanced
+                    .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
                 val select = actionSelect
                 CompositionLocalProvider(
                     LocalNavController provides navController,
@@ -73,6 +77,7 @@ class ActionSelectHostActivity : ComponentActivity() {
                             actionSettings,
                         ),
                     LocalSubGestures provides subGestureSettings.subGestures,
+                    LocalListStyle provides advancedSettings.listStyle,
                 ) {
                     // 参数解不出来（applyIntent 已 finish）时画空壳，别碰选择页内容。
                     if (select != null) {

@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
@@ -36,6 +36,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.component.pressCombinedClickable
 import hunoia.luno.ui.icon.rememberAppDrawable
 import hunoia.luno.ui.icon.rememberAppLabel
 import hunoia.luno.ui.theme.containerShape
@@ -74,11 +75,13 @@ fun RecentAppsCell(
                 .alpha(0.45f)
                 .padding(horizontal = WidgetInnerPadding),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = stringResource(R.string.grid_panel_recents_empty),
                 style = MaterialTheme.typography.bodySmall,
                 color = onCard,
+                textAlign = TextAlign.Center,
             )
         }
         return
@@ -129,16 +132,29 @@ fun RecentAppsCell(
                             .semantics { contentDescription = description }
                             .then(
                                 if (enabled) {
-                                    Modifier.clickable {
-                                        // Surface 只构造动作；解冻、启动、统计统一走进程级 Dispatcher。
-                                        hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
-                                            action = hunoia.luno.core.domain.AppLaunchAction.stored(
-                                                packageName = app.packageName,
-                                                userId = app.userId,
-                                            ),
-                                            origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
-                                        ) { launched -> if (launched) closePanel() }
-                                    }
+                                    Modifier.pressCombinedClickable(
+                                        onClick = {
+                                            // Surface 只构造动作；解冻、启动、统计统一走进程级 Dispatcher。
+                                            hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
+                                                action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                                                    packageName = app.packageName,
+                                                    userId = app.userId,
+                                                ),
+                                                origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                                            ) { launched -> if (launched) closePanel() }
+                                        },
+                                        onLongClick = {
+                                            // 长按 = 小窗打开；成功后也收面板。
+                                            hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
+                                                action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                                                    packageName = app.packageName,
+                                                    userId = app.userId,
+                                                    miniWindow = true,
+                                                ),
+                                                origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                                            ) { launched -> if (launched) closePanel() }
+                                        },
+                                    )
                                 } else {
                                     Modifier
                                 },

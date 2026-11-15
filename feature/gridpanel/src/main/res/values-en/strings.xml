@@ -59,6 +59,10 @@
     <string name="grid_panel_media_previous">Previous</string>
     <string name="grid_panel_media_play_pause">Play / pause</string>
     <string name="grid_panel_media_next">Next</string>
+    <string name="grid_panel_volume_mute">Mute</string>
+    <string name="grid_panel_volume_unmute">Unmute</string>
+    <string name="grid_panel_brightness_auto">Auto brightness</string>
+    <string name="grid_panel_brightness_manual">Manual brightness</string>
     <string name="grid_panel_toggle_background">Toggle widget background</string>
     <string name="toast_select_page_failed">Could not open the action selection page</string>
     <string name="grid_panel_item_menu_delete">Delete</string>

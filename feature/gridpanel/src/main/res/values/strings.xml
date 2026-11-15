@@ -59,6 +59,10 @@
     <string name="grid_panel_media_previous">上一曲</string>
     <string name="grid_panel_media_play_pause">播放或暂停</string>
     <string name="grid_panel_media_next">下一曲</string>
+    <string name="grid_panel_volume_mute">静音</string>
+    <string name="grid_panel_volume_unmute">取消静音</string>
+    <string name="grid_panel_brightness_auto">自动亮度</string>
+    <string name="grid_panel_brightness_manual">手动亮度</string>
     <string name="grid_panel_toggle_background">切换部件背景</string>
     <string name="toast_select_page_failed">无法打开动作选择页</string>
     <string name="grid_panel_item_menu_delete">删除</string>

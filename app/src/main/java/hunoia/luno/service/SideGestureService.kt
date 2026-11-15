@@ -17,6 +17,7 @@ import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
+import hunoia.luno.gridpanel.LastMediaApp
 import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
 import hunoia.luno.quickaccess.launch.Launcher
 import hunoia.luno.quickaccess.QuickLaunchFacade
@@ -384,6 +385,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             LOG_TAG,
             "service: onSetOverlay pid=${android.os.Process.myPid()}",
         )
+        // 媒体「上次播放应用」常驻跟踪：面板关闭时媒体部件不组合，由服务常驻监听写入
+        // LastMediaApp。幂等，onSetOverlay 只会真正注册一次。
+        LastMediaApp.ensureListening(this)
         // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
         ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
         // 剪贴板捕获的唯一监听点：常驻无障碍服务覆盖面大于球/面板，且不受应用窗口可见性限制。

@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Brightness6
+import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -64,6 +66,9 @@ private fun QsSlider(
     iconDimmed: Boolean,
     vertical: Boolean,
     enabled: Boolean = true,
+    /** 起始图标的点击（静音 / 自动亮度切换）；null = 图标只作指示。 */
+    onIconClick: (() -> Unit)? = null,
+    iconContentDescription: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val onCard = gridPanelOnCardColor
@@ -161,7 +166,7 @@ private fun QsSlider(
         val iconDraw = iconSize * 0.6f
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = iconContentDescription,
             tint = onCard.copy(alpha = if (iconDimmed) 0.5f else 1f),
             modifier = Modifier
                 .then(
@@ -175,7 +180,22 @@ private fun QsSlider(
                             .padding(start = ((maxHeight - iconDraw) / 2).coerceAtLeast(0.dp))
                     },
                 )
-                .size(iconDraw),
+                .size(iconDraw)
+                // 图标点击自己吃掉 down：轨道拖动手势（同节点的 pointerInput）看到已消费的
+                // down 不启动拖动；点按归图标、拖动归轨道（拖动时图标的 tap 被移动消费取消）。
+                .then(
+                    if (onIconClick != null) {
+                        Modifier.pointerInput(onIconClick) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                down.consume()
+                                if (waitForUpOrCancellation() != null) onIconClick()
+                            }
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
         )
     }
 }
@@ -196,6 +216,10 @@ fun VolumeSliderCell(
     val audio = remember { context.getSystemService(AudioManager::class.java) }
     val max = remember { audio?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 15 }
     var level by remember { mutableStateOf(audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0) }
+    // 上次非零音量：静音后恢复用；静音时记下当前值，取消静音回到这里。
+    var lastVolume by remember {
+        mutableIntStateOf(audio?.getStreamVolume(AudioManager.STREAM_MUSIC)?.takeIf { it > 0 } ?: 0)
+    }
     // 拖动中的值不接收系统回显覆盖：VOLUME_CHANGED 会在每次 set 后回来，
     // 拖动中让回显赢过手指 = 滑条往回跳。用局部状态隔离。
     var draggingValue by remember { mutableStateOf<Float?>(null) }
@@ -223,6 +247,7 @@ fun VolumeSliderCell(
             runCatching { audio?.setStreamVolume(AudioManager.STREAM_MUSIC, clamped, 0) }
         }
         level = clamped
+        if (clamped > 0) lastVolume = clamped
     }
 
     val muted = level == 0
@@ -246,6 +271,13 @@ fun VolumeSliderCell(
             iconDimmed = muted,
             vertical = vertical,
             enabled = enabled,
+            // 静音 / 取消静音：点击图标切换，静音时恢复上次非零音量。
+            onIconClick = {
+                applyVolume(if (muted) lastVolume.coerceAtLeast(1) else 0)
+            },
+            iconContentDescription = stringResource(
+                if (muted) R.string.grid_panel_volume_unmute else R.string.grid_panel_volume_mute,
+            ),
             // 撑满两个轴：只给 fillMaxHeight 时宽度没人管，竖向轨道会缩成一条。
             modifier = Modifier.fillMaxSize(),
         )
@@ -313,6 +345,15 @@ fun BrightnessSliderCell(
     var value by remember {
         mutableStateOf(systemValue)
     }
+    // 自动亮度开关（SCREEN_BRIGHTNESS_MODE）：图标点击切换，自动时图标换 BrightnessAuto。
+    var autoBrightness by remember {
+        mutableStateOf(
+            runCatching {
+                Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE)
+            }.getOrDefault(Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) ==
+                Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
+        )
+    }
     val sliderFraction = (value.coerceIn(0, 255) / 255f).pow(1f / brightnessGamma)
     val onCard = gridPanelOnCardColor
     Box(
@@ -334,10 +375,29 @@ fun BrightnessSliderCell(
                 value = v
             },
             onValueChangeFinished = {},
-            icon = Icons.Default.Brightness6,
-            iconDimmed = false,
+            icon = if (autoBrightness) Icons.Default.BrightnessAuto else Icons.Default.Brightness6,
+            iconDimmed = autoBrightness,
             vertical = vertical,
             enabled = enabled,
+            // 手动 ↔ 自动亮度切换：自动时图标显示 BrightnessAuto 并 dim。
+            onIconClick = {
+                val newMode = if (autoBrightness) {
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+                } else {
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
+                }
+                runCatching {
+                    Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, newMode)
+                }
+                autoBrightness = !autoBrightness
+            },
+            iconContentDescription = stringResource(
+                if (autoBrightness) {
+                    R.string.grid_panel_brightness_manual
+                } else {
+                    R.string.grid_panel_brightness_auto
+                },
+            ),
             modifier = Modifier.fillMaxSize(),
         )
     }

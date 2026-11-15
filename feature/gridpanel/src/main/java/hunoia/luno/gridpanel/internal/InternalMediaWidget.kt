@@ -50,14 +50,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import hunoia.luno.gridpanel.LastMediaApp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.bridge.system.AppIcons
 import hunoia.luno.bridge.system.NotificationAccess
+import hunoia.luno.core.domain.AppLaunchAction
+import hunoia.luno.core.domain.DispatchOrigin
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.pressClickable
+import hunoia.luno.ui.component.pressCombinedClickable
+import hunoia.luno.ui.icon.rememberAppDrawable
+import hunoia.luno.ui.icon.rememberAppLabel
 
 private const val TAG = "InternalMedia"
 
@@ -90,6 +98,8 @@ fun MediaControlCell(
         mutableStateOf(NotificationAccess.isGranted(context))
     }
     var sessions by remember { mutableStateOf<List<Pair<android.media.session.MediaController, SessionUiState>>>(emptyList()) }
+    // 上次播放应用由进程级 LastMediaApp 常驻监听维护，跨面板关闭存活；这里只读（Compose 订阅）。
+    LastMediaApp.ensureListening(context)
 
     DisposableEffect(granted) {
         if (!granted) return@DisposableEffect onDispose { }
@@ -116,18 +126,8 @@ fun MediaControlCell(
                 manager.getActiveSessions(listenerComponent)
             }.onFailure { Log.w(TAG, "getActiveSessions failed", it) }
                 .getOrNull().orEmpty()
-                // 只保留「真的在播/播过」的会话：很多 app（阅读器、浏览器）会常驻
-                // 一个空 MediaSession —— STATE_NONE、无播放动作、位置 0，全都不算。
-                .filter { c ->
-                    val pb = c.playbackState
-                    pb != null &&
-                        pb.state != PlaybackState.STATE_NONE &&
-                        pb.actions.and(PlaybackState.ACTION_PLAY) != 0L &&
-                        (pb.state == PlaybackState.STATE_PLAYING ||
-                            pb.state == PlaybackState.STATE_PAUSED ||
-                            pb.state == PlaybackState.STATE_BUFFERING ||
-                            pb.position > 0L)
-                }
+                // 只保留「真的在播/播过」的会话（谓词与 LastMediaApp 共用）。
+                .filter { LastMediaApp.isActiveSession(it) }
                 .sortedWith(
                     compareByDescending<android.media.session.MediaController> {
                         it.playbackState?.state == PlaybackState.STATE_PLAYING
@@ -163,6 +163,8 @@ fun MediaControlCell(
                 entries[key] = controller to state
             }
             sessions = entries.values.toList()
+            // 面板开着时立即记一次（双保险；常驻监听在面板关闭时兜底）。
+            picked.firstOrNull()?.let { LastMediaApp.note(it) }
         }
 
         rebind()
@@ -202,14 +204,22 @@ fun MediaControlCell(
     }
 
     if (sessions.isEmpty()) {
-        GrantHintCell(
-            icon = Icons.Default.MusicNote,
-            text = stringResource(R.string.grid_panel_media_no_session),
-            vertical = vertical,
-            enabled = false,
-            onClick = {},
-            modifier = modifier.alpha(0.45f),
-        )
+        if (LastMediaApp.packageName.isNotBlank()) {
+            LastPlayedAppCell(
+                packageName = LastMediaApp.packageName,
+                enabled = enabled,
+                modifier = modifier,
+            )
+        } else {
+            GrantHintCell(
+                icon = Icons.Default.MusicNote,
+                text = stringResource(R.string.grid_panel_media_no_session),
+                vertical = vertical,
+                enabled = false,
+                onClick = {},
+                modifier = modifier.alpha(0.45f),
+            )
+        }
         return
     }
 
@@ -270,11 +280,18 @@ private data class MediaMetrics(
     val artOnTop: Boolean,
     val titleLines: Int,
     val artistFits: Boolean,
+    /** 图标占三键的比例：2×2 块是唯一可见部分，比例更大。 */
+    val iconScale: Float,
 )
 
 /** 三键尺寸区间：小于下限点不准，大于上限抢戏。 */
 private val KeySizeMin = 24.dp
 private val KeySizeMax = 44.dp
+/** 键尺寸上限：铺满（4×2）与 2×2 块统一用更高上限，宽面板按钮能再大一点。 */
+private val KeySizeMaxThumb = 50.dp
+/** 图标占按钮的比例：按钮是透明 M3 IconButton，图标是唯一可见部分，统一放大。 */
+private val KeyIconScaleThumb = 0.80f
+
 /** 单行文字高：预留两行标题，标题占两行时歌手让位，键尺寸不被文字挤小。 */
 private val LineTitle = 24.dp
 private val LineArtist = 16.dp
@@ -289,6 +306,10 @@ private val ThumbSize = 30.dp
 private val TextMinWidth = 56.dp
 
 private val MediaGap = 6.dp
+/** 2×2 块内间距：比铺满更紧，把垂直空间让给三键。 */
+private val MediaGapThumb = 4.dp
+/** 2×2 块内边距：比通用部件更小，三键能拿到更多宽。 */
+private val MediaThumbPadding = 2.dp
 /** 三键容器固定高度：Column 按整列高测量非 weight 子件，键尺寸须自己钉死，文字侧用 weight 吸收压力。 */
 private fun keysHeight(m: MediaMetrics): Dp =
     if (m.keysVertical) m.keySize * 3 + 4.dp else m.keySize
@@ -304,6 +325,8 @@ private fun mediaMetrics(
     height: Dp,
     vertical: Boolean,
     thumbOnly: Boolean,
+    /** 块内间距：铺满用 [MediaGap]，2×2 块用更紧的 [MediaGapThumb]。 */
+    gap: Dp = MediaGap,
 ): MediaMetrics {
     // 一格宽（内区约 32dp）横排三键要 10.8dp，点不准 —— 改竖排。
     val keysVertical = (width / 3) < KeySizeMin
@@ -311,12 +334,12 @@ private fun mediaMetrics(
 
     val textMin = maxOf(TextMinWidth, keySize * 3)
     val artOnTop = vertical && !thumbOnly &&
-        minOf(width, height - (keySize + LineTitle * 2) - MediaGap) >= ArtStackMin
+        minOf(width, height - (keySize + LineTitle * 2) - gap) >= ArtStackMin
 
     val artSize = when {
-        thumbOnly -> minOf(ThumbSize, height - keySize - MediaGap * 2).coerceAtLeast(0.dp)
-        artOnTop -> artworkSide(width, height - (keySize + LineTitle * 2) - MediaGap)
-        else -> artworkSide(height, width - textMin - MediaGap)
+        thumbOnly -> minOf(ThumbSize, height - keySize - gap * 2).coerceAtLeast(0.dp)
+        artOnTop -> artworkSide(width, height - (keySize + LineTitle * 2) - gap)
+        else -> artworkSide(height, width - textMin - gap)
     }
 
     if (keysVertical) {
@@ -324,25 +347,25 @@ private fun mediaMetrics(
     } else {
         // 键要落在**文字列**里，不能按整宽算：4×2 铺满时文字列只有 110dp，
         // 按整宽 213dp 算出来的键会溢出文字列。
-        val keyBase = if (thumbOnly || artOnTop) width else width - artSize - MediaGap
+        val keyBase = if (thumbOnly || artOnTop) width else width - artSize - gap
         keySize = if (thumbOnly) {
             // 2×2 块的键在 weight 行**之下**，拿得到整列高，不用给文字让位。
-            minOf(keyBase / 3, KeySizeMax)
+            minOf(keyBase / 3, KeySizeMaxThumb)
         } else {
             // 键与文字共用列高：先扣两行标题 + 缝。不扣的话标题一长，键会被顶到下沿外被圆角裁掉。
             // 只扣标题、不扣歌手：歌手让位给标题，键能拿回尺寸（4×2 下 26.6 → 36.9dp）。
-            val metaH = if (artOnTop) height - artSize - MediaGap else height
-            minOf(keyBase / 3, metaH - LineTitle * 2 - MediaGap)
-                .coerceIn(KeySizeMin, KeySizeMax)
+            val metaH = if (artOnTop) height - artSize - gap else height
+            minOf(keyBase / 3, metaH - LineTitle * 2 - gap)
+                .coerceIn(KeySizeMin, KeySizeMaxThumb)
         }
     }
 
     val metaH = when {
         thumbOnly -> height
-        artOnTop -> height - artSize - MediaGap
+        artOnTop -> height - artSize - gap
         else -> height
     }
-    val textBudget = metaH - MediaGap - keySize
+    val textBudget = metaH - gap - keySize
     return MediaMetrics(
         keySize = keySize,
         keysVertical = keysVertical,
@@ -350,6 +373,7 @@ private fun mediaMetrics(
         artOnTop = artOnTop,
         titleLines = if (textBudget >= LineTitle * 2) 2 else 1,
         artistFits = textBudget >= LineTitle + LineArtist,
+        iconScale = KeyIconScaleThumb,
     )
 }
 
@@ -360,6 +384,7 @@ private fun SessionArtworkBox(
     modifier: Modifier = Modifier,
     cornerScale: Float = 0.5f,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
@@ -367,7 +392,14 @@ private fun SessionArtworkBox(
             // 封面缺失时的占位底衬：0.09 淡到几乎看不见，音符图标形同悬空；
             // 提到 0.18 才是一块「托得住」的底板。
             .background(gridPanelOnCardColor.copy(alpha = 0.18f))
-            .then(if (onClick != null) Modifier.pressClickable(onClick = onClick) else Modifier),
+            .then(
+                when {
+                    onClick != null && onLongClick != null ->
+                        Modifier.pressCombinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    onClick != null -> Modifier.pressClickable(onClick = onClick)
+                    else -> Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -414,7 +446,7 @@ private fun TransportKeys(
                 else -> stringResource(R.string.grid_panel_media_play_pause)
             },
             tint = onCard,
-            modifier = Modifier.size(metrics.keySize * 0.66f),
+            modifier = Modifier.size(metrics.keySize * metrics.iconScale),
         )
     }
     val keys: @Composable () -> Unit = {
@@ -440,14 +472,14 @@ private fun TransportKeys(
     if (metrics.keysVertical) {
         Column(
             modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { keys() }
     } else {
         Row(
             modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterHorizontally),
         ) { keys() }
     }
 }
@@ -506,28 +538,34 @@ private fun SessionBlock(
     } else {
         null
     }
+    val onArtworkLong = if (enabled) {
+        { dispatchMiniWindow(context, controller.packageName, closePanel) }
+    } else {
+        null
+    }
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .padding(WidgetInnerPadding),
+            .padding(MediaThumbPadding),
     ) {
-        val m = mediaMetrics(maxWidth, maxHeight, vertical = false, thumbOnly = true)
+        val m = mediaMetrics(maxWidth, maxHeight, vertical = false, thumbOnly = true, gap = MediaGapThumb)
         Column(
             Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(MediaGap),
+            verticalArrangement = Arrangement.spacedBy(MediaGapThumb),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(MediaGap),
+                horizontalArrangement = Arrangement.spacedBy(MediaGapThumb),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SessionArtworkBox(
                     bitmap = state.artwork,
                     modifier = Modifier.size(m.artSize),
                     onClick = onArtwork,
+                    onLongClick = onArtworkLong,
                 )
                 SessionTexts(
                     controller = controller,
@@ -566,6 +604,11 @@ private fun SingleSessionCell(
     val closePanel = LocalGridPanelClose.current
     val onArtwork = if (enabled) {
         { if (launchPackage(context, controller.packageName)) closePanel() }
+    } else {
+        null
+    }
+    val onArtworkLong = if (enabled) {
+        { dispatchMiniWindow(context, controller.packageName, closePanel) }
     } else {
         null
     }
@@ -609,6 +652,7 @@ private fun SingleSessionCell(
                     cornerScale = 0.6f,
                     modifier = Modifier.size(m.artSize),
                     onClick = onArtwork,
+                    onLongClick = onArtworkLong,
                 )
                 texts(Modifier.weight(1f).fillMaxWidth())
             }
@@ -622,6 +666,7 @@ private fun SingleSessionCell(
                     cornerScale = 0.6f,
                     modifier = Modifier.size(m.artSize),
                     onClick = onArtwork,
+                    onLongClick = onArtworkLong,
                 )
                 texts(Modifier.weight(1f).fillMaxHeight())
             }
@@ -694,4 +739,80 @@ private fun launchPackage(context: Context, packageName: String): Boolean {
             true
         } ?: false
     }.getOrDefault(false)
+}
+
+/** 小窗打开应用：走进程级 Dispatcher（正确处理 freeform / 分身）；成功后回调 [onLaunched]（关面板）。 */
+private fun dispatchMiniWindow(context: Context, packageName: String, onLaunched: () -> Unit) {
+    if (packageName.isBlank()) return
+    SurfaceDispatch.dispatch(
+        action = AppLaunchAction.stored(packageName = packageName, miniWindow = true),
+        origin = DispatchOrigin.PANEL,
+    ) { launched -> if (launched) onLaunched() }
+}
+
+/** 无会话时显示上次播放的应用：图标 + 名称，点按全屏跳转、长按小窗。 */
+@Composable
+private fun LastPlayedAppCell(
+    packageName: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val closePanel = LocalGridPanelClose.current
+    val onCard = gridPanelOnCardColor
+    val icon = rememberAppDrawable("app/$packageName") {
+        AppIcons.drawable(context, packageName)
+    }
+    val label = rememberAppLabel("label/$packageName", packageName) {
+        runCatching {
+            context.packageManager.getApplicationInfo(packageName, 0)
+                .let { context.packageManager.getApplicationLabel(it).toString() }
+        }.getOrNull()
+    }
+    val base = modifier
+        .fillMaxSize()
+        .clip(containerShape(ItemCorner))
+        .then(
+            if (enabled) {
+                Modifier.pressCombinedClickable(
+                    onClick = {
+                        SurfaceDispatch.dispatch(
+                            action = AppLaunchAction.stored(packageName = packageName),
+                            origin = DispatchOrigin.PANEL,
+                        ) { launched -> if (launched) closePanel() }
+                    },
+                    onLongClick = { dispatchMiniWindow(context, packageName, closePanel) },
+                )
+            } else {
+                Modifier
+            },
+        )
+    Column(
+        modifier = base.padding(WidgetInnerPadding),
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (icon != null) {
+            AsyncImage(
+                model = icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                imageLoader = context.imageLoader,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = onCard.copy(alpha = 0.7f),
+                modifier = Modifier.size(30.dp),
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
