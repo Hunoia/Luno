@@ -3,8 +3,6 @@ package hunoia.luno.core.domain
 import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import java.util.UUID
 
 @Serializable
@@ -31,11 +29,3 @@ data class ActionLibraryEntry(
 data class ActionLibrarySettings(
     val entries: List<ActionLibraryEntry> = emptyList(),
 )
-
-fun ActionLibraryEntry.matchesQuery(query: String): Boolean {
-    if (query.isBlank()) return true
-    val needle = query.trim()
-    return name.contains(needle, ignoreCase = true) ||
-        typeId.contains(needle, ignoreCase = true) ||
-        params.values.any { (it as? JsonPrimitive)?.contentOrNull?.contains(needle, ignoreCase = true) == true }
-}

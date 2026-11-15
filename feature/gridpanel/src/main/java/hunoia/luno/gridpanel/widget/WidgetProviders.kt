@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.UserManager
 import android.view.WindowManager
 import hunoia.luno.core.AppContext
+import hunoia.luno.quickaccess.query.SearchText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.Collator
@@ -135,14 +136,18 @@ suspend fun loadWidgetProviderGroups(context: Context): List<WidgetProviderGroup
 /**
  * 按关键字过滤分组清单，匹配应用名、小部件名、包名三处。纯内存过滤：
  * 部件名在加载期已随组带上，这里不再碰 PackageManager（跨进程）。
+ * 匹配语义与选择页/快速搜索统一走 [SearchText]（拼音首字母、全拼、模糊音）。
  */
 fun List<WidgetProviderGroup>.searchBy(query: String): List<WidgetProviderGroup> {
     if (query.isBlank()) return this
+    val search = SearchText.compile(query) ?: return emptyList()
     return mapNotNull { group ->
         val hit = group.providers.indices.filter { i ->
-            group.widgetLabels.getOrElse(i) { "" }.contains(query, ignoreCase = true) ||
-                group.appLabel.contains(query, ignoreCase = true) ||
-                group.providers[i].provider?.packageName?.contains(query, ignoreCase = true) == true
+            search.matches(
+                group.widgetLabels.getOrElse(i) { "" },
+                group.appLabel,
+                group.providers[i].provider?.packageName.orEmpty(),
+            )
         }
         if (hit.isEmpty()) null else WidgetProviderGroup(
             appLabel = group.appLabel,

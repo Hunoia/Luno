@@ -4,6 +4,7 @@ import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.quickaccess.query.SearchText
 
 /**
  * 选择页的一行应用：应用本体 + 挂在它下面的快捷方式来源。
@@ -52,42 +53,35 @@ internal fun buildAppShortcutEntries(
     }
 }
 
-/** 搜索命中：应用名 / 包名 / 快捷方式名任一命中。 */
-internal fun AppShortcutEntry.matchesQuery(query: String): Boolean {
-    if (query.isBlank()) return true
+/** 搜索命中：应用名 / 包名 / 快捷方式名任一命中（拼音、首字母、模糊音由 [SearchText] 统一）。 */
+internal fun AppShortcutEntry.matchesSearch(search: SearchText): Boolean {
+    if (search.matches(app.label, app.packageName)) return true
     fun LauncherInfo.matches(): Boolean =
-        label.contains(query, ignoreCase = true) ||
-            packageName.contains(query, ignoreCase = true) ||
-            shortcuts.any { it.label.contains(query, ignoreCase = true) }
-    return app.label.contains(query, ignoreCase = true) ||
-        app.packageName.contains(query, ignoreCase = true) ||
-        createLaunchers.any { it.matches() } ||
-        launchLaunchers.any { it.matches() }
+        search.matches(label, packageName) || shortcuts.any { search.matches(it.label) }
+    return createLaunchers.any { it.matches() } || launchLaunchers.any { it.matches() }
 }
 
 /**
  * 搜索态只保留命中的子项：应用名命中时保留全部快捷方式；只有快捷方式名命中时
  * 只列命中的那一行，避免搜「发消息」却把整个应用的所有入口都摊开。
  */
-internal fun AppShortcutEntry.filterChildren(query: String): AppShortcutEntry {
-    if (query.isBlank()) return this
-    val appMatches = app.label.contains(query, ignoreCase = true) ||
-        app.packageName.contains(query, ignoreCase = true)
-    if (appMatches) return this
-    fun LauncherInfo.matches(): Boolean =
-        label.contains(query, ignoreCase = true) ||
-            packageName.contains(query, ignoreCase = true) ||
-            shortcuts.any { it.label.contains(query, ignoreCase = true) }
-    val creates = createLaunchers.filter { it.matches() }
+internal fun AppShortcutEntry.filterChildren(search: SearchText): AppShortcutEntry {
+    if (search.matches(app.label, app.packageName)) return this
+    fun LauncherInfo.fields(): List<String> =
+        listOf(label, packageName) + shortcuts.map { it.label }
+    val creates = createLaunchers.filter { search.matchesAnyChunk(it.fields()) }
     val launches = launchLaunchers.mapNotNull { launcher ->
-        val launcherMatches = launcher.label.contains(query, ignoreCase = true) ||
-            launcher.packageName.contains(query, ignoreCase = true)
+        val launcherFields = listOf(launcher.label, launcher.packageName)
+        val launcherMatches = search.matchesAnyChunk(launcherFields)
         val shortcuts = if (launcherMatches) {
             launcher.shortcuts
         } else {
-            launcher.shortcuts.filter { it.label.contains(query, ignoreCase = true) }
+            launcher.shortcuts.filter { search.matchesAnyChunk(listOf(it.label)) }
         }
         launcher.copy(shortcuts = shortcuts).takeIf { launcherMatches || shortcuts.isNotEmpty() }
     }
+    // 多词查询可能一段命中父级、另一段命中子项：实在剪不出相关子项时保留整行，
+    // 不要出现“应用在列表里、点开却一个快捷方式都没有”的空壳。
+    if (creates.isEmpty() && launches.isEmpty()) return this
     return copy(createLaunchers = creates, launchLaunchers = launches)
 }

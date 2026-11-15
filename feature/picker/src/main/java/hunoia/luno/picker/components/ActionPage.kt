@@ -65,7 +65,6 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ActionGroupSpec
 import hunoia.luno.action.definitions.ActionVariant
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.core.domain.matchesQuery
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.internal.InternalWidgetDefs
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
@@ -78,6 +77,8 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.quickaccess.query.SearchText
+import hunoia.luno.quickaccess.query.warmSearchIndex
 import hunoia.luno.picker.UiState.SelectedRecord
 import hunoia.luno.picker.components.ActionRowSettingsSheet
 import hunoia.luno.picker.components.RowSettingsActionTypeIds
@@ -103,6 +104,8 @@ import hunoia.luno.ui.component.IndexBarEntry
 import hunoia.luno.ui.component.LetterDial
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.PressIconButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
 /** 应用与快捷方式合成一颗 chip：两者都是「从别的 app 取入口」，合并后底栏少一格。 */
@@ -243,6 +246,7 @@ internal fun ActionPage(
                     }
                 }
             }
+            val searchText = remember(query) { SearchText.compile(query) }
             val filteredActions = remember(actions, searchableActions, query, type, subGestures, actionLibraryEntries) {
                 when {
                     // 小部件这一屏不列动作：小部件不是 StoredAction，混进来会让选中类型不可证伪。
@@ -251,9 +255,18 @@ internal fun ActionPage(
                     type == TYPE_LIBRARY_AND_RULE -> emptyList()
                     query.isBlank() -> actions
                     // 搜索按具体预设展开：搜「Wi-Fi」「媒体音量增加」也能命中组内子行。
-                    else -> searchableActions.filter {
-                        context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, actionPanels, gridPanels, emptyIfNone = false)
-                            .contains(query, ignoreCase = true)
+                    // 匹配语义与快速搜索统一（拼音首字母 / 全拼 / 模糊音）。
+                    else -> searchableActions.filter { action ->
+                        searchText?.matches(
+                            context.actionTextWithSubGesture(
+                                action,
+                                subGestures,
+                                actionLibraryEntries,
+                                actionPanels,
+                                gridPanels,
+                                emptyIfNone = false,
+                            ),
+                        ) == true
                     }
                 }
             }
@@ -294,9 +307,23 @@ internal fun ActionPage(
                 }
             }
             val filteredLibraryEntries = remember(actionLibraryEntries, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_LIBRARY_AND_RULE || query.isNotBlank()) {
-                    actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
-                } else emptyList()
+                if (type == TYPE_WIDGET) {
+                    emptyList()
+                } else if (type == TYPE_LIBRARY_AND_RULE || query.isNotBlank()) {
+                    when {
+                        query.isBlank() -> actionLibraryEntries
+                        searchText == null -> emptyList()
+                        else -> actionLibraryEntries.filter { entry ->
+                            searchText.matches(
+                                entry.name,
+                                ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId,
+                                entry.typeId,
+                            )
+                        }
+                    }
+                } else {
+                    emptyList()
+                }
             }.sortedBy { it.createdAt }
             // 「动作库」chip 内按动作类型分组；混合搜索时仍收在单个「动作库」标题下。
             val groupedLibraryEntries = remember(filteredLibraryEntries, type) {
@@ -315,14 +342,16 @@ internal fun ActionPage(
                 buildAppShortcutEntries(appInfos, createShortcuts, launchShortcuts)
             }
             val filteredAppEntries = remember(appShortcutEntries, query, type) {
-                if (type == TYPE_WIDGET) {
-                    emptyList()
-                } else if (type == TYPE_APP || query.isNotBlank()) {
-                    appShortcutEntries
-                        .filter { it.matchesQuery(query) }
-                        .map { it.filterChildren(query) }
-                } else {
-                    emptyList()
+                when {
+                    type == TYPE_WIDGET -> emptyList()
+                    type == TYPE_APP || query.isNotBlank() -> when {
+                        query.isBlank() -> appShortcutEntries
+                        searchText == null -> emptyList()
+                        else -> appShortcutEntries
+                            .filter { it.matchesSearch(searchText) }
+                            .map { it.filterChildren(searchText) }
+                    }
+                    else -> emptyList()
                 }
             }
             // 选择页的应用区按拼音字母分节（A–#、节内全拼序）；不用抽屉的「常用置顶」：
@@ -333,14 +362,72 @@ internal fun ActionPage(
             val indexBarEntries = remember(appSections) {
                 appSections.map { IndexBarEntry(key = it.letter.toString(), label = it.letter.toString()) }
             }
-            val filteredWidgets = remember(widgetGroups, query, type) {
-                    if (type != TYPE_WIDGET) emptyList()
-                    else widgetGroups.searchBy(query)
+            // 部件与其他源同口径：有搜索词时跨 tab 参与（此前只有部件 tab 内能搜到）；
+            // 空查询仍只在自己的 chip 里列出，避免「全部」tab 被部件卡淹没。
+            val filteredWidgets = remember(widgetGroups, query, type, showWidgetChip) {
+                when {
+                    !showWidgetChip -> emptyList()
+                    type == TYPE_WIDGET || query.isNotBlank() -> widgetGroups.searchBy(query)
+                    else -> emptyList()
                 }
+            }
+            // 内置部件名称走 stringResource（配置变化能重组），搜索与预热共用同一份。
+            val internalWidgetLabels = if (showWidgetChip) {
+                InternalWidgetDefs.associate { def -> def.id to stringResource(def.labelRes) }
+            } else {
+                emptyMap()
+            }
             // 内置部件跟随小部件 chip 同屏展示；搜索按名字过滤。
-            val filteredInternalWidgets = remember(type, query, context) {
-                if (type != TYPE_WIDGET) emptyList()
-                else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }
+            val filteredInternalWidgets = remember(type, query, showWidgetChip, internalWidgetLabels) {
+                when {
+                    !showWidgetChip -> emptyList()
+                    type == TYPE_WIDGET || query.isNotBlank() -> when {
+                        query.isBlank() -> InternalWidgetDefs
+                        searchText == null -> emptyList()
+                        else -> InternalWidgetDefs.filter { def ->
+                            searchText.matches(internalWidgetLabels[def.id].orEmpty())
+                        }
+                    }
+                    else -> emptyList()
+                }
+            }
+            // 首键前把拼音索引预热到后台：列表过滤仍同步跑，但不再承担建索引成本。
+            LaunchedEffect(appShortcutEntries, searchableActions, actionLibraryEntries, widgetGroups) {
+                withContext(Dispatchers.Default) {
+                    appShortcutEntries.forEach { entry ->
+                        warmSearchIndex(entry.app.label)
+                        warmSearchIndex(entry.app.packageName)
+                        fun warmLauncher(launcher: LauncherInfo) {
+                            warmSearchIndex(launcher.label)
+                            warmSearchIndex(launcher.packageName)
+                            launcher.shortcuts.forEach { warmSearchIndex(it.label) }
+                        }
+                        entry.createLaunchers.forEach(::warmLauncher)
+                        entry.launchLaunchers.forEach(::warmLauncher)
+                    }
+                    searchableActions.forEach { action ->
+                        warmSearchIndex(
+                            context.actionTextWithSubGesture(
+                                action,
+                                subGestures,
+                                actionLibraryEntries,
+                                actionPanels,
+                                gridPanels,
+                                emptyIfNone = false,
+                            ),
+                        )
+                    }
+                    actionLibraryEntries.forEach { entry ->
+                        warmSearchIndex(entry.name)
+                        warmSearchIndex(ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId)
+                    }
+                    widgetGroups.forEach { group ->
+                        warmSearchIndex(group.appLabel)
+                        group.widgetLabels.forEach { warmSearchIndex(it) }
+                        group.providers.forEach { warmSearchIndex(it.provider?.packageName.orEmpty()) }
+                    }
+                    InternalWidgetDefs.forEach { def -> warmSearchIndex(internalWidgetLabels[def.id].orEmpty()) }
+                }
             }
             val appsPermissionRequired = !permissionState.isGranted &&
                 (type == null || type == TYPE_APP || query.isNotBlank())
@@ -442,60 +529,6 @@ internal fun ActionPage(
                                         }
                                     },
                                 )
-                            }
-                        }
-                        if (filteredInternalWidgets.isNotEmpty()) {
-                            // 内置部件置顶：没有 provider 卡那么多东西，直接一行卡片。
-                            stickyHeader(key = "widget_internal") {
-                                SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
-                            }
-                            item(key = "widget_internal_row") {
-                                LunoGroup {
-                                    LunoGroupItem(shape = segmentedShape(0, 1)) {
-                                        LazyRow(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                        ) {
-                                            items(
-                                                items = filteredInternalWidgets,
-                                                key = { def -> "internal_${def.id}" },
-                                            ) { def ->
-                                                InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (filteredWidgets.isNotEmpty()) {
-                            // 每 app 分区头 + 区内横向滚动的预览卡。
-                            filteredWidgets.forEach { group ->
-                                stickyHeader(key = "widget_${group.appLabel}") {
-                                    WidgetGroupHeaderRow(group)
-                                }
-                                item(key = "widget_row_${group.appLabel}") {
-                                    LunoGroup {
-                                        LunoGroupItem(shape = segmentedShape(0, 1)) {
-                                            LazyRow(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                            ) {
-                                                items(
-                                                    items = group.providers,
-                                                    key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
-                                                ) { info ->
-                                                    WidgetPreviewCard(
-                                                        info = info,
-                                                        span = widgetSpanOf(info),
-                                                        onSelect = { onSelectWidget(info) },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                         if (grouped.isNotEmpty()) {
@@ -672,6 +705,60 @@ internal fun ActionPage(
                                             onSelect = { onSelectLibraryEntry(entry) },
                                             shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
                                         )
+                                    }
+                                }
+                            }
+                        }
+                        // 部件排在动作/动作库之后、字母应用区之前：全局搜索不会一上来就被部件卡占满。
+                        if (filteredInternalWidgets.isNotEmpty()) {
+                            stickyHeader(key = "widget_internal") {
+                                SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
+                            }
+                            item(key = "widget_internal_row") {
+                                LunoGroup {
+                                    LunoGroupItem(shape = segmentedShape(0, 1)) {
+                                        LazyRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                        ) {
+                                            items(
+                                                items = filteredInternalWidgets,
+                                                key = { def -> "internal_${def.id}" },
+                                            ) { def ->
+                                                InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (filteredWidgets.isNotEmpty()) {
+                            // 每 app 分区头 + 区内横向滚动的预览卡。
+                            filteredWidgets.forEach { group ->
+                                stickyHeader(key = "widget_${group.appLabel}") {
+                                    WidgetGroupHeaderRow(group)
+                                }
+                                item(key = "widget_row_${group.appLabel}") {
+                                    LunoGroup {
+                                        LunoGroupItem(shape = segmentedShape(0, 1)) {
+                                            LazyRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                            ) {
+                                                items(
+                                                    items = group.providers,
+                                                    key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
+                                                ) { info ->
+                                                    WidgetPreviewCard(
+                                                        info = info,
+                                                        span = widgetSpanOf(info),
+                                                        onSelect = { onSelectWidget(info) },
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
