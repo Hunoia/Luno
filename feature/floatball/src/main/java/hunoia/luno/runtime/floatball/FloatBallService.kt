@@ -630,7 +630,8 @@ class FloatBallService : Service() {
 
     /** 系统通知被移除 → 通知队列同步移除。 */
     private val notificationRemovedObserver: (NotificationPulse) -> Unit = { pulse ->
-        onNotificationRemovedFromSystem(pulse)
+        // 观察者在 binder 线程回调，槽位状态 / 窗口操作都必须在主线程。
+        scope.launch { onNotificationRemovedFromSystem(pulse) }
     }
 
     private fun onNotificationRemovedFromSystem(pulse: NotificationPulse) {

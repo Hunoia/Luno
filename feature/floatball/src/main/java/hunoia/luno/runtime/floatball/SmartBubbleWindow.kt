@@ -239,6 +239,11 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (newWidth != capsuleWidthPx) capsuleWidthPx = newWidth
         // 用户正在拖动时不要抢当前页。
         if (!pressed) {
+            // 新内容接管当前页：先摘掉 settle 回调，否则旧动画结束后会把页面拉回旧目标。
+            // 多条通知同时到达时，它还可能把 currentIndex 改到已被重建的列表之外。
+            val settling = settleAnimator
+            settleAnimator = null
+            settling?.cancel()
             currentIndex = index.coerceIn(0, items.lastIndex)
             offsetPx = 0f
             lastReportedId = items[currentIndex].id
@@ -268,13 +273,20 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             existing.visibility = View.VISIBLE
             if (hidden) {
                 existing.alpha = 0f
+                existing.scaleX = 1f
+                existing.scaleY = 1f
                 existing.post {
                     if (view !== existing) return@post
                     applyWindowBounds()
                     startMorphIn(existing)
                 }
             } else {
+                // 动画被 cancel 时可能停在缩放中途：一批通知在展开动画里连续到达时，
+                // 只恢复 alpha 会把胶囊永久留在缩小态，看起来就是「卡住」。统一复位形变。
                 existing.alpha = 1f
+                existing.scaleX = 1f
+                existing.scaleY = 1f
+                entering = false
                 existing.post { applyWindowBounds() }
             }
             existing.postDelayed({
@@ -806,6 +818,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     private fun startMorphIn(v: View) {
+        entering = true
         v.pivotX = if (sideRight) v.width.toFloat() else 0f
         v.pivotY = v.height / 2f
         v.scaleX = collapsedScale()
