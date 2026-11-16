@@ -27,7 +27,7 @@ data class AppProcessUsage(
     /** 占整机 CPU 容量的百分比（0..100）。 */
     val cpuPct: Float,
     /**
-     * 进程内存（kB）：优先 AMS 的 PSS，读不到时退回 `VmRSS`。
+     * 进程内存（kB）：整帧取 AMS 的 PSS，AMS 不可用时整帧退回 `VmRSS`，不逐 pid 混用。
      *
      * PSS 按共享页的使用者数均摊，可跨进程相加，和系统任务管理器同口径；
      * RSS 会把 libc / dex / 共享内存重复计进每个进程，列表合计明显偏大。
@@ -38,7 +38,7 @@ data class AppProcessUsage(
 data class ProcessStats(
     val cpu: CpuStats,
     val apps: List<AppProcessUsage>,
-    /** 本帧读到的进程数（含被过滤掉的系统 / 内核进程）。 */
+    /** 本帧参与聚合的进程数；uid 小于 1000 的内核线程 / 原生服务在 shell 侧已跳过。 */
     val processCount: Int,
 )
 
@@ -51,7 +51,12 @@ data class ProcessStats(
  *    不逐核 / 逐文件 fork。
  *  - **进程内存优先 PSS**：shell 读不了别的 uid 的 smaps（ptrace 拒绝），改由
  *    [ShizukuManager.processPssByPid] 经 AMS `getProcessPss` 由 system_server 代读；
- *    不可用时退回本帧的 VmRSS（列表合计会偏大，但不缺行）。
+ *    不可用（返回 null）时**整帧**退回 VmRSS（列表合计会偏大，但不缺行）。
+ *  - **PSS 与 RSS 不逐 pid 混用**：AMS 进程表里没有的 pid（原生服务 / 采样瞬间退出的进程）
+ *    在 PSS 口径下不计内存，否则同一 uid 会把共享页按 PSS 算一次、再按 RSS 重复算一次。
+ *  - **PSS 可降到低频**：`getProcessPss` 是整个采样最贵的一步（system_server 逐进程读 smaps），
+ *    调用方可用 `sample(refreshPss = false)` 复用上一次成功取到的 PSS 表；CPU 仍逐帧更新。
+ *    复用期间新出现的 pid 没有 PSS，按上面的口径不计内存，直到下一次刷新。
  *  - **基线按 `pid + starttime`**：同一 uid 的进程重启后 ticks 归零不会把上一轮的累计值算进这一帧；
  *    新出现的进程以当前 ticks 为基线（首帧 0%），不再出现「刚启动就 100%」。
  *  - 采样失败（shell 失败 / 输出缺 `TOTAL`）返回 null 且**不推进任何基线**，
@@ -70,17 +75,43 @@ class ProcessStatsSampler(context: Context) {
     private val lastProcTicks = HashMap<PidKey, Long>()
     private val uidMeta = HashMap<Int, AppMeta?>()
 
+    /**
+     * 待清基线。调用方（组合线程）与 [sample]（IO 线程）不同线程，
+     * 不能直接改 [lastCoreTicks] / [lastProcTicks] 这些普通集合：只置位，由下一帧自己清。
+     */
+    @Volatile
+    private var resetRequested = false
+
+    /**
+     * 上一次成功取到的 PSS（pid → kB）；只在 [sample] 的 IO 线程读写。
+     * 复用窗口只有一两帧，假定 pid 在这几秒内不会被复用（Android 的 pid 分配器不会立刻回收）。
+     */
+    private var cachedPss: Map<Int, Long>? = null
+
     /** 授权状态翻转时清基线：降级 / 全量两套数据不能混算差值。 */
     fun resetBaseline() {
-        lastTotalTicks = -1L
-        lastIdleTicks = -1L
-        lastCoreTicks.clear()
-        lastProcTicks.clear()
+        resetRequested = true
     }
 
-    /** 返回 null = 本帧失败，调用方应保留上一帧。 */
-    suspend fun sample(): ProcessStats? {
+    /**
+     * 返回 null = 本帧失败，调用方应保留上一帧。
+     *
+     * [refreshPss] 为 false 时复用上一次的 PSS 表（没有缓存时仍会取一次）：
+     * 把 smaps 读取降到更低频，CPU / 进程增减仍按本帧 shell 结果更新。
+     */
+    suspend fun sample(refreshPss: Boolean = true): ProcessStats? {
         assertNotMainThread("sysMonitor.sample")
+        if (resetRequested) {
+            resetRequested = false
+            lastTotalTicks = -1L
+            lastIdleTicks = -1L
+            lastCoreTicks.clear()
+            lastProcTicks.clear()
+            // 授权翻转可能换掉 PSS 口径：旧缓存不能跨口径复用。
+            cachedPss = null
+            // 上一帧的列表属于旧口径，清掉后首帧宁可直接空一行，也不显示过期数值。
+            lastApps = emptyList()
+        }
         val result = ShizukuManager.executeShell(SHIZUKU_SCRIPT, maxChars = ShellMaxChars)
         if (!result.isSuccess) {
             if (result.errorMessage.isNotEmpty()) {
@@ -116,17 +147,27 @@ class ProcessStatsSampler(context: Context) {
         }
 
         // PSS 走 AMS（system_server 代读 smaps）；拿不到就整帧回退 VmRSS。
-        val pssByPid = ShizukuManager.processPssByPid()
-        val aggByUid = LinkedHashMap<Int, FloatArray>()
+        val pssByPid = if (refreshPss || cachedPss == null) {
+            ShizukuManager.processPssByPid().also { cachedPss = it }
+        } else {
+            cachedPss
+        }
+        val aggByUid = LinkedHashMap<Int, UidUsage>()
         val currentTicks = HashMap<PidKey, Long>(frame.procs.size * 2)
         for (proc in frame.procs) {
             val key = PidKey(proc.pid, proc.startTicks)
             val prev = lastProcTicks[key]
             val delta = if (prev != null) (proc.cpuTicks - prev).coerceAtLeast(0L) else 0L
             val pct = if (hasSample) delta.toFloat() / totalDelta * 100f else 0f
-            val agg = aggByUid.getOrPut(proc.uid) { FloatArray(2) }
-            agg[0] += pct
-            agg[1] += (pssByPid?.get(proc.pid) ?: proc.rssKb).toFloat()
+            val agg = aggByUid.getOrPut(proc.uid) { UidUsage() }
+            agg.cpuPct += pct
+            if (pssByPid == null) {
+                agg.memKb += proc.rssKb
+            } else {
+                // 只累 AMS 里有的 pid：不在进程表的 pid（原生服务 / 刚退出）没有 PSS，
+                // 拿 VmRSS 顶上会把同一 uid 的共享页重复计一遍，宁可漏这一帧。
+                pssByPid[proc.pid]?.let { agg.memKb += it }
+            }
             currentTicks[key] = proc.cpuTicks
         }
 
@@ -140,8 +181,8 @@ class ProcessStatsSampler(context: Context) {
                     label = meta.label,
                     userId = meta.userId,
                     isSystem = meta.isSystem,
-                    cpuPct = agg[0].coerceIn(0f, 100f),
-                    memKb = agg[1].toLong(),
+                    cpuPct = agg.cpuPct.coerceIn(0f, 100f),
+                    memKb = agg.memKb,
                 )
             )
         }
@@ -187,6 +228,11 @@ class ProcessStatsSampler(context: Context) {
         }.getOrNull()
         uidMeta[uid] = meta
         return meta
+    }
+
+    private class UidUsage {
+        var cpuPct: Float = 0f
+        var memKb: Long = 0L
     }
 
     private data class PidKey(val pid: Int, val startTicks: Long)
@@ -254,7 +300,8 @@ class ProcessStatsSampler(context: Context) {
                         val pid = parts[0].toIntOrNull() ?: continue
                         val uid = parts.getOrNull(1)?.toIntOrNull() ?: continue
                         val cpu = parts.getOrNull(2)?.toLongOrNull() ?: 0L
-                        val rss = parts.getOrNull(3)?.toLongOrNull() ?: 0L
+                        // shell 侧 uid / rss 的缺省哨兵是 -1：缺 VmRSS 的进程不能把负值带进 RSS 回退求和。
+                        val rss = (parts.getOrNull(3)?.toLongOrNull() ?: 0L).coerceAtLeast(0L)
                         val start = parts.getOrNull(4)?.toLongOrNull() ?: 0L
                         procs.add(ParsedProc(pid, uid, cpu, rss, start))
                     }
@@ -290,12 +337,14 @@ while read -r k a b c d e f g h i; do
 done < /proc/stat
 for p in /proc/[0-9]*; do
   pid=§{p##*/}
-  uid=0; rss=0
+  uid=-1; rss=-1
   while read -r k v r; do
     case "§k" in
       Uid:) uid=§v ;;
       VmRSS:) rss=§v ;;
     esac
+    # VmRSS 比 Uid 靠后：两个字段都拿到就没必要再读完整份 status（每帧数百个进程）。
+    if [ "§uid" != -1 ] && [ "§rss" != -1 ]; then break; fi
   done < /proc/§pid/status
   if [ "§uid" -lt 1000 ]; then continue; fi
   if ! read -r s2 < /proc/§pid/stat; then continue; fi

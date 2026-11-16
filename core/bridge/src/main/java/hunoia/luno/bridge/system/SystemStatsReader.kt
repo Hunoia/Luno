@@ -37,8 +37,8 @@ data class DeviceStats(
     val gpuPct: Float? = null,
     /** SoC 温度（摄氏度）；读不到为 null。 */
     val temperatureC: Float? = null,
-    /** 每个逻辑核的当前频率（MHz），按核序号升序；读不到时空。 */
-    val coreFreqMhz: List<Long> = emptyList(),
+    /** 每个逻辑核的当前频率（MHz），下标 = 核序号；某核读不到为 null。 */
+    val coreFreqMhz: List<Long?> = emptyList(),
     val battery: BatteryStats? = null,
     val downBytesPerSec: Long = 0L,
     val upBytesPerSec: Long = 0L,
@@ -77,6 +77,9 @@ class SystemStatsReader(context: Context) {
 
     private var lastSelfCpuMs = -1L
     private var lastSelfAtMs = -1L
+
+    private var lastBattery: BatteryStats? = null
+    private var lastBatteryAtMs = 0L
 
     /** 系统内存；`/proc/meminfo` 读不到时缓存 / Swap 为 0，total / avail 走 AM 兜底。 */
     fun readMemory(): MemoryStats {
@@ -168,8 +171,12 @@ class SystemStatsReader(context: Context) {
     // ---- GPU ----
 
     private fun readGpuPct(): Float? {
-        val cached = gpuPath
-        if (cached != null) return readBusyPercent(cached)
+        gpuPath?.let { path ->
+            readBusyPercent(path)?.let { return it }
+            // 节点消失 / 瞬时不可读：丢掉缓存路径，下一帧重新探测，不要永久锁死在 null。
+            gpuPath = null
+            gpuResolved = false
+        }
         if (gpuResolved) return null
         gpuResolved = true
         for (path in GPU_CANDIDATES) {
@@ -219,12 +226,13 @@ class SystemStatsReader(context: Context) {
 
     // ---- CPU 频率 ----
 
-    private fun readCoreFreqMhz(): List<Long> {
-        val files = cpuFreqFiles ?: buildCpuFreqFiles().also { cpuFreqFiles = it }
-        if (files.isEmpty()) return emptyList()
-        return files.mapNotNull { file ->
-            runCatching { file.readText().trim().toLongOrNull() }.getOrNull()
-        }.map { it / 1000L }
+    private fun readCoreFreqMhz(): List<Long?> {
+        val files = cpuFreqFiles ?: buildCpuFreqFiles().takeIf { it.isNotEmpty() }?.also { cpuFreqFiles = it }
+        if (files.isNullOrEmpty()) return emptyList()
+        // 保留 null 占位：下标仍是核序号，某一核瞬时读不到不会让后面的核错位。
+        return files.map { file ->
+            runCatching { file.readText().trim().toLongOrNull() }.getOrNull()?.div(1000L)
+        }
     }
 
     private fun buildCpuFreqFiles(): List<File> {
@@ -246,8 +254,12 @@ class SystemStatsReader(context: Context) {
      * 读不到返回 null。电池温度在 [BatteryStats] 里单独给。
      */
     fun readTemperatureC(): Float? {
-        val cached = thermalPath
-        if (cached != null) return readTempC(cached)
+        thermalPath?.let { path ->
+            readTempC(path)?.let { return it }
+            // 同上：zone 被移除 / 瞬时不可读时清缓存重新探测。
+            thermalPath = null
+            thermalResolved = false
+        }
         if (thermalResolved) return null
         thermalResolved = true
         val zones = runCatching { File("/sys/class/thermal").listFiles() }
@@ -281,17 +293,28 @@ class SystemStatsReader(context: Context) {
     // ---- 电池 ----
 
     private fun readBattery(): BatteryStats? {
+        // 电量 / 电池温度变化远慢于 1s 刷新：sticky 广播的跨进程拷贝没必要每秒做一次。
+        val now = SystemClock.elapsedRealtime()
+        if (lastBatteryAtMs != 0L && now - lastBatteryAtMs < BATTERY_REFRESH_MS) return lastBattery
+        lastBatteryAtMs = now
         val sticky = runCatching {
             appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        }.getOrNull() ?: return null
+        }.getOrNull()
+        if (sticky == null) {
+            lastBattery = null
+            return null
+        }
         val level = sticky.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = sticky.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        if (level < 0 || scale <= 0) return null
+        if (level < 0 || scale <= 0) {
+            lastBattery = null
+            return null
+        }
         val tempTenths = sticky.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
         return BatteryStats(
             levelPct = (level * 100 / scale).coerceIn(0, 100),
             temperatureC = if (tempTenths == Int.MIN_VALUE) null else tempTenths / 10f,
-        )
+        ).also { lastBattery = it }
     }
 
     // ---- 网速 ----
@@ -318,6 +341,9 @@ class SystemStatsReader(context: Context) {
     private companion object {
         val LOG_TAG = "SystemStats"
         val CPU_DIR_REGEX = Regex("cpu[0-9]+")
+
+        /** 电池 sticky 广播的复用窗口；电量只按 1% 跳变，10s 足够。 */
+        const val BATTERY_REFRESH_MS = 10_000L
 
         /** Adreno / Mali / Exynos 常见节点；顺序即优先级。 */
         val GPU_CANDIDATES = listOf(

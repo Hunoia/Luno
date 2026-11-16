@@ -27,7 +27,7 @@ import hunoia.luno.runtime.surface.SurfaceKind
 /**
  * 全屏面板悬浮窗宿主的公共骨架（TYPE_APPLICATION_OVERLAY）：可获焦 FrameLayout 容器
  * 接 BACK + 内嵌常驻组合的 ComposeView + [PanelLifecycleOwner] 挂靠。
- * 窗口全屏只当画布；组合常驻复用：让位只置 alpha 0 不可触摸，关闭才移除。
+ * 窗口全屏只当画布；组合常驻复用：让位只置 alpha 0 不可触摸并把 owner 降到 CREATED，关闭才移除。
  * owner 必须推到 RESUMED：collectAsStateWithLifecycle 与 LaunchedEffect 都要 STARTED 以上。
  *
  * 子类通过 [panelContent] 提供组合内容，show/close 的编排差异与附加状态
@@ -171,6 +171,8 @@ abstract class OverlayPanelHost(
     override fun softHide() {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        // 窗口保留但已不可见：同步降 owner，采样 / 收流等可见性效果跟着停。
+        setCompositionActive(false)
         if (lp.alpha == 0f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) return
         lp.alpha = 0f
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -181,10 +183,16 @@ abstract class OverlayPanelHost(
     override fun restore() {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        setCompositionActive(true)
         if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) return
         lp.alpha = 1f
         lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         runCatching { wm.safeUpdateViewLayout(current, lp) }
+    }
+
+    /** 软隐藏 / 恢复时同步组合生命周期：owner 降级后 `repeatOnLifecycle` 效果自停。 */
+    protected fun setCompositionActive(active: Boolean) {
+        if (active) lifecycleOwner?.resume() else lifecycleOwner?.pause()
     }
 
     /** 长态关闭：先补发配对事件，再移窗销毁。 */

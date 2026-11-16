@@ -213,6 +213,8 @@ object GridPanelOverlay : OverlayPanelHost(
         PanelAppWidgetHostView.setLaunchCloseListener(null)
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        // 组合还在但已经看不见：停掉采样 / 收流等可见性效果，恢复时再拉起。
+        setCompositionActive(false)
         if (lp.alpha == 0f) return
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -289,6 +291,7 @@ object GridPanelOverlay : OverlayPanelHost(
     private fun restoreVisibility() {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        setCompositionActive(true)
         if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
             current.requestFocus()
             return

@@ -41,6 +41,16 @@ class PanelLifecycleOwner :
         registry.currentState = Lifecycle.State.RESUMED
     }
 
+    /**
+     * 软隐藏 / 让位：组合与窗口保留，只把 owner 降回 CREATED。
+     * `repeatOnLifecycle` 之类的可见性效果随之停掉，恢复时 [resume] 重新拉起；
+     * 不销毁组合，也不触发 `DisposeOnViewTreeLifecycleDestroyed`。
+     */
+    fun pause() {
+        if (!registry.currentState.isAtLeast(Lifecycle.State.CREATED)) return
+        registry.currentState = Lifecycle.State.CREATED
+    }
+
     fun destroy() {
         registry.currentState = Lifecycle.State.DESTROYED
         store.clear()

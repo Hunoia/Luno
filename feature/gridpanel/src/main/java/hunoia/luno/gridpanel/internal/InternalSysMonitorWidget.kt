@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import coil3.compose.AsyncImage
 import coil3.imageLoader
 import hunoia.luno.bridge.system.AppProcessUsage
@@ -87,8 +91,10 @@ import kotlin.math.roundToInt
  *    与 `free` / 系统一致；不能用 `availMem`（只是 `MemFree + Cached`，会把已用算大）。
  *  - CPU + 各应用：2s，需要 Shizuku（应用读不了 `/proc/stat` 与其它 uid 的 `/proc/<pid>`）。
  *    行内内存优先用 AMS 的 PSS（与系统任务管理器同口径），拿不到才退回 VmRSS。
+ *    PSS 每 4s 刷新一次（最贵的 smaps 读），CPU 仍逐帧更新。
  *    进入组合后先补一帧 0.4s 的快速采样，让 CPU 立刻有差值；未授权时只显示自身占用。
- *  - 两条循环都绑在组合生命周期上：面板关闭 / 翻到别的页就停，不驻留后台。
+ *  - 两条循环都绑在组合 + 宿主生命周期上：面板关闭 / 翻页即取消，软隐藏（编辑态让位、
+ *    标注期间）随 owner 暂停，恢复后再继续，不驻留后台。
  *
  * 交互：
  *  - 点「内存 / CPU」标题 = 按该口径排序（单功能面板写回 params，网格项只在本地生效）。
@@ -101,6 +107,12 @@ private const val MemoryRefreshMs = 1000L
 
 /** 进程级采样间隔；shell 一次读全量，太密没有收益。 */
 private const val ProcRefreshMs = 2000L
+
+/**
+ * PSS 每几帧刷新一次（2 帧 = 4s）。`getProcessPss` 要 system_server 逐进程读 smaps，
+ * 是整个采样最贵的一步；CPU / 进程增减仍按 2s 更新，内存最多滞后一帧。
+ */
+private const val PssRefreshEveryFrames = 2
 
 /** 首帧补采样延迟：CPU 差值需要一个 tick 窗口，0.4s 够用又不至于等两秒。 */
 private const val FirstSampleDelayMs = 400L
@@ -153,39 +165,51 @@ internal fun SysMonitorCell(
     }
 
     // 1s：内存 + 设备指标 + 自身占用（全部无需权限）。
-    LaunchedEffect(Unit) {
-        while (true) {
-            val loaded = withContext(Dispatchers.IO) {
-                Quad(reader.readMemory(), reader.readDevice(), reader.selfCpuPct(), reader.selfPssKb())
+    // 软隐藏 / 编辑态让位时 owner 降到 CREATED，循环随之停掉，恢复后再继续——不驻留后台空转。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                val loaded = withContext(Dispatchers.IO) {
+                    Quad(reader.readMemory(), reader.readDevice(), reader.selfCpuPct(), reader.selfPssKb())
+                }
+                memory = loaded.memory
+                device = loaded.device
+                selfCpu = loaded.selfCpu
+                selfPss = loaded.selfPss
+                memHistory = pushSample(memHistory, loaded.memory.usedFraction)
+                delay(MemoryRefreshMs)
             }
-            memory = loaded.memory
-            device = loaded.device
-            selfCpu = loaded.selfCpu
-            selfPss = loaded.selfPss
-            memHistory = pushSample(memHistory, loaded.memory.usedFraction)
-            delay(MemoryRefreshMs)
         }
     }
 
     // 2s：CPU + 各应用（需要 Shizuku）。
-    LaunchedEffect(privileged) {
-        sampler.resetBaseline()
+    LaunchedEffect(privileged, lifecycleOwner) {
         if (!privileged) {
             frame = null
             cpuHistory = emptyList()
             return@LaunchedEffect
         }
-        var first = true
-        while (true) {
-            val sampled = withContext(Dispatchers.IO) { sampler.sample() }
-            if (sampled != null) {
-                frame = sampled
-                if (sampled.cpu.hasSample) {
-                    cpuHistory = pushSample(cpuHistory, sampled.cpu.totalPct / 100f)
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // 停采期间进程可能增删：恢复后从当前 ticks 重新起基线，不把空档算成 CPU。
+            sampler.resetBaseline()
+            var first = true
+            var frameIndex = 0
+            while (true) {
+                val refreshPss = frameIndex % PssRefreshEveryFrames == 0
+                val sampled = withContext(Dispatchers.IO) {
+                    sampler.sample(refreshPss = refreshPss)
                 }
+                if (sampled != null) {
+                    frame = sampled
+                    if (sampled.cpu.hasSample) {
+                        cpuHistory = pushSample(cpuHistory, sampled.cpu.totalPct / 100f)
+                    }
+                }
+                frameIndex++
+                delay(if (first) FirstSampleDelayMs else ProcRefreshMs)
+                first = false
             }
-            delay(if (first) FirstSampleDelayMs else ProcRefreshMs)
-            first = false
         }
     }
 
@@ -205,10 +229,13 @@ internal fun SysMonitorCell(
     }
     val totalMemKb = memory?.totalKb ?: 0L
     val sortedRows = remember(visibleRows, sort, totalMemKb) {
-        sortAppRows(visibleRows, sort, totalMemKb, orderState.order).also { rows ->
-            if (rows.isNotEmpty()) {
-                orderState.order = rows.withIndex().associate { it.value.uid to it.index }
-            }
+        sortAppRows(visibleRows, sort, totalMemKb, orderState.order)
+    }
+    // 上一帧顺序只给「档内稳定」用，不是渲染状态：写回放 SideEffect，
+    // 不在 remember 计算块里做副作用（计算块可能被丢弃 / 重跑）。
+    SideEffect {
+        if (sortedRows.isNotEmpty()) {
+            orderState.order = sortedRows.withIndex().associate { it.value.uid to it.index }
         }
     }
 
@@ -229,7 +256,7 @@ internal fun SysMonitorCell(
     val tempC = device.temperatureC ?: device.battery?.temperatureC
     val coresText = device.coreFreqMhz.takeIf { it.isNotEmpty() }
         ?.let { stringResource(R.string.grid_panel_sys_cores, it.size) }
-    val freqText = device.coreFreqMhz.maxOrNull()?.let { formatFreqMhz(it) }
+    val freqText = device.coreFreqMhz.filterNotNull().maxOrNull()?.let { formatFreqMhz(it) }
     val tempText = tempC?.let { stringResource(R.string.grid_panel_sys_temp, it.roundToInt()) }
     val cpuDetail = listOfNotNull(coresText, tempText, freqText).joinToString(" · ")
 
