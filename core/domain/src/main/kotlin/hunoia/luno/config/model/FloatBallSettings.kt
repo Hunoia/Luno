@@ -178,6 +178,18 @@ data class NotificationCapsuleSettings(
  * 后台读剪贴板依赖 Shizuku 以 shell 身份读取（新 ROM 不向后台应用投递剪贴板回调，
  * 无障碍也不豁免），读不到内容就不弹。
  */
+/**
+ * 情景识别的应用名单模式：
+ * - [Blocklist]：排除 [ClipboardBallSettings.scenePackages] 中的应用；
+ * - [Allowlist]：只在这些应用里识别（空 = 全部允许）。
+ */
+@Serializable
+@Keep
+enum class SceneListMode {
+    Blocklist,
+    Allowlist,
+}
+
 @Serializable
 @Keep
 data class ClipboardBallSettings(
@@ -195,6 +207,15 @@ data class ClipboardBallSettings(
      * 默认关；开启即对**所有**规则生效（规则不分来源，见 architecture §7.4 的情景识别边界）。
      */
     val sceneEnabled: Boolean = false,
+    /**
+     * 情景识别应用名单模式（黑/白名单）。只拦**自动扫描**：长按建议球手动扫仍穿透。
+     */
+    val sceneListMode: SceneListMode = SceneListMode.Blocklist,
+    /**
+     * 情景识别应用名单（裸包名）：黑名单 = 排除这些；白名单 = 只在这些里识别
+     * （空 = 全部允许）。与通知胶囊黑名单同口径，不处理分身后缀。
+     */
+    val scenePackages: List<String> = emptyList(),
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
     /**

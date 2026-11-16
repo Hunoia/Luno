@@ -65,6 +65,11 @@ data object StatusBarIconSettings
 @Serializable
 data object NotificationBlocklist
 
+/** 情景识别黑/白名单（应用多选，复用 [RecentAppsBlocklist] 的编辑页交互）。 */
+@Keep
+@Serializable
+data object SceneRecognizeList
+
 @Keep
 @Serializable
 data object ActionPanelList

@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +33,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.config.model.SceneListMode
 import hunoia.luno.config.model.SuggestionRule
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
@@ -43,6 +45,7 @@ import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.rememberDragReorderState
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -65,6 +68,7 @@ fun SuggestionCapsuleSettingsScreen(
     onEditRule: (String) -> Unit = {},
     onCreateRule: () -> Unit = {},
     onNavToLinkDispatch: () -> Unit = {},
+    onNavToSceneList: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -285,9 +289,10 @@ fun SuggestionCapsuleSettingsScreen(
         item(key = "scene") {
             val needsA11y = clipball.sceneEnabled && !sceneReady
             val needsShizuku = clipball.sceneEnabled && !shizukuReady
-            val rowCount = 1 + (if (needsA11y) 1 else 0) + (if (needsShizuku) 1 else 0)
-            val a11yIndex = 1
-            val shizukuIndex = 1 + (if (needsA11y) 1 else 0)
+            // 常驻两行（名单模式 + 名单入口）：sceneEnabled 关闭也可预设，与通知黑名单行同口径。
+            val rowCount = 3 + (if (needsA11y) 1 else 0) + (if (needsShizuku) 1 else 0)
+            val a11yIndex = 3
+            val shizukuIndex = 3 + (if (needsA11y) 1 else 0)
             LunoGroup(title = stringResource(R.string.float_ball_suggestion_scene_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_suggestion_scene_enabled),
@@ -301,6 +306,40 @@ fun SuggestionCapsuleSettingsScreen(
                         }
                     },
                     shape = segmentedShape(0, rowCount),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.float_ball_suggestion_scene_list_mode),
+                    subtitle = stringResource(R.string.float_ball_suggestion_scene_list_mode_hint),
+                    options = listOf(
+                        stringResource(R.string.float_ball_suggestion_scene_list_blocklist),
+                        stringResource(R.string.float_ball_suggestion_scene_list_allowlist),
+                    ),
+                    selectedIndex = if (clipball.sceneListMode == SceneListMode.Allowlist) 1 else 0,
+                    onSelect = { index ->
+                        update {
+                            it.copy(
+                                clipboardBall = it.clipboardBall.copy(
+                                    sceneListMode = if (index == 1) SceneListMode.Allowlist
+                                    else SceneListMode.Blocklist,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(1, rowCount),
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Block,
+                    title = stringResource(R.string.float_ball_suggestion_scene_list),
+                    subtitle = if (clipball.scenePackages.isEmpty()) {
+                        stringResource(R.string.float_ball_suggestion_scene_list_none)
+                    } else {
+                        stringResource(
+                            R.string.float_ball_suggestion_scene_list_count,
+                            clipball.scenePackages.size,
+                        )
+                    },
+                    shape = segmentedShape(2, rowCount),
+                    onClick = onNavToSceneList,
                 )
                 if (needsA11y) {
                     LunoSettingsRow(

@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.showToast
@@ -26,11 +27,13 @@ import hunoia.luno.config.model.upsertRule
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.suggestion.SuggestionRuleEngine
-import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
@@ -180,60 +183,55 @@ fun SuggestionRuleEditScreen(
                 onCheckedChange = { enabled = it },
                 shape = segmentedShape(0, 2),
             )
-            LabeledTextField(
+            LunoInputRow(
+                label = stringResource(R.string.float_ball_suggestion_rule_name),
                 value = name,
                 onValueChange = { name = it },
-                label = stringResource(R.string.float_ball_suggestion_rule_name),
-                isError = false,
-                singleLine = true,
                 placeholder = stringResource(R.string.float_ball_suggestion_rule_name_hint),
-                modifier = Modifier.fillMaxWidth(),
+                shape = segmentedShape(1, 2),
             )
         }
         LunoGroup(title = stringResource(R.string.float_ball_suggestion_rules_group)) {
-            LabeledTextField(
+            // 行数随测试结果块是否渲染变化：同 LinkDispatch 的 ruleRowCount 动态计数。
+            val ruleRowCount = if (testText.isBlank()) 3 else 4
+            LunoCardInput(
                 value = pattern,
                 onValueChange = { pattern = it },
                 label = stringResource(R.string.float_ball_suggestion_rule_pattern),
-                isError = pattern.isBlank() || regexError,
-                singleLine = false,
                 placeholder = stringResource(R.string.float_ball_suggestion_rule_pattern_hint),
-                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                minLines = 3,
+                isError = pattern.isBlank() || regexError,
+                supportingText = if (regexError) {
+                    stringResource(R.string.float_ball_suggestion_rule_regex_invalid)
+                } else {
+                    stringResource(R.string.float_ball_suggestion_rule_group_hint)
+                },
+                shape = segmentedShape(0, ruleRowCount),
             )
-            if (regexError) {
-                Text(
-                    text = stringResource(R.string.float_ball_suggestion_rule_regex_invalid),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.float_ball_suggestion_rule_group_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
             LunoDropdownRow(
                 title = stringResource(R.string.float_ball_suggestion_rule_action),
                 subtitle = stringResource(R.string.float_ball_suggestion_rule_action_hint),
                 options = actions.map { ruleActionLabel(it) },
                 selectedIndex = actions.indexOf(action).coerceAtLeast(0),
                 onSelect = { index -> action = actions[index] },
-                shape = segmentedShape(0, 3),
+                shape = segmentedShape(1, ruleRowCount),
             )
-            LabeledTextField(
+            LunoCardInput(
                 value = testText,
                 onValueChange = { testText = it },
                 label = stringResource(R.string.float_ball_suggestion_rule_test),
-                isError = false,
-                singleLine = false,
                 placeholder = stringResource(R.string.float_ball_suggestion_rule_test_hint),
-                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                minLines = 2,
+                shape = segmentedShape(2, ruleRowCount),
             )
             if (testText.isNotBlank()) {
-                RuleTestResult(pattern = pattern.trim(), testText = testText)
+                RuleTestResult(
+                    pattern = pattern.trim(),
+                    testText = testText,
+                    shape = segmentedShape(3, ruleRowCount),
+                )
             }
         }
     }
@@ -241,7 +239,7 @@ fun SuggestionRuleEditScreen(
 
 /** 测试预览：与运行时一致，只取第一个匹配的第 1 个捕获组（无捕获组取整段）。 */
 @Composable
-private fun RuleTestResult(pattern: String, testText: String) {
+private fun RuleTestResult(pattern: String, testText: String, shape: Shape) {
     val result = remember(pattern, testText) {
         if (pattern.isBlank()) return@remember null
         val regex = runCatching { Regex(pattern) }.getOrNull() ?: return@remember null
@@ -250,21 +248,23 @@ private fun RuleTestResult(pattern: String, testText: String) {
         val value = if (match.groups.size > 1) match.groups[1]?.value else match.value
         value?.trim()?.takeIf { it.isNotEmpty() }
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        Text(
-            text = if (result == null) {
-                stringResource(R.string.float_ball_suggestion_rule_test_miss)
-            } else {
-                stringResource(R.string.float_ball_suggestion_rule_test_hit, result)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = if (result == null) MaterialTheme.colorScheme.onSurfaceVariant
-            else MaterialTheme.colorScheme.primary,
-        )
+    LunoGroupItem(shape = shape) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = if (result == null) {
+                    stringResource(R.string.float_ball_suggestion_rule_test_miss)
+                } else {
+                    stringResource(R.string.float_ball_suggestion_rule_test_hit, result)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (result == null) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

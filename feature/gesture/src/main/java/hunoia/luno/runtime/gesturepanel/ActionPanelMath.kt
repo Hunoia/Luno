@@ -430,13 +430,12 @@ internal fun actionPanelContentBounds(
     var right = Float.NEGATIVE_INFINITY
     var bottom = Float.NEGATIVE_INFINITY
     repeat(actionCount) { index ->
-        val displayIndex = actionPanelDisplayIndex(sector, actionCount, index)
         val center = origin + actionPanelItemOffset(
             parentSize = parentSize,
             origin = origin,
             sector = sector,
             actionCount = actionCount,
-            index = displayIndex,
+            index = index,
             itemSizePx = itemSizePx,
             spreadSpacing = spreadSpacing,
             itemGapPx = itemGapPx,
@@ -480,17 +479,6 @@ internal fun actionPanelPillPosition(
         else -> bottomY
     }
     return Offset(0f, y.coerceSafely(topY, bottomY))
-}
-
-internal fun actionPanelDisplayIndex(sector: ActionPanelSector, actionCount: Int, index: Int): Int {
-    if (actionCount <= 2) return index
-    val normalizedCenter = ((sector.centerDegrees % 360f) + 360f) % 360f
-    // 左右触发时保持配置顺序，只镜像几何位置；否则左侧会把内外层顺序反转。
-    // 上下触发保留原有的层次方向。
-    val radians = Math.toRadians(normalizedCenter.toDouble())
-    val horizontal = kotlin.math.abs(kotlin.math.cos(radians)) >= kotlin.math.abs(kotlin.math.sin(radians))
-    val reverse = !horizontal
-    return if (reverse) actionCount - 1 - index else index
 }
 
 

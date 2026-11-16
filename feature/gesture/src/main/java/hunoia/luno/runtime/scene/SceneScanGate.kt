@@ -18,6 +18,7 @@ internal enum class SceneScanDecision {
     SystemUi,
     InputMethod,
     Launcher,
+    BlockedList,
 }
 
 /**
@@ -34,6 +35,10 @@ data class SceneScanContext(
      * 全都没配时，扫出来的文本过了规则也只能得空结果 —— 这一次树遍历是纯浪费。
      */
     val hasRules: Boolean = true,
+    /** 情景识别应用名单（裸包名）：黑名单 = 排除；白名单 = 仅这些（空 = 全部允许）。 */
+    val sceneBlocklist: Set<String> = emptySet(),
+    /** true = 白名单模式（[sceneBlocklist] 只在这些应用里识别）；false = 黑名单模式。 */
+    val sceneAllowlist: Boolean = false,
 )
 
 /**
@@ -67,8 +72,20 @@ internal object SceneScanGate {
         // 输入法窗口即使被标成 application，也不该触发读屏。
         if (eventPackage.contains("inputmethod", ignoreCase = true)) return SceneScanDecision.InputMethod
         if (context.launcher) return SceneScanDecision.Launcher
+        if (!isAllowed(context, eventPackage)) return SceneScanDecision.BlockedList
         return SceneScanDecision.Accepted
     }
+
+    /**
+     * 应用名单判定：黑名单 = 排除命中；白名单 = 只允许命中（空表 = 全部允许）。
+     * 白名单空表放行，避免「切了白名单模式却没选应用」时什么都不识别。
+     */
+    internal fun isAllowed(context: SceneScanContext, packageName: String): Boolean =
+        if (context.sceneAllowlist) {
+            context.sceneBlocklist.isEmpty() || packageName in context.sceneBlocklist
+        } else {
+            packageName !in context.sceneBlocklist
+        }
 
     /**
      * 界面内容变化 + 窗口状态变化 + 文本变化。桌面/系统栏的窗口变化事件不进来，

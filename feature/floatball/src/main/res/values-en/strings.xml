@@ -94,6 +94,13 @@
     <string name="float_ball_suggestion_scene_need_a11y_hint">Tap to turn on the accessibility service so scene detection can read screen text</string>
     <string name="float_ball_suggestion_scene_need_shizuku">Full links in in-app browsers</string>
     <string name="float_ball_suggestion_scene_need_shizuku_hint">With Shizuku granted, in-app browsers (WeChat, QQ) yield the full link instead of just the domain</string>
+    <string name="float_ball_suggestion_scene_list_mode">Scope</string>
+    <string name="float_ball_suggestion_scene_list_mode_hint">Blocklist = exclude the selected apps; allowlist = recognize only in these apps</string>
+    <string name="float_ball_suggestion_scene_list_blocklist">Blocklist (exclude)</string>
+    <string name="float_ball_suggestion_scene_list_allowlist">Allowlist (only these)</string>
+    <string name="float_ball_suggestion_scene_list">Scene recognition list</string>
+    <string name="float_ball_suggestion_scene_list_none">Not set, recognize in all apps</string>
+    <string name="float_ball_suggestion_scene_list_count">%1$d apps selected</string>
     <string name="scene_scan_unavailable">Accessibility service is off; the screen can not be read</string>
     <string name="float_ball_suggestion_link_dispatch_hint">Which app opens link suggestions, and what happens when no app matches</string>
 

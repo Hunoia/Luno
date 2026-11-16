@@ -204,6 +204,9 @@ class GestureCoordinator(
             interactive = !locked,
             launcher = eventPackage?.let(host::isLauncherPackage) ?: host.nowInLauncher(),
             hasRules = hasRules,
+            // 黑/白名单只拦自动扫描；长按建议球手动扫穿透（requestNow 不经门禁）。
+            sceneBlocklist = clipball.scenePackages.toSet(),
+            sceneAllowlist = clipball.sceneListMode == hunoia.luno.config.model.SceneListMode.Allowlist,
         )
     }
 

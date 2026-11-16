@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -52,6 +53,8 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LocalInDividedCard
+import hunoia.luno.ui.component.row.groupItemTopLine
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -222,12 +225,18 @@ private fun TodoListRow(
     shape: Shape = MaterialTheme.shapes.small,
 ) {
     val scheme = MaterialTheme.colorScheme
+    // 大卡分割线风格：行不画自身底色/圆角，由 LunoGroup 的卡片统一托底，
+    // 仅非首行顶部画分割线（与 LunoRow 同口径）。分割线左起点越过左侧圆点，
+    // 对齐文字列（行内边距 16dp + 圆点 24dp + 间距 12dp）。
+    val inDividedCard = LocalInDividedCard.current
+    val dividerStartInset = 16.dp + 24.dp + 12.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = MinInteractiveSize)
-            .clip(shape)
-            .background(scheme.surfaceBright)
+            .clip(if (inDividedCard) RectangleShape else shape)
+            .background(if (inDividedCard) Color.Transparent else scheme.surfaceBright)
+            .then(Modifier.groupItemTopLine(shape, dividerStartInset))
             .pressClickable(onClick = onEdit)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,

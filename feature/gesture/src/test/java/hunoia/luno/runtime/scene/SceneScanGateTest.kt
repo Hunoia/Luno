@@ -9,12 +9,18 @@ import org.junit.Test
  */
 class SceneScanGateTest {
 
-    private fun context(hasRules: Boolean = true) = SceneScanContext(
+    private fun context(
+        hasRules: Boolean = true,
+        blocklist: Set<String> = emptySet(),
+        allowlist: Boolean = false,
+    ) = SceneScanContext(
         enabled = true,
         locked = false,
         interactive = true,
         launcher = false,
         hasRules = hasRules,
+        sceneBlocklist = blocklist,
+        sceneAllowlist = allowlist,
     )
 
     @Test
@@ -58,6 +64,71 @@ class SceneScanGateTest {
                 eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 context = context(),
                 eventPackage = "com.example",
+                ownPackage = "hunoia.luno",
+            ),
+        )
+    }
+
+    @Test
+    fun `blocklist rejects listed apps`() {
+        assertEquals(
+            SceneScanDecision.BlockedList,
+            SceneScanGate.decide(
+                eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                context = context(blocklist = setOf("com.blocked")),
+                eventPackage = "com.blocked",
+                ownPackage = "hunoia.luno",
+            ),
+        )
+    }
+
+    @Test
+    fun `blocklist passes other apps`() {
+        assertEquals(
+            SceneScanDecision.Accepted,
+            SceneScanGate.decide(
+                eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                context = context(blocklist = setOf("com.blocked")),
+                eventPackage = "com.other",
+                ownPackage = "hunoia.luno",
+            ),
+        )
+    }
+
+    @Test
+    fun `empty allowlist passes everything`() {
+        assertEquals(
+            SceneScanDecision.Accepted,
+            SceneScanGate.decide(
+                eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                context = context(allowlist = true),
+                eventPackage = "com.any",
+                ownPackage = "hunoia.luno",
+            ),
+        )
+    }
+
+    @Test
+    fun `allowlist passes listed apps`() {
+        assertEquals(
+            SceneScanDecision.Accepted,
+            SceneScanGate.decide(
+                eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                context = context(blocklist = setOf("com.allowed"), allowlist = true),
+                eventPackage = "com.allowed",
+                ownPackage = "hunoia.luno",
+            ),
+        )
+    }
+
+    @Test
+    fun `allowlist rejects unlisted apps`() {
+        assertEquals(
+            SceneScanDecision.BlockedList,
+            SceneScanGate.decide(
+                eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                context = context(blocklist = setOf("com.allowed"), allowlist = true),
+                eventPackage = "com.other",
                 ownPackage = "hunoia.luno",
             ),
         )

@@ -57,6 +57,7 @@ import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.RecentsGestureSettings
 import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
+import hunoia.luno.ui.navigation.SceneRecognizeList
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelEdit
@@ -468,6 +469,31 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onEditRule = { ruleId -> navController.navigate(SuggestionRuleEdit(ruleId)) },
                         onCreateRule = { navController.navigate(SuggestionRuleEdit()) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
+                        onNavToSceneList = { navController.navigate(SceneRecognizeList) },
+                    )
+                }
+                myComposable<SceneRecognizeList> {
+                    val scope = rememberCoroutineScope()
+                    val actionSettings by TuneConfig.action
+                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                    RecentAppsBlocklistScreen(
+                        onBack = { navController.popBackStack() },
+                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_suggestion_scene_list),
+                        current = actionSettings.floatBall.clipboardBall.scenePackages,
+                        onSave = { ordered ->
+                            scope.launch {
+                                TuneConfig.updateAction {
+                                    it.copy(
+                                        floatBall = it.floatBall.copy(
+                                            clipboardBall = it.floatBall.clipboardBall.copy(
+                                                scenePackages = ordered,
+                                            ),
+                                        ),
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
                 myComposable<SuggestionRuleEdit> {

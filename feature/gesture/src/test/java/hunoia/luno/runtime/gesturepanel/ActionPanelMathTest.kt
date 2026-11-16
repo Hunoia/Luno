@@ -13,9 +13,6 @@ class ActionPanelMathTest {
         val right = ActionPanelSector(sweepDegrees = 180f, centerDegrees = 0f)
         val left = ActionPanelSector(sweepDegrees = 180f, centerDegrees = 180f)
 
-        assertEquals(0, actionPanelDisplayIndex(right, actionCount = 3, index = 0))
-        assertEquals(0, actionPanelDisplayIndex(left, actionCount = 3, index = 0))
-
         val origin = androidx.compose.ui.geometry.Offset(300f, 400f)
         val parent = Size(800f, 800f)
         val rightOffset = actionPanelItemOffset(parent, origin, right, 3, 0, 48f, 1f, 6f)
@@ -25,12 +22,18 @@ class ActionPanelMathTest {
     }
 
     @Test
-    fun verticalSidesRetainTheirExistingReversedOrder() {
-        val top = ActionPanelSector(sweepDegrees = 180f, centerDegrees = 90f)
-        val bottom = ActionPanelSector(sweepDegrees = 180f, centerDegrees = 270f)
-
-        assertEquals(2, actionPanelDisplayIndex(top, actionCount = 3, index = 0))
-        assertEquals(2, actionPanelDisplayIndex(bottom, actionCount = 3, index = 0))
+    fun verticalSidesKeepListOrder() {
+        // 上下触发不再反转列表顺序：第 0 项在顺时针扫向起点（右侧），末项在另一端（左侧）。
+        val bottom = ActionPanelSector(sweepDegrees = 180f, centerDegrees = 90f)
+        val parent = Size(1000f, 1000f)
+        val origin = Offset(500f, 500f)
+        val offsets = (0 until 3).map { index ->
+            actionPanelItemOffset(
+                parent, origin, bottom, actionCount = 3, index = index,
+                itemSizePx = 48f, spreadSpacing = 1f, itemGapPx = 6f,
+            )
+        }
+        assertTrue(offsets[0].x > offsets[2].x)
     }
 
     @Test
