@@ -1,6 +1,6 @@
 package hunoia.luno.ui.component
 
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -31,7 +31,7 @@ import hunoia.luno.ui.theme.RowIconSize
 
 /**
  * 列表拖拽排序（动作面板编辑页与搜索引擎设置页共用）：
- * 按住手柄只改本地草稿 [draft]（null = 跟随 [current]），松手且草稿与当前不同时回调 [onCommit] 落盘。
+ * 长按手柄只改本地草稿 [draft]（null = 跟随 [current]），松手且草稿与当前不同时回调 [onCommit] 落盘。
  * 半行高阈值换位 + 跟手位移；行高未测量时用 72.dp 兜底。
  */
 @Stable
@@ -123,7 +123,7 @@ fun Modifier.dragReorderPlacement(state: DragReorderState<*>, index: Int): Modif
     .graphicsLayer { translationY = if (state.draggingIndex == index) state.dragOffset else 0f }
     .onGloballyPositioned { state.itemHeights[index] = it.size.height.toFloat() }
 
-/** 行尾拖动手柄：按住只改本地草稿顺序，松手落盘；点击被吞掉，不触发整行。 */
+/** 行尾拖动手柄：长按后进入拖动，只改本地草稿顺序，松手落盘；点按被吞掉，不触发整行。 */
 @Composable
 fun DragReorderHandle(
     state: DragReorderState<*>,
@@ -137,7 +137,7 @@ fun DragReorderHandle(
         modifier = Modifier
             .size(48.dp)
             .pointerInput(*keys) {
-                detectDragGestures(
+                detectDragGesturesAfterLongPress(
                     onDragStart = { state.onDragStart(index, with(density) { 72.dp.toPx() }) },
                     onDrag = { change, dragAmount ->
                         change.consume()

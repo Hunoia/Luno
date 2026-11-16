@@ -64,10 +64,8 @@
     <string name="action_panel_unnamed">Unnamed panel</string>
     <string name="grid_panel_unnamed">Unnamed panel</string>
     <string name="clipboard_label">Luno</string>
-    <string name="app_control_result_success">Processed %1$d apps</string>
-    <string name="app_control_result_partial">%1$d succeeded, %2$d failed</string>
-    <string name="app_control_one_key_empty">The one-key freeze list is empty; add apps on the App freeze page first</string>
-    <string name="app_control_nothing_to_unfreeze">No apps in the list need unfreezing</string>
+    <string name="app_control_frozen_toast">Froze %1$d</string>
+    <string name="app_control_unfrozen_toast">Unfroze %1$d</string>
     <string name="action_group_quick_toggle">Quick toggles</string>
     <string name="action_group_open_settings">Open settings page</string>
     <string name="action_group_media_control">Media control</string>
