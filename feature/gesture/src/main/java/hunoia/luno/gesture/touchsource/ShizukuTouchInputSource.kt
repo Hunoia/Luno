@@ -67,7 +67,7 @@ class ShizukuTouchInputSource(
     private val _status = MutableStateFlow(ShizukuTouchStatus())
     val status: StateFlow<ShizukuTouchStatus> = _status.asStateFlow()
 
-    private val tracker = TouchTracker()
+    private val tracker = TouchTracker(clockMs = SystemClock::uptimeMillis)
     private val mapper = TouchScreenMapper(context)
 
     private var monitorJob: Job? = null

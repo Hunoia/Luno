@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Gesture panel / gesture button strings. -->
+    <string name="gesture_global_trigger_takeover">Take over touch</string>
+    <string name="gesture_global_trigger_takeover_hint">Cancels the app\'s own gesture after firing and absorbs later touches so the drag only reaches Luno. Requires Shizuku; some systems may still react to the original long press or swipe.</string>
     <string name="long_press">Long press</string>
     <string name="tap">Tap</string>
     <string name="apps_show_system">Show system apps</string>

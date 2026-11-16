@@ -109,6 +109,24 @@ class GestureCoordinator(
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host)
 
+    /** 接管触摸（触发开了 `consumeTouch`）时用的触摸盾：只在一次接管会话里存在。 */
+    private val touchShield = hunoia.luno.runtime.overlay.TouchShieldOverlay(host)
+
+    /**
+     * 每次接管的注入守卫令牌：`cancel` 之后立即让在飞的注入放弃。
+     *
+     * 注入在 IO 线程跑，`DOWN` 放行过之后必须补 `CANCEL`；这个令牌只负责让**还没发出**的
+     * 事件不再发出，避免用户已经抬手切走后，我们仍在往旧坐标注入。
+     */
+    private val takeoverToken = java.util.concurrent.atomic.AtomicLong(0)
+
+    /** 当前接管会话的 id；非空 = 正在接管。 */
+    private var takeoverSessionId: String? = null
+
+    /** 当前接管的注入守卫：接管的会话号 + 屏幕状态仍然有效。 */
+    private fun takeoverGuard(sessionId: String, token: Long): Boolean =
+        takeoverToken.get() == token && takeoverSessionId == sessionId
+
     /**
      * 识别区（全屏手势）配置：跟随手势总开关。总开关关闭时视作没有任何区，
      * 内核触摸流也不启动（与侧边手势保持一致）。
@@ -217,6 +235,8 @@ class GestureCoordinator(
             )
         },
         wantsPreCapture = ::zoneWantsScreenPickCapture,
+        onTakeover = ::beginTouchTakeover,
+        onTakeoverEnd = { sessionId -> endTouchTakeover(sessionId) },
         onFire = { hit ->
             val touch = hit.anchor.x.roundToInt() to hit.anchor.y.roundToInt()
             val context = hunoia.luno.core.domain.TriggerContext(
@@ -267,6 +287,89 @@ class GestureCoordinator(
             trigger.action?.typeId == SCREEN_PICK_TYPE_ID ||
                 trigger.directionActions.actions.values.any { it.typeId == SCREEN_PICK_TYPE_ID }
         }
+
+    /**
+     * 触发开了 `consumeTouch` 时点火：打断源应用手势 + 挂盾（architecture §7.4「触发接管触摸」）。
+     *
+     * **顺序不可颠倒：先注入、后挂盾**。`injectInputEvent` 走正常窗口命中测试，盾是
+     * `TYPE_ACCESSIBILITY_OVERLAY`、z-order 在源应用之上；盾先挂的话注入的 DOWN 会落在
+     * 盾自己身上，源应用收不到、手势也没被取消，而盾又盖住了后续触摸——表现为
+     * 「拖动时底下应用照样滚动」。
+     *
+     * 注入窗口只有几十毫秒，期间源应用仍会响应，这是可接受的最小暴露面：
+     * 宁可暴露 40ms，也不要注入打空。
+     *
+     * 全程 best-effort：注入失败只记日志，不阻断点火——拖动仍会转发给面板，
+     * 只是源应用可能同时还在响应它自己的手势。
+     *
+     * 返回值语义是「是否需要在会话结束时收口」，不是「是否完全成功」：只要盾挂上了就必须
+     * 返回 true，否则会话结束时不会撤盾，屏幕会被一块透明窗口永久吸掉触摸。
+     */
+    private fun beginTouchTakeover(x: Int, y: Int, sessionId: String): Boolean {
+        if (takeoverSessionId != null) return true
+        takeoverSessionId = sessionId
+        val token = takeoverToken.incrementAndGet()
+        val displayId = currentDisplayId()
+        // 会话本身在 Main 上推进（挂盾、收口都要 Main）；注入在里面显式切 IO。
+        host.coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            val result = hunoia.luno.shizuku.TouchTakeoverOrder.run(
+                inject = {
+                    // 前台包名在注入前、挂盾前取：盾一挂，无障碍的 active window 就是盾自己。
+                    // 不读 `rootInActiveWindow`（那是无障碍视图，会被自家 overlay 顶掉）；
+                    // 要的是系统侧事实——`IActivityTaskManager` 的焦点任务顶层 Activity。
+                    // 读不到返回 null，注入侧按「未知」处理并继续，不因读不到就白做一次接管。
+                    val expected = runCatching {
+                        hunoia.luno.shizuku.ShizukuManager.focusedTaskPackage()
+                    }.getOrNull()
+                    // 注入是阻塞的，必须离开 Main（架构 §4.6）。
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching {
+                            hunoia.luno.shizuku.ShizukuMotionInjector.interruptTouch(
+                                x = x,
+                                y = y,
+                                displayId = displayId,
+                                expectedPackage = expected,
+                                isCurrent = { takeoverGuard(sessionId, token) },
+                            )
+                        }.getOrElse { error ->
+                            Log.w(LOG_TAG, "takeover inject failed type=${error.javaClass.simpleName}")
+                            hunoia.luno.shizuku.TouchInterruption.Failed
+                        }
+                    }
+                },
+                attachShield = {
+                    if (takeoverGuard(sessionId, token)) touchShield.show()
+                },
+            )
+            Log.i(
+                LOG_TAG,
+                "takeover done session=$sessionId result=$result shield=${touchShield.isShown}",
+            )
+        }
+        return true
+    }
+
+    /** 接管会话收口：令牌作废（在飞的注入不再发新事件）+ 撤盾。幂等。 */
+    private fun endTouchTakeover(sessionId: String) {
+        if (takeoverSessionId != sessionId) return
+        takeoverSessionId = null
+        takeoverToken.incrementAndGet()
+        touchShield.hide()
+    }
+
+    /** 不计会话号直接收口（锁屏 / 息屏 / 销毁）：幂等，无会话时只清一遍。 */
+    private fun abortTouchTakeover() {
+        takeoverSessionId = null
+        takeoverToken.incrementAndGet()
+        touchShield.release()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun currentDisplayId(): Int =
+        runCatching {
+            host.context.getSystemService(android.view.WindowManager::class.java)
+                .defaultDisplay.displayId
+        }.getOrDefault(0)
     /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的按下不能当全屏手势。 */
     private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter()
 
@@ -783,6 +886,8 @@ class GestureCoordinator(
      * 已经打开的临时 Surface 与手势会话。
      */
     private fun closeTransientSurfaces() {
+        // 接管会话与触摸盾一起收：盾是全屏可触摸窗，漏撤等于整个屏幕点不动。
+        abortTouchTakeover()
         gesturePipelineRef?.let { pipeline ->
             pipeline.actionPanelState.cancel()
             pipeline.sideGestureState.cancel()
@@ -1248,6 +1353,7 @@ class GestureCoordinator(
         shizukuTouchInputRef = null
         gesturePipelineRef = null
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
+        abortTouchTakeover()
         mainOverlayController.release()
         hunoia.luno.runtime.surface.SurfaceController.detachAll(
             hunoia.luno.runtime.surface.SurfaceKind.BUTTON,

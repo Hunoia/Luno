@@ -66,6 +66,17 @@ enum class GlobalGestureKind {
     LongSlideHold,
 }
 
+/**
+ * 「按住到阈值 → 进入等拖动窗口 → 按方向扇区取动作」的形态。
+ *
+ * 这个判定被识别、配置读写、动作选择页三方共用，所以放在模型层：三处各写一份
+ * `kind == LongPress || ...` 已经出过一次事故——当时的 `PressDrag` 漏在条件外，
+ * 动作选择页读不到旧值（永远显示「无」），写入又落到了 `action` 而不是
+ * `directionActions`（选了也不生效）。
+ */
+val GlobalGestureKind.isArmedDrag: Boolean
+    get() = this == GlobalGestureKind.LongPress
+
 /** 该形态是否按方向扇区取动作。 */
 val GlobalGestureKind.isDirectional: Boolean
     get() = this == GlobalGestureKind.Slide ||
@@ -127,6 +138,19 @@ data class GlobalGestureTrigger(
     /** 双击间隔上限。 */
     val doubleTapDelayMs: Int = 300,
     val vibrate: Boolean = false,
+    /**
+     * 点火后是否**接管**这段触摸：取消源应用手上的手势，并拦住后续触摸。
+     *
+     * 这是「打断」，与「触发」（命中 + 长按判定）和「动作」（识屏 / 搜索 / 投放）
+     * 三者互相独立：同一个开关可以配任意动作，任意 kind 也可以独立开关它。
+     *
+     * 为什么不是一种 [GlobalGestureKind]：接管只是点火后多一步，不改变识别流程；
+     * 做成独立 kind 会迫使用户新增一条触发、与原有触发抢区内优先级、动作配两份。
+     *
+     * 默认 `false` = 只读（内核触摸流旁路观察，源应用照常收到它自己的手势）。
+     * 开启时按 best-effort 处理：注入能否被系统接受取决于 ROM，失败不阻断点火。
+     */
+    val consumeTouch: Boolean = false,
 ) {
     init {
         require(fingers in 1..3) { "fingers must be 1..3" }
@@ -136,10 +160,11 @@ data class GlobalGestureTrigger(
     val effectiveLongSlideTriggerDistanceDp: Float
         get() = longSlideTriggerDistanceDp.coerceAtLeast(slideTriggerDistanceDp)
 
-    /** 实际生效的动作：方向形态与「长按后拖」按扇区取，按住即触发取单动作。 */
+    /** 实际生效的动作：方向形态与「按住后拖」按扇区取，按住即触发取单动作。 */
     fun actionFor(slot: Int): StoredAction? = when {
         kind.isDirectional -> directionActions.actionBy(slot)
-        kind == GlobalGestureKind.LongPress ->
+        // 长按后拖与长按拖放同形：按住即触发取单动作，否则按扇区取。
+        kind.isArmedDrag ->
             if (fireOnHold) action ?: directionActions.actionBy(0)
             else directionActions.actionBy(slot)
         else -> action
@@ -149,7 +174,7 @@ data class GlobalGestureTrigger(
     val hasAnyAction: Boolean
         get() = when {
             kind.isDirectional -> directionActions.actions.isNotEmpty()
-            kind == GlobalGestureKind.LongPress ->
+            kind.isArmedDrag ->
                 if (fireOnHold) {
                     action != null || directionActions.actions.isNotEmpty()
                 } else {
@@ -170,7 +195,15 @@ data class GlobalGestureTrigger(
                 } else {
                     2
                 },
-                // 长按后拖默认「任意方向」；方向类默认四向，让用户自己绑各自动作。
+                // 动作：长按默认绑识屏（与默认配置同源），其余形态留给用户自己选。
+                // 不给默认动作的话，新加的触发会因为 `hasAnyAction == false` 被识别链路
+                // 直接过滤掉——用户看到的是「加了触发但完全没反应」。
+                directionActions = if (kind.isArmedDrag) {
+                    DirectionActions(mapOf(0 to StoredAction.of(SCREEN_PICK_TYPE_ID)))
+                } else {
+                    DirectionActions()
+                },
+                // 长按默认「任意方向」；方向类默认四向，让用户自己绑各自动作。
                 angle = if (kind == GlobalGestureKind.LongPress) {
                     GestureButtonAngle(listOf(0.25f))
                 } else {
@@ -186,6 +219,14 @@ data class GlobalGestureTrigger(
 data class GlobalGestureSettings(
     val zones: List<GlobalGestureZone> = GlobalGestureDefaults.Zones,
 )
+
+/**
+ * 识屏动作的 `typeId`。
+ *
+ * `:core:data` 不能反向依赖动作模块，所以这里用字面量（`GlobalGestureDefaults` 里本来
+ * 就这么写）。事实源是 `AccessibilityActionGroup` 的 `ActionDefinition`。
+ */
+private const val SCREEN_PICK_TYPE_ID = "accessibility.screenPick"
 
 object GlobalGestureDefaults {
     /**
@@ -207,7 +248,7 @@ object GlobalGestureDefaults {
                     fingers = 1,
                     fireOnHold = false,
                     directionActions = DirectionActions(
-                        mapOf(0 to StoredAction.of("accessibility.screenPick")),
+                        mapOf(0 to StoredAction.of(SCREEN_PICK_TYPE_ID)),
                     ),
                     angle = GestureButtonAngle(listOf(0.25f)),
                     longPressDelayMs = 400,

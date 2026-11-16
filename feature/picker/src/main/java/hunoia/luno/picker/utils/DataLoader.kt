@@ -13,7 +13,7 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.GlobalGestureKind
+import hunoia.luno.config.model.isArmedDrag
 import hunoia.luno.config.model.isDirectional
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridCell
@@ -84,7 +84,7 @@ internal suspend fun saveSettingsAction(
                                 found = true
                                 // 长按是混合形态：按住即触发用单动作，等拖动触发用方向槽。
                                 val directional = trigger.kind.isDirectional ||
-                                    (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold)
+                                    (trigger.kind.isArmedDrag && !trigger.fireOnHold)
                                 val oldAction = if (directional) {
                                     trigger.directionActions.actionBy(actionSelect.slot)
                                 } else {
@@ -664,7 +664,7 @@ internal suspend fun loadDataBody(
             when {
                 trigger == null -> null
                 trigger.kind.isDirectional ||
-                    (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold) ->
+                    (trigger.kind.isArmedDrag && !trigger.fireOnHold) ->
                     trigger.directionActions.actionBy(actionSelect.slot)
                 else -> trigger.action
             }

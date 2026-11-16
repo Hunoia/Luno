@@ -9,7 +9,10 @@ import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.GlobalGestureTrigger
 import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.allowsFingers
+import hunoia.luno.config.model.isArmedDrag
 import hunoia.luno.config.model.isDirectional
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gesture.GestureConfig
 import hunoia.luno.gesture.GestureDecision
@@ -65,6 +68,15 @@ class GlobalGestureRuntime(
     private val onFire: (GlobalGestureHit) -> Boolean,
     private val onDrag: (x: Int, y: Int) -> Unit = { _, _ -> },
     private val onRelease: (x: Int, y: Int) -> Unit = { _, _ -> },
+    /**
+     * 触发声明了 [`GlobalGestureTrigger.consumeTouch`] 时，点火后接管这段触摸：
+     * 取消源应用手上的手势 + 拦住后续触摸。返回 false = 没有产生任何副作用，无需收口。
+     *
+     * 与 kind、与动作都无关：接管是触发侧的一步，动作由 [onFire] 另行产出。
+     */
+    private val onTakeover: (x: Int, y: Int, sessionId: String) -> Boolean = { _, _, _ -> false },
+    /** 接管结束（会话收口，无论点火成功与否）：撤盾并释放注入守卫。 */
+    private val onTakeoverEnd: (sessionId: String) -> Unit = {},
     private val onPreCapture: (x: Int, y: Int, downAtMs: Long) -> Unit = { _, _, _ -> },
     private val onPreCaptureCancel: () -> Unit = {},
     private val onVibrate: (GlobalGestureTrigger) -> Unit = {},
@@ -114,6 +126,9 @@ class GlobalGestureRuntime(
     /** 本会话是否真的启动过预捕获：只有启动过才需要在取消时回收。 */
     private var preCaptureStarted = false
 
+    /** 本会话是否已经接管触摸（触发开了 consumeTouch 且点火成功）：只有接管过才需要撤盾。 */
+    private var takeoverEngaged = false
+
     /** 滑出后停住的最近到期时间：每次真实 Move 重算，tick 后清空（避免空转轮询）。 */
     private var holdDeadline = Long.MAX_VALUE
 
@@ -160,6 +175,16 @@ class GlobalGestureRuntime(
 
         val next = buildCandidates(hit, fingers)
         if (next.isEmpty()) {
+            // 命中区却没有任何候选：这是「长按没反应 / 新加的触发不生效」的唯一现场。
+            // 把每个触发为什么被过滤讲清楚，省得靠猜（配置里有没有动作、kind 对不对）。
+            LunoLog.i(
+                LOG_TAG,
+                "global gesture: zone=${hit.id} fingers=$fingers -> no candidate; " +
+                    hit.triggers.joinToString { t ->
+                        "${t.kind}(id=${t.id},enabled=${t.enabled},fingers=${t.fingers}," +
+                            "hasAction=${t.hasAnyAction},allowsFingers=${t.kind.allowsFingers(fingers)})"
+                    },
+            )
             resetSessionState()
             return
         }
@@ -228,7 +253,7 @@ class GlobalGestureRuntime(
     /** 长按后的拖动点火：方向形态按扇区取动作，未配置的扇区不响应。 */
     private fun checkDragFire(candidate: Candidate, point: Offset): Boolean {
         val trigger = candidate.trigger
-        if (trigger.kind != GlobalGestureKind.LongPress) return false
+        if (!trigger.kind.isArmedDrag) return false
         if (trigger.fireOnHold || !candidate.armed || candidate.expired) return false
         val offset = point - anchor
         if (hypot(offset.x.toDouble(), offset.y.toDouble()) <= trigger.slopDp * density()) return false
@@ -275,7 +300,7 @@ class GlobalGestureRuntime(
             }
             is GestureDecision.Trigger -> {
                 val trigger = candidate.trigger
-                if (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold) {
+                if (trigger.kind.isArmedDrag && !trigger.fireOnHold) {
                     // 到时只是「就绪」，真正点火要等拖动。
                     if (!candidate.armed) {
                         candidate.armed = true
@@ -302,6 +327,23 @@ class GlobalGestureRuntime(
         stopTimers()
         holdDeadline = Long.MAX_VALUE
         if (candidate.trigger.vibrate) onVibrate(candidate.trigger)
+        // 每次点火都留痕：排查「接了但没接管」时，这是唯一能区分
+        // 点燃的是哪个 kind、有没有开接管。
+        LunoLog.i(
+            LOG_TAG,
+            "global gesture fire: kind=${candidate.trigger.kind} consumeTouch=" +
+                "${candidate.trigger.consumeTouch} action=${action.typeId} " +
+                "zone=${currentZone.id} session=$sessionId",
+        )
+        // 接管在产出意图之前先抢触摸：之后源应用不会再响应它自己的手势。
+        // 失败不阻断点火——best-effort（architecture §7.4「触发接管触摸」）。
+        if (candidate.trigger.consumeTouch) {
+            takeoverEngaged = onTakeover(
+                position.x.toInt(),
+                position.y.toInt(),
+                sessionId,
+            )
+        }
         trackingDrag = onFire(
             GlobalGestureHit(
                 zone = currentZone,
@@ -377,7 +419,7 @@ class GlobalGestureRuntime(
 
     private fun deadlineOf(candidate: Candidate, time: Long): Long? {
         val trigger = candidate.trigger
-        if (trigger.kind != GlobalGestureKind.LongPress) return null
+        if (!trigger.kind.isArmedDrag) return null
         if (!candidate.armed) return downAt + trigger.longPressDelayMs
         if (trigger.fireOnHold) return null
         return if (trigger.dragStartTimeoutMs > 0) candidate.armedAt + trigger.dragStartTimeoutMs else null
@@ -419,7 +461,7 @@ class GlobalGestureRuntime(
             isMirrorHorizontal = false,
             hasTapActions = trigger.kind == GlobalGestureKind.Tap && trigger.action != null,
             hasDoubleTapActions = trigger.kind == GlobalGestureKind.DoubleTap && trigger.action != null,
-            hasLongPressActions = trigger.kind == GlobalGestureKind.LongPress,
+            hasLongPressActions = trigger.kind.isArmedDrag,
             hasActionInDirection = { type, slot ->
                 type == kindType && trigger.directionActions.actionBy(slot) != null
             },
@@ -434,6 +476,11 @@ class GlobalGestureRuntime(
         stopTimers()
         if (abort) candidates.forEach { it.recognizer.onCancel() }
         if (preCaptureStarted) onPreCaptureCancel()
+        // 接管过的会话必须收口：漏掉会让全屏触摸盾一直挂在屏上，整个屏幕都点不动。
+        if (takeoverEngaged) {
+            takeoverEngaged = false
+            onTakeoverEnd(sessionId)
+        }
         resetSessionState()
     }
 
@@ -448,6 +495,7 @@ class GlobalGestureRuntime(
         fired = false
         trackingDrag = false
         preCaptureStarted = false
+        takeoverEngaged = false
         holdDeadline = Long.MAX_VALUE
     }
 

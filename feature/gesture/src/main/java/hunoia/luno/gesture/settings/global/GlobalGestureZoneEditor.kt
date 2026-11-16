@@ -40,6 +40,7 @@ import hunoia.luno.config.model.GlobalGestureTrigger
 import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.ZoneBounds
 import hunoia.luno.config.model.allowsFingers
+import hunoia.luno.config.model.isArmedDrag
 import hunoia.luno.config.model.isDirectional
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.settings.GestureActionTarget
@@ -231,6 +232,9 @@ fun GlobalGestureZoneEditorScreen(
                             onFingersClick = { showFingersFor = trigger.id },
                             onEnabledChange = { enabled -> updateTrigger(trigger.id) { it.copy(enabled = enabled) } },
                             onVibrateChange = { enabled -> updateTrigger(trigger.id) { it.copy(vibrate = enabled) } },
+                            onConsumeTouchChange = { enabled ->
+                                updateTrigger(trigger.id) { it.copy(consumeTouch = enabled) }
+                            },
                             onFireOnHoldChange = { enabled ->
                                 updateTrigger(trigger.id) { current ->
                                     if (enabled) {
@@ -300,6 +304,7 @@ private fun TriggerCard(
     onFingersClick: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onVibrateChange: (Boolean) -> Unit,
+    onConsumeTouchChange: (Boolean) -> Unit,
     onFireOnHoldChange: (Boolean) -> Unit,
     onLongPressDelayChange: (Int) -> Unit,
     onDragTimeoutChange: (Int) -> Unit,
@@ -328,6 +333,14 @@ private fun TriggerCard(
             onCheckedChange = onEnabledChange,
             shape = actionContentRowShape(0, 1),
         )
+        // 接管是触发侧的一步，与 kind、动作都无关：任何触发都能独立开关它。
+        LunoSwitchRow(
+            title = stringResource(R.string.gesture_global_trigger_takeover),
+            subtitle = stringResource(R.string.gesture_global_trigger_takeover_hint),
+            checked = trigger.consumeTouch,
+            onCheckedChange = onConsumeTouchChange,
+            shape = actionContentRowShape(0, 1),
+        )
         if (trigger.kind == GlobalGestureKind.LongPress) {
             LunoSwitchRow(
                 title = stringResource(R.string.gesture_global_trigger_fire_on_hold),
@@ -344,7 +357,7 @@ private fun TriggerCard(
             shape = actionContentRowShape(0, 1),
         )
         if (trigger.kind.allowsAngle() &&
-            !(trigger.kind == GlobalGestureKind.LongPress && trigger.fireOnHold)
+            !(trigger.kind.isArmedDrag && trigger.fireOnHold)
         ) {
             LunoSettingsRow(
                 title = stringResource(R.string.gesture_angles),
@@ -358,7 +371,7 @@ private fun TriggerCard(
             )
         }
         TriggerActionRows(trigger = trigger, onClick = onActionClick)
-        if (trigger.kind == GlobalGestureKind.LongPress) {
+        if (trigger.kind.isArmedDrag) {
             SliderRow(
                 title = stringResource(R.string.gesture_global_trigger_long_press_delay),
                 value = trigger.longPressDelayMs.toFloat(),
@@ -414,7 +427,7 @@ private fun TriggerActionRows(
     onClick: (Int, String) -> Unit,
 ) {
     val directional = trigger.kind.isDirectional ||
-        (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold)
+        (trigger.kind.isArmedDrag && !trigger.fireOnHold)
     if (!directional) {
         LunoSettingsRow(
             title = stringResource(R.string.gesture_global_trigger_actions),
@@ -788,5 +801,6 @@ private fun kindIcon(kind: GlobalGestureKind) = when (kind) {
     GlobalGestureKind.LongSlideHold -> Icons.Default.Gesture
 }
 
+/** 长按同形：按到阈值后进入「等待拖动」窗口，扇区给动作。 */
 private fun GlobalGestureKind.allowsAngle(): Boolean =
     this == GlobalGestureKind.LongPress || isDirectional

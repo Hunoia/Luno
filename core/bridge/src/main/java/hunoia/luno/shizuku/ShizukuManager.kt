@@ -419,6 +419,54 @@ object ShizukuManager {
             ?: throw NoSuchMethodException("IActivityTaskManager.startActivityFromRecents not found")
     }
 
+    /**
+     * 取焦点任务的方法。
+     *
+     * `IActivityTaskManager` 是 `@hide` 接口，`Class.methods` 在隐藏 API 强制下可能看不到
+     * 这些方法，必须走 [HiddenApiBypass.getDeclaredMethods]。名称随版本变化：
+     * Android 11+ 是 `getFocusedRootTaskInfo`，更早是 `getFocusedStackInfo`。
+     */
+    private val focusedRootTaskMethod by lazy {
+        val type = Class.forName("android.app.IActivityTaskManager")
+        val declared = HiddenApiBypass.getDeclaredMethods(type).filterIsInstance<Method>()
+        val picked = declared.firstOrNull {
+            it.parameterTypes.isEmpty() && it.name == "getFocusedRootTaskInfo"
+        } ?: declared.firstOrNull {
+            it.parameterTypes.isEmpty() && it.name == "getFocusedStackInfo"
+        }
+        if (picked == null) {
+            hunoia.luno.core.LunoLog.w(
+                "ShizukuManager",
+                "focused task query not found; declared=" + declared.size,
+            )
+            throw NoSuchMethodException("IActivityTaskManager focused task query not found")
+        }
+        picked
+    }
+
+    /**
+     * 当前焦点任务的顶层应用包名；读不到返回 null。
+     *
+     * 注入触摸前的前台校验用它：坐标属于按下那一刻，若用户已经切走应用，
+     * 继续往旧坐标注入就会打到另一个应用上。
+     */
+    suspend fun focusedTaskPackage(): String? = withContext(Dispatchers.IO) {
+        assertNotMainThread("shizuku.focusedTaskPackage")
+        if (!isBinderAlive() || !hasPermission()) return@withContext null
+        runCatching {
+            val task = focusedRootTaskMethod.invoke(activityTaskProxy) ?: return@runCatching null
+            val top = task.javaClass.getField("topActivity").get(task)
+                as? android.content.ComponentName ?: return@runCatching null
+            top.packageName
+        }.getOrElse { error ->
+            hunoia.luno.core.LunoLog.w(
+                "ShizukuManager",
+                "focusedTaskPackage failed type=${error.javaClass.simpleName}",
+            )
+            null
+        }
+    }
+
     suspend fun startActivityFromRecents(taskId: Int, options: Bundle? = null): Boolean =
         withContext(Dispatchers.IO) {
             if (!isBinderAlive()) return@withContext false
@@ -681,6 +729,9 @@ object ShizukuManager {
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         }.getOrDefault(false)
     }
+
+    /** 让 `:core:bridge` 之外的注入原语复用同一份就绪判定，不另建事实源。 */
+    fun canInjectInput(): Boolean = isBinderAlive() && hasPermission()
 
     private fun shouldAutoRequest(status: ShizukuStatus): Boolean {
         return status.binderAlive &&

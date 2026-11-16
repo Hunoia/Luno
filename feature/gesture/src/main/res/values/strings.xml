@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 手势面板/触钮文案。 -->
+    <string name="gesture_global_trigger_takeover">接管触摸</string>
+    <string name="gesture_global_trigger_takeover_hint">点火后取消原应用的手势并拦住后续触摸，让拖动只作用于 Luno。需要 Shizuku；部分系统仍可能响应原应用的长按或滑动。</string>
     <string name="long_press">长按</string>
     <string name="tap">单击</string>
     <string name="apps_show_system">显示系统应用</string>

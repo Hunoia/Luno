@@ -56,9 +56,13 @@ class GlobalGestureRuntimeTest {
     private var ignoredStart: ((Int, Int) -> Boolean) = { _, _ -> false }
     private var zoneVisible: (String) -> Boolean = { true }
     private var forwardDrag = true
+    private val takeovers = mutableListOf<Triple<Int, Int, String>>()
+    private val takeoverEnds = mutableListOf<String>()
+    private var takeoverSucceeds = true
 
     private fun trigger(
         kind: GlobalGestureKind = GlobalGestureKind.LongPress,
+        consumeTouch: Boolean = false,
         fireOnHold: Boolean = false,
         longPressDelayMs: Int = 400,
         dragStartTimeoutMs: Int = 3_000,
@@ -71,6 +75,7 @@ class GlobalGestureRuntimeTest {
     ) = GlobalGestureTrigger(
         id = "t",
         kind = kind,
+        consumeTouch = consumeTouch,
         fingers = fingers,
         fireOnHold = fireOnHold,
         directionActions = directionActions,
@@ -106,6 +111,11 @@ class GlobalGestureRuntimeTest {
         shouldIgnoreStart = { x, y -> ignoredStart(x, y) },
         zoneVisible = { zoneVisible(it) },
         wantsPreCapture = { true },
+        onTakeover = { x, y, sessionId ->
+            takeovers += Triple(x, y, sessionId)
+            takeoverSucceeds
+        },
+        onTakeoverEnd = { sessionId -> takeoverEnds += sessionId },
         onFire = { hit ->
             hits += hit
             forwardDrag
@@ -339,4 +349,92 @@ class GlobalGestureRuntimeTest {
 
     private fun trigger(id: String, fingers: Int = 1): GlobalGestureTrigger =
         trigger(fingers = fingers).copy(id = id)
+
+    // ---- 接管（consumeTouch 开关，与 kind / 动作都无关） ----
+
+    @Test
+    fun `read only long press never takes over touch`() {
+        val subject = runtime()
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Move)
+        assertEquals(1, hits.size)
+        // 默认关：不得接管、不得挂盾（architecture §7.4 只读档）。
+        assertTrue(takeovers.isEmpty())
+    }
+
+    @Test
+    fun `consume touch takes over before producing the intent`() {
+        val subject = runtime(trigger(consumeTouch = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Move)
+
+        assertEquals(1, takeovers.size)
+        // 接管点就是点火点：先抢触摸，再交意图；与绑定什么动作无关。
+        assertEquals(80, takeovers.single().first)
+        assertEquals(20, takeovers.single().second)
+        assertEquals(1, hits.size)
+        assertEquals(hits.single().sessionId, takeovers.single().third)
+    }
+
+    @Test
+    fun `takeover ends on release`() {
+        val subject = runtime(trigger(consumeTouch = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Move)
+        assertEquals(1, takeovers.size)
+
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Up)
+        // 盾必须随会话一起撤，否则整个屏幕点不动。
+        assertEquals(takeovers.single().third, takeoverEnds.single())
+    }
+
+    @Test
+    fun `failed takeover fires the intent without needing cleanup`() {
+        takeoverSucceeds = false
+        val subject = runtime(trigger(consumeTouch = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Move)
+        // best-effort：接管失败不阻断点火，也不影响收口。
+        assertEquals(1, takeovers.size)
+        assertEquals(1, hits.size)
+
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Up)
+        // `onTakeover` 返回 false 的语义是「没有产生任何副作用」，所以不需要（也不应该）收口。
+        // 真实注入失败时 `:app` 侧仍返回 true，因为盾已经挂上了（见 GestureCoordinator）。
+        assertTrue(takeoverEnds.isEmpty())
+    }
+
+    @Test
+    fun `takeover never happens when the trigger expires unused`() {
+        val subject = runtime(trigger(consumeTouch = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        // 等拖动窗口超时：从未点火 → 从未接管。
+        now = 3_400
+        timer.fire(3_000)
+        assertTrue(takeovers.isEmpty())
+        assertTrue(takeoverEnds.isEmpty())
+    }
+
+    @Test
+    fun `consume touch still forwards drag and release`() {
+        val subject = runtime(trigger(consumeTouch = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+        subject.onFrame(listOf(Offset(80f, 20f)), TouchAction.Move)
+        subject.onFrame(listOf(Offset(90f, 30f)), TouchAction.Move)
+        assertEquals(listOf(90 to 30), drags)
+        subject.onFrame(listOf(Offset(90f, 100f)), TouchAction.Up)
+        assertEquals(listOf(90 to 100), releases)
+    }
 }
