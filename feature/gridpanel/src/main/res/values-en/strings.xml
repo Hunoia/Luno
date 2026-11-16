@@ -163,7 +163,6 @@
     <string name="habit_reminder_max">Up to 6 reminder times</string>
     <string name="habit_snooze">Snooze duration</string>
     <string name="snooze_dialog_title">Snooze duration</string>
-    <string name="snooze_hours_unit">h</string>
     <string name="snooze_minutes_unit">min</string>
     <string name="snooze_duration_minutes">%1$d min</string>
     <string name="snooze_duration_hours">%1$d h</string>

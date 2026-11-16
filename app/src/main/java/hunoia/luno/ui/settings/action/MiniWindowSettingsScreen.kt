@@ -14,7 +14,7 @@ import hunoia.luno.config.model.MiniFreeformPosition
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -98,7 +98,7 @@ fun MiniWindowSettingsScreen(
             }
         }
         LunoGroup(title = stringResource(R.string.mini_window_mini_group)) {
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.mini_window_mini_position),
                 subtitle = stringResource(R.string.mini_window_mini_position_hint),
                 options = listOf(

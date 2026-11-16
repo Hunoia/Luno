@@ -38,6 +38,7 @@ data class AppControlUiState(
     val frozenCount: Int = 0,
     val loading: Boolean = true,
     val query: String = "",
+    val searchExpanded: Boolean = false,
     val showSystemApps: Boolean = false,
     val selectionMode: Boolean = false,
     val selected: Set<String> = emptySet(),
@@ -56,6 +57,7 @@ class AppControlVM : ViewModel() {
 
     private data class Local(
         val query: String = "",
+        val searchExpanded: Boolean = false,
         val selectionMode: Boolean = false,
         val selected: Set<String> = emptySet(),
         val pendingFreeze: List<String> = emptyList(),
@@ -82,6 +84,7 @@ class AppControlVM : ViewModel() {
             frozenCount = apps.count { it.availability == AppAvailability.DISABLED },
             loading = load.loading,
             query = local.query,
+            searchExpanded = local.searchExpanded,
             showSystemApps = load.showSystemApps,
             selectionMode = local.selectionMode,
             selected = local.selected,
@@ -151,8 +154,22 @@ class AppControlVM : ViewModel() {
 
     fun setQuery(query: String) = local.update { it.copy(query = query) }
 
+    /** 搜索与选择互斥：展开搜索时收选择；收搜索时清 query（与剪贴板一致）。 */
+    fun toggleSearch() = local.update {
+        if (it.searchExpanded) {
+            it.copy(searchExpanded = false, query = "")
+        } else {
+            it.copy(searchExpanded = true, selectionMode = false, selected = emptySet())
+        }
+    }
+
     fun toggleSelectionMode() = local.update {
-        it.copy(selectionMode = !it.selectionMode, selected = emptySet())
+        // 进选择时收搜索并清 query（搜索/选择互斥）。
+        if (it.selectionMode) {
+            it.copy(selectionMode = false, selected = emptySet())
+        } else {
+            it.copy(selectionMode = true, searchExpanded = false, query = "", selected = emptySet())
+        }
     }
 
     fun toggleSelected(packageName: String) = local.update {
@@ -239,6 +256,17 @@ class AppControlVM : ViewModel() {
                 .onSuccess {
                     toast(if (included) R.string.app_control_one_key_added else R.string.app_control_one_key_removed)
                 }
+                .onFailure { toast(R.string.app_control_freeze_failed) }
+        }
+    }
+
+    /** 选择态批量并入一键名单（保留已有成员）。 */
+    fun addSelectedToOneKey() {
+        val targets = uiState.value.selected
+        if (targets.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { AppControlCenter.addOneKey(targets) }
+                .onSuccess { toast(R.string.app_control_one_key_updated) }
                 .onFailure { toast(R.string.app_control_freeze_failed) }
         }
     }

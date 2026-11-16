@@ -54,8 +54,7 @@ import hunoia.luno.ui.navigation.PersistentNotificationSettings
 import hunoia.luno.ui.navigation.NotificationSettings
 import hunoia.luno.ui.navigation.StatusBarIconSettings
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
-import hunoia.luno.ui.navigation.RecentsSettings
-import hunoia.luno.ui.navigation.GestureToolsSettings
+import hunoia.luno.ui.navigation.RecentsGestureSettings
 import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
 import hunoia.luno.ui.navigation.ActionPanelList
@@ -99,8 +98,7 @@ import hunoia.luno.appcontrol.AppControlScreen
 import hunoia.luno.clipboard.ClipboardScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
-import hunoia.luno.ui.settings.action.RecentsSettingsScreen
-import hunoia.luno.ui.settings.action.GestureToolsSettingsScreen
+import hunoia.luno.ui.settings.action.RecentsGestureSettingsScreen
 import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
 import hunoia.luno.ui.settings.notification.PersistentNotificationSettingsScreen
 import hunoia.luno.ui.settings.notification.NotificationSettingsScreen
@@ -132,6 +130,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalPanelRefIcon
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
@@ -219,6 +218,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             LocalActionPanels provides actionSettings.actionPanels.panels,
             LocalGridPanels provides actionSettings.actionGridPanels.panels +
                 hunoia.luno.gridpanel.SinglePanelCatalog.shells(context, actionSettings),
+            LocalPanelRefIcon provides { id ->
+                hunoia.luno.gridpanel.resolvePanelRefIcon(id, actionSettings.actionGridPanels.panels)
+            },
             LocalSubGestures provides subGestureSettings.subGestures,
             LocalListStyle provides advancedSettings.listStyle,
         ) {
@@ -267,8 +269,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToPointerSettings = { navController.navigate(PointerSettings) },
-                        onNavToRecentsSettings = { navController.navigate(RecentsSettings) },
-                        onNavToGestureToolsSettings = { navController.navigate(GestureToolsSettings) },
+                        onNavToRecentsGestureSettings = {
+                            navController.navigate(RecentsGestureSettings)
+                        },
                         onNavToAppearanceSettings = { navController.navigate(AppearanceSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
@@ -393,14 +396,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                     )
                 }
-                myComposable<RecentsSettings> {
-                    RecentsSettingsScreen(
+                myComposable<RecentsGestureSettings> {
+                    RecentsGestureSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToBlocklist = { navController.navigate(RecentAppsBlocklist) },
                     )
-                }
-                myComposable<GestureToolsSettings> {
-                    GestureToolsSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<PrivilegedPermissions> {
                     PrivilegedPermissionsScreen(

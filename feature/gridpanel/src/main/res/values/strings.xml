@@ -121,9 +121,9 @@
     <string name="todo_reminder_time">%1$02d:%2$02d</string>
     <string name="todo_reminder_notification_body">提醒时间 · %1$s</string>
     <string name="todo_reminder_overdue_body">已过期 · %1$s</string>
-    <string name="todo_reminder_snooze_minutes">推迟 %1$d 分钟</string>
-    <string name="todo_reminder_snooze_hours">推迟 %1$d 小时</string>
-    <string name="todo_reminder_snooze_hours_minutes">推迟 %1$d 小时 %2$d 分钟</string>
+    <string name="todo_reminder_snooze_minutes">推迟 %1$d min</string>
+    <string name="todo_reminder_snooze_hours">推迟 %1$d h</string>
+    <string name="todo_reminder_snooze_hours_minutes">推迟 %1$d h %2$d min</string>
     <string name="todo_reminder_setting">推迟时长</string>
     <string name="action_settings_habit_group">习惯</string>
     <string name="habit_add">新建习惯</string>
@@ -163,11 +163,10 @@
     <string name="habit_reminder_max">最多添加 6 个提醒时间</string>
     <string name="habit_snooze">推迟时长</string>
     <string name="snooze_dialog_title">推迟时长</string>
-    <string name="snooze_hours_unit">小时</string>
-    <string name="snooze_minutes_unit">分钟</string>
-    <string name="snooze_duration_minutes">%1$d 分钟</string>
-    <string name="snooze_duration_hours">%1$d 小时</string>
-    <string name="snooze_duration_hours_minutes">%1$d 小时 %2$d 分钟</string>
+    <string name="snooze_minutes_unit">min</string>
+    <string name="snooze_duration_minutes">%1$d min</string>
+    <string name="snooze_duration_hours">%1$d h</string>
+    <string name="snooze_duration_hours_minutes">%1$d h %2$d min</string>
 
     <string-array name="habit_weekdays">
         <item>一</item>

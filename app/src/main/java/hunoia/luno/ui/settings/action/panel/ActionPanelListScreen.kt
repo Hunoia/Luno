@@ -25,8 +25,10 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.PanelDockCatalog
+import hunoia.luno.gridpanel.PanelDockIcon
 import hunoia.luno.gridpanel.SinglePanelCatalog
 import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
+import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -98,6 +100,7 @@ fun ActionPanelListScreen(
                         id = widget.id,
                         title = stringResource(widget.labelRes),
                         subtitle = stringResource(hunoia.luno.gridpanel.R.string.single_panel_mode_single),
+                        icon = widget.icon,
                     )
                 },
             ),
@@ -118,10 +121,13 @@ fun ActionPanelListScreen(
                 emptyHint = stringResource(R.string.grid_panel_empty_hint),
                 icon = Icons.Default.GridView,
                 rows = gridPanels.map { panel ->
+                    val dockIcon = PanelDockCatalog.iconFor(panel)
                     PanelListRow(
                         id = panel.id,
                         title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
                         subtitle = gridPanelSummary(panel),
+                        icon = (dockIcon as? PanelDockIcon.Vector)?.imageVector,
+                        textIcon = (dockIcon as? PanelDockIcon.Glyph)?.let { TextIcon(it.text) },
                     )
                 },
             ),

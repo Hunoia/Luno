@@ -21,9 +21,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +60,7 @@ import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -403,27 +401,17 @@ fun SearchEngineSettingsScreen(
                     shape = segmentedShape(0, 3),
                     onClick = onNavToSources,
                 )
-                LunoSettingsRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.search_list_style),
-                    shape = segmentedShape(1, 3),
-                    trailing = {
-                        SingleChoiceSegmentedButtonRow {
-                            SegmentedButton(
-                                selected = settings.listStyle == QuickSearchListStyle.Flat,
-                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.Flat) } },
-                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
-                            ) {
-                                Text(stringResource(R.string.search_list_style_flat), maxLines = 1)
-                            }
-                            SegmentedButton(
-                                selected = settings.listStyle == QuickSearchListStyle.GroupedCards,
-                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.GroupedCards) } },
-                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
-                            ) {
-                                Text(stringResource(R.string.search_list_style_cards), maxLines = 1)
-                            }
-                        }
+                    options = listOf(
+                        stringResource(R.string.search_list_style_flat),
+                        stringResource(R.string.search_list_style_cards),
+                    ),
+                    selectedIndex = settings.listStyle.ordinal,
+                    onSelect = { index ->
+                        update { it.copy(listStyle = QuickSearchListStyle.entries[index]) }
                     },
+                    shape = segmentedShape(1, 3),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.search_ascii_enter),

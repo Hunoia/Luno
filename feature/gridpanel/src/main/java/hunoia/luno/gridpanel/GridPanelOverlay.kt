@@ -36,6 +36,7 @@ import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalPanelRefIcon
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.MotionFamily
@@ -349,6 +350,9 @@ object GridPanelOverlay : OverlayPanelHost(
                 LocalActionPanels provides settings.actionPanels.panels,
                 LocalGridPanels provides settings.actionGridPanels.panels +
                     SinglePanelCatalog.shells(context, settings),
+                LocalPanelRefIcon provides { id ->
+                    resolvePanelRefIcon(id, settings.actionGridPanels.panels)
+                },
                 LocalSubGestures provides subGestureSettings.subGestures,
                 // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
                 LocalGridPanelClose provides { closeForLaunch() },

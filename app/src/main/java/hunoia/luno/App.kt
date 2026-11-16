@@ -118,6 +118,11 @@ class App : Application(), SingletonImageLoader.Factory {
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)
         // 动效档位：两进程都要生效（主进程 Compose + :service 原生动效），进程启动即订阅。
+        // MotionTuning.profile 是对象级 mutableStateOf，状态在对象首次访问时创建。订阅在
+        // Default 线程收集，若抢在主线程首次 Compose 前于后台创建 state，主线程读 AppTheme 时
+        // 抛「Reading a state that was created after the snapshot was taken」崩溃。此处先在主线程
+        // 触碰，保证 state 在主线程创建；后台 onEach 只是普通跨线程写（Compose 全局快照安全处理）。
+        hunoia.luno.ui.theme.MotionTuning.profile
         hunoia.luno.domain.tune.TuneConfig.advanced
             .onEach { hunoia.luno.ui.theme.MotionTuning.profile = it.motion.toProfile() }
             .launchIn(appScope)

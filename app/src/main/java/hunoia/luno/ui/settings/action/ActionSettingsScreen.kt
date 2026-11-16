@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -76,8 +75,7 @@ fun ActionSettingsTab(
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToPointerSettings: () -> Unit = {},
-    onNavToRecentsSettings: () -> Unit = {},
-    onNavToGestureToolsSettings: () -> Unit = {},
+    onNavToRecentsGestureSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
@@ -224,30 +222,14 @@ fun ActionSettingsTab(
                         icon = Icons.Default.TouchApp,
                         title = stringResource(R.string.pointer),
                         subtitle = stringResource(R.string.pointer_hint),
-                        shape = segmentedShape(0, 6),
+                        shape = segmentedShape(0, 5),
                         onClick = onNavToPointerSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.FormatListBulleted,
-                        title = stringResource(R.string.recents_settings_title),
-                        subtitle = stringResource(
-                            R.string.recents_settings_summary,
-                            actionSettings.gestureTools.recentsSensitivityPercent,
-                            actionSettings.gestureTools.recentsIconSizeDp,
-                        ),
-                        shape = segmentedShape(1, 6),
-                        onClick = onNavToRecentsSettings,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.Widgets,
-                        title = stringResource(R.string.gesture_tools_settings_title),
-                        subtitle = stringResource(
-                            R.string.gesture_tools_summary,
-                            actionSettings.gestureTools.volumeScrubStepThresholdDp,
-                            actionSettings.gestureTools.triggerButtonHideMs,
-                        ),
-                        shape = segmentedShape(2, 6),
-                        onClick = onNavToGestureToolsSettings,
+                        title = stringResource(R.string.recents_gesture_settings_title),
+                        shape = segmentedShape(1, 5),
+                        onClick = onNavToRecentsGestureSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.DocumentScanner,
@@ -257,19 +239,19 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.screen_pick_settings_disabled)
                         },
-                        shape = segmentedShape(3, 6),
+                        shape = segmentedShape(2, 5),
                         onClick = onNavToScreenPickSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Crop,
                         title = stringResource(R.string.action_settings_mini_window_position),
-                        shape = segmentedShape(4, 6),
+                        shape = segmentedShape(3, 5),
                         onClick = onNavToMiniWindowSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
-                        shape = segmentedShape(5, 6),
+                        shape = segmentedShape(4, 5),
                         onClick = onNavToButtonVisibility,
                     )
                 }

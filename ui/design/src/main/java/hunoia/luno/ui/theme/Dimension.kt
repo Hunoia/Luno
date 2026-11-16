@@ -160,8 +160,6 @@ val LetterDialApexRise = 96.dp
 const val LetterDialArcVisibleCount = 9
 val LetterDialArcBandWidth = 18.dp
 val LetterDialLetterInset = 26.dp
-// 收起态那一行距底栏留出的空隙，避免看起来压在底栏上。
-val LetterDialBarGap = 12.dp
 val LetterDialPointerWidth = 14.dp
 val LetterDialPointerHeight = 8.dp
 // 拖动灵敏度：按滑动速度分配，慢拖细、快拖粗。

@@ -22,6 +22,11 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null,
         /** 输入框为空时的占位提示（如可选 Action 的常见取值）。 */
         val placeholder: String? = null,
+        /**
+         * 长内容用两行形式（参数名一行、值一行，卡内无边框输入）；短文本保持
+         * 单行行内形式（标签左 + 值右对齐）。`url` 等短值默认 false。
+         */
+        val twoRow: Boolean = false,
     ) : ParameterDefinition
 
     data class Bool(

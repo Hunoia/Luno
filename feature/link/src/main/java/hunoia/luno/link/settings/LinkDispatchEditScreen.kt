@@ -35,7 +35,7 @@ import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -260,7 +260,7 @@ fun LinkDispatchEditScreen(
             )
             // 行数取决于测试结果是否显示：测试 URL 空时这一块整块不渲染。
             val ruleRowCount = if (testUrl.isBlank()) 4 else 5
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.link_dispatch_rule_match_type),
                 subtitle = stringResource(R.string.link_dispatch_rule_match_type_hint),
                 options = matchOptions.map { it.second },
@@ -395,7 +395,7 @@ fun LinkDispatchEditScreen(
                 ),
                 LinkMissMode.PICKER to stringResource(R.string.link_dispatch_rule_miss_picker_short),
             )
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.link_dispatch_rule_miss),
                 subtitle = stringResource(R.string.link_dispatch_rule_miss_hint),
                 options = missOptions.map { it.second },

@@ -18,12 +18,13 @@ import hunoia.luno.ui.component.screen.LunoScreen
 import kotlinx.coroutines.launch
 
 /**
- * 最近应用全局手感：灵敏度、图标大小、黑名单。
+ * 动作小设置聚合页：最近应用 + 手势工具（后续动作小设置并入）。
  *
+ * 最近应用（黑名单 / 灵敏度 / 图标大小）与手势工具（音量 / 临时隐藏）共一页；
  * 布局（竖向/横向）不在这里：不同触钮可以绑不同方向，已拆成选择页里的两条动作。
  */
 @Composable
-fun RecentsSettingsScreen(
+fun RecentsGestureSettingsScreen(
     onBack: () -> Unit,
     onNavToBlocklist: () -> Unit,
 ) {
@@ -35,8 +36,18 @@ fun RecentsSettingsScreen(
         scope.launch { TuneConfig.updateAction { it.copy(gestureTools = transform(it.gestureTools)) } }
     }
 
-    LunoScreen(title = stringResource(R.string.recents_settings_title), onBack = onBack) {
+    LunoScreen(title = stringResource(R.string.recents_gesture_settings_title), onBack = onBack) {
         LunoGroup(title = stringResource(R.string.recents_settings_motion_group)) {
+            LunoSettingsRow(
+                icon = Icons.Default.FormatListBulleted,
+                title = stringResource(R.string.recent_apps_blocklist),
+                subtitle = stringResource(
+                    R.string.recents_settings_blocklist_count,
+                    actionSettings.recentAppsBlocklist.size,
+                ),
+                shape = segmentedShape(0, 3),
+                onClick = onNavToBlocklist,
+            )
             LunoTextSlider(
                 value = tools.recentsSensitivityPercent.toFloat(),
                 onValueChange = { value ->
@@ -45,7 +56,7 @@ fun RecentsSettingsScreen(
                 text = stringResource(R.string.recents_settings_sensitivity),
                 valueDisplay = { "${it.toInt() / 100.0}x" },
                 valueRange = 50f..300f,
-                shape = segmentedShape(0, 2),
+                shape = segmentedShape(1, 3),
             )
             LunoTextSlider(
                 value = tools.recentsIconSizeDp.toFloat(),
@@ -55,38 +66,9 @@ fun RecentsSettingsScreen(
                 text = stringResource(R.string.recents_settings_icon_size),
                 valueDisplay = { "${it.toInt()}dp" },
                 valueRange = 48f..108f,
-                shape = segmentedShape(1, 2),
+                shape = segmentedShape(2, 3),
             )
         }
-        LunoGroup(title = stringResource(R.string.recents_settings_filter_group)) {
-            LunoSettingsRow(
-                icon = Icons.Default.FormatListBulleted,
-                title = stringResource(R.string.recent_apps_blocklist),
-                subtitle = stringResource(
-                    R.string.recents_settings_blocklist_count,
-                    actionSettings.recentAppsBlocklist.size,
-                ),
-                shape = segmentedShape(0, 1),
-                onClick = onNavToBlocklist,
-            )
-        }
-    }
-}
-
-/**
- * 手势工具全局手感：滑动调音量灵敏度。
- */
-@Composable
-fun GestureToolsSettingsScreen(onBack: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val tools = actionSettings.gestureTools
-
-    fun update(transform: (hunoia.luno.config.model.GestureToolsSettings) -> hunoia.luno.config.model.GestureToolsSettings) {
-        scope.launch { TuneConfig.updateAction { it.copy(gestureTools = transform(it.gestureTools)) } }
-    }
-
-    LunoScreen(title = stringResource(R.string.gesture_tools_settings_title), onBack = onBack) {
         LunoGroup(title = stringResource(R.string.gesture_tools_volume_group)) {
             LunoTextSlider(
                 value = tools.volumeScrubStepThresholdDp.toFloat(),

@@ -3,7 +3,7 @@
     <string name="app_control_title">App freeze</string>
     <string name="app_control_search_hint">Search apps</string>
     <string name="app_control_show_system">Show system apps</string>
-    <string name="app_control_show_system_hint">Include system packages without a launcher entry when searching</string>
+    <string name="app_control_hide_system">Hide system apps</string>
     <string name="app_control_state_frozen">Frozen</string>
     <string name="app_control_state_suspended">Frozen by system; Luno cannot unfreeze</string>
     <string name="app_control_state_protected">Protected; cannot freeze</string>
@@ -15,6 +15,9 @@
     <string name="app_control_select_all">Select all</string>
     <string name="app_control_freeze_selected">Freeze selected</string>
     <string name="app_control_unfreeze_selected">Unfreeze selected</string>
+    <string name="app_control_freeze">Freeze</string>
+    <string name="app_control_unfreeze">Unfreeze</string>
+    <string name="app_control_search_collapse">Collapse search</string>
     <string name="app_control_freeze_confirm_title">Freeze %1$d apps?</string>
     <string name="app_control_freeze_confirm_desc">Frozen apps disappear from the launcher and cannot run in the background. They can be unfrozen here.</string>
     <string name="app_control_batch_result">%1$d succeeded, %2$d failed</string>

@@ -33,12 +33,17 @@ import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.component.PressFloatingActionButton
+import hunoia.luno.ui.component.TextIcon
 
 /** 面板列表屏的一行：[id] 进编辑页，[title]/[subtitle] 展示。 */
 data class PanelListRow(
     val id: String,
     val title: String,
     val subtitle: String,
+    /** 行级功能图标（单功能面板=功能图标、网格面板=iconFor 结果）；null 回退分组 [PanelListSection.icon]。 */
+    val icon: ImageVector? = null,
+    /** 行级文字字标（网格面板名称为首字时）；null 用 [icon]。 */
+    val textIcon: TextIcon? = null,
 )
 
 /** 面板列表屏的一个分组：同类型面板（动作面板 / 网格面板）归一段。 */
@@ -151,7 +156,8 @@ fun PanelListScreen(
                     LunoGroup(title = section.title) {
                         section.rows.forEachIndexed { rowIndex, row ->
                             LunoSettingsRow(
-                                icon = section.icon,
+                                icon = row.icon ?: section.icon,
+                                textIcon = row.textIcon,
                                 title = row.title,
                                 subtitle = row.subtitle,
                                 shape = segmentedShape(rowIndex, section.rows.size),

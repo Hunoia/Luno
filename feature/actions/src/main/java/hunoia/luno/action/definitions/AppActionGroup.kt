@@ -30,8 +30,9 @@ internal object AppActionGroup : ActionGroup {
                     "Intent Action",
                     required = false,
                     placeholder = "如 android.intent.action.VIEW",
+                    twoRow = true,
                 ),
-                ParameterDefinition.Text("data", "Data URI", required = false),
+                ParameterDefinition.Text("data", "Data URI", required = false, twoRow = true),
                 ParameterDefinition.KeyValueMap("extras", "Extras"),
             ),
             icon = Icons.Default.Android,
@@ -57,7 +58,7 @@ internal object AppActionGroup : ActionGroup {
         ActionDefinition(
             "app.launchShortcut", "启动快捷方式", ActionCategory.APP,
             Capability.None,
-            listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false)),
+            listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false, twoRow = true)),
             icon = Icons.AutoMirrored.Default.Shortcut,
         ),
     )

@@ -51,7 +51,7 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.rememberDragReorderState
-import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -306,7 +306,7 @@ fun LinkDispatchSettingsScreen(
                     onCheckedChange = { checked -> update { it.copy(enabled = checked) } },
                     shape = segmentedShape(0, 3),
                 )
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.link_dispatch_capsule_tap),
                     options = listOf(
                         stringResource(R.string.link_dispatch_tap_dispatch),
@@ -322,7 +322,7 @@ fun LinkDispatchSettingsScreen(
                     },
                     shape = segmentedShape(1, 3),
                 )
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.link_dispatch_miss),
                     options = listOf(
                         stringResource(R.string.link_dispatch_miss_share),

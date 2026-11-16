@@ -135,7 +135,7 @@
     <string name="sub_gesture_angles">子手势角度</string>
     <string name="sub_gesture_angle_guide">角度示意</string>
     <string name="sub_gesture_timeout_label">子手势超时</string>
-    <string name="sub_gesture_timeout_value">%1$d秒</string>
+    <string name="sub_gesture_timeout_value">%1$d s</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
     <string name="trigger_actions">触发动作</string>

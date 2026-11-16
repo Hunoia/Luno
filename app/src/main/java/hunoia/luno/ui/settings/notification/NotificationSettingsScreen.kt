@@ -32,7 +32,7 @@ import hunoia.luno.domain.habit.HabitReminderNotifier
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.shizuku.ShizukuInputInjection
 import hunoia.luno.shizuku.ShizukuManager
-import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -128,7 +128,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         onBack = onBack,
     ) {
         LunoGroup(title = stringResource(R.string.notification_display_mode_group)) {
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.notification_display_mode_row),
                 subtitle = stringResource(R.string.notification_display_mode_hint),
                 options = listOf(
@@ -151,7 +151,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         ) {
             NotificationKind.entries.forEachIndexed { index, kind ->
                 val override = display.overrides[kind]
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(
                         when (kind) {
                             NotificationKind.HABIT -> R.string.notification_display_kind_habit
@@ -193,7 +193,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                         update { it.copy(islandAutoExpand = checked) }
                     },
                 )
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.notification_display_island_expand_seconds),
                     subtitle = stringResource(R.string.notification_display_island_expand_seconds_hint),
                     options = listOf(
@@ -208,7 +208,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                     },
                     shape = segmentedShape(1, ISLAND_ROWS),
                 )
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.notification_display_island_disconnect),
                     subtitle = stringResource(R.string.notification_display_island_disconnect_hint),
                     options = ISLAND_DISCONNECT_OPTIONS.map {
@@ -248,7 +248,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                         update { it.copy(islandDragShare = checked) }
                     },
                 )
-                ChoiceRow(
+                LunoDropdownRow(
                     title = stringResource(R.string.notification_display_island_timeout),
                     subtitle = stringResource(R.string.notification_display_island_timeout_hint),
                     options = listOf(
@@ -269,7 +269,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
 
         // 进度类通知的收尾行为：与呈现模式无关（标准 / 实时 / 岛都适用），所以不放在岛分组里。
         LunoGroup(title = stringResource(R.string.notification_display_progress_group)) {
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.notification_display_progress_dismiss),
                 subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
                 options = PROGRESS_DISMISS_OPTIONS.map {

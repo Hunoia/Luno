@@ -29,7 +29,7 @@ import hunoia.luno.runtime.floatball.suggestion.SuggestionRuleEngine
 import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.row.ChoiceRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -215,7 +215,7 @@ fun SuggestionRuleEditScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            ChoiceRow(
+            LunoDropdownRow(
                 title = stringResource(R.string.float_ball_suggestion_rule_action),
                 subtitle = stringResource(R.string.float_ball_suggestion_rule_action_hint),
                 options = actions.map { ruleActionLabel(it) },

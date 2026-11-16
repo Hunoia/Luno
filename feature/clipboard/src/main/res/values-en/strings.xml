@@ -4,7 +4,6 @@
     <string name="clipboard_select">Select</string>
     <string name="clipboard_select_all">Select all</string>
     <string name="clipboard_clear_selection">Clear selection</string>
-    <string name="clipboard_selected_count">%1$d selected</string>
     <string name="clipboard_search_hint">Search clipboard</string>
     <string name="clipboard_search_collapse">Collapse search</string>
     <string name="clipboard_empty">Clipboard is empty</string>

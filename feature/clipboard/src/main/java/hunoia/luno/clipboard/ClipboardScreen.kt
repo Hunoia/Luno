@@ -739,9 +739,11 @@ private fun ToolbarSelectionContent(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = stringResource(R.string.clipboard_selected_count, selectedCount),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
+            text = selectedCount.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            // 与 AppControl 选中数一致：左边距对齐按钮图标内缩（IconButton 40dp / 24dp → 8dp）。
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
         PressIconButton(onClick = onSelectAll) {
             Icon(

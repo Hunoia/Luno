@@ -9,6 +9,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.PanelDockDefaults
 import hunoia.luno.config.model.singlePanelWidgetId
+import hunoia.luno.core.domain.TextIcon
 import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
 
 /** 底栏 tab 的图标：矢量图标，或名称 / 自定义文字的首字字标。 */
@@ -129,5 +130,24 @@ object PanelDockCatalog {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return ""
         return String(Character.toChars(trimmed.codePointAt(0)))
+    }
+}
+
+/**
+ * 面板引用（`internal.gridPanel` 的 panelId）的功能图标：单功能面板回部件功能图标，
+ * 网格面板回 [iconFor] 结果（ImageVector / TextIcon），未知回 null。
+ *
+ * `:feature:actions` 不能依赖 `:feature:gridpanel`（反向），故经
+ * `LocalPanelRefIcon` 由 app/gridpanel 层注入本函数。
+ */
+fun resolvePanelRefIcon(panelId: String, gridPanels: List<GridPanel>): Any? {
+    val widgetId = singlePanelWidgetId(panelId)
+    if (widgetId != null) {
+        return PanelWidgetRegistry.byId(widgetId)?.takeIf { it.supportsSinglePanel }?.icon
+    }
+    val panel = gridPanels.firstOrNull { it.id == panelId } ?: return null
+    return when (val icon = PanelDockCatalog.iconFor(panel)) {
+        is PanelDockIcon.Vector -> icon.imageVector
+        is PanelDockIcon.Glyph -> TextIcon(icon.text)
     }
 }

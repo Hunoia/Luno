@@ -3,7 +3,7 @@
     <string name="app_control_title">应用冻结</string>
     <string name="app_control_search_hint">搜索应用</string>
     <string name="app_control_show_system">显示系统应用</string>
-    <string name="app_control_show_system_hint">搜索时包含没有桌面入口的系统包</string>
+    <string name="app_control_hide_system">隐藏系统应用</string>
     <string name="app_control_state_frozen">已冻结</string>
     <string name="app_control_state_suspended">系统冻结，Luno 无法解除</string>
     <string name="app_control_state_protected">受保护，不可冻结</string>
@@ -15,6 +15,9 @@
     <string name="app_control_select_all">全选</string>
     <string name="app_control_freeze_selected">冻结所选</string>
     <string name="app_control_unfreeze_selected">解冻所选</string>
+    <string name="app_control_freeze">冻结</string>
+    <string name="app_control_unfreeze">解冻</string>
+    <string name="app_control_search_collapse">收起搜索</string>
     <string name="app_control_freeze_confirm_title">冻结 %1$d 个应用？</string>
     <string name="app_control_freeze_confirm_desc">冻结后应用不会出现在桌面，也不能在后台运行。可在本页解冻。</string>
     <string name="app_control_batch_result">成功 %1$d 个，失败 %2$d 个</string>

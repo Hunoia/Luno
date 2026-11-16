@@ -39,4 +39,17 @@ object AppControlCenter {
             }
         }
     }
+
+    /** 批量并入一键名单（保留已有成员，幂等）。 */
+    suspend fun addOneKey(packageNames: Collection<String>) {
+        if (packageNames.isEmpty()) return
+        ConfigProvider.updateAppControlSettings { settings ->
+            val next = settings.oneKeyFreezePackageNames + packageNames
+            if (next == settings.oneKeyFreezePackageNames) {
+                settings
+            } else {
+                settings.copy(oneKeyFreezePackageNames = next)
+            }
+        }
+    }
 }

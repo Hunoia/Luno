@@ -4,10 +4,14 @@ import hunoia.luno.runtime.dispatch.ActionDispatch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -29,8 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +48,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -56,14 +62,16 @@ import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.runtime.dispatch.ActivityOptions
 import hunoia.luno.core.domain.ActivityOptionItem
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.shizuku.ShizukuFacade
 import hunoia.luno.shizuku.ShellResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
@@ -71,6 +79,13 @@ import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.theme.BottomBarPadding
+import hunoia.luno.ui.theme.DockGutter
+import hunoia.luno.ui.theme.DockTabHeight
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.theme.glassCapsule
+import dev.chrisbanes.haze.HazeState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionLibraryEditScreen(
@@ -105,22 +120,74 @@ fun ActionLibraryEditScreen(
         ),
         onBack = guardedBack,
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = { _ ->
+        floatingContent = { hazeState ->
             if (draft != null) {
-                // 点击直接保存（无效草稿 toast 提示）。
-                LunoFab(
-                    onClick = {
-                        if (draft.isValid) {
-                            vm.save(onSaved = onBack)
-                        } else {
-                            showToast(R.string.action_library_invalid_hint)
+                // 底部玻璃胶囊：靠右、自适应宽，[测试][保存] 两个图标按钮（同冻结页底栏几何）。
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .swallowTouches()
+                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                        .padding(start = DockGutter, end = DockGutter, bottom = BottomBarPadding),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Column(modifier = Modifier.glassCapsule(hazeState)) {
+                        Row(
+                            modifier = Modifier.height(DockTabHeight),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            PressIconButton(
+                                onClick = {
+                                    // shell 命令在编辑页直接跑一次，把 stdout/stderr 显示在底部面板，
+                                    // 不走分发（分发拿不到结果，只能 toast）。
+                                    if (draft.typeId == "shell.custom") {
+                                        val command = draft.params["command"]?.scalarText().orEmpty().trim()
+                                        when {
+                                            command.isBlank() -> showToast(R.string.action_library_invalid_hint)
+                                            !ShizukuFacade.isReady() -> showToast(R.string.toast_shizuku_required)
+                                            else -> {
+                                                shellRunning = true
+                                                scope.launch {
+                                                    shellResult = ShizukuFacade.runShellCommand(command)
+                                                    shellRunning = false
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            if (!ActionDispatch.send(draft.toStoredAction())) {
+                                                // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
+                                                showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = draft.isValid && !state.isSaving && !shellRunning,
+                            ) {
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = stringResource(R.string.action_library_test),
+                                )
+                            }
+                            PressIconButton(
+                                onClick = {
+                                    if (draft.isValid) {
+                                        vm.save(onSaved = onBack)
+                                    } else {
+                                        showToast(R.string.action_library_invalid_hint)
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Default.Save,
+                                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
+                                )
+                            }
                         }
-                    },
-                    icon = Icons.Default.Save,
-                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
-                    containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainerHighest,
-                )
+                    }
+                }
                 if (draft.typeId == "shell.custom" && (shellResult != null || shellRunning)) {
                     ShellResultCard(
                         loading = shellRunning,
@@ -129,47 +196,18 @@ fun ActionLibraryEditScreen(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            // bottom 96：结果卡浮在底部确认栏上方的一次性偏移，勿复用为列表留白 token
-                            .padding(start = PageGutter, end = PageGutter, bottom = 96.dp)
+                            // 底部抬到胶囊上方：胶囊高 = DockTabHeight + 玻璃胶囊内边距，加一段间隙。
+                            .padding(
+                                start = PageGutter,
+                                end = PageGutter,
+                                bottom = BottomBarPadding + DockTabHeight + TileInnerPadding * 2 + ListSpacing,
+                            )
                             .fillMaxWidth(),
                     )
                 }
             }
         },
         actions = {
-            if (draft != null) {
-                // 测试放右上角：触点类动作必须已配固定坐标。
-                LunoIconButton(
-                    icon = Icons.Default.PlayArrow,
-                    contentDescription = stringResource(R.string.action_library_test),
-                    enabled = draft.isValid && !state.isSaving && !shellRunning,
-                    onClick = {
-                        // shell 命令在编辑页直接跑一次，把 stdout/stderr 显示在底部面板，
-                        // 不走分发（分发拿不到结果，只能 toast）。
-                        if (draft.typeId == "shell.custom") {
-                            val command = draft.params["command"]?.scalarText().orEmpty().trim()
-                            when {
-                                command.isBlank() -> showToast(R.string.action_library_invalid_hint)
-                                !ShizukuFacade.isReady() -> showToast(R.string.toast_shizuku_required)
-                                else -> {
-                                    shellRunning = true
-                                    scope.launch {
-                                        shellResult = ShizukuFacade.runShellCommand(command)
-                                        shellRunning = false
-                                    }
-                                }
-                            }
-                        } else {
-                            scope.launch {
-                                if (!ActionDispatch.send(draft.toStoredAction())) {
-                                    // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
-                                    showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
-                                }
-                            }
-                        }
-                    },
-                )
-            }
             if (draft?.id != null) {
                 LunoIconButton(
                     icon = Icons.Outlined.Delete,
@@ -258,32 +296,37 @@ fun ActionLibraryEditScreen(
 
             when {
                 state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
-                draft == null || definition == null -> EmptyState(stringResource(R.string.action_library_empty))
+                draft == null || definition == null ->
+                    LoadingState(message = stringResource(R.string.action_library_loading))
                 else -> {
-                    OutlinedTextField(
-                        value = draft.name,
-                        onValueChange = { vm.updateName(it) },
-                        label = { Text(stringResource(R.string.action_library_entry_name)) },
-                        placeholder = { Text(stringResource(R.string.action_library_entry_name_hint)) },
-                        singleLine = true,
-                        isError = draft.name.isBlank(),
-                        shape = LargeShape,
-                        supportingText = {
-                            if (draft.name.isBlank()) {
-                                Text(stringResource(R.string.action_library_entry_name_required))
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    // 名称：页首浮空组，行内形式（标签「名称」+ 值右对齐）。
+                    LunoGroup(title = stringResource(R.string.action_library_name)) {
+                        LunoInputRow(
+                            label = stringResource(R.string.action_library_name),
+                            value = draft.name,
+                            onValueChange = { vm.updateName(it) },
+                            placeholder = stringResource(R.string.action_library_entry_name_hint),
+                            isError = draft.name.isBlank(),
+                            subtitle = if (draft.name.isBlank()) {
+                                stringResource(R.string.action_library_entry_name_required)
+                            } else {
+                                ""
+                            },
+                            shape = segmentedShape(0, 1),
+                        )
+                    }
                     if (definition.parameters.isNotEmpty()) {
-                        val cardParams = definition.parameters.filter { it.isCardRowType }
-                        val fieldParams = definition.parameters.filter { !it.isCardRowType }
-if (cardParams.isNotEmpty()) {
-                            LunoGroup(
-                                title = stringResource(R.string.action_param_label),
-                                subtitle = stringResource(R.string.action_param_count, definition.parameters.size),
-                            ) {
-                                cardParams.forEachIndexed { i, paramDef ->
+                        // 开关（小窗模式这类）放参数组最上面，其余非键值对按定义序；
+                        // 键值对（extras / query）单独一组「额外参数」。
+                        val switches = definition.parameters.filterIsInstance<ParameterDefinition.Bool>()
+                        val otherParams = definition.parameters.filter {
+                            it !is ParameterDefinition.Bool && it !is ParameterDefinition.KeyValueMap
+                        }
+                        val extraParams = definition.parameters.filterIsInstance<ParameterDefinition.KeyValueMap>()
+                        val mainParams = switches + otherParams
+                        if (mainParams.isNotEmpty()) {
+                            LunoGroup(title = stringResource(R.string.action_param_label)) {
+                                mainParams.forEachIndexed { i, paramDef ->
                                     ParameterEditor(
                                         definition = paramDef,
                                         currentParams = draft.params,
@@ -291,20 +334,26 @@ if (cardParams.isNotEmpty()) {
                                         onParamElementChange = vm::updateParamElement,
                                         onPickApp = { showAppPicker = paramDef },
                                         onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                                        shape = segmentedShape(i, cardParams.size),
+                                        shape = segmentedShape(i, mainParams.size),
                                     )
                                 }
                             }
                         }
-                        fieldParams.forEach { paramDef ->
-                            ParameterEditor(
-                                definition = paramDef,
-                                currentParams = draft.params,
-                                onParamChange = vm::updateParam,
-                                onParamElementChange = vm::updateParamElement,
-                                onPickApp = { showAppPicker = paramDef },
-                                onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                            )
+                        if (extraParams.isNotEmpty()) {
+                            // 组标题用参数自身的 label（如 Query 参数 / Extras）；每行分段由
+                            // KeyValueMapEditor 内部按行数自算。
+                            extraParams.forEach { paramDef ->
+                                LunoGroup(title = paramDef.label) {
+                                    ParameterEditor(
+                                        definition = paramDef,
+                                        currentParams = draft.params,
+                                        onParamChange = vm::updateParam,
+                                        onParamElementChange = vm::updateParamElement,
+                                        onPickApp = { showAppPicker = paramDef },
+                                        onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -381,6 +430,15 @@ private fun ActivityPickerSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+/** 只吃事件、不做任何事：把落在工具条矩形范围内的触摸从下层列表手里拿回来。 */
+private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
         }
     }
 }

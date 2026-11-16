@@ -122,6 +122,16 @@ class FloatBallService : Service() {
 
     /** 剪贴板悬浮窗：单窗，显示新条目即替换内容；关闭后置空。 */
     private var clipFloat: ClipFloatWindow? = null
+
+    /** 悬浮窗显示请求在途（异步解析 + 挂窗）；为真时服务不得自停，否则窗口挂一半被拆。 */
+    private var clipFloatPending = false
+
+    /**
+     * 已收到首个 [onStartCommand]（intent 已处理）。此前（onCreate 首帧）禁止自停判定：
+     * `observeSettings` 的 combine 首帧会在 onCreate 内同步产出（Main.immediate + DataStore 缓存），
+     * 早于 onStartCommand 置位 [clipFloatPending]，此时判定会误把「为悬浮窗启动」的服务拆掉。
+     */
+    private var startCommandSeen = false
     private var destroying = false
     private var broadcastObserver: BroadcastObserver? = null
 
@@ -266,17 +276,26 @@ class FloatBallService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 进入 onStartCommand 即 intent 已送达；此后才允许自停判定（observeSettings 首帧
+        // 在 onCreate 同步产出，不能在那之前下结论，否则为悬浮窗启动的服务会被误拆）。
+        startCommandSeen = true
         if (intent?.action == ACTION_SHOW_CLIP_FLOAT) {
             val id = intent.getStringExtra(EXTRA_CLIP_ID).orEmpty()
             if (id.isNotBlank()) showClipFloatById(id)
             refreshWindows()
+            // 条目缺失（id 空）且服务确实空闲：收回宿主，避免空转前台服务。
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
             return START_STICKY
         }
         if (intent?.action == ACTION_STOP) {
-            // 总闸关恒停；否则球/通知/建议还有任一想用的功能就保留宿主。
+            // 总闸关恒停；否则球/通知/建议还有任一想用的功能就保留宿主（含在途悬浮窗显示）。
             if (gestureEnabledSnapshot &&
                 (settings.enabled || settings.notificationCapsule.enabled ||
-                    settings.clipboardBall.enabled || clipFloat?.isShowing() == true)
+                    settings.clipboardBall.enabled || clipFloat?.isShowing() == true ||
+                    clipFloatPending)
             ) {
                 refreshWindows()
                 return START_STICKY
@@ -285,6 +304,10 @@ class FloatBallService : Service() {
             return START_NOT_STICKY
         }
         refreshWindows()
+        if (shouldStopSelf()) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         return START_STICKY
     }
 
@@ -356,15 +379,25 @@ class FloatBallService : Service() {
                     applyNotificationSourceEnabled()
                     applySuggestionSourceEnabled()
                     refreshWindows()
-                    if (!gestureEnabledSnapshot ||
-                        (!settings.enabled && !settings.notificationCapsule.enabled &&
-                            !settings.clipboardBall.enabled)
-                    ) {
+                    // 悬浮窗正在显示或显示中：不让服务自停（球 / 胶囊全关时它是唯一宿主）。
+                    // startCommandSeen：onCreate 首帧的 combine 同步产出先于 onStartCommand，
+                    // 此时 intent 尚未处理（clipFloatPending 未置位），直接判定会误自停拆窗。
+                    if (startCommandSeen && shouldStopSelf()) {
                         stopSelf()
                     }
                 }
         }
     }
+
+    /**
+     * 服务是否已无事可做：手势总闸关或三球全关，且没有悬浮窗在显示 / 显示在途。
+     * 悬浮窗是「三球全关」时唯一需要宿主的表面，显示中 / 在途都不得自停。
+     */
+    private fun shouldStopSelf(): Boolean =
+        (!gestureEnabledSnapshot ||
+            (!settings.enabled && !settings.notificationCapsule.enabled &&
+                !settings.clipboardBall.enabled)) &&
+            clipFloat?.isShowing() != true && !clipFloatPending
 
     /** refreshWindows 重入保护。 */
     private var refreshingWindows = false
@@ -1313,23 +1346,30 @@ class FloatBallService : Service() {
     // ---- 剪贴板悬浮窗 ----
 
     private fun showClipFloatById(id: String) {
+        clipFloatPending = true
         scope.launch {
-            val content = resolveClipFloat(id)
-            if (content == null) {
-                Log.w(TAG, "clip float: item not found id=$id")
-                return@launch
-            }
-            val settings = runCatching {
-                hunoia.luno.domain.floatball.FloatBallSettingsCenter.getClipFloatSettings()
-            }.getOrNull() ?: ClipFloatSettings()
-            val window = clipFloat ?: ClipFloatWindow(this@FloatBallService, clipFloatHost).also {
-                clipFloat = it
-                SurfaceController.register(it)
-            }
-            window.show(content, settings)
-            if (!window.isShowing()) {
-                SurfaceController.unregister(window.surfaceId)
-                clipFloat = null
+            try {
+                val content = resolveClipFloat(id)
+                if (content == null) {
+                    Log.w(TAG, "clip float: item not found id=$id")
+                    // 条目已被删：无窗可挂；清标志后让宿主按空闲自停，不滞留前台服务。
+                    maybeStopIfIdle()
+                    return@launch
+                }
+                val settings = runCatching {
+                    hunoia.luno.domain.floatball.FloatBallSettingsCenter.getClipFloatSettings()
+                }.getOrNull() ?: ClipFloatSettings()
+                val window = clipFloat ?: ClipFloatWindow(this@FloatBallService, clipFloatHost).also {
+                    clipFloat = it
+                    SurfaceController.register(it)
+                }
+                window.show(content, settings)
+                if (!window.isShowing()) {
+                    SurfaceController.unregister(window.surfaceId)
+                    clipFloat = null
+                }
+            } finally {
+                clipFloatPending = false
             }
         }
     }
@@ -1362,7 +1402,7 @@ class FloatBallService : Service() {
         if (destroying) return
         scope.launch {
             delay(CLIP_FLOAT_IDLE_STOP_MS)
-            if (clipFloat?.isShowing() == true) return@launch
+            if (clipFloat?.isShowing() == true || clipFloatPending) return@launch
             if (!settings.enabled && !settings.notificationCapsule.enabled &&
                 !settings.clipboardBall.enabled
             ) {

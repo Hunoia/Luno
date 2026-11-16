@@ -13,6 +13,7 @@ import hunoia.luno.actions.resolvedIcon
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.domain.gridPanelId
+import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.libraryEntryId
 import hunoia.luno.core.domain.launchPackageName
 import hunoia.luno.core.domain.ActionLibraryEntry
@@ -25,6 +26,7 @@ import hunoia.luno.action.model.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalPanelRefIcon
 import hunoia.luno.ui.navigation.LocalSubGestures
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -159,6 +161,12 @@ fun actionIcon(action: StoredAction): Any? {
                 )
             }
         } ?: Icons.Default.SwapHoriz
+    }
+    if (action.typeId == GRID_PANEL_TYPE_ID) {
+        val panelId = action.gridPanelId()
+        if (panelId != null) {
+            LocalPanelRefIcon.current(panelId)?.let { return it }
+        }
     }
     val definition = ActionDefinitions.byTypeId(action.typeId)
     return definition?.resolvedVariant(action.params)?.icon ?: definition?.icon

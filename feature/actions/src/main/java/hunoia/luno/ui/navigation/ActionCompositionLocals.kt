@@ -23,3 +23,12 @@ val LocalGridPanels = staticCompositionLocalOf<List<GridPanel>> { emptyList() }
 
 /** 全局子手势列表。用于把 `internal.subGesture` 显示成具名子手势而非类型名。 */
 val LocalSubGestures = staticCompositionLocalOf<List<SubGesture>> { emptyList() }
+
+/**
+ * 面板引用（`internal.gridPanel` 的 panelId）的功能图标解析器：入参 panelId
+ * （网格 UUID 或 `single:widgetId`），返回可渲染图标（ImageVector / TextIcon），未知返回 null。
+ *
+ * `:feature:actions` 不依赖 `:feature:gridpanel`，无法直接拿部件功能图标 / `iconFor`；
+ * 默认无解析器，由 app/gridpanel 层注入 `resolvePanelRefIcon`（见 `PanelDockCatalog`）。
+ */
+val LocalPanelRefIcon = staticCompositionLocalOf<(String) -> Any?> { { null } }

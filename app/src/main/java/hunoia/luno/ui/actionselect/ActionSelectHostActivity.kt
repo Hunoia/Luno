@@ -30,6 +30,7 @@ import hunoia.luno.ui.component.row.LocalListStyle
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalPanelRefIcon
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.theme.SideGestureTheme
@@ -76,6 +77,9 @@ class ActionSelectHostActivity : ComponentActivity() {
                             hunoia.luno.core.AppContext.get(),
                             actionSettings,
                         ),
+                    LocalPanelRefIcon provides { id ->
+                        hunoia.luno.gridpanel.resolvePanelRefIcon(id, actionSettings.actionGridPanels.panels)
+                    },
                     LocalSubGestures provides subGestureSettings.subGestures,
                     LocalListStyle provides advancedSettings.listStyle,
                 ) {

@@ -20,7 +20,8 @@
     <string name="action_library_discard_title">放弃未保存的修改？</string>
     <string name="action_library_edit">编辑条目</string>
     <string name="action_library_empty">暂无动作库条目</string>
-    <string name="action_library_entry_name">条目名称</string>
+    <string name="action_library_loading">正在读取动作…</string>
+    <string name="action_library_name">名称</string>
     <string name="action_library_entry_name_hint">请输入名称</string>
     <string name="action_library_entry_name_required">必填项不能为空</string>
     <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
@@ -30,7 +31,6 @@
     <string name="action_library_invalid_hint">草稿无效，先补全参数</string>
     <string name="action_library_reference_count">引用 %1$d</string>
     <string name="action_library_test">测试</string>
-    <string name="action_param_count">%1$d 个参数</string>
     <string name="action_param_kv_add">添加一项</string>
     <string name="action_param_kv_key">键</string>
     <string name="action_param_kv_value">值</string>

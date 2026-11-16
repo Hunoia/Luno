@@ -821,7 +821,7 @@ internal fun ActionPage(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = bottomInset + LetterDialBarGap),
+                            .padding(bottom = bottomInset + BottomBarPadding),
                     )
                 }
                 }

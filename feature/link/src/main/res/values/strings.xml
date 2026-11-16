@@ -65,7 +65,7 @@
     <string name="link_dispatch_rule_pattern_hint">域名（如 b23.tv）或正则</string>
     <string name="link_dispatch_rule_regex_invalid">正则表达式无效，请检查括号/转义</string>
     <string name="link_dispatch_rule_resolve">解析短链</string>
-    <string name="link_dispatch_rule_resolve_hint">先跟随后匹配（3 秒超时）</string>
+    <string name="link_dispatch_rule_resolve_hint">先跟随后匹配（3 s 超时）</string>
     <string name="link_dispatch_rule_resolve_tag"> · 解析短链</string>
     <string name="link_dispatch_rules_empty">暂无规则，点右下角添加。未命中任何规则的链接按上面的「未命中规则时」处理。</string>
     <string name="link_dispatch_rules_group">规则</string>
