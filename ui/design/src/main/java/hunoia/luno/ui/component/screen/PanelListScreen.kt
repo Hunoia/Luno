@@ -140,7 +140,7 @@ fun PanelListScreen(
         onBack = onBack,
         state = listState,
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = addFab,
+        floatingContent = { addFab() },
     ) {
         header?.let { h ->
             item(key = "header") { h() }

@@ -162,6 +162,21 @@ fun ClipboardHistory.remove(id: String): ClipboardHistory =
 fun ClipboardHistory.cleared(): ClipboardHistory =
     if (entries.isEmpty()) this else ClipboardHistory()
 
+/** 清空未固定项、保留固定项；没有未固定项时原样返回（避免无意义写盘）。 */
+fun ClipboardHistory.clearedKeepingPinned(): ClipboardHistory {
+    val unpinned = entries.filterNot { it.pinned }
+    return if (unpinned.isEmpty()) this else copy(entries = pinned)
+}
+
+/**
+ * 清空**某内容类型**的未固定项：保留该类型的固定项 + 全部其它类型条目；
+ * 该类型没有未固定项时原样返回（避免无意义写盘）。
+ */
+fun ClipboardHistory.clearedKeepingPinned(kind: ClipKind): ClipboardHistory {
+    val kept = entries.filter { it.kind != kind || it.pinned }
+    return if (kept.size == entries.size) this else copy(entries = kept)
+}
+
 /** 设置固定态；已是目标态时原样返回（幂等）。固定项同时置顶。 */
 fun ClipboardHistory.setPinned(id: String, pinned: Boolean): ClipboardHistory {
     val target = entries.firstOrNull { it.id == id } ?: return this
@@ -193,12 +208,12 @@ fun ClipboardHistory.mergePinned(imported: List<ClipboardEntry>): ClipboardHisto
 }
 
 /**
- * 导入 / 导出用：全部非敏感文本（固定与普通都带 `pinned` 标记），按新→旧。
- * 图片与敏感项被排除，保证导出文件里没有跨机失效的路径或密码类内容。
+ * 导入 / 导出用：某内容类型的全部非敏感条目（固定与普通都带 `pinned` 标记），按新→旧。
+ * 敏感项被排除，保证导出文件里没有密码类内容。图片正文为空串，天然空列表。
  */
-fun ClipboardHistory.exportableEntries(): List<ClipboardExportEntry> =
+fun ClipboardHistory.exportableEntries(kind: ClipKind = ClipKind.TEXT): List<ClipboardExportEntry> =
     entries
-        .filter { it.kind == ClipKind.TEXT && !it.sensitive && it.text.isNotBlank() }
+        .filter { it.kind == kind && !it.sensitive && it.text.isNotBlank() }
         .map { ClipboardExportEntry(text = it.text, pinned = it.pinned) }
 
 /**

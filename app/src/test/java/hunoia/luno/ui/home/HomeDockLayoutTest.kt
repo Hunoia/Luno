@@ -74,17 +74,40 @@ class HomeDockLayoutTest {
 
     @Test
     fun `功能球隐藏时 tab 多分一颗球加一个间隙`() {
-        // 主页 / 设置页没有功能球：collapsedSlots 从 2 降到 1。
+        // 主页 / 设置页没有功能球：右端功能球槽归零，预留只剩左侧导航球的一颗球 + 间隙。
         // 320dp：288 − (60+6) − 8 = 214 → 71.33。
         assertEquals(
             71.33f,
-            HomeDockLayout.tabWidth(288.dp, tabCount, maxTabWidth, innerPadding, collapsedSlots = 1).value,
+            HomeDockLayout.tabWidth(
+                288.dp, tabCount, maxTabWidth, innerPadding, reservedWidth = 66.dp,
+            ).value,
             0.02f,
         )
         // 360dp：254 / 3 = 84.67，封顶 76。
         assertEquals(
             76.dp,
-            HomeDockLayout.tabWidth(328.dp, tabCount, maxTabWidth, innerPadding, collapsedSlots = 1),
+            HomeDockLayout.tabWidth(
+                328.dp, tabCount, maxTabWidth, innerPadding, reservedWidth = 66.dp,
+            ),
+        )
+    }
+
+    @Test
+    fun `功能球槽收在途中的宽度按动画宽度预留`() {
+        // 功能球槽位宽度在 0 与 60dp 之间动画：预留 = 66 + 6 + 动画宽度，
+        // tab 宽随球体生长连续变化，而不是先跳一档。
+        // 全开（预留 132）→ 62.67；动画宽度 24（预留 96）→ 74.67；槽位归零（预留 66）→ 封顶 76。
+        assertEquals(
+            62.67f,
+            HomeDockLayout.tabWidth(328.dp, tabCount, maxTabWidth, innerPadding).value,
+            0.02f,
+        )
+        assertEquals(
+            74.67f,
+            HomeDockLayout.tabWidth(
+                328.dp, tabCount, maxTabWidth, innerPadding, reservedWidth = 96.dp,
+            ).value,
+            0.02f,
         )
     }
 

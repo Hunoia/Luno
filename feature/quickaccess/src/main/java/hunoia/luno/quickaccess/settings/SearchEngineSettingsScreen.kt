@@ -217,7 +217,7 @@ fun SearchEngineSettingsScreen(
         state = listState,
         contentSpacing = SegmentedGap,
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = addFab,
+        floatingContent = { addFab() },
         actions = {
             var menuOpen by remember { mutableStateOf(false) }
             PressIconButton(onClick = { menuOpen = true }) {

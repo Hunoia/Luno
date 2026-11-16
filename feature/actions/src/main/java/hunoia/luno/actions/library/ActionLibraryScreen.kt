@@ -5,12 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -33,18 +31,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.actions.resolvedIcon
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 @Composable
@@ -68,34 +66,30 @@ fun ActionLibraryScreen(
                 modifier = Modifier.weight(1f),
                 state = listState,
                 contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = FloatingContentBottom),
-                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                // 组与组之间用 ListSpacing；组内分段圆角仍由 LunoGroup 的 contentSpacing 管。
+                verticalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 if (filtered.isEmpty()) {
                     item { EmptyState(stringResource(R.string.action_library_empty)) }
                 } else {
                     grouped.forEach { (category, entries) ->
                         stickyHeader(key = "header_${category}") {
-                            Text(
-                                text = stringResource(category.displayNameRes),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .animateItem()
-                                    .fillMaxWidth()
-                                    .padding(start = PageGutter, top = CardInnerSpacing, bottom = ListSpacing),
-                            )
+                            Box(modifier = Modifier.animateItem()) {
+                                SheetGroupHeader(stringResource(category.displayNameRes))
+                            }
                         }
-                        itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
-                            ActionLibraryItem(
-                                modifier = Modifier.animateItem(),
-                                shape = segmentedShape(index, entries.size),
-                                entry = entry,
-                                referenceCount = uiState.referenceCounts[entry.id] ?: 0,
-                                onClick = {
-                                    onNavToEdit(entry.id, null)
-                                },
-                                onIconClick = { iconPickerEntry = entry },
-                            )
+                        item(key = "group_${category}") {
+                            LunoGroup(modifier = Modifier.animateItem()) {
+                                entries.forEachIndexed { index, entry ->
+                                    ActionLibraryItem(
+                                        shape = segmentedShape(index, entries.size),
+                                        entry = entry,
+                                        referenceCount = uiState.referenceCounts[entry.id] ?: 0,
+                                        onClick = { onNavToEdit(entry.id, null) },
+                                        onIconClick = { iconPickerEntry = entry },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -122,7 +116,6 @@ private fun ActionLibraryItem(
     referenceCount: Int,
     onClick: () -> Unit,
     onIconClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val def = ActionDefinitions.byTypeId(entry.typeId)
@@ -130,7 +123,6 @@ private fun ActionLibraryItem(
     // 副标题 = 已配置的参数值（空值跳过，布尔 false 不喘）；无参数回退类型名。
     val paramSummary = remember(entry, context) { actionLibraryParamSummary(entry, context) }
     LunoSettingsRow(
-        modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
         subtitle = paramSummary.ifBlank { (def?.name ?: entry.typeId).takeIf { entry.name.isNotBlank() } ?: "" },
         leading = {

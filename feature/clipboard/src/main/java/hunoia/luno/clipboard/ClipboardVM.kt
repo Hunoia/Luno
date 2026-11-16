@@ -35,12 +35,24 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * 底栏分段：文本 / 图片 / 设置。内容两类（各页固定项组置顶、互不混合），
+ * 设置段承载记录设置组、不参与内容搜索。
+ */
+enum class ClipboardTab(val labelRes: Int) {
+    TEXT(R.string.clipboard_text_group),
+    IMAGE(R.string.clipboard_image),
+    SETTINGS(R.string.clipboard_settings_group),
+}
+
 /** 页面唯一状态（architecture §8.4）：历史 / 会话 / 设置 / 筛选 / 批量选择 / 弹窗都在这。 */
 data class ClipboardUiState(
     val entries: List<ClipboardEntry> = emptyList(),
     val session: List<ClipboardEntry> = emptyList(),
     val settings: ClipboardSettings = ClipboardSettings(),
     val query: String = "",
+    val searchExpanded: Boolean = false,
+    val contentTab: ClipboardTab = ClipboardTab.TEXT,
     val selectionMode: Boolean = false,
     val selectedIds: Set<String> = emptySet(),
     val revealedIds: Set<String> = emptySet(),
@@ -55,6 +67,8 @@ class ClipboardVM : ViewModel() {
 
     private data class Local(
         val query: String = "",
+        val searchExpanded: Boolean = false,
+        val contentTab: ClipboardTab = ClipboardTab.TEXT,
         val selectionMode: Boolean = false,
         val selectedIds: Set<String> = emptySet(),
         val revealedIds: Set<String> = emptySet(),
@@ -78,6 +92,8 @@ class ClipboardVM : ViewModel() {
             session = session,
             settings = settings,
             query = local.query,
+            searchExpanded = local.searchExpanded,
+            contentTab = local.contentTab,
             selectionMode = local.selectionMode,
             selectedIds = local.selectedIds,
             revealedIds = local.revealedIds,
@@ -93,8 +109,22 @@ class ClipboardVM : ViewModel() {
 
     fun setQuery(query: String) = local.update { it.copy(query = query) }
 
+    fun toggleSearch() = local.update { it.copy(searchExpanded = !it.searchExpanded) }
+
+    fun setTab(tab: ClipboardTab) = local.update { it.copy(contentTab = tab) }
+
+    /** 进入 / 退出选择：进入时收起搜索并清空查询（搜索与选中互斥，避免搜索框隐藏但筛选残留）；退出只退。 */
     fun toggleSelectionMode() = local.update {
-        it.copy(selectionMode = !it.selectionMode, selectedIds = emptySet())
+        if (it.selectionMode) {
+            it.copy(selectionMode = false, selectedIds = emptySet())
+        } else {
+            it.copy(
+                selectionMode = true,
+                selectedIds = emptySet(),
+                searchExpanded = false,
+                query = "",
+            )
+        }
     }
 
     fun toggleSelected(id: String) = local.update {
@@ -184,9 +214,9 @@ class ClipboardVM : ViewModel() {
 
     fun dismissClear() = local.update { it.copy(clearConfirm = false) }
 
-    fun confirmClear() {
+    fun confirmClear(kind: ClipKind) {
         local.update { it.copy(clearConfirm = false) }
-        viewModelScope.launch { runCatching { ClipboardCenter.clear() } }
+        viewModelScope.launch { runCatching { ClipboardCenter.clear(kind) } }
     }
 
     fun setRecordEnabled(enabled: Boolean) {
@@ -222,9 +252,9 @@ class ClipboardVM : ViewModel() {
         }
     }
 
-    fun export(context: Context, uri: Uri) {
+    fun export(context: Context, uri: Uri, kind: ClipKind) {
         viewModelScope.launch {
-            val exportable = ClipboardHistory(uiState.value.entries).exportableEntries()
+            val exportable = ClipboardHistory(uiState.value.entries).exportableEntries(kind)
             if (exportable.isEmpty()) {
                 _messages.emit(ClipboardMessage(R.string.clipboard_export_empty))
                 return@launch

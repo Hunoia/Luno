@@ -2,6 +2,7 @@ package hunoia.luno.ui.component
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -29,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarTabWidth
@@ -58,40 +62,52 @@ class HomeDockTab(
 /**
  * 三球停靠栏的几何：宽屏限宽、窄屏压缩 tab。
  *
- * 一行固定三槽：展开的胶囊 + 两颗收起球。tab 宽按槽位数扣掉两颗球、两个间隙和胶囊内边距：
- * `(dockWidth - 2×(球+间隙) - 2×内边距) / tabCount`。
+ * 一行三槽：展开的胶囊 + 主导航球 + 记录导航球，槽与槽之间各一个间隙；右端的功能球槽
+ * 显隐由页面决定。tab 宽按 `[reservedWidth]` 扣掉固定占位与胶囊内边距后均分：
+ * `(dockWidth - reservedWidth - 2×内边距) / tabCount`。
  *
  * 算术委托给 [FloatingBarLayout]，与类型 chip 底栏共用同一份；这里只固定「收起槽 = 球 + 间隙」
  * 这条三球专属规则。`BottomBarTabWidth` / `TileInnerPadding` 由调用方传入，避免这里触发
  * `Dimension.kt` 的类初始化（见 DockDimension.kt 的说明）。
  */
 object HomeDockLayout {
-    /** 三槽：一个展开的胶囊 + 两颗球，槽与槽之间各一个间隙。 */
-    const val CollapsedSlots = 2
+    /** 一个收起槽的固定宽度：60dp 球 + 6dp 间隙。 */
+    val CollapsedSlot: Dp = DockBallSize + DockGap
 
     fun dockWidth(availableWidth: Dp): Dp = FloatingBarLayout.barWidth(availableWidth)
 
+    /**
+     * [reservedWidth] 是同一行里不属于 tab 的占位：左侧导航球（恒在）加上右端功能球槽
+     * （隐藏时为 0）。由调用方按当前动画宽度算好传入，见 HomeDock 的 `functionBallReservedWidth`。
+     */
     fun tabWidth(
         dockWidth: Dp,
         tabCount: Int,
         maxTabWidth: Dp,
         innerPadding: Dp,
-        collapsedSlots: Int = CollapsedSlots,
+        reservedWidth: Dp = CollapsedSlot * 2,
     ): Dp = FloatingBarLayout.tabWidth(
         barWidth = dockWidth,
         tabCount = tabCount,
         maxTabWidth = maxTabWidth,
         innerPadding = innerPadding,
-        reservedWidth = (DockBallSize + DockGap) * collapsedSlots,
+        reservedWidth = reservedWidth,
     )
 
     fun capsuleWidth(tabWidth: Dp, tabCount: Int, innerPadding: Dp): Dp =
         FloatingBarLayout.capsuleWidth(tabWidth, tabCount, innerPadding)
 
-    /** 整组实际宽度：展开的胶囊 + 两颗球 + 两个间隙。 */
-    fun rowWidth(capsuleWidth: Dp, collapsedSlots: Int = CollapsedSlots): Dp =
-        capsuleWidth + (DockBallSize + DockGap) * collapsedSlots
+    /** 整组实际宽度：胶囊 + 左侧导航球 + 右端收起球（功能球槽隐藏时为 0）。 */
+    fun rowWidth(capsuleWidth: Dp, trailingSlotWidth: Dp = CollapsedSlot): Dp =
+        capsuleWidth + CollapsedSlot + trailingSlotWidth
 }
+
+/**
+ * 功能球槽位为胶囊预留的宽度：一颗球加左侧间隙恒占，槽位再加它与 secondary 之间的间隙
+ * （随球宽比例收放，宽度归零时间隙也归零）与球自身的动画宽度。全部连续，无 6dp 快照。
+ */
+private fun functionBallReservedWidth(ballWidth: Dp): Dp =
+    (DockBallSize + DockGap) + DockGap * (ballWidth / DockBallSize) + ballWidth
 
 /**
  * 主页三球停靠栏：左主导航球 / 中记录导航球 / 右功能球。
@@ -134,21 +150,33 @@ fun HomeDock(
     ) {
         // 左右各留 DockGutter；整组在限宽内居中，不再把球拉到两端。
         val dockWidth = HomeDockLayout.dockWidth(maxWidth - DockGutter * 2)
-        // 功能球在主页 / 设置页隐藏时，整行只剩两颗导航球，胶囊能多分到一个球 + 间隙的宽度。
-        val collapsedSlots = if (showFunctionBall) HomeDockLayout.CollapsedSlots else 1
+        // 功能球槽位的宽度走动画（0↔60dp）：宽度归零时球连同它和 secondary 之间的间隙一起
+        // 连续收走（间隙随宽度比例收放），胶囊的收回与功能球的出现同一条曲线，
+        // 不再「行先跳宽、间隙再硬消失」。
+        val functionBallWidth by animateDpAsState(
+            targetValue = if (showFunctionBall) DockBallSize else 0.dp,
+            animationSpec = tween(MotionSubtle),
+            label = "dockFunctionBallWidth",
+        )
+        // 球与 secondary 之间的间隙随球宽比例收放：球宽→0 时间隙→0，两端无 6dp 快照。
+        val functionGap = DockGap * (functionBallWidth / DockBallSize)
+        // 轻淡入：前段快速到全不透明（宽度过半前基本实心），滑出反向。
+        val functionBallAlpha = (functionBallWidth / DockBallSize * 2f).coerceIn(0f, 1f)
+        // 槽位还有剩余宽度时保留（正在收走），宽度归零才算真的隐藏：隐藏态布局与原来完全一致。
+        val functionBallVisible = showFunctionBall || functionBallWidth > 0.dp
         val navTabWidth = HomeDockLayout.tabWidth(
             dockWidth = dockWidth,
             tabCount = navTabs.size,
             maxTabWidth = BottomBarTabWidth,
             innerPadding = TileInnerPadding,
-            collapsedSlots = collapsedSlots,
+            reservedWidth = functionBallReservedWidth(functionBallWidth),
         )
         val secondaryTabWidth = HomeDockLayout.tabWidth(
             dockWidth = dockWidth,
             tabCount = secondaryTabs.size,
             maxTabWidth = BottomBarTabWidth,
             innerPadding = TileInnerPadding,
-            collapsedSlots = collapsedSlots,
+            reservedWidth = functionBallReservedWidth(functionBallWidth),
         )
 
         Box(
@@ -161,7 +189,7 @@ fun HomeDock(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DockGap, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DockSlot(
@@ -181,6 +209,8 @@ fun HomeDock(
                     colors = colors,
                 )
 
+                Spacer(Modifier.width(DockGap))
+
                 DockSlot(
                     expanded = expandedSide == HomeDockSide.SECONDARY,
                     tabWidth = secondaryTabWidth,
@@ -198,15 +228,29 @@ fun HomeDock(
                     colors = colors,
                 )
 
-                if (showFunctionBall) {
-                    FunctionBall(
-                        icon = functionBallIcon,
-                        label = functionBallLabel,
-                        tint = colors.contentColor,
-                        onClick = onFunctionBallClick,
-                        hazeState = hazeState,
-                        menu = functionMenu,
-                    )
+                // 功能球槽：整颗 60dp 球从右缘平移滑入/滑出（前段轻淡入），不再随宽度缩放成
+                // 「压缩小球」；球与 secondary 之间是随球宽收放的间隙，槽位移除时已归零。
+                if (functionBallVisible) {
+                    Spacer(Modifier.width(functionGap))
+                    Box(
+                        modifier = Modifier
+                            .width(functionBallWidth)
+                            .height(DockCapsuleHeight)
+                            .graphicsLayer {
+                                translationX = (DockBallSize - functionBallWidth).toPx()
+                                alpha = functionBallAlpha
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        FunctionBall(
+                            icon = functionBallIcon,
+                            label = functionBallLabel,
+                            tint = colors.contentColor,
+                            onClick = onFunctionBallClick,
+                            hazeState = hazeState,
+                            menu = functionMenu,
+                        )
+                    }
                 }
             }
         }
@@ -235,23 +279,21 @@ private fun DockSlot(
     hazeState: HazeState,
     colors: FloatingBottomBarColors,
 ) {
-    // 功能球在主页 / 设置隐藏、在动作库与记录页出现，tab 宽会在 76dp 与压缩值之间切换。
-    // 宽度也走动画：胶囊宽度和 tab 行同步收放，避免内容先跳一帧、玻璃再追上去。
-    val animatedTabWidth by animateDpAsState(
-        targetValue = tabWidth,
-        animationSpec = tween(MotionSubtle),
-        label = "dockTabWidth",
-    )
+    // tab 宽由调用方（HomeDock）按功能球动画宽度逐帧算好传入，这里不再叠一层 tween 追逐，
+    // 否则胶囊宽度会落后整行位移一两个帧、收尾再「追上来」。
     val expandedWidth = HomeDockLayout.capsuleWidth(
-        tabWidth = animatedTabWidth,
+        tabWidth = tabWidth,
         tabCount = tabCount,
         innerPadding = TileInnerPadding,
     )
-    val width by animateDpAsState(
-        targetValue = if (expanded) expandedWidth else DockBallSize,
+    // 球 ↔ 胶囊的形变走单一 progress：展开态宽度 = 胶囊宽（实时跟父级 tab 宽），
+    // 收起态 = 球径，过渡按同一 180ms 曲线线性插值。
+    val expandProgress by animateFloatAsState(
+        targetValue = if (expanded) 1f else 0f,
         animationSpec = tween(MotionSubtle),
-        label = "dockSlotWidth",
+        label = "dockExpandProgress",
     )
+    val width = DockBallSize + (expandedWidth - DockBallSize) * expandProgress
     // 交叉淡入错峰：进场延迟 = 形变时长 − 淡入时长。展开时球图标先在头 2/3 退场、
     // tab 行在胶囊接近全开时才完全可见；收起时反过来。两态共用同一对 spec，方向自动对称。
     val contentIn = remember {
@@ -305,7 +347,7 @@ private fun DockSlot(
                 items = tabs,
                 selectedIndex = { selectedIndex },
                 onSelected = onSelected,
-                tabWidth = animatedTabWidth,
+                tabWidth = tabWidth,
                 tabHeight = DockTabHeight,
                 colors = colors,
                 iconContent = { item, _ ->

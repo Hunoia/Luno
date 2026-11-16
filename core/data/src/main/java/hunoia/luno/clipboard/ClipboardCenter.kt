@@ -16,6 +16,7 @@ import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardMaxTextChars
 import hunoia.luno.config.model.ClipboardSettings
+import hunoia.luno.config.model.clearedKeepingPinned
 import hunoia.luno.config.model.mergeImported
 import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.setPinned
@@ -339,10 +340,21 @@ object ClipboardCenter {
         _session.value = _session.value.filterNot { it.id == id }
     }
 
+    /** 清空全部未固定项（两种类型）、保留固定项；敏感会话一并清掉（部件「清空」口径）。 */
     suspend fun clear() {
-        ConfigProvider.clearClipboardHistory()
-        pruneImages(ClipboardHistory())
+        val history = ConfigProvider.updateClipboardHistory { it.clearedKeepingPinned() } ?: return
+        pruneImages(history)
         _session.value = emptyList()
+    }
+
+    /**
+     * 清空某内容类型的未固定项：保留该类型固定项与其它类型（与页面「清空本页」口径一致）；
+     * 敏感会话属于文本，仅文本页清空时一并清掉。
+     */
+    suspend fun clear(kind: ClipKind) {
+        val history = ConfigProvider.updateClipboardHistory { it.clearedKeepingPinned(kind) } ?: return
+        pruneImages(history)
+        if (kind == ClipKind.TEXT) _session.value = emptyList()
     }
 
     /**

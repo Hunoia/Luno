@@ -140,7 +140,7 @@ fun LunoScreenLazy(
     onBack: (() -> Unit)? = null,
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     postfixTitle: (@Composable () -> Unit)? = null,
-    floatingContent: (@Composable () -> Unit)? = null,
+    floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
     contentSpacing: Dp = ListSpacing,
     contentPadding: Dp = PageGutter,
     bottomContentPadding: Dp = ContentBottom,
@@ -155,7 +155,7 @@ fun LunoScreenLazy(
         onBack = onBack,
         actions = actions,
         postfixTitle = postfixTitle,
-        floatingContent = { floatingContent?.invoke() },
+        floatingContent = floatingContent,
         dialogs = dialogs,
         sheets = sheets,
     ) { padding, hazeState, scrollBehavior ->

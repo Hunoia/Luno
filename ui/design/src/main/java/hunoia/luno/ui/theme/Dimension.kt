@@ -81,7 +81,8 @@ val CapsuleCornerPercent = 50f / (1f + CapsuleSmoothing / 100f)
 val CapsuleShape: Shape = PercentSquircleShape(CapsuleCornerPercent, CapsuleSmoothing)
 
 // Bottom bar
-val BottomBarPadding = 12.dp
+// 底栏与屏幕底边的间距（命名沿用 padding，实为整条底栏的外边距），三处底栏共用同一值。
+val BottomBarPadding = 16.dp
 val BottomBarHeight = 56.dp
 val BottomBarIconSize = 30.dp
 // 底栏与指示 pill 都用胶囊角色（§2.1.1），半径由 CapsuleShape 按各自高度算出。

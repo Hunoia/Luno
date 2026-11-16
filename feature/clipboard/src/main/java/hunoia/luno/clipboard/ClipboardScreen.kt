@@ -1,14 +1,35 @@
 package hunoia.luno.clipboard
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
@@ -16,39 +37,58 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.imageLoader
-import hunoia.luno.bridge.system.FileOutput
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ClipKind
 import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardMaxEntriesRange
-import hunoia.luno.ui.component.AppSearchBar
+import hunoia.luno.ui.component.FloatingBarLayout
+import hunoia.luno.ui.component.FloatingBottomBarDefaults
+import hunoia.luno.ui.component.FloatingTabRow
+import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -56,19 +96,32 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.BottomBarIconSize
+import hunoia.luno.ui.theme.BottomBarPadding
+import hunoia.luno.ui.theme.BottomBarTabWidth
+import hunoia.luno.ui.theme.DockGutter
+import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.MotionSwapIn
+import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.SmallShape
-import kotlinx.coroutines.launch
-import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.theme.glassCapsule
 
 /**
- * 剪贴板管理页：历史唯一来源 + 固定 / 删除 / 清空 / 搜索 / 批量 / 导入导出 / 图片 OCR。
+ * 剪贴板管理页：历史唯一来源 + 固定 / 删除 / 清空 / 搜索 / 批量 / 导入导出。
  *
  * 记录与捕获规则都在 `ClipboardCenter`：页面只消费流、发事件；进入页面补一次幂等
  * [ClipboardVM.refresh]（覆盖后台收不到系统回调的机型）。行点按 = 写回剪贴板；
  * 敏感项先显示，再点一次进入二次确认。
+ *
+ * 底栏分段为 文本 / 图片 / 设置 三段（[ClipboardTab]，顺序即底栏顺序，默认文本），
+ * 玻璃胶囊分段控件 + 右端搜索槽（ui-guidelines §4.2 类型 chip 底栏 / §4.3 搜索型底栏，与动作
+ * 选择页底栏同源）；搜索展开与分段同格互换，有搜索词时跨内容两类匹配（§4.3，设置段不参与）。
+ * 文本 / 图片两类各自管理固定项：页内固定项组置顶，互不混合；设置段承载记录设置组
+ * （记录剪贴板 / 未固定条目上限），文本 / 图片页不显示设置组；本次会话（敏感）组仅文本段顶部显示。
+ * 清空 / 导出按当前页执行（保留当前页固定项）。行菜单固定 / 分享 / 悬浮显示 / 删除。
+ * 选中态：删除移到顶栏右上角（退出按钮左侧），底栏只留 [已选 N / 全选 / 固定]。
  */
 @Composable
 fun ClipboardScreen(
@@ -78,7 +131,7 @@ fun ClipboardScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val facades = LocalFacades.current
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) { vm.refresh() }
     LaunchedEffect(Unit) {
@@ -92,38 +145,35 @@ fun ClipboardScreen(
         }
     }
 
+    // 分段 / 查询变化主动回顶（ui-guidelines §3.2 第 6 条）；首位恒是设置组或会话 / 内容组，scrollToItem 安全。
+    LaunchedEffect(state.contentTab, state.query) {
+        listState.scrollToItem(0)
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri -> uri?.let { vm.export(context, it) } }
+    ) { uri ->
+        // 按当前页导出：设置页无内容，kind 为空时忽略（菜单在设置页已禁用导出）。
+        uri?.let { u -> state.contentTab.kind?.let { k -> vm.export(context, u, k) } }
+    }
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri -> uri?.let { vm.import(context, it) } }
 
-    val visible = remember(state.entries, state.query) {
+    // 有搜索词 → 跨内容两类匹配（§4.3 底栏内搜索口径，设置段不参与）；空查询 → 当前分段。
+    // 设置段不是内容：inTab(SETTINGS) 恒 false，空查询下 visible 恒空。
+    val visible = remember(state.entries, state.query, state.contentTab) {
         val query = state.query.trim()
-        if (query.isEmpty()) {
-            state.entries
+        if (query.isNotEmpty()) {
+            state.entries.filter { it.matchesQuery(query) }
         } else {
-            state.entries.filter { entry ->
-                when (entry.kind) {
-                    ClipKind.TEXT -> entry.text.contains(query, ignoreCase = true)
-                    ClipKind.IMAGE -> entry.mime?.contains(query, ignoreCase = true) == true
-                }
-            }
+            state.entries.filter { it.inTab(state.contentTab) }
         }
     }
-
-    fun ocr(entry: ClipboardEntry) {
-        val file = ClipboardCenter.imageFile(entry.imagePath) ?: return
-        scope.launch {
-            val ok = facades.clipboard.ocrImage(
-                context,
-                FileOutput.uriFor(context, file),
-                entry.mime ?: "image/*",
-            )
-            if (!ok) showToast(R.string.clipboard_ocr_failed)
-        }
-    }
+    // 设置段：仅当空查询时渲染记录设置组（搜索时同样搜记录，清空后回设置页）。
+    val settingsTab = state.contentTab == ClipboardTab.SETTINGS && state.query.isBlank()
+    // 当前页对应的内容类型；设置页无内容。
+    val contentKind = state.contentTab.kind
 
     @Composable
     fun EntryRow(entry: ClipboardEntry, shape: androidx.compose.ui.graphics.Shape) {
@@ -143,12 +193,6 @@ fun ClipboardScreen(
             } else {
                 { facades.clipFloat.show(context, entry.id) }
             },
-            onOcr = if (entry.kind == ClipKind.IMAGE) {
-                { ocr(entry) }
-            } else {
-                null
-            },
-            onClearAll = { vm.requestClear() },
         )
     }
 
@@ -156,12 +200,17 @@ fun ClipboardScreen(
         title = stringResource(R.string.clipboard_title),
         onBack = onBack,
         bottomContentPadding = FloatingContentBottom,
+        state = listState,
         actions = {
+            // 常态：选择入口 + 数据菜单；选中态：删除（退出左侧）+ 退出，数据菜单隐藏。
             if (state.selectionMode) {
-                PressIconButton(onClick = { vm.selectAll(visible.map { it.id }) }) {
+                PressIconButton(
+                    onClick = { vm.deleteSelected() },
+                    enabled = state.selectedIds.isNotEmpty(),
+                ) {
                     Icon(
-                        Icons.Default.SelectAll,
-                        contentDescription = stringResource(R.string.clipboard_select_all),
+                        Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.clipboard_delete_selected),
                     )
                 }
                 PressIconButton(onClick = { vm.toggleSelectionMode() }) {
@@ -171,23 +220,39 @@ fun ClipboardScreen(
                     )
                 }
             } else {
-                PressIconButton(onClick = { vm.toggleSelectionMode() }) {
+                PressIconButton(
+                    onClick = { vm.toggleSelectionMode() },
+                    enabled = visible.isNotEmpty(),
+                ) {
                     Icon(
                         Icons.Default.Checklist,
                         contentDescription = stringResource(R.string.clipboard_select),
                     )
                 }
+                ClipboardDataMenu(
+                    onExport = { exportLauncher.launch("luno_clipboard.json") },
+                    onImport = { importLauncher.launch("application/json") },
+                    onClearAll = { vm.requestClear() },
+                    contentEnabled = contentKind != null,
+                )
             }
         },
-        floatingContent = {
-            if (state.selectionMode) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                    SelectionBar(
-                        selected = state.selectedIds.size,
-                        onDelete = { vm.deleteSelected() },
-                        onPin = { vm.pinSelected() },
-                    )
-                }
+        floatingContent = { hazeState ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                ClipboardToolbar(
+                    hazeState = hazeState,
+                    selectionMode = state.selectionMode,
+                    selectedCount = state.selectedIds.size,
+                    query = state.query,
+                    searchExpanded = state.searchExpanded,
+                    tab = state.contentTab,
+                    onTabChange = { vm.setTab(it) },
+                    onQueryChange = { vm.setQuery(it) },
+                    onToggleSearch = { vm.toggleSearch() },
+                    onSelectAll = { vm.selectAll(visible.map { it.id }) },
+                    onPinSelected = { vm.pinSelected() },
+                    onExitSelection = { vm.toggleSelectionMode() },
+                )
             }
         },
         dialogs = {
@@ -197,7 +262,7 @@ fun ClipboardScreen(
                     text = stringResource(R.string.clipboard_clear_confirm_desc),
                     destructive = true,
                     onDismissRequest = { vm.dismissClear() },
-                    onConfirm = { vm.confirmClear() },
+                    onConfirm = { state.contentTab.kind?.let { vm.confirmClear(it) } },
                 )
             }
             val pending = state.pendingSensitiveCopy
@@ -211,162 +276,501 @@ fun ClipboardScreen(
             }
         },
     ) {
-        item(key = "search") {
-            AppSearchBar(
-                query = state.query,
-                onQueryChange = { vm.setQuery(it) },
-                placeholder = stringResource(R.string.clipboard_search_hint),
-            )
-        }
-
-        val showSession = state.query.isBlank() && state.session.isNotEmpty()
-        if (showSession) {
-            item(key = "session") {
-                LunoGroup(
-                    title = stringResource(R.string.clipboard_session_group),
-                    subtitle = stringResource(R.string.clipboard_session_hint),
-                ) {
-                    state.session.forEachIndexed { index, entry ->
-                        ClipboardRow(
-                            entry = entry,
-                            shape = segmentedShape(index, state.session.size),
-                            selectionMode = false,
-                            selected = false,
-                            revealed = entry.id in state.revealedIds,
-                            pinned = entry.pinned,
-                            onClick = { vm.onEntryClick(entry) },
-                            onTogglePin = { vm.pinSession(entry) },
-                            onDelete = { vm.delete(entry) },
-                            onShare = { vm.share(context, entry) },
-                            onFloat = null,
-                            onOcr = null,
-                            onClearAll = null,
-                        )
-                    }
+        if (settingsTab) {
+            // 设置段：只渲染记录设置组（无空态 / 会话 / 内容）。
+            item(key = "settings") {
+                LunoGroup(title = stringResource(R.string.clipboard_settings_group)) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.clipboard_record_enabled),
+                        subtitle = stringResource(R.string.clipboard_record_enabled_hint),
+                        checked = state.settings.recordEnabled,
+                        onCheckedChange = { vm.setRecordEnabled(it) },
+                        shape = segmentedShape(0, 2),
+                    )
+                    LunoSettingsRow(
+                        title = stringResource(R.string.clipboard_max_entries),
+                        shape = segmentedShape(1, 2),
+                        trailing = {
+                            MaxEntriesControls(
+                                value = state.settings.maxEntries,
+                                onValueChange = { vm.setMaxEntries(it) },
+                            )
+                        },
+                    )
                 }
-            }
-        }
-
-        if (visible.isEmpty() && !showSession) {
-            item(key = "empty") {
-                EmptyState(
-                    message = stringResource(
-                        if (state.query.isBlank()) R.string.clipboard_empty else R.string.clipboard_empty_search,
-                    ),
-                )
             }
         } else {
-            val pinnedVisible = visible.filter { it.pinned }
-            val unpinnedVisible = visible.filterNot { it.pinned }
-            if (pinnedVisible.isNotEmpty()) {
+            val searching = state.query.isNotBlank()
+            val pinnedItems = visible.filter { it.pinned }
+            val restItems = visible.filterNot { it.pinned }
+            val showSession = state.contentTab == ClipboardTab.TEXT &&
+                !searching &&
+                state.session.isNotEmpty()
+
+            // 固定项组置顶（文本 / 图片各自管理；搜索时搜索结果平铺，不再分组）。
+            if (!searching && pinnedItems.isNotEmpty()) {
                 item(key = "pinned") {
                     LunoGroup(title = stringResource(R.string.clipboard_pinned_group)) {
-                        pinnedVisible.forEachIndexed { index, entry ->
-                            EntryRow(entry, segmentedShape(index, pinnedVisible.size))
+                        pinnedItems.forEachIndexed { index, entry ->
+                            EntryRow(entry, segmentedShape(index, pinnedItems.size))
                         }
                     }
                 }
             }
-            if (unpinnedVisible.isNotEmpty()) {
-                item(key = "history") {
-                    LunoGroup(title = stringResource(R.string.clipboard_history_group)) {
-                        unpinnedVisible.forEachIndexed { index, entry ->
-                            EntryRow(entry, segmentedShape(index, unpinnedVisible.size))
+
+            // 本次会话（敏感）组：仅文本页、空查询（敏感项都是文本）。
+            if (showSession) {
+                item(key = "session") {
+                    LunoGroup(
+                        title = stringResource(R.string.clipboard_session_group),
+                        subtitle = stringResource(R.string.clipboard_session_hint),
+                    ) {
+                        state.session.forEachIndexed { index, entry ->
+                            ClipboardRow(
+                                entry = entry,
+                                shape = segmentedShape(index, state.session.size),
+                                selectionMode = false,
+                                selected = false,
+                                revealed = entry.id in state.revealedIds,
+                                pinned = entry.pinned,
+                                onClick = { vm.onEntryClick(entry) },
+                                onTogglePin = { vm.pinSession(entry) },
+                                onDelete = { vm.delete(entry) },
+                                onShare = { vm.share(context, entry) },
+                                onFloat = null,
+                            )
                         }
                     }
                 }
             }
-        }
 
-        item(key = "settings") {
-            LunoGroup(title = stringResource(R.string.clipboard_settings_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.clipboard_record_enabled),
-                    subtitle = stringResource(R.string.clipboard_record_enabled_hint),
-                    checked = state.settings.recordEnabled,
-                    onCheckedChange = { vm.setRecordEnabled(it) },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.clipboard_max_entries),
-                    shape = segmentedShape(1, 2),
-                    trailing = {
-                        MaxEntriesControls(
-                            value = state.settings.maxEntries,
-                            onValueChange = { vm.setMaxEntries(it) },
-                        )
-                    },
-                )
+            if (searching) {
+                if (visible.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(message = stringResource(R.string.clipboard_empty_search))
+                    }
+                } else {
+                    item(key = "content") {
+                        LunoGroup(title = stringResource(R.string.clipboard_search_results_group)) {
+                            visible.forEachIndexed { index, entry ->
+                                EntryRow(entry, segmentedShape(index, visible.size))
+                            }
+                        }
+                    }
+                }
+            } else if (pinnedItems.isEmpty() && restItems.isEmpty() && !showSession) {
+                // 当前页完全为空（无固定、无内容、无会话占位）。
+                item(key = "empty") {
+                    EmptyState(
+                        message = stringResource(
+                            if (state.entries.isEmpty()) {
+                                R.string.clipboard_empty
+                            } else {
+                                R.string.clipboard_category_empty
+                            },
+                        ),
+                    )
+                }
+            } else if (restItems.isNotEmpty()) {
+                item(key = "content") {
+                    LunoGroup(title = stringResource(state.contentTab.labelRes)) {
+                        restItems.forEachIndexed { index, entry ->
+                            EntryRow(entry, segmentedShape(index, restItems.size))
+                        }
+                    }
+                }
             }
-        }
-
-        item(key = "manage") {
-            LunoGroup(title = stringResource(R.string.clipboard_manage_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.clipboard_export),
-                    subtitle = stringResource(R.string.clipboard_export_hint),
-                    shape = segmentedShape(0, 3),
-                    onClick = { exportLauncher.launch("luno_clipboard.json") },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.clipboard_import),
-                    subtitle = stringResource(R.string.clipboard_import_hint),
-                    shape = segmentedShape(1, 3),
-                    onClick = { importLauncher.launch("application/json") },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.clipboard_clear_all),
-                    subtitle = stringResource(
-                        R.string.clipboard_capacity,
-                        state.entries.count { it.pinned },
-                        state.entries.count { !it.pinned },
-                        state.settings.maxEntries,
-                    ),
-                    shape = segmentedShape(2, 3),
-                    onClick = { vm.requestClear() },
-                )
-            }
+            // 只有固定项（无未固定内容）时：固定组已渲染，不再渲染空态或内容组。
         }
     }
 }
 
-/** 批量选择时底部的操作条。 */
+/** 工具条三种形态；搜索优先于选中态（两者互斥，见 [ClipboardVM.toggleSelectionMode]）。 */
+private enum class ToolbarMode { Search, Selection, Normal }
+
+/** 单条记录是否命中查询（跨内容两类搜索用，§4.3）。 */
+private fun ClipboardEntry.matchesQuery(query: String): Boolean = when (kind) {
+    ClipKind.TEXT -> text.contains(query, ignoreCase = true)
+    ClipKind.IMAGE -> mime?.contains(query, ignoreCase = true) == true
+}
+
+/** 分段底栏的图标（无文字，contentDescription 用 [ClipboardTab.labelRes]）。 */
+private val ClipboardTab.icon: ImageVector
+    get() = when (this) {
+        ClipboardTab.TEXT -> Icons.Default.TextFields
+        ClipboardTab.IMAGE -> Icons.Default.Image
+        ClipboardTab.SETTINGS -> Icons.Default.Settings
+    }
+
+/** 当前分段对应的内容类型；设置段不是内容，返回 null（导出 / 清空据此按页执行）。 */
+private val ClipboardTab.kind: ClipKind?
+    get() = when (this) {
+        ClipboardTab.TEXT -> ClipKind.TEXT
+        ClipboardTab.IMAGE -> ClipKind.IMAGE
+        ClipboardTab.SETTINGS -> null
+    }
+
+/** 单条记录是否属于当前内容分段（文本 / 图片两类；设置段不是内容，恒 false）。 */
+private fun ClipboardEntry.inTab(tab: ClipboardTab): Boolean = when (tab) {
+    ClipboardTab.TEXT -> kind == ClipKind.TEXT
+    ClipboardTab.IMAGE -> kind == ClipKind.IMAGE
+    ClipboardTab.SETTINGS -> false
+}
+
+/**
+ * 顶部「数据」下拉菜单：导出 / 导入 / 清空本页（清空用破坏性色）。导出与清空按当前页执行，
+ * 设置页无内容时禁用（[contentEnabled]）。替代原列表底部的「数据」组（ui-guidelines §4.4）。
+ */
 @Composable
-private fun SelectionBar(
-    selected: Int,
-    onDelete: () -> Unit,
-    onPin: () -> Unit,
+private fun ClipboardDataMenu(
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onClearAll: () -> Unit,
+    contentEnabled: Boolean,
 ) {
-    Surface(
+    var open by remember { mutableStateOf(false) }
+    Box {
+        PressIconButton(onClick = { open = true }) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.clipboard_export)) },
+                onClick = { open = false; onExport() },
+                enabled = contentEnabled,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.clipboard_import)) },
+                onClick = { open = false; onImport() },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(R.string.clipboard_clear_page),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
+                onClick = { open = false; onClearAll() },
+                enabled = contentEnabled,
+            )
+        }
+    }
+}
+
+/**
+ * 底部玻璃胶囊底栏（ui-guidelines §4.2 / §4.3，与动作选择页底栏同源）：左 = 分段控件
+ * （文本 / 图片 / 设置），右 = 搜索槽（搜索展开与分段同格互换，胶囊宽固定不重算）；
+ * 选中态替换为 [已选 N / 全选 / 固定]，尾槽换成退出。
+ *
+ * 几何复刻 [ActionSelectBottomBar]：`FloatingBarLayout` 算宽、`glassCapsule` 容器、窄屏压缩
+ * chip 宽、宽屏限宽 600dp 居中。IME 与安全区处理同款：键盘/导航取并集、先收键盘再清 query、
+ * 返回键先收搜索框、`onGloballyPositioned` 后取焦点、`swallowTouches` 防穿透。
+ */
+@Composable
+private fun ClipboardToolbar(
+    hazeState: HazeState,
+    selectionMode: Boolean,
+    selectedCount: Int,
+    query: String,
+    searchExpanded: Boolean,
+    tab: ClipboardTab,
+    onTabChange: (ClipboardTab) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onToggleSearch: () -> Unit,
+    onSelectAll: () -> Unit,
+    onPinSelected: () -> Unit,
+    onExitSelection: () -> Unit,
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val imeVisible by remember(density, imeInsets) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
+    val focusRequester = remember { FocusRequester() }
+    var collapsePending by remember { mutableStateOf(false) }
+
+    // 收起搜索：先收键盘，等 IME 真正收起再清 query + 收起，不挤在同一段动画里（§3.2 第 7 条）。
+    fun closeSearch() {
+        if (imeVisible) {
+            collapsePending = true
+            keyboard?.hide()
+        } else {
+            collapsePending = false
+            onQueryChange("")
+            onToggleSearch()
+        }
+    }
+    LaunchedEffect(collapsePending, imeVisible) {
+        if (collapsePending && !imeVisible) {
+            collapsePending = false
+            onQueryChange("")
+            onToggleSearch()
+        }
+    }
+    // 系统返回先收搜索框，否则输入到一半直接退页。
+    BackHandler(enabled = searchExpanded) { closeSearch() }
+
+    // 键盘与导航栏取并集：IME 可见时底部 inset 已含导航栏，相加会多顶一截。
+    val bottomInsets = WindowInsets.navigationBars
+        .only(WindowInsetsSides.Bottom)
+        .union(WindowInsets.ime.only(WindowInsetsSides.Bottom))
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = PageGutter, vertical = PageGutter),
-        shape = CapsuleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        shadowElevation = 3.dp,
+            .swallowTouches()
+            .windowInsetsPadding(bottomInsets)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(start = DockGutter, end = DockGutter, bottom = BottomBarPadding),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = stringResource(R.string.clipboard_selected_count, selected),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
+            val dockWidth = FloatingBarLayout.barWidth(maxWidth)
+            val searchSlot = DockTabHeight
+            val chipCount = ClipboardTab.entries.size
+            val rawChipWidth = (dockWidth - searchSlot - TileInnerPadding * 2) / chipCount
+            // 极窄屏连 48dp 下限都放不下时按可用宽压缩，宁可窄一点也不让胶囊溢出。
+            val chipWidth = min(
+                FloatingBarLayout.tabWidth(
+                    barWidth = dockWidth,
+                    tabCount = chipCount,
+                    maxTabWidth = BottomBarTabWidth,
+                    innerPadding = TileInnerPadding,
+                    reservedWidth = searchSlot,
+                ),
+                rawChipWidth,
             )
-            PressIconButton(onClick = onPin) {
-                Icon(Icons.Default.PushPin, contentDescription = stringResource(R.string.clipboard_pin_selected))
-            }
-            PressIconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clipboard_delete_selected))
+            val capsuleWidth = FloatingBarLayout.capsuleWidth(
+                tabWidth = chipWidth,
+                tabCount = chipCount,
+                innerPadding = TileInnerPadding,
+                trailingSlot = searchSlot,
+            )
+
+            // 玻璃胶囊容器（阴影/裁形/毛玻璃/描边/内边距），与页面级悬浮胶囊共用同一份样式。
+            Column(
+                modifier = Modifier
+                    .width(capsuleWidth)
+                    .glassCapsule(hazeState),
+            ) {
+                val mode = when {
+                    searchExpanded -> ToolbarMode.Search
+                    selectionMode -> ToolbarMode.Selection
+                    else -> ToolbarMode.Normal
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(DockTabHeight),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 分段 / 搜索 / 选中态同一行互换：不把底栏撑高，列表留白不跳。
+                    AnimatedContent(
+                        targetState = mode,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        transitionSpec = {
+                            fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                        },
+                        label = "clipboardToolbarMode",
+                    ) { m ->
+                        when (m) {
+                            ToolbarMode.Search -> ToolbarSearchContent(
+                                query = query,
+                                onQueryChange = onQueryChange,
+                                focusRequester = focusRequester,
+                                onClose = { closeSearch() },
+                            )
+                            ToolbarMode.Selection -> ToolbarSelectionContent(
+                                selectedCount = selectedCount,
+                                onSelectAll = onSelectAll,
+                                onPin = onPinSelected,
+                            )
+                            ToolbarMode.Normal -> TabSegments(
+                                tab = tab,
+                                chipWidth = chipWidth,
+                                onTabChange = onTabChange,
+                            )
+                        }
+                    }
+                    // 尾槽：常态搜索 / 搜索态收起 / 选中态退出（删除在顶栏，退出回到底栏右侧）。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(searchSlot),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        when (mode) {
+                            ToolbarMode.Selection -> SlotButton(
+                                onClick = onExitSelection,
+                                icon = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.clipboard_clear_selection),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            ToolbarMode.Search -> SlotButton(
+                                onClick = { closeSearch() },
+                                icon = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.clipboard_search_collapse),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            ToolbarMode.Normal -> SlotButton(
+                                onClick = { onToggleSearch() },
+                                icon = Icons.Default.Search,
+                                contentDescription = stringResource(R.string.clipboard_search_hint),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-/** 单条历史行：预览 + 元信息 + 三点菜单；批量模式用勾选框替代菜单。 */
+/**
+ * 分段控件：3 段（文本 / 图片 / 设置）点选即切，滑动指示 pill 与主页底栏同源
+ * （ui-guidelines §4.2）。直接复用 [FloatingTabRow]：手势宽度实时读取，转屏后仍跟手。
+ */
+@Composable
+private fun TabSegments(
+    tab: ClipboardTab,
+    chipWidth: Dp,
+    onTabChange: (ClipboardTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tabs = ClipboardTab.entries
+    val selectedIndex = tabs.indexOf(tab).coerceAtLeast(0)
+    FloatingTabRow(
+        modifier = modifier,
+        items = tabs,
+        selectedIndex = { selectedIndex },
+        onSelected = { index -> onTabChange(tabs[index]) },
+        tabWidth = chipWidth,
+        tabHeight = DockTabHeight,
+        colors = FloatingBottomBarDefaults.colors(),
+        rubberBand = true,
+    ) { item, _ ->
+        // 选中态由底下滑动的 pill 表达；图标继承 tab tint（active=primary / 其他=onSurfaceVariant）。
+        Icon(
+            imageVector = item.icon,
+            contentDescription = stringResource(item.labelRes),
+            modifier = Modifier.size(BottomBarIconSize),
+        )
+    }
+}
+
+/**
+ * 尾槽单颗图标按钮：自己画点击区（不用 IconButton——其固定 48dp 与尾槽见方不对齐），
+ * 点在死区上不穿透（swallowTouches 已兜底整块矩形）。
+ */
+@Composable
+private fun SlotButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
+    tint: Color,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(CircleShape)
+            .pressClickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+        )
+    }
+}
+
+/** 栏内搜索：输入框 + × 收起；展开动画铺好布局再取焦点（节点未挂载时 requestFocus 落空）。 */
+@Composable
+private fun ToolbarSearchContent(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    focusRequester: FocusRequester,
+    onClose: () -> Unit,
+) {
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(placed) {
+        if (placed) runCatching { focusRequester.requestFocus() }
+    }
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        LunoSearchField(
+            query = query,
+            onQueryChange = onQueryChange,
+            placeholder = stringResource(R.string.clipboard_search_hint),
+            focusRequester = focusRequester,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .onGloballyPositioned { placed = true },
+        )
+        PressIconButton(onClick = onClose) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = stringResource(R.string.clipboard_search_collapse),
+            )
+        }
+    }
+}
+
+/** 选中态：已选数量 + 全选 / 固定（删除在顶栏、退出在顶栏与尾槽）。 */
+@Composable
+private fun ToolbarSelectionContent(
+    selectedCount: Int,
+    onSelectAll: () -> Unit,
+    onPin: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.clipboard_selected_count, selectedCount),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        PressIconButton(onClick = onSelectAll) {
+            Icon(
+                Icons.Default.SelectAll,
+                contentDescription = stringResource(R.string.clipboard_select_all),
+            )
+        }
+        PressIconButton(onClick = onPin) {
+            Icon(
+                Icons.Default.PushPin,
+                contentDescription = stringResource(R.string.clipboard_pin_selected),
+            )
+        }
+    }
+}
+
+/**
+ * 只吃事件、不做任何事：把落在工具条矩形范围内的触摸从下层列表手里拿回来。
+ * 工具条悬浮在列表之上（`floatingContent`），没挂 pointerInput 的空白区域会穿透到列表行。
+ */
+private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
+        }
+    }
+}
+
+/** 单条历史行：预览 + 元信息 + 三点菜单；批量模式用勾选框替代菜单。行菜单固定/分享/悬浮显示/删除。 */
 @Composable
 private fun ClipboardRow(
     entry: ClipboardEntry,
@@ -380,8 +784,6 @@ private fun ClipboardRow(
     onDelete: () -> Unit,
     onShare: () -> Unit,
     onFloat: (() -> Unit)?,
-    onOcr: (() -> Unit)?,
-    onClearAll: (() -> Unit)?,
 ) {
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
@@ -442,10 +844,6 @@ private fun ClipboardRow(
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.clipboard_copy)) },
-                            onClick = { menuOpen = false; onClick() },
-                        )
-                        DropdownMenuItem(
                             text = {
                                 Text(
                                     stringResource(
@@ -465,22 +863,10 @@ private fun ClipboardRow(
                                 onClick = { menuOpen = false; onFloat() },
                             )
                         }
-                        if (onOcr != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.clipboard_ocr)) },
-                                onClick = { menuOpen = false; onOcr() },
-                            )
-                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.clipboard_delete)) },
                             onClick = { menuOpen = false; onDelete() },
                         )
-                        if (onClearAll != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.clipboard_clear_all)) },
-                                onClick = { menuOpen = false; onClearAll() },
-                            )
-                        }
                     }
                 }
             }

@@ -6,8 +6,12 @@
     <string name="clipboard_clear_selection">取消选择</string>
     <string name="clipboard_selected_count">已选 %1$d 条</string>
     <string name="clipboard_search_hint">搜索剪贴板</string>
+    <string name="clipboard_search_collapse">收起搜索</string>
     <string name="clipboard_empty">剪贴板还是空的</string>
     <string name="clipboard_empty_search">没有匹配的剪贴板内容</string>
+    <string name="clipboard_category_empty">此分类暂无内容</string>
+    <string name="clipboard_search_results_group">搜索结果</string>
+    <string name="clipboard_text_group">文本</string>
     <string name="clipboard_image">图片</string>
     <string name="clipboard_sensitive_masked">••••••••</string>
     <string name="clipboard_pin">固定</string>
@@ -18,9 +22,9 @@
     <string name="clipboard_delete">删除</string>
     <string name="clipboard_delete_selected">删除所选</string>
     <string name="clipboard_pin_selected">固定所选</string>
-    <string name="clipboard_clear_all">清空全部</string>
-    <string name="clipboard_clear_confirm_title">清空剪贴板历史？</string>
-    <string name="clipboard_clear_confirm_desc">固定项也会一起清空，且不可恢复。</string>
+    <string name="clipboard_clear_page">清空本页</string>
+    <string name="clipboard_clear_confirm_title">清空当前页？</string>
+    <string name="clipboard_clear_confirm_desc">当前页的未固定项将全部清空，固定项保留，且不可恢复。</string>
     <string name="clipboard_copy_success">已复制</string>
     <string name="clipboard_copy_failed">复制失败</string>
     <string name="clipboard_sensitive_copy_title">复制敏感内容？</string>
@@ -30,7 +34,6 @@
     <string name="clipboard_session_hint">仅存在内存，固定后才落盘</string>
     <string name="clipboard_history_group">历史</string>
     <string name="clipboard_pinned_badge">已固定</string>
-    <string name="clipboard_capacity">固定 %1$d 条 · 未固定 %2$d 条 / 上限 %3$d 条</string>
     <string name="clipboard_float">悬浮显示</string>
     <string name="clipboard_pinned_group">固定</string>
     <string name="clipboard_settings_group">记录设置</string>
@@ -38,14 +41,11 @@
     <string name="clipboard_record_enabled_hint">关闭后不再记录新内容</string>
     <string name="clipboard_max_entries">未固定条目上限</string>
     <string name="clipboard_max_entries_value">%1$d 条</string>
-    <string name="clipboard_manage_group">数据</string>
     <string name="clipboard_export">导出 JSON</string>
-    <string name="clipboard_export_hint">只含文本与固定项；图片、敏感项不导出</string>
     <string name="clipboard_import">导入 JSON</string>
-    <string name="clipboard_import_hint">按文本去重合并，不覆盖现有历史</string>
     <string name="clipboard_import_success">已导入，当前共 %1$d 条</string>
     <string name="clipboard_import_failed">导入失败：文件无效或超过 1MB</string>
     <string name="clipboard_export_failed">导出失败</string>
     <string name="clipboard_share_failed">分享失败</string>
-    <string name="clipboard_export_empty">没有可导出的文本</string>
+    <string name="clipboard_export_empty">当前页面没有可导出的内容</string>
 </resources>

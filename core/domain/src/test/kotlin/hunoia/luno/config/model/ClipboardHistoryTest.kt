@@ -93,6 +93,55 @@ class ClipboardHistoryTest {
     }
 
     @Test
+    fun `cleared keeping pinned removes only unpinned and is idempotent`() {
+        val out = ClipboardHistory()
+            .record(text("fixed", pinned = true), now = 1_000L)
+            .record(text("a"), now = 2_000L)
+            .record(text("b"), now = 3_000L)
+
+        val cleared = out.clearedKeepingPinned()
+        assertEquals(listOf("fixed"), cleared.entries.map { it.text })
+        assertTrue(cleared.entries.first().pinned)
+        // 没有未固定项时原样返回，不写盘。
+        assertEquals(cleared, cleared.clearedKeepingPinned())
+        assertEquals(ClipboardHistory(), ClipboardHistory().clearedKeepingPinned())
+    }
+
+    @Test
+    fun `cleared keeping pinned by kind clears only that kinds unpinned`() {
+        val out = ClipboardHistory()
+            .record(text("fixed", pinned = true), now = 1_000L)
+            .record(text("a"), now = 2_000L)
+            .record(image("p1.png"), now = 3_000L)
+
+        // 文本页清空：清未固定文本，保留文本固定 + 全部图片。
+        val clearedText = out.clearedKeepingPinned(ClipKind.TEXT)
+        assertEquals(listOf("fixed"), clearedText.entries.filter { it.kind == ClipKind.TEXT }.map { it.text })
+        assertEquals(listOf("p1.png"), clearedText.entries.filter { it.kind == ClipKind.IMAGE }.map { it.imagePath })
+
+        // 图片页清空：清未固定图片，保留文本（含未固定）与图片固定；图片无固定，全清。
+        val clearedImage = out.clearedKeepingPinned(ClipKind.IMAGE)
+        assertEquals(listOf("a", "fixed"), clearedImage.entries.map { it.text })
+        assertTrue(clearedImage.entries.none { it.kind == ClipKind.IMAGE })
+        // 无图片后再清图片页 → 原样返回（幂等）。
+        assertEquals(clearedImage, clearedImage.clearedKeepingPinned(ClipKind.IMAGE))
+    }
+
+    @Test
+    fun `cleared keeping pinned by kind keeps other kinds even when this kind has none`() {
+        val out = ClipboardHistory()
+            .record(image("p1.png"), now = 1_000L)
+            .record(text("t1"), now = 2_000L)
+
+        // 图片页清空：保留全部文本（含未固定），只清未固定图片。
+        val clearedImage = out.clearedKeepingPinned(ClipKind.IMAGE)
+        assertEquals(listOf("t1"), clearedImage.entries.map { it.text })
+        assertEquals(1, clearedImage.entries.size)
+        // 幂等。
+        assertEquals(clearedImage, clearedImage.clearedKeepingPinned(ClipKind.IMAGE))
+    }
+
+    @Test
     fun `pin moves entry to front and unpin keeps it there`() {
         val out = ClipboardHistory()
             .record(text("a"), now = 1_000L)
