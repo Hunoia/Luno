@@ -141,6 +141,11 @@
     <string name="mini_window_mini_swap_hint">Restore the existing small window to fullscreen when one is already shown</string>
     <string name="screen_pick_settings_title">Screen recognition</string>
     <string name="screen_pick_settings_image_group">Image</string>
+    <string name="screen_pick_settings_gesture_group">Gesture</string>
+    <string name="screen_pick_release_mode">Release without picking an action</string>
+    <string name="screen_pick_release_cancel">Cancel and close</string>
+    <string name="screen_pick_release_stay">Keep recognition layer</string>
+    <string name="screen_pick_portal_toolbar_hint">Drag to a screen edge to reveal the action toolbar; release on the highlighted item to run it</string>
     <string name="screen_pick_settings_zones_count">%1$d recognition zones enabled</string>
     <string name="screen_pick_settings_disabled">Disabled</string>
     <string name="screen_pick_diag_group">Diagnostics</string>

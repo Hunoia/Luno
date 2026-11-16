@@ -150,6 +150,11 @@
     <string name="mini_window_mini_swap_hint">屏幕已有小窗时，把旧小窗恢复为全屏</string>
     <string name="screen_pick_settings_title">屏幕识别</string>
     <string name="screen_pick_settings_image_group">图片</string>
+    <string name="screen_pick_settings_gesture_group">手势</string>
+    <string name="screen_pick_release_mode">松手未选择动作时</string>
+    <string name="screen_pick_release_cancel">取消并关闭</string>
+    <string name="screen_pick_release_stay">保留识屏层</string>
+    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string>
     <string name="screen_pick_settings_zones_count">%1$d 个识别区已启用</string>
     <string name="screen_pick_settings_disabled">已关闭</string>
     <string name="screen_pick_diag_group">诊断</string>

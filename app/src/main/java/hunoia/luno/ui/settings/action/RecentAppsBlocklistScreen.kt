@@ -51,7 +51,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeState
 import hunoia.luno.R
 import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.AppContext

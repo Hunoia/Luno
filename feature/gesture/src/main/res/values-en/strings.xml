@@ -30,6 +30,7 @@
     <string name="screen_pick_portal_ocr">OCR recognize</string>
     <string name="screen_pick_portal_image">Image</string>
     <string name="screen_pick_portal_resolving">Recognizing…</string>
+    <string name="screen_pick_portal_suggestion">Suggestion</string>
     <string name="action_panel_app_icon_size">App icon size</string>
     <string name="action_panel_item_gap">Icon gap</string>
     <string name="action_panel_item_size">Action icon size</string>

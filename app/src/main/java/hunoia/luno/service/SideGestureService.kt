@@ -124,6 +124,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 hunoia.luno.config.model.ScreenPickSettings()
             }
         },
+        // 工具条建议槽与建议胶囊同一份规则：只读运行时快照，不在这里编译缓存。
+        suggestionRules = {
+            if (::gestureCoordinator.isInitialized) {
+                gestureCoordinator.currentSuggestionRules()
+            } else {
+                emptyList()
+            }
+        },
     )
 
     /** 屏幕标注浮层实例；onClosed 时置空。 */

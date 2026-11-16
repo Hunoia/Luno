@@ -6,6 +6,9 @@ import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.runtime.floatball.inbox.SuggestionItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
+import hunoia.luno.runtime.suggestion.SuggestionRules
+import hunoia.luno.runtime.suggestion.SuggestionSlot
 
 /**
  * 建议项构造：通知 / 剪贴板 / 当前界面文本按规则抓取，剪贴板与情景识别再补内置链接识别。
@@ -27,7 +30,7 @@ internal object SuggestionFactory {
         nowMs: Long,
     ): List<SuggestionItem> {
         val text = notificationText(pulse)
-        return rules.match(text).map { hit -> ruleItem(hit, sourceKey, nowMs) }
+        return SuggestionRules.slotsOf(text, rules).map { slot -> ruleItem(slot, sourceKey, nowMs) }
     }
 
     /**
@@ -42,13 +45,13 @@ internal object SuggestionFactory {
         sourceKey: String,
         nowMs: Long,
     ): List<SuggestionItem> {
-        val hits = rules.match(text)
-        val hitUrls = hits
+        val slots = SuggestionRules.slotsOf(text, rules)
+        val hitUrls = slots
             .flatMap { LinkUrls.extractUrls(it.value) }
             .toSet()
         val linkUrls = LinkUrls.extractUrls(text).filterNot { it in hitUrls }
-        val items = hits.mapTo(ArrayList(hits.size + 1)) { hit ->
-            ruleItem(hit, sourceKey, nowMs)
+        val items = slots.mapTo(ArrayList(slots.size + 1)) { slot ->
+            ruleItem(slot, sourceKey, nowMs)
         }
         if (linkUrls.isNotEmpty()) {
             items += SuggestionItem(
@@ -87,13 +90,13 @@ internal object SuggestionFactory {
     ): List<SuggestionItem> {
         if (text.isBlank() && sceneUrl == null) return emptyList()
         val sourceKey = "scene:$screenKey"
-        val hits = rules.match(text)
-        val hitUrls = hits
+        val slots = SuggestionRules.slotsOf(text, rules)
+        val hitUrls = slots
             .flatMap { LinkUrls.extractUrls(it.value) }
             .toSet()
-        val items = ArrayList<SuggestionItem>(hits.size + 1)
-        hits.forEach { hit ->
-            items += ruleItem(hit, sourceKey, nowMs).copy(sceneKey = screenKey)
+        val items = ArrayList<SuggestionItem>(slots.size + 1)
+        slots.forEach { slot ->
+            items += ruleItem(slot, sourceKey, nowMs).copy(sceneKey = screenKey)
         }
         if (linkDispatchEnabled && linkRules.isNotEmpty()) {
             sceneLinkItem(
@@ -145,19 +148,19 @@ internal object SuggestionFactory {
     }
 
     private fun ruleItem(
-        hit: SuggestionRuleHit,
+        slot: SuggestionSlot,
         sourceKey: String,
         nowMs: Long,
     ): SuggestionItem {
-        val raw = hit.value
+        val raw = slot.value
         val urls = LinkUrls.extractUrls(raw)
         val exactUrl = urls.firstOrNull { it == raw }
-        val openUrl = if (hit.rule.action == SuggestionRuleAction.OPEN) urls.firstOrNull() else null
+        val openUrl = if (slot.action == SuggestionRuleAction.OPEN) urls.firstOrNull() else null
         val action = when {
-            hit.rule.action == SuggestionRuleAction.OPEN && openUrl == null ->
+            slot.action == SuggestionRuleAction.OPEN && openUrl == null ->
                 SuggestionPrimaryAction.COPY
-            hit.rule.action == SuggestionRuleAction.OPEN -> SuggestionPrimaryAction.OPEN
-            hit.rule.action == SuggestionRuleAction.SHARE -> SuggestionPrimaryAction.SHARE
+            slot.action == SuggestionRuleAction.OPEN -> SuggestionPrimaryAction.OPEN
+            slot.action == SuggestionRuleAction.SHARE -> SuggestionPrimaryAction.SHARE
             else -> SuggestionPrimaryAction.COPY
         }
         val itemText = if (openUrl != null) openUrl else raw
@@ -168,11 +171,11 @@ internal object SuggestionFactory {
         }
         return SuggestionItem(
             sourceKey = sourceKey,
-            title = hit.rule.name.trim().ifBlank { GenericLabel },
+            title = slot.label.ifBlank { GenericLabel },
             text = itemText,
             receivedAtElapsedMs = nowMs,
             ttlMs = null,
-            ruleId = hit.rule.id,
+            ruleId = slot.ruleId,
             action = action,
             sensitive = openUrl == null && exactUrl == null,
             urls = itemUrls,

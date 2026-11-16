@@ -144,6 +144,15 @@ class GestureCoordinator(
     fun currentScreenPickSettings(): hunoia.luno.config.model.ScreenPickSettings =
         runtimeSettingsStore.snapshot().initialSettings.screenPick
 
+    /**
+     * 供识屏幽灵卡读取建议规则（与建议胶囊同一份配置）。
+     *
+     * 只读快照、不编译不缓存：幽灵卡每次识别成形时取一次，规则表很小，编译成本低于
+     * 跨模块共享可变缓存的复杂度。
+     */
+    fun currentSuggestionRules(): List<hunoia.luno.config.model.SuggestionRule> =
+        runtimeSettingsStore.snapshot().actionSettings.floatBall.clipboardBall.rules
+
     /** DOWN 后 100ms 抓一次 a11y 快照，避免应用自己的长按菜单污染取词结果。 */
     private val screenTextPreCapture by lazy {
         hunoia.luno.runtime.overlay.text.ScreenTextPreCapture(

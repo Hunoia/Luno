@@ -30,6 +30,7 @@
     <string name="screen_pick_portal_ocr">OCR 识别</string>
     <string name="screen_pick_portal_image">图片</string>
     <string name="screen_pick_portal_resolving">识别中…</string>
+    <string name="screen_pick_portal_suggestion">建议</string>
     <string name="action_panel_app_icon_size">应用图标大小</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_item_size">动作图标大小</string>

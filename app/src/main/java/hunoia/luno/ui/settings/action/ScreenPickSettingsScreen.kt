@@ -24,11 +24,13 @@ import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.PortalReleaseMode
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.OcrModelState
 import hunoia.luno.facade.PpModelUiState
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -119,6 +121,34 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                     }
                 },
                 shape = segmentedShape(1, 2),
+            )
+        }
+        // ===== 手势：幽灵卡松手去向 =====
+        LunoGroup(title = stringResource(R.string.screen_pick_settings_gesture_group)) {
+            LunoDropdownRow(
+                title = stringResource(R.string.screen_pick_release_mode),
+                subtitle = stringResource(R.string.screen_pick_portal_toolbar_hint),
+                options = listOf(
+                    stringResource(R.string.screen_pick_release_cancel),
+                    stringResource(R.string.screen_pick_release_stay),
+                ),
+                selectedIndex = when (initialSettings.screenPick.portalReleaseMode) {
+                    PortalReleaseMode.Cancel -> 0
+                    PortalReleaseMode.StayInPicker -> 1
+                },
+                onSelect = { index ->
+                    val mode = if (index == 0) {
+                        PortalReleaseMode.Cancel
+                    } else {
+                        PortalReleaseMode.StayInPicker
+                    }
+                    scope.launch {
+                        GestureConfig.updateInitial {
+                            it.copy(screenPick = it.screenPick.copy(portalReleaseMode = mode))
+                        }
+                    }
+                },
+                shape = segmentedShape(0, 0),
             )
         }
         // ===== 识屏诊断 =====

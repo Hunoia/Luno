@@ -26,7 +26,7 @@ import hunoia.luno.config.model.removeRule
 import hunoia.luno.config.model.upsertRule
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.runtime.floatball.suggestion.SuggestionRuleEngine
+import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoCardInput

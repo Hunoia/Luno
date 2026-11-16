@@ -1,4 +1,4 @@
-package hunoia.luno.runtime.floatball.suggestion
+package hunoia.luno.runtime.suggestion
 
 import hunoia.luno.config.model.SuggestionRule
 import org.junit.Assert.assertEquals

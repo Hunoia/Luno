@@ -5,6 +5,7 @@ import hunoia.luno.config.model.SuggestionRuleAction
 import hunoia.luno.config.model.SuggestionRuleDefaults
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

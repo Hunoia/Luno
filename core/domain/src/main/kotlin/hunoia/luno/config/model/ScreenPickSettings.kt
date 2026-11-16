@@ -11,6 +11,7 @@ import kotlinx.serialization.Serializable
  *
  * - [ocrScripts]：框选 OCR 要尝试的文字体系；多选时并行识别后合并。中文模型已覆盖拉丁字母。
  * - 框选后的动作菜单固定显示 OCR；长按取词不再触发 OCR。
+ * - [portalReleaseMode]：幽灵卡松手未落在工具条动作上时的去向。
  */
 @Serializable
 @Keep
@@ -23,4 +24,25 @@ data class ScreenPickSettings(
      * 关闭后两者都不跑，屏幕识别只保留 OCR/文字路径。
      */
     val enableQrRecognition: Boolean = true,
+    /**
+     * 幽灵卡松手没落在工具条动作上时的去向。
+     *
+     * 只影响「取消」这一条结局：命中动作一律执行并关层，与本节参数无关。
+     */
+    val portalReleaseMode: PortalReleaseMode = PortalReleaseMode.Cancel,
 )
+
+/**
+ * 幽灵卡松手未命中工具条动作时的去向。
+ *
+ *「留在识屏页」保留半透明识屏层：可继续长按重新取词、拖动框选，点空白关层（与旧行为一致）。
+ */
+@Serializable
+@Keep
+enum class PortalReleaseMode {
+    /** 撤卡并关层：一次手势一次结果（默认）。 */
+    Cancel,
+
+    /** 撤卡但保留识屏层，等用户继续取词 / 框选或点空白关层。 */
+    StayInPicker,
+}

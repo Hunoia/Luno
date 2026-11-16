@@ -62,9 +62,9 @@ import hunoia.luno.runtime.floatball.inbox.effectiveTtlMs
 import hunoia.luno.runtime.floatball.inbox.stableHash
 import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
 import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
-import hunoia.luno.runtime.floatball.suggestion.CompiledSuggestionRules
+import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
 import hunoia.luno.runtime.floatball.suggestion.SuggestionFactory
-import hunoia.luno.runtime.floatball.suggestion.SuggestionRuleEngine
+import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse

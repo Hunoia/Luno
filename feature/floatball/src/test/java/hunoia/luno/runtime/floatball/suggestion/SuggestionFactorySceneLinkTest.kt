@@ -3,6 +3,7 @@ package hunoia.luno.runtime.floatball.suggestion
 import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

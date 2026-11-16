@@ -1,9 +1,9 @@
-package hunoia.luno.runtime.floatball.suggestion
+package hunoia.luno.runtime.suggestion
 
 import hunoia.luno.config.model.SuggestionRule
 
 /** 一条规则的命中结果；[value] 已 trim，且保证非空。 */
-internal data class SuggestionRuleHit(
+data class SuggestionRuleHit(
     val rule: SuggestionRule,
     val value: String,
 )
@@ -15,7 +15,7 @@ internal data class SuggestionRuleHit(
  * [SuggestionRuleEngine.MaxScanChars] 个字符，避免超长剪贴板把病态正则拖死。
  * 非法正则不会崩服务：编译失败的那条规则静默跳过，编辑页负责拦截保存。
  */
-internal class CompiledSuggestionRules(
+class CompiledSuggestionRules(
     private val rules: List<CompiledRule>,
 ) {
     val isEmpty: Boolean get() = rules.isEmpty()
@@ -43,13 +43,13 @@ internal class CompiledSuggestionRules(
         return hits
     }
 
-    internal data class CompiledRule(
+    data class CompiledRule(
         val rule: SuggestionRule,
         val regex: Regex?,
     )
 }
 
-internal object SuggestionRuleEngine {
+object SuggestionRuleEngine {
 
     /** 剪贴板长文本只扫前 16KB：足够覆盖正常复制内容，又限制病态正则的输入规模。 */
     const val MaxScanChars = 16_384

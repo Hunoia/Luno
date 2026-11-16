@@ -69,6 +69,7 @@ import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.ui.component.selection.SelectionHandle
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
@@ -80,6 +81,8 @@ import hunoia.luno.capability.qr.QrEngine
 import hunoia.luno.capability.qr.QrKind
 import hunoia.luno.capability.qr.QrResult
 import hunoia.luno.config.model.OcrScript
+import hunoia.luno.config.model.PortalReleaseMode
+import hunoia.luno.config.model.SuggestionRule
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader
@@ -87,6 +90,9 @@ import hunoia.luno.runtime.overlay.text.ScreenPreCapture
 import hunoia.luno.runtime.overlay.text.TextSnapshot
 import hunoia.luno.runtime.overlay.text.TextSnapshotOps
 import hunoia.luno.runtime.environment.BroadcastObserver
+import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
+import hunoia.luno.runtime.suggestion.SuggestionRules
+import hunoia.luno.runtime.suggestion.SuggestionSlot
 import java.io.File
 import java.util.concurrent.Executor
 import kotlinx.coroutines.CompletableDeferred
@@ -126,13 +132,19 @@ private const val AdjustMinSizeDp = 16f
 
 /**
  * 幽灵卡的一次快照：`anchor`/`finger` 是屏幕坐标；[ScreenPickScreen] 渲染前会减窗口原点。
- * 卡片几何（含命中判定）由 [PortalLayout.cardRect] 统一计算。
+ * 卡片与工具条的几何（含命中判定）由 [PortalLayout] 统一计算。
+ *
+ * [bar] / [activeSlot] / [slots] 是「拖到哪条边 + 指到哪一格」，由松手前的 MOVE 一路更新；
+ * 松手结算用同一份 [PortalLayout.Bar]，渲染与命中不会分叉。
  */
 private data class PortalState(
     val anchor: Offset?,
     val finger: Offset?,
     val content: PortalContent,
     val resolving: Boolean,
+    val slots: List<PortalSlot>,
+    val bar: PortalLayout.Bar?,
+    val activeSlot: Int,
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
@@ -166,10 +178,15 @@ class ScreenPickOverlay(
     /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
     private val onAnnotate: (Bitmap) -> Boolean = { false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */    private val onOpenLink: suspend (String) -> Boolean = { false },
-    /** 识屏自身参数（OCR 文字体系）：`:app` 注入运行时配置。 */
+    /** 识屏自身参数（OCR 文字体系 / 松手去向）：`:app` 注入运行时配置。 */
     private val screenPickSettings: () -> hunoia.luno.config.model.ScreenPickSettings = {
         hunoia.luno.config.model.ScreenPickSettings()
     },
+    /**
+     * 建议规则（与建议胶囊同一份配置）：`:app` 注入。幽灵卡工具条按它派生建议槽，
+     * 本模块不依赖建议胶囊所在的功能模块。
+     */
+    private val suggestionRules: () -> List<SuggestionRule> = { emptyList() },
 ) : hunoia.luno.runtime.surface.SurfaceHandle {
     override val surfaceId: String = "screen-pick"
     override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
@@ -246,6 +263,26 @@ class ScreenPickOverlay(
     private var portalContent by mutableStateOf(PortalContent())
     private var portalResolving by mutableStateOf(false)
 
+    /** 工具条格子：规则建议 + 内容动作（识别回填后才有值）。 */
+    private var portalSlots by mutableStateOf<List<PortalSlot>>(emptyList())
+
+    /**
+     * 工具条几何 + 指到的格。**屏幕坐标**，渲染时减窗口原点。
+     *
+     * [portalBar] 为 null = 手指没在任一条边的带宽内（工具条不出现，松手按设置取消）。
+     */
+    private var portalBar by mutableStateOf<PortalLayout.Bar?>(null)
+    private var portalActiveSlot by mutableStateOf(-1)
+
+    /**
+     * 工具条浮出的锚点（屏幕坐标下的原边）：工具条**浮出后不再跟手**，否则整条随手指
+     * 滑动、格子在指下不停变，永远选不中同一个动作。
+     *
+     * 锁定时机：工具条从无到有、以及在另一条边重新浮出；手指移回屏幕中间（工具条收起）
+     * 或换会话时清空，下一次浮出重新锁定。
+     */
+    private var portalBarAnchor: Offset? = null
+
     /** 图片节点 bounds（屏幕坐标）：保存 / 分享图片时按它裁剪预截图。 */
     private var portalImageBounds: AndroidRect? = null
 
@@ -310,12 +347,15 @@ class ScreenPickOverlay(
                         finger = portalFinger,
                         content = portalContent,
                         resolving = portalResolving,
+                        slots = portalSlots,
+                        bar = portalBar,
+                        activeSlot = portalActiveSlot,
                     ),
                     showQr = qrEnabled,
                     onSelectionAction = ::onSelectionAction,
                     onPortalStart = ::beginPortalAtView,
                     onPortalMove = ::movePortalAtView,
-                    onPortalAction = ::onPortalAction,
+                    onPortalRelease = ::releasePortalAtView,
                     onFrameSelectStart = ::dismissPortal,
                     onDismiss = ::close,
                 )
@@ -400,25 +440,140 @@ class ScreenPickOverlay(
         return true
     }
 
-    /** 幽灵卡跟随手指（屏幕坐标）。 */
+    /**
+     * 幽灵卡跟随手指（屏幕坐标）。
+     *
+     * 除了挪卡片，还要重算「工具条在哪条边 / 指到哪一格」：手指进到某条边的带宽内工具条出现，
+     * 移回屏幕中间就消失（可反悔，松手即取消）。
+     */
     fun movePortal(x: Int, y: Int) {
         if (portalAnchor == null) return
-        portalFinger = Offset(x.toFloat(), y.toFloat())
+        val point = Offset(x.toFloat(), y.toFloat())
+        portalFinger = point
+        refreshPortalBar(point)
     }
 
     /**
-     * 全局长按松手：只保留幽灵卡，不执行动作。
+     * 全局长按松手：按工具条结算。
      *
-     * “从卡片上拖动 = 移动卡片”，动作由底部按钮点击触发；
-     * 松手直接退出会让卡片无法被拖动/继续框选。
+     * - 落在某一格 → 执行该格动作并撤卡（内容动作直接关层，OCR 交接完再关层）；
+     * - 没落在格上 → 按 [hunoia.luno.config.model.PortalReleaseMode] 撤卡关层或留在识屏页。
+     *
+     * 卡片上没有任何按钮：动作只在这一刻确定，避免「松手后还得再点一下」。
      */
     fun releasePortal(x: Int, y: Int) {
-        // 保留卡片；动作由卡片底部按钮点击执行。
+        if (portalAnchor == null) return
+        val point = Offset(x.toFloat(), y.toFloat())
+        portalFinger = point
+        refreshPortalBar(point)
+        settlePortal(portalBar, point)
     }
 
-    /** 点击底部动作槽：先立即撤卡再执行；OCR 保留拾取层到结果页交接完成。 */
-    private fun onPortalAction(action: PortalAction) {
+    /** 工具条几何（屏幕坐标）：没有格子（还在识别中 / 无内容）时不出现。 */
+    private fun portalBarFor(
+        finger: Offset,
+        insets: PortalLayout.Insets,
+        edge: PortalEdge?,
+        anchor: Offset?,
+    ): PortalLayout.Bar? {
+        if (portalSlots.isEmpty() || edge == null) return null
+        // 锚点只在同一条边上有效（换边时 refreshPortalBar 会重新锁）。
+        val axis = anchor?.let {
+            if (edge == PortalEdge.Left || edge == PortalEdge.Right) it.y else it.x
+        }
+        return PortalLayout.bar(
+            finger = finger,
+            screenWidth = DensityProvider.screenWidthPx.toFloat(),
+            screenHeight = DensityProvider.screenHeightPx.toFloat(),
+            density = DensityProvider.density,
+            count = portalSlots.size,
+            insets = insets,
+            anchorAxis = axis,
+        )
+    }
+
+    /** 锚点当前锁在哪条边上；null = 没有锚点。 */
+    private var anchorEdge: PortalEdge? = null
+
+    private fun systemBars(): hunoia.luno.bridge.ui.SystemBarsSafeArea =
+        host.context.windowManager().systemBarsSafeAreaOrNull()
+            ?: hunoia.luno.bridge.ui.SystemBarsSafeArea.None
+
+    /**
+     * 手指位置变化后重算工具条：锚点 / 矩形 / 当前格三个状态一起更新。
+     *
+     * 锚点只在工具条**浮出那一刻**（或换了另一条边）锁定一次，之后不动 —— 手指沿边滑动
+     * 只改变指到哪一格，不改变整条的位置。
+     */
+    private fun refreshPortalBar(finger: Offset) {
+        val area = systemBars()
+        val insets = PortalLayout.Insets(top = area.top.toFloat(), bottom = area.bottom.toFloat())
+        val edge = PortalLayout.edgeFor(
+            finger = finger,
+            screenWidth = DensityProvider.screenWidthPx.toFloat(),
+            screenHeight = DensityProvider.screenHeightPx.toFloat(),
+            density = DensityProvider.density,
+            insets = insets,
+        )
+        if (edge == null) {
+            // 手指移回屏幕中间：工具条收起，锚点作废（下次浮出重新锁）。
+            clearPortalBarAnchor()
+        } else if (edge != anchorEdge) {
+            portalBarAnchor = finger
+            anchorEdge = edge
+        }
+        val bar = portalBarFor(finger, insets, edge, portalBarAnchor)
+        portalBar = bar
+        portalActiveSlot = PortalLayout.hit(bar, finger) ?: -1
+    }
+
+    /** 锚点作废：工具条收起 / 换会话时调用，下一次浮出按当时手指位置重新锁定。 */
+    private fun clearPortalBarAnchor() {
+        portalBarAnchor = null
+        anchorEdge = null
+    }
+
+    /**
+     * 松手结算。落在格上就执行该格；否则按设置撤卡关层或留在识屏页
+     * （留在识屏页时半透明拾取层保持不动，可继续长按取词 / 拖动框选，点空白仍是关层）。
+     */
+    private fun settlePortal(bar: PortalLayout.Bar?, point: Offset) {
+        val mode = screenPickSettings().portalReleaseMode
+        when (val release = resolvePortalRelease(bar, point, mode)) {
+            is PortalRelease.Act -> {
+                val slot = portalSlots.getOrNull(release.index)
+                if (slot == null) {
+                    cancelPortalKeepPicker(mode)
+                } else {
+                    onPortalSlot(slot)
+                }
+            }
+            PortalRelease.Cancel -> {
+                cancelPortalKeepPicker(PortalReleaseMode.Cancel)
+            }
+            PortalRelease.Stay -> {
+                cancelPortalKeepPicker(PortalReleaseMode.StayInPicker)
+            }
+        }
+    }
+
+    /** 撤卡；[mode] 决定顺带关层还是保留识屏层。 */
+    private fun cancelPortalKeepPicker(mode: PortalReleaseMode) {
+        dismissPortal()
+        if (mode == PortalReleaseMode.Cancel) close()
+    }
+
+    /** 工具条某一格被松手命中：先撤卡再执行（OCR 交接完再关层）。 */
+    private fun onPortalSlot(slot: PortalSlot) {
         if (portalResolving) return
+        when (slot) {
+            is PortalSlot.Action -> onPortalAction(slot.action)
+            is PortalSlot.Suggestion -> onPortalSuggestion(slot.suggested)
+        }
+    }
+
+    /** 内容动作：先立即撤卡再执行；OCR 保留拾取层到结果页交接完成。 */
+    private fun onPortalAction(action: PortalAction) {
         val content = portalContent
         val imageBounds = portalImageBounds
         // 卡片阶段到此结束：先撤卡，避免 OCR 异步交接/保存期间卡片还留在屏上，
@@ -437,6 +592,18 @@ class ScreenPickOverlay(
         close()
     }
 
+    /**
+     * 建议槽：执行规则捕获值（不是整段识别文本）。
+     *
+     * 值本身就是一段文本，不需要截图，撤卡即可关层；敏感文本（非链接）只作为剪贴板
+     * 敏感内容的提示，不改变执行路径。
+     */
+    private fun onPortalSuggestion(suggestion: SuggestionSlot) {
+        dismissPortal()
+        executeSuggestion(suggestion)
+        close()
+    }
+
     /** 内嵌手势（识屏层自己收到的长按）入口：视图坐标换算成屏幕坐标后同一套流程。 */
     private fun beginPortalAtView(viewPoint: Offset) {
         beginPortal(
@@ -447,6 +614,11 @@ class ScreenPickOverlay(
 
     private fun movePortalAtView(viewPoint: Offset) {
         movePortal((viewPoint.x + originX).roundToInt(), (viewPoint.y + originY).roundToInt())
+    }
+
+    /** 层内长按出卡后抬手：与全屏手势同一条结算路径。 */
+    private fun releasePortalAtView(viewPoint: Offset) {
+        releasePortal((viewPoint.x + originX).roundToInt(), (viewPoint.y + originY).roundToInt())
     }
 
     private fun beginPortal(
@@ -460,6 +632,7 @@ class ScreenPickOverlay(
         portalContent = PortalContent()
         portalImageBounds = null
         portalResolving = true
+        resetPortalBar()
         val token = session
         val pickToken = ++portalSession
         portalJob?.cancel()
@@ -577,7 +750,7 @@ class ScreenPickOverlay(
         imageBounds: AndroidRect?,
         nodeBounds: AndroidRect? = null,
     ) {
-        portalContent = PortalContent(
+        val content = PortalContent(
             text = text,
             imageSize = imageBounds?.let { it.width() to it.height() },
             nodeBounds = nodeBounds,
@@ -587,8 +760,65 @@ class ScreenPickOverlay(
                     ?.firstOrNull()
             },
         )
+        portalContent = content
         portalResolving = false
         refreshPortalPreview()
+        refreshPortalSlots(content, text)
+    }
+
+    /**
+     * 计算工具条格子：内容动作 + 建议规则（与建议胶囊同一套规则）。
+     *
+     * 规则匹配是正则全扫，走 [Dispatchers.Default]；结果回来时卡片可能已被撤掉或换了会话，
+     * 这时只保留内容动作，不再回填建议槽。
+     */
+    private fun refreshPortalSlots(content: PortalContent, text: String?) {
+        val base = portalSlotsFor(content, emptyList())
+        portalSlots = base
+        if (portalAnchor == null) return
+        val pickToken = portalSession
+        val rules: CompiledSuggestionRules = SuggestionRules.compile(suggestionRules())
+        if (rules.isEmpty || text.isNullOrBlank()) return
+        host.coroutineScope.launch {
+            val suggestions = SuggestionRules.slots(text, rules)
+            if (suggestions.isEmpty()) return@launch
+            if (pickToken != portalSession || portalAnchor == null) return@launch
+            if (portalContent.text != text) return@launch
+            portalSlots = portalSlotsFor(content, suggestions)
+            // 格子数变了要重算工具条，否则松手命中还按旧的格位判。
+            portalFinger?.let { finger ->
+                refreshPortalBar(finger)
+            }
+        }
+    }
+
+    /** 建议槽执行：复制（敏感文本）/ 打开链接 / 分享，值取规则捕获出来的那一段。 */
+    private fun executeSuggestion(suggestion: SuggestionSlot) {
+        host.coroutineScope.launch {
+            when (suggestion.action) {
+                hunoia.luno.config.model.SuggestionRuleAction.COPY -> {
+                    // 捕获值不是链接时按敏感文本写剪贴板（不进历史），与建议胶囊同口径。
+                    val sensitive = runCatching {
+                        hunoia.luno.link.LinkUrls.extractUrls(suggestion.value)
+                    }.getOrNull().isNullOrEmpty()
+                    val ok = ClipboardCenter.writeTextImmediate(
+                        suggestion.value,
+                        SCREEN_PICK_LABEL,
+                        sensitive = sensitive,
+                    )
+                    if (ok) {
+                        showToast(hunoia.luno.design.R.string.copied)
+                    } else {
+                        showToast(R.string.screen_pick_failed)
+                    }
+                }
+                hunoia.luno.config.model.SuggestionRuleAction.OPEN -> {
+                    val url = suggestion.value
+                    if (!onOpenLink(url)) showToast(R.string.screen_pick_failed)
+                }
+                hunoia.luno.config.model.SuggestionRuleAction.SHARE -> shareText(suggestion.value)
+            }
+        }
     }
 
     /** 条码识别开关（识屏设置「二维码识别」）；关时框选按钮隐藏、长按不检测。 */
@@ -623,6 +853,7 @@ class ScreenPickOverlay(
             }.getOrNull()?.firstOrNull(),
         )
         portalResolving = false
+        refreshPortalSlots(portalContent, portalContent.qrText)
     }
 
     /** 框选「二维码」动作：识别区域；命中出条码卡（不关层），未命中提示后收层。 */
@@ -798,6 +1029,15 @@ class ScreenPickOverlay(
         portalContent = PortalContent()
         portalImageBounds = null
         portalResolving = false
+        resetPortalBar()
+    }
+
+    /** 工具条随卡片一起消失：边 / 矩形 / 当前格全部复位。 */
+    private fun resetPortalBar() {
+        portalSlots = emptyList()
+        portalBar = null
+        portalActiveSlot = -1
+        clearPortalBarAnchor()
     }
 
     /**
@@ -816,6 +1056,7 @@ class ScreenPickOverlay(
         portalContent = PortalContent()
         portalImageBounds = null
         portalResolving = false
+        resetPortalBar()
     }
 
     private fun executePortalAction(
@@ -1565,7 +1806,7 @@ private fun ScreenPickScreen(
     onSelectionAction: (Rect, PickSelectionAction) -> Unit,
     onPortalStart: (Offset) -> Unit,
     onPortalMove: (Offset) -> Unit,
-    onPortalAction: (PortalAction) -> Unit,
+    onPortalRelease: (Offset) -> Unit,
     onFrameSelectStart: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1620,6 +1861,7 @@ private fun ScreenPickScreen(
                         }
                     }
                     val portalFinger = currentPortal.value.finger ?: currentPortal.value.anchor
+                    val portalBarValue = currentPortal.value.bar
                     val cardRect = if (portalFinger != null) {
                         PortalLayout.cardRect(
                             finger = Offset(portalFinger.x - originX, portalFinger.y - originY),
@@ -1628,6 +1870,7 @@ private fun ScreenPickScreen(
                             density = density,
                             cardWidthPx = currentCardWidth.value,
                             cardHeightPx = currentCardHeight.value,
+                            bar = portalBarValue,
                         )
                     } else {
                         null
@@ -1657,9 +1900,14 @@ private fun ScreenPickScreen(
                                 }
                             }
                         } finally {
-                            // 卡片拖动后保持在最后位置；未移动的轻点视为取消并退出。
+                            // 拖动期间卡片跟手，工具条随边缘出现 / 消失；结算在松手那一刻。
                         }
-                        if (!moved) onDismiss()
+                        if (moved) {
+                            onPortalRelease(upPosition)
+                        } else {
+                            // 按在卡上没拖动 = 放弃这次识别（工具条没出现，等价于落空）。
+                            onDismiss()
+                        }
                         return@awaitEachGesture
                     }
 
@@ -1695,7 +1943,10 @@ private fun ScreenPickScreen(
                                 ) {
                                     moved = true
                                     longPress.cancel()
-                                    if (!longPressed) {
+                                    if (longPressed) {
+                                        // 长按已重新取词：后续拖动就是拖这张新卡（工具条随边出现）。
+                                        onPortalMove(change.position)
+                                    } else {
                                         selecting = true
                                         // 框选一开始就撤卡：卡只在取词阶段存在，落框/动作阶段不再回来。
                                         onFrameSelectStart()
@@ -1712,7 +1963,11 @@ private fun ScreenPickScreen(
                             longPress.cancel()
                         }
                         if (childConsumed) return@awaitEachGesture
-                        if (longPressed) return@awaitEachGesture
+                        if (longPressed) {
+                            // 新卡与全屏手势同一条结算路径：松手落在工具条哪一格就执行哪一格。
+                            onPortalRelease(upPosition)
+                            return@awaitEachGesture
+                        }
                         if (moved) {
                             val rect = dragRect
                             dragRect = null
@@ -1815,6 +2070,8 @@ private fun ScreenPickScreen(
                     if (portalStarted) {
                         selecting = false
                         dragRect = null
+                        // 层内长按出的卡与全屏手势同一条结算路径。
+                        onPortalRelease(upPosition)
                         return@awaitEachGesture
                     }
                     if (resizing == null && !moving) {
@@ -1895,14 +2152,19 @@ private fun ScreenPickScreen(
                 },
                 content = portal.content,
                 resolving = portal.resolving,
-                actions = portalActionsFor(portal.content),
+                slots = portal.slots,
+                // 几何按屏幕坐标算，渲染前统一减窗口原点。
+                bar = portal.bar?.translated(
+                    -originX.toFloat(),
+                    -originY.toFloat(),
+                ),
+                activeSlot = portal.activeSlot,
                 cardHeightPx = cardHeightPx,
                 cardWidthPx = cardWidthPx,
                 onCardSize = {
                     cardWidthPx = it.width.toFloat()
                     cardHeightPx = it.height.toFloat()
                 },
-                onAction = onPortalAction,
             )
         }
     }

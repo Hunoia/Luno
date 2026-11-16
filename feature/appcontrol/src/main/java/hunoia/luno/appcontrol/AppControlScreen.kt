@@ -26,13 +26,13 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.AddToQueue
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.RemoveFromQueue
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -85,7 +85,7 @@ import hunoia.luno.ui.theme.glassCapsule
 /**
  * 应用冻结管理页：冻结 / 解冻、一键名单、批量操作与失败回执。
  *
- * 默认只列「已冻结 ∪ 一键名单」；搜索时扩到全机（系统包跟随全局「显示系统应用」开关）。
+ * 默认只列「一键名单」内的应用；搜索时扩到全机（系统包跟随全局「显示系统应用」开关）。
  * 系统 suspend 只读展示；自己与当前桌面禁止冻结（由 PackageControl 兜底）。
  *
  * 底栏玻璃胶囊工具条（参考剪贴板页 [hunoia.luno.clipboard.ClipboardScreen]）：
@@ -111,9 +111,7 @@ fun AppControlScreen(
     val visible = remember(state.apps, state.query) {
         val query = state.query.trim()
         val filtered = if (query.isEmpty()) {
-            state.apps.filter {
-                it.availability != AppAvailability.ENABLED || it.inOneKey
-            }
+            state.apps.filter { it.inOneKey }
         } else {
             state.apps.filter {
                 it.label.contains(query, ignoreCase = true) ||
@@ -192,7 +190,7 @@ fun AppControlScreen(
                     onSelectAll = { vm.selectAll(visible.map { it.packageName }) },
                     onFreeze = vm::requestFreezeSelected,
                     onUnfreeze = vm::unfreezeSelected,
-                    onAddOneKey = vm::addSelectedToOneKey,
+                    onRemoveOneKey = vm::removeSelectedFromOneKey,
                     onExitSelection = vm::toggleSelectionMode,
                 )
             }
@@ -282,9 +280,9 @@ fun AppControlScreen(
                                             Icon(
                                                 modifier = Modifier.size(24.dp),
                                                 imageVector = if (app.inOneKey) {
-                                                    Icons.Default.Star
+                                                    Icons.Default.RemoveFromQueue
                                                 } else {
-                                                    Icons.Outlined.StarOutline
+                                                    Icons.Default.AddToQueue
                                                 },
                                                 contentDescription = stringResource(
                                                     if (app.inOneKey) {
@@ -370,7 +368,7 @@ private fun AppControlToolbar(
     onSelectAll: () -> Unit,
     onFreeze: () -> Unit,
     onUnfreeze: () -> Unit,
-    onAddOneKey: () -> Unit,
+    onRemoveOneKey: () -> Unit,
     onExitSelection: () -> Unit,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -463,7 +461,7 @@ private fun AppControlToolbar(
                             onSelectAll = onSelectAll,
                             onFreeze = onFreeze,
                             onUnfreeze = onUnfreeze,
-                            onAddOneKey = onAddOneKey,
+                            onRemoveOneKey = onRemoveOneKey,
                             onExitSelection = onExitSelection,
                         )
                         ToolbarMode.Normal -> ToolbarNormalContent(
@@ -493,7 +491,7 @@ private fun ToolbarNormalContent(
         if (showAdd) {
             PressIconButton(onClick = onAdd) {
                 Icon(
-                    Icons.Outlined.StarOutline,
+                    Icons.Default.AddToQueue,
                     contentDescription = stringResource(R.string.app_control_one_key_add),
                 )
             }
@@ -543,7 +541,7 @@ private fun ToolbarSearchContent(
     }
 }
 
-/** 选择：纯数字徽标（唯一文字）+ 全选 / 冻结 / 解冻 / 添加一键名单 / 退出（其余全图标）。 */
+/** 选择：纯数字徽标（唯一文字）+ 全选 / 冻结 / 解冻 / 移出名单 / 退出（其余全图标）。 */
 @Composable
 private fun ToolbarSelectionContent(
     selectedCount: Int,
@@ -552,7 +550,7 @@ private fun ToolbarSelectionContent(
     onSelectAll: () -> Unit,
     onFreeze: () -> Unit,
     onUnfreeze: () -> Unit,
-    onAddOneKey: () -> Unit,
+    onRemoveOneKey: () -> Unit,
     onExitSelection: () -> Unit,
 ) {
     Row(
@@ -586,10 +584,10 @@ private fun ToolbarSelectionContent(
                 contentDescription = stringResource(R.string.app_control_unfreeze_selected),
             )
         }
-        PressIconButton(onClick = onAddOneKey, enabled = selectedCount > 0 && !busy) {
+        PressIconButton(onClick = onRemoveOneKey, enabled = selectedCount > 0 && !busy) {
             Icon(
-                Icons.Default.Star,
-                contentDescription = stringResource(R.string.app_control_one_key_add),
+                Icons.Default.RemoveFromQueue,
+                contentDescription = stringResource(R.string.app_control_one_key_remove_selected),
             )
         }
         PressIconButton(onClick = onExitSelection) {

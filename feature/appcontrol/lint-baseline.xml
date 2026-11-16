@@ -23,15 +23,4 @@
             column="5"/>
     </issue>
 
-    <issue
-        id="PluralsCandidate"
-        message="Formatting %d followed by words (&quot;frozen&quot;): This should probably be a plural rather than a string"
-        errorLine1="    &lt;string name=&quot;app_control_frozen_count&quot;>%1$d frozen · %2$d in one-key list&lt;/string>"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values-en/strings.xml"
-            line="25"
-            column="5"/>
-    </issue>
-
 </issues>

@@ -10,6 +10,7 @@
     <string name="app_control_one_key">One-key list</string>
     <string name="app_control_one_key_add">Add to one-key list</string>
     <string name="app_control_one_key_remove">Remove from one-key list</string>
+    <string name="app_control_one_key_remove_selected">Remove from list</string>
     <string name="app_control_select">Select</string>
     <string name="app_control_cancel_select">Cancel selection</string>
     <string name="app_control_select_all">Select all</string>
@@ -25,7 +26,7 @@
     <string name="app_control_failures_title">Last failures</string>
     <string name="app_control_clear_failures">Clear</string>
     <string name="app_control_empty">No matching apps</string>
-    <string name="app_control_frozen_count">%1$d frozen · %2$d in one-key list</string>
+    <string name="app_control_frozen_count">Frozen %1$d/%2$d</string>
     <string name="app_control_freeze_failed">Freeze failed</string>
     <string name="app_control_suspended_toast">This app is frozen by the system; Luno cannot unfreeze it</string>
     <string name="app_control_protected_toast">Luno and the current launcher cannot be frozen</string>

@@ -81,7 +81,8 @@ class AppControlVM : ViewModel() {
         AppControlUiState(
             apps = apps,
             oneKeyCount = apps.count { it.inOneKey },
-            frozenCount = apps.count { it.availability == AppAvailability.DISABLED },
+            // 只数名单内的已冻结：标题「冻结 N/M」的 N 必须 ≤ 名单总数 M。
+            frozenCount = apps.count { it.inOneKey && it.availability == AppAvailability.DISABLED },
             loading = load.loading,
             query = local.query,
             searchExpanded = local.searchExpanded,
@@ -260,13 +261,13 @@ class AppControlVM : ViewModel() {
         }
     }
 
-    /** 选择态批量并入一键名单（保留已有成员）。 */
-    fun addSelectedToOneKey() {
+    /** 选择态批量移出名单（一次落盘，保留其余成员）。 */
+    fun removeSelectedFromOneKey() {
         val targets = uiState.value.selected
         if (targets.isEmpty()) return
         viewModelScope.launch {
-            runCatching { AppControlCenter.addOneKey(targets) }
-                .onSuccess { toast(R.string.app_control_one_key_updated) }
+            runCatching { AppControlCenter.removeOneKey(targets) }
+                .onSuccess { toast(R.string.app_control_one_key_removed) }
                 .onFailure { toast(R.string.app_control_freeze_failed) }
         }
     }
