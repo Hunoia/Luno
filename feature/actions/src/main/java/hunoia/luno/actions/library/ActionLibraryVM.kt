@@ -2,15 +2,11 @@ package hunoia.luno.actions.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import hunoia.luno.config.model.LibraryReferences
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.core.domain.libraryEntryId
-import hunoia.luno.core.domain.longPressVariant
-import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.SubGesture
-import hunoia.luno.config.model.actionList
+import hunoia.luno.domain.tune.TuneConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -29,10 +25,17 @@ class ActionLibraryVM : ViewModel() {
                 ActionLibrary.settings,
                 GestureConfig.buttons,
                 GestureConfig.subGestures,
-            ) { newSettings, buttons, subGestures ->
+                GestureConfig.globalGesture,
+                TuneConfig.action,
+            ) { newSettings, buttons, subGestures, globalGesture, actionSettings ->
                 NewLibraryUiState(
                     entries = newSettings.entries,
-                    referenceCounts = countReferences(buttons, subGestures.subGestures),
+                    referenceCounts = LibraryReferences.count(
+                        action = actionSettings,
+                        buttons = buttons,
+                        subGestures = subGestures.subGestures,
+                        globalGesture = globalGesture,
+                    ),
                 )
             }.collect { _uiState.value = it }
         }
@@ -59,19 +62,3 @@ data class NewLibraryUiState(
     val entries: List<ActionLibraryEntry> = emptyList(),
     val referenceCounts: Map<String, Int> = emptyMap(),
 )
-
-private fun countReferences(
-    buttons: List<GestureButton>,
-    subGestures: List<SubGesture>,
-): Map<String, Int> {
-    val counts = mutableMapOf<String, Int>()
-    fun count(action: StoredAction?) {
-        val entryId = action?.libraryEntryId() ?: return
-        counts[entryId] = (counts[entryId] ?: 0) + 1
-    }
-    (buttons.flatMap { it.actionList() } + subGestures.flatMap { it.actionList() }).forEach { action ->
-        count(action)
-        count(action.longPressVariant())
-    }
-    return counts
-}

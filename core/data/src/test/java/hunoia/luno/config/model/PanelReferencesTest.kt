@@ -46,7 +46,7 @@ class PanelReferencesTest {
                 ),
             ),
         )
-        assertEquals(3, PanelReferences.count("target", settings, emptyList(), emptyList()))
+        assertEquals(3, PanelReferences.count("target", settings, emptyList(), emptyList(), GlobalGestureSettings()))
     }
 
     @Test
@@ -55,7 +55,7 @@ class PanelReferencesTest {
         val settings = ActionSettings(
             actionPanels = ActionPanelSettings(panels = listOf(ActionPanel(id = "a", items = listOf(item)))),
         )
-        assertEquals(1, PanelReferences.count("target", settings, emptyList(), emptyList()))
+        assertEquals(1, PanelReferences.count("target", settings, emptyList(), emptyList(), GlobalGestureSettings()))
     }
 
     @Test
@@ -74,7 +74,26 @@ class PanelReferencesTest {
             ),
         )
         val settings = ActionSettings(floatBall = FloatBallSettings(tapAction = gridPanelRef("target")))
-        assertEquals(4, PanelReferences.count("target", settings, buttons, subGestures))
+        assertEquals(4, PanelReferences.count("target", settings, buttons, subGestures, GlobalGestureSettings()))
+    }
+
+    @Test
+    fun `counts global gesture trigger slots`() {
+        val global = GlobalGestureSettings(
+            zones = listOf(
+                GlobalGestureZone(
+                    id = "z",
+                    triggers = listOf(
+                        GlobalGestureTrigger(id = "t1", action = actionPanelRef("target")),
+                        GlobalGestureTrigger(
+                            id = "t2",
+                            directionActions = DirectionActions(mapOf(0 to gridPanelRef("target"), 1 to other)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        assertEquals(2, PanelReferences.count("target", ActionSettings(), emptyList(), emptyList(), global))
     }
 
     @Test
@@ -84,6 +103,6 @@ class PanelReferencesTest {
                 panels = listOf(ActionPanel(id = "a", items = listOf(actionPanelRef("another"), gridPanelRef("another")))),
             ),
         )
-        assertEquals(0, PanelReferences.count("target", settings, emptyList(), emptyList()))
+        assertEquals(0, PanelReferences.count("target", settings, emptyList(), emptyList(), GlobalGestureSettings()))
     }
 }

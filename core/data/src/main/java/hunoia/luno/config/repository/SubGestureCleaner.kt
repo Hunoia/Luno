@@ -6,6 +6,8 @@ import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureSettings
+import hunoia.luno.config.model.GlobalGestureTrigger
 import hunoia.luno.config.model.SubGesture
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -23,6 +25,10 @@ object SubGestureCleaner {
             settings.copy(
                 subGestures = settings.subGestures.map { it.cleanActions(shouldRemove) }
             )
+        }
+        // 全局手势（识别区触发）也是同一套动作槽：不摘掉就是点了没反应的触发。
+        ConfigProvider.updateGlobalGesture { settings ->
+            settings.cleanActions(shouldRemove)
         }
     }
 
@@ -64,6 +70,23 @@ fun DirectionActions.cleanActions(shouldRemove: (StoredAction) -> Boolean): Dire
             action.cleanOne(shouldRemove)?.let { dir to it }
         }.toMap()
     )
+
+/** 清全局手势触发条目里的引用：单动作槽与方向表各自滤。 */
+fun GlobalGestureTrigger.cleanActions(
+    shouldRemove: (StoredAction) -> Boolean,
+): GlobalGestureTrigger = copy(
+    action = action.cleanOne(shouldRemove),
+    directionActions = directionActions.cleanActions(shouldRemove),
+)
+
+/** 清全部识别区里的引用。 */
+fun GlobalGestureSettings.cleanActions(
+    shouldRemove: (StoredAction) -> Boolean,
+): GlobalGestureSettings = copy(
+    zones = zones.map { zone ->
+        zone.copy(triggers = zone.triggers.map { it.cleanActions(shouldRemove) })
+    },
+)
 
 /**
  * 过滤本体，顺手清掉面板长按变体里的失效引用。

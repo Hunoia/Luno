@@ -165,9 +165,13 @@ sealed interface Action {
     data object ImageEdit : Action {
         override val typeId: String = "image.edit"
     }
-    /** 拍照识别：先拍照或从相册选图，再框选区域 OCR（结果页内完成），不依赖无障碍。 */
+    /** 拍照识别：直接调系统相机，拍完进 OCR 结果页框选识别，不依赖无障碍。 */
     data object PhotoRecognize : Action {
         override val typeId: String = "image.recognize"
+    }
+    /** 从相册选图：系统相册选图，再框选区域 OCR（结果页内完成），不依赖无障碍。 */
+    data object ImageRecognizeGallery : Action {
+        override val typeId: String = "image.recognizeGallery"
     }
     data object SplitScreen : Action {
         override val typeId: String = "accessibility.splitScreen"
@@ -247,14 +251,9 @@ sealed interface Action {
         override val typeId: String = "internal.previousApp"
     }
 
-    /** 剪贴板分词：读剪贴板文本，送 OCR 结果页做分词视图。 */
-    data object ClipboardSegment : Action {
-        override val typeId: String = "internal.clipboardSegment"
-    }
-
-    /** 剪贴板 OCR：读剪贴板图片，送 OCR 结果页识别（懒加载，先看图片后出文本）。 */
-    data object ClipboardOcr : Action {
-        override val typeId: String = "internal.clipboardOcr"
+    /** 识别剪贴板：读剪贴板，文本送分词视图、图片送 OCR 结果页（懒加载，先看图后出文本）。 */
+    data object ClipboardRecognize : Action {
+        override val typeId: String = "internal.clipboardRecognize"
     }
 
     companion object {

@@ -228,6 +228,15 @@ data class GlobalGestureSettings(
  */
 private const val SCREEN_PICK_TYPE_ID = "accessibility.screenPick"
 
+/**
+ * 触发条目里实际存的动作（单动作槽 + 方向表全部扇区）：供引用统计与清理共用同一遍历。
+ * 按「存了什么」数，不按「哪个生效」数——悬空引用无论是否生效都必须数到，否则
+ * 删除清理会漏摘、计数对不上运行时（触发条目只写 [action] 或 [directionActions] 之一，
+ * 视形态而定，两个都扫是安全的）。
+ */
+val GlobalGestureTrigger.storedActions: List<StoredAction>
+    get() = listOfNotNull(action) + directionActions.actions.values
+
 object GlobalGestureDefaults {
     /**
      * 默认一个全屏识别区 + 一条「长按后拖 → 识别屏幕内容」。

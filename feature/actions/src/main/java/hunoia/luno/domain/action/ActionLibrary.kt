@@ -1,9 +1,8 @@
 package hunoia.luno.domain.action
 
 import hunoia.luno.core.domain.ActionLibrarySettings
-import hunoia.luno.core.domain.libraryEntryId
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.repository.cleanActions
+import hunoia.luno.config.repository.LibraryCleaner
 import kotlinx.coroutines.flow.Flow
 
 /** 动作库域门面（ui 层唯一入口）。 */
@@ -29,15 +28,9 @@ object ActionLibrary {
     }
 
     /**
-     * 删除库条目后的引用清理：按钮/子手势里指向该条目的动作清掉。
+     * 删除库条目后的引用清理：按钮/子手势/面板/全局手势/悬浮球里指向该条目的动作清掉。
      */
     suspend fun removeEntryRefs(entryId: String) {
-        ConfigProvider.updateGestureButtons { buttons ->
-            buttons.map { button -> button.cleanActions { it.libraryEntryId() == entryId } }
-        }
-        ConfigProvider.updateSubGestureSettings { settings ->
-            settings.copy(subGestures = settings.subGestures.map { subGesture ->
-                subGesture.cleanActions { it.libraryEntryId() == entryId }
-            })
-        }    }
+        LibraryCleaner.cleanLibraryReferences(entryId)
+    }
 }

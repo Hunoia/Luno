@@ -2,7 +2,7 @@
 <resources>
     <!-- 手势面板/触钮文案。 -->
     <string name="gesture_global_trigger_takeover">接管触摸</string>
-    <string name="gesture_global_trigger_takeover_hint">点火后取消原应用的手势并拦住后续触摸，让拖动只作用于 Luno。需要 Shizuku；部分系统仍可能响应原应用的长按或滑动。</string>
+    <string name="gesture_global_trigger_takeover_hint">触发后取消原应用的手势并拦住后续触摸</string>
     <string name="long_press">长按</string>
     <string name="tap">单击</string>
     <string name="apps_show_system">显示系统应用</string>
@@ -83,7 +83,7 @@
     <string name="gesture_global_zone_delete_desc">将删除该识别区及其全部触发，是否继续？</string>
     <string name="gesture_global_trigger">触发</string>
     <string name="gesture_global_trigger_add">添加触发</string>
-    <string name="gesture_global_trigger_create_fingers">创建 %1$d 指手势</string>
+
     <string name="gesture_global_trigger_fingers">手指数</string>
     <string name="gesture_global_trigger_fingers_value">%1$d 指</string>
     <string name="gesture_global_trigger_fire_on_hold">按住即触发</string>
@@ -102,6 +102,8 @@
     <string name="gesture_global_trigger_kind">手势类型</string>
     <string name="gesture_global_trigger_behavior">触发行为</string>
     <string name="gesture_global_trigger_threshold">触发阈值</string>
+    <string name="gesture_global_trigger_distance">触发距离</string>
+    <string name="gesture_global_trigger_hold_delay">停留判定时长</string>
     <string name="gesture_global_trigger_feedback">反馈</string>
 
     <string name="button_visibility_blocklist_group">黑名单</string>

@@ -7,7 +7,8 @@ import java.util.UUID
 
 /**
  * 动作面板：触发时弹出的弧形菜单。必须挂在 [ActionSettings.actionPanels] 下，
- * 否则静默失败。[items] 用内联动作而非动作库引用：`__longPress` 变体随项零成本。
+ * 否则静默失败。[items] 是普通动作槽，可为 `internal.libraryRef`（选择页原样落盘，
+ * 动作库条目的改动/删除会随引用同步）；`__longPress` 变体随项零成本。
  */
 @Serializable
 @Keep

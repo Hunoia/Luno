@@ -97,8 +97,11 @@ interface SurfaceHost {
     /** 图片编辑：系统图片选择器 → 全屏标注页；返回 false = 未启动。 */
     fun openImageAnnotate(): Boolean
 
-    /** 拍照识别：先拍照或从相册选图，再进 OCR 结果页框选识别；返回 false = 未启动。 */
+    /** 拍照识别：直接调系统相机，拍完进 OCR 结果页框选识别；返回 false = 未启动。 */
     fun openPhotoRecognize(): Boolean
+
+    /** 从相册选图：系统相册选图，再进 OCR 结果页框选识别；返回 false = 未启动。 */
+    fun openGalleryRecognize(): Boolean
 
     /** 剪贴板分词：把文本送进 OCR 结果页做分词视图；返回是否成功弹起。 */
     fun showOcrSegmentText(text: String): Boolean

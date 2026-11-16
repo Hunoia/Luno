@@ -20,8 +20,8 @@ class MiscActionExecutors : ActionExecutor {
     override val supportedTypes: Set<String> = setOf(
         "image.edit",
         "image.recognize",
-        "internal.clipboardSegment",
-        "internal.clipboardOcr",
+        "image.recognizeGallery",
+        "internal.clipboardRecognize",
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult = when (action) {
@@ -33,41 +33,38 @@ class MiscActionExecutors : ActionExecutor {
             val opened = context.surfaces.openPhotoRecognize()
             if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
         }
-        is Action.ClipboardSegment -> executeClipboardSegment(context)
-        is Action.ClipboardOcr -> executeClipboardOcr(context)
+        is Action.ImageRecognizeGallery -> {
+            val opened = context.surfaces.openGalleryRecognize()
+            if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+        }
+        is Action.ClipboardRecognize -> executeClipboardRecognize(context)
         else -> ActionResult.Failed(ActionFailure.Unsupported)
     }
 
     /**
-     * 分词：只认剪贴板文本；空 / 图片 / 其他类型一律「剪贴板无文本」。
-     * 文本交给结果页分词视图；拉起失败按执行失败收口。
+     * 识别剪贴板：文本送分词视图、图片送 OCR 结果页；空 / 其他类型一律失败。
+     * 文本交结果页分词视图；图片经 SurfaceHost 检查模型、解码、懒加载识别。
      */
-    private suspend fun executeClipboardSegment(context: ExecutorContext): ActionResult {
+    private suspend fun executeClipboardRecognize(context: ExecutorContext): ActionResult {
         val content = ClipboardCenter.readCurrent()
-        val text = (content as? ClipboardContent.Text)?.text
-        if (text.isNullOrBlank()) {
-            return ActionResult.Failed(
+        return when (content) {
+            is ClipboardContent.Text -> {
+                if (content.text.isBlank()) {
+                    ActionResult.Failed(
+                        reason = ActionFailure.InvalidParameter,
+                        userMessage = context.environment.appContext.getString(R.string.clipboard_no_text_or_image),
+                    )
+                } else {
+                    val opened = context.surfaces.showOcrSegmentText(content.text)
+                    if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                }
+            }
+            is ClipboardContent.Image ->
+                context.surfaces.showClipboardOcr(content.uri, content.mimeType)
+            else -> ActionResult.Failed(
                 reason = ActionFailure.InvalidParameter,
-                userMessage = context.environment.appContext.getString(R.string.clipboard_no_text),
+                userMessage = context.environment.appContext.getString(R.string.clipboard_no_text_or_image),
             )
         }
-        val opened = context.surfaces.showOcrSegmentText(text)
-        return if (opened) ActionResult.Success()
-        else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
-
-    /**
-     * 剪贴板 OCR：只认剪贴板图片；空 / 文本 / 其他类型一律「剪贴板无图片」。
-     * 模型检查、解码与懒加载 OCR 在 `:app`（SurfaceHost 实现），失败带因原样透传。
-     */
-    private suspend fun executeClipboardOcr(context: ExecutorContext): ActionResult {
-        val content = ClipboardCenter.readCurrent()
-        if (content !is ClipboardContent.Image) {
-            return ActionResult.Failed(
-                reason = ActionFailure.InvalidParameter,
-                userMessage = context.environment.appContext.getString(R.string.clipboard_no_image),
-            )
-        }
-        return context.surfaces.showClipboardOcr(content.uri, content.mimeType)
     }
 }

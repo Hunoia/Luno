@@ -3,6 +3,7 @@ package hunoia.luno.config.repository
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.PanelReferences
 import hunoia.luno.config.model.SubGestureSettings
@@ -22,18 +23,20 @@ import hunoia.luno.core.domain.gridPanelId
  */
 object PanelCleaner {
 
-    /** 引用该面板的处数（面板项含变体 + 触钮/子手势槽 + 悬浮球）：删前提示用。 */
+    /** 引用该面板的处数（面板项含变体 + 触钮/子手势/全局手势槽 + 悬浮球）：删前提示用。 */
     suspend fun countPanelReferences(panelId: String): Int = PanelReferences.count(
         panelId = panelId,
         action = ConfigProvider.getActionSettings(),
         buttons = ConfigProvider.getGestureButtons(),
         subGestures = ConfigProvider.getSubGestureSettings().subGestures,
+        globalGesture = ConfigProvider.getGlobalGesture(),
     )
 
     suspend fun cleanPanelReferences(deletedId: String) {
         ConfigProvider.updateActionSettings { settings -> clean(settings, deletedId) }
         ConfigProvider.updateGestureButtons { buttons -> clean(buttons, deletedId) }
         ConfigProvider.updateSubGestureSettings { settings -> clean(settings, deletedId) }
+        ConfigProvider.updateGlobalGesture { settings -> clean(settings, deletedId) }
     }
 
     fun clean(settings: ActionSettings, deletedId: String): ActionSettings {
@@ -76,20 +79,24 @@ object PanelCleaner {
         )
     }
 
+    fun clean(settings: GlobalGestureSettings, deletedId: String): GlobalGestureSettings =
+        settings.cleanActions(panelMatcher(deletedId))
+
     private fun panelMatcher(deletedId: String): (StoredAction) -> Boolean = { action ->
         action.actionPanelId() == deletedId || action.gridPanelId() == deletedId
     }
+}
 
-    /**
-     * 网格项承载动作列表：清掉失效动作，清空就整项删除。
-     * 网格项没有「空槽」形态（必须占格），留下空壳只会白占格子。
-     */
-    private fun List<GridPanelItem>.cleanPanelItems(
-        shouldRemove: (StoredAction) -> Boolean,
-    ): List<GridPanelItem> = mapNotNull { item ->
-        val kind = item.kind
-        if (kind !is GridPanelItem.Kind.Action) return@mapNotNull item
-        val kept = kind.items.mapNotNull { it.cleanOne(shouldRemove) }
-        if (kept.isEmpty()) null else item.copy(kind = GridPanelItem.Kind.Action(kept))
-    }
+/**
+ * 网格项承载动作列表：清掉失效动作，清空就整项删除。
+ * 网格项没有「空槽」形态（必须占格），留下空壳只会白占格子。
+ * 供面板引用与库引用清理共用（同包顶层扩展，见 [SubGestureCleaner.cleanActions] 同款）。
+ */
+internal fun List<GridPanelItem>.cleanPanelItems(
+    shouldRemove: (StoredAction) -> Boolean,
+): List<GridPanelItem> = mapNotNull { item ->
+    val kind = item.kind
+    if (kind !is GridPanelItem.Kind.Action) return@mapNotNull item
+    val kept = kind.items.mapNotNull { it.cleanOne(shouldRemove) }
+    if (kept.isEmpty()) null else item.copy(kind = GridPanelItem.Kind.Action(kept))
 }

@@ -11,26 +11,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
@@ -44,7 +25,6 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.ocr.OcrEngineHolder
 import hunoia.luno.ui.ocr.OcrResultActivity
 import hunoia.luno.ui.ocr.OcrResultPayload
-import hunoia.luno.ui.theme.SideGestureTheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -52,27 +32,39 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 拍照识别入口页（动作 `image.recognize`，计划 §3.2 拍照识别）。
+ * 识别入口页：动作 `image.recognize`（拍照识别，[SOURCE_CAMERA]）与
+ * `image.recognizeGallery`（从相册选图，[SOURCE_GALLERY]）共用，按 [EXTRA_SOURCE] 直调来源。
  *
  * 相机走**系统相机 App**（`ACTION_IMAGE_CAPTURE` + FileProvider 输出，不引 CameraX、不增包体积）；
- * 页面内同时给「从相册选」按钮（`GetContent`，免权限）。选完/拍完进 [OcrResultActivity]，
- * 在结果页内拖框选区域再 OCR —— 复用识屏/剪贴板 OCR 的结果页，不新做裁剪 UI。
+ * 相册走 `GetContent`（免权限）。来源选完/拍完进 [OcrResultActivity]，在结果页内拖框选区域
+ * 再 OCR —— 复用识屏/剪贴板 OCR 的结果页，不新做裁剪 UI。**不再有「拍照/相册」选择页**：
+ * 来源由动作在拉起时定死。
  *
  * 与剪贴板 OCR 同口径的边界：
  * - 识别只在结果页拖框（`deferOcrToSelection`）或显式切 OCR 来源时触发，不自动 OCR 整图；
  * - OCR 语言跟随识屏设置（[hunoia.luno.config.model.ScreenPickSettings.ocrScripts]，默认中文）；
  * - 不额外落相册、不进建议胶囊。
  *
- * 模型未就绪时 fail fast：`ACTION_IMAGE_CAPTURE` 前先检查，避免拍完才发现没法识别。
+ * 模型未就绪时 fail fast：来源拉起前先检查，避免拍完才发现没法识别。
  */
 class PhotoRecognizeActivity : ComponentActivity() {
 
     companion object {
-        /** 从执行口（`ExecutorSurfaces.openPhotoRecognize`）拉起；返回 false = 启动失败。 */
-        fun start(context: Context): Boolean = runCatching {
+        const val EXTRA_SOURCE = "source"
+        const val SOURCE_CAMERA = "camera"
+        const val SOURCE_GALLERY = "gallery"
+
+        /** 从执行口（`ExecutorSurfaces.openPhotoRecognize`）拉起：直接调系统相机；返回 false = 启动失败。 */
+        fun start(context: Context): Boolean = start(context, SOURCE_CAMERA)
+
+        /** 从执行口（`ExecutorSurfaces.openGalleryRecognize`）拉起：直接进系统相册选图；返回 false = 启动失败。 */
+        fun startGallery(context: Context): Boolean = start(context, SOURCE_GALLERY)
+
+        private fun start(context: Context, source: String): Boolean = runCatching {
             context.startActivity(
                 Intent(context, PhotoRecognizeActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra(EXTRA_SOURCE, source)
                 },
             )
         }.isSuccess
@@ -94,6 +86,7 @@ class PhotoRecognizeActivity : ComponentActivity() {
         pendingCaptureUri = null
         if (!ok || uri == null) {
             showToast(R.string.photo_recognize_capture_failed)
+            finish()
             return@registerForActivityResult
         }
         openOcr(uri)
@@ -102,7 +95,7 @@ class PhotoRecognizeActivity : ComponentActivity() {
     private val galleryPick = registerForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri ->
-        if (uri != null) openOcr(uri)
+        if (uri != null) openOcr(uri) else finish()
     }
 
     private val cameraPermission = registerForActivityResult(
@@ -113,33 +106,38 @@ class PhotoRecognizeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 识别依赖 OCR 模型：缺模型时不进拍照页，直接带因提示（与剪贴板 OCR 同口径）。
+        // 识别依赖 OCR 模型：缺模型时不进来源，直接带因提示（与剪贴板 OCR 同口径）。
         if (OcrModelStore.status(this) !is OcrModelStatus.Ready) {
             showToast(R.string.ocr_model_missing_hint)
             finish()
             return
         }
-        enableEdgeToEdge()
-        setContent { SideGestureTheme { PhotoPickContent(onCamera = ::onTakePhoto, onGallery = ::onPickGallery) } }
+        // 按动作来源直调：无选择页。相机可能需权限（launchCamera 内处理），相册免权限。
+        if (intent.getStringExtra(EXTRA_SOURCE) == SOURCE_GALLERY) {
+            galleryPick.launch("image/*")
+        } else {
+            launchCamera()
+        }
     }
 
-    private fun onTakePhoto() {
+    private fun launchCamera() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            launchCamera()
+            launchCameraCapture()
         } else {
             cameraPermission.launch(Manifest.permission.CAMERA)
         }
     }
 
-    private fun launchCamera() {
+    private fun launchCameraCapture() {
         val dir = File(cacheDir, CAPTURE_DIR).apply { mkdirs() }
         val uri = runCatching {
             FileProvider.getUriForFile(this, "${packageName}.fileprovider", File(dir, CAPTURE_NAME))
         }.getOrNull()
         if (uri == null) {
             showToast(R.string.photo_recognize_capture_failed)
+            finish()
             return
         }
         pendingCaptureUri = uri
@@ -147,10 +145,6 @@ class PhotoRecognizeActivity : ComponentActivity() {
             pendingCaptureUri = null
             showToast(R.string.photo_recognize_capture_failed)
         }
-    }
-
-    private fun onPickGallery() {
-        galleryPick.launch("image/*")
     }
 
     /** 解码 → 开 OCR 结果页（先看图、拖框再识别）。位图所有权交给结果页，由它回收。 */
@@ -197,7 +191,7 @@ class PhotoRecognizeActivity : ComponentActivity() {
             if (!opened) {
                 if (!bitmap.isRecycled) bitmap.recycle()
             } else {
-                // 结果页已接管：拍照页使命完成，返回时不再落回本页。
+                // 结果页已接管：本页使命完成，返回时不再落回本页。
                 finish()
             }
         }
@@ -227,36 +221,4 @@ class PhotoRecognizeActivity : ComponentActivity() {
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
     }.getOrNull()
-}
-
-@Composable
-private fun PhotoPickContent(onCamera: () -> Unit, onGallery: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.photo_recognize_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.photo_recognize_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(32.dp))
-            Button(onClick = onCamera, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.photo_recognize_camera))
-            }
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onGallery, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.photo_recognize_gallery))
-            }
-        }
-    }
 }

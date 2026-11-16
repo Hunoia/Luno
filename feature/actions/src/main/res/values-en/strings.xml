@@ -8,8 +8,7 @@
     <string name="quick_toggle_unavailable">This device does not support toggling this switch</string>
     <string name="random_name_generate_failed">Generation failed</string>
     <string name="random_name_copy_failed">Copy failed</string>
-    <string name="clipboard_no_text">Clipboard has no text</string>
-    <string name="clipboard_no_image">Clipboard has no image</string>
+    <string name="clipboard_no_text_or_image">Clipboard has no recognizable text or image</string>
     <string name="action_shell_clipboard_label">Shell output</string>
     <string name="action_library_missing">Action library entry removed</string>
     <string name="action_none">None</string>

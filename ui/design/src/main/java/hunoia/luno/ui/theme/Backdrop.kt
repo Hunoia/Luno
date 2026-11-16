@@ -85,12 +85,13 @@ fun Modifier.appGlassOutline(shape: Shape): Modifier = border(
 const val GlassCapsuleHazeAlpha = 0.65f
 
 /**
- * 悬浮玻璃胶囊容器（连续曲率）：阴影 + 裁形 + 毛玻璃 + 发丝描边 + 内边距一条龙。
- * hazeEffect 必须画在 hazeSource 的**兄弟**节点上（调用方保证层级，见 ui-guidelines §5）。
- * 动作选择页底栏与页面级悬浮搜索胶囊共用，两处观感由同一份代码渲染。
+ * 悬浮玻璃胶囊**装饰背景层**（连续曲率）：阴影 + 裁形 + 毛玻璃 + 发丝描边，**不含内容与内边距**。
+ * 供内容需要溢出不裁切的场景（如底栏内嵌索引条，其按压气泡朝上溢出胶囊）：
+ * 背景层负责裁切与玻璃视觉，内容层叠加其上且不被裁。
+ * [glassCapsule] 委托本函数 + 内边距；调用 [glassCapsule] 即内容可裁的常规场景。
  */
 @Composable
-fun Modifier.glassCapsule(hazeState: HazeState?): Modifier {
+fun Modifier.glassCapsuleBackground(hazeState: HazeState?): Modifier {
     val capsuleShape = CapsuleShape
     return dropShadow(
         shape = capsuleShape,
@@ -109,8 +110,18 @@ fun Modifier.glassCapsule(hazeState: HazeState?): Modifier {
             MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = GlassCapsuleHazeAlpha),
         )
         .appGlassOutline(capsuleShape)
-        .padding(TileInnerPadding)
 }
+
+/**
+ * 悬浮玻璃胶囊容器（连续曲率）：阴影 + 裁形 + 毛玻璃 + 发丝描边 + 内边距一条龙。
+ * hazeEffect 必须画在 hazeSource 的**兄弟**节点上（调用方保证层级，见 ui-guidelines §5）。
+ * 动作选择页底栏与页面级悬浮搜索胶囊共用，两处观感由同一份代码渲染。
+ * 内容需要溢出不裁切时（底栏内嵌索引条）改用 [glassCapsuleBackground] 作背景层、
+ * 内容层单独叠加；否则调用本函数即可。
+ */
+@Composable
+fun Modifier.glassCapsule(hazeState: HazeState?): Modifier =
+    glassCapsuleBackground(hazeState).padding(TileInnerPadding)
 
 /** 底部羽化蒙版：糊＋底一起从顶部全显渐隐到底部透明。 */
 @Composable

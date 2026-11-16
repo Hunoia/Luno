@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoLibrary
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
 import hunoia.luno.core.domain.Capability
@@ -38,11 +39,19 @@ internal object ImageActionGroup : ActionGroup {
             Capability.None,
             icon = Icons.Default.Camera,
         ),
+        ActionDefinition(
+            "image.recognizeGallery",
+            "从相册选图",
+            ActionCategory.RECOGNITION,
+            Capability.None,
+            icon = Icons.Default.PhotoLibrary,
+        ),
     )
 
     override fun installDecoders() {
         ActionMappingRegistry.register("screen.annotate") { Action.ScreenAnnotate }
         ActionMappingRegistry.register("image.edit") { Action.ImageEdit }
         ActionMappingRegistry.register("image.recognize") { Action.PhotoRecognize }
+        ActionMappingRegistry.register("image.recognizeGallery") { Action.ImageRecognizeGallery }
     }
 }

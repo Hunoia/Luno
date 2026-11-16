@@ -9,7 +9,6 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Widgets
@@ -78,11 +77,9 @@ internal object InternalActionGroup : ActionGroup {
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
         ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.APP, Capability.None,
             icon = Icons.Default.SwapHoriz),
-        // 剪贴板分词 / OCR：读剪贴板文本或图片，送 OCR 结果页（:service 进程内交接）。
-        // 两动作都无参：选择页 / 触钮 / 子手势可选，动作库新建页不显示。
-        ActionDefinition("internal.clipboardSegment", "分词", ActionCategory.RECOGNITION, Capability.None,
-            icon = Icons.Default.TextFields),
-        ActionDefinition("internal.clipboardOcr", "OCR识别", ActionCategory.RECOGNITION, Capability.None,
+        // 识别剪贴板：读剪贴板，文本送分词视图、图片送 OCR 结果页（:service 进程内交接）。
+        // 无参：选择页 / 触钮 / 子手势可选，动作库新建页不显示。
+        ActionDefinition("internal.clipboardRecognize", "识别剪贴板", ActionCategory.RECOGNITION, Capability.None,
             icon = Icons.Default.DocumentScanner),
     )
 
@@ -112,8 +109,7 @@ internal object InternalActionGroup : ActionGroup {
             )
         }
         ActionMappingRegistry.register("internal.previousApp") { Action.PreviousApp }
-        ActionMappingRegistry.register("internal.clipboardSegment") { Action.ClipboardSegment }
-        ActionMappingRegistry.register("internal.clipboardOcr") { Action.ClipboardOcr }
+        ActionMappingRegistry.register("internal.clipboardRecognize") { Action.ClipboardRecognize }
         // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径
         // 不会流到执行层。能走到这里说明面板被删或内容为空 —— 按「无动作」收口，
         // 而不是抛 UnknownActionTypeException 让手势链路报错。

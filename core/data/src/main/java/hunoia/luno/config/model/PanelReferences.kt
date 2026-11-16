@@ -22,6 +22,7 @@ object PanelReferences {
         action: ActionSettings,
         buttons: List<GestureButton>,
         subGestures: List<SubGesture>,
+        globalGesture: GlobalGestureSettings,
     ): Int {
         var total = 0
         fun tally(action: StoredAction?) {
@@ -36,6 +37,7 @@ object PanelReferences {
         }
         buttons.flatMap { it.actionList() }.forEach(::tally)
         subGestures.flatMap { it.actionList() }.forEach(::tally)
+        globalGesture.zones.flatMap { zone -> zone.triggers.flatMap { it.storedActions } }.forEach(::tally)
         tally(action.floatBall.tapAction)
         return total
     }
@@ -60,5 +62,5 @@ private fun StoredAction.isPanelRef(panelId: String): Boolean =
     actionPanelId() == panelId || gridPanelId() == panelId
 
 /** 网格项承载的动作（小部件/内置部件没有动作）。 */
-private fun GridPanelItem.actionItems(): List<StoredAction> =
+internal fun GridPanelItem.actionItems(): List<StoredAction> =
     (kind as? GridPanelItem.Kind.Action)?.items.orEmpty()

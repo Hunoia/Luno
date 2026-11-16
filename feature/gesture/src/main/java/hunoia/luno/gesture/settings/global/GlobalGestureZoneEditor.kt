@@ -46,6 +46,8 @@ import hunoia.luno.config.model.ZoneBounds
 import hunoia.luno.config.model.allowsFingers
 import hunoia.luno.config.model.isArmedDrag
 import hunoia.luno.config.model.isDirectional
+import hunoia.luno.config.defaults.SettingsUiDefaults.MaxDoubleTapTriggerDelayMs
+import hunoia.luno.config.defaults.SettingsUiDefaults.MinDoubleTapTriggerDelayMs
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.settings.GestureActionTarget
 import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
@@ -165,12 +167,10 @@ fun GlobalGestureZoneEditorScreen(
             if (showAddTrigger) {
                 AddTriggerSheet(
                     onDismissRequest = { showAddTrigger = false },
-                    onCreate = { kind, fingers ->
+                    onCreate = { kind ->
                         updateZone { current ->
                             current.copy(
-                                triggers = current.triggers + GlobalGestureTrigger.create(kind).copy(
-                                    fingers = fingers,
-                                ),
+                                triggers = current.triggers + GlobalGestureTrigger.create(kind),
                             )
                         }
                         showAddTrigger = false
@@ -477,6 +477,67 @@ fun GlobalGestureTriggerEditorScreen(
                         display = { "${it.roundToInt()} ms" },
                         onCommit = { v -> updateTrigger { it.copy(triggerCooldownMs = v.roundToInt()) } },
                         shape = segmentedShape(3, 4),
+                    )
+                } else if (trigger.kind.isDirectional) {
+                    // 每种形态只用属于自己的那一档：短类用近档、长类用远档，不做两档互钳。
+                    // 运行时对长类用 effectiveLongSlideTriggerDistanceDp（已兜底 long ≥ short）。
+                    val isLong = trigger.kind == GlobalGestureKind.LongSlide ||
+                        trigger.kind == GlobalGestureKind.LongSlideHold
+                    val isHold = trigger.kind == GlobalGestureKind.SlideHold ||
+                        trigger.kind == GlobalGestureKind.LongSlideHold
+                    val count = 2 + (if (isHold) 1 else 0)
+                    var row = 0
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_distance),
+                        value = if (isLong) {
+                            trigger.longSlideTriggerDistanceDp
+                        } else {
+                            trigger.slideTriggerDistanceDp
+                        },
+                        range = if (isLong) 48f..240f else 16f..80f,
+                        display = { "${it.roundToInt()} dp" },
+                        onCommit = { v ->
+                            updateTrigger {
+                                if (isLong) it.copy(longSlideTriggerDistanceDp = v.roundToInt().toFloat())
+                                else it.copy(slideTriggerDistanceDp = v.roundToInt().toFloat())
+                            }
+                        },
+                        shape = segmentedShape(row++, count),
+                    )
+                    if (isHold) {
+                        SliderRow(
+                            title = stringResource(R.string.gesture_global_trigger_hold_delay),
+                            value = trigger.holdTriggerDelayMs.toFloat(),
+                            range = 0f..1_000f,
+                            display = { "${it.roundToInt()} ms" },
+                            onCommit = { v -> updateTrigger { it.copy(holdTriggerDelayMs = v.roundToInt()) } },
+                            shape = segmentedShape(row++, count),
+                        )
+                    }
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_cooldown),
+                        value = trigger.triggerCooldownMs.toFloat(),
+                        range = 0f..3_000f,
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(triggerCooldownMs = v.roundToInt()) } },
+                        shape = segmentedShape(row, count),
+                    )
+                } else if (trigger.kind == GlobalGestureKind.DoubleTap) {
+                    SliderRow(
+                        title = stringResource(R.string.trigger_double_tap_delay),
+                        value = trigger.doubleTapDelayMs.toFloat(),
+                        range = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(doubleTapDelayMs = v.roundToInt()) } },
+                        shape = segmentedShape(0, 2),
+                    )
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_cooldown),
+                        value = trigger.triggerCooldownMs.toFloat(),
+                        range = 0f..3_000f,
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(triggerCooldownMs = v.roundToInt()) } },
+                        shape = segmentedShape(1, 2),
                     )
                 } else {
                     SliderRow(
@@ -826,12 +887,8 @@ private fun ZoneBoundsOverlay(
 @Composable
 private fun AddTriggerSheet(
     onDismissRequest: () -> Unit,
-    onCreate: (GlobalGestureKind, Int) -> Unit,
+    onCreate: (GlobalGestureKind) -> Unit,
 ) {
-    var pickedKind by remember { mutableStateOf(GlobalGestureKind.LongPress) }
-    val fingers = remember(pickedKind) {
-        (1..3).filter { pickedKind.allowsFingers(it) }
-    }
     val scrollState = rememberScrollState()
     LunoSheet(
         onDismissRequest = onDismissRequest,
@@ -847,20 +904,11 @@ private fun AddTriggerSheet(
                 GlobalGestureKind.entries.forEachIndexed { index, kind ->
                     LunoSelectableRow(
                         title = kindLabel(kind),
-                        selected = pickedKind == kind,
-                        singleSelect = true,
-                        onSelectedChange = { pickedKind = kind },
-                        shape = segmentedShape(index, GlobalGestureKind.entries.size),
-                    )
-                }
-            }
-            LunoGroup(title = stringResource(R.string.gesture_global_trigger_fingers)) {
-                fingers.forEachIndexed { index, count ->
-                    LunoSelectableRow(
-                        title = stringResource(R.string.gesture_global_trigger_create_fingers, count),
                         selected = false,
-                        onSelectedChange = { onCreate(pickedKind, count) },
-                        shape = segmentedShape(index, fingers.size),
+                        singleSelect = true,
+                        // 点选即建：手指数用 create() 的形态默认值，编辑页「触发行为」里再改。
+                        onSelectedChange = { onCreate(kind) },
+                        shape = segmentedShape(index, GlobalGestureKind.entries.size),
                     )
                 }
             }

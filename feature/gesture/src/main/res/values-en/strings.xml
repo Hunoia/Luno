@@ -2,7 +2,7 @@
 <resources>
     <!-- Gesture panel / gesture button strings. -->
     <string name="gesture_global_trigger_takeover">Take over touch</string>
-    <string name="gesture_global_trigger_takeover_hint">Cancels the app\'s own gesture after firing and absorbs later touches so the drag only reaches Luno. Requires Shizuku; some systems may still react to the original long press or swipe.</string>
+    <string name="gesture_global_trigger_takeover_hint">After triggering, cancels the app\'s own gesture and absorbs later touches.</string>
     <string name="long_press">Long press</string>
     <string name="tap">Tap</string>
     <string name="apps_show_system">Show system apps</string>
@@ -83,7 +83,7 @@
     <string name="gesture_global_zone_delete_desc">This removes the zone and all its triggers. Continue?</string>
     <string name="gesture_global_trigger">Triggers</string>
     <string name="gesture_global_trigger_add">Add trigger</string>
-    <string name="gesture_global_trigger_create_fingers">Create %1$d-finger gesture</string>
+
     <string name="gesture_global_trigger_fingers">Fingers</string>
     <string name="gesture_global_trigger_fingers_value">%1$d</string>
     <string name="gesture_global_trigger_fire_on_hold">Fire on hold</string>
@@ -102,6 +102,8 @@
     <string name="gesture_global_trigger_kind">Gesture kind</string>
     <string name="gesture_global_trigger_behavior">Behavior</string>
     <string name="gesture_global_trigger_threshold">Thresholds</string>
+    <string name="gesture_global_trigger_distance">Trigger distance</string>
+    <string name="gesture_global_trigger_hold_delay">Hold delay</string>
     <string name="gesture_global_trigger_feedback">Feedback</string>
 
     <string name="button_visibility_blocklist_group">Blocklist</string>

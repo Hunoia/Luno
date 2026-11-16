@@ -6,6 +6,9 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalGestureSettings
+import hunoia.luno.config.model.GlobalGestureTrigger
+import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelOrientation
@@ -111,6 +114,28 @@ class PanelCleanerTest {
         assertEquals(listOf("keep"), cleaned.panelDock.members)
         // 总开关不属于引用关系，删除面板不能把底栏一并关掉。
         assertTrue(cleaned.panelDock.enabled)
+    }
+
+    @Test
+    fun `cleans global gesture triggers`() {
+        val global = GlobalGestureSettings(
+            zones = listOf(
+                GlobalGestureZone(
+                    id = "z",
+                    triggers = listOf(
+                        GlobalGestureTrigger(id = "t1", action = actionPanelRef("target")),
+                        GlobalGestureTrigger(
+                            id = "t2",
+                            directionActions = DirectionActions(mapOf(0 to gridPanelRef("target"), 1 to other)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val cleaned = PanelCleaner.clean(global, "target")
+        val triggers = cleaned.zones.single().triggers
+        assertNull(triggers[0].action)
+        assertEquals(mapOf(1 to other), triggers[1].directionActions.actions)
     }
 
     @Test

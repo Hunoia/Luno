@@ -86,7 +86,7 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.appHazeSource
-import hunoia.luno.ui.theme.glassCapsule
+import hunoia.luno.ui.theme.glassCapsuleBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -312,8 +312,12 @@ fun RecentAppsBlocklistScreen(
                             }
                         }
                     }
-                    // 底部一行：横向字母滑杆（胶囊左侧，宽度自适应）+ 悬浮玻璃胶囊（保存/搜索）。
-                    // IME∪导航 inset 与 bottom padding 由外层 Column 统一承担，滑杆与胶囊同一水平线。
+                    // 底部：一个玻璃胶囊（字母条 + 保存/搜索同胶囊内）。玻璃作装饰背景层
+                    // （裁切），内容层叠加其上不被裁——索引条按压气泡朝上溢过胶囊。
+                    // IME∪导航 inset 与 bottom padding 由外层 Column 统一承担。
+                    // 字母在列时胶囊全宽（字母左 + 按钮右）；loading/空/search 时无字母，
+                    // 胶囊随按钮收窄靠右。
+                    val bottomFull = showIndex || searchExpanded
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -332,42 +336,57 @@ fun RecentAppsBlocklistScreen(
                                 end = PageGutter,
                                 bottom = BottomBarPadding,
                             ),
+                        horizontalAlignment = Alignment.End,
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                        Box(
+                            modifier = Modifier
+                                .then(if (bottomFull) Modifier.fillMaxWidth() else Modifier),
                         ) {
-                            if (showIndex) {
-                                val activeKey = sections
-                                    .getOrNull(listState.firstVisibleItemIndex / 2)
-                                    ?.letter?.toString()
-                                IndexBar(
-                                    entries = barEntries,
-                                    metrics = null,
-                                    activeKey = activeKey,
-                                    side = IndexBarSide.Start,
-                                    onJump = { entry ->
-                                        val sectionIndex = sections.indexOfFirst {
-                                            it.letter.toString() == entry.key
-                                        }
-                                        if (sectionIndex >= 0) {
-                                            listState.requestScrollToItem(sectionIndex * 2)
-                                        }
-                                    },
-                                    orientation = IndexBarOrientation.Horizontal,
-                                    maxWindow = 5,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Spacer(modifier = Modifier.width(LetterBarCapsuleGap))
-                            }
-                            BlocklistToolbar(
-                                hazeState = hazeState,
-                                searchExpanded = searchExpanded,
-                                query = searchQuery,
-                                onQueryChange = { searchQuery = it },
-                                onToggleSearch = { searchExpanded = !searchExpanded },
-                                onSave = { confirm() },
+                            // 装饰背景层：裁切 + 玻璃视觉；内容层不被它裁（气泡需溢出不裁切）。
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .glassCapsuleBackground(hazeState),
                             )
+                            // 内容层：内边距口径同 glassCapsule（TileInnerPadding），内里高 56。
+                            Row(
+                                modifier = Modifier
+                                    .then(if (bottomFull) Modifier.fillMaxWidth() else Modifier)
+                                    .padding(TileInnerPadding)
+                                    .height(BottomBarHeight),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (showIndex) {
+                                    val activeKey = sections
+                                        .getOrNull(listState.firstVisibleItemIndex / 2)
+                                        ?.letter?.toString()
+                                    IndexBar(
+                                        entries = barEntries,
+                                        metrics = null,
+                                        activeKey = activeKey,
+                                        side = IndexBarSide.Start,
+                                        onJump = { entry ->
+                                            val sectionIndex = sections.indexOfFirst {
+                                                it.letter.toString() == entry.key
+                                            }
+                                            if (sectionIndex >= 0) {
+                                                listState.requestScrollToItem(sectionIndex * 2)
+                                            }
+                                        },
+                                        orientation = IndexBarOrientation.Horizontal,
+                                        maxWindow = 5,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Spacer(modifier = Modifier.width(LetterBarCapsuleGap))
+                                }
+                                BlocklistToolbarContent(
+                                    searchExpanded = searchExpanded,
+                                    query = searchQuery,
+                                    onQueryChange = { searchQuery = it },
+                                    onToggleSearch = { searchExpanded = !searchExpanded },
+                                    onSave = { confirm() },
+                                )
+                            }
                         }
                     }
                 }
@@ -377,14 +396,12 @@ fun RecentAppsBlocklistScreen(
 }
 
 /**
- * 底部玻璃胶囊工具条（复刻 AppControlToolbar 的简化变体，ui-guidelines §4.2/§4.3）：
- * 常态靠右 [保存][搜索]，搜索点击展开全宽输入框 + × 收起。几何口径同
- * AppControlScreen —— `glassCapsule` 容器、IME∪导航 inset、`BackHandler` 收搜索、
- * 展开后取焦点、`swallowTouches` 防穿透。
+ * 底部玻璃胶囊的**内容**（常态右侧动作 / 搜索态全宽输入）：玻璃背景层与内边距由调用方承担，
+ * 本函数只管搜索状态与按钮内容。搜索逻辑同 AppControlToolbar —— 常态 [保存][搜索]，
+ * 搜索点击展开全宽输入框 + × 收起；`BackHandler` 收搜索、展开后取焦点、IME 收起再折叠。
  */
 @Composable
-private fun BlocklistToolbar(
-    hazeState: HazeState,
+private fun BlocklistToolbarContent(
     searchExpanded: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -421,32 +438,18 @@ private fun BlocklistToolbar(
     // 系统返回先收搜索框，否则输入到一半直接退页。
     BackHandler(enabled = searchExpanded) { closeSearch() }
 
-    // 玻璃胶囊容器：靠右、随内容自适应；搜索时展开全宽。insets/padding 由外层底部 Column 承担。
-    Column(
-        modifier = Modifier
-            .then(if (searchExpanded) Modifier.fillMaxWidth() else Modifier)
-            .glassCapsule(hazeState),
-    ) {
-        Row(
-            modifier = Modifier
-                .then(if (searchExpanded) Modifier.fillMaxWidth() else Modifier)
-                .height(BottomBarHeight),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (searchExpanded) {
-                ToolbarSearchContent(
-                    query = query,
-                    onQueryChange = onQueryChange,
-                    focusRequester = focusRequester,
-                    onClose = { closeSearch() },
-                )
-            } else {
-                ToolbarNormalContent(
-                    onSave = onSave,
-                    onToggleSearch = onToggleSearch,
-                )
-            }
-        }
+    if (searchExpanded) {
+        ToolbarSearchContent(
+            query = query,
+            onQueryChange = onQueryChange,
+            focusRequester = focusRequester,
+            onClose = { closeSearch() },
+        )
+    } else {
+        ToolbarNormalContent(
+            onSave = onSave,
+            onToggleSearch = onToggleSearch,
+        )
     }
 }
 
