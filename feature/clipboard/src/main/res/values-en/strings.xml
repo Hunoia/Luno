@@ -15,9 +15,7 @@
     <string name="clipboard_sensitive_masked">••••••••</string>
     <string name="clipboard_pin">Pin</string>
     <string name="clipboard_unpin">Unpin</string>
-    <string name="clipboard_copy">Copy</string>
     <string name="clipboard_share">Share</string>
-    <string name="clipboard_ocr">Recognize text</string>
     <string name="clipboard_delete">Delete</string>
     <string name="clipboard_delete_selected">Delete selected</string>
     <string name="clipboard_pin_selected">Pin selected</string>
@@ -28,10 +26,8 @@
     <string name="clipboard_copy_failed">Copy failed</string>
     <string name="clipboard_sensitive_copy_title">Copy sensitive content?</string>
     <string name="clipboard_sensitive_copy_desc">This content is marked sensitive; it is written to the system clipboard only after confirmation.</string>
-    <string name="clipboard_ocr_failed">Could not recognize this image</string>
     <string name="clipboard_session_group">This session (sensitive)</string>
     <string name="clipboard_session_hint">Memory only; persisted once pinned</string>
-    <string name="clipboard_history_group">History</string>
     <string name="clipboard_pinned_badge">Pinned</string>
     <string name="clipboard_float">Show as floating window</string>
     <string name="clipboard_pinned_group">Pinned</string>
