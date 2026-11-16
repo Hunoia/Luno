@@ -182,6 +182,8 @@ fun LunoGroup(
     titleBottomSpacing: Dp = ListSpacing,
     badgeText: String? = null,
     badgeError: Boolean = false,
+    /** 组头标题右侧的动作槽（如「+」按钮）。空组 / 无标题时不渲染。 */
+    titleTrailing: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -205,6 +207,7 @@ fun LunoGroup(
                 if (badgeText != null) {
                     SectionBadge(text = badgeText, error = badgeError)
                 }
+                titleTrailing()
             }
         }
         if (subtitle.isNotEmpty()) {

@@ -22,47 +22,30 @@ class AppControlExecutors : ActionExecutor {
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult = when (action) {
-        is Action.FreezeOneKey -> {
-            val result = PackageControl.freezeOneKey()
-            if (result.total == 0) {
-                ActionResult.Failed(
-                    reason = ActionFailure.InvalidParameter,
-                    userMessage = context.environment.appContext.getString(R.string.app_control_one_key_empty),
-                )
-            } else {
-                report(context, result)
-            }
-        }
-        is Action.UnfreezeOneKey -> {
-            val result = PackageControl.unfreezeOneKey()
-            if (result.total == 0) {
-                ActionResult.Success(
-                    message = context.environment.appContext.getString(
-                        R.string.app_control_nothing_to_unfreeze,
-                    ),
-                )
-            } else {
-                report(context, result)
-            }
-        }
+        is Action.FreezeOneKey -> report(context, PackageControl.freezeOneKey(), frozen = true)
+        is Action.UnfreezeOneKey -> report(context, PackageControl.unfreezeOneKey(), frozen = false)
         else -> ActionResult.Failed(ActionFailure.Unsupported)
     }
 
-    private fun report(context: ExecutorContext, result: PackageControl.BatchResult): ActionResult {
+    private fun report(
+        context: ExecutorContext,
+        result: PackageControl.BatchResult,
+        frozen: Boolean,
+    ): ActionResult {
         val appContext = context.environment.appContext
+        // toast 按实际冻结/解冻数显示（含 0 → 「冻结0」/「解冻0」），不再用「已处理」混淆失败数。
+        val toast = appContext.getString(
+            if (frozen) R.string.app_control_frozen_toast else R.string.app_control_unfrozen_toast,
+            result.successes.size,
+        )
         if (result.failures.isEmpty()) {
-            return ActionResult.Success(
-                message = appContext.getString(R.string.app_control_result_success, result.successes.size),
-            )
+            return ActionResult.Success(message = toast)
         }
+        // 失败明细仍进结果（日志/上报），toast 只给计数。
         return ActionResult.Failed(
             reason = ActionFailure.ExecutionFailed,
             message = result.failures.joinToString { "${it.packageName}:${it.reason}" },
-            userMessage = appContext.getString(
-                R.string.app_control_result_partial,
-                result.successes.size,
-                result.failures.size,
-            ),
+            userMessage = toast,
         )
     }
 }

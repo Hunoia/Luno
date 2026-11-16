@@ -79,7 +79,6 @@
     <string name="gesture_global_zone_height">Height</string>
     <string name="gesture_global_zone_delete">Delete zone</string>
     <string name="gesture_global_zone_delete_desc">This removes the zone and all its triggers. Continue?</string>
-    <string name="gesture_global_trigger_enabled">Enable trigger</string>
     <string name="gesture_global_trigger">Triggers</string>
     <string name="gesture_global_trigger_add">Add trigger</string>
     <string name="gesture_global_trigger_create_fingers">Create %1$d-finger gesture</string>
@@ -96,6 +95,12 @@
     <string name="gesture_global_trigger_cooldown">Cooldown</string>
     <string name="gesture_global_trigger_vibrate">Haptic feedback</string>
     <string name="gesture_global_trigger_delete">Delete trigger</string>
+    <string name="gesture_global_trigger_delete_desc">This also clears the trigger\'s actions and thresholds.</string>
+    <string name="gesture_global_trigger_empty">No triggers yet. Tap + in the corner to add</string>
+    <string name="gesture_global_trigger_kind">Gesture kind</string>
+    <string name="gesture_global_trigger_behavior">Behavior</string>
+    <string name="gesture_global_trigger_threshold">Thresholds</string>
+    <string name="gesture_global_trigger_feedback">Feedback</string>
 
     <string name="button_visibility_blocklist_group">Blocklist</string>
     <string name="button_visibility_recent_apps_blocklist">Recent apps blocklist</string>

@@ -218,6 +218,7 @@
     <string name="sub_gesture_default_name">子手势 %1$d</string>
 
     <string name="search_app_hint">搜索应用</string>
+    <string name="search_collapse">收起搜索</string>
     <string name="add_sub_gesture">添加子手势</string>
     <string name="home_section_settings">配置</string>
     <string name="home_section_gesture">手势</string>

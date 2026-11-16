@@ -87,6 +87,8 @@ import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
 import hunoia.luno.gesture.settings.SubGestureEditor
 import hunoia.luno.gesture.settings.global.GlobalGestureZoneEditor
 import hunoia.luno.gesture.settings.global.GlobalGestureZoneEditorScreen
+import hunoia.luno.gesture.settings.global.GlobalGestureTriggerEditor
+import hunoia.luno.gesture.settings.global.GlobalGestureTriggerEditorScreen
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
@@ -583,9 +585,21 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
-                myComposable<GlobalGestureZoneEditor> {
+                myComposable<GlobalGestureZoneEditor> { entry ->
+                    val route = entry.toRoute<GlobalGestureZoneEditor>()
                     GlobalGestureZoneEditorScreen(
-                        zoneId = it.toRoute<GlobalGestureZoneEditor>().zoneId,
+                        zoneId = route.zoneId,
+                        onBack = { navController.navigateUp() },
+                        onNavToTriggerEditor = { triggerId ->
+                            navController.navigate(GlobalGestureTriggerEditor(route.zoneId, triggerId))
+                        },
+                    )
+                }
+                myComposable<GlobalGestureTriggerEditor> { entry ->
+                    val route = entry.toRoute<GlobalGestureTriggerEditor>()
+                    GlobalGestureTriggerEditorScreen(
+                        zoneId = route.zoneId,
+                        triggerId = route.triggerId,
                         onBack = { navController.navigateUp() },
                         onNavToActionSelect = { target ->
                             navController.navigate(

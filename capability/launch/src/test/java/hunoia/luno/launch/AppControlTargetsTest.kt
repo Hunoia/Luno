@@ -11,7 +11,15 @@ class AppControlTargetsTest {
     fun `freeze targets only installed members`() {
         assertEquals(
             setOf("a", "b"),
-            AppControlTargets.freezeTargets(oneKey, setOf("a", "b", "other")),
+            AppControlTargets.freezeTargets(oneKey, setOf("a", "b", "other"), emptySet()),
+        )
+    }
+
+    @Test
+    fun `freeze targets exclude already frozen members`() {
+        assertEquals(
+            setOf("a"),
+            AppControlTargets.freezeTargets(oneKey, setOf("a", "b"), setOf("b")),
         )
     }
 
@@ -25,7 +33,10 @@ class AppControlTargetsTest {
 
     @Test
     fun `empty one-key list has no targets`() {
-        assertEquals(emptySet<String>(), AppControlTargets.freezeTargets(emptySet(), setOf("a")))
+        assertEquals(
+            emptySet<String>(),
+            AppControlTargets.freezeTargets(emptySet(), setOf("a"), setOf("a")),
+        )
         assertEquals(emptySet<String>(), AppControlTargets.unfreezeTargets(emptySet(), setOf("a")))
     }
 }

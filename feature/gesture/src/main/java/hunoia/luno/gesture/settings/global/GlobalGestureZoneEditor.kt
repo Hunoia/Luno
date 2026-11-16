@@ -4,10 +4,13 @@ import androidx.annotation.Keep
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -29,6 +32,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -43,8 +47,6 @@ import hunoia.luno.config.model.allowsFingers
 import hunoia.luno.config.model.isDirectional
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.settings.GestureActionTarget
-import hunoia.luno.gesture.settings.button.ExpandableGestureActionCard
-import hunoia.luno.gesture.settings.button.actionContentRowShape
 import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
 import hunoia.luno.gesture.settings.style.SideGestureSettings
 import hunoia.luno.gesture.touchsource.triggerType
@@ -63,11 +65,11 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -78,17 +80,28 @@ data class GlobalGestureZoneEditor(
     val zoneId: String,
 )
 
+/** 触发设置页路由参数。 */
+@Keep
+@kotlinx.serialization.Serializable
+data class GlobalGestureTriggerEditor(
+    val zoneId: String,
+    val triggerId: String,
+)
+
 /**
  * 识别区编辑：边界（屏幕比例）+ 触发列表。
  *
  * 触发的形态与手指数在创建时确定，之后只改动作与阈值；要换形态就删掉重建，
  * 避免改形态后旧动作落在不存在的扇区里成为静默死配置。
+ *
+ * 触发列表只做概览（启用开关 + 进设置页），具体设置各触发独立一页
+ * [GlobalGestureTriggerEditorScreen]，不再用展开列（设置项多，展开列拥挤）。
  */
 @Composable
 fun GlobalGestureZoneEditorScreen(
     zoneId: String,
     onBack: () -> Unit,
-    onNavToActionSelect: (GestureActionTarget) -> Unit = {},
+    onNavToTriggerEditor: (String) -> Unit = {},
 ) {
     val settings by GestureConfig.globalGesture.collectAsStateWithLifecycle(
         initialValue = GlobalGestureSettings(),
@@ -98,8 +111,6 @@ fun GlobalGestureZoneEditorScreen(
     val zone = settings.zones.getOrNull(zoneIndex)
     var showAddTrigger by remember { mutableStateOf(false) }
     var showDeleteZone by remember { mutableStateOf(false) }
-    var showAngleEditorFor by remember { mutableStateOf<String?>(null) }
-    var showFingersFor by remember { mutableStateOf<String?>(null) }
     var adjustingBounds by remember { mutableStateOf(false) }
 
     fun updateZone(transform: (GlobalGestureZone) -> GlobalGestureZone) {
@@ -118,10 +129,6 @@ fun GlobalGestureZoneEditorScreen(
                 triggers = current.triggers.map { if (it.id == triggerId) transform(it) else it },
             )
         }
-    }
-
-    fun deleteTrigger(triggerId: String) {
-        updateZone { current -> current.copy(triggers = current.triggers.filterNot { it.id == triggerId }) }
     }
 
     if (zone == null) {
@@ -154,36 +161,6 @@ fun GlobalGestureZoneEditorScreen(
             }
         },
         sheets = {
-            val angleTriggerId = showAngleEditorFor
-            if (angleTriggerId != null) {
-                val trigger = zone.triggers.find { it.id == angleTriggerId }
-                if (trigger != null) {
-                    LunoSheet(onDismissRequest = { showAngleEditorFor = null }, showDragHandle = true) {
-                        GestureButtonAngleContent(
-                            angle = trigger.angle,
-                            onDismissRequest = { showAngleEditorFor = null },
-                            onConfirm = { angle ->
-                                updateTrigger(trigger.id) { it.copy(angle = angle) }
-                                showAngleEditorFor = null
-                            },
-                        )
-                    }
-                }
-            }
-            val fingersTriggerId = showFingersFor
-            if (fingersTriggerId != null) {
-                val trigger = zone.triggers.find { it.id == fingersTriggerId }
-                if (trigger != null) {
-                    TriggerFingersSheet(
-                        trigger = trigger,
-                        onDismissRequest = { showFingersFor = null },
-                        onSelect = { fingers ->
-                            updateTrigger(trigger.id) { it.copy(fingers = fingers) }
-                            showFingersFor = null
-                        },
-                    )
-                }
-            }
             if (showAddTrigger) {
                 AddTriggerSheet(
                     onDismissRequest = { showAddTrigger = false },
@@ -209,62 +186,30 @@ fun GlobalGestureZoneEditorScreen(
                 onChange = { bounds -> updateZone { it.copy(bounds = bounds) } },
             )
         }
-        item(key = "trigger_add") {
-            LunoGroup {
-                LunoSettingsRow(
-                    title = stringResource(R.string.gesture_global_trigger_add),
-                    icon = Icons.Default.Add,
-                    onClick = { showAddTrigger = true },
-                    shape = segmentedShape(0, 0),
-                )
-            }
-        }
-        if (zone.triggers.isNotEmpty()) {
-            item(key = "triggers") {
-                LunoGroup(title = stringResource(R.string.gesture_global_trigger)) {
+        item(key = "triggers") {
+            LunoGroup(
+                title = stringResource(R.string.gesture_global_trigger),
+                titleTrailing = {
+                    LunoIconButton(
+                        icon = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.gesture_global_trigger_add),
+                        onClick = { showAddTrigger = true },
+                    )
+                },
+            ) {
+                if (zone.triggers.isEmpty()) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.gesture_global_trigger_empty),
+                        shape = segmentedShape(0, 1),
+                    )
+                } else {
                     zone.triggers.forEachIndexed { index, trigger ->
-                        TriggerCard(
+                        TriggerListRow(
                             trigger = trigger,
                             index = index,
                             count = zone.triggers.size,
-                            onAngleClick = { showAngleEditorFor = trigger.id },
-                            onFingersClick = { showFingersFor = trigger.id },
                             onEnabledChange = { enabled -> updateTrigger(trigger.id) { it.copy(enabled = enabled) } },
-                            onVibrateChange = { enabled -> updateTrigger(trigger.id) { it.copy(vibrate = enabled) } },
-                            onFireOnHoldChange = { enabled ->
-                                updateTrigger(trigger.id) { current ->
-                                    if (enabled) {
-                                        current.copy(
-                                            fireOnHold = true,
-                                            action = current.action
-                                                ?: current.directionActions.actionBy(0),
-                                        )
-                                    } else {
-                                        current.copy(
-                                            fireOnHold = false,
-                                            directionActions = current.directionActions.withAction(
-                                                0,
-                                                current.directionActions.actionBy(0) ?: current.action,
-                                            ),
-                                        )
-                                    }
-                                }
-                            },
-                            onLongPressDelayChange = { ms -> updateTrigger(trigger.id) { it.copy(longPressDelayMs = ms) } },
-                            onDragTimeoutChange = { ms -> updateTrigger(trigger.id) { it.copy(dragStartTimeoutMs = ms) } },
-                            onSlopChange = { dp -> updateTrigger(trigger.id) { it.copy(slopDp = dp) } },
-                            onCooldownChange = { ms -> updateTrigger(trigger.id) { it.copy(triggerCooldownMs = ms) } },
-                            onActionClick = { slot, label ->
-                                onNavToActionSelect(
-                                    GestureActionTarget(
-                                        globalGestureTriggerId = trigger.id,
-                                        slot = slot,
-                                        directionLabel = label,
-                                        triggerType = trigger.kind.triggerType(),
-                                    ),
-                                )
-                            },
-                            onDelete = { deleteTrigger(trigger.id) },
+                            onClick = { onNavToTriggerEditor(trigger.id) },
                         )
                     }
                 }
@@ -292,120 +237,295 @@ fun GlobalGestureZoneEditorScreen(
 }
 
 @Composable
-private fun TriggerCard(
+private fun TriggerListRow(
     trigger: GlobalGestureTrigger,
     index: Int,
     count: Int,
-    onAngleClick: () -> Unit,
-    onFingersClick: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
-    onVibrateChange: (Boolean) -> Unit,
-    onFireOnHoldChange: (Boolean) -> Unit,
-    onLongPressDelayChange: (Int) -> Unit,
-    onDragTimeoutChange: (Int) -> Unit,
-    onSlopChange: (Float) -> Unit,
-    onCooldownChange: (Int) -> Unit,
-    onActionClick: (Int, String) -> Unit,
-    onDelete: () -> Unit,
+    onClick: () -> Unit,
 ) {
-    var expanded by remember(trigger.id) { mutableStateOf(index == 0) }
-    val title = buildString {
-        append(kindLabel(trigger.kind))
-        append(" · ")
-        append(stringResource(R.string.gesture_global_trigger_fingers_value, trigger.fingers))
-    }
-    ExpandableGestureActionCard(
+    LunoSwitchRow(
+        title = triggerTitle(trigger),
+        subtitle = triggerSummary(trigger),
         icon = kindIcon(trigger.kind),
-        title = title,
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        index = index,
-        count = count,
+        checked = trigger.enabled,
+        onCheckedChange = onEnabledChange,
+        onClick = onClick,
+        shape = segmentedShape(index, count),
+    )
+}
+
+@Composable
+private fun triggerTitle(trigger: GlobalGestureTrigger): String = buildString {
+    append(kindLabel(trigger.kind))
+    append(" · ")
+    append(stringResource(R.string.gesture_global_trigger_fingers_value, trigger.fingers))
+}
+
+/** 列表行动作摘要：无方向形态取单动作名，方向形态拼接已配置扇区的动作名。 */
+@Composable
+private fun triggerSummary(trigger: GlobalGestureTrigger): String {
+    val directional = trigger.kind.isDirectional ||
+        (trigger.kind == GlobalGestureKind.LongPress && !trigger.fireOnHold)
+    if (!directional) {
+        return trigger.action.actionTextCompose()
+    }
+    return DirectionLabels.clockwiseSlots(trigger.angle.boundaries)
+        .filterNot { it in trigger.angle.zeroWidthSlots() }
+        .mapNotNull { slot -> trigger.directionActions.actionBy(slot) }
+        .map { it.actionTextCompose() }
+        .joinToString(" · ")
+}
+
+/**
+ * 触发设置页：该触发一页装下全部设置（不再用展开列）。
+ *
+ * 「启用触发」在识别区列表行，不在此页；形态创建后固定，只改动作 / 手指数 / 阈值。
+ */
+@Composable
+fun GlobalGestureTriggerEditorScreen(
+    zoneId: String,
+    triggerId: String,
+    onBack: () -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit = {},
+) {
+    val settings by GestureConfig.globalGesture.collectAsStateWithLifecycle(
+        initialValue = GlobalGestureSettings(),
+    )
+    val scope = rememberCoroutineScope()
+    val zone = settings.zones.firstOrNull { it.id == zoneId }
+    val trigger = zone?.triggers?.firstOrNull { it.id == triggerId }
+    var showDelete by remember { mutableStateOf(false) }
+    var showAngleEditor by remember { mutableStateOf(false) }
+    var showFingers by remember { mutableStateOf(false) }
+
+    fun updateTrigger(transform: (GlobalGestureTrigger) -> GlobalGestureTrigger) {
+        scope.launch {
+            GestureConfig.updateGlobalGesture { current ->
+                current.copy(
+                    zones = current.zones.map { z ->
+                        if (z.id == zoneId) {
+                            z.copy(
+                                triggers = z.triggers.map { if (it.id == triggerId) transform(it) else it },
+                            )
+                        } else {
+                            z
+                        }
+                    },
+                )
+            }
+        }
+    }
+
+    if (zone == null || trigger == null) {
+        // 删除后配置流先到、导航还没回退：不渲染空壳。
+        return
+    }
+
+    LunoScreenLazy(
+        title = triggerTitle(trigger),
+        onBack = onBack,
+        actions = {
+            LunoIconButton(
+                icon = Icons.Default.Delete,
+                contentDescription = stringResource(R.string.gesture_global_trigger_delete),
+                onClick = { showDelete = true },
+            )
+        },
+        sheets = {
+            if (showAngleEditor) {
+                LunoSheet(onDismissRequest = { showAngleEditor = false }, showDragHandle = true) {
+                    GestureButtonAngleContent(
+                        angle = trigger.angle,
+                        onDismissRequest = { showAngleEditor = false },
+                        onConfirm = { angle ->
+                            updateTrigger { it.copy(angle = angle) }
+                            showAngleEditor = false
+                        },
+                    )
+                }
+            }
+            if (showFingers) {
+                TriggerFingersSheet(
+                    trigger = trigger,
+                    onDismissRequest = { showFingers = false },
+                    onSelect = { fingers ->
+                        updateTrigger { it.copy(fingers = fingers) }
+                        showFingers = false
+                    },
+                )
+            }
+        },
     ) {
-        LunoSwitchRow(
-            title = stringResource(R.string.gesture_global_trigger_enabled),
-            checked = trigger.enabled,
-            onCheckedChange = onEnabledChange,
-            shape = actionContentRowShape(0, 1),
-        )
-        if (trigger.kind == GlobalGestureKind.LongPress) {
-            LunoSwitchRow(
-                title = stringResource(R.string.gesture_global_trigger_fire_on_hold),
-                subtitle = stringResource(R.string.gesture_global_trigger_fire_on_hold_hint),
-                checked = trigger.fireOnHold,
-                onCheckedChange = onFireOnHoldChange,
-                shape = actionContentRowShape(0, 1),
-            )
+        item(key = "behavior") {
+            LunoGroup(title = stringResource(R.string.gesture_global_trigger_behavior)) {
+                val count = behaviorRowCount(trigger)
+                var row = 0
+                if (trigger.kind == GlobalGestureKind.LongPress) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.gesture_global_trigger_fire_on_hold),
+                        subtitle = stringResource(R.string.gesture_global_trigger_fire_on_hold_hint),
+                        checked = trigger.fireOnHold,
+                        onCheckedChange = { enabled ->
+                            updateTrigger { current ->
+                                if (enabled) {
+                                    current.copy(
+                                        fireOnHold = true,
+                                        action = current.action ?: current.directionActions.actionBy(0),
+                                    )
+                                } else {
+                                    current.copy(
+                                        fireOnHold = false,
+                                        directionActions = current.directionActions.withAction(
+                                            0,
+                                            current.directionActions.actionBy(0) ?: current.action,
+                                        ),
+                                    )
+                                }
+                            }
+                        },
+                        shape = segmentedShape(row, count),
+                    )
+                    row++
+                }
+                LunoSettingsRow(
+                    title = stringResource(R.string.gesture_global_trigger_fingers),
+                    subtitle = stringResource(R.string.gesture_global_trigger_fingers_value, trigger.fingers),
+                    onClick = { showFingers = true },
+                    shape = segmentedShape(row, count),
+                )
+                row++
+                if (trigger.kind.allowsAngle() &&
+                    !(trigger.kind == GlobalGestureKind.LongPress && trigger.fireOnHold)
+                ) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.gesture_angles),
+                        subtitle = if (trigger.angle.count <= 1) {
+                            stringResource(R.string.gesture_global_trigger_any_direction)
+                        } else {
+                            "${trigger.angle.count}"
+                        },
+                        onClick = { showAngleEditor = true },
+                        shape = segmentedShape(row, count),
+                    )
+                }
+            }
         }
-        LunoSettingsRow(
-            title = stringResource(R.string.gesture_global_trigger_fingers),
-            subtitle = stringResource(R.string.gesture_global_trigger_fingers_value, trigger.fingers),
-            onClick = onFingersClick,
-            shape = actionContentRowShape(0, 1),
-        )
-        if (trigger.kind.allowsAngle() &&
-            !(trigger.kind == GlobalGestureKind.LongPress && trigger.fireOnHold)
-        ) {
-            LunoSettingsRow(
-                title = stringResource(R.string.gesture_angles),
-                subtitle = if (trigger.angle.count <= 1) {
-                    stringResource(R.string.gesture_global_trigger_any_direction)
+        item(key = "actions") {
+            LunoGroup {
+                TriggerActionRows(
+                    trigger = trigger,
+                    onClick = { slot, label ->
+                        onNavToActionSelect(
+                            GestureActionTarget(
+                                globalGestureTriggerId = trigger.id,
+                                slot = slot,
+                                directionLabel = label,
+                                triggerType = trigger.kind.triggerType(),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        item(key = "thresholds") {
+            LunoGroup(title = stringResource(R.string.gesture_global_trigger_threshold)) {
+                if (trigger.kind == GlobalGestureKind.LongPress) {
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_long_press_delay),
+                        value = trigger.longPressDelayMs.toFloat(),
+                        range = 100f..1_500f,
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(longPressDelayMs = v.roundToInt()) } },
+                        shape = segmentedShape(0, 4),
+                    )
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_drag_timeout),
+                        value = trigger.dragStartTimeoutMs.toFloat(),
+                        range = 0f..5_000f,
+                        display = {
+                            if (it.roundToInt() == 0) {
+                                stringResource(R.string.gesture_global_trigger_drag_timeout_off)
+                            } else {
+                                "${it.roundToInt()} ms"
+                            }
+                        },
+                        onCommit = { v -> updateTrigger { it.copy(dragStartTimeoutMs = v.roundToInt()) } },
+                        shape = segmentedShape(1, 4),
+                    )
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_slop),
+                        value = trigger.slopDp,
+                        range = 2f..40f,
+                        display = { "${it.roundToInt()} dp" },
+                        onCommit = { v -> updateTrigger { it.copy(slopDp = v.roundToInt().toFloat()) } },
+                        shape = segmentedShape(2, 4),
+                    )
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_cooldown),
+                        value = trigger.triggerCooldownMs.toFloat(),
+                        range = 0f..3_000f,
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(triggerCooldownMs = v.roundToInt()) } },
+                        shape = segmentedShape(3, 4),
+                    )
                 } else {
-                    "${trigger.angle.count}"
-                },
-                onClick = onAngleClick,
-                shape = actionContentRowShape(0, 1),
-            )
+                    SliderRow(
+                        title = stringResource(R.string.gesture_global_trigger_cooldown),
+                        value = trigger.triggerCooldownMs.toFloat(),
+                        range = 0f..3_000f,
+                        display = { "${it.roundToInt()} ms" },
+                        onCommit = { v -> updateTrigger { it.copy(triggerCooldownMs = v.roundToInt()) } },
+                        shape = segmentedShape(0, 1),
+                    )
+                }
+            }
         }
-        TriggerActionRows(trigger = trigger, onClick = onActionClick)
-        if (trigger.kind == GlobalGestureKind.LongPress) {
-            SliderRow(
-                title = stringResource(R.string.gesture_global_trigger_long_press_delay),
-                value = trigger.longPressDelayMs.toFloat(),
-                range = 100f..1_500f,
-                display = { "${it.roundToInt()} ms" },
-                onCommit = { onLongPressDelayChange(it.roundToInt()) },
-            )
-            SliderRow(
-                title = stringResource(R.string.gesture_global_trigger_drag_timeout),
-                value = trigger.dragStartTimeoutMs.toFloat(),
-                range = 0f..5_000f,
-                display = {
-                    if (it.roundToInt() == 0) {
-                        stringResource(R.string.gesture_global_trigger_drag_timeout_off)
-                    } else {
-                        "${it.roundToInt()} ms"
-                    }
-                },
-                onCommit = { onDragTimeoutChange(it.roundToInt()) },
-            )
-            SliderRow(
-                title = stringResource(R.string.gesture_global_trigger_slop),
-                value = trigger.slopDp,
-                range = 2f..40f,
-                display = { "${it.roundToInt()} dp" },
-                onCommit = { onSlopChange(it.roundToInt().toFloat()) },
-            )
+        item(key = "feedback") {
+            LunoGroup(title = stringResource(R.string.gesture_global_trigger_feedback)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.gesture_global_trigger_vibrate),
+                    checked = trigger.vibrate,
+                    onCheckedChange = { enabled -> updateTrigger { it.copy(vibrate = enabled) } },
+                    shape = segmentedShape(0, 1),
+                )
+            }
         }
-        SliderRow(
-            title = stringResource(R.string.gesture_global_trigger_cooldown),
-            value = trigger.triggerCooldownMs.toFloat(),
-            range = 0f..3_000f,
-            display = { "${it.roundToInt()} ms" },
-            onCommit = { onCooldownChange(it.roundToInt()) },
-        )
-        LunoSwitchRow(
-            title = stringResource(R.string.gesture_global_trigger_vibrate),
-            checked = trigger.vibrate,
-            onCheckedChange = onVibrateChange,
-            shape = actionContentRowShape(0, 1),
-        )
-        LunoSettingsRow(
+    }
+
+    if (showDelete) {
+        ConfirmDialog(
             title = stringResource(R.string.gesture_global_trigger_delete),
-            onClick = onDelete,
-            shape = actionContentRowShape(0, 1),
+            text = stringResource(R.string.gesture_global_trigger_delete_desc),
+            destructive = true,
+            onDismissRequest = { showDelete = false },
+            onConfirm = {
+                showDelete = false
+                scope.launch {
+                    GestureConfig.updateGlobalGesture { current ->
+                        current.copy(
+                            zones = current.zones.map { z ->
+                                if (z.id == zoneId) {
+                                    z.copy(triggers = z.triggers.filterNot { it.id == triggerId })
+                                } else {
+                                    z
+                                }
+                            },
+                        )
+                    }
+                    onBack()
+                }
+            },
         )
     }
+}
+
+/** 「触发行为」组的行数（按住即触发 / 手指数 / 角度按形态与状态增减）。 */
+private fun behaviorRowCount(trigger: GlobalGestureTrigger): Int {
+    val fireOnHold = if (trigger.kind == GlobalGestureKind.LongPress) 1 else 0
+    val angle = if (trigger.kind.allowsAngle() &&
+        !(trigger.kind == GlobalGestureKind.LongPress && trigger.fireOnHold)) 1 else 0
+    return 1 + fireOnHold + angle
 }
 
 @Composable
@@ -420,7 +540,7 @@ private fun TriggerActionRows(
             title = stringResource(R.string.gesture_global_trigger_actions),
             subtitle = trigger.action.actionTextCompose(),
             onClick = { onClick(0, "") },
-            shape = actionContentRowShape(0, 1),
+            shape = segmentedShape(0, 1),
         )
         return
     }
@@ -434,7 +554,7 @@ private fun TriggerActionRows(
             centerDegrees = center,
             count = trigger.angle.count,
             subtitle = trigger.directionActions.actionBy(slot).actionTextCompose(),
-            shape = actionContentRowShape(slots.indexOf(slot), slots.size),
+            shape = segmentedShape(slots.indexOf(slot), slots.size),
         )
     }
 }
@@ -446,6 +566,7 @@ private fun SliderRow(
     range: ClosedFloatingPointRange<Float>,
     display: @Composable (Float) -> String,
     onCommit: (Float) -> Unit,
+    shape: Shape,
 ) {
     var draft by remember(value) { mutableStateOf(value) }
     LunoTextSlider(
@@ -455,7 +576,7 @@ private fun SliderRow(
         text = title,
         valueDisplay = { display(it) },
         valueRange = range,
-        shape = actionContentRowShape(0, 1),
+        shape = shape,
     )
 }
 
@@ -702,42 +823,37 @@ private fun AddTriggerSheet(
     val fingers = remember(pickedKind) {
         (1..3).filter { pickedKind.allowsFingers(it) }
     }
-    LunoSheet(onDismissRequest = onDismissRequest) {
-        Text(
-            text = stringResource(R.string.gesture_global_trigger_add),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(vertical = hunoia.luno.ui.theme.PageGutter),
-        )
-        androidx.compose.foundation.lazy.LazyColumn(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                bottom = hunoia.luno.ui.theme.ContentBottom,
-            ),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(SegmentedGap),
+    val scrollState = rememberScrollState()
+    LunoSheet(
+        onDismissRequest = onDismissRequest,
+        scrollState = OptimizedScrollState.Scroll(scrollState),
+    ) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(scrollState)
+                .padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
-            items(GlobalGestureKind.entries.size) { index ->
-                val kind = GlobalGestureKind.entries[index]
-                LunoSelectableRow(
-                    title = kindLabel(kind),
-                    selected = pickedKind == kind,
-                    singleSelect = true,
-                    onSelectedChange = { pickedKind = kind },
-                )
+            LunoGroup(title = stringResource(R.string.gesture_global_trigger_kind)) {
+                GlobalGestureKind.entries.forEachIndexed { index, kind ->
+                    LunoSelectableRow(
+                        title = kindLabel(kind),
+                        selected = pickedKind == kind,
+                        singleSelect = true,
+                        onSelectedChange = { pickedKind = kind },
+                        shape = segmentedShape(index, GlobalGestureKind.entries.size),
+                    )
+                }
             }
-            item {
-                Text(
-                    text = stringResource(R.string.gesture_global_trigger_fingers),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = ListSpacing),
-                )
-            }
-            items(fingers.size) { index ->
-                val count = fingers[index]
-                LunoSelectableRow(
-                    title = stringResource(R.string.gesture_global_trigger_create_fingers, count),
-                    selected = false,
-                    onSelectedChange = { onCreate(pickedKind, count) },
-                )
+            LunoGroup(title = stringResource(R.string.gesture_global_trigger_fingers)) {
+                fingers.forEachIndexed { index, count ->
+                    LunoSelectableRow(
+                        title = stringResource(R.string.gesture_global_trigger_create_fingers, count),
+                        selected = false,
+                        onSelectedChange = { onCreate(pickedKind, count) },
+                        shape = segmentedShape(index, fingers.size),
+                    )
+                }
             }
         }
     }
@@ -751,18 +867,16 @@ private fun TriggerFingersSheet(
 ) {
     val fingers = (1..3).filter { trigger.kind.allowsFingers(it) }
     LunoSheet(onDismissRequest = onDismissRequest) {
-        Text(
-            text = stringResource(R.string.gesture_global_trigger_fingers),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(vertical = hunoia.luno.ui.theme.PageGutter),
-        )
-        fingers.fastForEach { count ->
-            LunoSelectableRow(
-                title = stringResource(R.string.gesture_global_trigger_fingers_value, count),
-                selected = trigger.fingers == count,
-                singleSelect = true,
-                onSelectedChange = { onSelect(count) },
-            )
+        LunoGroup(title = stringResource(R.string.gesture_global_trigger_fingers)) {
+            fingers.forEachIndexed { index, count ->
+                LunoSelectableRow(
+                    title = stringResource(R.string.gesture_global_trigger_fingers_value, count),
+                    selected = trigger.fingers == count,
+                    singleSelect = true,
+                    onSelectedChange = { onSelect(count) },
+                    shape = segmentedShape(index, fingers.size),
+                )
+            }
         }
     }
 }

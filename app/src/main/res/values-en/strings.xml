@@ -209,6 +209,7 @@
     <string name="sub_gesture_default_name">Sub-gesture %1$d</string>
 
     <string name="search_app_hint">Search apps</string>
+    <string name="search_collapse">Collapse search</string>
     <string name="add_sub_gesture">Add sub-gesture</string>
     <string name="home_section_settings">Settings</string>
     <string name="home_section_gesture">Gestures</string>

@@ -1,11 +1,16 @@
 package hunoia.luno.ui.settings.action
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,22 +18,23 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,10 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.R
 import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.AppContext
@@ -48,10 +60,19 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.core.domain.RecentApp
 import hunoia.luno.quickaccess.model.getIcon
 import hunoia.luno.quickaccess.model.identity
+import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.ui.component.IndexBar
+import hunoia.luno.ui.component.IndexBarEntry
+import hunoia.luno.ui.component.IndexBarOrientation
+import hunoia.luno.ui.component.IndexBarSide
 import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenPlain
@@ -60,9 +81,9 @@ import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.glassCapsule
@@ -70,15 +91,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import hunoia.luno.ui.component.PressFloatingActionButton
-import hunoia.luno.ui.component.PressTextButton
 
 /**
  * 最近应用黑名单（全屏版应用多选）：选择列表由调用方提供、结果经 [onSave] 落盘，
- * 通知胶囊黑名单等复用同一交互。选择只保存在本地草稿；点右下角 FAB 才提交。
+ * 通知胶囊黑名单等复用同一交互。选择只保存在本地草稿；点底栏「保存」才提交。
  * 直接返回（含系统返回键）不写配置，即取消。
+ *
+ * 列表按拼音字母分节（A–#、节内全拼序），风格跟随全局大卡/分割设置（[LunoGroup]），
+ * 右下角贴底限高拼音滑杆（[IndexBar]，最多 5 个字母）直接覆盖在列表上，搜索态隐藏。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecentAppsBlocklistScreen(
     onBack: () -> Unit,
@@ -96,10 +118,9 @@ fun RecentAppsBlocklistScreen(
     // 按行惰性加载进这张屏幕级 map，行渲染同步命中，滚动回看不再闪。
     val appIcons = remember { mutableStateMapOf<String, ImageBitmap>() }
     var searchQuery by remember { mutableStateOf("") }
+    var searchExpanded by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
-    // 进入页面只重排一次：配置与列表都就绪后，把已选项排到前面。
-    var initialOrderApplied by remember { mutableStateOf(false) }
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
         if (granted) {
             // 刚授权：清掉进程级缓存里的空表，再触发重读。
@@ -114,17 +135,6 @@ fun RecentAppsBlocklistScreen(
             QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
         }
         loading = false
-    }
-
-    // 配置可能是异步到达的：等 apps 与已选列表都就绪后再排一次，且只排一次。
-    LaunchedEffect(apps, current) {
-        if (!initialOrderApplied && apps.isNotEmpty()) {
-            val selectedKeys = current.toSet()
-            apps = apps.sortedByDescending {
-                RecentApp.blockKey(it.packageName, it.userId) in selectedKeys
-            }
-            initialOrderApplied = true
-        }
     }
 
     LaunchedEffect(permissionState.isGranted, loaded) {
@@ -144,6 +154,12 @@ fun RecentAppsBlocklistScreen(
                 it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
+
+    // 纯字母序分节（A–#、节内全拼序）：右侧滑杆要能稳定落到某个字母。
+    val sections = remember(filteredApps) {
+        AppDrawerSections.alphabeticalSectionsOf(filteredApps) { it.label }
+    }
+    val listState = rememberLazyListState()
 
     fun confirm() {
         val ordered = current.filter { it in selected } +
@@ -199,13 +215,24 @@ fun RecentAppsBlocklistScreen(
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // 列表是 hazeSource：底部搜索胶囊作为兄弟节点悬浮其上、采列表做毛玻璃
-                    // （ui-guidelines §5，与动作选择页底栏同一层次关系）。
-                    val selectionFlags = filteredApps.map {
-                        RecentApp.blockKey(it.packageName, it.userId) in selected
+                    val density = LocalDensity.current
+                    val imeBottom = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+                    val barEntries = remember(sections) {
+                        sections.map {
+                            IndexBarEntry(
+                                key = it.letter.toString(),
+                                label = it.letter.toString(),
+                            )
+                        }
                     }
+                    // 搜索态隐藏滑杆：键盘 + 全宽搜索框 + 滑杆三重重叠，输入过滤本就无需跳字母。
+                    // （横向滑杆 metrics 由 IndexBar 内部按自身可用宽度自算。）
+                    val showIndex = !loading && sections.isNotEmpty() && !searchExpanded
                     val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
+                    // 列表全屏（不压缩）：内容底部让位给悬浮底栏 + 键盘。列表滚到玻璃胶囊后面
+                    // 被模糊（AppControlScreen 同款），不再露出 Scaffold 背景层盖住列表。
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
                             .appHazeSource(hazeState),
@@ -213,97 +240,133 @@ fun RecentAppsBlocklistScreen(
                             start = PageGutter,
                             end = PageGutter,
                             top = CardInnerSpacing,
-                            bottom = SearchFabCapsuleReservedBottom,
+                            bottom = ToolbarReservedBottom + imeBottom,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                        verticalArrangement = Arrangement.spacedBy(ListSpacing),
                     ) {
                         if (loading) {
                             item { LoadingState(message = stringResource(R.string.loading)) }
                         } else if (filteredApps.isEmpty()) {
-                            item { EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results)) }
+                            item {
+                                EmptyState(
+                                    message = stringResource(hunoia.luno.design.R.string.no_matching_results),
+                                )
+                            }
                         } else {
-                            itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
-                                val blockKey = RecentApp.blockKey(item.packageName, item.userId)
-                                val iconKey = item.identity
-                                val icon = appIcons[iconKey]
-                                if (icon == null) {
-                                    LaunchedEffect(iconKey) {
-                                        // 快甩全量列表时每行都会进这里：限流，别让几百行同时发起
-                                        // 图标加载（口径同 QuickLaunchContentState 的预热并发）。
-                                        iconLoadGate.withPermit {
-                                            val bitmap = withContext(Dispatchers.IO) {
-                                                item.getIcon(AppContext.get())?.let { it.toIconBitmap(iconPx) }
+                            sections.forEach { section ->
+                                stickyHeader(key = "app_header_${section.letter}") {
+                                    SheetGroupHeader(section.letter.toString())
+                                }
+                                item(key = "app_body_${section.letter}") {
+                                    // LunoGroup 自动跟随全局大卡/分割：Segmented 时行各带圆角
+                                    // 缝；CardDivided 时整节一张大卡、行间缩进分割线（页面不判风格）。
+                                    LunoGroup {
+                                        val sectionFlags = section.items.map {
+                                            RecentApp.blockKey(it.packageName, it.userId) in selected
+                                        }
+                                        section.items.forEachIndexed { index, item ->
+                                            val blockKey = RecentApp.blockKey(
+                                                item.packageName,
+                                                item.userId,
+                                            )
+                                            val iconKey = item.identity
+                                            val icon = appIcons[iconKey]
+                                            if (icon == null) {
+                                                LaunchedEffect(iconKey) {
+                                                    // 快甩全量列表时每行都会进这里：限流，别让几百行同时发起
+                                                    // 图标加载（口径同 QuickLaunchContentState 的预热并发）。
+                                                    iconLoadGate.withPermit {
+                                                        val bitmap = withContext(Dispatchers.IO) {
+                                                            item.getIcon(AppContext.get())
+                                                                ?.let { it.toIconBitmap(iconPx) }
+                                                        }
+                                                        if (bitmap != null) appIcons[iconKey] = bitmap
+                                                    }
+                                                }
                                             }
-                                            if (bitmap != null) appIcons[iconKey] = bitmap
+                                            LunoSelectableRow(
+                                                title = if (item.isClone) {
+                                                    "${item.label} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
+                                                } else {
+                                                    item.label
+                                                },
+                                                subtitle = item.packageName,
+                                                iconBitmap = icon,
+                                                selected = blockKey in selected,
+                                                onSelectedChange = { isSelected ->
+                                                    selected = if (isSelected) {
+                                                        selected + blockKey
+                                                    } else {
+                                                        selected - blockKey
+                                                    }
+                                                },
+                                                shape = selectedSegmentedShape(
+                                                    index,
+                                                    section.items.size,
+                                                    sectionFlags,
+                                                ),
+                                            )
                                         }
                                     }
                                 }
-                                LunoSelectableRow(
-                                    title = if (item.isClone) {
-                                        "${item.label} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
-                                    } else {
-                                        item.label
-                                    },
-                                    subtitle = item.packageName,
-                                    iconBitmap = icon,
-                                    selected = blockKey in selected,
-                                    onSelectedChange = { isSelected ->
-                                        selected = if (isSelected) {
-                                            selected + blockKey
-                                        } else {
-                                            selected - blockKey
-                                        }
-                                    },
-                                    shape = selectedSegmentedShape(index, filteredApps.size, selectionFlags),
-                                )
                             }
                         }
                     }
-                    // 底部悬浮区（FAB 叠在搜索胶囊上方，层叠同主页 FAB/底栏）：
-                    // inset 取导航栏 ∪ 键盘 —— 键盘弹起时胶囊带着 FAB 一起抬上来，
-                    // 搜索框不会被键盘压住（相加会多顶一截，见动作选择页底栏注释）。
+                    // 底部一行：横向字母滑杆（胶囊左侧，宽度自适应）+ 悬浮玻璃胶囊（保存/搜索）。
+                    // IME∪导航 inset 与 bottom padding 由外层 Column 统一承担，滑杆与胶囊同一水平线。
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = BottomBarPadding)
+                            .swallowTouches()
                             .windowInsetsPadding(
                                 WindowInsets.navigationBars
                                     .only(WindowInsetsSides.Bottom)
                                     .union(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
+                            )
+                            .windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                            )
+                            .padding(
+                                start = PageGutter,
+                                end = PageGutter,
+                                bottom = BottomBarPadding,
                             ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // 与 LunoFab 同口径：全 app 的 FAB 都无 ripple（反馈靠容器色/图标）。
-                            PressFloatingActionButton(
-                                onClick = { confirm() },
-                                modifier = Modifier
-                                    .align(Alignment.End)
-                                    .padding(end = PageGutter, bottom = CardInnerSpacing)
-                                    .size(FabSize),
-                                shape = FloatingActionButtonDefaults.shape,
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Save,
-                                    contentDescription = stringResource(hunoia.luno.design.R.string.confirm),
-                                )
-                            }
-                        // 常驻搜索胶囊：与动作选择页底栏同一套玻璃样式（glassCapsule），
-                        // 无展开/收起；进页不自动聚焦（focusRequester 不传），点框才弹键盘。
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = PageGutter)
-                                .glassCapsule(hazeState),
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            LunoSearchField(
+                            if (showIndex) {
+                                val activeKey = sections
+                                    .getOrNull(listState.firstVisibleItemIndex / 2)
+                                    ?.letter?.toString()
+                                IndexBar(
+                                    entries = barEntries,
+                                    metrics = null,
+                                    activeKey = activeKey,
+                                    side = IndexBarSide.Start,
+                                    onJump = { entry ->
+                                        val sectionIndex = sections.indexOfFirst {
+                                            it.letter.toString() == entry.key
+                                        }
+                                        if (sectionIndex >= 0) {
+                                            listState.requestScrollToItem(sectionIndex * 2)
+                                        }
+                                    },
+                                    orientation = IndexBarOrientation.Horizontal,
+                                    maxWindow = 5,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(modifier = Modifier.width(LetterBarCapsuleGap))
+                            }
+                            BlocklistToolbar(
+                                hazeState = hazeState,
+                                searchExpanded = searchExpanded,
                                 query = searchQuery,
                                 onQueryChange = { searchQuery = it },
-                                placeholder = stringResource(R.string.search_app_hint),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(BottomBarHeight),
+                                onToggleSearch = { searchExpanded = !searchExpanded },
+                                onSave = { confirm() },
                             )
                         }
                     }
@@ -313,13 +376,158 @@ fun RecentAppsBlocklistScreen(
     }
 }
 
-/** FAB 尺寸（与 LunoFab/主页一致）。 */
-private val FabSize = 64.dp
+/**
+ * 底部玻璃胶囊工具条（复刻 AppControlToolbar 的简化变体，ui-guidelines §4.2/§4.3）：
+ * 常态靠右 [保存][搜索]，搜索点击展开全宽输入框 + × 收起。几何口径同
+ * AppControlScreen —— `glassCapsule` 容器、IME∪导航 inset、`BackHandler` 收搜索、
+ * 展开后取焦点、`swallowTouches` 防穿透。
+ */
+@Composable
+private fun BlocklistToolbar(
+    hazeState: HazeState,
+    searchExpanded: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onToggleSearch: () -> Unit,
+    onSave: () -> Unit,
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val imeVisible by remember(density, imeInsets) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
+    val focusRequester = remember { FocusRequester() }
+    var collapsePending by remember { mutableStateOf(false) }
+
+    // 收起搜索：先收键盘，等 IME 真正收起再清 query + 收起，不挤在同一段动画里。
+    fun closeSearch() {
+        if (imeVisible) {
+            collapsePending = true
+            keyboard?.hide()
+        } else {
+            collapsePending = false
+            onQueryChange("")
+            onToggleSearch()
+        }
+    }
+    LaunchedEffect(collapsePending, imeVisible) {
+        if (collapsePending && !imeVisible) {
+            collapsePending = false
+            onQueryChange("")
+            onToggleSearch()
+        }
+    }
+    // 系统返回先收搜索框，否则输入到一半直接退页。
+    BackHandler(enabled = searchExpanded) { closeSearch() }
+
+    // 玻璃胶囊容器：靠右、随内容自适应；搜索时展开全宽。insets/padding 由外层底部 Column 承担。
+    Column(
+        modifier = Modifier
+            .then(if (searchExpanded) Modifier.fillMaxWidth() else Modifier)
+            .glassCapsule(hazeState),
+    ) {
+        Row(
+            modifier = Modifier
+                .then(if (searchExpanded) Modifier.fillMaxWidth() else Modifier)
+                .height(BottomBarHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (searchExpanded) {
+                ToolbarSearchContent(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    focusRequester = focusRequester,
+                    onClose = { closeSearch() },
+                )
+            } else {
+                ToolbarNormalContent(
+                    onSave = onSave,
+                    onToggleSearch = onToggleSearch,
+                )
+            }
+        }
+    }
+}
+
+/** 常态：保存 + 搜索（均图标按钮，与 AppControlToolbar 同一形态）。 */
+@Composable
+private fun ToolbarNormalContent(
+    onSave: () -> Unit,
+    onToggleSearch: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxHeight(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        PressIconButton(onClick = onSave) {
+            Icon(
+                Icons.Default.Save,
+                contentDescription = stringResource(hunoia.luno.design.R.string.confirm),
+            )
+        }
+        PressIconButton(onClick = onToggleSearch) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = stringResource(R.string.search_app_hint),
+            )
+        }
+    }
+}
+
+/** 搜索：输入框 + × 收起；展开动画铺好布局再取焦点（节点未挂载时 requestFocus 落空）。 */
+@Composable
+private fun ToolbarSearchContent(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    focusRequester: FocusRequester,
+    onClose: () -> Unit,
+) {
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(placed) {
+        if (placed) runCatching { focusRequester.requestFocus() }
+    }
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        LunoSearchField(
+            query = query,
+            onQueryChange = onQueryChange,
+            placeholder = stringResource(R.string.search_app_hint),
+            focusRequester = focusRequester,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .onGloballyPositioned { placed = true },
+        )
+        PressIconButton(onClick = onClose) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = stringResource(R.string.search_collapse),
+            )
+        }
+    }
+}
+
+/** 只吃事件、不做任何事：把落在工具条矩形范围内的触摸从下层列表手里拿回来。 */
+private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
+        }
+    }
+}
 
 /** 行图标加载并发上限：快甩列表时每行一个协程，限流防瞬时几百路 PackageManager 调用。 */
 private val iconLoadGate = Semaphore(ICON_LOAD_CONCURRENCY)
 private const val ICON_LOAD_CONCURRENCY = 4
 
-/** 底部悬浮区让位：FAB + 间距 + 胶囊本高（BottomBarHeight + 2×TileInnerPadding）+ BottomBarPadding。 */
-private val SearchFabCapsuleReservedBottom =
-    FabSize + CardInnerSpacing + BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding
+/** 底部悬浮区让位：胶囊本高（BottomBarHeight + 2×TileInnerPadding）+ BottomBarPadding。 */
+private val ToolbarReservedBottom =
+    BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding
+
+/** 横向滑杆与悬浮胶囊之间的水平间隙。 */
+private val LetterBarCapsuleGap = 12.dp

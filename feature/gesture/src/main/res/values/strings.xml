@@ -79,7 +79,6 @@
     <string name="gesture_global_zone_height">高度</string>
     <string name="gesture_global_zone_delete">删除识别区</string>
     <string name="gesture_global_zone_delete_desc">将删除该识别区及其全部触发，是否继续？</string>
-    <string name="gesture_global_trigger_enabled">启用触发</string>
     <string name="gesture_global_trigger">触发</string>
     <string name="gesture_global_trigger_add">添加触发</string>
     <string name="gesture_global_trigger_create_fingers">创建 %1$d 指手势</string>
@@ -96,6 +95,12 @@
     <string name="gesture_global_trigger_cooldown">触发冷却</string>
     <string name="gesture_global_trigger_vibrate">震动反馈</string>
     <string name="gesture_global_trigger_delete">删除触发</string>
+    <string name="gesture_global_trigger_delete_desc">删除后该触发的动作与阈值一并清除。</string>
+    <string name="gesture_global_trigger_empty">还没有触发，点右上角 + 添加</string>
+    <string name="gesture_global_trigger_kind">手势类型</string>
+    <string name="gesture_global_trigger_behavior">触发行为</string>
+    <string name="gesture_global_trigger_threshold">触发阈值</string>
+    <string name="gesture_global_trigger_feedback">反馈</string>
 
     <string name="button_visibility_blocklist_group">黑名单</string>
     <string name="button_visibility_recent_apps_blocklist">最近应用黑名单</string>

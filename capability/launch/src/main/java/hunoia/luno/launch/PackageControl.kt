@@ -3,6 +3,7 @@ package hunoia.luno.launch
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.core.AppContext
+import hunoia.luno.quickaccess.query.AppAvailability
 import hunoia.luno.quickaccess.query.AppQuery
 import hunoia.luno.quickaccess.query.DisabledAppQuery
 import hunoia.luno.quickaccess.query.LauncherEnvironment
@@ -56,14 +57,21 @@ object PackageControl {
     suspend fun unfreezeBatch(packageNames: Collection<String>): BatchResult =
         batch(packageNames, enable = true)
 
-    /** 一键冻结：名单中仍安装的包（卸载后残留在名单里的包直接跳过）。 */
+    /** 一键冻结：名单中仍安装且未冻结的包（已冻结 / 已卸载的不重复冻结）。 */
     suspend fun freezeOneKey(): BatchResult {
         val context = AppContext.get()
         val oneKey = oneKeyPackages()
         val installed = withContext(Dispatchers.IO) {
             oneKey.filterTo(mutableSetOf()) { isInstalled(context, it) }
         }
-        return freezeBatch(AppControlTargets.freezeTargets(oneKey, installed))
+        // 已冻结（Luno disabled / 系统 suspend）不再进目标：否则 no-op 也计为成功，
+        // toast 数量会等于名单大小而非「实际新冻结数」。
+        val frozen = withContext(Dispatchers.IO) {
+            installed.filterTo(mutableSetOf()) {
+                DisabledAppQuery.availability(context, it) != AppAvailability.ENABLED
+            }
+        }
+        return freezeBatch(AppControlTargets.freezeTargets(oneKey, installed, frozen))
     }
 
     /** 一键解冻：名单 ∩ 当前 disabled；suspend 包会被 [batch] 明确拒绝。 */
