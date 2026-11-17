@@ -277,6 +277,21 @@ class NotificationPulseListener : NotificationListenerService() {
             }.getOrDefault(true)
         }
 
+        /**
+         * [key] 对应的通知**当前最新内容**；监听器未连接或该通知已不在通知栏时返回 null，
+         * 调用方回退到自己捕获的快照。
+         *
+         * 通知会在胶囊的 settle 窗口内原地改写（发送中 → 已发送、上传进度）；直接路由
+         * 捕获时的快照会把改写前的文案弹上胶囊。
+         */
+        fun currentPulse(key: String?): NotificationPulse? {
+            if (key == null || instance == null) return null
+            if (!isPosted(key)) return null
+            return synchronized(activeLock) {
+                activeCache.firstOrNull { it.key == key }
+            }
+        }
+
         /** 胶囊滑掉通知项时同步撤销系统通知；失败返回 false，调用方保留收件箱项。 */
         fun cancelPosted(key: String?): Boolean {
             if (key.isNullOrBlank()) return false

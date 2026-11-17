@@ -71,9 +71,9 @@ class ButtonWindowController(
         if (!hidden) return
         for (view in _buttonViews) {
             val lp = view.layoutParams as? WindowManager.LayoutParams ?: continue
-            val before = lp.snapshot()
+            val before = lp.changeSnapshot()
             WindowLayoutFactory.updateGestureButtonTouch(lp, touchEnabled = false)
-            if (!lp.snapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
+            if (!lp.changeSnapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
         }
     }
 
@@ -151,12 +151,12 @@ class ButtonWindowController(
      */
     private fun applyWindowState(view: View, target: GestureButtonWindowTarget, show: Boolean) {
         val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        val before = lp.snapshot()
+        val before = lp.changeSnapshot()
         WindowLayoutFactory.updateGestureButton(lp, target.windowButton)
         WindowLayoutFactory.updateGestureButtonTouch(lp, touchEnabled = show)
         val rects = if (show) listOf(Rect(0, 0, lp.width, lp.height)) else emptyList()
         if (view.systemGestureExclusionRects != rects) view.systemGestureExclusionRects = rects
-        if (!lp.snapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
+        if (!lp.changeSnapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
     }
 }
 
@@ -166,6 +166,3 @@ private fun GestureButtonWindowTarget.sameWindowAs(other: GestureButtonWindowTar
 
 private fun WindowManager.LayoutParams.isTouchable(): Boolean =
     (flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) == 0
-
-private fun WindowManager.LayoutParams.snapshot(): IntArray =
-    intArrayOf(flags, width, height, x, y)

@@ -24,6 +24,7 @@ import hunoia.luno.config.model.ClipFloatPlacement
 import hunoia.luno.config.model.ClipFloatSettings
 import hunoia.luno.config.model.ClipFloatWidthRange
 import hunoia.luno.config.model.ClipKind
+import hunoia.luno.runtime.overlay.changeSnapshot
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.runtime.surface.SurfaceHandle
@@ -143,55 +144,41 @@ internal class ClipFloatWindow(
         contentState.value = newContent
         barState.value = false
         peekState.intValue = settings.placement(isLandscape()).peek
-        val compose = ComposeView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            // 服务进程没有 Activity：ComposeView 在 attach 时向上找这三个 owner，缺一即崩。
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-            setContent {
-                SideGestureTheme {
-                    val content = contentState.value ?: return@SideGestureTheme
-                    ClipFloatCard(
-                        content = content,
-                        peekSide = peekState.intValue,
-                        barOpen = barState.value,
-                        lifted = liftState.value,
-                        resizable = peekState.intValue == ClipFloatPeekNone,
-                        liftable = peekState.intValue == ClipFloatPeekNone,
-                        onTap = ::handleTap,
-                        onLiftStart = ::beginLift,
-                        onLiftCancel = ::cancelLift,
-                        onLiftRelease = ::endDragOut,
-                        onLiftMoveStart = ::beginLiftMove,
-                        onLiftMove = ::moveLift,
-                        onMoveStart = ::beginMove,
-                        onMoveTo = ::moveTo,
-                        onMoveEnd = ::finishMove,
-                        onResizeStart = ::beginResize,
-                        onResizeTo = ::resizeTo,
-                        onResizeEnd = ::finishResize,
-                        onPinch = ::applyScale,
-                        onPinchEnd = ::finishResize,
-                        onCopy = {
-                            barState.value = false
-                            host.onCopy(content)
-                        },
-                        onClose = { close() },
-                    )
-                }
+        // 与悬浮球 / 胶囊同构：FrameLayout 做窗口根、owner 同时挂根与 Compose。
+        // 服务进程没有 Activity：ComposeView 在 attach 时向上找这三个 owner，缺一即崩。
+        val (_, created) = FloatBallLifecycleOwner.createWindowRoot(context) {
+            SideGestureTheme {
+                val content = contentState.value ?: return@SideGestureTheme
+                ClipFloatCard(
+                    content = content,
+                    peekSide = peekState.intValue,
+                    barOpen = barState.value,
+                    lifted = liftState.value,
+                    resizable = peekState.intValue == ClipFloatPeekNone,
+                    liftable = peekState.intValue == ClipFloatPeekNone,
+                    onTap = ::handleTap,
+                    onLiftStart = ::beginLift,
+                    onLiftCancel = ::cancelLift,
+                    onLiftRelease = ::endDragOut,
+                    onLiftMoveStart = ::beginLiftMove,
+                    onLiftMove = ::moveLift,
+                    onMoveStart = ::beginMove,
+                    onMoveTo = ::moveTo,
+                    onMoveEnd = ::finishMove,
+                    onResizeStart = ::beginResize,
+                    onResizeTo = ::resizeTo,
+                    onResizeEnd = ::finishResize,
+                    onPinch = ::applyScale,
+                    onPinchEnd = ::finishResize,
+                    onCopy = {
+                        barState.value = false
+                        host.onCopy(content)
+                    },
+                    onClose = { close() },
+                )
             }
         }
-        // 与悬浮球 / 胶囊同构：FrameLayout 做窗口根、owner 同时挂根与 Compose。
-        val created = FrameLayout(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            addView(
-                compose,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
-            )
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-        }
+        FloatBallLifecycleOwner.createAndAttachTo(created, active = true)
         root = created
         if (!wm.safeAddView(created, layoutParams())) {
             root = null
@@ -445,8 +432,11 @@ internal class ClipFloatWindow(
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
         val dx = (screen.x - start.x).roundToInt()
         val dy = (screen.y - start.y).roundToInt()
+        val before = lp.changeSnapshot()
         lp.x = (dragStartX + dx).coerceIn(0, max(0, dragScreenW - lp.width))
         lp.y = (dragStartY + dy).coerceIn(0, max(0, dragScreenH - lp.height))
+        // 手指原地抖动时 x/y 不变：跳过这笔跨进程调用（拖动是每帧一次）。
+        if (lp.changeSnapshot().contentEquals(before)) return
         wm.safeUpdateViewLayout(v, lp)
     }
 
@@ -520,10 +510,13 @@ internal class ClipFloatWindow(
         if (corner == CORNER_TL || corner == CORNER_TR) {
             y = resizeStartY + (resizeStartH - h)
         }
+        val before = lp.changeSnapshot()
         lp.x = x.coerceIn(0, max(0, screenW - w))
         lp.y = y.coerceIn(0, max(0, screenH - h))
         lp.width = w
         lp.height = h
+        // 尺寸被夹到上下限后不再变化：跳过这笔跨进程调用（拖动是每帧一次）。
+        if (lp.changeSnapshot().contentEquals(before)) return
         settings = settings.copy(widthDp = px2dp(w), heightDp = px2dp(h))
         wm.safeUpdateViewLayout(v, lp)
     }

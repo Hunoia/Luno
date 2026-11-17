@@ -27,3 +27,12 @@ fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManager.LayoutP
             Log.w(LOG_TAG, "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
         }
 }
+
+/**
+ * 与 [WindowManager.updateViewLayout] 相关的 LP 字段快照，用于「位置没变就别再付这笔 IPC」。
+ *
+ * 逐帧改窗口 LP 会走一次 WindowManager 跨进程调用（拖动跟手、悬浮窗移位都是每帧一次）；
+ * 调用方在改动前后各取一次快照，字段全等就跳过。Surface 之间统一用这一份，不各自私藏。
+ */
+fun WindowManager.LayoutParams.changeSnapshot(): IntArray =
+    intArrayOf(flags, width, height, x, y)

@@ -311,12 +311,6 @@ class FloatBallWindow(
     fun attach(): Boolean {
         if (view != null) return true
         ballPx = sizePx(settings)
-        val compose = ComposeView(context).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
-            // RESUMED：球图标/颜色由快照状态驱动，CREATED 下重组不会上屏。
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-            setContent { BallContent() }
-        }
         val badge = TextView(context).apply {
             setTextColor(AndroidColor.WHITE)
             textSize = 9f
@@ -330,27 +324,19 @@ class FloatBallWindow(
             isClickable = false
             isFocusable = false
         }
-        val root = FrameLayout(context).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
-            addView(
-                compose,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
-            )
-            addView(
-                badge,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    dp(17),
-                ).apply {
-                    gravity = Gravity.TOP or Gravity.START
-                    topMargin = dp(1)
-                    marginStart = dp(1)
-                },
-            )
-        }
+        // RESUMED：球图标/颜色由快照状态驱动，CREATED 下重组不会上屏。
+        val (compose, root) = FloatBallLifecycleOwner.createWindowRoot(context) { BallContent() }
+        root.addView(
+            badge,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dp(17),
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                topMargin = dp(1)
+                marginStart = dp(1)
+            },
+        )
         root.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {

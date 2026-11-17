@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.floatball.inbox
 
+import hunoia.luno.config.model.RecognitionDefaults
 import java.security.MessageDigest
 
 /**
@@ -115,3 +116,29 @@ internal fun stableHash(raw: String): String = runCatching {
     val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
     digest.take(8).joinToString("") { "%02x".format(it) }
 }.getOrDefault((raw.hashCode().toLong() and 0xFFFFFFFFL).toString(16))
+
+// ---- 情景识别（同一屏）在收件箱里的查询谓词 ----
+//
+// 纯函数：收件箱的读取方分布在主线程与后台调度器上，把判定收在这里，调用方只需在
+// 自己那一侧负责「取 items」，谓词本身不碰线程、可单测。
+
+/** 当前收件箱里是否已经有这一屏的情景建议。 */
+internal fun hasSceneItems(items: List<BallItem>, scanKey: String): Boolean =
+    items.any { (it as? SuggestionItem)?.sceneKey == scanKey }
+
+/** 这一屏内置链接项（链接规则命中的情景项）的下标；没有返回 -1。 */
+internal fun builtInSceneLinkIndex(items: List<BallItem>, scanKey: String): Int = items.indexOfFirst {
+    val item = it as? SuggestionItem
+    item != null && item.sceneKey == scanKey && item.ruleId == RecognitionDefaults.LinkRuleId
+}
+
+/** 这一屏是否已经有一条内置链接项。 */
+internal fun hasBuiltInSceneLink(items: List<BallItem>, scanKey: String): Boolean =
+    builtInSceneLinkIndex(items, scanKey) >= 0
+
+/** 这一屏文本规则命中项里已用掉的链接：重建链接项时排除，避免同一链接两条。 */
+internal fun usedSceneRuleUrls(items: List<BallItem>, scanKey: String): Set<String> = items.asSequence()
+    .filterIsInstance<SuggestionItem>()
+    .filter { it.sceneKey == scanKey && it.ruleId != RecognitionDefaults.LinkRuleId }
+    .flatMap { it.urls.asSequence() }
+    .toSet()

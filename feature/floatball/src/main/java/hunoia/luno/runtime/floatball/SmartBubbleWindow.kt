@@ -3,7 +3,6 @@ package hunoia.luno.runtime.floatball
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.graphics.Color as AndroidColor
 import android.os.Handler
 import android.os.Looper
 import hunoia.luno.core.LunoLog as Log
@@ -68,6 +67,7 @@ import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
+import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
@@ -77,6 +77,7 @@ import hunoia.luno.runtime.floatball.inbox.SuggestionItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
+import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionFamily
@@ -149,6 +150,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             this.pressed = pressed
             onPressStateChanged?.invoke(pressed)
             cancelEnterFeedback()
+            // 按压缩放反馈（§5.3）：与主球同一档位。pivot 落在展开侧，收起方向与进场动画一致。
+            applyPressScale(pressed)
             if (pressed) {
                 dragDx = 0f
                 dragDy = 0f
@@ -204,6 +207,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     /** 只刷新列表（不抢当前页、不重置拖动偏移）：新内容在手动浏览时入队用。 */
     fun updateItems(items: List<BallItem>, index: Int) {
         if (items.isEmpty()) return
+        // 收件箱每次变更都传 `state.copy(items = …)` 的新列表：内容没变就别再通知快照，
+        // 否则 Compose 会为一次没变化的更新整树重组（三页都读同一批状态）。
+        if (sameItems(items, this.items)) return
         this.items = items
         if (menuItemId != null && items.none { it.id == menuItemId }) menuItemId = null
         if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
@@ -224,7 +230,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         originY: Int = 0,
     ): Boolean {
         if (items.isEmpty()) return false
-        this.items = items
+        // 与 [updateItems] 同一条纪律：内容没变就不通知快照，避免无谓的整树重组。
+        if (!sameItems(items, this.items)) this.items = items
         this.anchor = anchor
         val originProvided = originY > 0
         if (originProvided) {
@@ -303,25 +310,13 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
         originReady = originProvided
         contentReady = false
-        val compose = ComposeView(context).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-            setContent { CapsuleContent() }
+        // 与球窗同构：FrameLayout 做根、ComposeView 做子级。真机上直接拿 ComposeView 当窗口根
+        // 时偶发不组合（胶囊空白），所以一律套一层；owner 同时挂根与 Compose（见骨架说明）。
+        val (compose, created) = FloatBallLifecycleOwner.createWindowRoot(context) {
+            CapsuleContent()
         }
-        // 与球窗同构：FrameLayout 做根、ComposeView 做子级，lifecycle owner 同时挂根和
-        // Compose 上。真机上直接拿 ComposeView 当窗口根时偶发不组合（胶囊空白）。
-        val created = FrameLayout(context).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
-            addView(
-                compose,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
-            )
-            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
-            alpha = 0f
-        }
+        FloatBallLifecycleOwner.createAndAttachTo(created, active = true)
+        created.alpha = 0f
         created.setOnTouchListener { v, event -> handleTouch(v, event) }
         created.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (v.width <= 0 || v.height <= 0) return@addOnLayoutChangeListener
@@ -398,23 +393,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     fun hide(onHidden: (() -> Unit)? = null) {
         bodyArbiter.cancel()
         val v = view
-        entering = false
-        enterPending = false
-        pressed = false
+        resetTransientState()
         hitTarget = HitTarget.Body
-        items = emptyList()
-        menuItemId = null
-        copiedItemId = null
-        offsetPx = 0f
-        dragDx = 0f
-        dragDy = 0f
-        dragAxis = DragAxis.NONE
-        settleAnimator?.cancel()
-        settleAnimator = null
-        velocityTracker?.recycle()
-        velocityTracker = null
-        mainHandler.removeCallbacksAndMessages(null)
-        hideFallback = null
         if (v == null) {
             onHidden?.invoke()
             return
@@ -465,10 +445,24 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     fun detachNow() {
         bodyArbiter.cancel()
-        hideFallback?.let(mainHandler::removeCallbacks)
-        hideFallback = null
         val v = view
         view = null
+        resetTransientState()
+        v?.let {
+            it.animate().cancel()
+            context.removeWindow(it)
+        }
+        // 摘窗后不再保留 ComposeView / lifecycle owner：常驻复用只在“收起”期间。
+        composeView = null
+        contentReady = false
+    }
+
+    /**
+     * 收起 / 摘窗前把瞬态状态一次性归零。
+     *
+     * [hide] 与 [detachNow] 共用这一份：两条路径以前各写一遍，增删一条就会各走各的。
+     */
+    private fun resetTransientState() {
         entering = false
         enterPending = false
         pressed = false
@@ -484,13 +478,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         velocityTracker?.recycle()
         velocityTracker = null
         mainHandler.removeCallbacksAndMessages(null)
-        v?.let {
-            it.animate().cancel()
-            context.removeWindow(it)
-        }
-        // 摘窗后不再保留 ComposeView / lifecycle owner：常驻复用只在“收起”期间。
-        composeView = null
-        contentReady = false
+        hideFallback?.let(mainHandler::removeCallbacks)
+        hideFallback = null
     }
 
     /** 球移动 / 键盘让位 / 转屏后重新贴边。 */
@@ -846,6 +835,22 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         entering = false
     }
 
+    /**
+     * 按压缩放反馈（§5.3，与主球同一档位）。
+     *
+     * pivot 落在展开侧：收起方向与进场形变一致，不朝锚点球的方向缩。
+     * 只动 [View.scaleX/Y]，不与进场 / 退场动画抢属性 —— 进场的 [startMorphIn] 在按下时已被
+     * [cancelEnterFeedback] 收束，退场的 [hide] 自带 `scaleX(collapsedScale())` 会把本值覆盖。
+     */
+    private fun applyPressScale(pressed: Boolean) {
+        val v = view ?: return
+        if (!v.isAttachedToWindow) return
+        val scale = if (pressed) FloatBallDefaults.PressScale else 1f
+        v.pivotX = if (sideRight) v.width.toFloat() else 0f
+        v.scaleX = scale
+        v.scaleY = scale
+    }
+
     // ---- Compose ----
 
     @Composable
@@ -895,7 +900,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val iconSize = with(density) {
             min(pageHeight.value - 16f, 24f).coerceAtLeast(16f).dp
         }
-        val shape = CircleShape
+        // 胶囊角色（§2.1.1）：连续曲率胶囊，半径随高度自适应。不得用 CircleShape ——
+        // 矮容器上退化成半圆，端部曲率在切点突变。
+        val shape = CapsuleShape
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -1222,7 +1229,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val TAG = LOG_TAG
         const val EnterFallbackMs = 260L
         const val MaxOriginDp = 200f
-        const val PressScale = 0.97f
 
         const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f
@@ -1233,6 +1239,15 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val FlingVelocityPxPerSec = 900f
         const val BubbleBackgroundAlpha = 0.88f
     }
+}
+
+/** 收件箱条目逐条比较（都是 data class）：内容相等就不必通知快照。 */
+private fun sameItems(a: List<BallItem>, b: List<BallItem>): Boolean {
+    if (a.size != b.size) return false
+    for (i in a.indices) {
+        if (a[i] != b[i]) return false
+    }
+    return true
 }
 
 /** 建议胶囊的动作。 */

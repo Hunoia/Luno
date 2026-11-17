@@ -1,5 +1,10 @@
 package hunoia.luno.runtime.floatball
 
+import android.content.Context
+import android.graphics.Color as AndroidColor
+import android.widget.FrameLayout
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -71,6 +76,36 @@ class FloatBallLifecycleOwner private constructor() :
                     override fun onViewAttachedToWindow(v: android.view.View) = Unit
                 },
             )
+        }
+
+        /**
+         * 服务进程浮窗的同构窗口骨架：`FrameLayout` 做窗口根、`ComposeView` 做子级，返回两者。
+         *
+         * 主球 / 内容球胶囊 / 剪贴板悬浮窗都在这里组装，避免三处各写一份而悄悄分叉。
+         * 真机上直接拿 `ComposeView` 当窗口根会偶发不组合（胶囊空白），所以一律套一层
+         * `FrameLayout`；需要叠在 Compose 之上的 View（主球的数字徽标）由调用方自行 `addView`，
+         * 顺序即 z 序。
+         */
+        fun createWindowRoot(
+            context: Context,
+            content: @Composable () -> Unit,
+        ): Pair<ComposeView, FrameLayout> {
+            val compose = ComposeView(context).apply {
+                setBackgroundColor(AndroidColor.TRANSPARENT)
+                createAndAttachTo(this, active = true)
+                setContent(content)
+            }
+            val root = FrameLayout(context).apply {
+                setBackgroundColor(AndroidColor.TRANSPARENT)
+                addView(
+                    compose,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+            }
+            return compose to root
         }
     }
 }
