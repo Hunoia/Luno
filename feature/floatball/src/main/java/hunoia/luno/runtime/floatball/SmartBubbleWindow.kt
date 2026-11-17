@@ -311,11 +311,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         originReady = originProvided
         contentReady = false
         // 与球窗同构：FrameLayout 做根、ComposeView 做子级。真机上直接拿 ComposeView 当窗口根
-        // 时偶发不组合（胶囊空白），所以一律套一层；owner 同时挂根与 Compose（见骨架说明）。
+        // 时偶发不组合（胶囊空白），所以一律套一层；lifecycle owner 在骨架里只挂根一处。
         val (compose, created) = FloatBallLifecycleOwner.createWindowRoot(context) {
             CapsuleContent()
         }
-        FloatBallLifecycleOwner.createAndAttachTo(created, active = true)
         created.alpha = 0f
         created.setOnTouchListener { v, event -> handleTouch(v, event) }
         created.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->

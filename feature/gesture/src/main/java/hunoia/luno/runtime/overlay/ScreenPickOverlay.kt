@@ -258,6 +258,11 @@ class ScreenPickOverlay(
     @Volatile
     private var session = 0
 
+    /** 本次长按/识屏的屏幕落点：现场截屏（预捕获失败回退）按它选目标窗口，避免拍到小窗。 */
+    private var pendingPickX = 0
+    private var pendingPickY = 0
+    private var hasPendingPickPoint = false
+
     /** ROM 原点修正只做一次（LAYOUT_IN_SCREEN 不生效时把窗顶推回 0）。 */
     private var originCorrected = false
 
@@ -426,6 +431,10 @@ class ScreenPickOverlay(
         y: Int,
         preCapture: ScreenPreCapture? = null,
     ): Boolean {
+        // 落点先记下：show/captureWhenSettled 的现场截屏按它选窗口（预捕获截图失败回退）。
+        pendingPickX = x
+        pendingPickY = y
+        hasPendingPickPoint = true
         val waitingCapture = preCapture != null && preCapture.capture == null && preCapture.awaitingCapture
         if (!show(preCapture?.capture, deferCapture = waitingCapture)) {
             // 已从注册表取走的预捕获句柄由本层负责回收；挂窗失败时不能留给注册表。
@@ -1627,27 +1636,46 @@ class ScreenPickOverlay(
     // ---- 截屏 ----
 
     /** 最上层的应用窗口（跳过自家窗口）：提示框与窗口截图都以它为准。 */
-    private fun topApplicationWindow(): AccessibilityWindowInfo? {
+    private fun topApplicationWindow(pickX: Int?, pickY: Int?): AccessibilityWindowInfo? {
         val windows = runCatching { host.accessibilityService.windows }.getOrNull() ?: return null
         val ownPackage = host.context.packageName
+        var fallback: AccessibilityWindowInfo? = null
         for (index in windows.indices.reversed()) {
             val window = windows.getOrNull(index) ?: continue
             if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
             val root = runCatching { window.root }.getOrNull() ?: continue
             if (root.packageName?.toString() == ownPackage) continue
-            return window
+            if (fallback == null) fallback = window
+            // 按下点决定拍哪层：屏幕浮着其他应用小窗时，顶层是小窗，按下点仍在背景应用上。
+            if (pickX == null || pickY == null) continue
+            val bounds = AndroidRect().also { window.getBoundsInScreen(it) }
+            if (bounds.width() > 0 && bounds.height() > 0 &&
+                pickX >= bounds.left && pickX <= bounds.right &&
+                pickY >= bounds.top && pickY <= bounds.bottom
+            ) {
+                return window
+            }
         }
-        return null
+        return fallback
     }
 
     /**
      * 优先 `takeScreenshotOfWindow`（API 34+）：只抓目标应用窗，分辨率不被其他悬浮层稀释，
      * 也不依赖「本层还没渲染」的时间窗；失败/低版本回退整屏截屏。
+     *
+     * [pickX]/[pickY] = 按下点；非 null 时目标窗口必须盖着按下点，否则直接整屏——
+     * 窗口截图按该窗分辨率，按下点若在窗外，后续裁剪必然拿不到（表现为「识别不到」）。
      */
-    private fun takeScreenshot(): Boolean {
+    private fun takeScreenshot(pickX: Int? = null, pickY: Int? = null): Boolean {
         val token = session
-        val window = topApplicationWindow()
+        val window = topApplicationWindow(pickX, pickY)
         if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val bounds = window.boundsOnScreen()
+            val coversPick = pickX == null || pickY == null ||
+                (bounds.width() > 0 && bounds.height() > 0 &&
+                    pickX >= bounds.left && pickX <= bounds.right &&
+                    pickY >= bounds.top && pickY <= bounds.bottom)
+            if (!coversPick) return takeScreenshotOfDisplay(token)
             val accepted = runCatching {
                 if (BuildConfig.DEBUG) {
                     Log.i(LOG_TAG, "screen pick shot: window id=${window.id}")
@@ -1655,7 +1683,7 @@ class ScreenPickOverlay(
                 host.accessibilityService.takeScreenshotOfWindow(
                     window.id,
                     mainExecutor,
-                    screenshotCallback(token, windowBounds = window.boundsOnScreen(),
+                    screenshotCallback(token, windowBounds = bounds,
                         allowDisplayFallback = true),
                 )
             }.onFailure {
@@ -1755,6 +1783,11 @@ class ScreenPickOverlay(
      * 实际画面不一致（裁剪图片会拿到错内容）。事件先到就继续，超时兜底。
      */
     private fun captureWhenSettled(token: Int) {
+        // 取走本次落点（只服务一次现场截屏），避免下一会话误用旧落点选窗。
+        val pickX = pendingPickX
+        val pickY = pendingPickY
+        val hasPick = hasPendingPickPoint
+        hasPendingPickPoint = false
         host.coroutineScope.launch {
             val hadPanels = openPanels.hasOpenPanels
             if (BuildConfig.DEBUG) {
@@ -1774,7 +1807,7 @@ class ScreenPickOverlay(
             // 面板退场多留一拍：动作面板的淡出在 Dismissed 之后还可能再收尾。
             if (hadPanels) delay(PanelPostSettleMs)
             // 扫描与截屏并行：提示框不用等 takeScreenshot 回调（它往往是慢的那一步）。
-            if (!takeScreenshot()) {
+            if (!takeScreenshot(if (hasPick) pickX else null, if (hasPick) pickY else null)) {
                 Log.w(LOG_TAG, "screen pick shot: takeScreenshot rejected outright")
                 showToast(R.string.screen_pick_failed)
                 // 幽灵卡仍可用文字/搜索动作：截图被拒也只降级图片动作，不拆窗。

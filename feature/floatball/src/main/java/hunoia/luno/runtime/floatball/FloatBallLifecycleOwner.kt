@@ -18,10 +18,13 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
 /**
- * 给 `ComposeView` 用的最小生命周期宿主：`ComposeView` 在 `onAttachedToWindow` 时会向上找
+ * 给服务进程浮窗用的最小生命周期宿主：`ComposeView` 在 attach 时会向上找
  * `ViewTreeLifecycleOwner`/`ViewTreeViewModelStoreOwner`/`ViewTreeSavedStateRegistryOwner`，
  * 三者缺一就抛 `IllegalStateException`；`FloatBallService` 是普通 Service 一个都没有，必须自己补。
  * 生命周期默认只推到 CREATED；[createAndAttachTo] 的 active=true 推到 RESUMED。
+ *
+ * 挂载位置在**窗口根**（不是 `ComposeView`）：Compose 建 recomposer 时从 `view.rootView` 向上查，
+ * 只设在 `ComposeView` 上会查不到（ViewTreeLifecycleOwner not found from FrameLayout）。
  *
  * CREATED 下重组不会真正上屏：悬浮球的动作图标/颜色、瞬态胶囊的内容更新都需要
  * 状态驱动重组，所以主球与胶囊一律用 active=true。
@@ -60,7 +63,8 @@ class FloatBallLifecycleOwner private constructor() :
     }
 
     companion object {
-        fun createAndAttachTo(view: android.view.View, active: Boolean = false) {
+        /** 只在 [createWindowRoot] 里用：调用方不自己接线，避免同一窗口挂多份 owner。 */
+        private fun createAndAttachTo(view: android.view.View, active: Boolean = false) {
             val owner = FloatBallLifecycleOwner()
             owner.restore(active)
             view.setViewTreeLifecycleOwner(owner)
@@ -85,6 +89,8 @@ class FloatBallLifecycleOwner private constructor() :
          * 真机上直接拿 `ComposeView` 当窗口根会偶发不组合（胶囊空白），所以一律套一层
          * `FrameLayout`；需要叠在 Compose 之上的 View（主球的数字徽标）由调用方自行 `addView`，
          * 顺序即 z 序。
+         *
+         * lifecycle owner 在骨架里**只挂根一处**（见下方实现注释），调用方不要再挂。
          */
         fun createWindowRoot(
             context: Context,
@@ -92,7 +98,6 @@ class FloatBallLifecycleOwner private constructor() :
         ): Pair<ComposeView, FrameLayout> {
             val compose = ComposeView(context).apply {
                 setBackgroundColor(AndroidColor.TRANSPARENT)
-                createAndAttachTo(this, active = true)
                 setContent(content)
             }
             val root = FrameLayout(context).apply {
@@ -104,6 +109,12 @@ class FloatBallLifecycleOwner private constructor() :
                         FrameLayout.LayoutParams.MATCH_PARENT,
                     ),
                 )
+                // owner 只挂窗口根，不挂 ComposeView：Compose 建 recomposer 时是从 `view.rootView`
+                // （最外层）向上查 `ViewTreeLifecycleOwner`，只设在 ComposeView 上会查不到
+                // （ViewTreeLifecycleOwner not found from FrameLayout），服务循环崩溃、球出不来。
+                // 挂在根上一份即覆盖整棵子树，也不会在同一个窗口里留两份
+                // LifecycleRegistry / ViewModelStore。
+                createAndAttachTo(this, active = true)
             }
             return compose to root
         }

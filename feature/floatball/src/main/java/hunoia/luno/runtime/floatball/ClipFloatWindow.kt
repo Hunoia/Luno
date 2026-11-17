@@ -144,7 +144,7 @@ internal class ClipFloatWindow(
         contentState.value = newContent
         barState.value = false
         peekState.intValue = settings.placement(isLandscape()).peek
-        // 与悬浮球 / 胶囊同构：FrameLayout 做窗口根、owner 同时挂根与 Compose。
+        // 与悬浮球 / 胶囊同构：FrameLayout 做窗口根、owner 挂根一处（见 createWindowRoot）。
         // 服务进程没有 Activity：ComposeView 在 attach 时向上找这三个 owner，缺一即崩。
         val (_, created) = FloatBallLifecycleOwner.createWindowRoot(context) {
             SideGestureTheme {
@@ -178,7 +178,6 @@ internal class ClipFloatWindow(
                 )
             }
         }
-        FloatBallLifecycleOwner.createAndAttachTo(created, active = true)
         root = created
         if (!wm.safeAddView(created, layoutParams())) {
             root = null

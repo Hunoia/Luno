@@ -62,7 +62,10 @@ import hunoia.luno.runtime.floatball.inbox.stableHash
 import hunoia.luno.runtime.floatball.inbox.usedSceneRuleUrls
 import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
 import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
+import hunoia.luno.runtime.floatball.routing.PulseRoute
+import hunoia.luno.runtime.floatball.routing.PulseRouter
 import hunoia.luno.runtime.floatball.suggestion.SuggestionFactory
+import hunoia.luno.runtime.floatball.suppression.DismissSuppression
 import hunoia.luno.runtime.recognition.CompiledRecognizer
 import hunoia.luno.runtime.recognition.RecognitionExecutor
 import hunoia.luno.runtime.recognition.Recognizer
@@ -639,12 +642,12 @@ class FloatBallService : Service() {
     }
 
     /**
-     * 规则命中：全部进建议胶囊，且不再进通知胶囊（沿用旧验证码不双弹语义）。
-     * 建议胶囊关闭或规则表为空时回退到通知胶囊。
+     * 通知的去路判定在 [PulseRouter]（纯函数、可单测）；这里只负责生产建议项、查抑制表与入队。
+     * 建议项的生产含后台切线程，仍留在本方法。
      */
     private suspend fun routePulse(pulse: NotificationPulse) {
-        val key = pulse.key ?: "${pulse.packageName}:${pulse.title}"
-        val items = if (settings.clipboardBall.enabled) {
+        val key = PulseRouter.notificationKey(pulse)
+        val suggestionItems = if (settings.clipboardBall.enabled) {
             withContext(Dispatchers.Default) {
                 SuggestionFactory.fromNotification(
                     pulse = pulse,
@@ -656,22 +659,22 @@ class FloatBallService : Service() {
         } else {
             emptyList()
         }
-        if (items.isNotEmpty()) {
-            if (!suggestionSlot.isDismissed(key)) {
-                suggestionSlot.enqueueAll(items, makeCurrent = !suggestionSlot.manualSession)
+        when (val route = PulseRouter.route(
+            pulse = pulse,
+            suggestionItems = suggestionItems,
+            notificationCapsuleEnabled = settings.notificationCapsule.enabled,
+            nowMs = SystemClock.elapsedRealtime(),
+        )) {
+            is PulseRoute.Suggestion -> if (!suggestionSlot.isDismissed(key)) {
+                suggestionSlot.enqueueAll(route.items, makeCurrent = !suggestionSlot.manualSession)
             }
-            return
+
+            is PulseRoute.Notification -> if (!notificationSlot.isDismissed(pulse.key)) {
+                notificationSlot.enqueue(route.item, makeCurrent = !notificationSlot.manualSession)
+            }
+
+            PulseRoute.Drop -> Unit
         }
-        if (!settings.notificationCapsule.enabled) return
-        if (notificationSlot.isDismissed(pulse.key)) return
-        val item = NotificationItem(
-            notificationKey = key,
-            packageName = pulse.packageName,
-            title = pulse.title,
-            text = pulse.text,
-            receivedAtElapsedMs = SystemClock.elapsedRealtime(),
-        )
-        notificationSlot.enqueue(item, makeCurrent = !notificationSlot.manualSession)
     }
 
     /** 系统通知被移除 → 通知队列同步移除。 */
@@ -1433,11 +1436,23 @@ class FloatBallService : Service() {
         /** 通知的 300ms settle 任务（建议不走 settle）。 */
         val settleJobs = LinkedHashMap<String, Job>()
 
-        /** 通知滑掉后的同 key 重弹抑制（仅通知）。 */
-        val dismissedKeys = LinkedHashMap<String, Long>()
+        /** 通知滑掉后的同 key 重弹抑制（仅通知）：窗口与开关都来自用户设置。 */
+        val notificationSuppression = DismissSuppression(
+            nowMs = SystemClock::uptimeMillis,
+            windowMs = {
+                settings.notificationCapsule.dismissSuppressMs.coerceIn(
+                    FloatBallDefaults.CapsuleDismissSuppressMsMin,
+                    FloatBallDefaults.CapsuleDismissSuppressMsMax,
+                )
+            },
+            enabled = { settings.notificationCapsule.dismissSuppressEnabled },
+        )
 
-        /** 建议滑掉后的同源重弹抑制（仅建议）。 */
-        val dismissedSuggestionKeys = LinkedHashMap<String, Long>()
+        /** 建议滑掉后的同源重弹抑制（仅建议）：固定窗口。 */
+        val suggestionSuppression = DismissSuppression(
+            nowMs = SystemClock::elapsedRealtime,
+            windowMs = { SuggestionDismissSuppressMs },
+        )
 
         var pendingSensitivePop = false
 
@@ -2053,10 +2068,10 @@ class FloatBallService : Service() {
                         Log.w(TAG, "capsule cancel failed pkg=${item.packageName}")
                         return
                     }
-                    markDismissed(item.notificationKey)
+                    notificationSuppression.markDismissed(item.notificationKey)
                 }
 
-                is SuggestionItem -> markSuggestionDismissed(item.sourceKey)
+                is SuggestionItem -> suggestionSuppression.markDismissed(item.sourceKey)
             }
             removeAndAdvance(item.id)
         }
@@ -2128,46 +2143,10 @@ class FloatBallService : Service() {
             return true
         }
 
-        fun isDismissed(key: String?): Boolean {
-            if (key == null) return false
-            if (source == BallSource.SUGGESTION) {
-                val at = dismissedSuggestionKeys[key] ?: return false
-                if (SystemClock.elapsedRealtime() - at < SUGGESTION_DISMISS_SUPPRESS_MS) return true
-                dismissedSuggestionKeys.remove(key)
-                return false
-            }
-            val capsule = settings.notificationCapsule
-            if (!capsule.dismissSuppressEnabled) return false
-            val at = dismissedKeys[key] ?: return false
-            val windowMs = capsule.dismissSuppressMs.coerceIn(
-                FloatBallDefaults.CapsuleDismissSuppressMsMin,
-                FloatBallDefaults.CapsuleDismissSuppressMsMax,
-            )
-            if (SystemClock.uptimeMillis() - at < windowMs) return true
-            dismissedKeys.remove(key)
-            return false
-        }
-
-        private fun markDismissed(key: String) {
-            if (!settings.notificationCapsule.dismissSuppressEnabled) {
-                dismissedKeys.remove(key)
-                return
-            }
-            dismissedKeys.remove(key)
-            dismissedKeys[key] = SystemClock.uptimeMillis()
-            while (dismissedKeys.size > DISMISSED_KEYS_MAX) {
-                val oldest = dismissedKeys.keys.firstOrNull() ?: break
-                dismissedKeys.remove(oldest)
-            }
-        }
-
-        private fun markSuggestionDismissed(key: String) {
-            dismissedSuggestionKeys.remove(key)
-            dismissedSuggestionKeys[key] = SystemClock.elapsedRealtime()
-            while (dismissedSuggestionKeys.size > DISMISSED_KEYS_MAX) {
-                val oldest = dismissedSuggestionKeys.keys.firstOrNull() ?: break
-                dismissedSuggestionKeys.remove(oldest)
-            }
+        /** 该来源的抑制表是否压住这个 key；窗口、时钟与开关都注入在 [DismissSuppression] 里。 */
+        fun isDismissed(key: String?): Boolean = when (source) {
+            BallSource.SUGGESTION -> suggestionSuppression.isSuppressed(key)
+            BallSource.NOTIFICATION -> notificationSuppression.isSuppressed(key)
         }
 
         fun destroy() {
@@ -2226,8 +2205,8 @@ class FloatBallService : Service() {
         private const val CLIP_POLL_MS = 2_000L
         private const val CAPSULE_SETTLE_MS = 300L
         private const val SETTLE_JOBS_MAX = 16
-        private const val DISMISSED_KEYS_MAX = 8
-        private const val SUGGESTION_DISMISS_SUPPRESS_MS = 10_000L
+        /** 建议来源的滑掉抑制窗口：与剪贴板 / 情景来源同口径。 */
+        private const val SuggestionDismissSuppressMs = 10_000L
         private const val COPIED_FEEDBACK_MS = 1_500L
 
         /** 悬浮窗关闭后等目标应用重新可交互再插入 / 粘贴。 */

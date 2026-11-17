@@ -119,7 +119,7 @@ class ScreenTextPreCapture(
                 next.completeText(captured)
             }
             launch {
-                val captured = captureScreenshot()
+                val captured = captureScreenshot(x, y)
                 next.completeCapture(captured)
             }
         }
@@ -152,21 +152,31 @@ class ScreenTextPreCapture(
         handle = null
     }
 
-    /** 截当前目标应用窗口；API 34+ 优先窗口截图，失败回退整屏。 */
-    private suspend fun captureScreenshot(): PickCapture? {
-        val window = topApplicationWindow()
+    /**
+     * 截当前**按下点所在**的目标应用窗口；API 34+ 优先窗口截图，失败回退整屏。
+     *
+     * 按下点决定目标窗口：屏幕浮着其他应用小窗（画中画 / 悬浮窗）时，最顶层应用窗口
+     * 是那层小窗，不是用户长按的背景应用——盲目取顶层会把小窗拍进截图，按下点落在
+     * 窗外，后续裁剪必然拿不到。这里只认「含按下点的应用窗口」，找不到才回退顶层。
+     */
+    private suspend fun captureScreenshot(x: Int, y: Int): PickCapture? {
+        val window = topApplicationWindow(x, y)
         if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val bounds = android.graphics.Rect()
             window.getBoundsInScreen(bounds)
-            val shot = takeWindowScreenshot(window.id)
-            if (shot != null) {
-                return PickCapture(
-                    bitmap = shot,
-                    originX = bounds.left,
-                    originY = bounds.top,
-                    screenW = bounds.width(),
-                    screenH = bounds.height(),
-                )
+            // 仅当按下点确实落在该窗口内才用窗口截图：窗口截图分辨率按该窗，
+            // 按下点若在窗外（状态栏/导航栏/悬浮层空隙），裁剪必然与截图无交集。
+            if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) {
+                val shot = takeWindowScreenshot(window.id)
+                if (shot != null) {
+                    return PickCapture(
+                        bitmap = shot,
+                        originX = bounds.left,
+                        originY = bounds.top,
+                        screenW = bounds.width(),
+                        screenH = bounds.height(),
+                    )
+                }
             }
         }
         val shot = takeDisplayScreenshot() ?: return null
@@ -212,15 +222,30 @@ class ScreenTextPreCapture(
         return (result as? hunoia.luno.bridge.system.ScreenScreenshot.Result.Success)?.bitmap
     }
 
-    private fun topApplicationWindow(): AccessibilityWindowInfo? {
+    /**
+     * 选「含按下点的应用窗口」作为目标；没有窗口盖着按下点（状态栏/导航栏/悬浮层空隙）
+     * 时回退最顶层的非自身应用窗口（原行为）。
+     *
+     * 与 [A11yTextSnapshotReader] 同口径：按下点决定拍哪一层，而不是盲目取最顶层——
+     * 有应用小窗浮在目标应用上时，顶层是小窗，按下点仍在背景应用上。
+     */
+    private fun topApplicationWindow(x: Int, y: Int): AccessibilityWindowInfo? {
         val windows = runCatching { service.windows }.getOrNull() ?: return null
+        var fallback: AccessibilityWindowInfo? = null
         for (index in windows.indices.reversed()) {
             val window = windows.getOrNull(index) ?: continue
             if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
             val pkg = runCatching { window.root?.packageName?.toString() }.getOrNull()
             if (pkg == null || pkg == ownPackage) continue
-            return window
+            if (fallback == null) fallback = window
+            val bounds = android.graphics.Rect()
+            runCatching { window.getBoundsInScreen(bounds) }.getOrNull() ?: continue
+            if (bounds.width() > 0 && bounds.height() > 0 &&
+                x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
+            ) {
+                return window
+            }
         }
-        return null
+        return fallback
     }
 }

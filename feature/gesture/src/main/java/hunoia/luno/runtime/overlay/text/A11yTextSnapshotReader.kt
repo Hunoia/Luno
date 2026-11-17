@@ -104,11 +104,17 @@ class A11yTextSnapshotReader(
             .mapNotNull { window ->
                 val root = runCatching { window.root }.getOrNull() ?: return@mapNotNull null
                 val pkg = runCatching { root.packageName?.toString() }.getOrNull().orEmpty()
-                if (isExcludedPackage(pkg)) null else TargetWindow(window, root, pkg)
+                if (isExcludedPackage(pkg)) null else TargetWindow(window, root, pkg, window.layer)
             }
             .toList()
 
-        val targetPackage = appWindows.firstOrNull()?.packageName.orEmpty()
+        // 目标窗口 = 按下点所在、layer 最高的应用窗口。屏幕浮着其他应用小窗（画中画 /
+        // 悬浮窗）时，最顶层应用窗口是那层小窗而不是用户长按的背景应用：盲目取顶层会把
+        // targetPackage 定为小窗，且小窗节点树还先吃预算。按下点决定目标，避免「识别不到」。
+        // 按下点不在任何应用窗口（状态栏/导航栏/空隙）时 target 为 null，回退遍历全部窗口。
+        val target = appWindows.firstOrNull { it.window.containsPoint(downX, downY) }
+
+        val targetPackage = target?.packageName ?: appWindows.firstOrNull()?.packageName.orEmpty()
         val targetIds = appWindows
             .filter { it.packageName == targetPackage }
             .mapTo(HashSet()) { it.window.id }
@@ -119,25 +125,37 @@ class A11yTextSnapshotReader(
         val layoutRects = if (textOnly) null else ArrayList<SnapshotRect>()
         val visited = IntRef()
         var complete = true
-        val occluders = ArrayList<SnapshotRect>()
+        // 遮挡区预填全部应用窗口（含 layer），只对「layer 高于当前窗口」的窗口生效：
+        // 小窗盖住目标应用的那块要排除，但目标窗口的叶子不能被更底层的全屏窗口误判为被盖住。
+        // 预填而非遍历中累积，保证「目标窗口先遍历」时遮挡判定依然正确。
+        val occluders = appWindows.mapNotNull { w ->
+            val r = Rect()
+            runCatching { w.window.getBoundsInScreen(r) }.getOrNull() ?: return@mapNotNull null
+            if (r.width() <= 0 || r.height() <= 0) null
+            else WindowOccluder(
+                SnapshotRect(r.left, r.top, r.right, r.bottom),
+                w.window.layer,
+            )
+        }
 
-        for (target in appWindows) {
-            val window = target.window
-            val root = target.root
+        // 目标窗口独占遍历预算：按下点所在层先被完整读入，避免无关小窗（浮在上层、节点
+        // 又多）把预算吃光，导致「按下点区域根本没遍历到、识别不到内容」。非目标窗口不进
+        // 快照（按下点不在它上面），只以窗口 bounds 参与遮挡。
+        val ordered = if (target != null) listOf(target) + appWindows.filter { it !== target }
+        else appWindows
+
+        for (entry in ordered) {
+            if (target != null && entry !== target) continue
+            val window = entry.window
+            val root = entry.root
             if (visited.value >= MAX_NODES || SystemClock.uptimeMillis() > deadline) {
                 complete = false
                 break
             }
-            val windowPackage = target.packageName
+            val windowPackage = entry.packageName
 
             val windowRect = Rect()
             window.getBoundsInScreen(windowRect)
-            val windowBounds = SnapshotRect(
-                windowRect.left,
-                windowRect.top,
-                windowRect.right,
-                windowRect.bottom,
-            )
             val timedOut = walk(
                 node = root,
                 depth = 0,
@@ -149,16 +167,13 @@ class A11yTextSnapshotReader(
                 images = images,
                 layoutRects = layoutRects,
                 occluders = occluders,
+                windowLayer = window.layer,
                 windowArea = windowRect.width() * windowRect.height(),
                 collectLeafNodes = !textOnly,
             )
             if (timedOut) {
                 complete = false
                 break
-            }
-            if (windowBounds.width > 0 && windowBounds.height > 0) {
-                // 更高层的应用窗口作为遮挡区；完全落在里面的叶子不再产出。
-                occluders += windowBounds
             }
         }
 
@@ -275,6 +290,13 @@ class A11yTextSnapshotReader(
         val window: AccessibilityWindowInfo,
         val root: AccessibilityNodeInfo,
         val packageName: String,
+        val layer: Int,
+    )
+
+    /** 一个可能遮挡低层窗口的应用窗口：只在 layer 高于当前窗口时才遮挡。 */
+    private class WindowOccluder(
+        val bounds: SnapshotRect,
+        val layer: Int,
     )
 
     /** 与遍历同步填充：每个已收叶子对应的节点（供逐字坐标 pass 复用）。 */
@@ -291,7 +313,8 @@ class A11yTextSnapshotReader(
         leaves: MutableList<TextLeaf>,
         images: MutableList<ImageLeaf>?,
         layoutRects: MutableList<SnapshotRect>?,
-        occluders: List<SnapshotRect>,
+        occluders: List<WindowOccluder>,
+        windowLayer: Int,
         windowArea: Int,
         collectLeafNodes: Boolean,
     ): Boolean {
@@ -313,8 +336,11 @@ class A11yTextSnapshotReader(
 
         if (visible && !bounds.isEmpty) {
             val fullyCovered = occluders.any { cover ->
-                bounds.left >= cover.left && bounds.top >= cover.top &&
-                    bounds.right <= cover.right && bounds.bottom <= cover.bottom
+                // 只让 layer 高于当前窗口的窗口遮挡：小窗盖住目标应用的那块要排除，
+                // 但目标窗口的叶子不能被更底层的全屏窗口误判为被盖住。
+                cover.layer > windowLayer &&
+                    bounds.left >= cover.bounds.left && bounds.top >= cover.bounds.top &&
+                    bounds.right <= cover.bounds.right && bounds.bottom <= cover.bounds.bottom
             }
             if (!fullyCovered) {
                 // 所有可视节点都记录布局 bounds（按下点命中的候选，供空白处截屏兜底）。
@@ -368,6 +394,7 @@ class A11yTextSnapshotReader(
                 images = images,
                 layoutRects = layoutRects,
                 occluders = occluders,
+                windowLayer = windowLayer,
                 windowArea = windowArea,
                 collectLeafNodes = collectLeafNodes,
             )
@@ -425,6 +452,14 @@ class A11yTextSnapshotReader(
         if (packageName in SYSTEM_UI_PACKAGES) return true
         // 输入法窗口即使被标成 application，也按包名兜底排除常见输入法。
         return packageName.contains("inputmethod", ignoreCase = true)
+    }
+
+    /** 按下点是否落在该窗口的屏幕 bounds 内（选目标窗口的依据）。 */
+    private fun AccessibilityWindowInfo.containsPoint(x: Int, y: Int): Boolean {
+        val r = Rect()
+        runCatching { getBoundsInScreen(r) }.getOrNull() ?: return false
+        return r.width() > 0 && r.height() > 0 &&
+            x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
     }
 
     private fun isImageLike(className: String): Boolean =
