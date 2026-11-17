@@ -1,6 +1,7 @@
 package hunoia.luno.shizuku
 
 import android.os.ParcelFileDescriptor
+import android.os.Process
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,32 +27,66 @@ import java.io.IOException
  */
 object ShizukuShellStream {
 
+    /**
+     * 拼 shell 脚本用的美元符。
+     *
+     * 脚本里到处是 `$@` / `$!` / `$?`，直接写进 Kotlin 字符串会被当成模板解析；
+     * 用常量拼装既避开这个坑，也不用满篇大括号转义。
+     */
+    private const val DOLLAR = "$"
+
     sealed interface OpenResult {
         data class Success(val session: ShizukuShellSession) : OpenResult
         data class Failure(val reason: String) : OpenResult
     }
 
-    suspend fun open(command: String): OpenResult = withContext(Dispatchers.IO) {
-        if (command.isBlank()) {
-            return@withContext OpenResult.Failure("Command is blank")
-        }
-        val shell = if (runCatching { Shizuku.getUid() }.getOrDefault(-1) == 0) "su" else "sh"
-        openProcess(
-            argv = arrayOf(shell),
-            stdin = command + "\nexit\n",
-        )
-    }
-
     /**
-     * 直接以 argv 启动，不经过 shell。监听类命令应走这里：destroy() 杀的是目标进程本身，
-     * 不会出现 `sh` 被杀、`getevent` 被 init 收养继续读设备的残留。
+     * 以 argv 启动命令（监听类命令走这里：`getevent` / `screencap` / `content read`）。
+     *
+     * 外面套一层 `sh`，目的不是「跑命令」而是**挂租约**：子进程由 Shizuku 服务端 fork，
+     * 调用方死了它并不知道。没有租约时，`:service` 被 LMK 杀掉或被 force-stop（SIGKILL，
+     * `trap` 不执行、`close()` 也不会跑）之后，远端 `getevent` 会永久挂在 `do_sys_poll`
+     * 上（实测积累到 86 个，每个都占着 `/dev/input/eventX`）。
+     *
+     * 关键事实：force-stop 只杀 App 进程，**这层包装活在设备侧、活得好好的**。
+     * 所以包装自己能轮询 `/proc/<调用方 pid>`，一旦对方消失就收掉子进程。
      */
     suspend fun openArgv(vararg argv: String): OpenResult = withContext(Dispatchers.IO) {
         if (argv.isEmpty() || argv.any { it.isBlank() }) {
             return@withContext OpenResult.Failure("Empty argv")
         }
-        openProcess(argv = argv, stdin = null)
+        // $0 = 调用方 pid（包装靠 /proc/<pid> 判断调用方是否还活着）。
+        openProcess(
+            argv = arrayOf("sh", "-c", LEASED_WRAPPER, Process.myPid().toString(), *argv),
+            stdin = null,
+        )
     }
+
+    /**
+     * 租约包装：`$@` 是目标命令，`$0` 是调用方 pid。
+     *
+     * **只靠 `/proc/<pid>` 轮询收尾，不用 stdin**。曾经的 stdin-EOF 看门狗是个陷阱：
+     * `getevent` 这类监听命令根本不需要 stdin（`openProcess` 传 `stdin = null`，写端立刻
+     * 关闭），看门狗一启动就读到 EOF，于是把刚起的子进程当场杀掉 —— 表现是触摸流
+     * 每 3 秒重连一次、识别区永远不触发。
+     *
+     * `/proc/<pid>` 判据同时覆盖两种死法：正常 `close()`（`destroy` 掉包装，包装的
+     * `wait` 返回后一并收尾）与调用方暴毙（force-stop / LMK 是 SIGKILL，但包装活在
+     * 设备侧、杀不到，它会自己发现 pid 消失并杀掉子进程）。
+     */
+    private val LEASED_WRAPPER: String = listOf(
+        "cleanup() { kill \"${DOLLAR}child\" 2>/dev/null; }",
+        "trap cleanup EXIT TERM INT HUP",
+        "\"${DOLLAR}@\" &",
+        "child=${DOLLAR}!",
+        // 调用方消失（含被 SIGKILL）就收掉子进程；2s 一次，稳态开销可以忽略。
+        "( while [ -d \"/proc/${DOLLAR}0\" ]; do sleep 2; done; kill -9 \"${DOLLAR}child\" 2>/dev/null ) " +
+            ">/dev/null 2>&1 &",
+        "wait \"${DOLLAR}child\"",
+        "status=${DOLLAR}?",
+        "wait 2>/dev/null",
+        "exit ${DOLLAR}status",
+    ).joinToString("\n")
 
     private fun openProcess(argv: Array<out String>, stdin: String?): OpenResult {
         val status = ShizukuManager.currentStatus()
@@ -65,17 +100,17 @@ object ShizukuShellStream {
             val service = IShizukuService.Stub.asInterface(Shizuku.getBinder())
             val process = service.newProcess(arrayOf(*argv), null, null)
             try {
-                ParcelFileDescriptor.AutoCloseOutputStream(process.outputStream).use { input ->
-                    if (stdin != null) {
-                        // 先写命令再写 exit：shell 会等命令退出后才读到 exit，
-                        // 命令在流存活期间不会被 shell 的退出打断。
-                        input.write(stdin.toByteArray())
-                        input.flush()
-                    }
+                // 写端交给会话持有，**不能立刻关**：它同时是租约凭据（看门狗的判据）
+                // 和防 GC 提前回收的锚点。
+                val lease = ParcelFileDescriptor.AutoCloseOutputStream(process.outputStream)
+                if (stdin != null) {
+                    lease.write(stdin.toByteArray())
+                    lease.flush()
                 }
                 OpenResult.Success(
                     ShizukuShellSession(
                         process = process,
+                        lease = lease,
                         stdout = process.inputStream,
                         stderr = process.errorStream,
                     )
@@ -93,9 +128,13 @@ object ShizukuShellStream {
 /**
  * 单消费者 shell 会话：[lines] 只能被 collect 一次，关闭后进程一并销毁。
  * stderr 在独立协程里持续排空，避免子进程写满管道阻塞。
+ *
+ * @param lease 会话 stdin 的写端（仅 [ShizukuShellStream.openArgv] 之前的注入式命令会用）。
+ *   它不再是「调用方活着」的凭据——那个判据在远端包装里用 `/proc/<pid>` 轮询实现。
  */
 class ShizukuShellSession internal constructor(
     private val process: IRemoteProcess,
+    private val lease: java.io.OutputStream,
     private val stdout: ParcelFileDescriptor,
     private val stderr: ParcelFileDescriptor,
 ) : Closeable {
@@ -155,6 +194,10 @@ class ShizukuShellSession internal constructor(
     }
 
     override fun close() {
+        // 关 stdin 写端（若曾用过）再 destroy 包装：包装的 `wait` 会返回，
+        // 它拉起的子进程随 EXIT trap 一起收掉。调用方暴毙走另一条路——
+        // 包装自己轮询 /proc/<pid>，见 [ShizukuShellStream.openArgv] 的注释。
+        runCatching { lease.close() }
         runCatching { process.destroy() }
         stderrJob.cancel()
         stderrScope.cancel()

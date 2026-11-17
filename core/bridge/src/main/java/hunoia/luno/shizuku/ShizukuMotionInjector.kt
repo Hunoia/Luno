@@ -34,6 +34,17 @@ object ShizukuMotionInjector {
     private const val WAIT_FOR_FINISH = 2
 
     /**
+     * 最后一发 `CANCEL` 用的模式：`INJECT_INPUT_EVENT_MODE_ASYNC`。
+     *
+     * `WAIT_FOR_FINISH` 会等目标窗口把事件处理完再返回，一个正在忙的窗口能把它拖到几十上百 ms。
+     * 这个等待纯粹是调用方的开销——事件已经交给输入派发器了，`CANCEL` 不会因为不等而丢。
+     * 接管一共注入四发，全部等完足以把整段接管拖到用户抬手之后（实测 400ms+，
+     * 见 §7.4「触发接管触摸」）。所以只有**收尾事件（CANCEL / UP）**改走 ASYNC，
+     * `DOWN` 仍等完成：`DOWN` 决定命中哪个窗口，必须确认它真的派发下去了。
+     */
+    private const val ASYNC = 0
+
+    /**
      * 首次反射前安装隐藏 API 豁免（与 `BackgroundBlur` 同一手法）。
      *
      * `injectInputEvent` 是 `@hide`；`Method.invoke` 也会被隐藏 API 强制检查拦下，
@@ -246,10 +257,12 @@ object ShizukuMotionInjector {
         return try {
             // setDisplayId 只有一个 (int) 重载，字符串形式在这里是安全的。
             HiddenApiBypass.invoke(InputEvent::class.java, event, "setDisplayId", displayId)
+            // 收尾事件不等派发完成：等待只算调用方的延迟（见 [ASYNC]）。
+            val mode = if (action == MotionEvent.ACTION_DOWN) WAIT_FOR_FINISH else ASYNC
             // injectInputEvent 会按实际参数表补齐：不同版本末尾可能多一个 policyFlags。
             val args = ArrayList<Any?>(injected.injectArity).apply {
                 add(event)
-                add(WAIT_FOR_FINISH)
+                add(mode)
                 // 只多出的那个位置（policyFlags）补 0。
                 repeat((injected.injectArity - 2).coerceAtLeast(0)) { add(0) }
             }.toTypedArray()

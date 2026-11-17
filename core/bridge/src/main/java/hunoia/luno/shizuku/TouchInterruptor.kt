@@ -49,8 +49,14 @@ interface TouchInterruptor {
  * 放到纯函数里就能用 JVM 单测覆盖，不用碰真机与 Shizuku。
  */
 internal object TouchInterruptionSequence {
-    /** DOWN 与 CANCEL 之间的停留：太短系统可能合并成一个事件，太长用户会感到卡顿。 */
-    const val PauseMs = 16L
+    /**
+     * DOWN 与 CANCEL 之间的停留。
+     *
+     * 太短（一帧以内）系统会把 DOWN/CANCEL 合进同一个批次，目标窗口可能只看到 CANCEL、
+     * 甚至两者都丢——那是「注入了但没取消」的典型成因。取两帧（~33ms）已经足够可靠，
+     * 又不会让整段接管变得可感知（整段目标 < 150ms）。
+     */
+    const val PauseMs = 32L
 
     /**
      * @param down 注入 ACTION_DOWN，返回系统是否接受
