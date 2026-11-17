@@ -45,12 +45,6 @@ object GestureCommand {
     var pasteImageFocused: (suspend () -> hunoia.luno.action.controller.ImageInserter.Result)? = null
 
     /**
-     * 情景识别：立即扫一次当前界面（长按建议球）。
-     * [force] = true 跳过同屏去重；返回是否受理（无障碍服务未就绪时 false）。
-     */
-    var requestSceneScan: ((force: Boolean) -> Boolean)? = null
-
-    /**
      * 把本地图片副本写进剪贴板，再在屏幕坐标处粘贴。
      * 图片没有 `ACTION_SET_TEXT`，只能依赖目标编辑器支持 `ACTION_PASTE`。
      */

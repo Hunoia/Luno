@@ -7,7 +7,7 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.gesture.BuildConfig
-import hunoia.luno.link.LinkUrls
+import hunoia.luno.runtime.recognition.LinkUrls
 import hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader
 import hunoia.luno.runtime.overlay.text.TextSnapshot
 import java.security.MessageDigest
@@ -103,22 +103,6 @@ class ScreenSceneScanner(
             screenChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
         )
         schedule(packageName, delayMs)
-    }
-
-    /**
-     * 用户显式要求扫一次（建议球长按）：跳过同屏去重当 [force]，
-     * 但开关关闭 / 锁屏 / 息屏 / 桌面一律不扫。返回是否已受理。
-     */
-    fun requestNow(force: Boolean): Boolean {
-        val context = contextOf(null)
-        if (!context.enabled || context.locked || !context.interactive || context.launcher) {
-            return false
-        }
-        // 没有任何可用规则时，扫了也只会得到空结果。
-        if (!context.hasRules) return false
-        settleJob?.cancel()
-        settleJob = scope.launch { scan(expectedPackage = null, force = force) }
-        return true
     }
 
     fun release() {

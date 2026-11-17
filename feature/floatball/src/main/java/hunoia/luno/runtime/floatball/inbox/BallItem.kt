@@ -50,11 +50,18 @@ internal data class NotificationItem(
     override fun withPinned(pinned: Boolean): BallItem = this
 }
 
-/** 建议主动作：由规则的 action 决定，OPEN 捕获不到链接时创建阶段已降级为 COPY。 */
+/**
+ * 建议主动作，由识别器的输出决定。
+ *
+ * [RUN_ACTION] = 规则配的是「动作输出」：主动作就是跑那条动作，执行细节交给
+ * `RecognitionExecutor`，胶囊不再为每种动作长一个分支。
+ * OPEN 捕获不到链接时创建阶段已降级为 COPY。
+ */
 internal enum class SuggestionPrimaryAction {
     COPY,
     OPEN,
     SHARE,
+    RUN_ACTION,
 }
 
 /**
@@ -69,12 +76,17 @@ internal data class SuggestionItem(
     override val text: String,
     override val receivedAtElapsedMs: Long,
     override val ttlMs: Long? = null,
-    /** null = 内置链接识别；非 null = 命中的规则。 */
+    /** 命中的规则 id（内置链接识别也是一条规则，恒非空）。 */
     val ruleId: String? = null,
     val action: SuggestionPrimaryAction = SuggestionPrimaryAction.COPY,
     /** 非链接捕获结果按敏感文本处理：复制不入历史、锁屏不自动弹。 */
     val sensitive: Boolean = false,
     val urls: List<String> = emptyList(),
+    /**
+     * 识别器给出的原始结果：执行时原样交给 `RecognitionExecutor`，
+     * 胶囊不再自己把动作枚举翻译成链接分支。null = 旧路径 / 无规则项。
+     */
+    val recognized: hunoia.luno.runtime.recognition.RecognizedItem? = null,
     val targetPackage: String? = null,
     val targetLabel: String? = null,
     override val pinned: Boolean = false,

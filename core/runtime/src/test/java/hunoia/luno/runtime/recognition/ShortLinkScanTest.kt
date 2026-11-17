@@ -1,4 +1,4 @@
-package hunoia.luno.link
+package hunoia.luno.runtime.recognition
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

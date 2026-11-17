@@ -1,8 +1,13 @@
 package hunoia.luno.link
 
 import android.content.Context
-import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkMatchType
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionRule
+import hunoia.luno.config.model.RecognitionSource
+import java.util.UUID
 
 /**
  * 一条预设规则：显示名 + 匹配串 + 目标包名候选（按顺序取第一个已安装的）。
@@ -14,9 +19,9 @@ data class LinkPreset(
     val name: String,
     val pattern: String,
     val targetPackages: List<String>,
-    /** 交给浏览器打开（短链场景），见 [LinkDispatchRule.viaBrowser]。 */
+    /** 交给浏览器打开（短链场景），见 `RecognitionMatch.Link.viaBrowser`。 */
     val viaBrowser: Boolean = false,
-    /** 解析短链（联网），见 [LinkDispatchRule.resolveShortLink]。 */
+    /** 解析短链（联网），见 `RecognitionMatch.Link.resolveShortLink`。 */
     val resolveShortLink: Boolean = false,
 ) {
     constructor(
@@ -64,12 +69,11 @@ object LinkPresets {
 
     /**
      * 本机可用的预设：目标应用已安装，且同匹配串的规则尚不存在（按 pattern 判重）。
-     * 每条都带新 id，直接拼进 [hunoia.luno.config.model.LinkDispatchSettings.rules] 即可。
      */
-    fun addable(context: Context, existing: List<LinkDispatchRule>): List<LinkDispatchRule> {
+    fun addable(context: Context, existing: List<RecognitionRule>): List<RecognitionRule> {
         val pm = context.packageManager
         val usedPatterns = existing
-            .map { it.pattern.trim().lowercase() }
+            .map { it.match.pattern.trim().lowercase() }
             .filter { it.isNotEmpty() }
             .toMutableSet()
         val installed = mutableMapOf<String, Boolean>()
@@ -85,13 +89,23 @@ object LinkPresets {
             } else {
                 preset.targetPackages.firstOrNull(::isInstalled) ?: return@mapNotNull null
             }
-            LinkDispatchRule(
+            RecognitionRule(
+                id = UUID.randomUUID().toString(),
                 name = preset.name,
-                matchType = LinkMatchType.CONTAINS,
-                pattern = pattern,
-                targetPackage = pkg,
-                viaBrowser = preset.viaBrowser,
-                resolveShortLink = preset.resolveShortLink,
+                sources = setOf(
+                    RecognitionSource.Clipboard,
+                    RecognitionSource.Scene,
+                    RecognitionSource.ScreenPick,
+                    RecognitionSource.ExternalIntent,
+                ),
+                match = RecognitionMatch.Link(
+                    matchType = LinkMatchType.CONTAINS,
+                    pattern = pattern,
+                    targetPackage = pkg,
+                    viaBrowser = preset.viaBrowser,
+                    resolveShortLink = preset.resolveShortLink,
+                ),
+                output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
             )
         }
     }

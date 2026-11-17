@@ -12,10 +12,8 @@
     <string name="suggestion_ball_unread">建议胶囊球，%1$d 条未读</string>
 
     <string name="suggestion_generic">建议</string>
-    <string name="suggestion_link">链接</string>
     <string name="suggestion_copy">复制</string>
     <string name="suggestion_copied">已复制</string>
-    <string name="suggestion_copy_failed">复制失败，请重试</string>
     <string name="suggestion_open">打开</string>
     <string name="suggestion_open_target">打开 %1$s</string>
     <string name="suggestion_share">分享</string>
@@ -53,56 +51,6 @@
     <string name="float_ball_notification_follow_hand">通知球跟手换边</string>
     <string name="float_ball_notification_follow_hand_subtitle">触钮碰哪侧，通知球就挪到哪侧</string>
 
-    <string name="float_ball_suggestion_rules_group">识别规则</string>
-    <string name="float_ball_suggestion_rules_order">按顺序匹配；每条规则只取第一个匹配结果</string>
-    <string name="float_ball_suggestion_rules_empty">还没有规则：点右下角新增，或从预设添加</string>
-    <string name="float_ball_suggestion_rule_add">新增规则</string>
-    <string name="float_ball_suggestion_rule_drag">拖动排序</string>
-    <string name="float_ball_suggestion_rule_enabled">启用规则</string>
-    <string name="float_ball_suggestion_rule_name">规则名称</string>
-    <string name="float_ball_suggestion_rule_name_hint">留空时显示正则</string>
-    <string name="float_ball_suggestion_rule_pattern">正则表达式</string>
-    <string name="float_ball_suggestion_rule_pattern_hint">(?i)(?:验证码|校验码)[^0-9]{0,24}([0-9]{4,8})</string>
-    <string name="float_ball_suggestion_rule_group_hint">第 1 个捕获组作为建议内容；没有捕获组时取整段匹配</string>
-    <string name="float_ball_suggestion_rule_action">命中动作</string>
-    <string name="float_ball_suggestion_rule_action_copy">复制</string>
-    <string name="float_ball_suggestion_rule_action_open">打开</string>
-    <string name="float_ball_suggestion_rule_action_share">分享</string>
-    <string name="float_ball_suggestion_rule_action_hint">打开只对链接生效；捕获不到链接时自动退回复制</string>
-    <string name="float_ball_suggestion_rule_test">测试文本</string>
-    <string name="float_ball_suggestion_rule_test_hint">粘贴一段通知或剪贴板文本</string>
-    <string name="float_ball_suggestion_rule_test_hit">命中：%1$s</string>
-    <string name="float_ball_suggestion_rule_test_miss">没有命中</string>
-    <string name="float_ball_suggestion_rule_regex_invalid">正则无效；保存后会一直不命中</string>
-    <string name="float_ball_suggestion_rule_invalid">请先填写有效的正则表达式</string>
-    <string name="float_ball_suggestion_rule_delete_title">删除规则</string>
-    <string name="float_ball_suggestion_rule_delete_desc">删除后不再生成这条建议，已弹出的建议不受影响。</string>
-    <string name="float_ball_suggestion_rule_missing">规则不存在或已被删除</string>
-    <string name="float_ball_suggestion_rule_edit">编辑建议规则</string>
-    <string name="float_ball_suggestion_rule_add_title">新增建议规则</string>
-    <string name="float_ball_suggestion_rule_summary">%1$s · %2$s</string>
-    <string name="float_ball_suggestion_presets_group">预设规则</string>
-    <string name="float_ball_suggestion_presets_add">添加预设规则</string>
-    <string name="float_ball_suggestion_presets_available">可添加 %1$d 条</string>
-    <string name="float_ball_suggestion_presets_none">已全部添加</string>
-    <string name="float_ball_suggestion_presets_added">已添加 %1$d 条规则</string>
-    <string name="float_ball_suggestion_link_dispatch">链接分发设置</string>
-    <string name="float_ball_suggestion_scene_group">情景识别</string>
-    <string name="float_ball_suggestion_scene_enabled">读取当前界面</string>
-    <string name="float_ball_suggestion_scene_enabled_subtitle">界面稳定后读一次无障碍文本；命中规则或链接分发规则时弹建议</string>
-    <string name="float_ball_suggestion_scene_need_a11y">需要无障碍服务</string>
-    <string name="float_ball_suggestion_scene_need_a11y_hint">点此开启无障碍服务，情景识别才能读到界面文本</string>
-    <string name="float_ball_suggestion_scene_need_shizuku">内置浏览器可拿真实链接</string>
-    <string name="float_ball_suggestion_scene_need_shizuku_hint">授权 Shizuku 后，微信 / QQ 等内置浏览器的界面能识别出完整链接而不是只有域名</string>
-    <string name="float_ball_suggestion_scene_list_mode">识别范围</string>
-    <string name="float_ball_suggestion_scene_list_mode_hint">黑名单 = 排除所选应用；白名单 = 只在这些应用里识别</string>
-    <string name="float_ball_suggestion_scene_list_blocklist">黑名单（排除）</string>
-    <string name="float_ball_suggestion_scene_list_allowlist">白名单（仅这些）</string>
-    <string name="float_ball_suggestion_scene_list">情景识别名单</string>
-    <string name="float_ball_suggestion_scene_list_none">未设置，识别所有应用</string>
-    <string name="float_ball_suggestion_scene_list_count">已选 %1$d 个应用</string>
-    <string name="scene_scan_unavailable">无障碍服务未开启，无法读取当前界面</string>
-    <string name="float_ball_suggestion_link_dispatch_hint">链接建议点开后交给哪个应用，以及未命中时怎么处理</string>
 
     <string name="float_ball_color">球颜色</string>
     <string name="float_ball_custom_icon">自定义图标</string>
@@ -132,4 +80,6 @@
     <string name="clip_float_copied">已复制</string>
     <string name="clip_float_copy_failed">复制失败</string>
     <string name="clip_float_text">文本</string>
+    <string name="float_ball_suggestion_recognition">识别器</string>
+    <string name="float_ball_suggestion_recognition_hint">输入 → 规则 → 输出的统一规则表</string>
 </resources>

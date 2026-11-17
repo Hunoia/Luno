@@ -55,8 +55,8 @@ import hunoia.luno.ui.navigation.NotificationSettings
 import hunoia.luno.ui.navigation.StatusBarIconSettings
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.RecentsGestureSettings
-import hunoia.luno.ui.navigation.LinkDispatchRules
-import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
+import hunoia.luno.ui.navigation.RecognitionRules
+import hunoia.luno.ui.navigation.RecognitionRuleEdit
 import hunoia.luno.ui.navigation.SceneRecognizeList
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
@@ -76,13 +76,11 @@ import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
 import hunoia.luno.ui.navigation.FloatBallSuggestionCapsule
-import hunoia.luno.ui.navigation.SuggestionRuleEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
 import hunoia.luno.floatball.settings.SuggestionCapsuleSettingsScreen
-import hunoia.luno.floatball.settings.SuggestionRuleEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
 import hunoia.luno.gesture.settings.SubGestureEditor
@@ -112,8 +110,8 @@ import hunoia.luno.ui.settings.action.PointerAdjustScreen
 import hunoia.luno.ui.settings.action.PointerSettingsScreen
 import hunoia.luno.ui.settings.action.AppearanceSettingsScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
-import hunoia.luno.link.settings.LinkDispatchEditScreen
-import hunoia.luno.link.settings.LinkDispatchSettingsScreen
+import hunoia.luno.recognition.RecognitionRuleEditScreen
+import hunoia.luno.recognition.RecognitionSettingsScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
@@ -138,7 +136,6 @@ import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingIncidentView
-import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.navigation.PendingTrendRecord
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.home.HomeScreen
@@ -169,13 +166,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
         // 设置列表视觉风格：全局开关，LunoGroup 读取后决定分段式 / 大卡分割线。
         val advancedSettings by TuneConfig.advanced
             .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
-        // 识屏卡片「新建分发规则」：跨进程 Intent → [PendingLinkRule]，消费一次就跳编辑页。
-        val pendingRulePattern by PendingLinkRule.pattern.collectAsStateWithLifecycle()
-        LaunchedEffect(pendingRulePattern) {
-            val pattern = pendingRulePattern ?: return@LaunchedEffect
-            PendingLinkRule.consume()
-            navController.navigate(LinkDispatchRuleEdit("", pattern)) { launchSingleTop = true }
-        }
         // 习惯面板部件「打开编辑页」：跨进程 Intent → [PendingHabitEdit]，消费一次就跳对应编辑页。
         val pendingHabitEditId by PendingHabitEdit.habitId.collectAsStateWithLifecycle()
         LaunchedEffect(pendingHabitEditId) {
@@ -276,7 +266,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                             navController.navigate(RecentsGestureSettings)
                         },
                         onNavToAppearanceSettings = { navController.navigate(AppearanceSettings) },
-                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
+                        onNavToRecognition = { navController.navigate(RecognitionRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
                         },
@@ -365,23 +355,27 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
-                myComposable<LinkDispatchRules> {
-                    LinkDispatchSettingsScreen(
+                myComposable<RecognitionRules> {
+                    RecognitionSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onEditRule = { ruleId ->
-                            navController.navigate(LinkDispatchRuleEdit(ruleId))
+                            navController.navigate(RecognitionRuleEdit(ruleId))
                         },
                         onCreateRule = {
-                            navController.navigate(LinkDispatchRuleEdit(""))
+                            navController.navigate(RecognitionRuleEdit(""))
                         },
+                        onNavToSceneList = { navController.navigate(SceneRecognizeList) },
                     )
                 }
-                myComposable<LinkDispatchRuleEdit> {
-                    LinkDispatchEditScreen(
-                        ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
-                        prefillPattern = it.toRoute<LinkDispatchRuleEdit>().pattern,
+                myComposable<RecognitionRuleEdit> {
+                    RecognitionRuleEditScreen(
+                        ruleId = it.toRoute<RecognitionRuleEdit>().ruleId,
+                        prefillPattern = it.toRoute<RecognitionRuleEdit>().pattern,
                         onBack = { navController.popBackStack() },
                         appPicker = { request -> LunoAppPicker(request) },
+                        // 动作输出暂不给选择器：输出先用内置的复制/打开/分享，
+                        // 需要任意动作时从动作库配置（见 recognition_rule_action_none 提示）。
+                        actionPicker = null,
                     )
                 }
                 myComposable<RecentAppsBlocklist> {
@@ -466,10 +460,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<FloatBallSuggestionCapsule> {
                     SuggestionCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onEditRule = { ruleId -> navController.navigate(SuggestionRuleEdit(ruleId)) },
-                        onCreateRule = { navController.navigate(SuggestionRuleEdit()) },
-                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
-                        onNavToSceneList = { navController.navigate(SceneRecognizeList) },
+                        onNavToRecognition = { navController.navigate(RecognitionRules) },
                     )
                 }
                 myComposable<SceneRecognizeList> {
@@ -478,28 +469,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         .collectAsStateWithLifecycle(initialValue = ActionTuning())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_suggestion_scene_list),
-                        current = actionSettings.floatBall.clipboardBall.scenePackages,
+                        title = stringResource(hunoia.luno.link.R.string.recognition_scene_list),
+                        current = actionSettings.recognition.scenePackages,
                         onSave = { ordered ->
                             scope.launch {
                                 TuneConfig.updateAction {
                                     it.copy(
-                                        floatBall = it.floatBall.copy(
-                                            clipboardBall = it.floatBall.clipboardBall.copy(
-                                                scenePackages = ordered,
-                                            ),
-                                        ),
+                                        recognition = it.recognition.copy(scenePackages = ordered),
                                     )
                                 }
                                 navController.popBackStack()
                             }
                         },
-                    )
-                }
-                myComposable<SuggestionRuleEdit> {
-                    SuggestionRuleEditScreen(
-                        ruleId = it.toRoute<SuggestionRuleEdit>().ruleId,
-                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<ButtonVisibility> {

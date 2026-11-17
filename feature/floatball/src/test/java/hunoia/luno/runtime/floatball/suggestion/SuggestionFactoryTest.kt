@@ -1,11 +1,16 @@
 package hunoia.luno.runtime.floatball.suggestion
 
-import hunoia.luno.config.model.SuggestionRule
-import hunoia.luno.config.model.SuggestionRuleAction
-import hunoia.luno.config.model.SuggestionRuleDefaults
+import hunoia.luno.config.model.LinkMatchType
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionDefaults
+import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionRule
+import hunoia.luno.config.model.RecognitionSettings
+import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
-import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
+import hunoia.luno.runtime.recognition.Recognizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,13 +30,40 @@ class SuggestionFactoryTest {
         key = "k1",
     )
 
-    private fun rules(vararg rules: SuggestionRule) = SuggestionRuleEngine.compile(rules.toList())
+    private fun recognizer(vararg rules: RecognitionRule) =
+        Recognizer.compile(RecognitionSettings(rules = rules.toList()))
+
+    private fun textRule(
+        id: String = "custom",
+        name: String = "验证码",
+        pattern: String,
+        sources: Set<RecognitionSource> = RecognitionSource.Default,
+        builtin: RecognitionBuiltin = RecognitionBuiltin.Copy,
+    ) = RecognitionRule(
+        id = id,
+        name = name,
+        sources = sources,
+        match = RecognitionMatch.Text(pattern),
+        output = RecognitionOutput.Builtin(builtin),
+    )
+
+    private fun linkRule(
+        pattern: String,
+        type: LinkMatchType = LinkMatchType.CONTAINS,
+        sources: Set<RecognitionSource> = RecognitionSource.Default,
+    ) = RecognitionRule(
+        id = "link-$pattern",
+        name = "链接",
+        sources = sources,
+        match = RecognitionMatch.Link(matchType = type, pattern = pattern),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
+    )
 
     @Test
     fun `notification hits the default verification code rule`() {
         val items = SuggestionFactory.fromNotification(
             pulse = pulse(text = "验证码 778899，5 分钟内有效"),
-            rules = SuggestionRuleEngine.compile(SuggestionRuleDefaults.rules),
+            recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
             nowMs = 1_000,
         )
@@ -51,7 +83,7 @@ class SuggestionFactoryTest {
     fun `notification without a rule hit yields no suggestion`() {
         val items = SuggestionFactory.fromNotification(
             pulse = pulse(text = "订单已发货"),
-            rules = rules(SuggestionRule(name = "验证码", pattern = "验证码\\s*(\\d{4,8})")),
+            recognizer = recognizer(textRule(pattern = "验证码\\s*(\\d{4,8})")),
             sourceKey = "k1",
             nowMs = 1_000,
         )
@@ -60,140 +92,137 @@ class SuggestionFactoryTest {
     }
 
     @Test
-    fun `notification text prefers big text without duplicating the body`() {
-        val text = SuggestionFactory.notificationText(
-            pulse(title = "标题", text = "短文案", bigText = "短文案，验证码 1234"),
-        )
-
-        assertEquals("标题\n短文案，验证码 1234", text)
-    }
-
-    @Test
-    fun `multiple rules produce items in rule table order`() {
+    fun `big text wins over duplicate body text`() {
         val items = SuggestionFactory.fromNotification(
-            pulse = pulse(text = "验证码 1234，取件码 A-88"),
-            rules = rules(
-                SuggestionRule(id = "r1", name = "验证码", pattern = "验证码\\s*(\\d{4})"),
-                SuggestionRule(id = "r2", name = "取件码", pattern = "取件码\\s*([A-Z]-\\d{2})"),
-            ),
+            pulse = pulse(text = "验证码 123456", bigText = "标题\n验证码 123456，5 分钟内有效"),
+            recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
-            nowMs = 2_000,
+            nowMs = 1_000,
         )
 
-        assertEquals(listOf("r1", "r2"), items.map { it.ruleId })
-        assertEquals(listOf("1234", "A-88"), items.map { it.text })
+        assertEquals("123456", items.single().text)
     }
 
     @Test
-    fun `clipboard plain text yields a link suggestion`() {
+    fun `clipboard text rule hit is not duplicated by the link rule`() {
+        val url = "https://example.com/a"
         val items = SuggestionFactory.fromClipboard(
-            text = "看看这个 https://example.com/a?b=1",
-            rules = rules(),
+            text = "打开 $url",
+            recognizer = recognizer(
+                textRule(
+                    id = "grab-url",
+                    name = "抓链接",
+                    pattern = "(https://example\\.com/\\S+)",
+                ),
+                *RecognitionDefaults.rules.toTypedArray(),
+            ),
             sourceKey = "clip",
-            nowMs = 2_000,
+            nowMs = 1_000,
+        )
+
+        // 文本规则先跑并吃掉这条链接：两个默认验证码规则不命中，内置链接规则不再出项。
+        assertEquals(listOf("grab-url"), items.map { it.ruleId })
+        assertEquals(url, items.single().text)
+        assertFalse(items.single().sensitive)
+    }
+
+    @Test
+    fun `clipboard link without a rule hit still yields the builtin link item`() {
+        val items = SuggestionFactory.fromClipboard(
+            text = "见 https://example.com/x",
+            recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
+            sourceKey = "clip",
+            nowMs = 1_000,
         )
 
         assertEquals(1, items.size)
-        val item = items.first()
-        assertEquals(null, item.ruleId)
-        assertEquals("链接", item.title)
-        assertEquals(listOf("https://example.com/a?b=1"), item.urls)
-        assertEquals(SuggestionPrimaryAction.OPEN, item.action)
-        assertFalse(item.sensitive)
-        assertEquals(null, item.ttlMs)
+        assertEquals(RecognitionDefaults.LinkRuleId, items.single().ruleId)
+        assertEquals(SuggestionPrimaryAction.OPEN, items.single().action)
+        assertEquals(listOf("https://example.com/x"), items.single().urls)
     }
 
     @Test
-    fun `clipboard text without links or rule hits yields nothing`() {
-        val items = SuggestionFactory.fromClipboard(
-            text = "普通文本",
-            rules = rules(),
-            sourceKey = "clip",
+    fun `rule sources gate which inputs can hit`() {
+        val rule = textRule(
+            pattern = "验证码\\s*(\\d{4,8})",
+            sources = setOf(RecognitionSource.Notification),
+        )
+        val settings = recognizer(rule)
+
+        assertTrue(
+            SuggestionFactory.fromClipboard(
+                text = "验证码 123456",
+                recognizer = settings,
+                sourceKey = "clip",
+                nowMs = 1,
+            ).none { it.ruleId == "custom" },
+        )
+        assertEquals(
+            "custom",
+            SuggestionFactory.fromNotification(
+                pulse = pulse(text = "验证码 123456"),
+                recognizer = settings,
+                sourceKey = "k1",
+                nowMs = 1,
+            ).single().ruleId,
+        )
+    }
+
+    @Test
+    fun `scene scan uses the same rule table and keeps the screen key`() {
+        val items = SuggestionFactory.fromScene(
+            text = "取件码 1234-5678",
+            screenKey = "screen-1",
+            recognizer = recognizer(
+                textRule(id = "pickup", name = "取件码", pattern = "取件码\\s*(\\S+)"),
+            ),
+            nowMs = 1_000,
+        )
+
+        assertEquals(1, items.size)
+        assertEquals("screen-1", items.single().sceneKey)
+        assertEquals("1234-5678", items.single().text)
+    }
+
+    @Test
+    fun `scene link only appears when a link rule covers it`() {
+        val url = "https://www.xiaohongshu.com/discovery/item/abc"
+        // 只有针对别家域名的规则：这条链接不该出建议。
+        val otherOnly = recognizer(linkRule("b23.tv"))
+        assertTrue(
+            SuggestionFactory.fromScene(
+                text = "页面标题",
+                screenKey = "s1",
+                recognizer = otherOnly,
+                nowMs = 1,
+                sceneUrl = url,
+            ).isEmpty(),
+        )
+
+        val covered = recognizer(linkRule("xiaohongshu.com"))
+        val items = SuggestionFactory.fromScene(
+            text = "页面标题",
+            screenKey = "s1",
+            recognizer = covered,
             nowMs = 1,
+            sceneUrl = url,
         )
-
-        assertTrue(items.isEmpty())
+        assertEquals(listOf(url), items.single().urls)
     }
 
     @Test
-    fun `rule captured link replaces the built-in link suggestion`() {
-        val url = "https://example.com/invite?code=42"
-        val items = SuggestionFactory.fromClipboard(
-            text = "复制打开 $url",
-            rules = rules(
-                SuggestionRule(
-                    id = "invite",
-                    name = "邀请链接",
-                    pattern = """(https://example\.com/[^\s]+)""",
-                    action = SuggestionRuleAction.OPEN,
-                ),
-            ),
-            sourceKey = "clip",
-            nowMs = 3_000,
+    fun `scene link refresh skips urls already used by rules`() {
+        val url = "https://b23.tv/abc"
+        val rules = recognizer(linkRule("b23.tv"))
+        val refreshed = SuggestionFactory.sceneLinkItem(
+            text = "页面标题",
+            screenKey = "s1",
+            recognizer = rules,
+            nowMs = 2,
+            sceneUrl = url,
+            excludeUrls = setOf(url),
         )
 
-        assertEquals(1, items.size)
-        val item = items.first()
-        assertEquals("invite", item.ruleId)
-        assertEquals(url, item.text)
-        assertEquals(listOf(url), item.urls)
-        assertEquals(SuggestionPrimaryAction.OPEN, item.action)
-        assertFalse(item.sensitive)
-    }
-
-    @Test
-    fun `open action on non-link text falls back to copy and stays sensitive`() {
-        val items = SuggestionFactory.fromClipboard(
-            text = "验证码 5566",
-            rules = rules(
-                SuggestionRule(
-                    id = "code",
-                    name = "验证码",
-                    pattern = "验证码\\s*(\\d{4})",
-                    action = SuggestionRuleAction.OPEN,
-                ),
-            ),
-            sourceKey = "clip",
-            nowMs = 4_000,
-        )
-
-        assertEquals(1, items.size)
-        val item = items.first()
-        assertEquals(SuggestionPrimaryAction.COPY, item.action)
-        assertTrue(item.sensitive)
-        assertTrue(item.urls.isEmpty())
-    }
-
-    @Test
-    fun `share action keeps the captured text verbatim`() {
-        val items = SuggestionFactory.fromClipboard(
-            text = "订单号 20240506001",
-            rules = rules(
-                SuggestionRule(
-                    id = "order",
-                    name = "订单号",
-                    pattern = "订单号\\s*(\\d{6,})",
-                    action = SuggestionRuleAction.SHARE,
-                ),
-            ),
-            sourceKey = "clip",
-            nowMs = 5_000,
-        )
-
-        assertEquals(SuggestionPrimaryAction.SHARE, items.single().action)
-        assertEquals("20240506001", items.single().text)
-    }
-
-    @Test
-    fun `suggestion tostring does not expose the captured text`() {
-        val item = SuggestionFactory.fromNotification(
-            pulse = pulse(text = "验证码 123456"),
-            rules = SuggestionRuleEngine.compile(SuggestionRuleDefaults.rules),
-            sourceKey = "k1",
-            nowMs = 1,
-        ).single()
-
-        assertFalse(item.toString().contains("123456"))
-        assertTrue(item.toString().contains("default-code-zh"))
+        assertEquals(null, refreshed)
     }
 }

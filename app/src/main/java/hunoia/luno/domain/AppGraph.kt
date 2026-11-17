@@ -9,8 +9,8 @@ import hunoia.luno.domain.clipboard.ClipboardUseCases
 import hunoia.luno.domain.system.ClipFloatUseCase
 import hunoia.luno.domain.log.LogCenter
 import hunoia.luno.facade.LogFacade
-import hunoia.luno.domain.link.LinkSettingsActions
-import hunoia.luno.facade.LinkSettingsFacade
+import hunoia.luno.domain.recognition.RecognitionSettingsActions
+import hunoia.luno.facade.RecognitionSettingsFacade
 import hunoia.luno.domain.ocr.OcrModelCenter
 import hunoia.luno.facade.OcrModelFacade
 import hunoia.luno.facade.SystemFacade
@@ -45,9 +45,9 @@ object AppGraph : Facades {
     override val logs: LogFacade
         get() = LogCenter
 
-    /** 链接分发配置：页面只读快照流、只提交规则变换。 */
-    override val linkSettings: LinkSettingsFacade
-        get() = LinkSettingsActions
+    /** 识别器配置：页面只读快照流、只提交规则变换。 */
+    override val recognitionSettings: RecognitionSettingsFacade
+        get() = RecognitionSettingsActions
 
     /** 剪贴板写入敏感口径 + 图片 OCR 结果页。 */
     override val clipboard: ClipboardFacade

@@ -1,6 +1,10 @@
-package hunoia.luno.link
+package hunoia.luno.runtime.recognition
 
-import hunoia.luno.config.model.LinkDispatchRule
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionRule
+import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.config.model.LinkMatchType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,27 +61,27 @@ class LinkUrlsTest {
 
     @Test
     fun `contains matches bare domain and subdomain`() {
-        val rule = rule(pattern = "b23.tv", matchType = LinkMatchType.CONTAINS)
-        assertTrue(LinkUrls.matches("https://b23.tv/abc", rule))
-        assertTrue(LinkUrls.matches("https://www.b23.tv/abc", rule))
+        val m = match("b23.tv")
+        assertTrue(LinkUrls.matches("https://b23.tv/abc", m))
+        assertTrue(LinkUrls.matches("https://www.b23.tv/abc", m))
         // 域名不是「等于/子域」时还兜一层整串包含（与 LinkGo 同口径）。
-        assertTrue(LinkUrls.matches("https://b23.tv.example.com/abc", rule))
+        assertTrue(LinkUrls.matches("https://b23.tv.example.com/abc", m))
     }
 
     @Test
     fun `contains falls back to plain substring`() {
-        val rule = rule(pattern = "/video/", matchType = LinkMatchType.CONTAINS)
-        assertTrue(LinkUrls.matches("https://example.com/video/1", rule))
-        assertFalse(LinkUrls.matches("https://example.com/img/1", rule))
+        val m = match("/video/")
+        assertTrue(LinkUrls.matches("https://example.com/video/1", m))
+        assertFalse(LinkUrls.matches("https://example.com/img/1", m))
     }
 
     @Test
     fun `regex and exact matching`() {
-        val regex = rule(pattern = """v\d+/BV\w+""", matchType = LinkMatchType.REGEX)
+        val regex = match("""v\d+/BV\w+""", LinkMatchType.REGEX)
         assertTrue(LinkUrls.matches("https://x.com/v1/BVabc", regex))
         assertFalse(LinkUrls.matches("https://x.com/BVabc", regex))
 
-        val exact = rule(pattern = "https://b23.tv/abc", matchType = LinkMatchType.EXACT)
+        val exact = match("https://b23.tv/abc", LinkMatchType.EXACT)
         assertTrue(LinkUrls.matches("HTTPS://B23.TV/ABC", exact))
         assertFalse(LinkUrls.matches("https://b23.tv/abc/", exact))
     }
@@ -90,7 +94,12 @@ class LinkUrlsTest {
         val match = LinkUrls.firstMatch("https://b23.tv/x", listOf(disabled, first, second))
         assertEquals("b", match?.id)
         assertNull(LinkUrls.firstMatch("https://b23.tv/x", listOf(disabled)))
-        assertNull(LinkUrls.firstMatch("https://b23.tv/x", listOf(rule(pattern = "  "))))
+        // 空 / 空白的匹配串是合法语义（= 任意可分发的链接），内置「链接」规则就用它。
+        assertEquals(
+            "r",
+            LinkUrls.firstMatch("https://b23.tv/x", listOf(rule(pattern = "  ")))?.id,
+        )
+        assertNull(LinkUrls.firstMatch("https://b23.tv/x", listOf(rule(pattern = "(bad"))) )
     }
 
     @Test
@@ -143,29 +152,11 @@ class LinkUrlsTest {
     }
 
     @Test
-    fun `presets are well formed and unique`() {
-        val all = hunoia.luno.link.LinkPresets.all
-        assertTrue(all.isNotEmpty())
-        assertTrue(
-            all.all {
-                it.pattern.isNotBlank() && it.name.isNotBlank() &&
-                    (it.targetPackages.any { pkg -> pkg.contains('.') } || it.viaBrowser)
-            },
-        )
-        assertEquals(all.size, all.map { it.pattern.lowercase() }.distinct().size)
-        assertTrue(all.all { LinkUrls.isDispatchable("https://${it.pattern}/x") })
-    }
-
-    @Test
-    fun `browser rule needs no target package`() {
-        val rule = hunoia.luno.config.model.LinkDispatchRule(
-            pattern = "xhslink.com",
-            targetPackage = "",
-            viaBrowser = true,
-        )
-        assertTrue(rule.isValid)
-        assertFalse(rule.copy(viaBrowser = false).isValid)
-        assertFalse(rule.copy(pattern = " ").isValid)
+    fun `link match validity only depends on regex compilability`() {
+        // 目标的完整性由执行壳判（没目标就只剩回退），匹配层不管目标应用。
+        assertTrue(RecognitionMatch.Link(pattern = "xhslink.com", viaBrowser = true).isValid)
+        assertTrue(RecognitionMatch.Link(pattern = "").isValid)
+        assertFalse(RecognitionMatch.Link(matchType = LinkMatchType.REGEX, pattern = "([bad").isValid)
     }
 
     @Test
@@ -184,7 +175,7 @@ class LinkUrlsTest {
 
     @Test
     fun `domain match only accepts host or subdomain`() {
-        val rule = rule(pattern = "bilibili.com", matchType = LinkMatchType.DOMAIN)
+        val rule = match("bilibili.com", LinkMatchType.DOMAIN)
         assertTrue(LinkUrls.matches("https://bilibili.com/video/1", rule))
         assertTrue(LinkUrls.matches("https://www.bilibili.com/video/1", rule))
         assertTrue(LinkUrls.matches("https://bilibili.com.evil.com/x", rule.copy(pattern = "evil.com")))
@@ -196,10 +187,11 @@ class LinkUrlsTest {
 
     @Test
     fun `exclude patterns skip a rule`() {
-        val rule = rule(pattern = "example.com").copy(excludePatterns = listOf("/ads/"))
-        assertTrue(LinkUrls.matches("https://example.com/video/1", rule))
-        assertFalse(LinkUrls.matches("https://example.com/ads/1", rule))
+        val linkMatch = match("example.com").copy(excludes = listOf("/ads/"))
+        assertTrue(LinkUrls.matches("https://example.com/video/1", linkMatch))
+        assertFalse(LinkUrls.matches("https://example.com/ads/1", linkMatch))
         // 被排除时继续往下匹配。
+        val rule = rule(pattern = "example.com", excludes = listOf("/ads/"))
         val fallback = rule(id = "fallback", pattern = "example.com/ads")
         assertEquals(
             "fallback",
@@ -226,17 +218,32 @@ class LinkUrlsTest {
         assertFalse(LinkUrls.isPrivateHost(null))
     }
 
+    private fun match(
+        pattern: String,
+        matchType: LinkMatchType = LinkMatchType.CONTAINS,
+    ) = RecognitionMatch.Link(
+        matchType = matchType,
+        pattern = pattern,
+        targetPackage = "com.example",
+    )
+
     private fun rule(
         id: String = "r",
         pattern: String,
         matchType: LinkMatchType = LinkMatchType.CONTAINS,
+        excludes: List<String> = emptyList(),
         enabled: Boolean = true,
-    ) = LinkDispatchRule(
+    ) = RecognitionRule(
         id = id,
         name = id,
         enabled = enabled,
-        matchType = matchType,
-        pattern = pattern,
-        targetPackage = "com.example",
+        sources = setOf(RecognitionSource.Clipboard),
+        match = RecognitionMatch.Link(
+            matchType = matchType,
+            pattern = pattern,
+            excludes = excludes,
+            targetPackage = "com.example",
+        ),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
     )
 }

@@ -30,6 +30,8 @@ class ActionBoundaryTest {
         "app/src/main/java/hunoia/luno/runtime/SurfaceActionRuntime.kt",
         // 链接分发：外部入口映射到动作库条目
         "feature/link/src/main/java/hunoia/luno/link/LinkDispatcher.kt",
+        // 识别器输出执行口：内置 / 动作输出统一在 Resolve 侧产出请求（识别器不执行）
+        "core/runtime/src/main/java/hunoia/luno/runtime/recognition/RecognitionExecutor.kt",
     )
 
     private val actionRequestCall = Regex("""\bActionRequest\s*\(""")

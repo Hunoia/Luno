@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
@@ -51,9 +52,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.PortalReleaseMode
-import hunoia.luno.config.model.SuggestionRuleAction
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.gesture.R
-import hunoia.luno.runtime.suggestion.SuggestionSlot
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.containerShape
 import java.util.Locale
@@ -102,8 +103,8 @@ internal sealed interface PortalSlot {
         override val id: String get() = "action:${action.name}"
     }
 
-    /** 建议规则槽：动作取规则声明的 [SuggestionRuleAction]，值取规则捕获的文本。 */
-    data class Suggestion(val suggested: SuggestionSlot) : PortalSlot {
+    /** 建议槽：输出与值都来自识别器结果，本层不做任何规则判定。 */
+    data class Suggestion(val suggested: RecognizedItem) : PortalSlot {
         override val id: String get() = "rule:${suggested.ruleId}"
     }
 }
@@ -142,20 +143,28 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
  *   （「打开链接」只留一个槽）；
  * - 建议之间出现完全相同的「动作 + 值」（同一条链接配了两条规则）只保留第一条。
  */
+/**
+ * 工具条格子 = 识别器给出的建议槽（在前）+ 内容类型动作（在后）。
+ *
+ * 去重口径只有一处：识别器已经保证「同一条链接不出两条建议」，这里再挡掉
+ * 「建议槽已经能打开这条链接时，内容动作再给一个打开链接」的重复。
+ */
 internal fun portalSlotsFor(
     content: PortalContent,
-    suggestions: List<SuggestionSlot>,
+    recognized: List<RecognizedItem>,
 ): List<PortalSlot> {
-    val slots = ArrayList<PortalSlot>(suggestions.size + 6)
+    val slots = ArrayList<PortalSlot>(recognized.size + 6)
     val openUrls = HashSet<String>()
     val seen = HashSet<String>()
-    suggestions.forEach { suggested ->
-        if (!seen.add("${suggested.action}:${suggested.value}")) return@forEach
-        if (suggested.action == SuggestionRuleAction.OPEN) openUrls += suggested.value
-        slots += PortalSlot.Suggestion(suggested)
+    recognized.forEach { item ->
+        if (!seen.add("${item.output}:${item.value}")) return@forEach
+        if (item.builtin == RecognitionBuiltin.OpenLink) openUrls += item.urls
+        slots += PortalSlot.Suggestion(item)
     }
     portalActionsFor(content).forEach { action ->
-        if (action == PortalAction.OpenLink && content.url in openUrls) return@forEach
+        if (action == PortalAction.OpenLink && content.url != null && content.url in openUrls) {
+            return@forEach
+        }
         slots += PortalSlot.Action(action)
     }
     return slots
@@ -447,25 +456,28 @@ private fun PortalAction.label(): String = stringResource(
     },
 )
 
-/** 建议槽按规则动作选图标：复制 / 打开链接 / 分享。 */
-private fun SuggestionRuleAction.icon(): ImageVector = when (this) {
-    SuggestionRuleAction.COPY -> Icons.Default.ContentCopy
-    SuggestionRuleAction.OPEN -> Icons.AutoMirrored.Filled.OpenInNew
-    SuggestionRuleAction.SHARE -> Icons.Default.Share
+/** 建议槽按识别器输出选图标：复制 / 打开链接 / 分享 / 动作。 */
+private fun PortalSlot.Suggestion.iconOf(): ImageVector = when {
+    suggested.action != null -> Icons.Default.Android
+    else -> when (suggested.builtin) {
+        RecognitionBuiltin.Copy -> Icons.Default.ContentCopy
+        RecognitionBuiltin.Share -> Icons.Default.Share
+        RecognitionBuiltin.OpenLink, null -> Icons.AutoMirrored.Filled.OpenInNew
+    }
 }
 
 /** 格子的可读标签：内容动作取本地化动作名，建议槽取规则名（空则兜底「建议」）。 */
 @Composable
 private fun PortalSlot.label(): String = when (this) {
     is PortalSlot.Action -> action.label()
-    is PortalSlot.Suggestion -> suggested.label.ifBlank {
+    is PortalSlot.Suggestion -> suggested.ruleName.ifBlank {
         stringResource(R.string.screen_pick_portal_suggestion)
     }
 }
 
 private fun PortalSlot.icon(): ImageVector = when (this) {
     is PortalSlot.Action -> action.icon()
-    is PortalSlot.Suggestion -> suggested.action.icon()
+    is PortalSlot.Suggestion -> iconOf()
 }
 
 /**

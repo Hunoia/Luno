@@ -71,7 +71,7 @@ fun ActionSettingsTab(
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToNotificationCapsuleSettings: () -> Unit = {},
     onNavToSuggestionCapsuleSettings: () -> Unit = {},
-    onNavToLinkDispatch: () -> Unit = {},
+    onNavToRecognition: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToPointerSettings: () -> Unit = {},
@@ -203,9 +203,9 @@ fun ActionSettingsTab(
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
-                        title = stringResource(hunoia.luno.link.R.string.link_dispatch),
+                        title = stringResource(hunoia.luno.link.R.string.recognition_title),
                         shape = segmentedShape(6, 7),
-                        onClick = onNavToLinkDispatch,
+                        onClick = onNavToRecognition,
                     )
                 }
             }

@@ -10,7 +10,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -42,13 +41,10 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
-import hunoia.luno.config.model.LinkDispatchSettings
-import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
-import hunoia.luno.link.LinkUrls
 import hunoia.luno.runtime.floatball.inbox.BallInboxAction
 import hunoia.luno.runtime.floatball.inbox.BallInboxChange
 import hunoia.luno.runtime.floatball.inbox.BallInboxConfig
@@ -62,16 +58,18 @@ import hunoia.luno.runtime.floatball.inbox.effectiveTtlMs
 import hunoia.luno.runtime.floatball.inbox.stableHash
 import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
 import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
-import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
 import hunoia.luno.runtime.floatball.suggestion.SuggestionFactory
-import hunoia.luno.runtime.suggestion.SuggestionRuleEngine
+import hunoia.luno.runtime.recognition.CompiledRecognizer
+import hunoia.luno.runtime.recognition.RecognitionExecutor
+import hunoia.luno.runtime.recognition.Recognizer
+import hunoia.luno.runtime.recognition.RecognizedItem
+import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.RuntimeStateHub
 import hunoia.luno.runtime.button.shouldShowSurface
-import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.runtime.surface.SurfaceController
@@ -142,13 +140,21 @@ class FloatBallService : Service() {
     private var clipboardPollJob: Job? = null
     private var lastSeenClip: ClipboardContent? = null
 
-    /** 链接分发配置（随 actionSettings 流更新）：建议胶囊识别目标应用时读它。 */
-    private var linkDispatch: LinkDispatchSettings = LinkDispatchSettings()
+    /** 识别器配置（随 actionSettings 流更新）：胶囊、链接目标解析都读它。 */
+    private var recognition: RecognitionSettings = RecognitionSettings()
 
-    /** 建议规则编译结果：配置更新时重建，事件到达时只做匹配。 */
-    private var suggestionRules: CompiledSuggestionRules =
-        SuggestionRuleEngine.compile(emptyList())
+    /** 识别器编译结果：配置更新时重建，事件到达时只做匹配。 */
+    private var recognizer: CompiledRecognizer = Recognizer.compile(RecognitionSettings())
 
+    /**
+     * 识别结果统一执行口。
+     *
+     * 宿主由 `:app` 通过 [hunoia.luno.runtime.recognition.RecognitionHosts] 安装一次
+     * （与识屏共用同一个 `AppRecognitionHost`）：胶囊与识屏的「打开链接」不可能走出
+     * 两种行为，本模块也不再自己写链接跳页 / 分发分支。
+     */
+    private val recognitionExecutor: RecognitionExecutor
+        get() = hunoia.luno.runtime.recognition.RecognitionHosts.executor
     /** Surface 隐藏状态机：面板计数 + 临时隐藏，窗口动作仍由本服务负责。 */
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
@@ -369,8 +375,8 @@ class FloatBallService : Service() {
                     if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
                     visibilitySettings = config.buttonVisibility
-                    linkDispatch = config.action.linkDispatch
-                    suggestionRules = SuggestionRuleEngine.compile(newSettings.clipboardBall.rules)
+                    recognition = config.action.recognition
+                    recognizer = Recognizer.compile(recognition)
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(newSettings)
                     notificationSlot.updateSettings()
@@ -429,7 +435,7 @@ class FloatBallService : Service() {
         if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) {
             lastSeenClip = null
             suggestionSlot.clear()
-        } else if (!settings.clipboardBall.sceneEnabled) {
+        } else if (!recognition.sceneEnabled) {
             // 情景识别关掉：清掉界面上留下的情景建议，剪贴板来源的项保留。
             suggestionSlot.replaceScene(null, emptyList(), makeCurrent = false)
         }
@@ -631,11 +637,11 @@ class FloatBallService : Service() {
      */
     private suspend fun routePulse(pulse: NotificationPulse) {
         val key = pulse.key ?: "${pulse.packageName}:${pulse.title}"
-        val items = if (settings.clipboardBall.enabled && !suggestionRules.isEmpty) {
+        val items = if (settings.clipboardBall.enabled) {
             withContext(Dispatchers.Default) {
                 SuggestionFactory.fromNotification(
                     pulse = pulse,
-                    rules = suggestionRules,
+                    recognizer = recognizer,
                     sourceKey = key,
                     nowMs = SystemClock.elapsedRealtime(),
                 )
@@ -695,7 +701,7 @@ class FloatBallService : Service() {
         val items = withContext(Dispatchers.Default) {
             SuggestionFactory.fromClipboard(
                 text = content.text,
-                rules = suggestionRules,
+                recognizer = recognizer,
                 sourceKey = sourceKey,
                 nowMs = now,
             )
@@ -716,15 +722,12 @@ class FloatBallService : Service() {
     private fun onScreenScene(event: ScreenSceneEvent) {
         if (!gestureEnabledSnapshot) return
         val clipball = settings.clipboardBall
-        if (!clipball.enabled || !clipball.sceneEnabled) return
+        if (!clipball.enabled || !recognition.sceneEnabled) return
         if (isScreenLocked()) return
         // 滑掉后 10 秒内不再为同一屏重弹（同一条抑制表，sourceKey 带 scene: 前缀）。
         if (suggestionSlot.isDismissed("scene:${event.screenKey}")) return
         // 链接补充：这一屏已有建议且已有内置链接项时，只换那一条，不重跑规则 / 不重排队列。
-        if (event.refinedUrl != null &&
-            linkDispatch.enabled &&
-            suggestionSlot.hasSceneLinkFor(event.screenKey)
-        ) {
+        if (event.refinedUrl != null && suggestionSlot.hasSceneLinkFor(event.screenKey)) {
             refineSceneLink(event)
             return
         }
@@ -733,9 +736,7 @@ class FloatBallService : Service() {
             val items = SuggestionFactory.fromScene(
                 text = event.text,
                 screenKey = event.screenKey,
-                rules = suggestionRules,
-                linkRules = linkDispatch.rules,
-                linkDispatchEnabled = linkDispatch.enabled,
+                recognizer = recognizer,
                 nowMs = now,
                 sceneUrl = event.refinedUrl,
             )
@@ -773,7 +774,7 @@ class FloatBallService : Service() {
             val item = SuggestionFactory.sceneLinkItem(
                 text = event.text,
                 screenKey = event.screenKey,
-                linkRules = linkDispatch.rules,
+                recognizer = recognizer,
                 nowMs = SystemClock.elapsedRealtime(),
                 sceneUrl = url,
                 excludeUrls = exclude,
@@ -791,10 +792,10 @@ class FloatBallService : Service() {
     private fun resolveSuggestionTarget(item: SuggestionItem) {
         val url = item.primaryUrl ?: return
         if (item.linkCount > 1) return
-        if (!linkDispatch.enabled) return
+        val ruleId = item.ruleId ?: return
         scope.launch(Dispatchers.Default) {
-            val rule = LinkUrls.firstMatch(url, linkDispatch.rules) ?: return@launch
-            val target = Links.resolvedTargetOf(this@FloatBallService, rule, url) ?: return@launch
+            val target = Links.resolvedTargetFor(this@FloatBallService, url, ruleId, recognition)
+                ?: return@launch
             suggestionSlot.applyTarget(
                 itemId = item.id,
                 packageName = target.packageName.takeIf { it.isNotBlank() },
@@ -852,122 +853,61 @@ class FloatBallService : Service() {
         when (action) {
             SuggestionAction.CLOSE -> Unit
             SuggestionAction.IGNORE -> suggestionSlot.removeAndAdvance(itemId)
-            SuggestionAction.COPY -> copySuggestion(item)
-            SuggestionAction.OPEN -> openSuggestionLink(item)
-            SuggestionAction.SHARE -> shareSuggestion(item)
+            SuggestionAction.COPY -> runSuggestion(item) { it.copyValue() }
+            SuggestionAction.SHARE -> runSuggestion(item) { it.shareValue() }
+            SuggestionAction.OPEN -> runSuggestion(item) { it.primaryIntent() }
         }
     }
 
-    private fun copySuggestion(item: SuggestionItem) {
-        scope.launch(Dispatchers.IO) {
-            val value = if (item.ruleId == null) {
-                item.primaryUrl ?: item.text
-            } else {
-                item.text
-            }
-            val ok = if (item.sensitive) {
-                // 敏感 + 不入历史：规则捕获的验证码/取件码只能待在内存剪贴板里。
-                ClipboardCenter.write(
-                    content = ClipboardContent.Text(value, sensitive = true),
-                    label = null,
-                    record = false,
-                )
-            } else {
-                ClipboardCenter.write(ClipboardContent.Text(value), label = item.title)
-            }
-            if (!ok) {
-                Log.w(TAG, "suggestion copy failed sensitive=${item.sensitive}")
-                showToast(getString(R.string.suggestion_copy_failed))
-                return@launch
-            }
-            suggestionSlot.onCopied(item)
-        }
-    }
-
-    private fun openSuggestionLink(item: SuggestionItem) {
-        val urls = item.urls
-        if (urls.isEmpty()) return
-        if (urls.size > 1) {
-            val launched = runCatching { Links.pickLinks(urls) }
-                .onFailure { Log.w(TAG, "link selection launch failed: ${it.message}") }
-                .isSuccess
-            if (launched) suggestionSlot.removeAndAdvance(item.id)
-            return
-        }
-        val url = urls.first()
-        if (!linkDispatch.enabled) {
-            openLinkExternally(url) { ok ->
-                if (ok) suggestionSlot.removeAndAdvance(item.id)
-            }
-            return
-        }
-        val rule = LinkUrls.firstMatch(url, linkDispatch.rules)
-        if (rule == null) {
-            Links.fallback(this, url, linkDispatch.missAction)
-            suggestionSlot.removeAndAdvance(item.id)
-            return
-        }
-        if (linkDispatch.capsuleTap == LinkTapMode.SHARE) {
-            shareSuggestion(item)
-            return
-        }
+    /**
+     * 胶囊动作统一入口：把条目还原成识别结果，交给 [RecognitionExecutor] 落地。
+     *
+     * 这里不判规则、不判链接、不写链接回退——那些都是识别器与执行口的职责，
+     * 胶囊只负责「用户点了哪个动作」。
+     */
+    private fun runSuggestion(item: SuggestionItem, transform: (RecognizedItem) -> RecognizedItem) {
+        if (item.recognized == null) return
         scope.launch {
-            val resolution = Links.resolve(this@FloatBallService, url, linkDispatch, rule)
-            val dispatched = resolution?.let {
-                val request = it.request.copy(idempotencyKey = "suggestion.link:${item.id}")
-                runCatching { ActionDispatch.dispatchAwait(request) }
-                    .onFailure { error -> Log.w(TAG, "link dispatch threw", error) }
-                    .getOrDefault(false)
-            } ?: false
-            if (!dispatched) {
-                Log.w(TAG, "link dispatch failed, fallback")
-                Links.fallbackFor(this@FloatBallService, url, resolution?.rule ?: rule, linkDispatch)
-            }
-            if (dispatched) {
+            val recognized = transform(item.recognized)
+            val ok = recognitionExecutor.execute(
+                item = recognized,
+                settings = recognition,
+                label = item.title.ifBlank { null },
+                idempotencyKey = "suggestion:${item.id}",
+            )
+            if (ok) {
                 suggestionSlot.removeAndAdvance(item.id)
+                if (recognized.builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
+                    suggestionSlot.onCopied(item)
+                    showToast(hunoia.luno.design.R.string.copied)
+                }
             } else {
+                Log.w(TAG, "suggestion action failed rule=${item.ruleId}")
+                if (recognized.builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
+                    showToast(hunoia.luno.floatball.R.string.clip_float_copy_failed)
+                }
                 suggestionSlot.showCurrent()
             }
         }
     }
 
-    /** 「链接分发」关闭时的兜底：直接交给系统 ACTION_VIEW。 */
-    private fun openLinkExternally(url: String, onResult: (Boolean) -> Unit) {
-        val launched = runCatching {
-            startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            true
-        }.getOrDefault(false)
-        if (!launched) Log.w(TAG, "external link open failed")
-        onResult(launched)
-    }
+    /** 复制语义：值不是链接时按敏感文本处理（识别器已经判好）。 */
+    private fun RecognizedItem.copyValue(): RecognizedItem =
+        if (builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
+            this
+        } else {
+            copy(output = hunoia.luno.config.model.RecognitionOutput.Builtin(
+                hunoia.luno.config.model.RecognitionBuiltin.Copy,
+            ))
+        }
 
-    private fun shareSuggestion(item: SuggestionItem) {
-        val value = if (item.ruleId == null && item.urls.isNotEmpty()) {
-            item.urls.joinToString("\n")
-        } else {
-            item.text
-        }
-        if (value.isBlank()) return
-        val launched = runCatching {
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, value)
-            }
-            startActivity(
-                Intent.createChooser(send, null)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            true
-        }.getOrDefault(false)
-        if (launched) {
-            suggestionSlot.removeAndAdvance(item.id)
-        } else {
-            Log.w(TAG, "suggestion share launch failed")
-        }
-    }
+    private fun RecognizedItem.shareValue(): RecognizedItem =
+        copy(output = hunoia.luno.config.model.RecognitionOutput.Builtin(
+            hunoia.luno.config.model.RecognitionBuiltin.Share,
+        ))
+
+    /** 主动作：直接跑规则声明的输出（动作输出也走这里）。 */
+    private fun RecognizedItem.primaryIntent(): RecognizedItem = this
 
     // ---- 通知点按 ----
 
@@ -1265,14 +1205,6 @@ class FloatBallService : Service() {
 
     // ---- 主球点按 ----
 
-    /** 长按建议球：用户显式要求扫一次当前界面，绕过同屏去重。 */
-    private fun onSuggestionBallLongPressed() {
-        val clipball = settings.clipboardBall
-        if (!gestureEnabledSnapshot || !clipball.enabled || !clipball.sceneEnabled) return
-        val accepted = GestureCommand.requestSceneScan?.invoke(true) ?: false
-        if (!accepted) showToast(getString(R.string.scene_scan_unavailable))
-    }
-
     private fun onBallTapped() {
         val action = settings.tapAction ?: return
         dispatchTapAction(action, ballCenterX(), ballCenterY())
@@ -1552,13 +1484,11 @@ class FloatBallService : Service() {
                 },
             ).apply {
                 onTap = { onContentBallTapped() }
-                onLongPress = { if (source == BallSource.SUGGESTION) onSuggestionBallLongPressed() }
                 onDragStarted = { if (showing) hideCapsule() }
                 onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
             bubble = SmartBubbleWindow(this@FloatBallService).apply {
                 onBodyTapped = { onCapsuleTapped() }
-                onLongPress = {}
                 onSuggestionAction = { id, action -> onSuggestionAction(id, action) }
                 onPageSelected = { id -> onPageSelected(id) }
                 onCollapsed = {

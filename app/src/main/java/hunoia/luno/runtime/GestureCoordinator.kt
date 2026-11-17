@@ -145,13 +145,13 @@ class GestureCoordinator(
         runtimeSettingsStore.snapshot().initialSettings.screenPick
 
     /**
-     * 供识屏幽灵卡读取建议规则（与建议胶囊同一份配置）。
+     * 供识屏幽灵卡读取识别器配置（与建议胶囊同一份规则表）。
      *
      * 只读快照、不编译不缓存：幽灵卡每次识别成形时取一次，规则表很小，编译成本低于
      * 跨模块共享可变缓存的复杂度。
      */
-    fun currentSuggestionRules(): List<hunoia.luno.config.model.SuggestionRule> =
-        runtimeSettingsStore.snapshot().actionSettings.floatBall.clipboardBall.rules
+    fun currentRecognitionSettings(): hunoia.luno.config.model.RecognitionSettings =
+        runtimeSettingsStore.snapshot().actionSettings.recognition
 
     /** DOWN 后 100ms 抓一次 a11y 快照，避免应用自己的长按菜单污染取词结果。 */
     private val screenTextPreCapture by lazy {
@@ -201,26 +201,27 @@ class GestureCoordinator(
         val floatBall = state.actionSettings.floatBall
         val clipball = floatBall.clipboardBall
         val locked = environmentTracker.isNowInLockScreenPage
-        val linkDispatch = state.actionSettings.linkDispatch
-        val hasRules = clipball.rules.any { it.enabled && it.pattern.isNotBlank() } ||
-            (linkDispatch.enabled && linkDispatch.rules.isNotEmpty())
+        // 情景识别的开关与名单都归识别器（它是第五个输入源）。
+        val recognition = state.actionSettings.recognition
+        // 有没有规则：识别器是唯一规则源（情景识别没有可命中的规则就不必扫）。
+        val hasRules = recognition.rules.any { rule ->
+            rule.enabled && rule.isValid &&
+                hunoia.luno.config.model.RecognitionSource.Scene in rule.sources
+        }
         return hunoia.luno.runtime.scene.SceneScanContext(
             enabled = state.initialSettings.gestureEnabled &&
                 floatBall.enabled &&
                 clipball.enabled &&
-                clipball.sceneEnabled,
+                recognition.sceneEnabled,
             locked = locked,
             interactive = !locked,
             launcher = eventPackage?.let(host::isLauncherPackage) ?: host.nowInLauncher(),
             hasRules = hasRules,
-            // 黑/白名单只拦自动扫描；长按建议球手动扫穿透（requestNow 不经门禁）。
-            sceneBlocklist = clipball.scenePackages.toSet(),
-            sceneAllowlist = clipball.sceneListMode == hunoia.luno.config.model.SceneListMode.Allowlist,
+            // 黑/白名单只拦自动扫描。
+            sceneBlocklist = recognition.scenePackages.toSet(),
+            sceneAllowlist = recognition.sceneListMode == hunoia.luno.config.model.SceneListMode.Allowlist,
         )
     }
-
-    /** 用户显式要求扫一次（长按建议球）。返回是否受理，false = 无障碍服务不可用。 */
-    fun requestSceneScan(force: Boolean): Boolean = sceneScannerImpl()?.requestNow(force) ?: false
 
     /**
      * 识别区手势运行时：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。

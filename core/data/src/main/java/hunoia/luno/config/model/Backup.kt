@@ -12,7 +12,11 @@ object BackupVersions {
     const val FORMAT = 3
     const val GESTURE = 1
     const val TUNE = 1
-    const val ACTION = 2
+    /**
+     * 3：`linkDispatch` 与 `floatBall.clipboardBall.rules` 两张规则表并入 `recognition`。
+     * 旧备份里的规则会被丢弃（不做迁移），因此必须拒绝旧版本，否则导入后规则静默消失。
+     */
+    const val ACTION = 3
     const val SEARCH = 1
     const val HABIT = 2
     /** 2：待办提醒（`TodoItem.reminder`）与全局推迟时长（`TodoConfig.reminderSnoozeMinutes`）。 */

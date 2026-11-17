@@ -1,25 +1,17 @@
 package hunoia.luno.floatball.settings
 
-import android.content.Context
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -27,25 +19,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
-import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.bridge.system.gotoOverlaySettings
-import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
-import hunoia.luno.config.model.SceneListMode
-import hunoia.luno.config.model.SuggestionRule
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.runtime.floatball.suggestion.SuggestionRulePresets
-import hunoia.luno.shizuku.ShizukuManager
-import hunoia.luno.ui.component.DragReorderHandle
-import hunoia.luno.ui.component.LunoFab
-import hunoia.luno.ui.component.dragReorderPlacement
-import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.rememberDragReorderState
-import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -53,22 +33,18 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
 
 /**
- * 建议胶囊设置页：显示/跟手/停留时长/队列 + 自定义识别规则。
+ * 建议胶囊设置页：只管**胶囊自己**（显示 / 跟手 / 停留时长 / 队列 / 图标）。
  *
- * 规则表按顺序匹配（第一条命中优先展示）。行级进入编辑页，新增走右下角 FAB，
- * 预设一键并入（按正则判重）。
+ * 识别规则、链接分发、情景识别都在识别器页（`RecognitionSettingsScreen`）：
+ * 胶囊只负责把识别结果显示出来，不再拥有一份自己的规则表。
  */
 @Composable
 fun SuggestionCapsuleSettingsScreen(
     onBack: () -> Unit,
-    onEditRule: (String) -> Unit = {},
-    onCreateRule: () -> Unit = {},
-    onNavToLinkDispatch: () -> Unit = {},
-    onNavToSceneList: () -> Unit = {},
+    onNavToRecognition: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -95,13 +71,6 @@ fun SuggestionCapsuleSettingsScreen(
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     // 建议球自己的图标：选图 → 裁剪 → 落盘，不跟随主球。
     val iconPicker = rememberBallIconPickerState()
-    // 情景识别依赖无障碍服务连接；从权限页回来时重新读一次。
-    var sceneReady by remember {
-        mutableStateOf(sceneA11yEnabled(context))
-    }
-    // 真实链接（XWeb 日志）靠 Shizuku；没就绪时只是少一个特权通道。
-    val shizukuStatus by ShizukuManager.statusFlow.collectAsStateWithLifecycle()
-    val shizukuReady = shizukuStatus.isReady
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -111,7 +80,6 @@ fun SuggestionCapsuleSettingsScreen(
                     overlayGranted = granted
                     facades.system.refreshFloatBall(context)
                 }
-                sceneReady = sceneA11yEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -126,15 +94,6 @@ fun SuggestionCapsuleSettingsScreen(
         }
     }
 
-    // 规则顺序就是建议顺序：拖完松手再落盘，拖动中只改本地草稿。
-    val reorder = rememberDragReorderState<SuggestionRule>(
-        current = { clipball.rules },
-        onCommit = { rules -> update { it.copy(clipboardBall = it.clipboardBall.copy(rules = rules)) } },
-    )
-    LaunchedEffect(clipball.rules) { reorder.syncWithCurrent() }
-    val rules = reorder.items
-    val addable = remember(clipball.rules) { SuggestionRulePresets.addable(clipball.rules) }
-
     LunoScreenLazy(
         title = stringResource(R.string.float_ball_suggestion_group),
         onBack = onBack,
@@ -148,13 +107,6 @@ fun SuggestionCapsuleSettingsScreen(
                 onChange = { icon ->
                     update { it.copy(clipboardBall = it.clipboardBall.copy(customIcon = icon)) }
                 },
-            )
-        },
-        floatingContent = {
-            LunoFab(
-                onClick = onCreateRule,
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.float_ball_suggestion_rule_add),
             )
         },
     ) {
@@ -286,184 +238,18 @@ fun SuggestionCapsuleSettingsScreen(
             }
         }
 
-        item(key = "scene") {
-            val needsA11y = clipball.sceneEnabled && !sceneReady
-            val needsShizuku = clipball.sceneEnabled && !shizukuReady
-            // 常驻两行（名单模式 + 名单入口）：sceneEnabled 关闭也可预设，与通知黑名单行同口径。
-            val rowCount = 3 + (if (needsA11y) 1 else 0) + (if (needsShizuku) 1 else 0)
-            val a11yIndex = 3
-            val shizukuIndex = 3 + (if (needsA11y) 1 else 0)
-            LunoGroup(title = stringResource(R.string.float_ball_suggestion_scene_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_suggestion_scene_enabled),
-                    subtitle = stringResource(R.string.float_ball_suggestion_scene_enabled_subtitle),
-                    checked = clipball.sceneEnabled,
-                    onCheckedChange = { checked ->
-                        update {
-                            it.copy(
-                                clipboardBall = it.clipboardBall.copy(sceneEnabled = checked),
-                            )
-                        }
-                    },
-                    shape = segmentedShape(0, rowCount),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.float_ball_suggestion_scene_list_mode),
-                    subtitle = stringResource(R.string.float_ball_suggestion_scene_list_mode_hint),
-                    options = listOf(
-                        stringResource(R.string.float_ball_suggestion_scene_list_blocklist),
-                        stringResource(R.string.float_ball_suggestion_scene_list_allowlist),
-                    ),
-                    selectedIndex = if (clipball.sceneListMode == SceneListMode.Allowlist) 1 else 0,
-                    onSelect = { index ->
-                        update {
-                            it.copy(
-                                clipboardBall = it.clipboardBall.copy(
-                                    sceneListMode = if (index == 1) SceneListMode.Allowlist
-                                    else SceneListMode.Blocklist,
-                                ),
-                            )
-                        }
-                    },
-                    shape = segmentedShape(1, rowCount),
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.Block,
-                    title = stringResource(R.string.float_ball_suggestion_scene_list),
-                    subtitle = if (clipball.scenePackages.isEmpty()) {
-                        stringResource(R.string.float_ball_suggestion_scene_list_none)
-                    } else {
-                        stringResource(
-                            R.string.float_ball_suggestion_scene_list_count,
-                            clipball.scenePackages.size,
-                        )
-                    },
-                    shape = segmentedShape(2, rowCount),
-                    onClick = onNavToSceneList,
-                )
-                if (needsA11y) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.float_ball_suggestion_scene_need_a11y),
-                        subtitle = stringResource(R.string.float_ball_suggestion_scene_need_a11y_hint),
-                        icon = Icons.AutoMirrored.Filled.OpenInNew,
-                        shape = segmentedShape(a11yIndex, rowCount),
-                        onClick = {
-                            sceneReady = sceneA11yEnabled(context)
-                            context.gotoAccessibilitySettings()
-                        },
-                    )
-                }
-                if (needsShizuku) {
-                    // 真实链接靠特权通道读日志；没授权时情景识别仍可用，只是拿不到深链。
-                    LunoSettingsRow(
-                        title = stringResource(R.string.float_ball_suggestion_scene_need_shizuku),
-                        subtitle = stringResource(R.string.float_ball_suggestion_scene_need_shizuku_hint),
-                        icon = Icons.Filled.Link,
-                        shape = segmentedShape(shizukuIndex, rowCount),
-                        onClick = { scope.launch { ShizukuManager.autoRequestPermissionIfNeeded() } },
-                    )
-                }
-            }
-        }
-
-        item(key = "presets") {
-            val presetCount = addable.size
-            val addedMessage =
-                stringResource(R.string.float_ball_suggestion_presets_added, presetCount)
-            LunoGroup(title = stringResource(R.string.float_ball_suggestion_presets_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.float_ball_suggestion_presets_add),
-                    subtitle = if (addable.isEmpty()) {
-                        stringResource(R.string.float_ball_suggestion_presets_none)
-                    } else {
-                        stringResource(R.string.float_ball_suggestion_presets_available, presetCount)
-                    },
-                    shape = segmentedShape(0, 1),
-                    enabled = addable.isNotEmpty(),
-                    onClick = {
-                        update { it.copy(clipboardBall = it.clipboardBall.copy(rules = it.clipboardBall.rules + addable)) }
-                        showToast(addedMessage)
-                    },
-                )
-            }
-        }
-
-        item(key = "rules") {
-            LunoGroup(
-                title = stringResource(R.string.float_ball_suggestion_rules_group),
-                subtitle = stringResource(R.string.float_ball_suggestion_rules_order),
-            ) {
-                if (rules.isEmpty()) {
-                    Surface(
-                        shape = LargeShape,
-                        color = MaterialTheme.colorScheme.surfaceBright,
-                    ) {
-                        EmptyState(message = stringResource(R.string.float_ball_suggestion_rules_empty))
-                    }
-                } else {
-                    rules.forEachIndexed { index, rule ->
-                        LunoSettingsRow(
-                            icon = Icons.Default.Lightbulb,
-                            title = rule.name.ifBlank { rule.pattern },
-                            subtitle = stringResource(
-                                R.string.float_ball_suggestion_rule_summary,
-                                ruleActionLabel(rule),
-                                rule.pattern,
-                            ),
-                            modifier = Modifier.dragReorderPlacement(reorder, index),
-                            shape = segmentedShape(index, rules.size),
-                            enabled = rule.enabled,
-                            onClick = { onEditRule(rule.id) },
-                            trailing = {
-                                DragReorderHandle(
-                                    reorder,
-                                    index,
-                                    stringResource(R.string.float_ball_suggestion_rule_drag),
-                                    clipball.rules,
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        item(key = "link_dispatch") {
+        // 识别器（规则表 + 情景识别开关/名单）统一在识别器页：情景识别是识别器的第五个输入源，
+        // 挂在建议胶囊下会让「按来源配置」散在两处。
+        item(key = "recognition") {
             LunoGroup {
                 LunoSettingsRow(
                     icon = Icons.Default.Link,
-                    title = stringResource(R.string.float_ball_suggestion_link_dispatch),
-                    subtitle = stringResource(R.string.float_ball_suggestion_link_dispatch_hint),
+                    title = stringResource(R.string.float_ball_suggestion_recognition),
+                    subtitle = stringResource(R.string.float_ball_suggestion_recognition_hint),
                     shape = segmentedShape(0, 1),
-                    onClick = onNavToLinkDispatch,
+                    onClick = onNavToRecognition,
                 )
             }
         }
     }
 }
-
-/** 列表副标题用的动作名：与编辑页选项保持一致。 */
-@Composable
-internal fun ruleActionLabel(rule: SuggestionRule): String = when (rule.action) {
-    hunoia.luno.config.model.SuggestionRuleAction.COPY -> stringResource(R.string.float_ball_suggestion_rule_action_copy)
-    hunoia.luno.config.model.SuggestionRuleAction.OPEN -> stringResource(R.string.float_ball_suggestion_rule_action_open)
-    hunoia.luno.config.model.SuggestionRuleAction.SHARE -> stringResource(R.string.float_ball_suggestion_rule_action_share)
-}
-
-/** 无障碍服务类的简单类名（`SideGestureService`）；与 `:app` 里的声明保持同步。 */
-private const val SCENE_A11Y_SERVICE_CLASS = "SideGestureService"
-
-/**
- * 情景识别靠无障碍服务读界面文本，设置页得告诉用户「服务没开」。
- *
- * 读不到服务连接状态：`SideGestureService` 在 `:service` 进程、设置页在主进程，跨进程的
- * 单例槽位在这里永远是 null。改查系统设置 —— `ENABLED_ACCESSIBILITY_SERVICES` 是进程无关的
- * 事实源，权限正常时不再误报「需要无障碍服务」。
- *
- * 本模块不能反向依赖 `:app`，所以类名只能按字符串比对；包名先收窄到本应用，避免误判同名类。
- */
-private fun sceneA11yEnabled(context: Context): Boolean =
-    hunoia.luno.bridge.system.AccessibilitySettings.enabledComponents(context).any { component ->
-        component.packageName == context.packageName &&
-            component.className.substringAfterLast('.') == SCENE_A11Y_SERVICE_CLASS
-    }

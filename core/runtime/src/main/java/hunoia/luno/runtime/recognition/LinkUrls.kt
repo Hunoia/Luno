@@ -1,19 +1,22 @@
-package hunoia.luno.link
+package hunoia.luno.runtime.recognition
 
-import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkMatchType
+import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionRule
+import hunoia.luno.config.model.RecognitionSource
 import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * 链接识别与规则匹配的纯逻辑（无 Context / 无 android.net.Uri，可直接 JVM 单测）。
+ * 链接识别与匹配的纯逻辑（无 Context / 无 Android 依赖，可直接 JVM 单测）。
  *
- * 口径与 LinkGo 的「提取规则 + 分发规则」子集对齐：
- * - 提取：只认带 `scheme://` 的串，遇空白或汉字即止，尾部标点回退；
- * - 匹配：包含 / 正则 / 精确，规则表顺序取第一条命中；
+ * 判定口径与 LinkGo 的「提取规则 + 分发规则」子集对齐：
+ * - 提取：只认带 `scheme://` 的串（识屏 / 情景识别可放开裸域名），遇空白或汉字即止，尾部标点回退；
+ * - 匹配：包含 / 域名 / 正则 / 精确，`pattern` 为空 = 任意可分发的链接；
  * - 改写：模板变量替换，空模板不改写。
  *
- * 刻意不含 LinkGo 的短链 302 解析、链式二次分发（RE_DISPATCH）、提取码规则。
+ * **这是全应用唯一的链接识别实现**：识别器、外部 Intent 入口、选择页都从这里取，
+ * 不再各自写一份正则或匹配分支。
  */
 object LinkUrls {
 
@@ -49,8 +52,7 @@ object LinkUrls {
 
     /**
      * 从混杂文本里按出现顺序提取链接（去重，最多 [MaxUrls] 条）。
-     * [allowBareDomains] = true 时额外收「不带协议」的裸域名（补 `https://`），
-     * 只给识屏用：剪贴板仍要求完整协议，避免把普通文本里的域名误判成链接。
+     * [allowBareDomains] = true 时额外收「不带协议」的裸域名（补 `https://`）。
      */
     fun extractUrls(text: String, allowBareDomains: Boolean = false): List<String> {
         if (text.isBlank()) return emptyList()
@@ -136,11 +138,16 @@ object LinkUrls {
         return authority.ifBlank { null }
     }
 
-    fun matches(url: String, rule: LinkDispatchRule): Boolean {
-        val pattern = rule.pattern.trim()
-        if (pattern.isEmpty()) return false
-        if (rule.effectiveExcludes.any { url.contains(it, ignoreCase = true) }) return false
-        return when (rule.matchType) {
+    /**
+     * 单条链接是否命中匹配规格。
+     *
+     * `pattern` 为空且类型不是 REGEX = 任意可分发的链接（内置「链接」规则的形态）。
+     */
+    fun matches(url: String, match: RecognitionMatch.Link): Boolean {
+        if (match.effectiveExcludes.any { url.contains(it, ignoreCase = true) }) return false
+        val pattern = match.pattern.trim()
+        if (pattern.isEmpty() && match.matchType != LinkMatchType.REGEX) return isDispatchable(url)
+        return when (match.matchType) {
             LinkMatchType.CONTAINS -> {
                 val host = hostOf(url)
                 if (host != null && hostMatches(host, pattern)) {
@@ -170,7 +177,7 @@ object LinkUrls {
 
     /**
      * 内网/本机地址：短链解析是后台联网请求，别让剪贴板里的 `192.168.x` / `localhost`
-     * 变成对局域网服务的探测。纯函数，供 [LinkShortLinkResolver] 与单测共用。
+     * 变成对局域网服务的探测。纯函数，供 `LinkShortLinkResolver` 与单测共用。
      */
     fun isPrivateHost(host: String?): Boolean {
         if (host.isNullOrBlank()) return false
@@ -197,9 +204,17 @@ object LinkUrls {
         }
     }
 
-    /** 规则表顺序取第一条命中的启用规则。 */
-    fun firstMatch(url: String, rules: List<LinkDispatchRule>): LinkDispatchRule? =
-        rules.firstOrNull { it.enabled && it.pattern.isNotBlank() && matches(url, it) }
+    /**
+     * 规则表顺序取第一条命中的启用规则。
+     *
+     * 只对 [RecognitionMatch.Link] 规则生效；文本规则不参与链接选路。
+     */
+    fun firstMatch(url: String, rules: List<RecognitionRule>): RecognitionRule? =
+        rules.firstOrNull { rule ->
+            if (!rule.enabled || !rule.isValid) return@firstOrNull false
+            val match = rule.match as? RecognitionMatch.Link ?: return@firstOrNull false
+            matches(url, match)
+        }
 
     /**
      * 按模板改写 URL：`{url}` `{host}` `{path}` `{query}` `{scheme}` 以及
@@ -254,5 +269,13 @@ object LinkUrls {
         var end = raw.length
         while (end > 0 && raw[end - 1] in TrailingPunctuation) end--
         return raw.substring(0, end)
+    }
+
+    /** 输入来源是否需要放开裸域名：识屏 / 情景识别看的是屏幕上的短串。 */
+    fun allowsBareDomains(source: RecognitionSource): Boolean = when (source) {
+        RecognitionSource.ScreenPick, RecognitionSource.Scene -> true
+        RecognitionSource.Clipboard, RecognitionSource.Notification,
+        RecognitionSource.ExternalIntent,
+        -> false
     }
 }

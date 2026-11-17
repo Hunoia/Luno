@@ -19,7 +19,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import hunoia.luno.link.LinkExtras
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.TrendExtras
@@ -27,7 +26,6 @@ import hunoia.luno.domain.habit.HabitReminderNotifier
 import hunoia.luno.domain.log.IncidentNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingIncidentView
-import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.navigation.PendingTrendRecord
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
@@ -63,7 +61,6 @@ class MainActivity : ComponentActivity() {
             HabitReminderNotifier.warmupIsland(applicationContext)
         }
 
-        handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
@@ -91,22 +88,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
         handleIncidentIntent(intent)
-    }
-
-    /**
-     * 识屏卡片的「新建分发规则」：`LinkExtras.EXTRA_RULE_PATTERN` 预填域名。
-     * 导航由 [SideGestureApp] 消费 [PendingLinkRule] 完成；这里只负责收件，
-     * 免得 UI 层去改 Intent 语义。
-     */
-    private fun handleLinkRuleIntent(intent: Intent?) {
-        val pattern = intent?.getStringExtra(LinkExtras.EXTRA_RULE_PATTERN) ?: return
-        intent.removeExtra(LinkExtras.EXTRA_RULE_PATTERN)
-        PendingLinkRule.request(pattern)
     }
 
     /**

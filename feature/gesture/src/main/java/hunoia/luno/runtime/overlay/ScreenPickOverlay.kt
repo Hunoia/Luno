@@ -82,7 +82,16 @@ import hunoia.luno.capability.qr.QrKind
 import hunoia.luno.capability.qr.QrResult
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.config.model.PortalReleaseMode
-import hunoia.luno.config.model.SuggestionRule
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionSettings
+import hunoia.luno.config.model.RecognitionSource
+import hunoia.luno.runtime.recognition.CompiledRecognizer
+import hunoia.luno.runtime.recognition.LinkUrls
+import hunoia.luno.runtime.recognition.RecognitionExecutor
+import hunoia.luno.runtime.recognition.RecognitionInput
+import hunoia.luno.runtime.recognition.RecognizedItem
+import hunoia.luno.runtime.recognition.Recognizer
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader
@@ -90,9 +99,6 @@ import hunoia.luno.runtime.overlay.text.ScreenPreCapture
 import hunoia.luno.runtime.overlay.text.TextSnapshot
 import hunoia.luno.runtime.overlay.text.TextSnapshotOps
 import hunoia.luno.runtime.environment.BroadcastObserver
-import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
-import hunoia.luno.runtime.suggestion.SuggestionRules
-import hunoia.luno.runtime.suggestion.SuggestionSlot
 import java.io.File
 import java.util.concurrent.Executor
 import kotlinx.coroutines.CompletableDeferred
@@ -177,16 +183,21 @@ class ScreenPickOverlay(
     ) -> Boolean = { _, _, _, _, _ -> false },
     /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
     private val onAnnotate: (Bitmap) -> Boolean = { false },
-    /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */    private val onOpenLink: suspend (String) -> Boolean = { false },
     /** 识屏自身参数（OCR 文字体系 / 松手去向）：`:app` 注入运行时配置。 */
     private val screenPickSettings: () -> hunoia.luno.config.model.ScreenPickSettings = {
         hunoia.luno.config.model.ScreenPickSettings()
     },
     /**
-     * 建议规则（与建议胶囊同一份配置）：`:app` 注入。幽灵卡工具条按它派生建议槽，
-     * 本模块不依赖建议胶囊所在的功能模块。
+     * 识别器配置（与建议胶囊同一份规则表）：`:app` 注入。幽灵卡工具条按它派生建议槽，
+     * 本模块只消费识别结果，不自己判规则、不依赖建议胶囊所在的功能模块。
      */
-    private val suggestionRules: () -> List<SuggestionRule> = { emptyList() },
+    private val recognitionSettings: () -> RecognitionSettings = { RecognitionSettings() },
+    /**
+     * 识别结果的执行口（`:app` 注入）。识屏与建议胶囊共用同一个执行器，
+     * 因此这里的建议槽不需要自己的复制 / 打开 / 分享分支。
+     */
+    private val recognition: () -> hunoia.luno.runtime.recognition.RecognitionExecutor =
+        { hunoia.luno.runtime.recognition.RecognitionHosts.executor },
 ) : hunoia.luno.runtime.surface.SurfaceHandle {
     override val surfaceId: String = "screen-pick"
     override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
@@ -598,9 +609,9 @@ class ScreenPickOverlay(
      * 值本身就是一段文本，不需要截图，撤卡即可关层；敏感文本（非链接）只作为剪贴板
      * 敏感内容的提示，不改变执行路径。
      */
-    private fun onPortalSuggestion(suggestion: SuggestionSlot) {
+    private fun onPortalSuggestion(item: RecognizedItem) {
         dismissPortal()
-        executeSuggestion(suggestion)
+        executeSuggestion(item)
         close()
     }
 
@@ -755,7 +766,7 @@ class ScreenPickOverlay(
             imageSize = imageBounds?.let { it.width() to it.height() },
             nodeBounds = nodeBounds,
             url = text?.let {
-                runCatching { hunoia.luno.link.LinkUrls.extractUrls(it, allowBareDomains = true) }
+                runCatching { LinkUrls.extractUrls(it, allowBareDomains = true) }
                     .getOrNull()
                     ?.firstOrNull()
             },
@@ -776,15 +787,19 @@ class ScreenPickOverlay(
         val base = portalSlotsFor(content, emptyList())
         portalSlots = base
         if (portalAnchor == null) return
+        val settings = recognitionSettings()
+        val recognizer: CompiledRecognizer = Recognizer.compile(settings)
+        if (recognizer.isEmpty || text.isNullOrBlank()) return
         val pickToken = portalSession
-        val rules: CompiledSuggestionRules = SuggestionRules.compile(suggestionRules())
-        if (rules.isEmpty || text.isNullOrBlank()) return
         host.coroutineScope.launch {
-            val suggestions = SuggestionRules.slots(text, rules)
-            if (suggestions.isEmpty()) return@launch
+            // 识别器的规则匹配是正则全扫，放后台；结果回来时卡片可能已被撤掉或换了会话。
+            val recognized = withContext(Dispatchers.Default) {
+                recognizer.match(RecognitionInput(RecognitionSource.ScreenPick, text))
+            }
+            if (recognized.isEmpty()) return@launch
             if (pickToken != portalSession || portalAnchor == null) return@launch
             if (portalContent.text != text) return@launch
-            portalSlots = portalSlotsFor(content, suggestions)
+            portalSlots = portalSlotsFor(content, recognized)
             // 格子数变了要重算工具条，否则松手命中还按旧的格位判。
             portalFinger?.let { finger ->
                 refreshPortalBar(finger)
@@ -792,31 +807,23 @@ class ScreenPickOverlay(
         }
     }
 
-    /** 建议槽执行：复制（敏感文本）/ 打开链接 / 分享，值取规则捕获出来的那一段。 */
-    private fun executeSuggestion(suggestion: SuggestionSlot) {
+    /**
+     * 建议槽执行：复制（敏感文本）/ 打开链接 / 分享 / 动作，值取识别器捕获出来的那一段。
+     *
+     * 与建议胶囊走同一个 [RecognitionExecutor]：敏感判定、链接选路、回退策略都只有一份。
+     */
+    private fun executeSuggestion(item: RecognizedItem) {
         host.coroutineScope.launch {
-            when (suggestion.action) {
-                hunoia.luno.config.model.SuggestionRuleAction.COPY -> {
-                    // 捕获值不是链接时按敏感文本写剪贴板（不进历史），与建议胶囊同口径。
-                    val sensitive = runCatching {
-                        hunoia.luno.link.LinkUrls.extractUrls(suggestion.value)
-                    }.getOrNull().isNullOrEmpty()
-                    val ok = ClipboardCenter.writeTextImmediate(
-                        suggestion.value,
-                        SCREEN_PICK_LABEL,
-                        sensitive = sensitive,
-                    )
-                    if (ok) {
-                        showToast(hunoia.luno.design.R.string.copied)
-                    } else {
-                        showToast(R.string.screen_pick_failed)
-                    }
-                }
-                hunoia.luno.config.model.SuggestionRuleAction.OPEN -> {
-                    val url = suggestion.value
-                    if (!onOpenLink(url)) showToast(R.string.screen_pick_failed)
-                }
-                hunoia.luno.config.model.SuggestionRuleAction.SHARE -> shareText(suggestion.value)
+            val ok = recognition().execute(
+                item = item,
+                settings = recognitionSettings(),
+                label = SCREEN_PICK_LABEL,
+                idempotencyKey = "screenpick:${portalSession}:${item.ruleId}",
+            )
+            when {
+                !ok -> showToast(R.string.screen_pick_failed)
+                item.builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy ->
+                    showToast(hunoia.luno.design.R.string.copied)
             }
         }
     }
@@ -849,7 +856,7 @@ class ScreenPickOverlay(
             qrIsBarcode = qr.kind == QrKind.Barcode,
             nodeBounds = bounds,
             url = runCatching {
-                hunoia.luno.link.LinkUrls.extractUrls(qr.text, allowBareDomains = true)
+                LinkUrls.extractUrls(qr.text, allowBareDomains = true)
             }.getOrNull()?.firstOrNull(),
         )
         portalResolving = false
@@ -1106,9 +1113,23 @@ class ScreenPickOverlay(
                     }
                     PortalAction.OpenLink -> {
                         val url = content.url
-                        when {
-                            url.isNullOrBlank() -> showToast(R.string.screen_pick_no_content)
-                            !onOpenLink(url) -> showToast(R.string.screen_pick_failed)
+                        if (url.isNullOrBlank()) {
+                            showToast(R.string.screen_pick_no_content)
+                        } else {
+                            // 与建议槽同一条执行路径：命中规则按目标分发，未命中按全局策略回退。
+                            val ok = recognition().execute(
+                                item = RecognizedItem(
+                                    ruleId = hunoia.luno.config.model.RecognitionDefaults.LinkRuleId,
+                                    ruleName = "",
+                                    value = url,
+                                    urls = listOf(url),
+                                    output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
+                                ),
+                                settings = recognitionSettings(),
+                                label = null,
+                                idempotencyKey = "screenpick:${portalSession}:open-link",
+                            )
+                            if (!ok) showToast(R.string.screen_pick_failed)
                         }
                     }
                     // OCR 要先识别再关层，走 openOcrResultForPortal，不在这个分支里。

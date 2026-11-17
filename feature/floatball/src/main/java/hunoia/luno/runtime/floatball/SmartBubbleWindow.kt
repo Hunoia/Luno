@@ -156,14 +156,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             }
         },
         onDragEnded = { finishBodyDrag() },
+        // 长按只用于建议项的动作菜单（通知没有长按行为）。
         onLongPress = { handleLongPress() },
     )
 
     /** 正文点按（通知直达 / 建议主动作）。 */
     var onBodyTapped: (() -> Unit)? = null
-
-    /** 正文长按（通知无动作；建议在窗内展开动作行）。 */
-    var onLongPress: (() -> Unit)? = null
 
     /** 建议动作行 / 主动作回调。 */
     var onSuggestionAction: ((String, SuggestionAction) -> Unit)? = null
@@ -583,13 +581,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
     }
 
+    /** 长按：只有建议项有动作（在窗内展开动作行）；通知项无长按行为。 */
     private fun handleLongPress() {
         val item = items.getOrNull(currentIndex)
         if (item is SuggestionItem) {
             menuItemId = item.id
             copiedItemId = null
-        } else {
-            onLongPress?.invoke()
         }
     }
 
@@ -1080,17 +1077,17 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     @Composable
-    private fun suggestionTitle(item: SuggestionItem): String {
-        if (item.ruleId == null) {
-            return item.targetLabel ?: stringResource(R.string.suggestion_link)
+    private fun suggestionTitle(item: SuggestionItem): String = item.title
+        .ifBlank { stringResource(R.string.suggestion_generic) }
+        .let { title ->
+            // 链接类规则：标题用目标应用名（「发往 小米浏览器」的信息密度比「链接」高）。
+            if (item.urls.isNotEmpty() && item.targetLabel != null) item.targetLabel else title
         }
-        return item.title.ifBlank { stringResource(R.string.suggestion_generic) }
-    }
 
     @Composable
     private fun suggestionBody(item: SuggestionItem): String {
-        if (item.ruleId == null && item.linkCount > 1) {
-            return stringResource(R.string.suggestion_link_count, item.linkCount)
+        if (item.urls.size > 1) {
+            return stringResource(R.string.suggestion_link_count, item.urls.size)
         }
         return item.text
     }
@@ -1102,6 +1099,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         SuggestionPrimaryAction.OPEN -> item.targetLabel?.let {
             stringResource(R.string.suggestion_open_target, it)
         } ?: stringResource(R.string.suggestion_open)
+        // 动作输出：按规则名当按钮标题（用户配的动作自己起过名字）。
+        SuggestionPrimaryAction.RUN_ACTION -> item.title
+            .ifBlank { stringResource(R.string.suggestion_generic) }
     }
 
     @Composable
@@ -1129,7 +1129,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             }
 
             SuggestionPrimaryAction.SHARE -> actions += SuggestionAction.SHARE
-            SuggestionPrimaryAction.COPY -> Unit
+            // 动作输出：主动作是「跑动作」，两侧的复制/分享仍按值是否可分享补上。
+            SuggestionPrimaryAction.COPY, SuggestionPrimaryAction.RUN_ACTION -> Unit
         }
         if (SuggestionAction.COPY !in actions) actions += SuggestionAction.COPY
         if (item.urls.isNotEmpty() && SuggestionAction.SHARE !in actions) {
@@ -1248,4 +1249,6 @@ internal fun SuggestionItem.primaryAction(): SuggestionAction = when (action) {
     SuggestionPrimaryAction.COPY -> SuggestionAction.COPY
     SuggestionPrimaryAction.OPEN -> SuggestionAction.OPEN
     SuggestionPrimaryAction.SHARE -> SuggestionAction.SHARE
+    // 动作输出复用 OPEN 的点击通路：具体跑哪个动作由执行口按 ruleId 取规则决定。
+    SuggestionPrimaryAction.RUN_ACTION -> SuggestionAction.OPEN
 }

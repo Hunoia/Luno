@@ -10,17 +10,15 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.LinkDispatchSettings
+import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.link.Links
-import hunoia.luno.link.LinkUrls
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.clipboard.ClipboardCenter
 import kotlinx.coroutines.launch
 
 /**
  * 链接接收口：Luno 被设为默认浏览器后，其它应用点开的 http(s) 链接、以及「分享到 Luno」
- * 的文本都会进这里，再按 [LinkDispatchSettings] 的规则分发到目标应用。
+ * 的文本都会进这里，再交给识别器的规则表分发到目标应用。
  *
  * 全程无 UI、立即 finish（透明 + 无动画）：命中规则直达目标应用；未命中按
  * `missAction` 回退（分享面板 / 其他浏览器 / 选择应用）；多条链接转
@@ -61,10 +59,10 @@ class LinkDispatchActivity : ComponentActivity() {
             return
         }
         lifecycleScope.launch {
-            val settings = runCatching { TuneConfig.getAction().linkDispatch }
-                .onFailure { Log.w(LOG_TAG, "link dispatch: read settings failed: ${it.message}") }
-                .getOrDefault(LinkDispatchSettings())
-            val urls = LinkUrls.extractUrls(text)
+            val settings = runCatching { TuneConfig.getAction().recognition }
+                .onFailure { Log.w(LOG_TAG, "recognition: read settings failed: ${it.message}") }
+                .getOrDefault(RecognitionSettings())
+            val urls = hunoia.luno.domain.recognition.RecognitionLinks.extractUrls(text)
             when {
                 // 分享进来的纯文本没有链接：存进剪贴板并固定；VIEW 进来的无链接文本仍提示。
                 urls.isEmpty() -> {
@@ -79,23 +77,9 @@ class LinkDispatchActivity : ComponentActivity() {
                 }
                 urls.size > 1 -> startActivity(LinkSelectionActivity.intent(this@LinkDispatchActivity, urls))
                 else -> {
-                    val url = urls.first()
-                    val rule = if (settings.enabled) {
-                        LinkUrls.firstMatch(url, settings.rules)
-                    } else {
-                        null
-                    }
-                    // 交给「规则表级」分发：命中规则若开了短链解析，会在内部跟随后重新匹配。
-                    if (rule == null ||
-                        !Links.dispatch(this@LinkDispatchActivity, url, settings)
-                    ) {
-                        Links.fallbackFor(
-                            this@LinkDispatchActivity,
-                            url,
-                            rule,
-                            settings,
-                        )
-                    }
+                    // 与胶囊、识屏共用同一个执行口：选路 / 短链解析 / 回退都只有一份。
+                    hunoia.luno.domain.recognition.RecognitionLinks
+                        .open(this@LinkDispatchActivity, urls.first())
                 }
             }
             finish()

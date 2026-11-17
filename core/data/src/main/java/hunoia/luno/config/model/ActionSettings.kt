@@ -36,8 +36,11 @@ data class ActionSettings(
     val floatBall: FloatBallSettings = FloatBallSettings(),
     /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */
     val recentAppsBlocklist: List<String> = emptyList(),
-    /** 链接分发：剪贴板胶囊与「Luno 作为默认浏览器」两个入口共用的规则表。 */
-    val linkDispatch: LinkDispatchSettings = LinkDispatchSettings(),
+    /**
+     * 识别器：剪贴板 / 通知 / 识屏 / 情景识别 / 外部 Intent 共用的**唯一**规则表与输出配置。
+     * 必须留在这个域内，否则 `:service` 运行时与识屏读不到（见 [RecognitionSettings] 的类注释）。
+     */
+    val recognition: RecognitionSettings = RecognitionSettings(),
     /** 手势工具全局参数：最近应用灵敏度/图标大小、滑动调音量灵敏度。 */
     val gestureTools: GestureToolsSettings = GestureToolsSettings(),
     /**

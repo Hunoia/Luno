@@ -12,7 +12,7 @@ interface Facades {
     val ocrModels: OcrModelFacade
     val logs: LogFacade
     val backup: BackupFacade
-    val linkSettings: LinkSettingsFacade
+    val recognitionSettings: RecognitionSettingsFacade
     val clipboard: ClipboardFacade
     val clipFloat: ClipFloatFacade
 }

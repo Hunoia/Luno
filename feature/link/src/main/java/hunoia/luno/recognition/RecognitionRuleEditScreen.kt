@@ -1,0 +1,611 @@
+package hunoia.luno.recognition
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.config.model.LinkMatchType
+import hunoia.luno.config.model.LinkMissMode
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionRule
+import hunoia.luno.config.model.RecognitionSettings
+import hunoia.luno.config.model.RecognitionSource
+import hunoia.luno.config.model.removeRule
+import hunoia.luno.config.model.upsertRule
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.link.LinkTarget
+import hunoia.luno.link.Links
+import hunoia.luno.link.R
+import hunoia.luno.runtime.recognition.RecognitionInput
+import hunoia.luno.runtime.recognition.Recognizer
+import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.row.LunoCardInput
+import hunoia.luno.ui.component.row.LunoDropdownRow
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoGroupItem
+import hunoia.luno.ui.component.row.LunoInputRow
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.AppPickerRequest
+import hunoia.luno.ui.component.sheet.AppPickerSlot
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.FloatingContentBottom
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+/**
+ * 识别规则编辑页：ruleId 为空 = 新增。
+ *
+ * 一页写清三段：**输入（来源）→ 匹配（正则 / 链接）→ 输出（内置 / 动作）**。
+ * 校验只认识别器自己的 [RecognitionRule.isValid] 与正则可编译性，不另写一套判定。
+ */
+@Composable
+fun RecognitionRuleEditScreen(
+    ruleId: String,
+    prefillPattern: String = "",
+    onBack: () -> Unit,
+    /** 应用选择器由 `:app` 注入，避免识别器页面依赖搜索 / 权限模块。 */
+    appPicker: AppPickerSlot? = null,
+    /** 动作选择器同上：选完把 `StoredAction` 交给输出。 */
+    actionPicker: (@Composable ((StoredAction) -> Unit) -> Unit)? = null,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val facade = LocalFacades.current.recognitionSettings
+    val addMode = ruleId.isBlank()
+    var snapshot by remember(ruleId) { mutableStateOf<RecognitionRule?>(null) }
+    var missing by remember(ruleId) { mutableStateOf(false) }
+    LaunchedEffect(ruleId) {
+        val settings = facade.actionSettings.first()
+        val existing = settings.recognition.rules.firstOrNull { it.id == ruleId }
+        if (!addMode && existing == null) {
+            missing = true
+        } else {
+            snapshot = existing ?: RecognitionRule(
+                match = RecognitionMatch.Link(
+                    matchType = LinkMatchType.CONTAINS,
+                    pattern = prefillPattern,
+                ),
+                output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
+            )
+        }
+    }
+
+    val initial = snapshot
+    if (missing) {
+        LunoScreen(
+            title = stringResource(R.string.recognition_rule_edit),
+            onBack = onBack,
+        ) {
+            EmptyState(message = stringResource(R.string.recognition_rule_missing))
+        }
+        return
+    }
+    if (initial == null) return
+
+    var enabled by remember(ruleId) { mutableStateOf(initial.enabled) }
+    var name by remember(ruleId) { mutableStateOf(initial.name) }
+    var sources by remember(ruleId) { mutableStateOf(initial.sources) }
+    var match by remember(ruleId) { mutableStateOf(initial.match) }
+    var output by remember(ruleId) { mutableStateOf(initial.output) }
+    var testText by remember(ruleId) { mutableStateOf("") }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDiscardConfirm by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
+    var showActionPicker by remember { mutableStateOf(false) }
+
+    val draft = initial.copy(
+        enabled = enabled,
+        name = name.trim(),
+        sources = sources,
+        match = match,
+        output = output,
+    )
+    val regexError = when (val m = match) {
+        is RecognitionMatch.Text -> m.pattern.isNotBlank() &&
+            runCatching { Regex(m.pattern) }.isFailure
+        is RecognitionMatch.Link -> m.matchType == LinkMatchType.REGEX &&
+            m.pattern.isNotBlank() && runCatching { Regex(m.pattern) }.isFailure
+    }
+    val valid = !regexError && sources.isNotEmpty() && draft.isValid
+    val dirty = draft != initial
+    val guardedBack = { if (dirty) showDiscardConfirm = true else onBack() }
+
+    fun save() {
+        scope.launch {
+            facade.updateRecognition { it.upsertRule(draft) }
+            onBack()
+        }
+    }
+
+    LunoScreen(
+        title = stringResource(
+            if (addMode) R.string.recognition_rule_add_title else R.string.recognition_rule_edit,
+        ),
+        onBack = guardedBack,
+        actions = {
+            if (!addMode) {
+                PressIconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(hunoia.luno.design.R.string.delete),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        bottomContentPadding = FloatingContentBottom,
+        floatingContent = { _ ->
+            LunoFab(
+                onClick = { if (valid) save() else showToast(R.string.recognition_rule_invalid) },
+                icon = Icons.Default.Save,
+                contentDescription = stringResource(hunoia.luno.design.R.string.save),
+                containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        },
+        dialogs = {
+            if (showDeleteConfirm) {
+                ConfirmDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = stringResource(R.string.recognition_rule_delete_title),
+                    text = stringResource(R.string.recognition_rule_delete_desc),
+                    onConfirm = {
+                        showDeleteConfirm = false
+                        scope.launch {
+                            facade.updateRecognition { it.removeRule(ruleId) }
+                            onBack()
+                        }
+                    },
+                )
+            }
+            if (showDiscardConfirm) {
+                ConfirmDialog(
+                    onDismissRequest = { showDiscardConfirm = false },
+                    title = stringResource(hunoia.luno.actions.R.string.action_library_discard_title),
+                    text = stringResource(hunoia.luno.actions.R.string.action_library_discard_desc),
+                    onConfirm = {
+                        showDiscardConfirm = false
+                        onBack()
+                    },
+                )
+            }
+        },
+        sheets = {
+            if (showAppPicker) {
+                val picker = appPicker
+                val linkMatch = match as? RecognitionMatch.Link
+                if (picker == null || linkMatch == null) {
+                    showAppPicker = false
+                } else {
+                    picker(
+                        AppPickerRequest(
+                            selectedPackageNames = listOf(linkMatch.targetPackage),
+                            selectedUserId = null,
+                            onDismiss = { showAppPicker = false },
+                            onConfirm = { packages ->
+                                match = linkMatch.copy(
+                                    targetPackage = packages.firstOrNull().orEmpty(),
+                                )
+                                showAppPicker = false
+                            },
+                            onSelect = null,
+                        ),
+                    )
+                }
+            }
+            if (showActionPicker) {
+                val picker = actionPicker
+                if (picker == null) {
+                    showActionPicker = false
+                } else {
+                    LunoSheet(onDismissRequest = { showActionPicker = false }) {
+                        picker { picked ->
+                            output = RecognitionOutput.Action(picked)
+                            showActionPicker = false
+                        }
+                    }
+                }
+            }
+        },
+    ) {
+        LunoGroup {
+            LunoSwitchRow(
+                title = stringResource(R.string.recognition_rule_enabled),
+                checked = enabled,
+                onCheckedChange = { enabled = it },
+                shape = segmentedShape(0, 2),
+            )
+            LunoInputRow(
+                label = stringResource(R.string.recognition_rule_name),
+                value = name,
+                onValueChange = { name = it },
+                placeholder = stringResource(R.string.recognition_rule_name_hint),
+                shape = segmentedShape(1, 2),
+            )
+        }
+        // ---- 输入：来源多选 ----
+        LunoGroup(
+            title = stringResource(R.string.recognition_rule_input_group),
+            subtitle = stringResource(R.string.recognition_rule_input_hint),
+        ) {
+            LunoGroupItem(shape = segmentedShape(0, 1)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val entries = RecognitionSource.entries
+                    val rows = entries.chunked(3)
+                    rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { source ->
+                                FilterChip(
+                                    selected = source in sources,
+                                    onClick = {
+                                        sources = if (source in sources) sources - source
+                                        else sources + source
+                                    },
+                                    label = { Text(stringResource(source.labelRes())) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor =
+                                        MaterialTheme.colorScheme.secondaryContainer,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ---- 匹配 ----
+        LunoGroup(title = stringResource(R.string.recognition_rule_match_group)) {
+            val isLink = match is RecognitionMatch.Link
+            // 行数 = 类型下拉 + 分支行（链接分支 4 行，文本分支 1 行）。
+            val rows = if (isLink) 5 else 2
+            LunoDropdownRow(
+                title = stringResource(R.string.recognition_rule_match_kind),
+                subtitle = stringResource(R.string.recognition_rule_match_kind_hint),
+                options = listOf(
+                    stringResource(R.string.recognition_rule_match_kind_text),
+                    stringResource(R.string.recognition_rule_match_kind_link),
+                ),
+                selectedIndex = if (isLink) 1 else 0,
+                onSelect = { index ->
+                    match = when {
+                        index == 1 && !isLink -> RecognitionMatch.Link()
+                        index == 0 && isLink -> RecognitionMatch.Text()
+                        else -> match
+                    }
+                },
+                shape = segmentedShape(0, rows),
+            )
+            when (val m = match) {
+                is RecognitionMatch.Text -> LunoInputRow(
+                    label = stringResource(R.string.recognition_rule_pattern),
+                    value = m.pattern,
+                    onValueChange = { match = m.copy(pattern = it) },
+                    placeholder = stringResource(R.string.recognition_rule_pattern_hint),
+                    subtitle = if (regexError) {
+                        stringResource(R.string.recognition_rule_regex_invalid)
+                    } else {
+                        ""
+                    },
+                    isError = m.pattern.isBlank() || regexError,
+                    shape = segmentedShape(1, rows),
+                )
+                is RecognitionMatch.Link -> {
+                    val matchOptions = listOf(
+                        LinkMatchType.CONTAINS to stringResource(R.string.recognition_match_contains),
+                        LinkMatchType.DOMAIN to stringResource(R.string.recognition_match_domain),
+                        LinkMatchType.REGEX to stringResource(R.string.recognition_match_regex),
+                        LinkMatchType.EXACT to stringResource(R.string.recognition_match_exact),
+                    )
+                    LunoDropdownRow(
+                        title = stringResource(R.string.recognition_rule_match_type),
+                        subtitle = stringResource(R.string.recognition_rule_match_type_hint),
+                        options = matchOptions.map { it.second },
+                        selectedIndex = matchOptions.indexOfFirst { it.first == m.matchType }
+                            .coerceAtLeast(0),
+                        onSelect = { index -> match = m.copy(matchType = matchOptions[index].first) },
+                        shape = segmentedShape(1, rows),
+                    )
+                    LunoInputRow(
+                        label = stringResource(R.string.recognition_rule_pattern),
+                        value = m.pattern,
+                        onValueChange = { match = m.copy(pattern = it) },
+                        placeholder = stringResource(R.string.recognition_rule_link_pattern_hint),
+                        subtitle = if (regexError) {
+                            stringResource(R.string.recognition_rule_regex_invalid)
+                        } else {
+                            ""
+                        },
+                        isError = regexError,
+                        shape = segmentedShape(2, rows),
+                    )
+                    LunoSwitchRow(
+                        title = stringResource(R.string.recognition_rule_bare_domains),
+                        subtitle = stringResource(R.string.recognition_rule_bare_domains_hint),
+                        checked = m.allowBareDomains,
+                        onCheckedChange = { match = m.copy(allowBareDomains = it) },
+                        shape = segmentedShape(3, rows),
+                    )
+                    LunoCardInput(
+                        value = m.effectiveExcludes.joinToString("\n"),
+                        onValueChange = { text ->
+                            match = m.copy(
+                                excludes = text.split('\n', ',', '，', ' ')
+                                    .map { it.trim() }
+                                    .filter { it.isNotEmpty() },
+                            )
+                        },
+                        label = stringResource(R.string.recognition_rule_exclude),
+                        placeholder = stringResource(R.string.recognition_rule_exclude_hint),
+                        singleLine = false,
+                        minLines = 3,
+                        shape = segmentedShape(4, rows),
+                    )
+                }
+            }
+        }
+        // ---- 输出 ----
+        LunoGroup(title = stringResource(R.string.recognition_rule_output_group)) {
+            val isAction = output is RecognitionOutput.Action
+            val rows = if (isAction) 3 else 2
+            val outputOptions = listOf(
+                R.string.recognition_output_copy,
+                R.string.recognition_output_open_link,
+                R.string.recognition_output_share,
+                R.string.recognition_output_action,
+            )
+            LunoDropdownRow(
+                title = stringResource(R.string.recognition_rule_output_kind),
+                options = outputOptions.map { stringResource(it) },
+                selectedIndex = when (val o = output) {
+                    is RecognitionOutput.Builtin -> when (o.kind) {
+                        RecognitionBuiltin.Copy -> 0
+                        RecognitionBuiltin.OpenLink -> 1
+                        RecognitionBuiltin.Share -> 2
+                    }
+                    is RecognitionOutput.Action -> 3
+                },
+                onSelect = { index ->
+                    output = when (index) {
+                        0 -> RecognitionOutput.Builtin(RecognitionBuiltin.Copy)
+                        1 -> RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink)
+                        2 -> RecognitionOutput.Builtin(RecognitionBuiltin.Share)
+                        else -> (output as? RecognitionOutput.Action)
+                            ?: RecognitionOutput.Action(StoredAction(typeId = ""))
+                    }
+                },
+                shape = segmentedShape(0, rows),
+            )
+            when (val o = output) {
+                is RecognitionOutput.Builtin -> RecognitionHintRow(
+                    text = stringResource(o.kind.hintRes()),
+                    shape = segmentedShape(1, rows),
+                )
+                is RecognitionOutput.Action -> {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.recognition_rule_action_pick),
+                        subtitle = o.action.typeId.ifBlank {
+                            stringResource(R.string.recognition_rule_action_none)
+                        },
+                        shape = segmentedShape(1, rows),
+                        enabled = actionPicker != null,
+                        onClick = { showActionPicker = true },
+                    )
+                    RecognitionHintRow(
+                        text = stringResource(R.string.recognition_output_action_hint),
+                        shape = segmentedShape(2, rows),
+                    )
+                }
+            }
+        }
+        // ---- 链接目标 / 改写 ----
+        val linkMatch = match as? RecognitionMatch.Link
+        if (linkMatch != null) {
+            LunoGroup(title = stringResource(R.string.recognition_rule_target_group)) {
+                val target by produceState(
+                    initialValue = null as LinkTarget?,
+                    linkMatch,
+                ) {
+                    value = Links.resolvedTargetOf(context, linkMatch, url = "")
+                }
+                val appLabel = target?.label
+                if (linkMatch.viaBrowser) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.recognition_rule_browser_target),
+                        subtitle = when {
+                            linkMatch.targetPackage.isBlank() ->
+                                stringResource(R.string.recognition_rule_browser_auto)
+                            appLabel != null && appLabel != linkMatch.targetPackage ->
+                                "$appLabel (${linkMatch.targetPackage})"
+                            else -> linkMatch.targetPackage
+                        },
+                        shape = segmentedShape(0, 2),
+                        onClick = { showAppPicker = true },
+                    )
+                    LunoSettingsRow(
+                        title = stringResource(R.string.recognition_rule_browser_clear),
+                        subtitle = stringResource(R.string.recognition_rule_browser_clear_hint),
+                        shape = segmentedShape(1, 2),
+                        enabled = linkMatch.targetPackage.isNotBlank(),
+                        onClick = { match = linkMatch.copy(targetPackage = "") },
+                    )
+                } else {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.recognition_rule_target_app),
+                        subtitle = when {
+                            linkMatch.targetPackage.isBlank() ->
+                                stringResource(hunoia.luno.actions.R.string.action_param_unselected)
+                            appLabel != null && appLabel != linkMatch.targetPackage ->
+                                "$appLabel (${linkMatch.targetPackage})"
+                            else -> linkMatch.targetPackage
+                        },
+                        subtitleColor = if (linkMatch.targetPackage.isBlank()) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        shape = segmentedShape(0, 2),
+                        onClick = { showAppPicker = true },
+                    )
+                    LunoInputRow(
+                        label = stringResource(R.string.recognition_rule_target_activity),
+                        value = linkMatch.targetActivity,
+                        onValueChange = { match = linkMatch.copy(targetActivity = it) },
+                        placeholder = stringResource(R.string.recognition_rule_target_activity_hint),
+                        shape = segmentedShape(1, 2),
+                    )
+                }
+            }
+            LunoGroup(title = stringResource(R.string.recognition_rule_advanced_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_rule_via_browser),
+                    subtitle = stringResource(R.string.recognition_rule_via_browser_hint),
+                    checked = linkMatch.viaBrowser,
+                    onCheckedChange = { match = linkMatch.copy(viaBrowser = it) },
+                    shape = segmentedShape(0, 5),
+                )
+                LunoCardInput(
+                    value = linkMatch.template,
+                    onValueChange = { match = linkMatch.copy(template = it) },
+                    label = stringResource(R.string.recognition_rule_template),
+                    placeholder = stringResource(R.string.recognition_rule_template_hint),
+                    shape = segmentedShape(1, 5),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_rule_resolve),
+                    subtitle = stringResource(R.string.recognition_rule_resolve_hint),
+                    checked = linkMatch.resolveShortLink,
+                    onCheckedChange = { match = linkMatch.copy(resolveShortLink = it) },
+                    shape = segmentedShape(2, 5),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_rule_mini_window),
+                    checked = linkMatch.miniWindow,
+                    onCheckedChange = { match = linkMatch.copy(miniWindow = it) },
+                    shape = segmentedShape(3, 5),
+                )
+                val missOptions = listOf(
+                    null to stringResource(R.string.recognition_rule_miss_global),
+                    LinkMissMode.SHARE to stringResource(R.string.recognition_rule_miss_share_short),
+                    LinkMissMode.BROWSER to stringResource(
+                        R.string.recognition_rule_miss_browser_short,
+                    ),
+                    LinkMissMode.PICKER to stringResource(
+                        R.string.recognition_rule_miss_picker_short,
+                    ),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_rule_miss),
+                    subtitle = stringResource(R.string.recognition_rule_miss_hint),
+                    options = missOptions.map { it.second },
+                    selectedIndex = missOptions.indexOfFirst { it.first == linkMatch.missAction }
+                        .coerceAtLeast(0),
+                    onSelect = { index -> match = linkMatch.copy(missAction = missOptions[index].first) },
+                    shape = segmentedShape(4, 5),
+                )
+            }
+        }
+        // ---- 测试匹配：用识别器本体跑，不另写测试逻辑 ----
+        LunoGroup(
+            title = stringResource(R.string.recognition_rule_test),
+            subtitle = stringResource(R.string.recognition_rule_test_hint),
+        ) {
+            val testRows = if (testText.isBlank()) 1 else 2
+            LunoInputRow(
+                label = stringResource(R.string.recognition_rule_test),
+                value = testText,
+                onValueChange = { testText = it },
+                shape = segmentedShape(0, testRows),
+            )
+            val hit = remember(testText, draft) {
+                if (testText.isBlank() || !draft.isValid) {
+                    null
+                } else {
+                    val source = draft.sources.firstOrNull() ?: RecognitionSource.Clipboard
+                    Recognizer
+                        .compile(RecognitionSettings(rules = listOf(draft)))
+                        .match(RecognitionInput(source, testText))
+                        .firstOrNull()
+                }
+            }
+            if (testText.isNotBlank()) {
+                RecognitionHintRow(
+                    text = if (hit == null) {
+                        stringResource(R.string.recognition_rule_test_miss)
+                    } else {
+                        stringResource(
+                            R.string.recognition_rule_test_hit,
+                            hit.ruleName.ifBlank { draft.match.pattern },
+                            hit.value,
+                        )
+                    },
+                    shape = segmentedShape(1, testRows),
+                    highlight = hit != null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecognitionHintRow(
+    text: String,
+    shape: androidx.compose.ui.graphics.Shape,
+    highlight: Boolean = false,
+) {
+    LunoGroupItem(shape = shape) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (highlight) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
+}
+
+private fun RecognitionBuiltin.hintRes(): Int = when (this) {
+    RecognitionBuiltin.Copy -> R.string.recognition_output_copy_hint
+    RecognitionBuiltin.OpenLink -> R.string.recognition_output_open_link_hint
+    RecognitionBuiltin.Share -> R.string.recognition_output_share
+}

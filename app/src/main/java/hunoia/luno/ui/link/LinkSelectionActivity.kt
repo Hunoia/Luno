@@ -27,7 +27,6 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkExtras
-import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -99,19 +98,15 @@ private fun LinkSelectionContent(
     val settings by TuneConfig.action.collectAsStateWithLifecycle(
         initialValue = ActionSettings(),
     )
-    val linkSettings = settings.linkDispatch
+    val recognition = settings.recognition
     var handled by remember { mutableStateOf(false) }
 
     fun pick(url: String) {
         if (handled) return
         handled = true
-        val rule = LinkUrls.firstMatch(url, linkSettings.rules)
         scope.launch {
-            // 规则表级分发：命中规则开了短链解析时，内部跟随后会重新匹配。
-            val dispatched = rule != null && Links.dispatch(context, url, linkSettings)
-            if (!dispatched) {
-                Links.fallbackFor(context, url, rule, linkSettings)
-            }
+            // 选路 / 分发 / 回退全在识别器执行口里，这里不判规则。
+            hunoia.luno.domain.recognition.RecognitionLinks.open(context, url)
             onDone()
         }
     }
@@ -131,13 +126,13 @@ private fun LinkSelectionContent(
             subtitle = stringResource(R.string.link_dispatch_select_hint, urls.size),
         ) {
             urls.forEachIndexed { index, url ->
-                val rule = remember(url, linkSettings) {
-                    LinkUrls.firstMatch(url, linkSettings.rules)
+                val targetLabel by produceState(initialValue = null as String?, url) {
+                    value = hunoia.luno.domain.recognition.RecognitionLinks
+                        .targetLabel(context, url, recognition)
                 }
-                val targetLabel by produceState(initialValue = null as String?, url, rule?.id) {
-                    value = rule?.let { Links.resolvedTargetOf(context, it, url)?.label }
+                val host = remember(url) {
+                    hunoia.luno.domain.recognition.RecognitionLinks.hostOf(url)
                 }
-                val host = remember(url) { LinkUrls.hostOf(url) ?: url }
                 LunoSettingsRow(
                     title = host,
                     subtitle = if (targetLabel != null) {

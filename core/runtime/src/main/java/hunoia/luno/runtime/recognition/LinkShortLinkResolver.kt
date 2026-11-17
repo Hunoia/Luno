@@ -1,4 +1,4 @@
-package hunoia.luno.link
+package hunoia.luno.runtime.recognition
 
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
@@ -11,7 +11,7 @@ import java.net.URL
 /**
  * 短链解析（方案 A，联网）：`xhslink.com` 这类应用没有声明的短链，只有跟随后才知道
  * 它最终指向哪里。任何存储/匹配都不在这里做——只负责把「可能的最终地址」按优先级
- * 吐出来，由 [LinkDispatcher] 拿去重新匹配规则。
+ * 吐出来，由链接规则拿去重新匹配规则。
  *
  * 顺序：真实跟随后的最终 URL → 页面里的 meta refresh / JS 跳转 → 页面里出现的链接。
  * 失败（超时、断网、404 无跳转）返回空列表，调用方用原链接继续走既有流程。

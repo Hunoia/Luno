@@ -23,15 +23,15 @@ data object RecentAppsBlocklist
 @Serializable
 data object RecentsGestureSettings
 
-/** 链接分发设置（规则列表 + 胶囊/未命中行为）。 */
+/** 识别器设置（输入 → 规则 → 输出的唯一入口，取代旧的链接分发页）。 */
 @Keep
 @Serializable
-data object LinkDispatchRules
+data object RecognitionRules
 
-/** 链接分发规则编辑页；ruleId 空 = 新增，[pattern] 非空 = 预填匹配串（识屏卡片「新建规则」）。 */
+/** 识别规则编辑页；ruleId 空 = 新增，[pattern] 非空 = 预填匹配串（识屏「新建规则」）。 */
 @Keep
 @Serializable
-data class LinkDispatchRuleEdit(
+data class RecognitionRuleEdit(
     val ruleId: String = "",
     val pattern: String = "",
 )
@@ -175,13 +175,6 @@ data object FloatBallNotificationCapsule
 @Keep
 @Serializable
 data object FloatBallSuggestionCapsule
-
-/** 建议规则编辑页；ruleId 为空 = 新增。 */
-@Keep
-@Serializable
-data class SuggestionRuleEdit(
-    val ruleId: String = "",
-)
 
 /** 运行日志：开关、最近日志预览、清空与导出。 */
 @Keep

@@ -2,8 +2,9 @@ package hunoia.luno.runtime.overlay
 
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.PortalReleaseMode
-import hunoia.luno.config.model.SuggestionRuleAction
-import hunoia.luno.runtime.suggestion.SuggestionSlot
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.runtime.recognition.RecognizedItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -304,7 +305,7 @@ class PortalLayoutTest {
         val url = "https://example.com/a"
         val slots = portalSlotsFor(
             content = PortalContent(text = "see $url", url = url),
-            suggestions = listOf(openRule(url)),
+            recognized = listOf(openRule(url)),
         )
         // 规则槽在前；内容动作里的「打开链接」被同一个链接的规则槽吃掉，只剩一个。
         assertEquals(1, slots.count { it is PortalSlot.Suggestion })
@@ -323,7 +324,7 @@ class PortalLayoutTest {
                 text = "see https://example.com/a",
                 url = "https://example.com/a",
             ),
-            suggestions = listOf(openRule("https://other.example/b")),
+            recognized = listOf(openRule("https://other.example/b")),
         )
         assertEquals(
             1,
@@ -335,7 +336,7 @@ class PortalLayoutTest {
     fun `duplicate suggestion values collapse to one slot`() {
         val slots = portalSlotsFor(
             content = PortalContent(text = "code 1234"),
-            suggestions = listOf(
+            recognized = listOf(
                 copyRule("code-a", "1234"),
                 copyRule("code-b", "1234"),
             ),
@@ -347,23 +348,25 @@ class PortalLayoutTest {
     fun `suggestions precede content actions`() {
         val slots = portalSlotsFor(
             content = PortalContent(text = "code 1234"),
-            suggestions = listOf(copyRule("code", "1234")),
+            recognized = listOf(copyRule("code", "1234")),
         )
         assertTrue(slots.first() is PortalSlot.Suggestion)
         assertTrue(slots.drop(1).all { it is PortalSlot.Action })
     }
 
-    private fun copyRule(id: String, value: String) = SuggestionSlot(
+    private fun copyRule(id: String, value: String) = RecognizedItem(
         ruleId = id,
-        label = "验证码",
+        ruleName = "验证码",
         value = value,
-        action = SuggestionRuleAction.COPY,
+        urls = emptyList(),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
     )
 
-    private fun openRule(url: String) = SuggestionSlot(
+    private fun openRule(url: String) = RecognizedItem(
         ruleId = "open",
-        label = "链接",
+        ruleName = "链接",
         value = url,
-        action = SuggestionRuleAction.OPEN,
+        urls = listOf(url),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
     )
 }

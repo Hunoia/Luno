@@ -79,6 +79,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     private val qrEngine: hunoia.luno.capability.qr.ZxingQrEngine =
         hunoia.luno.domain.qr.QrEngineHolder.get()
 
+    /** 识别结果执行口：识屏与建议胶囊共用（+ 与 :app 的宿主实现同一份）。 */
+    private val recognitionExecutor by lazy {
+        hunoia.luno.domain.recognition.AppRecognitionHost(this).executor()
+    }
+
     private val screenPickOverlay = ScreenPickOverlay(
         this,
         ocrEngine = ocrEngine,
@@ -98,22 +103,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 ),
             )
         },
-        onOpenLink = { url ->
-            val settings = runCatching {
-                hunoia.luno.config.ConfigProvider.getActionSettings().linkDispatch
-            }.getOrDefault(hunoia.luno.config.model.LinkDispatchSettings())
-            val rule = if (settings.enabled) {
-                hunoia.luno.link.LinkUrls.firstMatch(url, settings.rules)
-            } else {
-                null
-            }
-            val dispatched = settings.enabled &&
-                hunoia.luno.link.Links.dispatch(this, url, settings)
-            if (!dispatched) {
-                hunoia.luno.link.Links.fallbackFor(this, url, rule, settings)
-            }
-            true
-        },
         onAnnotate = { bitmap ->
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
         },
@@ -125,13 +114,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             }
         },
         // 工具条建议槽与建议胶囊同一份规则：只读运行时快照，不在这里编译缓存。
-        suggestionRules = {
+        recognitionSettings = {
             if (::gestureCoordinator.isInitialized) {
-                gestureCoordinator.currentSuggestionRules()
+                gestureCoordinator.currentRecognitionSettings()
             } else {
-                emptyList()
+                hunoia.luno.config.model.RecognitionSettings()
             }
         },
+        recognition = { recognitionExecutor },
     )
 
     /** 屏幕标注浮层实例；onClosed 时置空。 */
@@ -428,9 +418,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             pasteImageAt(path, mime, x, y)
         }
         // 长按建议球「立即扫一次当前界面」：扫描器惰性创建，开关判定在协调器侧。
-        hunoia.luno.gesture.GestureCommand.requestSceneScan = { force ->
-            gestureCoordinator.requestSceneScan(force)
-        }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
             // 横屏用 freeform 小窗打开选择页（复用现有小窗几何，含 MIUI 合成补偿）；

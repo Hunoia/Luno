@@ -137,8 +137,12 @@ class App : Application(), SingletonImageLoader.Factory {
             hunoia.luno.service.SideGestureService.current?.isDispatchReady() == true
         }
         hunoia.luno.service.DispatchClient.bind(applicationContext)
-        // 链接分发的应用内导航（规则编辑页 / 选择页）需要 context。
+        // 链接的应用内导航（选择页 / 选应用页）需要 context。
         hunoia.luno.link.AppLinkPorts.context = applicationContext
+        // 识别器宿主：胶囊与识屏共用同一个实现，两进程各装一次。
+        hunoia.luno.runtime.recognition.RecognitionHosts.install(
+            hunoia.luno.domain.recognition.AppRecognitionHost(applicationContext),
+        )
         // OCR 模型页要扫模型目录、并在导入/删除后通知 :service 重载引擎。
         hunoia.luno.domain.ocr.OcrModelCenter.init(applicationContext)
 

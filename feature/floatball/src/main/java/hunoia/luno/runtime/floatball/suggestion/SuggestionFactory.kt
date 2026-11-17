@@ -1,186 +1,157 @@
 package hunoia.luno.runtime.floatball.suggestion
 
-import hunoia.luno.config.model.LinkDispatchRule
-import hunoia.luno.config.model.SuggestionRuleAction
+import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.NotificationPulse
-import hunoia.luno.link.LinkUrls
 import hunoia.luno.runtime.floatball.inbox.SuggestionItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
-import hunoia.luno.runtime.suggestion.CompiledSuggestionRules
-import hunoia.luno.runtime.suggestion.SuggestionRules
-import hunoia.luno.runtime.suggestion.SuggestionSlot
+import hunoia.luno.runtime.recognition.CompiledRecognizer
+import hunoia.luno.runtime.recognition.RecognitionInput
+import hunoia.luno.runtime.recognition.RecognizedItem
 
 /**
- * 建议项构造：通知 / 剪贴板 / 当前界面文本按规则抓取，剪贴板与情景识别再补内置链接识别。
- * 纯逻辑（链接目标应用解析留给服务层），方便 JVM 单测。
+ * 建议项构造：识别器结果 → 胶囊条目。
+ *
+ * **这里不判任何规则**：匹配、链接挑选、敏感判定都在 `:core:runtime` 的 `Recognizer`
+ * 里做完了，本对象只做「识别结果 → 收起箱状态」的纯投影（方便 JVM 单测）。
  */
 internal object SuggestionFactory {
 
-    const val LinkLabel = "链接"
     private const val GenericLabel = "建议"
 
-    /**
-     * 通知规则扫描：标题 + 正文（bigText 存在时优先，避免正文与展开文本重复）。
-     * 规则命中多少条就生成多少条，顺序与规则表一致。
-     */
+    /** 通知：标题 + 正文（bigText 存在时优先，避免正文与展开文本重复）。 */
     fun fromNotification(
         pulse: NotificationPulse,
-        rules: CompiledSuggestionRules,
+        recognizer: CompiledRecognizer,
         sourceKey: String,
         nowMs: Long,
-    ): List<SuggestionItem> {
-        val text = notificationText(pulse)
-        return SuggestionRules.slotsOf(text, rules).map { slot -> ruleItem(slot, sourceKey, nowMs) }
-    }
+    ): List<SuggestionItem> = project(
+        source = RecognitionSource.Notification,
+        text = notificationText(pulse),
+        recognizer = recognizer,
+        sourceKey = sourceKey,
+        nowMs = nowMs,
+        sceneKey = null,
+    )
 
-    /**
-     * 剪贴板规则扫描 + 内置链接识别。
-     *
-     * 规则捕获到的 URL 会从链接建议里剔除：同一链接不再既生成规则建议又生成链接建议。
-     * 规则全部命中失败时，行为与旧版一致，只生成链接建议。
-     */
+    /** 剪贴板：规则命中 + 内置链接（两者都由识别器同一次匹配给出）。 */
     fun fromClipboard(
         text: String,
-        rules: CompiledSuggestionRules,
+        recognizer: CompiledRecognizer,
         sourceKey: String,
         nowMs: Long,
-    ): List<SuggestionItem> {
-        val slots = SuggestionRules.slotsOf(text, rules)
-        val hitUrls = slots
-            .flatMap { LinkUrls.extractUrls(it.value) }
-            .toSet()
-        val linkUrls = LinkUrls.extractUrls(text).filterNot { it in hitUrls }
-        val items = slots.mapTo(ArrayList(slots.size + 1)) { slot ->
-            ruleItem(slot, sourceKey, nowMs)
-        }
-        if (linkUrls.isNotEmpty()) {
-            items += SuggestionItem(
-                sourceKey = sourceKey,
-                title = LinkLabel,
-                text = linkUrls.first(),
-                receivedAtElapsedMs = nowMs,
-                ttlMs = null,
-                action = SuggestionPrimaryAction.OPEN,
-                sensitive = false,
-                urls = linkUrls,
-            )
-        }
-        return items
-    }
+    ): List<SuggestionItem> = project(
+        source = RecognitionSource.Clipboard,
+        text = text,
+        recognizer = recognizer,
+        sourceKey = sourceKey,
+        nowMs = nowMs,
+        sceneKey = null,
+    )
 
     /**
-     * 情景识别（当前界面文本）：规则命中 + 只提示可分发的链接。
+     * 情景识别（当前界面文本）：只认识别器结果。
      *
-     * 链接口径比剪贴板窄：剪贴板是用户主动复制的，任何 http(s) 都值得提示；界面里几乎处处是
-     * 链接（浏览器、聊天页、网页正文），未命中「链接分发」规则的只能走分享回退，弹出来只是噪声。
-     * 所以 [linkRules] 为空或分发总开关关闭时不出链接建议 —— 用户先配规则才有「打开链接」。
+     * 「界面上链接太多、只有命中分发规则才提示」这个旧闸门现在由规则表自己表达
+     * （内置「链接」规则默认对 `Scene` 生效；用户可从该来源摘掉它，或依赖具体应用规则），
+     * 代码里不再有 `linkRules.isNotEmpty()` 之类的隐式判断。
      *
-     * [sceneUrl] 是特权通道（Shizuku 读 XWeb 日志）拿到的当前页真实链接，已由生产者校验过
-     * 「属于这一屏」。它只是链接候选的头一条，判不判分发给 [linkRules] 说了算——与界面文本里
-     * 抽出来的链接完全同一个口径，不单开一条快捷路径。
+     * [sceneUrl] 是特权通道（Shizuku 读 XWeb 日志）拿到的当前页真实链接：它只是多一段
+     * 链接候选，直接拼进待识别文本，判不判仍由规则说了算。
      */
     fun fromScene(
         text: String,
         screenKey: String,
-        rules: CompiledSuggestionRules,
-        linkRules: List<LinkDispatchRule>,
-        linkDispatchEnabled: Boolean,
+        recognizer: CompiledRecognizer,
         nowMs: Long,
         sceneUrl: String? = null,
     ): List<SuggestionItem> {
-        if (text.isBlank() && sceneUrl == null) return emptyList()
-        val sourceKey = "scene:$screenKey"
-        val slots = SuggestionRules.slotsOf(text, rules)
-        val hitUrls = slots
-            .flatMap { LinkUrls.extractUrls(it.value) }
-            .toSet()
-        val items = ArrayList<SuggestionItem>(slots.size + 1)
-        slots.forEach { slot ->
-            items += ruleItem(slot, sourceKey, nowMs).copy(sceneKey = screenKey)
-        }
-        if (linkDispatchEnabled && linkRules.isNotEmpty()) {
-            sceneLinkItem(
-                text = text,
-                screenKey = screenKey,
-                linkRules = linkRules,
-                nowMs = nowMs,
-                sceneUrl = sceneUrl,
-                excludeUrls = hitUrls,
-            )?.let { items += it }
-        }
-        return items
-    }
-
-    /**
-     * 内置链接项：从「界面文本里的 URL + 特权通道补到的真实 URL」里挑出命中分发规则的。
-     *
-     * 单独抽出来供链接补充只重算这一项（[fromScene] 的规则匹配部分在这条路径上完全跳过）。
-     */
-    fun sceneLinkItem(
-        text: String,
-        screenKey: String,
-        linkRules: List<LinkDispatchRule>,
-        nowMs: Long,
-        sceneUrl: String?,
-        excludeUrls: Set<String> = emptySet(),
-    ): SuggestionItem? {
-        if (linkRules.isEmpty()) return null
-        val candidates = buildList {
-            sceneUrl?.let(::add)
-            addAll(LinkUrls.extractUrls(text))
-        }
-        val linkUrls = candidates
-            .filterNot { it in excludeUrls }
-            .filter { LinkUrls.firstMatch(it, linkRules) != null }
-            .distinct()
-        if (linkUrls.isEmpty()) return null
-        return SuggestionItem(
+        val scan = if (sceneUrl.isNullOrBlank()) text else "$text\n$sceneUrl"
+        if (scan.isBlank()) return emptyList()
+        return project(
+            source = RecognitionSource.Scene,
+            text = scan,
+            recognizer = recognizer,
             sourceKey = "scene:$screenKey",
-            title = LinkLabel,
-            text = linkUrls.first(),
-            receivedAtElapsedMs = nowMs,
-            ttlMs = null,
-            action = SuggestionPrimaryAction.OPEN,
-            sensitive = false,
-            urls = linkUrls,
+            nowMs = nowMs,
             sceneKey = screenKey,
         )
     }
 
-    private fun ruleItem(
-        slot: SuggestionSlot,
+    /**
+     * 情景识别补到真实链接后的重算：只重算链接项。
+     *
+     * 返回 null = 这条链接没有命中任何链接规则（调用方什么都不用做）。
+     */
+    fun sceneLinkItem(
+        text: String,
+        screenKey: String,
+        recognizer: CompiledRecognizer,
+        nowMs: Long,
+        sceneUrl: String?,
+        excludeUrls: Set<String> = emptySet(),
+    ): SuggestionItem? {
+        if (sceneUrl.isNullOrBlank() || sceneUrl in excludeUrls) return null
+        return fromScene(
+            text = text,
+            screenKey = screenKey,
+            recognizer = recognizer,
+            nowMs = nowMs,
+            sceneUrl = sceneUrl,
+        ).firstOrNull { item ->
+            item.urls.any { it == sceneUrl } && item.urls.all { it !in excludeUrls }
+        }
+    }
+
+    private fun project(
+        source: RecognitionSource,
+        text: String,
+        recognizer: CompiledRecognizer,
         sourceKey: String,
         nowMs: Long,
+        sceneKey: String?,
+    ): List<SuggestionItem> = recognizer
+        .match(RecognitionInput(source, text, sourceKey))
+        .map { item -> toSuggestion(item, sourceKey, nowMs, sceneKey) }
+
+    fun toSuggestion(
+        item: RecognizedItem,
+        sourceKey: String,
+        nowMs: Long,
+        sceneKey: String?,
     ): SuggestionItem {
-        val raw = slot.value
-        val urls = LinkUrls.extractUrls(raw)
-        val exactUrl = urls.firstOrNull { it == raw }
-        val openUrl = if (slot.action == SuggestionRuleAction.OPEN) urls.firstOrNull() else null
-        val action = when {
-            slot.action == SuggestionRuleAction.OPEN && openUrl == null ->
-                SuggestionPrimaryAction.COPY
-            slot.action == SuggestionRuleAction.OPEN -> SuggestionPrimaryAction.OPEN
-            slot.action == SuggestionRuleAction.SHARE -> SuggestionPrimaryAction.SHARE
-            else -> SuggestionPrimaryAction.COPY
-        }
-        val itemText = if (openUrl != null) openUrl else raw
-        val itemUrls = when {
-            openUrl != null -> listOf(openUrl)
-            urls.isNotEmpty() -> urls
-            else -> emptyList()
+        val action = primaryActionOf(item)
+        // OPEN 但值不是链接：创建阶段就降级成 COPY（与旧口径一致，避免点了没反应）。
+        val effective = if (action == SuggestionPrimaryAction.OPEN && item.urls.isEmpty()) {
+            SuggestionPrimaryAction.COPY
+        } else {
+            action
         }
         return SuggestionItem(
             sourceKey = sourceKey,
-            title = slot.label.ifBlank { GenericLabel },
-            text = itemText,
+            title = item.ruleName.ifBlank { GenericLabel },
+            text = item.value,
             receivedAtElapsedMs = nowMs,
-            ttlMs = null,
-            ruleId = slot.ruleId,
-            action = action,
-            sensitive = openUrl == null && exactUrl == null,
-            urls = itemUrls,
+            ruleId = item.ruleId,
+            action = effective,
+            sensitive = item.sensitive,
+            urls = item.urls,
+            recognized = item,
+            sceneKey = sceneKey,
         )
     }
+
+    private fun primaryActionOf(item: RecognizedItem): SuggestionPrimaryAction =
+        when (val output = item.output) {
+            is RecognitionOutput.Builtin -> when (output.kind) {
+                RecognitionBuiltin.Copy -> SuggestionPrimaryAction.COPY
+                RecognitionBuiltin.OpenLink -> SuggestionPrimaryAction.OPEN
+                RecognitionBuiltin.Share -> SuggestionPrimaryAction.SHARE
+            }
+            // 动作输出：主动作就是「跑这条规则」，执行细节交给 RecognitionExecutor。
+            is RecognitionOutput.Action -> SuggestionPrimaryAction.RUN_ACTION
+        }
 
     internal fun notificationText(pulse: NotificationPulse): String {
         val text = pulse.text
