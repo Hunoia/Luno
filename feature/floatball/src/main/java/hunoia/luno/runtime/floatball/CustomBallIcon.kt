@@ -97,10 +97,13 @@ private fun rememberFirstFrame(context: Context, model: Any): Bitmap? {
 
 /** 同步解码首帧；调用方需自行切后台线程。 */
 private fun decodeFirstFrame(context: Context, model: Any): Bitmap? {
-    val stream: InputStream = when (model) {
-        is File -> model.inputStream()
-        is Uri -> context.contentResolver.openInputStream(model)
-        else -> return null
+    val stream: InputStream? = when (model) {
+        // File 模型可能指向已被清理/跨包恢复的失效路径（配置里存的是绝对路径），
+        // 打开会抛 FileNotFoundException——必须容错返回 null，兑现「加载失败由调用方
+        // 回退默认图标」的契约（球面渲染 [FloatBallWindow.BallFace] 与编辑页预览共用本组合）。
+        is File -> runCatching { model.inputStream() }.getOrNull()
+        is Uri -> runCatching { context.contentResolver.openInputStream(model) }.getOrNull()
+        else -> null
     } ?: return null
     return stream.use { input ->
         val buffered = BufferedInputStream(input)

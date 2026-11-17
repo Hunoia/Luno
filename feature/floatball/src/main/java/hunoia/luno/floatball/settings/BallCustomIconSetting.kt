@@ -78,7 +78,10 @@ fun ColumnScope.BallCustomIconRows(
     onPick: () -> Unit,
     onReset: () -> Unit,
 ) {
-    val hasIcon = icon.path != null
+    // 配置里的路径可能是失效的（文件被清理 / 跨包备份恢复留下的绝对路径指向他包目录）。
+    // 球面渲染 [FloatBallWindow.BallFace] 有 exists() 检查并回退默认图标；编辑页预览必须
+    // 一致——否则 `CustomBallIcon` 拿到不存在的 File，加载失败崩溃（FileNotFoundException）。
+    val hasIcon = icon.path != null && File(icon.path).exists()
     LunoSettingsRow(
         title = stringResource(R.string.float_ball_custom_icon),
         subtitle = stringResource(
