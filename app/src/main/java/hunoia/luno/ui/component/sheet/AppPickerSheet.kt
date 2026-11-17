@@ -2,7 +2,9 @@ package hunoia.luno.ui.component.sheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,15 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,42 +31,60 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.system.gotoAppDetailSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.model.icon
-import hunoia.luno.quickaccess.model.identity
+import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.quickaccess.query.AlphabeticalSection
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetListMaxHeight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import hunoia.luno.ui.component.IndexBar
+import hunoia.luno.ui.component.IndexBarEntry
+import hunoia.luno.ui.component.IndexBarMetrics
+import hunoia.luno.ui.component.IndexBarSide
+import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.rememberIndexBarMetrics
+import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
-import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.PressTextButton
-@OptIn(ExperimentalMaterial3Api::class)
+
+/**
+ * 应用选择 sheet（单选）：点一行即确认并关闭（[onConfirm] / [onSelectApp]），无底部确认/取消。
+ *
+ * 列表按拼音字母分节（A–#、节内全拼序），风格跟随最近应用黑名单页：
+ * [LunoGroup] 分组 + 吸顶字母头 [SheetGroupHeader]，左右各一条竖向拼音滑杆
+ * [IndexBar]（参考应用抽屉部件），贴底限高 [SheetIndexBarMaxHeight]、覆盖在列表上
+ * 不改变列表间距。
+ *
+ * 多选走全屏页 [AppPickerPage]（黑名单同款），由 [LunoAppPicker] 按
+ * [AppPickerRequest.confirmOnSelect] 分派；本 sheet 只服务单选。
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppPickerSheet(
     onDismissRequest: () -> Unit,
     selectedPackageNames: List<String>,
     onConfirm: (List<String>) -> Unit,
-    /** 单选场景：点击应用即确认并关闭，不展示底部取消/确认按钮。 */
-    confirmOnSelect: Boolean = false,
-    /** 需要保留 userId（分身）时使用：点击行直接把完整 AppInfo 交给调用方。 */
+    /** 单选场景（含分身 userId）：点击行直接把完整 AppInfo 交给调用方。 */
     onSelectApp: ((AppInfo) -> Unit)? = null,
     /** 与 [onSelectApp] 搭配：只高亮这个用户下的那一行，避免主应用/分身同时选中。 */
     selectedUserId: Int? = null,
 ) {
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
-    var selected by remember { mutableStateOf(selectedPackageNames.toSet()) }
+    val selected = remember(selectedPackageNames) { selectedPackageNames.toSet() }
     var searchQuery by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
@@ -158,61 +179,139 @@ fun AppPickerSheet(
                 if (loading) {
                     LoadingState(message = stringResource(R.string.loading))
                 } else {
-                    val selectionFlags = filteredApps.map { it.packageName in selected }
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = SheetListMaxHeight)
-                            .padding(top = CardInnerSpacing),
-                        contentPadding = PaddingValues(bottom = CardInnerSpacing),
-                        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-                    ) {
-                        if (filteredApps.isEmpty()) {
-                            item { EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results)) }
-                        } else {
-                            itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
-                                LunoSelectableRow(
-                                    title = item.label,
-                                    subtitle = if (item.isClone) {
-                                        "${item.packageName} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
-                                    } else {
-                                        item.packageName
-                                    },
-                                    iconModel = item.icon,
-                                    selected = item.packageName in selected &&
-                                        (selectedUserId == null || item.userId == selectedUserId),
-                                    onSelectedChange = { isSelected ->
-                                        if (onSelectApp != null) {
-                                            onSelectApp(item)
-                                            onDismissRequest()
-                                        } else if (confirmOnSelect) {
-                                            onConfirm(listOf(item.packageName))
-                                            onDismissRequest()
-                                        } else {
-                                            selected = if (isSelected) {
-                                                selected + item.packageName
-                                            } else {
-                                                selected - item.packageName
+                    val sections = remember(filteredApps) {
+                        AppDrawerSections.alphabeticalSectionsOf(filteredApps) { it.label }
+                    }
+                    val listState = rememberLazyListState()
+                    val barEntries = remember(sections) {
+                        sections.map { IndexBarEntry(it.letter.toString(), it.letter.toString()) }
+                    }
+                    val indexMetrics = rememberIndexBarMetrics(
+                        entries = barEntries,
+                        availableHeight = SheetIndexBarMaxHeight,
+                        maxWindow = 5,
+                    )
+                    val jumpTo = { entry: IndexBarEntry ->
+                        val sectionIndex = sections.indexOfFirst {
+                            it.letter.toString() == entry.key
+                        }
+                        if (sectionIndex >= 0) listState.requestScrollToItem(sectionIndex * 2)
+                    }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = SheetListMaxHeight),
+                            contentPadding = PaddingValues(bottom = CardInnerSpacing),
+                            verticalArrangement = Arrangement.spacedBy(ListSpacing),
+                        ) {
+                            if (filteredApps.isEmpty()) {
+                                item {
+                                    EmptyState(
+                                        message = stringResource(hunoia.luno.design.R.string.no_matching_results),
+                                    )
+                                }
+                            } else {
+                                sections.forEach { section ->
+                                    stickyHeader(key = "app_picker_hdr_${section.letter}") {
+                                        SheetGroupHeader(section.letter.toString())
+                                    }
+                                    item(key = "app_picker_body_${section.letter}") {
+                                        LunoGroup {
+                                            val sectionFlags = section.items.map {
+                                                it.packageName in selected &&
+                                                    (selectedUserId == null || it.userId == selectedUserId)
+                                            }
+                                            section.items.forEachIndexed { index, item ->
+                                                val highlight = item.packageName in selected &&
+                                                    (selectedUserId == null || item.userId == selectedUserId)
+                                                LunoSelectableRow(
+                                                    title = item.label,
+                                                    subtitle = if (item.isClone) {
+                                                        "${item.packageName} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
+                                                    } else {
+                                                        item.packageName
+                                                    },
+                                                    iconModel = item.icon,
+                                                    selected = highlight,
+                                                    onSelectedChange = {
+                                                        if (onSelectApp != null) {
+                                                            onSelectApp(item)
+                                                            onDismissRequest()
+                                                        } else {
+                                                            onConfirm(listOf(item.packageName))
+                                                            onDismissRequest()
+                                                        }
+                                                    },
+                                                    shape = selectedSegmentedShape(
+                                                        index,
+                                                        section.items.size,
+                                                        sectionFlags,
+                                                    ),
+                                                )
                                             }
                                         }
-                                    },
-                                    shape = selectedSegmentedShape(index, filteredApps.size, selectionFlags),
-                                )
+                                    }
+                                }
                             }
                         }
+                        if (sections.isNotEmpty()) {
+                            SheetIndexBar(
+                                sections = sections,
+                                listState = listState,
+                                entries = barEntries,
+                                metrics = indexMetrics,
+                                side = IndexBarSide.Start,
+                                onJump = jumpTo,
+                                modifier = Modifier.align(Alignment.BottomStart),
+                            )
+                            SheetIndexBar(
+                                sections = sections,
+                                listState = listState,
+                                entries = barEntries,
+                                metrics = indexMetrics,
+                                side = IndexBarSide.End,
+                                onJump = jumpTo,
+                                modifier = Modifier.align(Alignment.BottomEnd),
+                            )
+                        }
                     }
-                }
-                if (!confirmOnSelect) {
-                    SheetActionButtons(
-                        onDismiss = onDismissRequest,
-                        onConfirm = {
-                            onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
-                            onDismissRequest()
-                        },
-                        modifier = Modifier.padding(vertical = CardInnerSpacing),
-                    )
                 }
             }
         }
     }
 }
+
+/**
+ * 竖向拼音滑杆：贴底、限高 [SheetIndexBarMaxHeight]，覆盖在列表上（不改列表间距）。
+ * 当前字母由列表滚动位置推导，用 [derivedStateOf] 把读取隔离在本子树，避免滚动时
+ * 重排整个列表。
+ */
+@Composable
+private fun SheetIndexBar(
+    sections: List<AlphabeticalSection<AppInfo>>,
+    listState: LazyListState,
+    entries: List<IndexBarEntry>,
+    metrics: IndexBarMetrics,
+    side: IndexBarSide,
+    onJump: (IndexBarEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // 每节 = 吸顶字母头 + 一张 LunoGroup，共 2 个 item，故节号 = 首可见 item / 2。
+    val activeKey by remember(sections, listState) {
+        derivedStateOf { sections.getOrNull(listState.firstVisibleItemIndex / 2)?.letter?.toString() }
+    }
+    Box(modifier = modifier.heightIn(max = SheetIndexBarMaxHeight)) {
+        IndexBar(
+            entries = entries,
+            metrics = metrics,
+            activeKey = activeKey,
+            side = side,
+            onJump = onJump,
+        )
+    }
+}
+
+/** 紧凑型竖向滑杆的限高（贴底覆盖，不放不下就窗口模式）。 */
+private val SheetIndexBarMaxHeight = 160.dp
