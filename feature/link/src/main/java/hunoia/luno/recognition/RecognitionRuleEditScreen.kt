@@ -1,5 +1,7 @@
 package hunoia.luno.recognition
 
+import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,7 +59,6 @@ import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.flow.first
@@ -76,8 +77,16 @@ fun RecognitionRuleEditScreen(
     onBack: () -> Unit,
     /** 应用选择器由 `:app` 注入，避免识别器页面依赖搜索 / 权限模块。 */
     appPicker: AppPickerSlot? = null,
-    /** 动作选择器同上：选完把 `StoredAction` 交给输出。 */
-    actionPicker: (@Composable ((StoredAction) -> Unit) -> Unit)? = null,
+    /**
+     * 动作选择器：起选择页并返回本次挑选的 token（null = 起不来）。
+     * 选中结果由调用方「监听 token 对应的事件」后回填 [onActionPicked]。
+     */
+    actionPicker: ((Context) -> String?)? = null,
+    /**
+     * 订阅「本次挑选结果」的 Composable 钩子：由 `:app` 用 `Events.SubscribeEvent`
+     * 实现（`feature:link` 不直接依赖事件总线与选择页 Activity）。
+     */
+    subscribePickedAction: (@Composable (token: String, onPicked: (StoredAction) -> Unit) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -122,7 +131,8 @@ fun RecognitionRuleEditScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
-    var showActionPicker by remember { mutableStateOf(false) }
+    /** 本次「挑动作」的 token；非空时订阅事件回填 output。 */
+    var pickedToken by remember(ruleId) { mutableStateOf<String?>(null) }
 
     val draft = initial.copy(
         enabled = enabled,
@@ -145,6 +155,15 @@ fun RecognitionRuleEditScreen(
         scope.launch {
             facade.updateRecognition { it.upsertRule(draft) }
             onBack()
+        }
+    }
+
+    // 挑动作的结果回填：token 隔离本次挑选，取到即清空，避免后面同 token 事件重复生效。
+    val token = pickedToken
+    if (token != null && subscribePickedAction != null) {
+        subscribePickedAction(token) { picked ->
+            output = RecognitionOutput.Action(picked)
+            pickedToken = null
         }
     }
 
@@ -224,19 +243,6 @@ fun RecognitionRuleEditScreen(
                     )
                 }
             }
-            if (showActionPicker) {
-                val picker = actionPicker
-                if (picker == null) {
-                    showActionPicker = false
-                } else {
-                    LunoSheet(onDismissRequest = { showActionPicker = false }) {
-                        picker { picked ->
-                            output = RecognitionOutput.Action(picked)
-                            showActionPicker = false
-                        }
-                    }
-                }
-            }
         },
     ) {
         LunoGroup {
@@ -267,8 +273,7 @@ fun RecognitionRuleEditScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val entries = RecognitionSource.entries
-                    val rows = entries.chunked(3)
-                    rows.forEach { row ->
+                    entries.chunked(3).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             row.forEach { source ->
                                 FilterChip(
@@ -285,6 +290,24 @@ fun RecognitionRuleEditScreen(
                                 )
                             }
                         }
+                    }
+                    // 快捷：按规则类型一键取默认（文本规则不含外部 Intent、链接规则不含通知），
+                    // 或者全选。手点五个 chip 的体验没必要保留。
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val defaults = when (match) {
+                            is RecognitionMatch.Link -> RecognitionSource.LinkDefault
+                            is RecognitionMatch.Text -> RecognitionSource.TextDefault
+                        }
+                        TextAction(
+                            text = stringResource(R.string.recognition_source_defaults),
+                            enabled = sources != defaults,
+                            onClick = { sources = defaults },
+                        )
+                        TextAction(
+                            text = stringResource(R.string.recognition_source_all),
+                            enabled = sources != RecognitionSource.Default,
+                            onClick = { sources = RecognitionSource.Default },
+                        )
                     }
                 }
             }
@@ -417,14 +440,21 @@ fun RecognitionRuleEditScreen(
                     shape = segmentedShape(1, rows),
                 )
                 is RecognitionOutput.Action -> {
+                    val actionLabel = if (o.action.typeId.isBlank()) {
+                        stringResource(R.string.recognition_rule_action_none)
+                    } else {
+                        // 用动作库的显示名（含库引用 / 面板名解析），不露 typeId 给用户看。
+                        hunoia.luno.ui.component.actionText(o.action)
+                    }
                     LunoSettingsRow(
                         title = stringResource(R.string.recognition_rule_action_pick),
-                        subtitle = o.action.typeId.ifBlank {
-                            stringResource(R.string.recognition_rule_action_none)
-                        },
+                        subtitle = actionLabel,
                         shape = segmentedShape(1, rows),
                         enabled = actionPicker != null,
-                        onClick = { showActionPicker = true },
+                        onClick = {
+                            val token = actionPicker?.invoke(context)
+                            if (token != null) pickedToken = token
+                        },
                     )
                     RecognitionHintRow(
                         text = stringResource(R.string.recognition_output_action_hint),
@@ -580,6 +610,21 @@ fun RecognitionRuleEditScreen(
             }
         }
     }
+}
+
+/** 组内的纯文字动作（快捷选择）：可点即用，不可点时降级为说明文字。 */
+@Composable
+private fun TextAction(text: String, enabled: Boolean, onClick: () -> Unit) {
+    val color = if (enabled) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = color,
+        modifier = Modifier
+            .let { if (enabled) it.clickable(onClick = onClick) else it }
+            .padding(vertical = 4.dp),
+    )
 }
 
 @Composable

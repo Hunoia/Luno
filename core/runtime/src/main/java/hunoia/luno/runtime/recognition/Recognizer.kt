@@ -140,12 +140,31 @@ class CompiledRecognizer internal constructor(
 object Recognizer {
 
     /**
+     * 最近一次编译结果：识屏工具条每次识别成形都会取一次识别器，而规则表基本不变。
+     * 按规则表内容缓存（数据类相等），配置一改自然失效——不需要手动 invalidate。
+     */
+    @Volatile
+    private var cachedFor: List<RecognitionRule>? = null
+
+    @Volatile
+    private var cached: CompiledRecognizer? = null
+
+    /**
      * 规则表 → 编译结果；空表 / 全部非法时返回空编译结果。
      *
      * 没有「总开关」：规则全删即不识别。少一个状态，语义唯一。
      */
     fun compile(settings: RecognitionSettings): CompiledRecognizer {
-        val compiled = settings.rules.mapNotNull { rule ->
+        val rules = settings.rules
+        cached.takeIf { cachedFor == rules }?.let { return it }
+        return build(rules).also {
+            cachedFor = rules
+            cached = it
+        }
+    }
+
+    private fun build(rules: List<RecognitionRule>): CompiledRecognizer {
+        val compiled = rules.mapNotNull { rule ->
             if (!rule.enabled || !rule.isValid) return@mapNotNull null
             val regex = when (val match = rule.match) {
                 is RecognitionMatch.Text -> runCatching { Regex(match.pattern) }.getOrNull()

@@ -21,11 +21,12 @@
     <string name="recognition_rule_missing">This rule no longer exists</string>
     <string name="recognition_rule_summary">%1$s · %2$s → %3$s</string>
 
+    <string name="recognition_presets_hint">Tap one to add it; reorder or tweak it in the rule list afterwards</string>
+    <string name="recognition_presets_added_one">Added \"%1$s\"</string>
+    <string name="recognition_preset_text_summary">Grabs text → copies it</string>
+    <string name="recognition_preset_link_summary">Link → opens in %1$s</string>
+    <string name="recognition_preset_browser_summary">Link → opens in a browser</string>
     <string name="recognition_presets_group">Presets</string>
-    <string name="recognition_presets_add">Add presets</string>
-    <string name="recognition_presets_available">%1$d available (based on installed apps)</string>
-    <string name="recognition_presets_none">All added</string>
-    <string name="recognition_presets_added">Added %1$d rules</string>
 
     <string name="recognition_import">Import from clipboard</string>
     <string name="recognition_import_empty">Clipboard is empty</string>
@@ -42,9 +43,8 @@
     <string name="recognition_export_file">Export file</string>
     <string name="recognition_export_file_done">Rules exported</string>
 
-    <string name="recognition_miss_hint">Used when no rule matches the link</string>
-    <string name="recognition_dispatch_failure">Matched but did not open</string>
-    <string name="recognition_dispatch_failure_hint">Fallback when a rule matched but the target app did not open (rules can override)</string>
+    <string name="recognition_fallback">When a link cannot be opened</string>
+    <string name="recognition_fallback_hint">No rule matched, or the target app did not open; rules can override</string>
     <string name="recognition_scene_group">Scene scan</string>
     <string name="recognition_scene_group_hint">Reads the foreground screen once it settles and suggests matches</string>
     <string name="recognition_scene_enabled">Scan the current screen</string>
@@ -78,6 +78,8 @@
     <string name="recognition_source_scene">Scene scan</string>
     <string name="recognition_source_external">External links</string>
 
+    <string name="recognition_source_defaults">Type defaults</string>
+    <string name="recognition_source_all">Select all</string>
     <string name="recognition_rule_match_group">Match</string>
     <string name="recognition_rule_match_kind">Match kind</string>
     <string name="recognition_rule_match_kind_text">Regex text</string>

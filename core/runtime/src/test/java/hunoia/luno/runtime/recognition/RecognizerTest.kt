@@ -342,6 +342,53 @@ class RecognizerTest {
     }
 
     @Test
+    fun `compilation is cached per rule table and invalidates on change`() {
+        val settings = RecognitionSettings()
+        val first = Recognizer.compile(settings)
+        // 同一份规则表：复用同一个编译结果（识屏每次识别成形都会取一次）。
+        assertTrue(first === Recognizer.compile(RecognitionSettings()))
+        // 规则表一变：必须重新编译，否则改了规则不生效。
+        val changed = Recognizer.compile(settings.copy(rules = settings.rules.take(1)))
+        assertFalse(first === changed)
+    }
+
+    @Test
+    fun `default table and presets share one definition`() {
+        // 默认表 = 常用表前 N 条 + 链接规则：不允许出现两处各写一份正则而漂移。
+        val defaults = RecognitionDefaults.rules
+        val all = RecognitionDefaults.textPresets
+        assertTrue(defaults.size == 3)
+        defaults.filter { it.match is RecognitionMatch.Text }.forEach { rule ->
+            assertEquals(
+                all.first { it.id == rule.id }.match.pattern,
+                rule.match.pattern,
+            )
+        }
+        assertTrue(all.size >= 5)
+        assertEquals(all.size, all.map { it.id }.distinct().size)
+    }
+
+    @Test
+    fun `preset table catches the common chinese codes`() {
+        // 常用规则必须真能抓到典型文本，否则「添加常用规则」就是个摆设。
+        val recognizer = compiled(*RecognitionDefaults.textPresets.toTypedArray())
+        fun hit(text: String): String? = recognizer
+            .match(RecognitionInput(RecognitionSource.Clipboard, text))
+            .firstOrNull { it.builtin == RecognitionBuiltin.Copy }
+            ?.value
+
+        assertEquals("123456", hit("【某某】验证码 123456，5 分钟内有效"))
+        assertEquals("778899", hit("Your verification code is 778899"))
+        assertEquals("8-1-2024", hit("取件码 8-1-2024，请到菜鸟驿站"))
+        assertEquals("SF1234567890", hit("快递单号 SF1234567890 已发出"))
+        assertEquals("2024011500123", hit("订单号：2024011500123"))
+        assertEquals("Ab12Cd34", hit("您的临时密码为 Ab12Cd34"))
+        assertEquals("6688", hit("银行卡尾号 6688"))
+        // 纯粹的裸数字串不该被任何预设抓走（否则每条短信都会弹建议）。
+        assertEquals(null, hit("今天 2024 年，气温 26 度，编号 1234"))
+    }
+
+    @Test
     fun `json round trip of rules keeps match sources and output`() {
         val rule = RecognitionRule(
             id = "r1",

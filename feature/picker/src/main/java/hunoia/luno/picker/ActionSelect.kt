@@ -37,6 +37,13 @@ data class ActionSelect(
     val gridPanelReplaceItemId: String = "",
     /** 非空 = 在配悬浮球的这个槽（见 [FloatBallSlot]），与上面各 id 字段互斥。 */
     val floatBallSlot: String = "",
+    /**
+     * 非空 = 只挑一个动作交回调用方，不写入任何配置（识别器「执行动作」输出用）。
+     *
+     * 选中后发 [hunoia.luno.core.ActionPickedEvent]（带同一个 token）并收页，
+     * 由调用方自己决定把动作存在哪里；不落盘，因此不会写出一份悬空配置。
+     */
+    val pickActionToken: String = "",
 )
 
 /** 悬浮球的动作槽。只有「单击」一个：滑动固定读面板引用，长按固定是拖球。 */

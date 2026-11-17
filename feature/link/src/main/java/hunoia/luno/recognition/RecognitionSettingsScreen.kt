@@ -311,14 +311,14 @@ fun RecognitionSettingsScreen(
         item {
             LunoGroup(title = stringResource(R.string.recognition_global_group)) {
                 LunoDropdownRow(
-                    title = stringResource(R.string.recognition_miss),
-                    subtitle = stringResource(R.string.recognition_miss_hint),
+                    title = stringResource(R.string.recognition_fallback),
+                    subtitle = stringResource(R.string.recognition_fallback_hint),
                     options = listOf(
                         stringResource(R.string.recognition_miss_share),
                         stringResource(R.string.recognition_miss_browser),
                         stringResource(R.string.recognition_miss_picker),
                     ),
-                    selectedIndex = when (settings.missAction) {
+                    selectedIndex = when (settings.fallback) {
                         LinkMissMode.SHARE -> 0
                         LinkMissMode.BROWSER -> 1
                         LinkMissMode.PICKER -> 2
@@ -326,7 +326,7 @@ fun RecognitionSettingsScreen(
                     onSelect = { index ->
                         update {
                             it.copy(
-                                missAction = when (index) {
+                                fallback = when (index) {
                                     0 -> LinkMissMode.SHARE
                                     1 -> LinkMissMode.BROWSER
                                     else -> LinkMissMode.PICKER
@@ -334,33 +334,7 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.recognition_dispatch_failure),
-                    subtitle = stringResource(R.string.recognition_dispatch_failure_hint),
-                    options = listOf(
-                        stringResource(R.string.recognition_miss_share),
-                        stringResource(R.string.recognition_miss_browser),
-                        stringResource(R.string.recognition_miss_picker),
-                    ),
-                    selectedIndex = when (settings.dispatchFailureAction) {
-                        LinkMissMode.SHARE -> 0
-                        LinkMissMode.BROWSER -> 1
-                        LinkMissMode.PICKER -> 2
-                    },
-                    onSelect = { index ->
-                        update {
-                            it.copy(
-                                dispatchFailureAction = when (index) {
-                                    0 -> LinkMissMode.SHARE
-                                    1 -> LinkMissMode.BROWSER
-                                    else -> LinkMissMode.PICKER
-                                },
-                            )
-                        }
-                    },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 1),
                 )
             }
         }
@@ -437,22 +411,36 @@ fun RecognitionSettingsScreen(
         item {
             // PM 查询很贵：只在规则表变化时重算，开关/滚动不重复扫包。
             val addable = remember(settings.rules) { addablePresets(context, settings.rules) }
-            val addedMessage = stringResource(R.string.recognition_presets_added, addable.size)
-            LunoGroup(title = stringResource(R.string.recognition_presets_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.recognition_presets_add),
-                    subtitle = if (addable.isEmpty()) {
-                        stringResource(R.string.recognition_presets_none)
-                    } else {
-                        stringResource(R.string.recognition_presets_available, addable.size)
-                    },
-                    shape = segmentedShape(0, 1),
-                    enabled = addable.isNotEmpty(),
-                    onClick = {
-                        update { it.copy(rules = it.rules + addable) }
-                        showToast(addedMessage)
-                    },
-                )
+            if (addable.isNotEmpty()) {
+                // 逐条添加的提示在组合期按行取好（配置变更能重建），点击回调里不读资源。
+                val addedMessages = addable.map { preset ->
+                    stringResource(
+                        R.string.recognition_presets_added_one,
+                        preset.name.ifBlank { preset.match.pattern },
+                    )
+                }
+                LunoGroup(
+                    title = stringResource(R.string.recognition_presets_group),
+                    subtitle = stringResource(R.string.recognition_presets_hint),
+                ) {
+                    addable.forEachIndexed { index, preset ->
+                        LunoSettingsRow(
+                            icon = if (preset.match is RecognitionMatch.Link) {
+                                Icons.Default.Link
+                            } else {
+                                Icons.Default.Lightbulb
+                            },
+                            title = preset.name.ifBlank { preset.match.pattern },
+                            subtitle = presetSummary(preset),
+                            shape = segmentedShape(index, addable.size),
+                            onClick = {
+                                // 逐条添加：一次点一条，比「全部添加」可控（用户往往只要其中一两条）。
+                                update { it.copy(rules = it.rules + preset) }
+                                showToast(addedMessages[index])
+                            },
+                        )
+                    }
+                }
             }
         }
         item {
@@ -513,6 +501,17 @@ fun RecognitionSettingsScreen(
 }
 
 /** 列表副标题：「来源 · 匹配 → 输出」。 */
+/** 预设行的副标题：说清它会抓什么、送到哪，不用点进去才知道。 */
+@Composable
+private fun presetSummary(preset: RecognitionRule): String = when (val m = preset.match) {
+    is RecognitionMatch.Text -> stringResource(R.string.recognition_preset_text_summary)
+    is RecognitionMatch.Link -> if (m.viaBrowser) {
+        stringResource(R.string.recognition_preset_browser_summary)
+    } else {
+        stringResource(R.string.recognition_preset_link_summary, m.targetPackage)
+    }
+}
+
 /**
  * 可添加的预设：文本类（验证码 / 取件码 / 快递单号 / 订单号）+ 链接类（本机已安装应用）。
  *
@@ -551,10 +550,13 @@ private fun sceneA11yEnabled(context: Context): Boolean =
 
 @Composable
 internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?): String {
-    val sourceLabels = rule.sources.sortedBy { it.ordinal }.map { source ->
-        stringResource(source.labelRes())
+    // 来源只露前两个并标「+N」：一行副标题塞五个来源会看不清匹配串本身。
+    val labels = rule.sources.sortedBy { it.ordinal }.map { source -> stringResource(source.labelRes()) }
+    val sources = if (labels.size > 2) {
+        labels.take(2).joinToString("/") + "+${labels.size - 2}"
+    } else {
+        labels.joinToString("/")
     }
-    val sources = sourceLabels.joinToString("/")
     val match = when (val m = rule.match) {
         is RecognitionMatch.Link -> {
             val typeLabel = stringResource(

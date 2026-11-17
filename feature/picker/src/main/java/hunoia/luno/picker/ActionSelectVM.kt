@@ -5,6 +5,7 @@ import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.picker.R
 import hunoia.luno.action.model.ActionDeepLink
 import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.Events
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.core.AppContext
@@ -84,6 +85,14 @@ class ActionSelectVM(
 
     /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
     fun select(obj: Any) {
+        // 只挑一个动作交回调用方（识别器输出）：不落盘、不写任何配置，发事件即收页。
+        if (actionSelect.pickActionToken.isNotEmpty()) {
+            Events.post(
+                hunoia.luno.core.ActionPickedEvent(actionSelect.pickActionToken, obj.toStoredAction()),
+            )
+            finish()
+            return
+        }
         if (actionSelect.copyDeepLink) {
             val link = if (obj is ActionLibraryEntry) {
                 ActionDeepLink.ofEntry(obj.id)

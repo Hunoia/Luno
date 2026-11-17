@@ -126,12 +126,13 @@ class RecognitionExecutor(private val host: RecognitionHost) {
     }
 
     /**
-     * 回退：规则自带的优先；命中规则但分发失败用 [RecognitionSettings.dispatchFailureAction]，
-     * 完全没命中用 [RecognitionSettings.missAction]。
+     * 回退：规则自带的优先，否则跟随全局 [RecognitionSettings.fallback]。
+     *
+     * 「没命中」与「命中但打不开」走同一个兜底——对用户是同一件事（点了没反应）。
      */
     suspend fun fallback(url: String, rule: RecognitionRule?, settings: RecognitionSettings) {
         val own = (rule?.match as? RecognitionMatch.Link)?.missAction
-        val mode = own ?: if (rule != null) settings.dispatchFailureAction else settings.missAction
+        val mode = own ?: settings.fallback
         when (mode) {
             LinkMissMode.SHARE -> host.share(url)
             LinkMissMode.BROWSER -> host.openInBrowser(url)

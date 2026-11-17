@@ -21,11 +21,12 @@
     <string name="recognition_rule_missing">规则不存在或已被删除</string>
     <string name="recognition_rule_summary">%1$s · %2$s → %3$s</string>
 
+    <string name="recognition_presets_hint">点一条即添加；之后可在规则表里调顺序与参数</string>
+    <string name="recognition_presets_added_one">已添加「%1$s」</string>
+    <string name="recognition_preset_text_summary">从文本里抓取 → 复制</string>
+    <string name="recognition_preset_link_summary">链接 → 发往 %1$s</string>
+    <string name="recognition_preset_browser_summary">链接 → 交给浏览器打开</string>
     <string name="recognition_presets_group">常用规则</string>
-    <string name="recognition_presets_add">添加常用规则</string>
-    <string name="recognition_presets_available">%1$d 条可添加（按本机已安装的应用生成）</string>
-    <string name="recognition_presets_none">已全部添加</string>
-    <string name="recognition_presets_added">已添加 %1$d 条规则</string>
 
     <string name="recognition_import">从剪贴板导入</string>
     <string name="recognition_import_empty">剪贴板没有内容</string>
@@ -42,9 +43,8 @@
     <string name="recognition_export_file">导出文件</string>
     <string name="recognition_export_file_done">规则已导出到文件</string>
 
-    <string name="recognition_miss_hint">没有任何规则命中这条链接时的处理</string>
-    <string name="recognition_dispatch_failure">命中但打不开时</string>
-    <string name="recognition_dispatch_failure_hint">规则命中了、目标应用却没起来时的回退（规则可单独覆盖）</string>
+    <string name="recognition_fallback">链接打不开时</string>
+    <string name="recognition_fallback_hint">没有规则命中，或命中了但目标应用没起来；规则可单独覆盖</string>
     <string name="recognition_scene_group">情景识别</string>
     <string name="recognition_scene_group_hint">前台界面稳定后读一次它的文本，命中规则就弹建议</string>
     <string name="recognition_scene_enabled">识别当前界面</string>
@@ -78,6 +78,8 @@
     <string name="recognition_source_scene">情景识别</string>
     <string name="recognition_source_external">外部链接</string>
 
+    <string name="recognition_source_defaults">按类型取默认</string>
+    <string name="recognition_source_all">全选</string>
     <string name="recognition_rule_match_group">匹配</string>
     <string name="recognition_rule_match_kind">匹配方式</string>
     <string name="recognition_rule_match_kind_text">正则文本</string>

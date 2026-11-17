@@ -137,7 +137,10 @@ sealed interface RecognitionMatch {
          * 识屏 / 情景识别看到的常是地址栏文本，需要放开。
          */
         val allowBareDomains: Boolean = false,
-        /** 本规则命中但分发失败时的回退；null = 跟随全局「未命中策略」。 */
+        /**
+         * 本规则**打不开**时的回退（目标应用没起来 / 短链解析失败 / 指向自己）；
+         * null = 跟随全局 [RecognitionSettings.fallback]。字段名沿用 `missAction` 以免丢配置。
+         */
         val missAction: LinkMissMode? = null,
     ) : RecognitionMatch {
         // 正则型必须能编译；其余类型空匹配串是合法语义（= 任意链接）。
@@ -242,10 +245,12 @@ enum class LinkMissMode {
 data class RecognitionSettings(
     /** 规则表：按顺序取第一条命中（列表顺序即优先级）；空表 = 什么都不识别。 */
     val rules: List<RecognitionRule> = RecognitionDefaults.rules,
-    /** 链接没有命中任何规则时的行为（胶囊点击与外部打开共用）。 */
-    val missAction: LinkMissMode = LinkMissMode.SHARE,
-    /** 命中规则但分发失败时的回退（规则可用自己的 `missAction` 覆盖）。 */
-    val dispatchFailureAction: LinkMissMode = LinkMissMode.SHARE,
+    /**
+     * 链接打不开时怎么办——**一个开关覆盖两种情况**：没有任何规则命中，或命中了但目标
+     * 应用没起来。两者对用户来说是同一件事（「点了没反应」），分成两个开关只会让人
+     * 分不清该调哪个。规则可用自己的 `missAction` 单独覆盖。
+     */
+    val fallback: LinkMissMode = LinkMissMode.SHARE,
     /**
      * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则时弹建议。
      * 默认关；开启即对规则表里所有 `RecognitionSource.Scene` 的规则生效。
@@ -304,80 +309,87 @@ object RecognitionDefaults {
     /** 规则捕获到验证码时对哪些来源生效：除外部 Intent（那是链接入口）以外全部。 */
     private val CodeSources: Set<RecognitionSource> = RecognitionSource.TextDefault
 
-    val rules: List<RecognitionRule> = listOf(
-        RecognitionRule(
-            id = CodeRuleIdZh,
-            name = "验证码",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(CodePatternZh),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        RecognitionRule(
-            id = CodeRuleIdEn,
-            name = "验证码（英文）",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(CodePatternEn),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        // 内置链接识别：不再是散在各处的隐式分支，而是一条可见、可关、可调顺序的规则。
-        RecognitionRule(
-            id = LinkRuleId,
-            name = "链接",
-            sources = RecognitionSource.LinkDefault,
-            match = RecognitionMatch.Link(matchType = LinkMatchType.CONTAINS, pattern = ""),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
-        ),
-    )
+    // ---- 常用文本规则：默认表与「添加常用规则」共用同一份定义 ----
+    //
+    // 以前默认表和预设各写一遍正则，两边必须手抄同步；这里只写一次，
+    // 默认表 = 前 [DefaultTextRuleCount] 条，预设 = 整张表（按 pattern 判重后补进规则表）。
 
-    val codeRules: List<RecognitionRule> get() = rules.filter { it.match is RecognitionMatch.Text }
+    private val CodeZh = textRule(CodeRuleIdZh, "验证码", CodePatternZh)
+    private val CodeEn = textRule(CodeRuleIdEn, "验证码（英文）", CodePatternEn)
+
+    private val Pickup = textRule(
+        "preset-pickup",
+        "取件码",
+        """(?i)(?:取件码|取货码|提货码|取餐码|取件号)[^0-9A-Za-z]{0,12}([0-9A-Za-z][0-9A-Za-z-]{2,15})(?![0-9A-Za-z-])""",
+    )
 
     /**
-     * 「添加常用规则」里的文本类预设（链接类见 `LinkPresets`）。
-     *
-     * 验证码两条是默认表里已有的，这里只列**额外**的常用项；按 pattern 判重，
-     * 用户删掉默认规则后也能从这里加回来。
+     * 快递单号：真实单号常带字母（SF / YT / JD + 12 位数字），只认纯数字会把大半漏掉。
+     * 用「字母开头则为 2 字母 + 8–20 位」，纯数字仍要求 8–24 位，避免把普通数字串抓走。
      */
-    val textPresets: List<RecognitionRule> = listOf(
-        RecognitionRule(
-            id = "preset-code-zh",
-            name = "验证码",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(CodePatternZh),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        RecognitionRule(
-            id = "preset-code-en",
-            name = "验证码（英文）",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(CodePatternEn),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        RecognitionRule(
-            id = "preset-pickup",
-            name = "取件码",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(
-                """(?i)(?:取件码|取货码|提货码|取餐码|取件号)[^0-9A-Za-z]{0,12}([0-9A-Za-z][0-9A-Za-z-]{2,15})(?![0-9A-Za-z-])""",
-            ),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        RecognitionRule(
-            id = "preset-tracking",
-            name = "快递单号",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(
-                """(?i)(?:快递单号|运单号|物流单号|运单编号)[^0-9]{0,12}([0-9]{8,24})(?![0-9])""",
-            ),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
-        RecognitionRule(
-            id = "preset-order",
-            name = "订单号",
-            sources = CodeSources,
-            match = RecognitionMatch.Text(
-                """(?i)(?:订单号|订单编号|订单号码)[^0-9]{0,12}([0-9]{6,24})(?![0-9])""",
-            ),
-            output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
-        ),
+    private val Tracking = textRule(
+        "preset-tracking",
+        "快递单号",
+        """(?i)(?:快递单号|运单号|物流单号|运单编号)[^0-9A-Za-z]{0,12}((?:[A-Z]{2}[0-9]{8,20})|(?:[0-9]{8,24}))(?![0-9A-Za-z])""",
     )
+
+    private val Order = textRule(
+        "preset-order",
+        "订单号",
+        """(?i)(?:订单号|订单编号|订单号码)[^0-9]{0,12}([0-9]{6,24})(?![0-9])""",
+    )
+
+    /**
+     * 密码 / 一次性口令（TOTP 之外的「登录口令」）：只认明确带「密码」上下文的短串，
+     * 宁可漏也不误抓普通数字。
+     */
+    private val Password = textRule(
+        "preset-password",
+        "临时密码",
+        """(?i)(?:临时密码|初始密码|登录密码|一次性密码|动态密码)\s*(?:是|为|[:：])?\s*([0-9A-Za-z]{6,20})(?![0-9A-Za-z])""",
+    )
+
+    /**
+     * 银行卡 / 支付账号后四位（客服核对场景）：只取尾号，绝不匹配整串卡号。
+     */
+    private val CardTail = textRule(
+        "preset-card-tail",
+        "卡号后四位",
+        """(?i)(?:尾号|后四位|末四位|卡号后4位)\s*(?:是|为|[:：])?\s*([0-9]{4})(?![0-9])""",
+    )
+
+    private val AllTextRules: List<RecognitionRule> =
+        listOf(CodeZh, CodeEn, Pickup, Tracking, Order, Password, CardTail)
+
+    /** 默认表里预置的文本规则条数：只要两条验证码，其余按需从预设添加。 */
+    private const val DefaultTextRuleCount = 2
+
+    private fun textRule(id: String, name: String, pattern: String) = RecognitionRule(
+        id = id,
+        name = name,
+        sources = CodeSources,
+        match = RecognitionMatch.Text(pattern),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
+    )
+
+    /** 内置链接识别：不再是散在各处的隐式分支，而是一条可见、可关、可调顺序的规则。 */
+    private val LinkRule = RecognitionRule(
+        id = LinkRuleId,
+        name = "链接",
+        sources = RecognitionSource.LinkDefault,
+        match = RecognitionMatch.Link(matchType = LinkMatchType.CONTAINS, pattern = ""),
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
+    )
+
+    val rules: List<RecognitionRule> = AllTextRules.take(DefaultTextRuleCount) + LinkRule
+
+    val codeRules: List<RecognitionRule> get() = AllTextRules
+
+    /**
+     * 「添加常用规则」里的文本类预设（链接类见 `LinkPresets`），整张常用表。
+     *
+     * 与默认表同源，按 pattern 判重：用户删掉默认规则后也能从这里加回来，
+     * 不会出现「默认表里是 A 正则、预设里是改过的 B 正则」这种漂移。
+     */
+    val textPresets: List<RecognitionRule> get() = AllTextRules
 }

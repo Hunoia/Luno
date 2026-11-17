@@ -373,9 +373,15 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         prefillPattern = it.toRoute<RecognitionRuleEdit>().pattern,
                         onBack = { navController.popBackStack() },
                         appPicker = { request -> LunoAppPicker(request) },
-                        // 动作输出暂不给选择器：输出先用内置的复制/打开/分享，
-                        // 需要任意动作时从动作库配置（见 recognition_rule_action_none 提示）。
-                        actionPicker = null,
+                        actionPicker = { ctx -> hunoia.luno.domain.recognition.ActionPick.launch(ctx) },
+                        subscribePickedAction = { token, onPicked ->
+                            // 选择页在 :service 的独立 Activity，结果走进程内事件；token 隔离本次挑选。
+                            hunoia.luno.core.Events.SubscribeEvent(
+                                hunoia.luno.core.ActionPickedEvent::class,
+                            ) { event ->
+                                if (event.token == token) onPicked(event.action)
+                            }
+                        },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {
