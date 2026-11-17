@@ -32,6 +32,7 @@ dependencies {
     implementation(libs.material.icons.extended)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.coil)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)

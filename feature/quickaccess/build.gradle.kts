@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":ui:design"))
     implementation(project(":feature:actions"))
     implementation(project(":feature:search"))
+    implementation(project(":capability:appcatalog"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

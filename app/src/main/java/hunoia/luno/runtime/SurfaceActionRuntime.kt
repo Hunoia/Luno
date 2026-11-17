@@ -262,7 +262,7 @@ object SurfaceActionRuntime {
             hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
 
         override fun openImageAnnotate(): Boolean =
-            hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(context)
+            hunoia.luno.annotate.ImageAnnotateActivity.startPicker(context)
 
         override fun openPhotoRecognize(): Boolean =
             hunoia.luno.ui.photo.PhotoRecognizeActivity.start(context)

@@ -111,4 +111,26 @@
             column="36"/>
     </issue>
 
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Intent(Intent.ACTION_VIEW, Uri.parse(url))"
+        errorLine2="                                           ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/link/LinkSelectionActivity.kt"
+            line="176"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))"
+        errorLine2="                                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/link/LinkSelectionActivity.kt"
+            line="257"
+            column="45"/>
+    </issue>
+
 </issues>

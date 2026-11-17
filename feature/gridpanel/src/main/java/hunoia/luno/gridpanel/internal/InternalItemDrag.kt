@@ -24,7 +24,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.controller.ImageInserter
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.core.AppContext
-import hunoia.luno.gesture.GestureCommand
+import hunoia.luno.runtime.surface.GestureCommand
 import hunoia.luno.gridpanel.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

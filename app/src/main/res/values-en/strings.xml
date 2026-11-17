@@ -201,7 +201,6 @@
     <string name="request_get_apps_permission">Get app list</string>
     <string name="rename">Rename</string>
 
-
     <!-- Theme color -->
 
     <!-- Action categories -->
@@ -222,7 +221,6 @@
     <string name="action_deep_link_not_found">Action does not exist or has been deleted</string>
 
     <!-- Parameter templates -->
-
 
     <!-- Home -->
     <string name="mini_window_nudge_left">Move left</string>
@@ -248,16 +246,9 @@
 
     <!-- Search engines -->
 
-
     <!-- Link dispatch -->
     <string name="link_dispatch_no_link">No link detected</string>
-    <string name="link_dispatch_pick_app_title">Choose how to open</string>
-    <string name="link_dispatch_pick_app_empty">No app found that can open this link</string>
-    <string name="link_dispatch_share_action">Send with system share sheet</string>
-    <string name="link_dispatch_select_title">Choose link</string>
-    <string name="link_dispatch_select_hint">%1$d links total; tap to dispatch, long-press to share</string>
-    <string name="link_dispatch_select_target">To %1$s · %2$s</string>
-    <string name="link_dispatch_select_no_target">No rule matched · %1$s</string>
+
     <string name="privileged_granting">Granting…</string>
     <plurals name="privileged_grant_partial">
         <item quantity="one">%1$d item not granted; retry or set manually</item>
@@ -516,37 +507,12 @@
     <string name="incident_notification_text">%1$s: %2$s</string>
     <string name="incident_notification_tap_hint">Tap to view incident records</string>
 
-    <string name="habit_reminder_channel">Habit reminders</string>
-    <string name="habit_reminder_title">Habit reminder</string>
-    <string name="habit_reminder_done">+1</string>
-    <string name="habit_reminder_complete">Done</string>
-    <string name="habit_reminder_snooze_minutes">Snooze %1$d min</string>
-    <string name="habit_reminder_snooze_hours">Snooze %1$d h</string>
-    <string name="habit_reminder_snooze_hours_minutes">Snooze %1$d h %2$d min</string>
-    <string name="habit_reminder_status_due">%1$d-day streak · due today</string>
-    <string name="habit_reminder_status_overdue">%1$d-day streak · missed, can make up</string>
-    <string name="habit_reminder_status_inactive">Not started · starts today</string>
-    <string name="habit_reminder_status_progress_short">Today %1$d/%2$d</string>
-    <string name="habit_reminder_status_plain">Time to check in</string>
-    <string name="habit_reminder_share_content">[%1$s] %2$s</string>
-    <string name="habit_reminder_test_done">Test finished · dismissed</string>
-    <string name="habit_reminder_capsule">Check in</string>
-
-    <string name="todo_reminder_channel">Todo reminders</string>
-    <string name="todo_reminder_title">Todo reminder</string>
-    <string name="todo_reminder_done">Done</string>
-    <string name="todo_reminder_capsule">Due now</string>
-    <string name="todo_reminder_share_content">[%1$s] %2$s</string>
-
     <string name="habit_reminder_perm_notification">Notification permission</string>
     <string name="habit_reminder_perm_notification_off_hint">Not allowed · reminder will not show; tap to enable</string>
     <string name="habit_reminder_perm_exact_alarm">Exact alarm</string>
     <string name="habit_reminder_perm_exact_off_hint">Not allowed · system may delay the reminder</string>
     <string name="habit_reminder_perm_live_update">Live update / status bar capsule</string>
     <string name="habit_reminder_perm_live_off_hint">Not allowed · tap to open system notification settings</string>
-    <string name="habit_reminder_test_name">Test reminder</string>
-    <string name="habit_reminder_test_title">Habit reminder (test)</string>
-    <string name="habit_reminder_test_body">Current mode: %1$s · auto-dismisses in 60 s</string>
 
     <string name="notification_display_settings_title">Notifications</string>
     <string name="notification_display_mode_group">Display mode</string>
@@ -600,8 +566,5 @@
     <string name="notification_display_settings_entry_hint">Display mode, island and permissions</string>
 
     <!-- Trend reminders -->
-    <string name="trend_reminder_channel">Trend reminders</string>
-    <string name="trend_reminder_title">Record %1$s</string>
-    <string name="trend_reminder_text">No record for “%1$s” today. Tap to add one.</string>
-    <string name="trend_reminder_channel_desc">At most one reminder per metric per day; skipped when already recorded</string>
+
 </resources>

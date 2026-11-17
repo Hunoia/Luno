@@ -5,9 +5,9 @@ import android.content.Context
 import android.content.Intent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.domain.habit.HabitReminderScheduler
-import hunoia.luno.domain.todo.TodoReminderScheduler
-import hunoia.luno.domain.trend.TrendReminderScheduler
+import hunoia.luno.gridpanel.reminder.habit.HabitReminderScheduler
+import hunoia.luno.gridpanel.reminder.todo.TodoReminderScheduler
+import hunoia.luno.gridpanel.reminder.trend.TrendReminderScheduler
 
 /**
  * 应用更新（`adb install -r` / 应用商店更新）后恢复常驻前台服务。

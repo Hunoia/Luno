@@ -21,7 +21,14 @@ class FeatureConfigBoundaryTest {
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TodoCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TrendCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
-        "feature/search/src/main/java/hunoia/luno/domain/search/SearchCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/ProgressNotificationDismisser.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/habit/HabitReminderNotifier.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/habit/HabitReminderScheduler.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/todo/TodoReminderNotifier.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/todo/TodoReminderScheduler.kt",
+        "feature/annotate/src/main/java/hunoia/luno/annotate/store/AnnotateSettingsCenter.kt",
+        "feature/link/src/main/java/hunoia/luno/recognition/AppRecognitionHost.kt",
+        "feature/link/src/main/java/hunoia/luno/recognition/RecognitionLinks.kt",
         "feature/appcontrol/src/main/java/hunoia/luno/domain/appcontrol/AppControlCenter.kt",
     )
 

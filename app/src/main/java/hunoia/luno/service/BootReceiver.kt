@@ -4,9 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import hunoia.luno.core.AppContext
-import hunoia.luno.domain.habit.HabitReminderScheduler
-import hunoia.luno.domain.todo.TodoReminderScheduler
-import hunoia.luno.domain.trend.TrendReminderScheduler
+import hunoia.luno.gridpanel.reminder.habit.HabitReminderScheduler
+import hunoia.luno.gridpanel.reminder.todo.TodoReminderScheduler
+import hunoia.luno.gridpanel.reminder.trend.TrendReminderScheduler
 import hunoia.luno.launch.PackageControl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

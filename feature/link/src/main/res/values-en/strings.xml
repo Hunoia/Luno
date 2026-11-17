@@ -5,7 +5,6 @@
     <!-- Recognizer (input → rules → output) -->
     <string name="recognition_title">Recognizer</string>
     <string name="recognition_global_group">Behavior</string>
-    <string name="recognition_miss">When no rule matches</string>
     <string name="recognition_miss_share">System share sheet</string>
     <string name="recognition_miss_browser">Open in browser</string>
     <string name="recognition_miss_picker">Choose an app</string>
@@ -141,4 +140,11 @@
     <string name="recognition_rule_test_hint">Paste text to see which rule catches it</string>
     <string name="recognition_rule_test_hit">Matched "%1$s" → %2$s</string>
     <string name="recognition_rule_test_miss">No rule matched</string>
+<string name="link_dispatch_pick_app_title">Choose how to open</string>
+<string name="link_dispatch_pick_app_empty">No app found that can open this link</string>
+<string name="link_dispatch_share_action">Send with system share sheet</string>
+<string name="link_dispatch_select_title">Choose link</string>
+<string name="link_dispatch_select_hint">%1$d links total; tap to dispatch, long-press to share</string>
+<string name="link_dispatch_select_target">To %1$s · %2$s</string>
+<string name="link_dispatch_select_no_target">No rule matched · %1$s</string>
 </resources>

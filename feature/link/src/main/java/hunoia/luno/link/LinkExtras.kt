@@ -16,7 +16,7 @@ object LinkExtras {
     const val EXTRA_PICK_URL = "hunoia.luno.extra.LINK_PICK_URL"
 
     /** 多链接选择 / 选应用页。 */
-    const val ACTIVITY_SELECT = "hunoia.luno.ui.link.LinkSelectionActivity"
+    const val ACTIVITY_SELECT = "hunoia.luno.link.LinkSelectionActivity"
 
     /** 外部链接接收口（默认浏览器 / 分享到 Luno）。 */
     const val ACTIVITY_DISPATCH = "hunoia.luno.ui.link.LinkDispatchActivity"

@@ -22,7 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.TrendExtras
-import hunoia.luno.domain.habit.HabitReminderNotifier
+import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.log.IncidentNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingIncidentView

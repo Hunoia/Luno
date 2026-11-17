@@ -34,19 +34,8 @@ object TextInserter {
 
     private const val TAG = LOG_TAG
 
-    enum class Result {
-        /** 已直接写进输入框（没碰剪贴板）。 */
-        Inserted,
-
-        /** 目标只支持粘贴，已用剪贴板写入。 */
-        InsertedViaClipboard,
-
-        /** 落点下没有可编辑节点。 */
-        NoTarget,
-
-        /** 找到了输入框但写入失败。 */
-        Failed,
-    }
+    /** 结果枚举已上提契约层：保留原名便于调用方零改动。 */
+    typealias Result = hunoia.luno.core.domain.TextInsertResult
 
     /** 焦点切换后的等待：太短目标还没拿到焦点，太长用户能感受到延迟。 */
     internal const val FocusSettleMs = 60L

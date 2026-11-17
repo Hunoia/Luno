@@ -21,7 +21,6 @@ class ProcessBoundaryTest {
     /** 按 §12 必须留在主进程的入口。 */
     private val mainProcessComponents = listOf(
         ".ui.MainActivity",
-        ".ui.link.LinkSelectionActivity",
         ".ui.ActionDeepLinkActivity",
     )
 

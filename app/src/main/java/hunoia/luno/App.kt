@@ -97,12 +97,12 @@ class App : Application(), SingletonImageLoader.Factory {
         // 习惯提醒：闹钟 / 部件打卡等入口可能在 MainActivity 未打开时拉起主进程，
         // 在这里订阅配置流才能保证「关提醒 / 打卡 / 删习惯」后立即撤销在屏通知与闹钟。
         if (isProviderProcess) {
-            hunoia.luno.domain.habit.HabitReminderScheduler.startObserving(applicationContext)
+            hunoia.luno.gridpanel.reminder.habit.HabitReminderScheduler.startObserving(applicationContext)
             // 待办提醒同理：配置流一变更（设 / 改 / 删 / 完成 / 撤销）就重排，
             // 首次订阅同时负责「应用打开时补弹错过提醒」。
-            hunoia.luno.domain.todo.TodoReminderScheduler.startObserving(applicationContext)
+            hunoia.luno.gridpanel.reminder.todo.TodoReminderScheduler.startObserving(applicationContext)
             // 趋势提醒只按「每指标每天一次」调度，配置变更（开关 / 时间 / 删除）即时重排。
-            hunoia.luno.domain.trend.TrendReminderScheduler.startObserving(applicationContext)
+            hunoia.luno.gridpanel.reminder.trend.TrendReminderScheduler.startObserving(applicationContext)
         }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)
@@ -141,7 +141,7 @@ class App : Application(), SingletonImageLoader.Factory {
         hunoia.luno.link.AppLinkPorts.context = applicationContext
         // 识别器宿主：胶囊与识屏共用同一个实现，两进程各装一次。
         hunoia.luno.runtime.recognition.RecognitionHosts.install(
-            hunoia.luno.domain.recognition.AppRecognitionHost(applicationContext),
+            hunoia.luno.recognition.AppRecognitionHost(applicationContext),
         )
         // OCR 模型页要扫模型目录、并在导入/删除后通知 :service 重载引擎。
         hunoia.luno.domain.ocr.OcrModelCenter.init(applicationContext)

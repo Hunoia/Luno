@@ -23,6 +23,7 @@ dependencies {
     // 图标原子组件（TextIconGlyph 等）；搜索本身不依赖动作模块，动作条目走 ActionSearchSource 契约。
     implementation(project(":ui:design"))
     implementation(project(":capability:launch"))
+    implementation(project(":capability:appcatalog"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

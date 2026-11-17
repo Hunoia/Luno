@@ -17,11 +17,8 @@ import hunoia.luno.core.LunoLog as Log
  */
 object ImageInserter {
 
-    enum class Result {
-        Pasted,
-        NoTarget,
-        Failed,
-    }
+    /** 结果枚举已上提契约层：保留原名便于调用方零改动。 */
+    typealias Result = hunoia.luno.core.domain.ImageInsertResult
 
     /** 粘到当前焦点输入框。 */
     fun pasteFocused(service: AccessibilityService): Result {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 链接选择页主题：与 app 同构的 Compose 承载页。app 侧同名样式优先，
+         两处父主题一致，合并后无行为差异。 -->
+    <style name="Theme.SideGesture" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

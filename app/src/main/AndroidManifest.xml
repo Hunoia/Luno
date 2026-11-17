@@ -146,28 +146,6 @@
             </intent-filter>
         </activity>
 
-        <!-- 多链接选择页：一次认出多条链接时由胶囊或分发入口拉起。 -->
-        <activity
-            android:name=".ui.link.LinkSelectionActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:noHistory="true"
-            android:taskAffinity="hunoia.luno.linkdispatch"
-            android:theme="@style/Theme.SideGesture" />
-
-        <activity
-            android:name="hunoia.luno.ui.actionselect.ActionSelectHostActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:process=":service"
-            android:taskAffinity="hunoia.luno.actionselect"
-            android:theme="@style/Theme.SideGesture.Transparent"
-            android:windowSoftInputMode="adjustNothing" />
-        <!-- taskAffinity 独立：无亲和性时 NEW_TASK 会落进主页 task，小窗关闭后残留主页小窗。 -->
-
         <activity
             android:name=".quickaccess.QuickSearchActivity"
             android:excludeFromRecents="true"
@@ -208,7 +186,7 @@
              不能加 noHistory：picker 模式下系统选择器一上屏，noHistory 会把本页直接结掉，
              选择结果就回不来了；退出统一走工具条的关闭按钮。 -->
         <activity
-            android:name=".ui.annotate.ImageAnnotateActivity"
+            android:name="hunoia.luno.annotate.ImageAnnotateActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
             android:exported="false"
             android:launchMode="singleTask"
@@ -337,26 +315,6 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-
-        <!-- 习惯提醒：AlarmManager 触发（主进程广播）+ 通知「完成」按钮。 -->
-        <receiver
-            android:name=".domain.habit.HabitReminderReceiver"
-            android:exported="false" />
-
-        <!-- 进度类通知（习惯 +1 等）点击后到时自动移除。 -->
-        <receiver
-            android:name=".domain.notify.ProgressNotificationDismissReceiver"
-            android:exported="false" />
-
-        <!-- 待办提醒：AlarmManager 触发 + 通知「完成 / 推迟」按钮。 -->
-        <receiver
-            android:name=".domain.todo.TodoReminderReceiver"
-            android:exported="false" />
-
-        <!-- 趋势记录提醒：AlarmManager 触发；当天已记录则静默跳过并排下一天。 -->
-        <receiver
-            android:name=".domain.trend.TrendReminderReceiver"
-            android:exported="false" />
 
         <!-- 手动改系统时间 / 切换时区后按新墙钟重排习惯、待办与趋势提醒。 -->
         <receiver

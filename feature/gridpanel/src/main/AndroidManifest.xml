@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- 习惯提醒：AlarmManager 触发（主进程广播）+ 通知「完成」按钮。
+             与领域逻辑同属 gridpanel，不依赖 app 清单（见 feature:widget 先例）。 -->
+        <receiver
+            android:name=".reminder.habit.HabitReminderReceiver"
+            android:exported="false" />
+
+        <!-- 进度类通知（习惯 +1 等）点击后到时自动移除。 -->
+        <receiver
+            android:name=".reminder.ProgressNotificationDismissReceiver"
+            android:exported="false" />
+
+        <!-- 待办提醒：AlarmManager 触发 + 通知「完成 / 推迟」按钮。 -->
+        <receiver
+            android:name=".reminder.todo.TodoReminderReceiver"
+            android:exported="false" />
+
+        <!-- 趋势记录提醒：AlarmManager 触发；当天已记录则静默跳过并排下一天。 -->
+        <receiver
+            android:name=".reminder.trend.TrendReminderReceiver"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

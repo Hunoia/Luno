@@ -332,4 +332,26 @@
             column="18"/>
     </issue>
 
+    <issue
+        id="NewApi"
+        message="Call requires API level 36.1 (current min is 33): `android.app.Notification.Builder#setRequestPromotedOngoing`"
+        errorLine1="        builder.setRequestPromotedOngoing(true)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gridpanel/reminder/habit/HabitReminderNotifier.kt"
+            line="621"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 36.1 (current min is 33): `android.app.Notification.Builder#setRequestPromotedOngoing`"
+        errorLine1="        builder.setRequestPromotedOngoing(true)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/gridpanel/reminder/todo/TodoReminderNotifier.kt"
+            line="304"
+            column="17"/>
+    </issue>
+
 </issues>

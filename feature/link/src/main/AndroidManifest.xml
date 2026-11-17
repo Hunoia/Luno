@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- 多链接选择页：一次认出多条链接时由胶囊或分发入口拉起。
+             与分发逻辑同属 link，不依赖 app 清单（见 feature:widget 先例）。 -->
+        <activity
+            android:name=".LinkSelectionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity="hunoia.luno.linkdispatch"
+            android:theme="@style/Theme.SideGesture" />
+
+    </application>
+
+</manifest>

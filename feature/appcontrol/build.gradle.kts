@@ -16,10 +16,10 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:bridge"))
     implementation(project(":core:data"))
-    implementation(project(":core:facade"))
     implementation(project(":ui:design"))
     // 应用清单、禁用状态与写入点都在启动能力库；页面不自建第二份 PackageManager 扫描。
     implementation(project(":capability:launch"))
+    implementation(project(":capability:appcatalog"))
 
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

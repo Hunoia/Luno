@@ -261,7 +261,7 @@ class OcrResultActivity : ComponentActivity() {
                 showToast(R.string.ocr_result_failed)
                 return
             }
-            val opened = hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, handoff)
+            val opened = hunoia.luno.annotate.ImageAnnotateActivity.startWithBitmap(this, handoff)
             if (opened) finish() else {
                 if (!handoff.isRecycled) handoff.recycle()
                 showToast(R.string.ocr_result_failed)

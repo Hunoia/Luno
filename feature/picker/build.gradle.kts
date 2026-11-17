@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":feature:floatball"))
     implementation(project(":feature:quickaccess"))
     implementation(project(":feature:search"))
+    implementation(project(":capability:appcatalog"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)
@@ -40,6 +41,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.coil.compose)
     // coil3.imageLoader / Keyer / ImageLoader 在单例包（coil），coil-compose 不带
     implementation(libs.coil)

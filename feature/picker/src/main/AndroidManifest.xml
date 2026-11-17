@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- 动作选择页的独立宿主（`:service` 进程）：供网格面板的加项/换动作/设变体使用。
+             与面板浮窗同进程；透明 Activity 承载同一个 ActionSelectContent。 -->
+        <activity
+            android:name=".ActionSelectHostActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.actionselect"
+            android:theme="@style/Theme.SideGesture.Transparent"
+            android:windowSoftInputMode="adjustNothing" />
+        <!-- taskAffinity 独立：无亲和性时 NEW_TASK 会落进主页 task，小窗关闭后残留主页小窗。 -->
+
+    </application>
+
+</manifest>

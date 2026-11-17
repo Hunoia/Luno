@@ -81,7 +81,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /** 识别结果执行口：识屏与建议胶囊共用（+ 与 :app 的宿主实现同一份）。 */
     private val recognitionExecutor by lazy {
-        hunoia.luno.domain.recognition.AppRecognitionHost(this).executor()
+        hunoia.luno.recognition.AppRecognitionHost(this).executor()
     }
 
     private val screenPickOverlay = ScreenPickOverlay(
@@ -104,7 +104,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             )
         },
         onAnnotate = { bitmap ->
-            hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
+            hunoia.luno.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
         },
         screenPickSettings = {
             if (::gestureCoordinator.isInitialized) {
@@ -180,7 +180,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                     restoreAnnotateSurfaces()
                 },
                 // 偏好落库走 app 的配置门面，feature 只依赖端口。
-                settingsStore = hunoia.luno.domain.annotate.AnnotateSettingsCenter,
+                settingsStore = hunoia.luno.annotate.store.AnnotateSettingsCenter,
             )
             annotateOverlay = overlay
             // open() 现在是 suspend（先读偏好再挂窗）：保持 annotateOpening 到真正挂完，
@@ -396,25 +396,25 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
         // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。
-        hunoia.luno.gesture.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
+        hunoia.luno.runtime.surface.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
             showGridPanelDirect(action, anchorX, anchorY)
         }
-        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, colorSpec ->
+        hunoia.luno.runtime.surface.GestureCommand.forwardBallTap = { action, anchorX, anchorY, colorSpec ->
             forwardBallTap(action, anchorX, anchorY, colorSpec)
         }
-        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec, foregroundHint ->
+        hunoia.luno.runtime.surface.GestureCommand.forwardPanelTap = { action, x, y, colorSpec, foregroundHint ->
             forwardPanelTap(action, x, y, colorSpec, foregroundHint)
         }
         // 网格面板是全屏浮层，挂上之后无障碍 `windows` 会变空；面板 show() 时先快照一次。
-        hunoia.luno.gesture.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }
-        hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
-        hunoia.luno.gesture.GestureCommand.insertTextFocused = { text ->
+        hunoia.luno.runtime.surface.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }
+        hunoia.luno.runtime.surface.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
+        hunoia.luno.runtime.surface.GestureCommand.insertTextFocused = { text ->
             TextInserter.insertFocused(this, text)
         }
-        hunoia.luno.gesture.GestureCommand.pasteImageFocused = {
+        hunoia.luno.runtime.surface.GestureCommand.pasteImageFocused = {
             ImageInserter.pasteFocused(this)
         }
-        hunoia.luno.gesture.GestureCommand.pasteImageAt = { path, mime, x, y ->
+        hunoia.luno.runtime.surface.GestureCommand.pasteImageAt = { path, mime, x, y ->
             pasteImageAt(path, mime, x, y)
         }
         // 长按建议球「立即扫一次当前界面」：扫描器惰性创建，开关判定在协调器侧。
@@ -431,7 +431,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                         ?: MiniWindowSettings(),
                 )
             } else null
-            hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
+            hunoia.luno.picker.ActionSelectHostActivity.start(
                 this,
                 hunoia.luno.picker.ActionSelect(
                     gridPanelId = pick.gridPanelId,

@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
     implementation(project(":core:bridge"))
+    implementation(project(":core:data"))
     implementation(project(":core:runtime"))
     implementation(project(":core:facade"))
     implementation(project(":ui:design"))

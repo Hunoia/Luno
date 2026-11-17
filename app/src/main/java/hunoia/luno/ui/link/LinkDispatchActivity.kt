@@ -13,6 +13,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.link.LinkSelectionActivity
 import hunoia.luno.clipboard.ClipboardCenter
 import kotlinx.coroutines.launch
 
@@ -62,7 +63,7 @@ class LinkDispatchActivity : ComponentActivity() {
             val settings = runCatching { TuneConfig.getAction().recognition }
                 .onFailure { Log.w(LOG_TAG, "recognition: read settings failed: ${it.message}") }
                 .getOrDefault(RecognitionSettings())
-            val urls = hunoia.luno.domain.recognition.RecognitionLinks.extractUrls(text)
+            val urls = hunoia.luno.recognition.RecognitionLinks.extractUrls(text)
             when {
                 // 分享进来的纯文本没有链接：存进剪贴板并固定；VIEW 进来的无链接文本仍提示。
                 urls.isEmpty() -> {
@@ -78,7 +79,7 @@ class LinkDispatchActivity : ComponentActivity() {
                 urls.size > 1 -> startActivity(LinkSelectionActivity.intent(this@LinkDispatchActivity, urls))
                 else -> {
                     // 与胶囊、识屏共用同一个执行口：选路 / 短链解析 / 回退都只有一份。
-                    hunoia.luno.domain.recognition.RecognitionLinks
+                    hunoia.luno.recognition.RecognitionLinks
                         .open(this@LinkDispatchActivity, urls.first())
                 }
             }

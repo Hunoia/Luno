@@ -173,7 +173,7 @@ object GridPanelOverlay : OverlayPanelHost(
         // 只在真正从「未显示」到「显示」时快照：窗口挂上后 windows 会被本面板挡住。
         // 选择页回显等仍处于 shown 状态的 show 保留首次快照。
         if (!shownEventPosted) {
-            foregroundHint = hunoia.luno.gesture.GestureCommand.snapshotForegroundApp?.invoke()
+            foregroundHint = hunoia.luno.runtime.surface.GestureCommand.snapshotForegroundApp?.invoke()
         }
         if (!shownEventPosted) setEditMode(false, "show-new")
         panelIdState = panelId
@@ -388,7 +388,7 @@ object GridPanelOverlay : OverlayPanelHost(
                         }
                     },
                     dispatch = { action, x, y ->
-                        val handled = hunoia.luno.gesture.GestureCommand.forwardPanelTap
+                        val handled = hunoia.luno.runtime.surface.GestureCommand.forwardPanelTap
                             ?.invoke(
                                 action, x, y,
                                 hunoia.luno.config.model.ColorSpec.Unset,

@@ -35,28 +35,6 @@
     </issue>
 
     <issue
-        id="QueryPermissionsNeeded"
-        message="As of Android 11, this method no longer returns information about all apps; see https://g.co/dev/packagevisibility for details"
-        errorLine1="            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))"
-        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/quickaccess/query/AppCatalog.kt"
-            line="92"
-            column="16"/>
-    </issue>
-
-    <issue
-        id="QueryPermissionsNeeded"
-        message="As of Android 11, this method no longer returns information about all apps; see https://g.co/dev/packagevisibility for details"
-        errorLine1="            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))"
-        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/quickaccess/query/DisabledAppQuery.kt"
-            line="119"
-            column="16"/>
-    </issue>
-
-    <issue
         id="UseKtx"
         message="Use the KTX function `createBitmap` instead?"
         errorLine1="                val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)"

@@ -96,19 +96,10 @@ Toast 不在此模块：系统 Toast 是平台原语，唯一入口在 `:core:br
 
 ## 调试
 
-debug 构建的 `IslandProbeReceiver` 是 go/no-go 入口（含真实发布事务）：
-
-```bash
-adb shell am broadcast -n hunoia.luno.debug/hunoia.luno.domain.habit.IslandProbeReceiver \
-    -a hunoia.luno.debug.ISLAND_PROBE --ez island true [--ei window_ms 220] [--ez expand true]
-```
+真机验证「测试发送」在 `NotificationSettingsScreen` 的「发送测试通知」入口
+（`HabitReminderNotifier.showTest`，progress 参数走进度组件 / 多动作布局 / 自动移除）。
+调试构建的 `IslandProbeReceiver`（adbd 直接投递 focus 通知）已随提醒栈迁入
+`:feature:gridpanel` 的调试变体移除，不再保留 adb 广播入口。
 
 日志 tag：`NotifyPresenter`（判定链 / 结果）、`XmsfGate`（防火墙链与恢复）、
 `IslandProbe`（能力条件）。
-
-探针的可选参数：`--ez expand true`（首帧展开大岛）、`--ei id 9012`（换通知 id，避免重复
-投递走「更新」路径而看不到首帧行为）、`--es channel habit_reminder`（默认）。
-
-另有两个调试入口（接收器 `exported=false`，adb 发不进非导出广播，只能走探针）：
-`--ez remind true [--es habit_id <uuid>]` 跑真实习惯提醒链路（真实状态 / 双按钮），
-`--ez done true` 模拟点「完成」（测试习惯 id，验证收起 + toast）。

@@ -28,7 +28,7 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.NotificationDisplaySettings
 import hunoia.luno.config.model.NotificationKind
 import hunoia.luno.config.model.NotificationMode
-import hunoia.luno.domain.habit.HabitReminderNotifier
+import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.shizuku.ShizukuInputInjection
 import hunoia.luno.shizuku.ShizukuManager

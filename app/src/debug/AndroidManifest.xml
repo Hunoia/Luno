@@ -26,11 +26,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- 超级岛 JSON 探针：adbd 直接投递 focus 通知，迭代岛模板时免重装。 -->
-        <receiver
-            android:name="hunoia.luno.domain.habit.IslandProbeReceiver"
-            android:exported="true" />
-
         <!-- 网格面板进出场探针：调动效/白闪时免手势触发。 -->
         <receiver
             android:name="hunoia.luno.domain.gridpanel.GridPanelProbeReceiver"

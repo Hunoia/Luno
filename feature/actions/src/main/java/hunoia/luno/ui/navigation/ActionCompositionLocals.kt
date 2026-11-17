@@ -1,6 +1,7 @@
 package hunoia.luno.ui.navigation
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.navigation.NavController
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
@@ -32,3 +33,9 @@ val LocalSubGestures = staticCompositionLocalOf<List<SubGesture>> { emptyList() 
  * 默认无解析器，由 app/gridpanel 层注入 `resolvePanelRefIcon`（见 `PanelDockCatalog`）。
  */
 val LocalPanelRefIcon = staticCompositionLocalOf<(String) -> Any?> { { null } }
+
+/**
+ * 页面级导航控制器。`:app` 与 `:service` 的页面宿主各自提供；
+ * 默认缺省抛错，避免静默拿空控制器。
+ */
+val LocalNavController = staticCompositionLocalOf<NavController> { error("No NavController provided") }

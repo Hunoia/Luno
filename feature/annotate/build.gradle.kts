@@ -15,8 +15,11 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
     implementation(project(":core:bridge"))
+    implementation(project(":core:data"))
     implementation(project(":ui:design"))
 
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)

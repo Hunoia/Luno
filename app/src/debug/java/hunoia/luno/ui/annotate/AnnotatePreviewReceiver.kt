@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import hunoia.luno.annotate.ImageAnnotateActivity
 
 /**
  * debug-only：把一张生成的测试位图直接送进图片标注页，真机验证工具条 / IME / 导出。

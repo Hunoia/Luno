@@ -2,7 +2,7 @@ package hunoia.luno.domain.recognition
 
 import android.content.Context
 import hunoia.luno.picker.ActionSelect
-import hunoia.luno.ui.actionselect.ActionSelectHostActivity
+import hunoia.luno.picker.ActionSelectHostActivity
 import java.util.UUID
 
 /**

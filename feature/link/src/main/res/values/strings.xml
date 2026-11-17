@@ -5,7 +5,6 @@
     <!-- 识别器（输入 → 规则 → 输出） -->
     <string name="recognition_title">识别器</string>
     <string name="recognition_global_group">行为</string>
-    <string name="recognition_miss">未命中规则时</string>
     <string name="recognition_miss_share">系统分享面板</string>
     <string name="recognition_miss_browser">浏览器打开</string>
     <string name="recognition_miss_picker">选择应用</string>
@@ -141,4 +140,11 @@
     <string name="recognition_rule_test_hint">粘贴一段文本，看会被哪条规则接手</string>
     <string name="recognition_rule_test_hit">命中「%1$s」→ %2$s</string>
     <string name="recognition_rule_test_miss">未命中任何规则</string>
+<string name="link_dispatch_pick_app_title">选择打开方式</string>
+<string name="link_dispatch_pick_app_empty">没有找到能打开该链接的应用</string>
+<string name="link_dispatch_share_action">用系统分享面板发送</string>
+<string name="link_dispatch_select_title">选择链接</string>
+<string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
+<string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
+<string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
 </resources>

@@ -12,9 +12,10 @@ object ModuleRules {
     val knownModules: Set<String> = setOf(
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:facade",
         ":ui:design", ":capability:launch", ":capability:ocr", ":capability:qr", ":capability:notify",
+        ":capability:appcatalog",
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quickaccess", ":feature:gesture",
-        ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
+        ":feature:floatball", ":feature:gridpanel", ":feature:annotate",
         ":feature:appcontrol",
         ":feature:clipboard",
         ":feature:widget",
@@ -32,7 +33,10 @@ object ModuleRules {
         // 门面契约（UI 可见）：只放契约与 DTO，实现留在 :app
         ":core:facade" to setOf(":core:common", ":core:domain", ":core:data"),
         ":ui:design" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:facade"),
-        ":capability:launch" to setOf(":core:common", ":core:domain", ":core:data", ":core:bridge"),
+        ":capability:launch" to setOf(":core:common", ":core:domain", ":core:data", ":core:bridge", ":capability:appcatalog"),
+        ":capability:appcatalog" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":core:data", ":ui:design",
+        ),
         ":capability:ocr" to setOf(":core:common", ":core:domain"),
         ":capability:qr" to setOf(":core:common", ":core:domain"),
         ":capability:notify" to setOf(":core:common", ":core:domain", ":core:bridge"),
@@ -43,30 +47,31 @@ object ModuleRules {
             ":core:runtime", ":feature:execute", ":ui:design", ":capability:launch",
         ),
         ":feature:link" to setOf(
-            ":core:common", ":core:domain", ":core:bridge", ":core:facade",
-            ":core:runtime", ":ui:design", ":feature:actions",
+            ":core:common", ":core:domain", ":core:bridge", ":core:data",
+            ":core:facade", ":core:runtime", ":ui:design", ":feature:actions",
         ),
         ":feature:search" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
-            ":ui:design", ":capability:launch",
+            ":ui:design", ":capability:launch", ":capability:appcatalog",
         ),
         // 跨 feature 的聚合页面：只读别人，不被别人依赖
         ":feature:picker" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":core:facade", ":ui:design",
             ":feature:actions", ":feature:gridpanel", ":feature:quickaccess", ":feature:search",
-            ":feature:gesture", ":feature:floatball",
+            ":feature:gesture", ":feature:floatball", ":capability:appcatalog",
         ),
         ":feature:quickaccess" to setOf(
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:search", ":ui:design", ":feature:actions",
+            ":capability:appcatalog",
         ),
         ":feature:gesture" to setOf(
             ":capability:ocr",
             ":capability:qr",
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
-            ":core:runtime", ":feature:actions", ":feature:link", ":ui:design",
+            ":core:runtime", ":feature:actions", ":ui:design",
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
@@ -75,23 +80,25 @@ object ModuleRules {
         ),
         ":feature:gridpanel" to setOf(
             ":capability:launch",
+            ":capability:notify",
+            ":capability:appcatalog",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:actions",
-            ":feature:execute", ":feature:gesture", ":feature:quickaccess",
-            ":feature:search", ":ui:design",
+            ":feature:execute", ":feature:quickaccess",
+            ":ui:design",
         ),
-        ":feature:annotate" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
+        ":feature:annotate" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:data", ":ui:design"),
         // 剪贴板管理页：读写唯一入口在 :core:data，OCR 结果页经 :core:facade 注入
         ":feature:clipboard" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:facade", ":ui:design",
         ),
-        ":feature:a11y" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
         // 应用冻结管理页：清单/禁用状态/写入点都在 capability:launch，不自建 PackageManager 扫描。
         ":feature:appcontrol" to setOf(
             ":capability:launch",
+            ":capability:appcatalog",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:facade", ":ui:design",
+            ":ui:design",
         ),
         // 桌面小部件（Glance）：主进程运行，直读 MultiProcess DataStore；复用 gridpanel 域门面
         // 与跳转 extras（HabitExtras/TodoExtras），不触碰 app 层。

@@ -8,7 +8,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/hunoia/luno/picker/ActionSelectScreen.kt"
-            line="204"
+            line="221"
             column="37"/>
     </issue>
 
@@ -19,24 +19,8 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/hunoia/luno/picker/ActionSelectScreen.kt"
-            line="205"
+            line="222"
             column="37"/>
-    </issue>
-
-
-
-
-
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
-        errorLine1="                else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }"
-        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="254"
-            column="50"/>
     </issue>
 
     <issue
@@ -46,7 +30,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/hunoia/luno/picker/ActionSelectScreen.kt"
-            line="152"
+            line="169"
             column="47"/>
     </issue>
 
@@ -57,7 +41,7 @@
         errorLine2="                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/hunoia/luno/picker/ActionSelectScreen.kt"
-            line="218"
+            line="235"
             column="52"/>
     </issue>
 
@@ -68,8 +52,41 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
-            line="92"
+            line="125"
             column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;items&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;action_group_item_count&quot;>%1$d items&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-en/strings.xml"
+            line="31"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;shortcuts&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;shortcut_count&quot;>%1$d shortcuts&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-en/strings.xml"
+            line="34"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="FrequentlyChangingValue"
+        message="Reading a value annotated with @FrequentlyChangingValue inside composition"
+        errorLine1="                            .getOrNull((listState.firstVisibleItemIndex - appsStartIndex).coerceAtLeast(0) / 2)"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/picker/components/ActionPage.kt"
+            line="812"
+            column="51"/>
     </issue>
 
 </issues>

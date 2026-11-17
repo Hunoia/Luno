@@ -73,7 +73,7 @@ import hunoia.luno.runtime.button.shouldShowSurface
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.runtime.surface.SurfaceController
-import hunoia.luno.gesture.GestureCommand
+import hunoia.luno.runtime.surface.GestureCommand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1222,10 +1222,10 @@ class FloatBallService : Service() {
 
     private fun dispatchTapAction(action: StoredAction, anchorX: Int, anchorY: Int) {
         if (action.typeId == GRID_PANEL_TYPE_ID) {
-            hunoia.luno.gesture.GestureCommand.showGridPanel?.invoke(action, anchorX, anchorY)
+            hunoia.luno.runtime.surface.GestureCommand.showGridPanel?.invoke(action, anchorX, anchorY)
             return
         }
-        hunoia.luno.gesture.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.colorSpec)
+        hunoia.luno.runtime.surface.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.colorSpec)
     }
 
     // ---- 前台通知 ----
