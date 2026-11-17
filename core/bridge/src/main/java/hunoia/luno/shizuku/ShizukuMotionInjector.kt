@@ -177,9 +177,9 @@ object ShizukuMotionInjector {
      * 正常的窗口命中测试：遮罩窗（`TYPE_ACCESSIBILITY_OVERLAY`）z-order 在源应用之上，
      * 一旦挂上，注入的 DOWN 就落在遮罩自己身上，源应用什么也收不到。
      *
-     * [expectedPackage] 非空时只在**能确定**前台已经不是它时才放弃（返回
-     * [TouchInterruption.NotAttempted]）。读不到前台事实源时**不拦**：
-     * 宁可让一次多余注入发生，也不要因为读不到信息白做一次接管。
+     * 调用方必须确保在注入前已确认目标前台（本函数不再查询前台包）：前台包查询是一次
+     * binder 往返，而注入必须赶在用户松手（~40-60ms）之前完成——多一次查询足以让注入
+     * 晚于松手，源应用手势已自然结束，取消失效。防护交给 [isCurrent]（会话取消守卫）。
      *
      * 阻塞调用，必须在 IO 线程执行（架构 §4.6）。
      */
@@ -187,19 +187,11 @@ object ShizukuMotionInjector {
         x: Int,
         y: Int,
         displayId: Int,
-        expectedPackage: String? = null,
         isCurrent: () -> Boolean = { true },
     ): TouchInterruption = withContext(Dispatchers.IO) {
         assertNotMainThread("shizuku.interruptTouch")
         if (!canInject(x, y, displayId)) return@withContext TouchInterruption.NotAttempted
         if (!isCurrent()) return@withContext TouchInterruption.NotAttempted
-        if (expectedPackage != null) {
-            // 只有「读到了前台且不是它」才放弃；读不到（null）按未知处理，继续注入。
-            val focused = ShizukuManager.focusedTaskPackage()
-            if (focused != null && focused != expectedPackage) {
-                return@withContext TouchInterruption.NotAttempted
-            }
-        }
         val downTime = SystemClock.uptimeMillis()
         try {
             TouchInterruptionSequence.run(

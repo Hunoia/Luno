@@ -381,6 +381,27 @@ class GlobalGestureRuntimeTest {
     }
 
     @Test
+    fun `consume touch takes over on hold-fire before the intent`() {
+        // 「按住即触发」（fireOnHold=true）：到长按阈值即点火（无 Move）。
+        // 接管必须在产出意图之前发生——识屏层等覆盖层先于注入挂载会让注入落在自家覆盖层上。
+        val subject = runtime(trigger(consumeTouch = true, fireOnHold = true))
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)
+        now = 400
+        timer.fire(400)
+
+        assertEquals(1, takeovers.size)
+        assertEquals(1, hits.size)
+        // 接管点是按下点（fire 发生在 timer，无拖动）。
+        assertEquals(10, takeovers.single().first)
+        assertEquals(20, takeovers.single().second)
+        assertEquals(hits.single().sessionId, takeovers.single().third)
+
+        // 松手撤盾。
+        subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Up)
+        assertEquals(takeovers.single().third, takeoverEnds.single())
+    }
+
+    @Test
     fun `takeover ends on release`() {
         val subject = runtime(trigger(consumeTouch = true))
         subject.onFrame(listOf(Offset(10f, 20f)), TouchAction.Down)

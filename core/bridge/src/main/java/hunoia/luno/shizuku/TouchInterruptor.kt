@@ -50,7 +50,7 @@ interface TouchInterruptor {
  */
 internal object TouchInterruptionSequence {
     /** DOWN 与 CANCEL 之间的停留：太短系统可能合并成一个事件，太长用户会感到卡顿。 */
-    const val PauseMs = 40L
+    const val PauseMs = 16L
 
     /**
      * @param down 注入 ACTION_DOWN，返回系统是否接受

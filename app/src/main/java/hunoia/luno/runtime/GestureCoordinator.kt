@@ -49,6 +49,7 @@ import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.runtime.pointer.PointerRuntime
 import hunoia.luno.runtime.recentspicker.RecentsPickerRuntime
 import hunoia.luno.runtime.recentspicker.RecentsPickerState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.gesture.touchsource.GlobalGestureRuntime
 import hunoia.luno.core.LOG_TAG
@@ -122,6 +124,12 @@ class GestureCoordinator(
 
     /** 当前接管会话的 id；非空 = 正在接管。 */
     private var takeoverSessionId: String? = null
+
+    /**
+     * 接管**注入完成**信号（按会话）：注入是异步协程，而识屏层等覆盖层由 `onFire` 同步挂载，
+     * 会抢在注入之前（§7.4「先注入、后挂盾」的违例）。识屏挂载前 `await` 它，保证注入先行。
+     */
+    private val takeoverInjectSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
 
     /** 当前接管的注入守卫：接管的会话号 + 屏幕状态仍然有效。 */
     private fun takeoverGuard(sessionId: String, token: Long): Boolean =
@@ -263,17 +271,27 @@ class GestureCoordinator(
                     screenTextPreCapture.peek(),
                 )
             }
-            actionDispatcher.submit(
-                hunoia.luno.execute.ExecuteCall(
-                    request = hunoia.luno.core.domain.ActionRequest(
-                        stored = hit.action.withoutVariantKey(),
-                        origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
-                        idempotencyKey = "global:${hit.sessionId}",
-                        triggerContext = context,
-                    ),
-                    touchPosition = touch,
+            val call = hunoia.luno.execute.ExecuteCall(
+                request = hunoia.luno.core.domain.ActionRequest(
+                    stored = hit.action.withoutVariantKey(),
+                    origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
+                    idempotencyKey = "global:${hit.sessionId}",
+                    triggerContext = context,
                 ),
+                touchPosition = touch,
             )
+            if (hit.trigger.consumeTouch) {
+                // 接管会话：识屏层/面板等覆盖层 z 在源应用之上，必须等注入完成再挂
+                // （architecture §7.4「先注入、后挂盾」）。注入已提速（无冗余前台查询、
+                // 缩短 DOWN↔CANCEL 间隔），识屏层在注入完成后立即挂，远早于用户松手。
+                // 期间拖动/抬手转发给未挂的 overlay 会安全忽略（portalAnchor 为 null）。
+                host.coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                    awaitTakeoverInject(hit.sessionId)
+                    actionDispatcher.submit(call)
+                }
+            } else {
+                actionDispatcher.submit(call)
+            }
             // 识屏幽灵卡要继续跟随手指；其余动作点火即结束。
             hit.action.typeId == SCREEN_PICK_TYPE_ID
         },
@@ -323,27 +341,46 @@ class GestureCoordinator(
         takeoverSessionId = sessionId
         val token = takeoverToken.incrementAndGet()
         val displayId = currentDisplayId()
+        // 方案 B（两段注入）：单点注入永远会被源应用的长按菜单（弹窗）挡住——菜单锚定按下点、
+        // 位置/尺寸多变（占下半屏、朝上/下、超长），任何固定点都可能被覆盖。分两步：
+        //   1. 按下点注入 DOWN+CANCEL → 命中并关闭源应用长按菜单（弹窗），清掉挡住主窗口的窗口。
+        //   2. 菜单关闭后，在「远离按下点的主窗口安全点」注入 DOWN+CANCEL → 命中源应用主窗口，
+        //      让主窗口收到 CANCEL 取消真实流（真实流目标窗口在 DOWN 时锁定主窗口），后续拖动不再穿透。
+        // 顺序不可换：阶段 2 的安全点只有在菜单（阶段 1 的目标）关闭后才可能不被覆盖。
+        val injectPoint = takeoverInjectPoint(x, y)
+        val injectSignal = CompletableDeferred<Unit>()
+        takeoverInjectSignals[sessionId] = injectSignal
         // 会话本身在 Main 上推进（挂盾、收口都要 Main）；注入在里面显式切 IO。
         host.coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             val result = hunoia.luno.shizuku.TouchTakeoverOrder.run(
                 inject = {
-                    // 前台包名在注入前、挂盾前取：盾一挂，无障碍的 active window 就是盾自己。
-                    // 不读 `rootInActiveWindow`（那是无障碍视图，会被自家 overlay 顶掉）；
-                    // 要的是系统侧事实——`IActivityTaskManager` 的焦点任务顶层 Activity。
-                    // 读不到返回 null，注入侧按「未知」处理并继续，不因读不到就白做一次接管。
-                    val expected = runCatching {
-                        hunoia.luno.shizuku.ShizukuManager.focusedTaskPackage()
-                    }.getOrNull()
-                    // 注入是阻塞的，必须离开 Main（架构 §4.6）。
+                    // 注入是阻塞的，必须离开 Main（架构 §4.6）。前台包名不在这里查：
+                    // `interruptTouch` 不再查询前台（那是一次 binder 往返，足以让注入晚于
+                    // 用户松手），防护交给注入侧 `isCurrent`（会话取消守卫）。
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         runCatching {
-                            hunoia.luno.shizuku.ShizukuMotionInjector.interruptTouch(
+                            // 阶段 1：按下点，命中并关闭源应用长按菜单（弹窗）。best-effort：
+                            // 失败（如菜单不在按下点）不阻断阶段 2，后者仍可能命中主窗口。
+                            val closeMenu = hunoia.luno.shizuku.ShizukuMotionInjector.interruptTouch(
                                 x = x,
                                 y = y,
                                 displayId = displayId,
-                                expectedPackage = expected,
                                 isCurrent = { takeoverGuard(sessionId, token) },
                             )
+                            // 阶段 2：主窗口安全点，取消真实流。会话已失效时 interruptTouch 返回
+                            // NotAttempted（不再注入），此处仍安全。
+                            val cancelReal = hunoia.luno.shizuku.ShizukuMotionInjector.interruptTouch(
+                                x = injectPoint.first,
+                                y = injectPoint.second,
+                                displayId = displayId,
+                                isCurrent = { takeoverGuard(sessionId, token) },
+                            )
+                            Log.i(
+                                LOG_TAG,
+                                "takeover inject phases closeMenu=$closeMenu cancelReal=$cancelReal " +
+                                    "menu=($x,$y) main=(${injectPoint.first},${injectPoint.second})",
+                            )
+                            cancelReal
                         }.getOrElse { error ->
                             Log.w(LOG_TAG, "takeover inject failed type=${error.javaClass.simpleName}")
                             hunoia.luno.shizuku.TouchInterruption.Failed
@@ -354,12 +391,51 @@ class GestureCoordinator(
                     if (takeoverGuard(sessionId, token)) touchShield.show()
                 },
             )
+            // 无论注入成败都放行识屏层挂载（best-effort：失败不阻断，只是源应用手势没被取消）。
+            injectSignal.complete(Unit)
             Log.i(
                 LOG_TAG,
-                "takeover done session=$sessionId result=$result shield=${touchShield.isShown}",
+                "takeover done session=$sessionId result=$result shield=${touchShield.isShown} " +
+                    "inject=(${injectPoint.first},${injectPoint.second})",
             )
         }
         return true
+    }
+
+    /**
+     * 接管注入点：避开源应用长按菜单（锚定按下点附近）的「主窗口安全点」。
+     *
+     * 长按菜单（弹窗）覆盖按下点；注入 DOWN 走全局命中测试，落菜单则主窗口收不到 CANCEL。
+     * 选屏幕对角 / 中心区域中最远离按下点的候选点：菜单尺寸有限（数百 px），
+     * 对角点必然落在源应用主窗口（全屏）内、菜单之外。
+     */
+    private fun takeoverInjectPoint(pressX: Int, pressY: Int): Pair<Int, Int> {
+        val w = DensityProvider.screenWidthPx
+        val h = DensityProvider.screenHeightPx
+        if (w <= 0 || h <= 0) return pressX to pressY
+        // 候选点（屏幕坐标，避开状态栏/导航栏与边缘手势条）：四个对角 + 屏幕中心。
+        val candidates = listOf(
+            (w * 0.15f).roundToInt() to (h * 0.15f).roundToInt(),
+            (w * 0.85f).roundToInt() to (h * 0.15f).roundToInt(),
+            (w * 0.15f).roundToInt() to (h * 0.85f).roundToInt(),
+            (w * 0.85f).roundToInt() to (h * 0.85f).roundToInt(),
+            (w / 2) to (h / 2),
+        )
+        return candidates.maxBy { (cx, cy) ->
+            val dx = cx - pressX
+            val dy = cy - pressY
+            dx * dx + dy * dy
+        }
+    }
+
+    /**
+     * 等接管注入完成（识屏层等覆盖层挂载前调用）。
+     *
+     * 架构 §7.4「先注入、后挂盾」：注入的 `DOWN` 走窗口命中测试，任何 z 在源应用之上的
+     * 覆盖层（识屏层 / 触摸盾）先挂都会让注入落在自己身上，源应用收不到。这里保证注入先行。
+     */
+    private suspend fun awaitTakeoverInject(sessionId: String) {
+        takeoverInjectSignals[sessionId]?.await()
     }
 
     /** 接管会话收口：令牌作废（在飞的注入不再发新事件）+ 撤盾。幂等。 */
@@ -368,6 +444,7 @@ class GestureCoordinator(
         takeoverSessionId = null
         takeoverToken.incrementAndGet()
         touchShield.hide()
+        takeoverInjectSignals.remove(sessionId)
     }
 
     /** 不计会话号直接收口（锁屏 / 息屏 / 销毁）：幂等，无会话时只清一遍。 */
@@ -375,6 +452,7 @@ class GestureCoordinator(
         takeoverSessionId = null
         takeoverToken.incrementAndGet()
         touchShield.release()
+        takeoverInjectSignals.clear()
     }
 
     @Suppress("DEPRECATION")
