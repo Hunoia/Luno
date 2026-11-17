@@ -69,7 +69,7 @@ case "$branch" in
         fi
         echo "error: 禁止直接提交到 main 分支" >&2
         echo "  开发:  git switch dev" >&2
-        echo "  合入:  git switch main && git merge --no-ff dev" >&2
+        echo "  合入:  git switch main && git merge --ff-only dev" >&2
         echo "  绕过:  git commit --no-verify" >&2
         exit 1
         ;;
