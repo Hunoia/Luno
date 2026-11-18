@@ -345,6 +345,14 @@ data class RecognitionSettings(
     /** 直接执行档落地后是否留一行「已执行：规则名」短提示。 */
     val directToastEnabled: Boolean = true,
     /**
+     * 命中规则的通知是否也从系统通知栏清掉。
+     *
+     * 与 [directToastEnabled] 同为**呈现**轴（不是读取许可）：不改变规则读不读通知、
+     * 跑不跑规则。只留规则自己那条路（直执行 / 结果胶囊），通知栏不再保留一份。
+     * 与通知胶囊的 `hideSystemNotification` 互不影响：那只管未命中的普通通知，此项只管命中的。
+     */
+    val hideMatchedNotification: Boolean = false,
+    /**
      * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则时出结果。
      * 默认关；开启即对规则表里所有 `RecognitionSource.Scene` 的规则生效。
      */

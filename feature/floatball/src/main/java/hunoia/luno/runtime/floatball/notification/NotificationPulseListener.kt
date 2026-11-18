@@ -315,6 +315,20 @@ class NotificationPulseListener : NotificationListenerService() {
             }.getOrDefault(false)
         }
 
+        /**
+         * 「只显示胶囊」藏起后又要还回去（settle 才发现这条要走结果胶囊）。
+         * 与 [unsnoozeKey] 同口径：Shizuku 优先，不可用时用 1ms snooze 让系统自己放回来。
+         */
+        suspend fun unhidePosted(key: String?): Boolean {
+            if (key.isNullOrBlank()) return false
+            val live = instance ?: return false
+            return runCatching {
+                if (PersistentNotificationShell.unsnooze(key)) return@runCatching true
+                live.snoozeNotification(key, 1L)
+                true
+            }.getOrDefault(false)
+        }
+
         /** 同 key 重投的去重窗口（ms）。 */
         private const val DEDUPE_WINDOW_MS = 2_000L
 

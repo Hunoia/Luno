@@ -169,9 +169,11 @@
     <string name="screen_pick_enable_qr_hint">Long-press auto-detect + QR button in selection action bar</string>
     <string name="screen_pick_portal_toolbar_hint">Drag to a screen edge to reveal the toolbar; release to run the slot under your finger</string>
     <string name="recognition_read_group">Inputs</string>
-    <string name="recognition_read_group_hint">Off = that source never reaches the rule table; unrelated to capsule display</string>
+    <string name="recognition_read_group_hint">Reading sources: off = that content never reaches the rule table; unrelated to capsule display</string>
     <string name="recognition_read_notification">Read notifications</string>
     <string name="recognition_read_notification_hint">Rules apply to notifications; off = notification capsule only</string>
+    <string name="recognition_hide_matched_notification">Hide system notification after a rule match</string>
+    <string name="recognition_hide_matched_notification_hint">Matched notifications also leave the shade; only the rule path keeps them (direct run / result capsule)</string>
     <string name="recognition_read_clipboard">Read clipboard</string>
     <string name="recognition_read_clipboard_hint">Rules apply to copied text; background reading needs Shizuku</string>
     <string name="recognition_direct_toast">Toast when running directly</string>

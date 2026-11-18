@@ -368,6 +368,8 @@ fun RecognitionSettingsScreen(
         }
         // 读取来源：这是「规则读不读这一路输入」的开关，与结果胶囊显示无关
         // （胶囊没有自己的开关，有胶囊档结果就会显示）。情景的开关与名单在下面一组。
+        // 组里还带一个通知侧的显示开关（命中规则后要不要留在通知栏），它是「显示」不是「读取」，
+        // 所以组副标题只讲读取，避免把两个轴混在一起。
         item {
             LunoGroup(
                 title = stringResource(R.string.recognition_read_group),
@@ -380,7 +382,16 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(notificationReadEnabled = checked) }
                     },
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 4),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_hide_matched_notification),
+                    subtitle = stringResource(R.string.recognition_hide_matched_notification_hint),
+                    checked = settings.hideMatchedNotification,
+                    onCheckedChange = { checked ->
+                        update { it.copy(hideMatchedNotification = checked) }
+                    },
+                    shape = segmentedShape(1, 4),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_read_clipboard),
@@ -389,7 +400,7 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(clipboardReadEnabled = checked) }
                     },
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(2, 4),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_direct_toast),
@@ -398,7 +409,7 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(directToastEnabled = checked) }
                     },
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(3, 4),
                 )
             }
         }

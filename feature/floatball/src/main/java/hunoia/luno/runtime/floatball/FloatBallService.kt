@@ -676,10 +676,11 @@ class FloatBallService : Service() {
                 "ongoing=${pulse.ongoing} clearable=${pulse.clearable} imp=${pulse.importance}")
             return
         }
+        val hidden = hideSystemNotificationEarly(pulse)
         val settleKey = pulse.key ?: "${pulse.packageName}:${pulse.title}"
         if (notificationSlot.settleJobs.size >= SETTLE_JOBS_MAX) {
             Log.w(TAG, "settle jobs overflow, skip settle pkg=${pulse.packageName}")
-            scope.launch { routePulse(pulse) }
+            scope.launch { routePulse(pulse, preHidden = hidden) }
             return
         }
         notificationSlot.settleJobs.remove(settleKey)?.cancel()
@@ -687,7 +688,9 @@ class FloatBallService : Service() {
             delay(CAPSULE_SETTLE_MS)
             notificationSlot.settleJobs.remove(settleKey)
             if (!gestureEnabledSnapshot) return@launch
-            if (!NotificationPulseListener.isPosted(pulse.key)) {
+            // 我们自己藏起的那条 isPosted 必然是 false（是我们 cancel 的），
+            // 跳过守卫，别把本该显示的胶囊项自己掐了。
+            if (!hidden && !NotificationPulseListener.isPosted(pulse.key)) {
                 Log.i(TAG, "capsule skip gone pkg=${pulse.packageName} key=${pulse.key}")
                 return@launch
             }
@@ -696,15 +699,49 @@ class FloatBallService : Service() {
             val latest = NotificationPulseListener.currentPulse(pulse.key) ?: pulse
             Log.i(TAG, "capsule show pkg=${latest.packageName} flags=0x${latest.flags.toString(16)} " +
                 "imp=${latest.importance}")
-            routePulse(latest)
+            routePulse(latest, preHidden = hidden)
         }
     }
+
+    /**
+     * 「不留在通知栏」的两条路：命中分发规则的通知、以及进通知胶囊的普通通知。
+     *
+     * 两个开关各自独立，任一打开就对它管的那一类通知立即取消 —— 放在 settle **之前**：
+     * 隐藏是单向前置动作，settle 只负责取「发送中 → 已发送」的终态文案，两者互不依赖。
+     * 藏在 settle 里等于把通知栏里那条白白多留一个 settle 窗。
+     */
+    private fun hideSystemNotificationEarly(pulse: NotificationPulse): Boolean {
+        val ruleHide = recognition.hideMatchedNotification
+        val capsuleHide = settings.notificationCapsule.hideSystemNotification &&
+            settings.notificationCapsule.enabled
+        // 两个都关时连匹配都不跑，别为没人关心的判定多付一次正则扫描。
+        if (!ruleHide && !capsuleHide) return false
+        val matched = matchesRule(pulse)
+        val hide = when {
+            // 命中规则的那条由规则的开关说了算（直执行档也一起藏，通知栏不留）。
+            ruleHide && matched -> true
+            // 未命中：交给通知胶囊那只；刚滑掉过的同一条不动。
+            capsuleHide && !matched && !notificationSlot.isDismissed(pulse.key) -> true
+            else -> false
+        }
+        if (hide) hideSystemNotification(pulse.key)
+        return hide
+    }
+
+    /** 这条通知会不会命中分发规则。纯匹配，不执行动作、不产生任何投递副作用。 */
+    private fun matchesRule(pulse: NotificationPulse): Boolean =
+        recognition.notificationReadEnabled &&
+            ResultFactory.matchNotification(
+                pulse = pulse,
+                recognizer = recognizer,
+                sourceKey = PulseRouter.notificationKey(pulse),
+            ).isNotEmpty()
 
     /**
      * 通知的去路判定在 [PulseRouter]（纯函数、可单测）；这里只负责跑规则（含直执行）、
      * 查抑制表与入队。规则匹配与直执行含后台切线程 / 执行动作，仍留在本方法。
      */
-    private suspend fun routePulse(pulse: NotificationPulse) {
+    private suspend fun routePulse(pulse: NotificationPulse, preHidden: Boolean = false) {
         val key = PulseRouter.notificationKey(pulse)
         val now = SystemClock.elapsedRealtime()
         val delivered = if (recognition.notificationReadEnabled) {
@@ -725,29 +762,33 @@ class FloatBallService : Service() {
         } else {
             DeliveredResults.Empty
         }
-        when (val route = PulseRouter.route(
+        val route = PulseRouter.route(
             pulse = pulse,
             resultItems = delivered.capsule,
             matchedRules = delivered.matchedAnything,
             notificationCapsuleEnabled = settings.notificationCapsule.enabled,
             nowMs = now,
-        )) {
-            is PulseRoute.Result -> if (route.items.isNotEmpty() && !resultSlot.isDismissed(key)) {
-                resultSlot.enqueueAll(route.items, makeCurrent = !resultSlot.manualSession)
-                route.items.forEach(::resolveResultTarget)
+        )
+        // 「接管」＝有地方替这条通知显示：进通知胶囊，或规则自己那条路（开关开着时）。
+        // 都没接管就得还原回通知栏 —— settle 里开关被关、规则开关没开、或这条被滑掉，都不该被吃掉。
+        var keepHidden = false
+        when (route) {
+            is PulseRoute.Result -> {
+                if (route.items.isNotEmpty() && !resultSlot.isDismissed(key)) {
+                    resultSlot.enqueueAll(route.items, makeCurrent = !resultSlot.manualSession)
+                    route.items.forEach(::resolveResultTarget)
+                }
+                keepHidden = recognition.hideMatchedNotification
             }
 
             is PulseRoute.Notification -> if (!notificationSlot.isDismissed(pulse.key)) {
-                // 「只显示胶囊」：进入胶囊的通知从系统通知栏清掉（失败则藏起），
-                // 只保留胶囊这一条展示路径。副作用（移除回调）由 [capsuleHiddenKeys] 认领。
-                if (settings.notificationCapsule.hideSystemNotification) {
-                    hideSystemNotification(pulse.key)
-                }
                 notificationSlot.enqueue(route.item, makeCurrent = !notificationSlot.manualSession)
+                keepHidden = true
             }
 
             PulseRoute.Drop -> Unit
         }
+        if (preHidden && !keepHidden) restoreHiddenNotification(pulse.key)
     }
 
     /** 「只显示胶囊」：把进入胶囊的通知从系统通知栏清掉；不可清除（常驻）回退为藏起。 */
@@ -756,6 +797,15 @@ class FloatBallService : Service() {
         val hid = NotificationPulseListener.cancelPosted(key) ||
             NotificationPulseListener.hidePosted(key)
         if (hid) rememberCapsuleHidden(key)
+    }
+
+    /** 藏起之后没有胶囊显示它（改归规则那条路 / 开关关了 / 被滑掉）：还原回通知栏并撤掉认领。 */
+    private suspend fun restoreHiddenNotification(key: String?) {
+        if (key.isNullOrBlank()) return
+        capsuleHiddenKeys.remove(key)
+        if (!NotificationPulseListener.unhidePosted(key)) {
+            Log.w(TAG, "capsule unhide failed key=$key")
+        }
     }
 
     /** 系统通知被移除 → 通知队列同步移除。 */
