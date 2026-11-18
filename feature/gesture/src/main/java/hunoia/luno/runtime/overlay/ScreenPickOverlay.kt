@@ -203,8 +203,8 @@ class ScreenPickOverlay(
     override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
         hunoia.luno.runtime.surface.SurfaceKind.TRANSIENT
 
-    override fun softHide() = close()
-    override fun restore() = Unit
+    override fun softHide() { overlayView?.visibility = android.view.View.INVISIBLE }
+    override fun restore() { overlayView?.visibility = android.view.View.VISIBLE }
     override fun detach() = close()
 
 

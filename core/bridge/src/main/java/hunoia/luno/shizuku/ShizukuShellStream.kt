@@ -2,15 +2,18 @@ package hunoia.luno.shizuku
 
 import android.os.ParcelFileDescriptor
 import android.os.Process
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
@@ -82,9 +85,14 @@ object ShizukuShellStream {
         // 调用方消失（含被 SIGKILL）就收掉子进程；2s 一次，稳态开销可以忽略。
         "( while [ -d \"/proc/${DOLLAR}0\" ]; do sleep 2; done; kill -9 \"${DOLLAR}child\" 2>/dev/null ) " +
             ">/dev/null 2>&1 &",
+        // 看门狗 pid：子进程正常结束后必须收掉它，否则包装永不退出、stdout 永不到 EOF。
+        "watcher=${DOLLAR}!",
         "wait \"${DOLLAR}child\"",
         "status=${DOLLAR}?",
-        "wait 2>/dev/null",
+        // 子进程已经结束，看门狗只剩「等调用方死亡」这一件事，与本次收口无关：
+        // 不杀它，包装就永远卡在 wait 上（实测 screencap -p 一次成功写完后，管道因
+        // 包装未退出而永远等不到 EOF，readBytes 挂死；getevent 是长连接不受影响）。
+        "kill \"${DOLLAR}watcher\" 2>/dev/null",
         "exit ${DOLLAR}status",
     ).joinToString("\n")
 
@@ -176,8 +184,33 @@ class ShizukuShellSession internal constructor(
     /**
      * 一次性读取二进制 stdout 到 EOF（`screencap -p` 这类输出必须是字节，不能走 [lines]）。
      * 与 [lines] 相同是单消费者：读完后 stdout 即关闭，不能再 collect。
+     *
+     * 必须带超时：`write()` 卡在满管道上、远端进程不退出时，这条阻塞读**协程取消不掉**
+     * （`InputStream.read` 不响应中断），只能关掉 stdout 让它抛错。没有这层保护，
+     * 一次卡住的 `screencap` 会永久占着一根 IO 线程，截图链也就再也不会返回。
      */
-    suspend fun readBytes(maxBytes: Int = 64 * 1024 * 1024): ByteArray = withContext(Dispatchers.IO) {
+    suspend fun readBytes(
+        maxBytes: Int = 64 * 1024 * 1024,
+        timeoutMs: Long = READ_TIMEOUT_MS,
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val reader = async { drain(maxBytes) }
+        val bytes = try {
+            withTimeoutOrNull(timeoutMs) { reader.await() }
+        } catch (cancel: CancellationException) {
+            // 调用方取消（宿主总预算到点 / 用户退出）：阻塞中的 read 不会响应取消，
+            // 必须自己关掉 stdout，否则这根 IO 线程和远端 `screencap` 会永久挂着。
+            close()
+            reader.cancel()
+            throw cancel
+        }
+        if (bytes != null) return@withContext bytes
+        // 先关 stdout 解阻塞（read 会立刻抛错返回），再收协程与远端进程。
+        close()
+        reader.cancel()
+        throw IOException("stdout read timed out after ${timeoutMs}ms")
+    }
+
+    private fun drain(maxBytes: Int): ByteArray =
         ParcelFileDescriptor.AutoCloseInputStream(stdout).use { input ->
             val out = ByteArrayOutputStream()
             val buffer = ByteArray(64 * 1024)
@@ -191,7 +224,6 @@ class ShizukuShellSession internal constructor(
             }
             out.toByteArray()
         }
-    }
 
     override fun close() {
         // 关 stdin 写端（若曾用过）再 destroy 包装：包装的 `wait` 会返回，
@@ -207,5 +239,8 @@ class ShizukuShellSession internal constructor(
 
     private companion object {
         const val STDERR_LIMIT = 8 * 1024
+
+        /** 二进制 stdout 的读取上限；`screencap -p` 全屏 PNG 一般 1–4MB。 */
+        const val READ_TIMEOUT_MS = 5_000L
     }
 }

@@ -5,6 +5,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.core.LunoLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,7 +60,16 @@ class SettingsStore(
                     actionLibrarySettings = actionLibrarySettings,
                     globalGesture = globalGesture,
                 )
-            }.collectLatest { _state.value = it }
+            }.collectLatest { newState ->
+                val old = _state.value
+                if (old.initialSettings.gestureEnabled != newState.initialSettings.gestureEnabled) {
+                    LunoLog.w(
+                        "SettingsStore",
+                        "gestureEnabled ${old.initialSettings.gestureEnabled}→${newState.initialSettings.gestureEnabled}",
+                    )
+                }
+                _state.value = newState
+            }
         }
     }
 

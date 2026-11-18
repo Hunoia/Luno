@@ -156,10 +156,18 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     fun showScreenAnnotate(): Boolean {
         if (!isDispatchReady()) return false
         if (annotateOverlay?.isShown == true || annotateOpening) return true
+        // 残留的旧浮层（open 失败 / 已 close 但宿主没清引用）必须先拆掉：
+        // 直接新建会把它挂在屏幕上的窗口漏掉，还会多一层抢触摸的画布。
+        annotateOverlay?.let {
+            hunoia.luno.core.LunoLog.i(LOG_TAG, "annotate open: closing stale overlay")
+            it.close("stale")
+        }
+        annotateOverlay = null
         annotateOpening = true
         // 整段标注期间收起自家球/面板：一来不进截图，二来不会盖在画布上抢触摸。
         hunoia.luno.runtime.surface.SurfaceController.softHideAll()
         annotateSurfacesHidden = true
+        hunoia.luno.core.LunoLog.i(LOG_TAG, "annotate open: softHideAll→surfacesHidden=true")
         annotateOpenJob = coroutineScope.launch {
             kotlinx.coroutines.delay(64)
             // 等一下自家浮层软隐藏完成，避免挂窗时抢触摸；不截屏了，尺寸只用来占位。
@@ -206,6 +214,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (!annotateSurfacesHidden) return
         annotateSurfacesHidden = false
         hunoia.luno.runtime.surface.SurfaceController.restoreAll()
+        hunoia.luno.core.LunoLog.i(LOG_TAG, "annotate restore: surfacesHidden cleared→restoreAll")
     }
 
     private fun isKeyguardLocked(): Boolean =
@@ -221,7 +230,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         annotateOpenJob?.cancel()
         annotateOpenJob = null
         annotateOpening = false
-        annotateOverlay?.close()
+        annotateOverlay?.close("lock")
         annotateOverlay = null
         restoreAnnotateSurfaces()
         screenPickOverlay.close()
@@ -532,8 +541,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 标注浮层不随服务自动回收；关掉它并恢复被隐藏的球/面板。
         annotateOpenJob?.cancel()
         annotateOpenJob = null
-        annotateOverlay?.close()
+        annotateOverlay?.close("service-destroy")
         annotateOverlay = null
+        restoreAnnotateSurfaces()
         // 识别器随服务销毁释放（模型 native 资源）；下次服务重建会重新懒加载。
         ocrEngine.close()
         coroutineScope.cancel()

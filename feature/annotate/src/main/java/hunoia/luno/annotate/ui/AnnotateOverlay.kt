@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
+import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import android.view.Choreographer
 import android.view.Gravity
@@ -56,6 +57,7 @@ import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
+import hunoia.luno.annotate.screenshot.AnnotateScreenshot
 import hunoia.luno.annotate.store.AnnotateSettingsStore
 import hunoia.luno.annotate.store.flushAnnotateSettings
 import hunoia.luno.annotate.store.observeAnnotateSettings
@@ -66,6 +68,7 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +76,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
@@ -85,17 +89,17 @@ private enum class OverlayPanel { None, Export, ConfirmExit }
  *
  * 双窗口：全屏画布 + 独立工具条。
  * - 默认态：穿透（透明、画布 `NOT_TOUCHABLE | NOT_FOCUSABLE`），用户直接操作下层应用，
- *   工具条仍可点；进页不截屏，省一次 a11y/Shizuku 抓图与入口延迟；
- * - 关闭穿透：隐藏两窗 → 重新截屏（由注入的 [captureScreenshot] 负责，含 Shizuku → a11y
- *   回退）→ 换底图并撤掉穿透；笔迹默认保留；
+ *   工具条仍可点；进页不截屏，省一次 a11y 抓图与入口延迟；
+ * - 关闭穿透：隐藏两窗 → 重新截屏（由注入的 [captureScreenshot] 负责，纯 a11y）
+ *   → 换底图并撤掉穿透；笔迹默认保留；
  * - 导出：穿透态先自动关穿透，再按原分辨率重放矢量并按选区裁剪。
  *
  * 宿主只负责「取图」和「软隐藏自家浮层」；这里不碰 SurfaceController，也不依赖 `:app`。
  */
 class AnnotateOverlay(
     private val service: AccessibilityService,
-    /** 重新截屏入口；调用前本层窗口已隐藏。null = 失败。 */
-    private val captureScreenshot: suspend () -> Bitmap?,
+    /** 重新截屏入口；调用前本层窗口已隐藏。失败带原因，宿主据此选提示。 */
+    private val captureScreenshot: suspend () -> AnnotateScreenshot.CaptureResult,
     private val onClosed: () -> Unit = {},
     /** 偏好持久化端口；由宿主注入，feature 不直连配置层。 */
     private val settingsStore: AnnotateSettingsStore? = null,
@@ -111,9 +115,20 @@ class AnnotateOverlay(
         const val PANEL_MAX_HEIGHT_DP = 160
         /** 面板淡入淡出时长。 */
         const val PANEL_FADE_MS = 160
+        /** 重截的总预算（含等帧 + 截图链）。截图链自己有 5s 预算，这里只做最后一道保险：
+         * 任何一步挂住都必须能收场，不能把两个窗口永久留在 INVISIBLE。 */
+        const val CAPTURE_TIMEOUT_MS = 7_000L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /**
+     * 后台导出的独立 scope：不随 [close] 取消。
+     *
+     * 保存/复制/分享点按即关整层（视觉上无等待），导出必须能脱离浮层继续跑完，
+     * 否则 `close()` 里的 `scope.cancel()` 会把刚起的导出杀掉、一张图都存不下来。
+     */
+    private val exportScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var canvasView: ComposeView? = null
     private var toolbarView: ComposeView? = null
@@ -125,7 +140,12 @@ class AnnotateOverlay(
     private var document by mutableStateOf<AnnotateDocument?>(null)
     private var base by mutableStateOf<BaseImage?>(null)
     private var penetrating by mutableStateOf(false)
-    private var busy by mutableStateOf(false)
+    /** 正在重截：两窗暂时 INVISIBLE，但**退出仍然可用**（取消协程即可收场）。 */
+    private var capturing by mutableStateOf(false)
+    /** 正在导出：写盘期间不允许退出，避免留下半截文件。 */
+    private var exporting by mutableStateOf(false)
+    /** 有耗时任务在跑：显示进度遮罩，并禁用穿透/导出（退出只受 [exporting] 限制）。 */
+    private val busy: Boolean get() = capturing || exporting
     private var panel by mutableStateOf(OverlayPanel.None)
     /** 当前展开样式面板的工具；null = 无。与 [panel] 互斥。 */
     private var stylePanelTool by mutableStateOf<ToolKind?>(null)
@@ -183,7 +203,8 @@ class AnnotateOverlay(
         return true
     }
 
-    fun close() {
+    /** 关闭浮层并交还宿主。[reason] 只用于诊断（user / lock / service-destroy）。 */
+    fun close(reason: String = "user") {
         document?.commitPendingText()
         hideIme()
         // 防抖窗口内退出不丢偏好：立即补一次落盘（独立于本层 scope）。
@@ -206,12 +227,15 @@ class AnnotateOverlay(
         document = null
         base = null
         penetrating = false
+        capturing = false
+        exporting = false
         panel = OverlayPanel.None
         stylePanelTool = null
         // 不在这里 recycle 已显示过的底图：窗口移除与最后几帧绘制可能仍有引用，
         // 立刻回收会让 RenderThread 用已回收位图（"trying to use a recycled bitmap"），
         // 交给 GC 回收更稳。
         scope.cancel()
+        Log.i(LOG_TAG, "annotate close: reason=$reason → onClosed→restore")
         onClosed()
     }
 
@@ -577,7 +601,11 @@ class AnnotateOverlay(
 
     /** 穿透开关：只改画布窗口 flags，工具条保持可点。进页默认已在穿透态。 */
     private fun togglePenetrate() {
-        if (document == null || busy) return
+        if (document == null) return
+        if (busy) {
+            Log.i(LOG_TAG, "annotate penetrate ignored: busy(capturing=$capturing exporting=$exporting)")
+            return
+        }
         // 切换前先交卷：穿透会让画布不可聚焦，编辑器无法再完成输入。
         document?.commitPendingText()
         when {
@@ -587,11 +615,15 @@ class AnnotateOverlay(
                 penetrating = true
                 base = null
                 applyCanvasFlags()
+                Log.i(LOG_TAG, "annotate penetrate on")
             }
 
             // 关穿透直接保留笔迹（F1）：不再弹确认框。清空交给工具条「清除全部」，
             // 那条路是可撤销的，误清一步就能回来。
-            else -> recapture()
+            else -> {
+                Log.i(LOG_TAG, "annotate penetrate off → recapture")
+                recapture()
+            }
         }
     }
 
@@ -618,18 +650,25 @@ class AnnotateOverlay(
     }
 
     private fun requestExit() {
-        if (busy) return
+        // 重截期间允许退出：截图协程会被取消，finally 负责把两窗亮回来。
+        if (exporting) {
+            Log.i(LOG_TAG, "annotate exit ignored: exporting")
+            return
+        }
         document?.commitPendingText()
         stylePanelTool = null
         if (document?.state?.hasElements == true) {
             panel = OverlayPanel.ConfirmExit
         } else {
-            close()
+            close("exit")
         }
     }
 
     private fun requestExport() {
-        if (busy) return
+        if (busy) {
+            Log.i(LOG_TAG, "annotate export ignored: busy(capturing=$capturing exporting=$exporting)")
+            return
+        }
         stylePanelTool = null
         panel = OverlayPanel.Export
     }
@@ -642,64 +681,114 @@ class AnnotateOverlay(
 
     private fun startExport(kind: ExportKind) {
         if (busy || document == null) return
+        val doc = document ?: return
         panel = OverlayPanel.None
-        // D7：穿透态导出先自动关穿透，否则底图是空的。
+        // 点击即关：导出动作不等淡出，直接收掉面板窗口，避免保存/复制后面板仍短暂可见。
+        hidePanel()
+        // D7：穿透态导出先自动关穿透，否则底图是空的（recapture 很快，~75ms）。
         if (penetrating) {
-            recapture() { performExport(kind) }
+            recapture() {
+                performExport(doc, kind)
+                // 取到底图后立即关整层：导出在后台跑，不等保存完成。
+                close("after-export")
+            }
         } else {
-            performExport(kind)
+            // 常规（非穿透）：点按即关整层，导出在 exportScope 后台完成，不转圈等保存。
+            performExport(doc, kind)
+            close("after-export")
         }
     }
 
-    private fun performExport(kind: ExportKind) {
-        val doc = document ?: return
+    /**
+     * 后台导出：挂 [exportScope]（不随 [close] 取消），捕获 [doc] 与当前底图后立即返回，
+     * 浮层随之关闭；渲染/落盘/toast 都在 [exportAnnotated] 内完成。
+     */
+    private fun performExport(doc: AnnotateDocument, kind: ExportKind) {
         val currentBase = base ?: return
         // 导出前提交正在输入的文字，避免漏掉未失焦的编辑器内容。
         doc.commitPendingText()
-        busy = true
-        scope.launch {
-            // 渲染 / 落盘 / 提示都在 exportAnnotated 内部，这里只管 busy。
+        exportScope.launch {
             service.exportAnnotated(doc.state, currentBase, kind)
-            busy = false
         }
     }
 
     /**
      * 关闭穿透后重截（D6）：隐藏两窗 → 等两帧 → 取图 → 换底图。
      * 笔迹始终保留（F1「默认保留」）；要清空走工具条「清除全部」（可撤销）。
+     *
+     * **必须能失败**：截图链任何一步挂住（系统丢 a11y 回调 / 超时），
+     * 都要在 [CAPTURE_TIMEOUT_MS] 内收场并把两窗亮回来 —— 否则画布和工具条永久
+     * INVISIBLE、`capturing` 永真，整个标注层既看不见也点不动，只能重绑无障碍服务。
      */
     private fun recapture(onDone: () -> Unit = {}) {
-        if (busy) return
+        if (busy || document == null) return
         document?.commitPendingText()
-        busy = true
+        capturing = true
         // 面板是独立窗口：不清空/隐藏会被截进新底图。
         panel = OverlayPanel.None
         stylePanelTool = null
         hidePanel()
+        val startedAt = SystemClock.elapsedRealtime()
+        Log.i(LOG_TAG, "annotate recapture: start (penetrating=$penetrating)")
         scope.launch {
             val canvas = canvasView
             val toolbar = toolbarView
-            val newBitmap = try {
+            var outcome = "timeout (${CAPTURE_TIMEOUT_MS}ms)"
+            var captureResult: AnnotateScreenshot.CaptureResult? = null
+            var shot: Bitmap? = null
+            try {
                 canvas?.visibility = View.INVISIBLE
                 toolbar?.visibility = View.INVISIBLE
-                awaitFrames(2)
-                captureScreenshot()
+                captureResult = withTimeoutOrNull(CAPTURE_TIMEOUT_MS) {
+                    awaitFrames(2)
+                    captureScreenshot().also { outcome = describeCapture(it) }
+                }
+                if (captureResult is AnnotateScreenshot.CaptureResult.Success) {
+                    shot = captureResult.bitmap
+                }
+            } catch (cancel: CancellationException) {
+                // 用户按退出 / 服务销毁：窗口正在被拆除，不代表失败。
+                outcome = "cancelled"
+                throw cancel
+            } catch (t: Throwable) {
+                outcome = "threw ${t.javaClass.simpleName}: ${t.message}"
+                Log.e(LOG_TAG, "annotate recapture failed: $outcome")
             } finally {
+                // 唯一出口：成功、失败、超时、异常、取消都必须走到这里。
                 canvas?.visibility = View.VISIBLE
                 toolbar?.visibility = View.VISIBLE
+                capturing = false
+                Log.i(
+                    LOG_TAG,
+                    "annotate recapture: done ($outcome, ${SystemClock.elapsedRealtime() - startedAt}ms," +
+                        " penetrating=$penetrating, shot=${shot?.width}x${shot?.height})",
+                )
             }
-            if (newBitmap == null) {
-                // 失败：留在穿透态，用户可以再试一次或直接退出。
-                busy = false
-                showToast(R.string.annotate_screenshot_failed)
+            if (shot == null) {
+                // 失败：留在穿透态，用户可以再试一次或直接退出（退出不再被 capturing 挡住）。
+                // 外层超时（captureResult == null）也按超时提示。
+                val reason = (captureResult as? AnnotateScreenshot.CaptureResult.Failed)?.reason
+                    ?: AnnotateScreenshot.CaptureResult.Reason.Timeout
+                showToast(
+                    when (reason) {
+                        AnnotateScreenshot.CaptureResult.Reason.SecureWindow ->
+                            R.string.annotate_screenshot_secure
+
+                        AnnotateScreenshot.CaptureResult.Reason.Timeout ->
+                            R.string.annotate_screenshot_timeout
+
+                        AnnotateScreenshot.CaptureResult.Reason.Unavailable ->
+                            R.string.annotate_screenshot_failed
+                    },
+                )
                 return@launch
             }
             val doc = document
             if (doc == null) {
-                if (!newBitmap.isRecycled) newBitmap.recycle()
-                busy = false
+                if (!shot.isRecycled) shot.recycle()
                 return@launch
             }
+            val newBitmap = shot
             val old = base?.bitmap
             doc.replaceImage(newBitmap.width, newBitmap.height, keepElements = true)
             base = BaseImage(newBitmap)
@@ -712,8 +801,17 @@ class AnnotateOverlay(
             }
             penetrating = false
             applyCanvasFlags()
-            busy = false
             onDone()
+        }
+    }
+
+    /** recapture 日志用的结果描述。 */
+    private fun describeCapture(result: AnnotateScreenshot.CaptureResult): String = when (result) {
+        is AnnotateScreenshot.CaptureResult.Success -> "ok"
+        is AnnotateScreenshot.CaptureResult.Failed -> when (result.reason) {
+            AnnotateScreenshot.CaptureResult.Reason.SecureWindow -> "secure window"
+            AnnotateScreenshot.CaptureResult.Reason.Timeout -> "timeout"
+            AnnotateScreenshot.CaptureResult.Reason.Unavailable -> "capture returned null"
         }
     }
 
@@ -724,7 +822,7 @@ class AnnotateOverlay(
             }
         }
         // 再给窗口一次提交事务的机会（部分 ROM 的 SurfaceFlinger 合成滞后）。
-        delay(32)
+        delay(16)
     }
 }
 

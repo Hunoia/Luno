@@ -328,6 +328,10 @@ class ImageAnnotateActivity : ComponentActivity() {
                     // 原图解码失败：回退预览底图，至少能导出。
                     exportAnnotated(doc.state, currentBase, kind)
                 }
+            } catch (e: OutOfMemoryError) {
+                hunoia.luno.core.LunoLog.e(hunoia.luno.core.LOG_TAG, "annotate export OOM", e)
+            } catch (e: Exception) {
+                hunoia.luno.core.LunoLog.e(hunoia.luno.core.LOG_TAG, "annotate export failed: ${e.message}", e)
             } finally {
                 busy = false
             }

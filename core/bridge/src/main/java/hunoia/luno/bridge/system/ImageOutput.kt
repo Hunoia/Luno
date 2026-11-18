@@ -25,6 +25,9 @@ object ImageOutput {
     /** 缓存目录保留的分享图数量。 */
     private const val CacheKeepFiles = 5
 
+    /** JPEG 编码质量：92 兼顾速度与截图文字边缘（有损，文字细处可能有轻微振铃）。 */
+    private const val JPEG_QUALITY = 92
+
     /**
      * 写入系统图库（Pictures/Luno），返回 content URI。
      * 用 MediaStore 而非 FileProvider：接收方/粘贴方按普通图片（带 MIME、可被系统预览）处理。
@@ -33,8 +36,8 @@ object ImageOutput {
         runCatching {
             val resolver = context.contentResolver
             val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "${prefix}_${System.currentTimeMillis()}.png")
-                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.DISPLAY_NAME, "${prefix}_${System.currentTimeMillis()}.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                 put(
                     MediaStore.Images.Media.RELATIVE_PATH,
                     "${Environment.DIRECTORY_PICTURES}/Luno",
@@ -48,7 +51,7 @@ object ImageOutput {
             }
             val written = runCatching {
                 resolver.openOutputStream(uri)?.use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
                 } ?: false
             }.getOrDefault(false)
             if (!written) {
@@ -73,9 +76,9 @@ object ImageOutput {
     ): Uri? = runCatching {
         val dir = File(context.cacheDir, dirName).apply { mkdirs() }
         cleanCache(dir)
-        val file = File(dir, "${prefix}_${System.currentTimeMillis()}.png")
+        val file = File(dir, "${prefix}_${System.currentTimeMillis()}.jpg")
         file.outputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
         }
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }.onFailure {
@@ -90,7 +93,7 @@ object ImageOutput {
      */
     fun share(context: Context, uri: Uri, label: String = "luno"): Boolean {
         val share = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
+            type = "image/jpeg"
             putExtra(Intent.EXTRA_STREAM, uri)
             clipData = ClipData.newUri(context.contentResolver, label, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

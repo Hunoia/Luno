@@ -3,14 +3,11 @@ package hunoia.luno.runtime.overlay.text
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.overlay.PickCapture
-import java.util.concurrent.Executor
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -95,7 +92,6 @@ class ScreenTextPreCapture(
 ) {
 
     private val reader = A11yTextSnapshotReader(service, ownPackage)
-    private val mainExecutor = Executor { runnable -> Handler(Looper.getMainLooper()).post(runnable) }
 
     private var job: Job? = null
     private var handle: ScreenPreCapture? = null
@@ -189,32 +185,11 @@ class ScreenTextPreCapture(
         )
     }
 
-    private suspend fun takeWindowScreenshot(windowId: Int): Bitmap? =
-        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            val callback = object : AccessibilityService.TakeScreenshotCallback {
-                override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
-                    val bitmap = runCatching {
-                        val hardware = Bitmap.wrapHardwareBuffer(
-                            result.hardwareBuffer,
-                            result.colorSpace,
-                        )
-                        hardware?.copy(Bitmap.Config.ARGB_8888, false)
-                    }.getOrNull()
-                    runCatching { result.hardwareBuffer.close() }
-                    if (continuation.isActive) continuation.resumeWith(Result.success(bitmap))
-                }
-
-                override fun onFailure(errorCode: Int) {
-                    if (continuation.isActive) continuation.resumeWith(Result.success(null))
-                }
-            }
-            val accepted = runCatching {
-                service.takeScreenshotOfWindow(windowId, mainExecutor, callback)
-            }.isSuccess
-            if (!accepted && continuation.isActive) {
-                continuation.resumeWith(Result.success(null))
-            }
-        }
+    private suspend fun takeWindowScreenshot(windowId: Int): Bitmap? {
+        // 截屏入口统一在 bridge（含回调超时）：自己写一份回调就会在系统丢回调时永久挂起。
+        val result = hunoia.luno.bridge.system.ScreenScreenshot.captureWindow(service, windowId)
+        return (result as? hunoia.luno.bridge.system.ScreenScreenshot.Result.Success)?.bitmap
+    }
 
     private suspend fun takeDisplayScreenshot(): Bitmap? {
         // 截屏入口统一在 bridge，避免与标注回归各写一份回调。

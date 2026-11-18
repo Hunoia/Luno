@@ -45,6 +45,8 @@
     <string name="annotate_text_size">字号</string>
     <string name="annotate_mosaic_size">颗粒大小</string>
     <string name="annotate_screenshot_failed">截屏失败</string>
+    <string name="annotate_screenshot_timeout">截屏超时，可重试或退出</string>
+    <string name="annotate_screenshot_secure">该应用禁止截屏</string>
     <string name="annotate_discard_title">放弃标注？</string>
     <string name="annotate_discard_confirm">放弃</string>
     <string name="annotate_cancel">取消</string>

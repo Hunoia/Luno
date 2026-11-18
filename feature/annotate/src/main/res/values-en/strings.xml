@@ -45,6 +45,8 @@
     <string name="annotate_text_size">Font size</string>
     <string name="annotate_mosaic_size">Mosaic size</string>
     <string name="annotate_screenshot_failed">Screenshot failed</string>
+    <string name="annotate_screenshot_timeout">Screenshot timed out; retry or exit</string>
+    <string name="annotate_screenshot_secure">This app prevents screenshots</string>
     <string name="annotate_discard_title">Discard annotation?</string>
     <string name="annotate_discard_confirm">Discard</string>
     <string name="annotate_cancel">Cancel</string>

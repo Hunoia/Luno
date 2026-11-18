@@ -103,7 +103,7 @@ class DaemonService : Service() {
                         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
                     ) ?: ""
                     if (current == selfWroteValue) return
-                    restoreIfNeeded(serviceComponentName, serviceId, current)
+                    restoreIfNeeded(serviceComponentName, serviceId)
                 }
             }
             // notifyForDescendants=false：只关心这一个 key，没有子节点需要穿透监听。
@@ -122,7 +122,7 @@ class DaemonService : Service() {
                         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
                     ) ?: ""
                     if (current == selfWroteValue) return
-                    restoreIfNeeded(serviceComponentName, serviceId, current)
+                    restoreIfNeeded(serviceComponentName, serviceId)
                 }
             }
             screenReceiver?.let {
@@ -130,12 +130,12 @@ class DaemonService : Service() {
             }
         }
 
-        restoreIfNeeded(serviceComponentName, serviceId, selfWroteValue)
+        restoreIfNeeded(serviceComponentName, serviceId)
 
         return START_STICKY
     }
 
-    private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String, current: String) {
+    private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String) {
         if (!hasWriteSecureSettings()) {
             hunoia.luno.core.LunoLog.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
             return
@@ -158,12 +158,36 @@ class DaemonService : Service() {
             )
         }
 
-        if (AccessibilitySettings.tokenContains(current, serviceComponentName)) {
-            selfWroteValue = current
+        // **现读现值，不用调用方传进来的快照**：外部刚摘掉 token 时，旧快照里还有它，
+        // 「补一遍」就等于又写一份，最后串里会出现同一个组件两次（实测踩到过）。
+        val current = runCatching {
+            Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        }.getOrNull() ?: ""
+        val tokens = current.split(':').filter { it.isNotBlank() }
+        val deduped = tokens.distinct()
+        val normalized = deduped.joinToString(":")
+
+        if (AccessibilitySettings.tokenContains(normalized, serviceComponentName)) {
+            if (deduped.size != tokens.size) {
+                // 上次留下的重复项：压掉。集合语义不变，但能避免平台按串长度/顺序反复 rebind。
+                selfWroteValue = normalized
+                lastRestoreWriteAtMs = now
+                Settings.Secure.putString(
+                    contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    normalized
+                )
+                hunoia.luno.core.LunoLog.i(
+                    LOG_TAG,
+                    "restoreIfNeeded: deduped ${tokens.size - deduped.size} duplicate accessibility token(s)",
+                )
+            } else {
+                selfWroteValue = current
+            }
             return
         }
 
-        val newValue = if (current.isBlank()) serviceId else "$serviceId:$current"
+        val newValue = if (normalized.isEmpty()) serviceId else "$serviceId:$normalized"
         selfWroteValue = newValue
         lastRestoreWriteAtMs = now
         Settings.Secure.putString(

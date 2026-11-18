@@ -1,11 +1,14 @@
 package hunoia.luno.annotate.render
 
 import android.content.Context
+import android.os.SystemClock
 import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.bridge.system.ImageOutput
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.clipboard.ClipboardCenter
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog as Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +31,7 @@ suspend fun Context.exportAnnotated(
     kind: ExportKind,
 ): Boolean {
     val app = this
+    val startAt = SystemClock.elapsedRealtime()
     val rendered = try {
         withContext(Dispatchers.Default) { AnnotateExporter.renderCropped(state, base) }
     } catch (e: CancellationException) {
@@ -42,6 +46,12 @@ suspend fun Context.exportAnnotated(
         showToast(R.string.annotate_export_failed)
         return false
     }
+    Log.i(
+        LOG_TAG,
+        "annotate export: render ${rendered.width}x${rendered.height} in " +
+            "${SystemClock.elapsedRealtime() - startAt}ms (kind=$kind)",
+    )
+    val saveAt = SystemClock.elapsedRealtime()
     val ok = withContext(Dispatchers.IO) {
         try {
             when (kind) {
@@ -61,6 +71,10 @@ suspend fun Context.exportAnnotated(
             if (!rendered.isRecycled) rendered.recycle()
         }
     }
+    Log.i(
+        LOG_TAG,
+        "annotate export: save in ${SystemClock.elapsedRealtime() - saveAt}ms (kind=$kind, ok=$ok)",
+    )
     when {
         !ok -> showToast(R.string.annotate_export_failed)
         kind == ExportKind.Save -> showToast(R.string.annotate_saved)
