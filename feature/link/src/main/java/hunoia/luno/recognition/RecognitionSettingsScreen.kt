@@ -13,11 +13,14 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -44,7 +47,10 @@ import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.LinkMissMode
+import hunoia.luno.config.model.OcrScript
+import hunoia.luno.config.model.PortalReleaseMode
 import hunoia.luno.config.model.SceneListMode
+import hunoia.luno.config.model.ScreenPickSettings
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionDefaults
 import hunoia.luno.config.model.RecognitionMatch
@@ -97,6 +103,12 @@ fun RecognitionSettingsScreen(
     onEditRule: (String) -> Unit,
     onCreateRule: () -> Unit,
     onNavToSceneList: () -> Unit = {},
+    /** 剪贴板页（记录开关 / 历史上限都在那边）。 */
+    onNavToClipboardSettings: () -> Unit = {},
+    /** 通知胶囊设置（通知监听开关与胶囊行为）。 */
+    onNavToCapsuleSettings: () -> Unit = {},
+    /** 识屏设置（触发方式 / 图片保存 / 诊断 / OCR 模型）。 */
+    onNavToScreenPickSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -104,6 +116,12 @@ fun RecognitionSettingsScreen(
     val actionSettings by facade.actionSettings
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val settings = actionSettings.recognition
+    val screenPick by facade.screenPickSettings
+        .collectAsStateWithLifecycle(initialValue = ScreenPickSettings())
+
+    fun updateScreenPick(transform: (ScreenPickSettings) -> ScreenPickSettings) {
+        scope.launch { facade.updateScreenPick(transform) }
+    }
     // 情景识别靠无障碍服务读界面文本；没就绪时在组内提示一行。
     val shizukuStatus by ShizukuManager.statusFlow.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -308,6 +326,130 @@ fun RecognitionSettingsScreen(
                 )
             }
         }
+        // 输入：五个来源各自在哪开、怎么触发。识别器是「输入 → 规则 → 输出」的唯一入口，
+        // 输入侧会改变识别行为的开关都收在这里；具体页面仍由导航跳转（各页还有别的职责）。
+        item(key = "inputs") {
+            val rowCount = 5
+            LunoGroup(
+                title = stringResource(R.string.recognition_inputs_group),
+                subtitle = stringResource(R.string.recognition_inputs_hint),
+            ) {
+                LunoSettingsRow(
+                    icon = Icons.Default.ContentPaste,
+                    title = stringResource(R.string.recognition_source_clipboard),
+                    subtitle = stringResource(R.string.recognition_source_clipboard_hint),
+                    shape = segmentedShape(0, rowCount),
+                    onClick = onNavToClipboardSettings,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Notifications,
+                    title = stringResource(R.string.recognition_source_notification),
+                    subtitle = stringResource(R.string.recognition_source_notification_hint),
+                    shape = segmentedShape(1, rowCount),
+                    onClick = onNavToCapsuleSettings,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Crop,
+                    title = stringResource(R.string.recognition_source_screen_pick),
+                    subtitle = stringResource(R.string.recognition_source_screen_pick_hint),
+                    shape = segmentedShape(2, rowCount),
+                    onClick = onNavToScreenPickSettings,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Search,
+                    title = stringResource(R.string.recognition_source_scene),
+                    subtitle = stringResource(R.string.recognition_source_scene_hint),
+                    shape = segmentedShape(3, rowCount),
+                    onClick = onNavToSceneList,
+                )
+                LunoSettingsRow(
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    title = stringResource(R.string.recognition_source_external),
+                    subtitle = stringResource(R.string.recognition_source_external_hint),
+                    shape = segmentedShape(4, rowCount),
+                    onClick = {
+                        val launched = runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                        if (launched.isFailure) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        // 识屏取字参数：OCR 文字体系 / 二维码是「输入长什么样」，松手去向是「工具条怎么用」，
+        // 都属于识别器自己的输入侧，不再留在识屏页的两个组里。
+        item(key = "screen-pick") {
+            val scriptCount = OcrScript.entries.size
+            val rowCount = scriptCount + 2
+            LunoGroup(
+                title = stringResource(R.string.recognition_screen_pick_group),
+                subtitle = stringResource(R.string.recognition_screen_pick_hint),
+            ) {
+                OcrScript.entries.forEachIndexed { index, script ->
+                    val selected = script in screenPick.ocrScripts
+                    LunoSwitchRow(
+                        title = stringResource(script.labelRes()),
+                        subtitle = stringResource(script.hintRes()),
+                        checked = selected,
+                        // 至少留一种：全关等于识屏永远出不来文字。
+                        onCheckedChange = { checked ->
+                            val next = if (checked) {
+                                screenPick.ocrScripts + script
+                            } else {
+                                screenPick.ocrScripts - script
+                            }
+                            if (next.isNotEmpty()) {
+                                updateScreenPick { it.copy(ocrScripts = next) }
+                            }
+                        },
+                        shape = segmentedShape(index, rowCount),
+                    )
+                }
+                LunoSwitchRow(
+                    title = stringResource(R.string.screen_pick_enable_qr),
+                    subtitle = stringResource(R.string.screen_pick_enable_qr_hint),
+                    checked = screenPick.enableQrRecognition,
+                    onCheckedChange = { checked ->
+                        updateScreenPick { it.copy(enableQrRecognition = checked) }
+                    },
+                    shape = segmentedShape(scriptCount, rowCount),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.screen_pick_release_mode),
+                    subtitle = stringResource(R.string.screen_pick_portal_toolbar_hint),
+                    options = listOf(
+                        stringResource(R.string.screen_pick_release_cancel),
+                        stringResource(R.string.screen_pick_release_stay),
+                    ),
+                    selectedIndex = when (screenPick.portalReleaseMode) {
+                        PortalReleaseMode.Cancel -> 0
+                        PortalReleaseMode.StayInPicker -> 1
+                    },
+                    onSelect = { index ->
+                        updateScreenPick {
+                            it.copy(
+                                portalReleaseMode = if (index == 0) {
+                                    PortalReleaseMode.Cancel
+                                } else {
+                                    PortalReleaseMode.StayInPicker
+                                },
+                            )
+                        }
+                    },
+                    shape = segmentedShape(scriptCount + 1, rowCount),
+                )
+            }
+        }
         item {
             LunoGroup(title = stringResource(R.string.recognition_global_group)) {
                 LunoDropdownRow(
@@ -334,7 +476,29 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(0, 2),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_copy_clear_delay),
+                    subtitle = stringResource(R.string.recognition_copy_clear_delay_hint),
+                    options = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS.map { seconds ->
+                        if (seconds == 0) {
+                            stringResource(R.string.recognition_copy_clear_off)
+                        } else {
+                            stringResource(R.string.recognition_copy_clear_seconds, seconds)
+                        }
+                    },
+                    selectedIndex = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS
+                        .indexOf(settings.copyClearDelaySeconds).coerceAtLeast(0),
+                    onSelect = { index ->
+                        update {
+                            it.copy(
+                                copyClearDelaySeconds =
+                                RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS[index],
+                            )
+                        }
+                    },
+                    shape = segmentedShape(1, 2),
                 )
             }
         }
@@ -529,7 +693,13 @@ private fun addablePresets(
     val text = RecognitionDefaults.textPresets
         .filter { used.add(it.match.pattern.trim().lowercase()) }
         .map { it.copy(id = java.util.UUID.randomUUID().toString()) }
-    return text + LinkPresets.addable(context, existing + text)
+    // 「挂到超级岛」的变体不受 pattern 判重影响（它和普通预设同正则但输出不同），
+    // 按名字判重，避免重复添加。
+    val usedNames = existing.map { it.name }.toMutableSet()
+    val island = RecognitionDefaults.islandPresets
+        .filter { usedNames.add(it.name) }
+        .map { it.copy(id = java.util.UUID.randomUUID().toString()) }
+    return text + island + LinkPresets.addable(context, existing + text + island)
 }
 
 /** 无障碍服务类的简单类名（`SideGestureService`）；与 `:app` 里的声明保持同步。 */
@@ -542,6 +712,21 @@ private const val SCENE_A11Y_SERVICE_CLASS = "SideGestureService"
  * 单例槽位在这里永远是 null。改查系统设置 —— `ENABLED_ACCESSIBILITY_SERVICES` 是进程无关的
  * 事实源，权限正常时不再误报「需要无障碍服务」。本模块不能反向依赖 `:app`，类名按字符串比对。
  */
+/** OCR 文字体系的显示名与说明（设置页组行用；引擎侧不关心文案）。 */
+@Composable
+private fun OcrScript.labelRes(): Int = when (this) {
+    OcrScript.Chinese -> R.string.recognition_ocr_script_zh
+    OcrScript.Japanese -> R.string.recognition_ocr_script_ja
+    OcrScript.Korean -> R.string.recognition_ocr_script_ko
+}
+
+@Composable
+private fun OcrScript.hintRes(): Int = when (this) {
+    OcrScript.Chinese -> R.string.recognition_ocr_script_zh_hint
+    OcrScript.Japanese -> R.string.recognition_ocr_script_ja_hint
+    OcrScript.Korean -> R.string.recognition_ocr_script_ko_hint
+}
+
 private fun sceneA11yEnabled(context: Context): Boolean =
     hunoia.luno.bridge.system.AccessibilitySettings.enabledComponents(context).any { component ->
         component.packageName == context.packageName &&
@@ -574,6 +759,8 @@ internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?)
     val output = when (val o = rule.output) {
         is RecognitionOutput.Builtin -> when (o.kind) {
             RecognitionBuiltin.Copy -> stringResource(R.string.recognition_output_copy)
+            RecognitionBuiltin.CopyAndClear ->
+                stringResource(R.string.recognition_output_copy_and_clear)
             RecognitionBuiltin.OpenLink -> if (targetLabel.isNullOrBlank()) {
                 stringResource(R.string.recognition_output_open_link)
             } else {
@@ -582,6 +769,7 @@ internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?)
             RecognitionBuiltin.Share -> stringResource(R.string.recognition_output_share)
         }
         is RecognitionOutput.Action -> stringResource(R.string.recognition_output_action)
+        is RecognitionOutput.Notify -> stringResource(R.string.recognition_output_notify)
     }
     val summary = stringResource(R.string.recognition_rule_summary, sources, match, output)
     val link = rule.match as? RecognitionMatch.Link

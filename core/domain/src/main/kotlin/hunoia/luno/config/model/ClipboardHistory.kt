@@ -16,15 +16,13 @@ import java.util.UUID
 data class ClipboardEntry(
     val id: String = UUID.randomUUID().toString(),
     val kind: ClipKind = ClipKind.TEXT,
-    /** 文本内容（kind = TEXT）；敏感条目由 [sensitive] 标记，展示侧负责遮蔽。 */
+    /** 文本内容（kind = TEXT）。 */
     val text: String = "",
     /** 图片文件名（kind = IMAGE），落在 [ClipboardImageDirName] 目录下。 */
     val imagePath: String? = null,
     val mime: String? = null,
     /** 固定项：不参与条数裁剪，随备份导出。 */
     val pinned: Boolean = false,
-    /** 敏感文本：默认只存在于会话内存，用户显式固定后才落盘。 */
-    val sensitive: Boolean = false,
     /** 记录时刻（epoch millis）：只用于排序与去重置顶，不直接展示。 */
     val time: Long = 0L,
 ) {
@@ -44,8 +42,7 @@ enum class ClipKind { TEXT, IMAGE }
 /**
  * 导入 / 导出用的单条文本：只带正文与固定标记。
  *
- * 图片是私有目录文件（跨机无效）、敏感项是用户没同意落盘的内容，两者都不进导出；
- * 图片与敏感条目的过滤在 [exportableEntries] 里完成。
+ * 图片是私有目录文件（跨机无效），不进导出；过滤在 [exportableEntries] 里完成。
  */
 @Serializable
 @Keep
@@ -100,8 +97,8 @@ const val ClipboardImageDirName = "clipboard_images"
 /**
  * 纯函数记录一条内容：
  * - 文本空白 / 超长 / 图片缺文件名 → 原样返回（不入库）；
- * - 去重键命中时摘掉旧条目再置顶：保留原 `id`、`pinned` 与 `sensitive`（固定与敏感
- *   是用户显式决定，不因再次复制同一内容丢失），内容与时间刷新；
+ * - 去重键命中时摘掉旧条目再置顶：保留原 `id` 与 `pinned`（固定是用户显式决定，
+ *   不因再次复制同一内容丢失），内容与时间刷新；
  * - 裁剪只作用于未固定项，超出 [maxEntries] 从最旧的未固定项开始丢。
  */
 fun ClipboardHistory.record(
@@ -127,10 +124,8 @@ fun ClipboardHistory.record(
             text = entry.text,
             imagePath = entry.imagePath ?: existing.imagePath,
             mime = entry.mime ?: existing.mime,
-            // 固定 / 敏感是用户显式决定：再次复制同一内容、或导入一条固定副本，
-            // 都只能升级不能降级。
+            // 固定是用户显式决定：再次复制同一内容只能升级不能降级。
             pinned = existing.pinned || entry.pinned,
-            sensitive = existing.sensitive || entry.sensitive,
             time = now,
         )
     }
@@ -189,18 +184,18 @@ fun ClipboardHistory.setPinned(id: String, pinned: Boolean): ClipboardHistory {
 /** 改变容量上限后的即时裁剪（改小上限时立刻生效）。 */
 fun ClipboardHistory.withMaxEntries(maxEntries: Int): ClipboardHistory = trimmed(maxEntries)
 
-/** 备份导出用固定项：只导文本，敏感项永不导出（用户显式固定的敏感内容仍不应跨机）。 */
+/** 备份导出用固定项：只导文本。 */
 fun ClipboardHistory.exportablePinned(): List<ClipboardEntry> =
-    pinned.filter { it.kind == ClipKind.TEXT && !it.sensitive && it.text.isNotBlank() }
+    pinned.filter { it.kind == ClipKind.TEXT && it.text.isNotBlank() }
 
 /**
  * 备份导入：把固定文本并进当前历史。按 trim 全等去重，保留已有 `id`，
- * 导入项一律 `pinned = true`；图片与敏感项不进（备份里本就不会出现）。
+ * 导入项一律 `pinned = true`；图片不进（备份里本就不会出现）。
  */
 fun ClipboardHistory.mergePinned(imported: List<ClipboardEntry>): ClipboardHistory {
     var result = this
     imported.asReversed().forEach { entry ->
-        if (entry.kind != ClipKind.TEXT || entry.sensitive || entry.text.isBlank()) return@forEach
+        if (entry.kind != ClipKind.TEXT || entry.text.isBlank()) return@forEach
         if (entry.text.trim().toByteArray(Charsets.UTF_8).size > ClipboardMaxTextChars) return@forEach
         result = result.record(entry.copy(kind = ClipKind.TEXT, pinned = true), now = entry.time)
     }
@@ -208,18 +203,18 @@ fun ClipboardHistory.mergePinned(imported: List<ClipboardEntry>): ClipboardHisto
 }
 
 /**
- * 导入 / 导出用：某内容类型的全部非敏感条目（固定与普通都带 `pinned` 标记），按新→旧。
- * 敏感项被排除，保证导出文件里没有密码类内容。图片正文为空串，天然空列表。
+ * 导入 / 导出用：某内容类型的全部文本条目（固定与普通都带 `pinned` 标记），按新→旧。
+ * 图片正文为空串，天然空列表。
  */
 fun ClipboardHistory.exportableEntries(kind: ClipKind = ClipKind.TEXT): List<ClipboardExportEntry> =
     entries
-        .filter { it.kind == kind && !it.sensitive && it.text.isNotBlank() }
+        .filter { it.kind == kind && it.text.isNotBlank() }
         .map { ClipboardExportEntry(text = it.text, pinned = it.pinned) }
 
 /**
  * JSON 导入：按 trim 全等去重合并，不覆盖本机已有历史。
  *
- * 保留导入项的 `pinned` 标记；图片与敏感项永远不导入。按导入顺序逐条 [record]，
+ * 保留导入项的 `pinned` 标记；图片永远不导入。按导入顺序逐条 [record]，
  * 因此同一条文本导入后置顶，最后按 [maxEntries] 裁剪未固定项。
  */
 fun ClipboardHistory.mergeImported(
@@ -245,14 +240,13 @@ fun ClipboardHistory.mergeImported(
     return result
 }
 
-/** 搜索池：固定文本（含敏感项，用户已显式落盘）与普通文本历史，均按新→旧。 */
+/** 搜索池：固定文本与普通文本历史，均按新→旧。 */
 fun ClipboardHistory.searchPool(): Pair<List<String>, List<String>> {
-    // 敏感项即使已固定也不进搜索：搜索结果会把正文直接铺在面板上，等于绕过管理页的遮蔽。
     val pinnedTexts = pinned
-        .filter { it.kind == ClipKind.TEXT && it.text.isNotBlank() && !it.sensitive }
+        .filter { it.kind == ClipKind.TEXT && it.text.isNotBlank() }
         .map { it.text }
     val historyTexts = unpinned
-        .filter { it.kind == ClipKind.TEXT && it.text.isNotBlank() && !it.sensitive }
+        .filter { it.kind == ClipKind.TEXT && it.text.isNotBlank() }
         .map { it.text }
     return pinnedTexts to historyTexts
 }

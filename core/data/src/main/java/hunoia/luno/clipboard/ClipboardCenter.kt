@@ -28,9 +28,6 @@ import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,9 +42,6 @@ object ClipboardCenter {
 
     private const val TAG = LOG_TAG
 
-    /** 敏感文本的会话分组上限；进程死即失，显式固定才落盘。 */
-    private const val MAX_SESSION_SENSITIVE = 5
-
     /**
      * 最近一次被读取/写入/记录的内容键。
      *
@@ -61,11 +55,6 @@ object ClipboardCenter {
 
     /** 剪贴板设置（记录开关 / 未固定上限）。 */
     val settings: Flow<ClipboardSettings> = ConfigProvider.clipboardSettings
-
-    private val _session = MutableStateFlow<List<ClipboardEntry>>(emptyList())
-
-    /** 敏感文本的会话分组（内存，≤5 条）；固定后从会话移入持久历史。 */
-    val session: StateFlow<List<ClipboardEntry>> = _session.asStateFlow()
 
     // ---------- 读 ----------
 
@@ -115,7 +104,7 @@ object ClipboardCenter {
         val resolvedLabel = label ?: clipboardLabel()
         val written = when (content) {
             is ClipboardContent.Text ->
-                writeTextToClipboard(context, resolvedLabel, content.text, content.sensitive) ||
+                writeTextToClipboard(AppContext.get(), resolvedLabel, content.text) ||
                     ShizukuClipboard.writeContent(content)
             is ClipboardContent.Image ->
                 writeImageToClipboard(context, resolvedLabel, content.uri)
@@ -128,9 +117,9 @@ object ClipboardCenter {
     }
 
     /** 兼容旧调用名：普通文本写回。 */
-    suspend fun copy(text: String, sensitive: Boolean = false, label: String? = null): Boolean {
+    suspend fun copy(text: String, label: String? = null): Boolean {
         if (text.isEmpty()) return false
-        return write(ClipboardContent.Text(text, sensitive), label)
+        return write(ClipboardContent.Text(text), label)
     }
 
     /**
@@ -138,15 +127,11 @@ object ClipboardCenter {
      *
      * 只做平台写入与自写标记；入库在应用作用域异步完成，不阻塞调用线程。
      */
-    fun writeTextImmediate(text: String, label: String?, sensitive: Boolean = false): Boolean {
+    fun writeTextImmediate(text: String, label: String?): Boolean {
         if (text.isEmpty()) return false
-        val content = ClipboardContent.Text(text, sensitive)
-        val ok = writeTextToClipboard(
-            AppContext.get(),
-            label ?: clipboardLabel(),
-            text,
-            sensitive,
-        ) || ShizukuClipboard.writeContent(content)
+        val content = ClipboardContent.Text(text)
+        val ok = writeTextToClipboard(AppContext.get(), label ?: clipboardLabel(), text) ||
+            ShizukuClipboard.writeContent(content)
         if (ok) {
             lastSeenKey = keyOf(content)
             AppContext.applicationScope?.launch(Dispatchers.IO) { ingest(content) }
@@ -168,7 +153,7 @@ object ClipboardCenter {
         ClipKind.TEXT -> if (entry.text.isBlank()) {
             false
         } else {
-            write(ClipboardContent.Text(entry.text, entry.sensitive), record = false)
+            write(ClipboardContent.Text(entry.text), record = false)
         }
         ClipKind.IMAGE -> copyImageFileToClipboard(entry.imagePath, entry.mime)
     }
@@ -271,10 +256,6 @@ object ClipboardCenter {
         when (content) {
             is ClipboardContent.Text -> {
                 if (content.text.isBlank()) return
-                if (content.sensitive) {
-                    addToSession(content.text, sensitive = true)
-                    return
-                }
                 val entry = ClipboardEntry(
                     kind = ClipKind.TEXT,
                     text = content.text,
@@ -302,17 +283,6 @@ object ClipboardCenter {
         }
     }
 
-    private fun addToSession(text: String, sensitive: Boolean) {
-        val entry = ClipboardEntry(
-            kind = ClipKind.TEXT,
-            text = text,
-            sensitive = sensitive,
-            time = System.currentTimeMillis(),
-        )
-        _session.value = (listOf(entry) + _session.value.filterNot { it.key == entry.key })
-            .take(MAX_SESSION_SENSITIVE)
-    }
-
     // ---------- 历史操作 ----------
 
     /** 固定 / 取消固定；固定会置顶（固定后立刻可见）。 */
@@ -324,37 +294,21 @@ object ClipboardCenter {
 
     suspend fun unpin(id: String) = setPinned(id, false)
 
-    /** 固定会话里的敏感项：落盘（sensitive = true）并从会话移出。 */
-    suspend fun pinFromSession(id: String) {
-        val entry = _session.value.firstOrNull { it.id == id } ?: return
-        val settings = runCatching { ConfigProvider.getClipboardSettings() }.getOrNull()
-        val maxEntries = settings?.maxEntries ?: ClipboardSettings().maxEntries
-        val persisted = entry.copy(pinned = true, sensitive = true)
-        ConfigProvider.recordClipboardEntry(persisted, maxEntries)?.let { pruneImages(it) }
-        _session.value = _session.value.filterNot { it.id == id }
-    }
-
     suspend fun remove(id: String) {
         val history = ConfigProvider.updateClipboardHistory { it.remove(id) } ?: return
         pruneImages(history)
-        _session.value = _session.value.filterNot { it.id == id }
     }
 
-    /** 清空全部未固定项（两种类型）、保留固定项；敏感会话一并清掉（部件「清空」口径）。 */
+    /** 清空全部未固定项（两种类型）、保留固定项（部件「清空」口径）。 */
     suspend fun clear() {
         val history = ConfigProvider.updateClipboardHistory { it.clearedKeepingPinned() } ?: return
         pruneImages(history)
-        _session.value = emptyList()
     }
 
-    /**
-     * 清空某内容类型的未固定项：保留该类型固定项与其它类型（与页面「清空本页」口径一致）；
-     * 敏感会话属于文本，仅文本页清空时一并清掉。
-     */
+    /** 清空某内容类型的未固定项：保留该类型固定项与其它类型（与页面「清空本页」口径一致）。 */
     suspend fun clear(kind: ClipKind) {
         val history = ConfigProvider.updateClipboardHistory { it.clearedKeepingPinned(kind) } ?: return
         pruneImages(history)
-        if (kind == ClipKind.TEXT) _session.value = emptyList()
     }
 
     /**

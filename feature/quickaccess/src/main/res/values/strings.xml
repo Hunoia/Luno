@@ -101,4 +101,7 @@
     <string name="search_source_group_media">媒体与文件</string>
     <string name="search_source_group_system">日程与系统</string>
     <string name="search_source_settings">内容源与标识</string>
+    <string name="search_presets_group">常用引擎</string>
+    <string name="search_presets_hint">点一条就加进引擎列表，标识可稍后在编辑页改</string>
+    <string name="search_presets_added">已添加「%1$s」</string>
 </resources>

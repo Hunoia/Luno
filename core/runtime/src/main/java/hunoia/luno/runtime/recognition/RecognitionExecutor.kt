@@ -2,11 +2,13 @@ package hunoia.luno.runtime.recognition
 
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.bridge.system.clearTextIfUnchanged
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
+import hunoia.luno.config.model.RecognitionNotifySpec
 import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.core.LOG_TAG
@@ -14,6 +16,8 @@ import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -43,6 +47,19 @@ interface RecognitionHost {
 
     /** 按规则的目标应用分发单条链接；返回是否确认送达。 */
     suspend fun dispatchLink(url: String, ruleId: String): Boolean
+
+    /** 把识别结果挂到超级岛 / 通知栏（通道、回退链、点击行为都由宿主决定）。 */
+    suspend fun notifyRecognition(
+        item: RecognizedItem,
+        spec: RecognitionNotifySpec,
+        idempotencyKey: String?,
+    ): Boolean
+
+    /** 清空系统剪贴板的兜底写入需要 Context；返回 null = 不支持（延迟清除静默跳过）。 */
+    fun appContext(): android.content.Context? = null
+
+    /** 延迟任务的作用域（进程级）；不提供则「复制后清除」不生效。 */
+    fun scope(): kotlinx.coroutines.CoroutineScope
 }
 
 /**
@@ -65,6 +82,7 @@ class RecognitionExecutor(private val host: RecognitionHost) {
     ): Boolean = when (val output = item.output) {
         is RecognitionOutput.Builtin -> executeBuiltin(item, output.kind, settings, label, idempotencyKey)
         is RecognitionOutput.Action -> executeAction(item, output, idempotencyKey)
+        is RecognitionOutput.Notify -> notify(item, output.spec, idempotencyKey)
     }
 
     private suspend fun executeBuiltin(
@@ -75,6 +93,14 @@ class RecognitionExecutor(private val host: RecognitionHost) {
         idempotencyKey: String?,
     ): Boolean = when (kind) {
         RecognitionBuiltin.Copy -> copy(item, label)
+        RecognitionBuiltin.CopyAndClear -> {
+            if (copy(item, label)) {
+                scheduleClipboardClear(item.value, settings.copyClearDelaySeconds)
+                true
+            } else {
+                false
+            }
+        }
         RecognitionBuiltin.Share -> share(item)
         RecognitionBuiltin.OpenLink -> {
             // 捕获值不是链接：OPEN 退回复制，与旧口径一致（规则写错不该让点击无反应）。
@@ -82,20 +108,36 @@ class RecognitionExecutor(private val host: RecognitionHost) {
         }
     }
 
-    /** 复制：非链接按敏感文本写（不入历史、不进会话分组），链接/普通文本进历史。 */
-    suspend fun copy(item: RecognizedItem, label: String?): Boolean = withContext(Dispatchers.IO) {
-        val written = if (item.sensitive) {
-            ClipboardCenter.write(
-                content = ClipboardContent.Text(item.value, sensitive = true),
-                label = null,
-                record = false,
-            )
-        } else {
-            ClipboardCenter.write(ClipboardContent.Text(item.value), label = label)
+    /**
+     * 「复制后自动清除」：延迟到了只清**我们写入的那一段**。
+     *
+     * 用户中途复制了别的东西时什么都不做——那才是最常见的多任务场景，误清等于把用户的
+     * 剪贴板偷走。窗口很小（[RecognitionSettings.copyClearDelaySeconds]），挂在进程级
+     * 作用域上，不阻塞调用方。
+     */
+    private fun scheduleClipboardClear(text: String, delaySeconds: Int) {
+        if (delaySeconds <= 0) return
+        val context = host.appContext() ?: return
+        host.scope().launch {
+            delay(delaySeconds * 1_000L)
+            val cleared = clearTextIfUnchanged(context, text)
+            if (cleared) Log.i(LOG_TAG, "clipboard cleared after ${delaySeconds}s")
         }
-        if (!written) Log.w(LOG_TAG, "recognition copy failed sensitive=${item.sensitive}")
+    }
+
+    /** 复制：一律进历史（Luno 内部不再区分敏感与否），写入走统一的剪贴板入口。 */
+    suspend fun copy(item: RecognizedItem, label: String?): Boolean = withContext(Dispatchers.IO) {
+        val written = ClipboardCenter.write(ClipboardContent.Text(item.value), label = label)
+        if (!written) Log.w(LOG_TAG, "recognition copy failed")
         written
     }
+
+    /** 超级岛 / 通知输出：交给宿主（`:app` 才有通道与回退链），本层只做占位替换。 */
+    private suspend fun notify(
+        item: RecognizedItem,
+        spec: RecognitionNotifySpec,
+        idempotencyKey: String?,
+    ): Boolean = host.notifyRecognition(item, spec, idempotencyKey)
 
     private fun share(item: RecognizedItem): Boolean {
         val value = if (item.urls.size > 1) item.urls.joinToString("\n") else item.value
@@ -225,4 +267,13 @@ object UnknownRecognitionHost : RecognitionHost {
     override fun openInBrowser(url: String) = Unit
     override fun share(text: String) = Unit
     override suspend fun dispatchLink(url: String, ruleId: String): Boolean = false
+
+    override suspend fun notifyRecognition(
+        item: RecognizedItem,
+        spec: RecognitionNotifySpec,
+        idempotencyKey: String?,
+    ): Boolean = false
+
+    override fun scope(): kotlinx.coroutines.CoroutineScope =
+        kotlinx.coroutines.MainScope()
 }

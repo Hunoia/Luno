@@ -283,19 +283,33 @@ class PortalLayoutTest {
     // ---- 工具条格子 ----
 
     @Test
-    fun `text content exposes copy search share without save`() {
+    fun `text content exposes copy search share float without save`() {
         val actions = portalActionsFor(PortalContent(text = "hello"))
         assertEquals(
-            listOf(PortalAction.Copy, PortalAction.Search, PortalAction.Share),
+            listOf(PortalAction.Copy, PortalAction.Search, PortalAction.Share, PortalAction.Float),
             actions,
         )
     }
 
     @Test
-    fun `image content exposes copy share save without search`() {
+    fun `image content exposes copy share float save without search`() {
         val actions = portalActionsFor(PortalContent(imageSize = 100 to 200))
         assertEquals(
-            listOf(PortalAction.Copy, PortalAction.Share, PortalAction.Save),
+            listOf(PortalAction.Copy, PortalAction.Share, PortalAction.Float, PortalAction.Save),
+            actions,
+        )
+    }
+
+    @Test
+    fun `qr content exposes copy search share float plus open link`() {
+        val actions = portalActionsFor(
+            PortalContent(qrText = "https://example.com/a", url = "https://example.com/a"),
+        )
+        assertEquals(
+            listOf(
+                PortalAction.Copy, PortalAction.Search, PortalAction.Share, PortalAction.Float,
+                PortalAction.OpenLink,
+            ),
             actions,
         )
     }

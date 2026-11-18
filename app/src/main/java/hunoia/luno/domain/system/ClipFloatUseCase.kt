@@ -10,4 +10,12 @@ object ClipFloatUseCase : ClipFloatFacade {
     override fun show(context: Context, entryId: String) {
         FloatBallService.showClipFloat(context.applicationContext, entryId)
     }
+
+    override fun showText(context: Context, text: String, label: String?) {
+        FloatBallService.showTransientText(context.applicationContext, text, label)
+    }
+
+    override fun showImage(context: Context, jpeg: ByteArray, label: String?) {
+        FloatBallService.showTransientImage(context.applicationContext, jpeg, label)
+    }
 }

@@ -80,8 +80,13 @@ internal data class SuggestionItem(
     /** 命中的规则 id（内置链接识别也是一条规则，恒非空）。 */
     val ruleId: String? = null,
     val action: SuggestionPrimaryAction = SuggestionPrimaryAction.COPY,
-    /** 非链接捕获结果按敏感文本处理：复制不入历史、锁屏不自动弹。 */
-    val sensitive: Boolean = false,
+    /**
+     * true = 规则从文本里抓出来的**值**（验证码之类），不是链接。
+     *
+     * 用途只剩「锁屏不自动弹、复制后自动撤卡」这类体验判断——内容本身不再当敏感品处理，
+     * 历史一视同仁入库。
+     */
+    val fromCapture: Boolean = false,
     val urls: List<String> = emptyList(),
     /**
      * 识别器给出的原始结果：执行时原样交给 `RecognitionExecutor`，

@@ -183,21 +183,42 @@ sealed interface RecognitionOutput {
         override val isValid: Boolean get() = action.typeId.isNotBlank()
     }
 
+    /**
+     * 通知输出：把捕获值挂到超级岛 / 通知栏。
+     *
+     * 独立成一种输出（而不是走 `Builtin(Notify)`）是因为它自带一份内容模板，
+     * 塞进枚举会需要一张伴随配置表——那就等于第二套模型。
+     */
+    @Serializable
+    @Keep
+    data class Notify(val spec: RecognitionNotifySpec = RecognitionNotifySpec()) : RecognitionOutput {
+        override val isValid: Boolean get() = true
+    }
+
     val isValid: Boolean
 }
 
 /**
  * 内置输出种类。
  *
- * 只保留这三条是因为它们各自带着**不能交给动作库的手感**（敏感文本复制不进历史、
- * 多链接进选择页、链接未命中按 `missAction` 回退）。其余输出一律用
+ * 只保留这几条是因为它们各自带着**不能交给动作库的手感**（复制后延迟清空系统剪贴板、
+ * 多链接进选择页、链接未命中按 `missAction` 回退、挂到超级岛）。其余输出一律用
  * `RecognitionOutput.Action` 表达，不在这里长枚举。
  */
 @Serializable
 @Keep
 enum class RecognitionBuiltin {
-    /** 复制捕获值；不是链接时按敏感文本处理（不进剪贴板历史）。 */
+    /** 复制捕获值并进历史。 */
     Copy,
+
+    /**
+     * 复制捕获值并进历史，然后在 [RecognitionSettings.copyClearDelaySeconds] 秒后
+     * 清空系统剪贴板（期间若用户复制了别的内容则不动）。
+     *
+     * 「数据在 Luno 内是安全的、不被其他应用读」靠这一条落实：历史只在本应用私有存储，
+     * 系统剪贴板里的那一份用完就撤。
+     */
+    CopyAndClear,
 
     /** 打开捕获到的链接；捕获不到链接时降级为复制。 */
     OpenLink,
@@ -233,6 +254,33 @@ enum class LinkMissMode {
 }
 
 /**
+ * 「挂到超级岛」的输出参数。
+ *
+ * 只放识别器自己关心的几项；岛的网络绕过 / 外发光等调参沿用通用通知设置的全局值，
+ * 不在这里开第二套面板。
+ */
+@Serializable
+@Keep
+data class RecognitionNotifySpec(
+    /** 通知标题；支持 `{value}` `{rule}` 占位（空 = 用规则名）。 */
+    val title: String = "",
+    /** 展开态正文；支持占位（空 = 用捕获值）。 */
+    val text: String = "",
+    /** 小岛 / 胶囊摘要；空 = 从捕获值截断。 */
+    val capsuleText: String = "",
+    /** 首发是否自动展开大岛。 */
+    val autoExpand: Boolean = true,
+    /** 大岛停留秒数；0 = 不展开。 */
+    val expandedSeconds: Int = 5,
+    /**
+     * 岛超时秒数；0 = 不设超时（跟随用户手动关闭 / 点击「完成」）。
+     */
+    val timeoutSeconds: Int = 0,
+    /** 是否同时在通知栏保留条目（false = 只有岛）。 */
+    val keepInShade: Boolean = true,
+)
+
+/**
  * 识别器设置：规则表 + 回退策略 + 情景识别（第五个输入源）的开关与范围。
  *
  * 挂在这里（`ActionSettings.recognition`）才能顺着配置通路到达 `:service` 与识屏。
@@ -251,6 +299,13 @@ data class RecognitionSettings(
      * 分不清该调哪个。规则可用自己的 `missAction` 单独覆盖。
      */
     val fallback: LinkMissMode = LinkMissMode.SHARE,
+    /**
+     * [RecognitionBuiltin.CopyAndClear] 的延迟秒数（0 = 不清）。
+     *
+     * 历史本来就在应用私有存储里，真正暴露给别的应用的是系统剪贴板里那一份——
+     * 用完就撤最实在，所以把它做成「复制」这一类输出的默认行为。
+     */
+    val copyClearDelaySeconds: Int = RecognitionDefaults.DEFAULT_COPY_CLEAR_DELAY_SECONDS,
     /**
      * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则时弹建议。
      * 默认关；开启即对规则表里所有 `RecognitionSource.Scene` 的规则生效。
@@ -302,9 +357,21 @@ object RecognitionDefaults {
     private const val CodePatternEn =
         """(?i)(?:verification\s+code|verify\s+code|security\s+code|one[\s-]?time\s+(?:password|code)|\botp\b|passcode)[^0-9]{0,24}([0-9]{4,8})(?![0-9])"""
 
+    /** 「复制并清除」默认延迟：30 秒够粘贴，也不至于让人忘了它还躺在剪贴板里。 */
+    const val DEFAULT_COPY_CLEAR_DELAY_SECONDS = 30
+
+    /** 可选档位（秒）；0 = 不清。 */
+    val COPY_CLEAR_DELAY_OPTIONS = listOf(0, 15, 30, 60)
+
     const val CodeRuleIdZh = "default-code-zh"
     const val CodeRuleIdEn = "default-code-en"
     const val LinkRuleId = "default-link"
+
+    /**
+     * 识屏工具条「复制」用的规则 id：它没有对应规则表条目，只是让复制走同一个执行口
+     * （这样「复制后清除剪贴板」的延迟设置对识屏也生效），日志里能区分来源。
+     */
+    const val CopyRuleId = "builtin-screenpick-copy"
 
     /** 规则捕获到验证码时对哪些来源生效：除外部 Intent（那是链接入口）以外全部。 */
     private val CodeSources: Set<RecognitionSource> = RecognitionSource.TextDefault
@@ -339,37 +406,19 @@ object RecognitionDefaults {
         """(?i)(?:订单号|订单编号|订单号码)[^0-9]{0,12}([0-9]{6,24})(?![0-9])""",
     )
 
-    /**
-     * 密码 / 一次性口令（TOTP 之外的「登录口令」）：只认明确带「密码」上下文的短串，
-     * 宁可漏也不误抓普通数字。
-     */
-    private val Password = textRule(
-        "preset-password",
-        "临时密码",
-        """(?i)(?:临时密码|初始密码|登录密码|一次性密码|动态密码)\s*(?:是|为|[:：])?\s*([0-9A-Za-z]{6,20})(?![0-9A-Za-z])""",
-    )
-
-    /**
-     * 银行卡 / 支付账号后四位（客服核对场景）：只取尾号，绝不匹配整串卡号。
-     */
-    private val CardTail = textRule(
-        "preset-card-tail",
-        "卡号后四位",
-        """(?i)(?:尾号|后四位|末四位|卡号后4位)\s*(?:是|为|[:：])?\s*([0-9]{4})(?![0-9])""",
-    )
-
     private val AllTextRules: List<RecognitionRule> =
-        listOf(CodeZh, CodeEn, Pickup, Tracking, Order, Password, CardTail)
+        listOf(CodeZh, CodeEn, Pickup, Tracking, Order)
 
-    /** 默认表里预置的文本规则条数：只要两条验证码，其余按需从预设添加。 */
-    private const val DefaultTextRuleCount = 2
+    /** 默认启用的文本规则：只放两条验证码，其余按需从预设添加。 */
+    private val DefaultTextRuleIds = setOf(CodeRuleIdZh, CodeRuleIdEn)
 
     private fun textRule(id: String, name: String, pattern: String) = RecognitionRule(
         id = id,
         name = name,
         sources = CodeSources,
         match = RecognitionMatch.Text(pattern),
-        output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
+        // 验证码这类「一次性凭证」复制后自动撤掉系统剪贴板；其余常驻由用户自己决定。
+        output = RecognitionOutput.Builtin(RecognitionBuiltin.CopyAndClear),
     )
 
     /** 内置链接识别：不再是散在各处的隐式分支，而是一条可见、可关、可调顺序的规则。 */
@@ -381,7 +430,8 @@ object RecognitionDefaults {
         output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
     )
 
-    val rules: List<RecognitionRule> = AllTextRules.take(DefaultTextRuleCount) + LinkRule
+    val rules: List<RecognitionRule> =
+        AllTextRules.filter { it.id in DefaultTextRuleIds } + LinkRule
 
     val codeRules: List<RecognitionRule> get() = AllTextRules
 
@@ -392,4 +442,41 @@ object RecognitionDefaults {
      * 不会出现「默认表里是 A 正则、预设里是改过的 B 正则」这种漂移。
      */
     val textPresets: List<RecognitionRule> get() = AllTextRules
+
+    /**
+     * 「取件码 → 挂到超级岛」：同样的正则，输出换成通知。
+     *
+     * 单独列一条而不是改默认输出，是因为「抓完就复制」和「挂到岛上等我去取」是两种
+     * 使用习惯；默认保持复制（最高频、最少打扰）。
+     */
+    val islandPresets: List<RecognitionRule> = listOf(
+        RecognitionRule(
+            id = "preset-pickup-island",
+            name = "取件码（挂岛）",
+            sources = CodeSources,
+            match = RecognitionMatch.Text(
+                """(?i)(?:取件码|取货码|提货码|取餐码|取件号)[^0-9A-Za-z]{0,12}([0-9A-Za-z][0-9A-Za-z-]{2,15})(?![0-9A-Za-z-])""",
+            ),
+            output = RecognitionOutput.Notify(
+                RecognitionNotifySpec(
+                    title = "取件码",
+                    text = "{value}",
+                    capsuleText = "取件码 {value}",
+                ),
+            ),
+        ),
+        RecognitionRule(
+            id = "preset-code-island",
+            name = "验证码（挂岛）",
+            sources = CodeSources,
+            match = RecognitionMatch.Text(CodePatternZh),
+            output = RecognitionOutput.Notify(
+                RecognitionNotifySpec(
+                    title = "验证码",
+                    text = "{value}",
+                    capsuleText = "{value}",
+                ),
+            ),
+        ),
+    )
 }

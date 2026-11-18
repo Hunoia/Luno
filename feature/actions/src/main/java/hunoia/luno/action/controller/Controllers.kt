@@ -39,7 +39,7 @@ class AudioController(private val context: Context) {
 class ClipboardController(private val context: Context) {
 
     suspend fun copyText(text: String, label: String = ""): Boolean {
-        return ClipboardCenter.copy(text, sensitive = true, label = label.ifBlank { null })
+        return ClipboardCenter.copy(text, label = label.ifBlank { null })
     }
 
     fun generateRandomName(): String? {

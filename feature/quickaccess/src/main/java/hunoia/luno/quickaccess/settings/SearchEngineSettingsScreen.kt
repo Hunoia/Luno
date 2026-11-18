@@ -44,6 +44,7 @@ import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
+import hunoia.luno.config.model.SearchEnginePresets
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.badgeText
@@ -97,6 +98,24 @@ fun SearchEngineSettingsScreen(
     val configEngines = settings.effectiveEngines()
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
+    }
+    /**
+     * 添加一条预设：撞了已有标识就清空标识（引擎照样可用，编辑页再改），
+     * 顺序追加到引擎列表末尾（顺序即主引擎优先级，不该抢用户的首位）。
+     */
+    fun addPreset(preset: SearchEngine) {
+        scope.launch {
+            SearchCenter.updateSearch { current ->
+                val used = current.allEngines()
+                    .mapNotNullTo(mutableSetOf()) { it.trigger.trim().lowercase().ifEmpty { null } }
+                current.copy(
+                    customEngines = current.customEngines + preset.copy(
+                        id = "",
+                        trigger = preset.trigger.takeIf { used.add(it.lowercase()) }.orEmpty(),
+                    ),
+                )
+            }
+        }
     }
     fun parseImport(raw: String): ImportPreview? {
         if (raw.isEmpty()) {
@@ -201,6 +220,12 @@ fun SearchEngineSettingsScreen(
     // 配置到位（拖拽已结束）后草稿退回跟随，避免编辑/删除/导入后残留旧顺序。
     LaunchedEffect(configEngines) {
         reorder.syncWithCurrent()
+    }
+    // 常用引擎：与识别器页「添加常用规则」同一交互（逐条添加，点一条加一条）。
+    // 纯静态表判重，不查 PM，直接在组合期算好（stringResource 也只能在组合期取）。
+    val presets = SearchEnginePresets.addable(settings.customEngines)
+    val presetMessages = presets.map { preset ->
+        stringResource(R.string.search_presets_added, preset.name)
     }
     val addFab: @Composable () -> Unit = {
         LunoFab(
@@ -386,6 +411,27 @@ fun SearchEngineSettingsScreen(
                                 }
                             },
                             shape = segmentedShape(index, engines.size),
+                        )
+                    }
+                }
+            }
+        }
+        if (presets.isNotEmpty()) {
+            item(key = "presets") {
+                LunoGroup(
+                    title = stringResource(R.string.search_presets_group),
+                    subtitle = stringResource(R.string.search_presets_hint),
+                ) {
+                    presets.forEachIndexed { index, preset ->
+                        LunoSettingsRow(
+                            title = preset.name,
+                            textIcon = TextIcon(preset.badgeText),
+                            subtitle = preset.urlTemplate,
+                            shape = segmentedShape(index, presets.size),
+                            onClick = {
+                                addPreset(preset)
+                                showToast(presetMessages[index])
+                            },
                         )
                     }
                 }

@@ -16,4 +16,20 @@ interface ClipFloatFacade {
      * 条目已不存在 / 悬浮窗权限缺失时静默失败（服务侧记录日志）。
      */
     fun show(context: Context, entryId: String)
+
+    /**
+     * 直接钉一段**不在历史里**的文本到屏幕上（识屏工具条「悬浮显示」）。
+     *
+     * 识屏拿到的是一段临时取到的文字，进历史即污染记录；这里只传内容，窗口是临时的、
+     * 关掉就没了。文本为空 / 悬浮窗权限缺失时静默失败。
+     */
+    fun showText(context: Context, text: String, label: String? = null) {}
+
+    /**
+     * 直接钉一张**不在历史里**的图片到屏幕上（识屏工具条的图片「悬浮显示」）。
+     *
+     * 图片以文件字节传入：识屏只有一张裁剪位图，没有可共享的 URI。服务侧落一份临时副本
+     * 后挂窗，关窗即删。
+     */
+    fun showImage(context: Context, jpeg: ByteArray, label: String? = null) {}
 }

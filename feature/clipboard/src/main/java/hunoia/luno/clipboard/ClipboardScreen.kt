@@ -182,17 +182,12 @@ fun ClipboardScreen(
             shape = shape,
             selectionMode = state.selectionMode,
             selected = entry.id in state.selectedIds,
-            revealed = entry.id in state.revealedIds,
             pinned = entry.pinned,
             onClick = { vm.onEntryClick(entry) },
             onTogglePin = { vm.togglePin(entry) },
             onDelete = { vm.delete(entry) },
             onShare = { vm.share(context, entry) },
-            onFloat = if (entry.sensitive) {
-                null
-            } else {
-                { facades.clipFloat.show(context, entry.id) }
-            },
+            onFloat = { facades.clipFloat.show(context, entry.id) },
         )
     }
 
@@ -265,15 +260,6 @@ fun ClipboardScreen(
                     onConfirm = { state.contentTab.kind?.let { vm.confirmClear(it) } },
                 )
             }
-            val pending = state.pendingSensitiveCopy
-            if (pending != null) {
-                ConfirmDialog(
-                    title = stringResource(R.string.clipboard_sensitive_copy_title),
-                    text = stringResource(R.string.clipboard_sensitive_copy_desc),
-                    onDismissRequest = { vm.dismissSensitiveCopy() },
-                    onConfirm = { vm.confirmSensitiveCopy() },
-                )
-            }
         },
     ) {
         if (settingsTab) {
@@ -303,9 +289,6 @@ fun ClipboardScreen(
             val searching = state.query.isNotBlank()
             val pinnedItems = visible.filter { it.pinned }
             val restItems = visible.filterNot { it.pinned }
-            val showSession = state.contentTab == ClipboardTab.TEXT &&
-                !searching &&
-                state.session.isNotEmpty()
 
             // 固定项组置顶（文本 / 图片各自管理；搜索时搜索结果平铺，不再分组）。
             if (!searching && pinnedItems.isNotEmpty()) {
@@ -313,32 +296,6 @@ fun ClipboardScreen(
                     LunoGroup(title = stringResource(R.string.clipboard_pinned_group)) {
                         pinnedItems.forEachIndexed { index, entry ->
                             EntryRow(entry, segmentedShape(index, pinnedItems.size))
-                        }
-                    }
-                }
-            }
-
-            // 本次会话（敏感）组：仅文本页、空查询（敏感项都是文本）。
-            if (showSession) {
-                item(key = "session") {
-                    LunoGroup(
-                        title = stringResource(R.string.clipboard_session_group),
-                        subtitle = stringResource(R.string.clipboard_session_hint),
-                    ) {
-                        state.session.forEachIndexed { index, entry ->
-                            ClipboardRow(
-                                entry = entry,
-                                shape = segmentedShape(index, state.session.size),
-                                selectionMode = false,
-                                selected = false,
-                                revealed = entry.id in state.revealedIds,
-                                pinned = entry.pinned,
-                                onClick = { vm.onEntryClick(entry) },
-                                onTogglePin = { vm.pinSession(entry) },
-                                onDelete = { vm.delete(entry) },
-                                onShare = { vm.share(context, entry) },
-                                onFloat = null,
-                            )
                         }
                     }
                 }
@@ -358,8 +315,8 @@ fun ClipboardScreen(
                         }
                     }
                 }
-            } else if (pinnedItems.isEmpty() && restItems.isEmpty() && !showSession) {
-                // 当前页完全为空（无固定、无内容、无会话占位）。
+            } else if (pinnedItems.isEmpty() && restItems.isEmpty()) {
+                // 当前页完全为空（无固定、无内容）。
                 item(key = "empty") {
                     EmptyState(
                         message = stringResource(
@@ -779,7 +736,6 @@ private fun ClipboardRow(
     shape: androidx.compose.ui.graphics.Shape,
     selectionMode: Boolean,
     selected: Boolean,
-    revealed: Boolean,
     pinned: Boolean,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
@@ -789,10 +745,9 @@ private fun ClipboardRow(
 ) {
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
-    val title = when {
-        entry.sensitive && !revealed -> stringResource(R.string.clipboard_sensitive_masked)
-        entry.kind == ClipKind.TEXT -> entry.text.replace('\n', ' ').trim()
-        else -> stringResource(R.string.clipboard_image)
+    val title = when (entry.kind) {
+        ClipKind.TEXT -> entry.text.replace('\n', ' ').trim()
+        ClipKind.IMAGE -> stringResource(R.string.clipboard_image)
     }
     val metadata = buildList {
         if (pinned) add(stringResource(R.string.clipboard_pinned_badge))

@@ -78,7 +78,6 @@ class RecognizerTest {
 
         assertEquals(1, items.size)
         assertEquals("123456", items.single().value)
-        assertTrue(items.single().sensitive)
         assertTrue(items.single().urls.isEmpty())
     }
 
@@ -97,7 +96,6 @@ class RecognizerTest {
 
         assertEquals(listOf("https://b23.tv/abc"), items.single().urls)
         assertEquals("https://b23.tv/abc", items.single().value)
-        assertFalse(items.single().sensitive)
     }
 
     @Test
@@ -374,7 +372,11 @@ class RecognizerTest {
         val recognizer = compiled(*RecognitionDefaults.textPresets.toTypedArray())
         fun hit(text: String): String? = recognizer
             .match(RecognitionInput(RecognitionSource.Clipboard, text))
-            .firstOrNull { it.builtin == RecognitionBuiltin.Copy }
+            // 复制类输出有两种（Copy / CopyAndClear），预设一律走后者。
+            .firstOrNull {
+                it.builtin == RecognitionBuiltin.Copy ||
+                    it.builtin == RecognitionBuiltin.CopyAndClear
+            }
             ?.value
 
         assertEquals("123456", hit("【某某】验证码 123456，5 分钟内有效"))
@@ -382,10 +384,22 @@ class RecognizerTest {
         assertEquals("8-1-2024", hit("取件码 8-1-2024，请到菜鸟驿站"))
         assertEquals("SF1234567890", hit("快递单号 SF1234567890 已发出"))
         assertEquals("2024011500123", hit("订单号：2024011500123"))
-        assertEquals("Ab12Cd34", hit("您的临时密码为 Ab12Cd34"))
-        assertEquals("6688", hit("银行卡尾号 6688"))
+        // 尾号类规则已删除：需求是拿完整内容，只要后四位没有实际用处。
+        assertEquals(null, hit("银行卡尾号 6688"))
+        assertEquals(null, hit("您的临时密码为 Ab12Cd34"))
         // 纯粹的裸数字串不该被任何预设抓走（否则每条短信都会弹建议）。
         assertEquals(null, hit("今天 2024 年，气温 26 度，编号 1234"))
+    }
+
+    @Test
+    fun `island presets produce notify output instead of copy`() {
+        val recognizer = compiled(*RecognitionDefaults.islandPresets.toTypedArray())
+        val items = recognizer.match(
+            RecognitionInput(RecognitionSource.Clipboard, "验证码 654321，5 分钟内有效"),
+        )
+        assertEquals(1, items.size)
+        assertTrue(items.single().output is RecognitionOutput.Notify)
+        assertEquals("654321", items.single().value)
     }
 
     @Test

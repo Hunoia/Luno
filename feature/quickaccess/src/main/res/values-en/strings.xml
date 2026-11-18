@@ -101,4 +101,7 @@
     <string name="search_source_group_media">Media &amp; files</string>
     <string name="search_source_group_system">Schedule &amp; system</string>
     <string name="search_source_settings">Sources &amp; triggers</string>
+    <string name="search_presets_group">Popular engines</string>
+    <string name="search_presets_hint">Tap one to add it; you can edit the trigger later</string>
+    <string name="search_presets_added">Added "%1$s"</string>
 </resources>

@@ -74,7 +74,7 @@ class SuggestionFactoryTest {
         assertEquals("验证码", item.title)
         assertEquals("778899", item.text)
         assertEquals(SuggestionPrimaryAction.COPY, item.action)
-        assertTrue(item.sensitive)
+        assertTrue(item.fromCapture)
         assertEquals(1_000L, item.receivedAtElapsedMs)
         assertEquals(null, item.ttlMs)
     }
@@ -123,7 +123,7 @@ class SuggestionFactoryTest {
         // 文本规则先跑并吃掉这条链接：两个默认验证码规则不命中，内置链接规则不再出项。
         assertEquals(listOf("grab-url"), items.map { it.ruleId })
         assertEquals(url, items.single().text)
-        assertFalse(items.single().sensitive)
+        assertFalse(items.single().fromCapture)
     }
 
     @Test

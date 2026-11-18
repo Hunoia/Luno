@@ -2,6 +2,7 @@ package hunoia.luno.bridge.system
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
+import android.os.Build
 import android.view.Display
 import androidx.core.content.ContextCompat
 import hunoia.luno.core.LOG_TAG
@@ -53,15 +54,22 @@ object ScreenScreenshot {
         service.takeScreenshot(displayId, ContextCompat.getMainExecutor(service), callback)
     }
 
-    /** 只截某个窗口（API 34+，识屏按下点定位用）。超时语义与 [capture] 相同。 */
-    suspend fun captureWindow(service: AccessibilityService, windowId: Int): Result =
-        awaitCallback("window#$windowId") { callback ->
+    /**
+     * 只截某个窗口（识屏按下点定位用）。超时语义与 [capture] 相同。
+     *
+     * `takeScreenshotOfWindow` 是 API 34 才有的：低版本直接返回失败，由调用方回退整屏截图
+     * （整屏也能用，只是多截了别的窗口）。不加这层判断的话，minSdk 33 的设备一调就崩。
+     */
+    suspend fun captureWindow(service: AccessibilityService, windowId: Int): Result {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return Result.Rejected
+        return awaitCallback("window#$windowId") { callback ->
             service.takeScreenshotOfWindow(
                 windowId,
                 ContextCompat.getMainExecutor(service),
                 callback,
             )
         }
+    }
 
     /**
      * 统一收口：发请求 → 等回调 → 超时。

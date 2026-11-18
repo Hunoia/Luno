@@ -39,13 +39,70 @@ data class RecognizedItem(
     val action: StoredAction?
         get() = (output as? RecognitionOutput.Action)?.action
 
-    /**
-     * 捕获值不是链接 → 按敏感文本处理（复制不进历史、锁屏不自动弹、日志不落正文）。
-     *
-     * 这条判定以前在两个消费者里各写一遍（胶囊 / 识屏），现在只在这里判一次。
-     */
-    val sensitive: Boolean
-        get() = urls.isEmpty()
+    /** 这条结果在界面上能做的动作集（消费者只展示它，不再自己判输出类型）。 */
+    val actions: List<RecognitionAction> get() = actionsOf(output, urls)
+}
+
+/**
+ * 输出 → 动作集。纯函数，消费者与测试共用同一份，避免「胶囊有复制、识屏没有」这类漂移。
+ *
+ * 口径：
+ * - 内置复制类（[RecognitionBuiltin.Copy] / [RecognitionBuiltin.CopyAndClear]）→ 复制；
+ * - [RecognitionBuiltin.OpenLink] → 打开（值不是链接时执行口自己降级为复制，动作集照旧给复制）；
+ * - [RecognitionBuiltin.Share] → 分享 + 复制（分享之外总得能复制）；
+ * - 动作输出 → 跑动作 + 复制 + 分享；链接可分享/可打开时再补上；
+ * - 通知输出 → 挂岛 + 复制（用户常想先把值拿走再关岛）。
+ */
+fun actionsOf(output: RecognitionOutput, urls: List<String>): List<RecognitionAction> {
+    val out = LinkedHashSet<RecognitionAction>(4)
+    when (output) {
+        is RecognitionOutput.Builtin -> when (output.kind) {
+            RecognitionBuiltin.Copy, RecognitionBuiltin.CopyAndClear ->
+                out += RecognitionAction.Copy
+            RecognitionBuiltin.OpenLink -> {
+                if (urls.isNotEmpty()) out += RecognitionAction.Open
+                out += RecognitionAction.Copy
+            }
+            RecognitionBuiltin.Share -> {
+                out += RecognitionAction.Share
+                out += RecognitionAction.Copy
+            }
+        }
+        is RecognitionOutput.Action -> {
+            out += RecognitionAction.Run
+            out += RecognitionAction.Copy
+            out += RecognitionAction.Share
+            if (urls.isNotEmpty()) out += RecognitionAction.Open
+        }
+        is RecognitionOutput.Notify -> {
+            out += RecognitionAction.Notify
+            out += RecognitionAction.Copy
+        }
+    }
+    return out.toList()
+}
+
+/**
+ * 一条识别结果在界面上**能做什么**。
+ *
+ * 派生自 [RecognizedItem.output]（+ `urls` 是否为空），不是各消费者自己拼的：
+ * 建议胶囊的菜单、识屏工具条的建议槽、选择页的动作都读这一份，输出模型一改就全部跟上。
+ */
+enum class RecognitionAction {
+    /** 复制捕获值（含「复制后清除」：执行口会按设置挂延迟清理）。 */
+    Copy,
+
+    /** 打开链接（多链接时执行口进选择页）。 */
+    Open,
+
+    /** 分享捕获值。 */
+    Share,
+
+    /** 跑规则声明的动作。 */
+    Run,
+
+    /** 挂到超级岛 / 通知栏。 */
+    Notify,
 }
 
 /**

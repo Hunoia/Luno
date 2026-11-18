@@ -135,7 +135,7 @@ internal object SuggestionFactory {
             receivedAtElapsedMs = nowMs,
             ruleId = item.ruleId,
             action = effective,
-            sensitive = item.sensitive,
+            fromCapture = item.urls.isEmpty(),
             urls = item.urls,
             recognized = item,
             sceneKey = sceneKey,
@@ -145,12 +145,14 @@ internal object SuggestionFactory {
     private fun primaryActionOf(item: RecognizedItem): SuggestionPrimaryAction =
         when (val output = item.output) {
             is RecognitionOutput.Builtin -> when (output.kind) {
-                RecognitionBuiltin.Copy -> SuggestionPrimaryAction.COPY
+                RecognitionBuiltin.Copy, RecognitionBuiltin.CopyAndClear ->
+                    SuggestionPrimaryAction.COPY
                 RecognitionBuiltin.OpenLink -> SuggestionPrimaryAction.OPEN
                 RecognitionBuiltin.Share -> SuggestionPrimaryAction.SHARE
             }
-            // 动作输出：主动作就是「跑这条规则」，执行细节交给 RecognitionExecutor。
-            is RecognitionOutput.Action -> SuggestionPrimaryAction.RUN_ACTION
+            // 动作 / 通知输出：主动作就是「跑这条规则」，执行细节交给 RecognitionExecutor。
+            is RecognitionOutput.Action, is RecognitionOutput.Notify ->
+                SuggestionPrimaryAction.RUN_ACTION
         }
 
     internal fun notificationText(pulse: NotificationPulse): String {

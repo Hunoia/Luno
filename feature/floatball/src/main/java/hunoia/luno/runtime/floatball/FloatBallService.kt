@@ -701,7 +701,7 @@ class FloatBallService : Service() {
     private suspend fun onClipboardContent(content: ClipboardContent): Boolean {
         if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) return false
         if (content !is ClipboardContent.Text) return true
-        if (content.sensitive || content.text.isBlank()) return true
+        if (content.text.isBlank()) return true
         if (SelfWriteGuard.matches(content)) {
             Log.i(TAG, "clipboard self-write suppressed (text, ${content.text.length} chars)")
             return true
@@ -1302,23 +1302,60 @@ class FloatBallService : Service() {
                     maybeStopIfIdle()
                     return@launch
                 }
-                val settings = runCatching {
-                    hunoia.luno.domain.floatball.FloatBallSettingsCenter.getClipFloatSettings()
-                }.getOrNull() ?: ClipFloatSettings()
-                val window = clipFloat ?: ClipFloatWindow(this@FloatBallService, clipFloatHost).also {
-                    clipFloat = it
-                    SurfaceController.register(it)
-                }
-                window.show(content, settings)
-                if (!window.isShowing()) {
-                    SurfaceController.unregister(window.surfaceId)
-                    clipFloat = null
-                }
+                attachClipFloat(content)
             } finally {
                 clipFloatPending = false
             }
         }
     }
+
+    /**
+     * 识屏工具条「悬浮显示」：钉一段**临时内容**（不进历史）。
+     *
+     * 与按条目钉窗共用同一个窗口与宿主，只是内容来源不同；临时图片落一份缓存副本，
+     * 关窗或换内容时删掉（[ClipFloatContent.temporary]）。
+     */
+    private fun showTransientClipFloat(content: ClipFloatContent) {
+        clipFloatPending = true
+        scope.launch {
+            try {
+                attachClipFloat(content)
+            } finally {
+                clipFloatPending = false
+            }
+        }
+    }
+
+    private suspend fun attachClipFloat(content: ClipFloatContent) {
+        val settings = runCatching {
+            hunoia.luno.domain.floatball.FloatBallSettingsCenter.getClipFloatSettings()
+        }.getOrNull() ?: ClipFloatSettings()
+        val window = clipFloat ?: ClipFloatWindow(this@FloatBallService, clipFloatHost).also {
+            clipFloat = it
+            SurfaceController.register(it)
+        }
+        window.show(content, settings)
+        if (!window.isShowing()) {
+            SurfaceController.unregister(window.surfaceId)
+            clipFloat = null
+        } else if (content.temporary && content.kind == ClipKind.TEXT) {
+            // 临时文本可能被粘贴/复制走，但它不是历史条目——提示一句，别让人以为进了历史。
+            Log.i(TAG, "clip float: transient content shown")
+        }
+    }
+
+    /** 临时图片的缓存目录：与剪贴板历史目录分开，关窗即删，绝不进 prune 的保留集。 */
+    private fun transientImageDir(): java.io.File =
+        java.io.File(cacheDir, TRANSIENT_FLOAT_DIR).apply { mkdirs() }
+
+    private suspend fun writeTransientImage(jpeg: ByteArray): java.io.File? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                transientImageDir().listFiles()?.forEach { it.delete() }
+                java.io.File(transientImageDir(), "float_${System.currentTimeMillis()}.jpg")
+                    .apply { writeBytes(jpeg) }
+            }.onFailure { Log.w(TAG, "clip float: transient image write failed", it) }.getOrNull()
+        }
 
     private suspend fun resolveClipFloat(id: String): ClipFloatContent? =
         withContext(Dispatchers.IO) {
@@ -1843,8 +1880,8 @@ class FloatBallService : Service() {
                 scheduleTtl()
                 return change
             }
-            // 敏感建议（规则捕获的非链接文本）锁屏时不自动弹，解锁后补播。
-            if (item is SuggestionItem && item.sensitive && isScreenLocked()) {
+            // 规则捕获的值（非链接）锁屏时不自动弹，解锁后补播。
+            if (item is SuggestionItem && item.fromCapture && isScreenLocked()) {
                 pendingSensitivePop = true
             }
             if (manualSession || !allowed) {
@@ -2081,7 +2118,7 @@ class FloatBallService : Service() {
             bubble.showCopied(item.id)
             scope.launch {
                 delay(COPIED_FEEDBACK_MS)
-                if (item.sensitive) {
+                if (item.fromCapture) {
                     if (state.currentId == item.id) removeAndAdvance(item.id)
                     else if (state.items.any { it.id == item.id }) bubble.clearCopied()
                 } else if (state.items.any { it.id == item.id }) {
@@ -2119,7 +2156,7 @@ class FloatBallService : Service() {
         fun hasUnexpiredSensitive(): Boolean {
             val now = SystemClock.elapsedRealtime()
             return state.items.any { item ->
-                item is SuggestionItem && item.sensitive &&
+                item is SuggestionItem && item.fromCapture &&
                     (now - item.receivedAtElapsedMs) in 0 until item.effectiveTtlMs(config)
             }
         }
@@ -2129,7 +2166,7 @@ class FloatBallService : Service() {
             pendingSensitivePop = false
             val now = SystemClock.elapsedRealtime()
             val target = state.items.firstOrNull { item ->
-                item is SuggestionItem && item.sensitive &&
+                item is SuggestionItem && item.fromCapture &&
                     (now - item.receivedAtElapsedMs) in 0 until item.effectiveTtlMs(config)
             } ?: return false
             if (target.id != state.currentId) {
@@ -2181,6 +2218,50 @@ class FloatBallService : Service() {
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
         private const val EXTRA_CLIP_ID = "clip_float_id"
 
+        /**
+         * 识屏工具条「悬浮显示」：跨进程钉一段临时文本 / 临时图片。
+         *
+         * 宿主可能在主进程（识屏页 ≤ 工具条都在 `:service`，所以通常直接命中进程内调用）；
+         * 不在跑时同样不能后台 startForegroundService，只能等宿主起来——这里给用户一个
+         * 明确的失败信号（返回 false），由调用方提示，而不是静默什么都不发生。
+         */
+        fun showTransientText(context: Context, text: String, label: String? = null): Boolean {
+            if (text.isBlank()) return false
+            val running = currentRef?.get() ?: return false
+            running.showTransientClipFloat(
+                ClipFloatContent(
+                    id = "transient-${System.currentTimeMillis()}",
+                    kind = ClipKind.TEXT,
+                    text = text,
+                    imagePath = null,
+                    mime = null,
+                    imageFile = null,
+                    temporary = true,
+                ),
+            )
+            return true
+        }
+
+        fun showTransientImage(context: Context, jpeg: ByteArray, label: String? = null): Boolean {
+            if (jpeg.isEmpty()) return false
+            val running = currentRef?.get() ?: return false
+            running.scope.launch {
+                val file = running.writeTransientImage(jpeg) ?: return@launch
+                running.showTransientClipFloat(
+                    ClipFloatContent(
+                        id = "transient-${System.currentTimeMillis()}",
+                        kind = ClipKind.IMAGE,
+                        text = "",
+                        imagePath = file.name,
+                        mime = "image/jpeg",
+                        imageFile = file,
+                        temporary = true,
+                    ),
+                )
+            }
+            return true
+        }
+
         /** 面板 / 剪贴板页显式钉一条内容到屏幕上；窗口归本服务，跨进程只传条目 id。 */
         fun showClipFloat(context: Context, entryId: String) {
             // 宿主已在跑（面板 / 球 / 胶囊任一开启）：直接走进程内调用，避免后台再
@@ -2211,6 +2292,9 @@ class FloatBallService : Service() {
 
         /** 悬浮窗关闭后等目标应用重新可交互再插入 / 粘贴。 */
         private const val CLIP_FLOAT_SETTLE_MS = 200L
+
+        /** 临时悬浮内容的缓存目录（识屏「悬浮显示」）。 */
+        private const val TRANSIENT_FLOAT_DIR = "float_transient"
 
         /** 悬浮窗关闭后多久检查宿主是否还有常驻用途。 */
         private const val CLIP_FLOAT_IDLE_STOP_MS = 3_000L

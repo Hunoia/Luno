@@ -338,7 +338,10 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     )
                 }
                 myComposable<ScreenPickSettings> {
-                    ScreenPickSettingsScreen(onBack = { navController.popBackStack() })
+                    ScreenPickSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavToRecognition = { navController.navigate(RecognitionRules) },
+                    )
                 }
                 myComposable<LogSettings> {
                     LogSettingsScreen(onBack = { navController.popBackStack() })
@@ -365,6 +368,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                             navController.navigate(RecognitionRuleEdit(""))
                         },
                         onNavToSceneList = { navController.navigate(SceneRecognizeList) },
+                        onNavToClipboardSettings = { navController.navigate(Clipboard) },
+                        onNavToCapsuleSettings = {
+                            navController.navigate(FloatBallNotificationCapsule)
+                        },
+                        onNavToScreenPickSettings = { navController.navigate(ScreenPickSettings) },
                     )
                 }
                 myComposable<RecognitionRuleEdit> {

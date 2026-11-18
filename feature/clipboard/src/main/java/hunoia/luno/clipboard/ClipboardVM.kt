@@ -45,19 +45,16 @@ enum class ClipboardTab(val labelRes: Int) {
     SETTINGS(R.string.clipboard_settings_group),
 }
 
-/** 页面唯一状态（architecture §8.4）：历史 / 会话 / 设置 / 筛选 / 批量选择 / 弹窗都在这。 */
+/** 页面唯一状态（architecture §8.4）：历史 / 设置 / 筛选 / 批量选择 / 弹窗都在这。 */
 data class ClipboardUiState(
     val entries: List<ClipboardEntry> = emptyList(),
-    val session: List<ClipboardEntry> = emptyList(),
     val settings: ClipboardSettings = ClipboardSettings(),
     val query: String = "",
     val searchExpanded: Boolean = false,
     val contentTab: ClipboardTab = ClipboardTab.TEXT,
     val selectionMode: Boolean = false,
     val selectedIds: Set<String> = emptySet(),
-    val revealedIds: Set<String> = emptySet(),
     val clearConfirm: Boolean = false,
-    val pendingSensitiveCopy: ClipboardEntry? = null,
 )
 
 /** 一次性反馈（Toast）；不进状态对象，避免重组时重复弹。 */
@@ -71,9 +68,7 @@ class ClipboardVM : ViewModel() {
         val contentTab: ClipboardTab = ClipboardTab.TEXT,
         val selectionMode: Boolean = false,
         val selectedIds: Set<String> = emptySet(),
-        val revealedIds: Set<String> = emptySet(),
         val clearConfirm: Boolean = false,
-        val pendingSensitiveCopy: ClipboardEntry? = null,
     )
 
     private val local = MutableStateFlow(Local())
@@ -83,22 +78,18 @@ class ClipboardVM : ViewModel() {
 
     val uiState = combine(
         ClipboardCenter.history,
-        ClipboardCenter.session,
         ClipboardCenter.settings,
         local,
-    ) { history, session, settings, local ->
+    ) { history, settings, local ->
         ClipboardUiState(
             entries = history.entries,
-            session = session,
             settings = settings,
             query = local.query,
             searchExpanded = local.searchExpanded,
             contentTab = local.contentTab,
             selectionMode = local.selectionMode,
             selectedIds = local.selectedIds,
-            revealedIds = local.revealedIds,
             clearConfirm = local.clearConfirm,
-            pendingSensitiveCopy = local.pendingSensitiveCopy,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ClipboardUiState())
 
@@ -136,21 +127,10 @@ class ClipboardVM : ViewModel() {
         it.copy(selectedIds = ids.toSet())
     }
 
-    fun reveal(id: String) = local.update { it.copy(revealedIds = it.revealedIds + id) }
-
-    /** 点按条目：普通条目直接写回；敏感条目先显示，再点一次才进入二次确认。 */
+    /** 点按条目：直接写回系统剪贴板（应用内历史一视同仁，不再有「敏感」分支）。 */
     fun onEntryClick(entry: ClipboardEntry) {
-        val state = uiState.value
-        if (state.selectionMode) {
+        if (uiState.value.selectionMode) {
             toggleSelected(entry.id)
-            return
-        }
-        if (entry.sensitive && entry.id !in state.revealedIds) {
-            reveal(entry.id)
-            return
-        }
-        if (entry.sensitive) {
-            local.update { it.copy(pendingSensitiveCopy = entry) }
             return
         }
         copy(entry)
@@ -165,13 +145,7 @@ class ClipboardVM : ViewModel() {
         }
     }
 
-    fun confirmSensitiveCopy() {
-        val entry = local.value.pendingSensitiveCopy ?: return
-        local.update { it.copy(pendingSensitiveCopy = null) }
-        copy(entry)
-    }
 
-    fun dismissSensitiveCopy() = local.update { it.copy(pendingSensitiveCopy = null) }
 
     fun togglePin(entry: ClipboardEntry) {
         viewModelScope.launch {
@@ -179,11 +153,6 @@ class ClipboardVM : ViewModel() {
         }
     }
 
-    fun pinSession(entry: ClipboardEntry) {
-        viewModelScope.launch {
-            runCatching { ClipboardCenter.pinFromSession(entry.id) }
-        }
-    }
 
     fun delete(entry: ClipboardEntry) {
         viewModelScope.launch { runCatching { ClipboardCenter.remove(entry.id) } }

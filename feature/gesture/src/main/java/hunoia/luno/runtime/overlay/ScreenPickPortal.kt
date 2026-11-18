@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.PortalReleaseMode
 import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.runtime.recognition.RecognitionAction
 import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.gesture.R
 import hunoia.luno.ui.theme.CapsuleShape
@@ -67,7 +70,7 @@ import kotlin.math.roundToInt
  * 动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]；
  * [Ocr] 只在拿得到 a11y 节点 bounds 时出现（a11y 取不到文本时的兜底取字）。
  */
-enum class PortalAction { Copy, Search, Share, Save, OpenLink, Ocr }
+enum class PortalAction { Copy, Search, Share, Float, Save, OpenLink, Ocr }
 
 /** 一次长按识别出的内容：文字节点、图片节点或二维码（三者都为空 = 识别中 / 无可取内容）。 */
 internal data class PortalContent(
@@ -117,6 +120,7 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
             add(PortalAction.Copy)
             add(PortalAction.Search)
             add(PortalAction.Share)
+            add(PortalAction.Float)
             if (!content.url.isNullOrBlank()) add(PortalAction.OpenLink)
         }
     }
@@ -130,6 +134,8 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
         add(PortalAction.Copy)
         if (hasText) add(PortalAction.Search)
         add(PortalAction.Share)
+        // 悬浮显示：文本与图片都给（图片落一份缓存副本再挂窗，不进历史 / 图库）。
+        if (hasText || hasImage) add(PortalAction.Float)
         if (hasImage) add(PortalAction.Save)
         if (hasText && !content.url.isNullOrBlank()) add(PortalAction.OpenLink)
     }
@@ -439,6 +445,7 @@ private fun PortalAction.icon(): ImageVector = when (this) {
     PortalAction.Copy -> Icons.Default.ContentCopy
     PortalAction.Search -> Icons.Default.Search
     PortalAction.Share -> Icons.Default.Share
+    PortalAction.Float -> Icons.Default.PushPin
     PortalAction.Save -> Icons.Default.SaveAlt
     PortalAction.OpenLink -> Icons.AutoMirrored.Filled.OpenInNew
     PortalAction.Ocr -> Icons.Default.TextFields
@@ -450,21 +457,28 @@ private fun PortalAction.label(): String = stringResource(
         PortalAction.Copy -> R.string.screen_pick_portal_copy
         PortalAction.Search -> R.string.screen_pick_portal_search
         PortalAction.Share -> R.string.screen_pick_portal_share
+        PortalAction.Float -> R.string.screen_pick_portal_float
         PortalAction.Save -> R.string.screen_pick_portal_save
         PortalAction.OpenLink -> R.string.screen_pick_portal_open_link
         PortalAction.Ocr -> R.string.screen_pick_portal_ocr
     },
 )
 
-/** 建议槽按识别器输出选图标：复制 / 打开链接 / 分享 / 动作。 */
-private fun PortalSlot.Suggestion.iconOf(): ImageVector = when {
-    suggested.action != null -> Icons.Default.Android
-    else -> when (suggested.builtin) {
-        RecognitionBuiltin.Copy -> Icons.Default.ContentCopy
-        RecognitionBuiltin.Share -> Icons.Default.Share
-        RecognitionBuiltin.OpenLink, null -> Icons.AutoMirrored.Filled.OpenInNew
+/**
+ * 建议槽的图标：取识别器给出的**动作集首位**（不再自己判输出类型）。
+ *
+ * 动作集首位就是这条结果的主语义：复制类给复制、链接给打开、动作输出给动作、
+ * 岛给通知。`null`（老数据没有 output 派生）退回「打开」，与内置链接规则一致。
+ */
+private fun PortalSlot.Suggestion.iconOf(): ImageVector =
+    when (suggested.actions.firstOrNull()) {
+        RecognitionAction.Copy -> Icons.Default.ContentCopy
+        RecognitionAction.Open -> Icons.AutoMirrored.Filled.OpenInNew
+        RecognitionAction.Share -> Icons.Default.Share
+        RecognitionAction.Run -> Icons.Default.Android
+        RecognitionAction.Notify -> Icons.Default.Notifications
+        null -> Icons.AutoMirrored.Filled.OpenInNew
     }
-}
 
 /** 格子的可读标签：内容动作取本地化动作名，建议槽取规则名（空则兜底「建议」）。 */
 @Composable

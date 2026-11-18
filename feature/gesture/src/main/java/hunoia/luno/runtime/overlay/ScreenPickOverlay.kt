@@ -183,6 +183,14 @@ class ScreenPickOverlay(
     ) -> Boolean = { _, _, _, _, _ -> false },
     /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
     private val onAnnotate: (Bitmap) -> Boolean = { false },
+    /**
+     * 悬浮显示落点（`:app` 注入）：把一段文字 / 一张 JPEG 钉到屏幕上。
+     *
+     * 返回 false = 宿主不在跑或没有悬浮窗权限。识屏层不直连 `:feature:floatball`
+     * （模块规则禁止），所以只能经门面注入。
+     */
+    private val onFloatText: ((String) -> Boolean)? = null,
+    private val onFloatImage: ((ByteArray) -> Boolean)? = null,
     /** 识屏自身参数（OCR 文字体系 / 松手去向）：`:app` 注入运行时配置。 */
     private val screenPickSettings: () -> hunoia.luno.config.model.ScreenPickSettings = {
         hunoia.luno.config.model.ScreenPickSettings()
@@ -1086,8 +1094,26 @@ class ScreenPickOverlay(
                     PortalAction.Copy -> {
                         val text = content.text
                         if (!text.isNullOrBlank()) {
-                            ClipboardCenter.writeTextImmediate(text, SCREEN_PICK_LABEL)
-                            showToast(hunoia.luno.design.R.string.copied)
+                            // 与识别器同一个复制口：「复制后清除剪贴板」的延迟设置对识屏也生效。
+                            val ok = recognition().execute(
+                                item = RecognizedItem(
+                                    ruleId = hunoia.luno.config.model.RecognitionDefaults.CopyRuleId,
+                                    ruleName = "",
+                                    value = text,
+                                    urls = emptyList(),
+                                    output = RecognitionOutput.Builtin(RecognitionBuiltin.CopyAndClear),
+                                ),
+                                settings = recognitionSettings(),
+                                label = SCREEN_PICK_LABEL,
+                                idempotencyKey = "screenpick:${portalSession}:copy",
+                            )
+                            showToast(
+                                if (ok) {
+                                    hunoia.luno.design.R.string.copied
+                                } else {
+                                    R.string.screen_pick_failed
+                                },
+                            )
                         } else if (imageBounds != null) {
                             if (!copyImageRegion(AndroidRect(imageBounds), capture)) {
                                 showToast(R.string.screen_pick_failed)
@@ -1113,6 +1139,17 @@ class ScreenPickOverlay(
                             }
                         } else {
                             showToast(R.string.screen_pick_no_content)
+                        }
+                    }
+                    PortalAction.Float -> {
+                        val text = content.text
+                        when {
+                            !text.isNullOrBlank() -> floatText(text)
+                            imageBounds != null ->
+                                if (!floatImageRegion(AndroidRect(imageBounds), capture)) {
+                                    showToast(R.string.screen_pick_failed)
+                                }
+                            else -> showToast(R.string.screen_pick_no_content)
                         }
                     }
                     PortalAction.Save -> {
@@ -1571,6 +1608,32 @@ class ScreenPickOverlay(
         ClipboardCenter.copyImage(uri, label = SCREEN_PICK_LABEL)
         showToast(R.string.screen_pick_image_saved)
         true
+    }
+
+    /**
+     * 悬浮显示文本：钉到屏幕上的一条临时内容（不进剪贴板历史，也不写系统剪贴板）。
+     *
+     * 走 `ClipFloatFacade`（`:app` 注入）而不是直连浮球服务：识屏层在 `:feature:gesture`，
+     * 不该认识 `:feature:floatball`（模块规则也不允许）。
+     */
+    private fun floatText(text: String) {
+        val ok = onFloatText?.invoke(text) ?: false
+        showToast(if (ok) R.string.screen_pick_floated else R.string.screen_pick_failed)
+    }
+
+    /** 悬浮显示图片：裁剪后按 JPEG 字节交给悬浮窗宿主（识屏没有可共享的 URI）。 */
+    private suspend fun floatImageRegion(
+        rect: AndroidRect,
+        capture: PickCapture? = null,
+    ): Boolean = withCropped(rect, capture) { bitmap ->
+        val jpeg = withContext(Dispatchers.IO) {
+            java.io.ByteArrayOutputStream().use { out ->
+                if (bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)) out.toByteArray() else null
+            }
+        } ?: return@withCropped false
+        val ok = onFloatImage?.invoke(jpeg) ?: false
+        showToast(if (ok) R.string.screen_pick_floated else R.string.screen_pick_failed)
+        ok
     }
 
     private fun shareImage(uri: Uri) {

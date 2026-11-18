@@ -404,13 +404,19 @@ fun RecognitionRuleEditScreen(
         }
         // ---- 输出 ----
         LunoGroup(title = stringResource(R.string.recognition_rule_output_group)) {
-            val isAction = output is RecognitionOutput.Action
-            val rows = if (isAction) 3 else 2
+            val extraRows = when (output) {
+                is RecognitionOutput.Action -> 2
+                is RecognitionOutput.Notify -> 3
+                is RecognitionOutput.Builtin -> 1
+            }
+            val rows = extraRows + 1
             val outputOptions = listOf(
                 R.string.recognition_output_copy,
+                R.string.recognition_output_copy_and_clear,
                 R.string.recognition_output_open_link,
                 R.string.recognition_output_share,
                 R.string.recognition_output_action,
+                R.string.recognition_output_notify,
             )
             LunoDropdownRow(
                 title = stringResource(R.string.recognition_rule_output_kind),
@@ -418,18 +424,23 @@ fun RecognitionRuleEditScreen(
                 selectedIndex = when (val o = output) {
                     is RecognitionOutput.Builtin -> when (o.kind) {
                         RecognitionBuiltin.Copy -> 0
-                        RecognitionBuiltin.OpenLink -> 1
-                        RecognitionBuiltin.Share -> 2
+                        RecognitionBuiltin.CopyAndClear -> 1
+                        RecognitionBuiltin.OpenLink -> 2
+                        RecognitionBuiltin.Share -> 3
                     }
-                    is RecognitionOutput.Action -> 3
+                    is RecognitionOutput.Action -> 4
+                    is RecognitionOutput.Notify -> 5
                 },
                 onSelect = { index ->
                     output = when (index) {
                         0 -> RecognitionOutput.Builtin(RecognitionBuiltin.Copy)
-                        1 -> RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink)
-                        2 -> RecognitionOutput.Builtin(RecognitionBuiltin.Share)
-                        else -> (output as? RecognitionOutput.Action)
+                        1 -> RecognitionOutput.Builtin(RecognitionBuiltin.CopyAndClear)
+                        2 -> RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink)
+                        3 -> RecognitionOutput.Builtin(RecognitionBuiltin.Share)
+                        4 -> (output as? RecognitionOutput.Action)
                             ?: RecognitionOutput.Action(StoredAction(typeId = ""))
+                        else -> (output as? RecognitionOutput.Notify)
+                            ?: RecognitionOutput.Notify()
                     }
                 },
                 shape = segmentedShape(0, rows),
@@ -439,6 +450,33 @@ fun RecognitionRuleEditScreen(
                     text = stringResource(o.kind.hintRes()),
                     shape = segmentedShape(1, rows),
                 )
+                is RecognitionOutput.Notify -> {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.recognition_notify_auto_expand),
+                        subtitle = stringResource(R.string.recognition_notify_auto_expand_hint),
+                        checked = o.spec.autoExpand,
+                        onCheckedChange = {
+                            output = RecognitionOutput.Notify(o.spec.copy(autoExpand = it))
+                        },
+                        shape = segmentedShape(1, rows),
+                    )
+                    LunoDropdownRow(
+                        title = stringResource(R.string.recognition_notify_expand_seconds),
+                        options = listOf(3, 5, 10).map { "$it 秒" },
+                        selectedIndex = listOf(3, 5, 10)
+                            .indexOf(o.spec.expandedSeconds).coerceAtLeast(0),
+                        onSelect = { index ->
+                            output = RecognitionOutput.Notify(
+                                o.spec.copy(expandedSeconds = listOf(3, 5, 10)[index]),
+                            )
+                        },
+                        shape = segmentedShape(2, rows),
+                    )
+                    RecognitionHintRow(
+                        text = stringResource(R.string.recognition_notify_hint),
+                        shape = segmentedShape(3, rows),
+                    )
+                }
                 is RecognitionOutput.Action -> {
                     val actionLabel = if (o.action.typeId.isBlank()) {
                         stringResource(R.string.recognition_rule_action_none)
@@ -651,6 +689,7 @@ private fun RecognitionHintRow(
 
 private fun RecognitionBuiltin.hintRes(): Int = when (this) {
     RecognitionBuiltin.Copy -> R.string.recognition_output_copy_hint
+    RecognitionBuiltin.CopyAndClear -> R.string.recognition_output_copy_and_clear_hint
     RecognitionBuiltin.OpenLink -> R.string.recognition_output_open_link_hint
     RecognitionBuiltin.Share -> R.string.recognition_output_share
 }

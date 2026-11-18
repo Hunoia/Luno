@@ -143,9 +143,8 @@ object ShizukuClipboard {
                 ClipData.newPlainText("Luno", content.text).also { data ->
                     data.description.extras = android.os.PersistableBundle().apply {
                         putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
-                        if (content.sensitive) {
-                            putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
-                        }
+                        // 与直写路径同口径：一律打敏感标记，阻挡后台静默读取。
+                        putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
                     }
                 }
             }.getOrNull()

@@ -11,8 +11,8 @@ import android.net.Uri
  */
 interface ClipboardFacade {
 
-    /** 写文本（[sensitive] = true 时打系统敏感标记）；返回是否写入成功。 */
-    suspend fun copyText(text: String, label: String, sensitive: Boolean = false): Boolean
+    /** 写文本到系统剪贴板；返回是否写入成功。 */
+    suspend fun copyText(text: String, label: String): Boolean
 
     /**
      * 对图片条目拉起 OCR 结果页（引擎在 `:app` 侧懒加载，结果页后台识别）。

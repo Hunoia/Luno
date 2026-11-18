@@ -106,6 +106,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         onAnnotate = { bitmap ->
             hunoia.luno.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
         },
+        // 悬浮显示：识屏层只提交内容，窗口归浮球宿主（同一 :service 进程，直接进程内调用）。
+        onFloatText = { text -> hunoia.luno.runtime.floatball.FloatBallService.showTransientText(this, text) },
+        onFloatImage = { jpeg -> hunoia.luno.runtime.floatball.FloatBallService.showTransientImage(this, jpeg) },
         screenPickSettings = {
             if (::gestureCoordinator.isInitialized) {
                 gestureCoordinator.currentScreenPickSettings()

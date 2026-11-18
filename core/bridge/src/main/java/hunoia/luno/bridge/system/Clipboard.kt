@@ -23,22 +23,41 @@ fun readClipboardContentDetailed(context: Context): ClipboardContent? = runCatch
 /**
  * 写文本到系统剪贴板。
  *
- * [sensitive] 为 true 时打系统敏感标记，并让 `ClipboardManager` 预遮蔽预览；
- * 无论敏感与否都打 Luno 自写标记（`SelfWriteGuard`），避免复制动作自己弹气泡。
+ * 一律打 `IS_SENSITIVE` 系统标记：挡住了其他应用后台静默读取，也让系统预览遮蔽。
+ * Luno 自己读回来时不再据此区分处理（历史一律进库，见 `ClipboardCenter`）。
+ * 同时打 Luno 自写标记（`SelfWriteGuard`），避免复制动作自己弹气泡。
  * 返回是否写入成功。
  */
 fun writeTextToClipboard(
     context: Context,
     label: String,
     text: String,
-    sensitive: Boolean,
 ): Boolean = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
     val clip = ClipData.newPlainText(label, text)
-    clip.description.extras = writeExtras(sensitive)
+    clip.description.extras = writeExtras(sensitive = true)
     clipboard.setPrimaryClip(clip)
     SelfWriteGuard.markText(text)
+    true
+}.getOrDefault(false)
+
+/**
+ * 若系统剪贴板当前**仍是** [expected] 这段文本，则清空它；否则什么都不做。
+ *
+ * 用于「复制后自动清除」：用户在这段时间里又复制了别的内容时，绝不能把别人的东西擦掉。
+ * 返回是否真的清空了。
+ */
+fun clearTextIfUnchanged(context: Context, expected: String): Boolean = runCatching {
+    if (expected.isEmpty()) return@runCatching false
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching false
+    if (!clipboard.hasPrimaryClip()) return@runCatching false
+    val current = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: return@runCatching false
+    if (current != expected) return@runCatching false
+    // 写一段空文本再清：部分 ROM 不接受 setPrimaryClip(null)。
+    clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+    clipboard.clearPrimaryClip()
     true
 }.getOrDefault(false)
 
@@ -64,10 +83,7 @@ private fun writeExtras(sensitive: Boolean): PersistableBundle = PersistableBund
 
 /** 剪贴板内容：只处理纯文本与图片，其余（URI / Intent 等）不参与捕获。 */
 sealed interface ClipboardContent {
-    data class Text(
-        val text: String,
-        val sensitive: Boolean = false,
-    ) : ClipboardContent
+    data class Text(val text: String) : ClipboardContent
 
     data class Image(
         val uri: Uri,
@@ -80,13 +96,7 @@ internal fun ClipData.toClipboardContent(): ClipboardContent? {
     val item = getItemAt(0) ?: return null
     // 只认纯文本：coerceToText 会把图片 URI 也转成字符串，胶囊会弹一条 content:// 长串。
     val rawText = item.text?.toString() ?: item.htmlText?.toString()
-    if (rawText != null) {
-        return ClipboardContent.Text(
-            text = rawText,
-            sensitive = description.extras
-                ?.getBoolean(ClipDescriptionExtras.IS_SENSITIVE) == true,
-        )
-    }
+    if (rawText != null) return ClipboardContent.Text(rawText)
     val uri = item.uri ?: return null
     val mime = description?.getMimeType(0).orEmpty()
     if (!mime.startsWith("image/")) return null

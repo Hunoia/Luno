@@ -29,6 +29,8 @@ class FeatureConfigBoundaryTest {
         "feature/annotate/src/main/java/hunoia/luno/annotate/store/AnnotateSettingsCenter.kt",
         "feature/link/src/main/java/hunoia/luno/recognition/AppRecognitionHost.kt",
         "feature/link/src/main/java/hunoia/luno/recognition/RecognitionLinks.kt",
+        // 识别器通知要读通用通知设置的岛参数（断网时长 / 外发光），与其它通知器同口径。
+        "feature/link/src/main/java/hunoia/luno/recognition/RecognitionNotifier.kt",
         "feature/appcontrol/src/main/java/hunoia/luno/domain/appcontrol/AppControlCenter.kt",
     )
 

@@ -24,13 +24,11 @@ import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.PortalReleaseMode
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.OcrModelState
 import hunoia.luno.facade.PpModelUiState
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -52,7 +50,11 @@ import hunoia.luno.ui.component.PressTextButton
  * 识屏诊断：一键探测「识别区开关 → Shizuku → 触摸设备」，结果弹窗展示。
  */
 @Composable
-fun ScreenPickSettingsScreen(onBack: () -> Unit) {
+fun ScreenPickSettingsScreen(
+    onBack: () -> Unit,
+    /** 识别器页（取字参数 / 二维码 / 松手去向 / 规则表）。 */
+    onNavToRecognition: () -> Unit = {},
+) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val ocrModels by facades.ocrModels.state.collectAsStateWithLifecycle()
@@ -107,48 +109,18 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                         TuneConfig.updateAdvanced { it.copy(screenPickSaveToGallery = checked) }
                     }
                 },
-                shape = segmentedShape(0, 2),
-            )
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_enable_qr),
-                subtitle = stringResource(R.string.screen_pick_enable_qr_hint),
-                checked = initialSettings.screenPick.enableQrRecognition,
-                onCheckedChange = { checked ->
-                    scope.launch {
-                        GestureConfig.updateInitial {
-                            it.copy(screenPick = it.screenPick.copy(enableQrRecognition = checked))
-                        }
-                    }
-                },
-                shape = segmentedShape(1, 2),
+                shape = segmentedShape(0, 1),
             )
         }
-        // ===== 手势：幽灵卡松手去向 =====
-        LunoGroup(title = stringResource(R.string.screen_pick_settings_gesture_group)) {
-            LunoDropdownRow(
-                title = stringResource(R.string.screen_pick_release_mode),
-                subtitle = stringResource(R.string.screen_pick_portal_toolbar_hint),
-                options = listOf(
-                    stringResource(R.string.screen_pick_release_cancel),
-                    stringResource(R.string.screen_pick_release_stay),
-                ),
-                selectedIndex = when (initialSettings.screenPick.portalReleaseMode) {
-                    PortalReleaseMode.Cancel -> 0
-                    PortalReleaseMode.StayInPicker -> 1
-                },
-                onSelect = { index ->
-                    val mode = if (index == 0) {
-                        PortalReleaseMode.Cancel
-                    } else {
-                        PortalReleaseMode.StayInPicker
-                    }
-                    scope.launch {
-                        GestureConfig.updateInitial {
-                            it.copy(screenPick = it.screenPick.copy(portalReleaseMode = mode))
-                        }
-                    }
-                },
-                shape = segmentedShape(0, 0),
+        // ===== 识别规则与取字参数 =====
+        // 松手去向 / OCR 文字体系 / 二维码是识别器的输入侧参数，统一在识别器页；
+        // 这里只留指向（与建议胶囊页同一交互）。
+        LunoGroup(title = stringResource(R.string.screen_pick_recognition_group)) {
+            LunoSettingsRow(
+                title = stringResource(hunoia.luno.link.R.string.recognition_title),
+                subtitle = stringResource(R.string.screen_pick_recognition_hint),
+                shape = segmentedShape(0, 1),
+                onClick = onNavToRecognition,
             )
         }
         // ===== 识屏诊断 =====

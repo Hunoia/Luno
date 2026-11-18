@@ -14,6 +14,7 @@
     <string name="screen_pick_image_copied">Image copied</string>
     <string name="screen_pick_image_saved">Image saved to gallery</string>
     <string name="screen_pick_no_content">No copyable content detected</string>
+    <string name="screen_pick_floated">Shown as floating card</string>
     <string name="screen_pick_qr">QR code</string>
     <string name="screen_pick_qr_label">QR code</string>
     <string name="screen_pick_barcode_label">Barcode</string>
@@ -25,6 +26,7 @@
     <string name="screen_pick_portal_copy">Copy</string>
     <string name="screen_pick_portal_search">Search</string>
     <string name="screen_pick_portal_share">Send to app</string>
+    <string name="screen_pick_portal_float">Float on screen</string>
     <string name="screen_pick_portal_save">Save</string>
     <string name="screen_pick_portal_open_link">Open link</string>
     <string name="screen_pick_portal_ocr">OCR recognize</string>

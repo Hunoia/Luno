@@ -285,12 +285,10 @@ private fun HistoryRow(
                         text = { Text(stringResource(R.string.grid_panel_clipboard_copy)) },
                         onClick = { menuOpen = false; onCopy() },
                     )
-                    if (!entry.sensitive) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.grid_panel_clipboard_float)) },
-                            onClick = { menuOpen = false; onFloat() },
-                        )
-                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.grid_panel_clipboard_float)) },
+                        onClick = { menuOpen = false; onFloat() },
+                    )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.grid_panel_clipboard_delete)) },
                         onClick = { menuOpen = false; onDelete() },

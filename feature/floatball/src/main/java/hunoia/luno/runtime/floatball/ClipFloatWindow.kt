@@ -45,6 +45,12 @@ internal data class ClipFloatContent(
     val imagePath: String?,
     val mime: String?,
     val imageFile: File?,
+    /**
+     * true = 临时内容（识屏工具条「悬浮显示」），不对应剪贴板历史条目。
+     *
+     * 只影响收尾：图片副本在关窗时删除；复制/粘贴仍走普通路径。
+     */
+    val temporary: Boolean = false,
 )
 
 /**
@@ -88,6 +94,9 @@ internal class ClipFloatWindow(
     private var exitingRoot: FrameLayout? = null
 
     private val contentState = mutableStateOf<ClipFloatContent?>(null)
+
+    /** 最近一次展示的内容：关窗时据此清掉临时副本（[ClipFloatContent.temporary]）。 */
+    private var transientContent: ClipFloatContent? = null
 
     /** 停靠侧：0 正常 / -1 左缘 / 1 右缘。停靠时窗口被推出屏幕，只留一段可见。 */
     private val peekState = mutableIntStateOf(ClipFloatPeekNone)
@@ -134,6 +143,10 @@ internal class ClipFloatWindow(
     fun show(newContent: ClipFloatContent, newSettings: ClipFloatSettings) {
         settings = newSettings.coerced()
         liftState.value = false
+        // 换内容：旧的临时副本（如果上一条是临时内容）就此作废，不必等关窗。
+        transientContent?.takeIf { it.temporary && it.imageFile != newContent.imageFile }
+            ?.imageFile?.let { runCatching { it.delete() } }
+        transientContent = newContent
         if (attached) {
             contentState.value = newContent
             applyGeometry()
@@ -209,6 +222,11 @@ internal class ClipFloatWindow(
         barState.value = false
         liftState.value = false
         peekState.intValue = ClipFloatPeekNone
+        // 临时内容没有历史条目兜底：窗口没了就该把副本删掉，别把缓存留成垃圾。
+        transientContent?.takeIf { it.temporary }?.let { old ->
+            old.imageFile?.let { runCatching { it.delete() } }
+        }
+        transientContent = null
         positionAnimator?.cancel()
         positionAnimator = null
         if (v != null) {

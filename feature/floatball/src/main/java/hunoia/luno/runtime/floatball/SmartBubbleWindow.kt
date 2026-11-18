@@ -75,6 +75,7 @@ import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionItem
 import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.recognition.RecognitionAction
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.CapsuleShape
@@ -1127,24 +1128,31 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         SuggestionAction.CLOSE -> Icons.Default.Close
     }
 
+    /**
+     * 行菜单：只翻译识别器给出的 [RecognitionAction]，不再自己判输出类型。
+     *
+     * 顺序固定（主张作在前 → 复制 → 分享 → 打开 → 忽略 → 关闭），与识屏工具条的建议槽同源。
+     */
     private fun menuActions(item: SuggestionItem): List<SuggestionAction> {
+        val derived = item.recognized?.actions.orEmpty()
         val actions = mutableListOf<SuggestionAction>()
-        when (item.action) {
-            SuggestionPrimaryAction.OPEN -> if (item.urls.isNotEmpty()) {
-                actions += SuggestionAction.OPEN
-            }
-
-            SuggestionPrimaryAction.SHARE -> actions += SuggestionAction.SHARE
-            // 动作输出：主动作是「跑动作」，两侧的复制/分享仍按值是否可分享补上。
-            SuggestionPrimaryAction.COPY, SuggestionPrimaryAction.RUN_ACTION -> Unit
+        // 主张作（点卡片正面执行的那个）永远排第一，用户已经习惯了它的位置。
+        val primary = item.primaryAction().takeIf { it != SuggestionAction.IGNORE }
+        when (primary) {
+            SuggestionAction.OPEN -> if (item.urls.isNotEmpty()) actions += SuggestionAction.OPEN
+            SuggestionAction.SHARE -> actions += SuggestionAction.SHARE
+            else -> Unit
         }
-        if (SuggestionAction.COPY !in actions) actions += SuggestionAction.COPY
-        if (item.urls.isNotEmpty() && SuggestionAction.SHARE !in actions) {
+        if (RecognitionAction.Copy in derived && SuggestionAction.COPY !in actions) {
+            actions += SuggestionAction.COPY
+        }
+        if (RecognitionAction.Share in derived && SuggestionAction.SHARE !in actions) {
             actions += SuggestionAction.SHARE
         }
-        if (item.urls.isNotEmpty() && SuggestionAction.OPEN !in actions) {
+        if (RecognitionAction.Open in derived && SuggestionAction.OPEN !in actions) {
             actions += SuggestionAction.OPEN
         }
+        if (SuggestionAction.COPY !in actions) actions += SuggestionAction.COPY
         actions += SuggestionAction.IGNORE
         actions += SuggestionAction.CLOSE
         return actions
@@ -1162,7 +1170,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         } else {
             Icon(
                 imageVector = when {
-                    item.sensitive -> Icons.Default.Lock
+                    item.fromCapture -> Icons.Default.Lock
                     item.urls.isNotEmpty() -> Icons.Default.Link
                     else -> Icons.Default.ContentCopy
                 },

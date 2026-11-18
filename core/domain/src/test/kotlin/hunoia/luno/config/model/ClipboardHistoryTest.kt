@@ -7,8 +7,8 @@ import org.junit.Test
 
 class ClipboardHistoryTest {
 
-    private fun text(value: String, pinned: Boolean = false, sensitive: Boolean = false) =
-        ClipboardEntry(kind = ClipKind.TEXT, text = value, pinned = pinned, sensitive = sensitive)
+    private fun text(value: String, pinned: Boolean = false) =
+        ClipboardEntry(kind = ClipKind.TEXT, text = value, pinned = pinned)
 
     private fun image(name: String) =
         ClipboardEntry(kind = ClipKind.IMAGE, imagePath = name, mime = "image/png")
@@ -168,28 +168,28 @@ class ClipboardHistoryTest {
     }
 
     @Test
-    fun `export excludes images and sensitive entries`() {
+    fun `export excludes images but keeps every text entry`() {
         val out = ClipboardHistory()
             .record(image("a.jpg"), now = 1L)
-            .record(text("secret", pinned = true, sensitive = true), now = 2L)
+            .record(text("code", pinned = true), now = 2L)
             .record(text("fixed", pinned = true), now = 3L)
             .record(text("plain"), now = 4L)
 
         val exported = out.exportableEntries()
-        assertEquals(listOf("plain", "fixed"), exported.map { it.text })
+        assertEquals(listOf("plain", "fixed", "code"), exported.map { it.text })
         assertFalse(exported.first().pinned)
         assertTrue(exported.last().pinned)
     }
 
     @Test
-    fun `search pool excludes sensitive entries even when pinned`() {
+    fun `search pool includes pinned and history text alike`() {
         val out = ClipboardHistory()
             .record(text("visible", pinned = true), now = 1L)
-            .record(text("secret", pinned = true, sensitive = true), now = 2L)
+            .record(text("code", pinned = true), now = 2L)
             .record(text("plain"), now = 3L)
 
         val (pinned, history) = out.searchPool()
-        assertEquals(listOf("visible"), pinned)
+        assertEquals(listOf("code", "visible"), pinned)
         assertEquals(listOf("plain"), history)
     }
 

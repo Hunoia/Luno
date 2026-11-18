@@ -12,7 +12,6 @@
     <string name="clipboard_search_results_group">搜索结果</string>
     <string name="clipboard_text_group">文本</string>
     <string name="clipboard_image">图片</string>
-    <string name="clipboard_sensitive_masked">••••••••</string>
     <string name="clipboard_pin">固定</string>
     <string name="clipboard_unpin">取消固定</string>
     <string name="clipboard_share">分享</string>
@@ -24,10 +23,6 @@
     <string name="clipboard_clear_confirm_desc">当前页的未固定项将全部清空，固定项保留，且不可恢复。</string>
     <string name="clipboard_copy_success">已复制</string>
     <string name="clipboard_copy_failed">复制失败</string>
-    <string name="clipboard_sensitive_copy_title">复制敏感内容？</string>
-    <string name="clipboard_sensitive_copy_desc">该内容标记为敏感，确认后才写入系统剪贴板。</string>
-    <string name="clipboard_session_group">本次会话（敏感）</string>
-    <string name="clipboard_session_hint">仅存在内存，固定后才落盘</string>
     <string name="clipboard_pinned_badge">已固定</string>
     <string name="clipboard_float">悬浮显示</string>
     <string name="clipboard_pinned_group">固定</string>

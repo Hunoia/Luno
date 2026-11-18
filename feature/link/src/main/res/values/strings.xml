@@ -75,7 +75,7 @@
     <string name="recognition_source_notification">通知</string>
     <string name="recognition_source_screen_pick">屏幕识别</string>
     <string name="recognition_source_scene">情景识别</string>
-    <string name="recognition_source_external">外部链接</string>
+    <string name="recognition_source_external">外部 Intent</string>
 
     <string name="recognition_source_defaults">按类型取默认</string>
     <string name="recognition_source_all">全选</string>
@@ -105,7 +105,7 @@
     <string name="recognition_output_open_link">打开链接</string>
     <string name="recognition_output_share">分享</string>
     <string name="recognition_output_action">执行动作</string>
-    <string name="recognition_output_copy_hint">非链接按敏感文本写入，不进剪贴板历史</string>
+    <string name="recognition_output_copy_hint">复制到剪贴板并记入应用内历史</string>
     <string name="recognition_output_open_link_hint">多链接进选择页；未命中按全局策略回退</string>
     <string name="recognition_output_action_hint">捕获值可填进参数：%s 已编码 / %q 原样 / {url} {host}</string>
     <string name="recognition_rule_action_pick">选择动作</string>
@@ -147,4 +147,38 @@
 <string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
 <string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
 <string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
+    <string name="recognition_notify_done">完成</string>
+    <string name="recognition_output_copy_and_clear">复制并清除</string>
+    <string name="recognition_output_copy_and_clear_hint">复制后按设定的秒数自动清空系统剪贴板（期间你复制了别的内容则不动）</string>
+    <string name="recognition_output_notify">挂到超级岛</string>
+    <string name="recognition_notify_auto_expand">首发展开大岛</string>
+    <string name="recognition_notify_auto_expand_hint">关掉只在状态栏胶囊里显示摘要</string>
+    <string name="recognition_notify_expand_seconds">大岛停留</string>
+    <string name="recognition_notify_hint">岛上只有一个「完成」按钮，点它收起岛。非小米设备自动降级为普通通知</string>
+    <string name="recognition_copy_clear_delay">复制后清除剪贴板</string>
+    <string name="recognition_copy_clear_delay_hint">只清「复制并清除」这类输出写入的内容；历史仍保留在应用内</string>
+    <string name="recognition_copy_clear_off">不清除</string>
+    <string name="recognition_copy_clear_seconds">%1$d 秒后</string>
+    <string name="recognition_inputs_group">输入</string>
+    <string name="recognition_inputs_hint">规则对哪些内容生效，各来源的开关与行为在对应页面</string>
+    <string name="recognition_source_clipboard_hint">复制内容时识别 · 记录与上限在剪贴板页</string>
+    <string name="recognition_source_notification_hint">通知到达时识别标题与正文 · 监听开关在通知胶囊设置</string>
+    <string name="recognition_source_screen_pick_hint">长按取词 / 框选识别 · 触发方式与图片保存在识屏页</string>
+    <string name="recognition_source_scene_hint">当前界面文本稳定后识别 · 名单在下方情景识别组</string>
+    <string name="recognition_source_external_hint">设为默认浏览器或分享到 Luno 时的入口</string>
+    <string name="recognition_screen_pick_group">识屏取字</string>
+    <string name="recognition_screen_pick_hint">OCR 文字体系与二维码检测；松手未落工具条时的去向</string>
+    <!-- 识屏取字组（参数随识别器页，模型在 :core:domain 的 ScreenPickSettings） -->
+    <string name="screen_pick_release_mode">松手未选择动作时</string>
+    <string name="screen_pick_release_cancel">取消并关闭</string>
+    <string name="screen_pick_release_stay">保留识屏层</string>
+    <string name="screen_pick_enable_qr">识别二维码</string>
+    <string name="screen_pick_enable_qr_hint">长按自动检测 + 框选动作条「二维码」按钮</string>
+    <string name="recognition_ocr_script_zh">中文</string>
+    <string name="recognition_ocr_script_zh_hint">含拉丁字母与数字（中英混排）</string>
+    <string name="recognition_ocr_script_ja">日文</string>
+    <string name="recognition_ocr_script_ja_hint">假名 + 汉字，需日文模型</string>
+    <string name="recognition_ocr_script_ko">韩文</string>
+    <string name="recognition_ocr_script_ko_hint">谚文，需韩文模型</string>
+    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string>
 </resources>
