@@ -302,6 +302,19 @@ class NotificationPulseListener : NotificationListenerService() {
             }.getOrDefault(false)
         }
 
+        /**
+         * 「只显示胶囊」：把 [key] 的通知从通知栏藏起来（snooze 一年），不删除内容。
+         * 供 [cancelPosted] 取消失败（如不可清除的通知）时兜底；返回是否已受理。
+         */
+        fun hidePosted(key: String?): Boolean {
+            if (key.isNullOrBlank()) return false
+            val live = instance ?: return false
+            return runCatching {
+                live.snoozeNotification(key, PersistentNotificationShell.SNOOZE_DURATION_MS)
+                true
+            }.getOrDefault(false)
+        }
+
         /** 同 key 重投的去重窗口（ms）。 */
         private const val DEDUPE_WINDOW_MS = 2_000L
 

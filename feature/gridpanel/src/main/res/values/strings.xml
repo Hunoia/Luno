@@ -198,6 +198,15 @@
     <string name="trend_edit_unit_note">单位只改显示标签，历史数值不会换算。</string>
     <string name="trend_edit_decimals">小数位</string>
     <string name="trend_edit_decimals_value">%1$d 位</string>
+    <string name="trend_edit_values">读数</string>
+    <string name="trend_edit_values_count">%1$d 个</string>
+    <string name="trend_edit_value_name">%1$d 个读数</string>
+    <string name="trend_edit_value_name_hint">如：晨重、晚重</string>
+    <string name="trend_edit_formula">本条内计算</string>
+    <string name="trend_edit_formula_hint">如：#2-#1</string>
+    <string name="trend_edit_formula_note">只算同一条记录里的几个读数：#1、#2 是第 1、2 个读数，支持 + - * / 与括号。</string>
+    <string name="trend_edit_formula_syntax">公式写法有误</string>
+    <string name="trend_edit_formula_placeholder">公式引用了不存在的读数</string>
     <string name="trend_edit_color">颜色</string>
     <string name="trend_edit_target">目标</string>
     <string name="trend_edit_target_hint">留空则不画目标线</string>
@@ -220,7 +229,10 @@
     <string name="trend_summary_since_seven_days">较 7 天前</string>
     <string name="trend_summary_to_target">距目标</string>
     <string name="trend_summary_reached">已达标 · %1$s</string>
+    <string name="trend_summary_formula">本条内计算</string>
     <string name="trend_delta_from_previous">较上次 %1$s</string>
+    <string name="trend_formula_preview">本条内计算 %1$s = %2$s</string>
+    <string name="trend_record_missing_slots">还有读数没填：前面的读数留空时，后面的不能单独填</string>
     <string name="trend_chart_target">目标 %1$s</string>
     <string name="trend_range_7">7 天</string>
     <string name="trend_range_30">30 天</string>

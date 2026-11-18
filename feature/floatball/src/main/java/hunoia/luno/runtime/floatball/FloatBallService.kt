@@ -583,6 +583,27 @@ class FloatBallService : Service() {
     }
 
     /**
+     * 「只显示胶囊」清掉的系统通知 key 集合。
+     *
+     * 开启 `notificationCapsule.hideSystemNotification` 后，进入通知胶囊的系统通知会被我们
+     * cancel/snooze，这必然触发一次 [notificationRemovedObserver] —— 那是**自己的副作用**，
+     * 不是用户滑掉，收件箱项必须保留（胶囊仍要显示它）。此集合记录这类 key，供移除回调
+     * 辨认；真实移除 / 用户滑掉不在此列，照常从收件箱摘项。
+     */
+    private val capsuleHiddenKeys = LinkedHashMap<String, Boolean>()
+
+    private fun rememberCapsuleHidden(key: String) {
+        capsuleHiddenKeys[key] = true
+        // 兜底防增长：cancel/snooze 后系统没回移除事件时 key 会滞留，只保留最近一批。
+        while (capsuleHiddenKeys.size > CAPSULE_HIDDEN_MAX) {
+            capsuleHiddenKeys.remove(capsuleHiddenKeys.keys.first())
+        }
+    }
+
+    /** [key] 是否是我们自己藏起的；命中则摘记并返回 true（调用方跳过收件箱移除）。 */
+    private fun forgetCapsuleHidden(key: String): Boolean = capsuleHiddenKeys.remove(key) == true
+
+    /**
      * 瞬态浮层共用门控：悬浮窗权限 / 总闸 / 非锁屏 / 非面板占用。
      */
     private fun transientOverlayAllowed(): Boolean =
@@ -670,11 +691,24 @@ class FloatBallService : Service() {
             }
 
             is PulseRoute.Notification -> if (!notificationSlot.isDismissed(pulse.key)) {
+                // 「只显示胶囊」：进入胶囊的通知从系统通知栏清掉（失败则藏起），
+                // 只保留胶囊这一条展示路径。副作用（移除回调）由 [capsuleHiddenKeys] 认领。
+                if (settings.notificationCapsule.hideSystemNotification) {
+                    hideSystemNotification(pulse.key)
+                }
                 notificationSlot.enqueue(route.item, makeCurrent = !notificationSlot.manualSession)
             }
 
             PulseRoute.Drop -> Unit
         }
+    }
+
+    /** 「只显示胶囊」：把进入胶囊的通知从系统通知栏清掉；不可清除（常驻）回退为藏起。 */
+    private fun hideSystemNotification(key: String?) {
+        if (key.isNullOrBlank()) return
+        val hid = NotificationPulseListener.cancelPosted(key) ||
+            NotificationPulseListener.hidePosted(key)
+        if (hid) rememberCapsuleHidden(key)
     }
 
     /** 系统通知被移除 → 通知队列同步移除。 */
@@ -686,6 +720,9 @@ class FloatBallService : Service() {
     private fun onNotificationRemovedFromSystem(pulse: NotificationPulse) {
         if (!gestureEnabledSnapshot) return
         val key = pulse.key ?: return
+        // 「只显示胶囊」清掉的通知会触发本回调：这是自己的副作用，收件箱项保留（胶囊仍显示）。
+        // 真实移除（应用取消、用户清通知）不在集合里，照常同步摘项。
+        if (forgetCapsuleHidden(key)) return
         notificationSlot.settleJobs.remove(key)?.cancel()
         notificationSlot.removeById("notif:$key")
     }
@@ -1551,7 +1588,9 @@ class FloatBallService : Service() {
                 onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
             bubble = SmartBubbleWindow(this@FloatBallService).apply {
-                onBodyTapped = { onCapsuleTapped() }
+                // 通知胶囊：多条同屏堆叠；建议胶囊保持翻页（验证码只关心最新一条）。
+                setStackedMode(isNotification)
+                onBodyTapped = { id -> onCapsuleTapped(id) }
                 onSuggestionAction = { id, action -> onSuggestionAction(id, action) }
                 onPageSelected = { id -> onPageSelected(id) }
                 onCollapsed = {
@@ -2079,11 +2118,11 @@ class FloatBallService : Service() {
             select(id)
         }
 
-        fun onCapsuleTapped() {
-            when (val item = state.current) {
+        fun onCapsuleTapped(id: String) {
+            val item = state.items.firstOrNull { it.id == id } ?: state.current ?: return
+            when (item) {
                 is NotificationItem -> openNotificationItem(item)
                 is SuggestionItem -> onSuggestionAction(item.id, item.primaryAction())
-                else -> Unit
             }
         }
 
@@ -2101,6 +2140,8 @@ class FloatBallService : Service() {
             }
             when (item) {
                 is NotificationItem -> {
+                    // 已「只显示胶囊」藏起的通知，滑掉时 key 早已离集合；再摘一次防竞态。
+                    forgetCapsuleHidden(item.notificationKey)
                     if (!NotificationPulseListener.cancelPosted(item.notificationKey)) {
                         Log.w(TAG, "capsule cancel failed pkg=${item.packageName}")
                         return
@@ -2286,6 +2327,7 @@ class FloatBallService : Service() {
         private const val CLIP_POLL_MS = 2_000L
         private const val CAPSULE_SETTLE_MS = 300L
         private const val SETTLE_JOBS_MAX = 16
+        private const val CAPSULE_HIDDEN_MAX = 32
         /** 建议来源的滑掉抑制窗口：与剪贴板 / 情景来源同口径。 */
         private const val SuggestionDismissSuppressMs = 10_000L
         private const val COPIED_FEEDBACK_MS = 1_500L

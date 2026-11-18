@@ -137,37 +137,67 @@ fun downsampleForWidth(
     return result
 }
 
+/** 一条线的绘制数据（多系列时每条线一份）。 */
+data class TrendSeriesData(
+    val points: List<TrendPlotPoint>,
+    val visibleCount: Int,
+)
+
 /**
- * 构建图表数据。
+ * 一张图的绘制数据（可多系列）。
+ *
+ * 所有系列共享同一套 X 视窗（[spanMillis]）与 Y 边界（[valueMin] / [valueMax]）：
+ * 一条记录里的几个读数（晨重 / 晚重）是同一量纲的几组序列，必须同轴同界，
+ * 否则两条线各自拉伸到满幅就看不出差别。[axisTicks] 只算一次。
+ * [series] 顺序与入参一致，每条已按像素桶降采样，仍保持时间升序；降采样只影响画线，不写回配置。
+ */
+data class TrendChartLayout(
+    val series: List<TrendSeriesData>,
+    val valueMin: Double,
+    val valueMax: Double,
+    val targetFractionY: Float?,
+    val axisTicks: List<TrendAxisTick>,
+    val spanMillis: Long,
+) {
+    val hasData: Boolean get() = series.any { it.points.isNotEmpty() }
+}
+
+/**
+ * 构建多系列图表数据。
  *
  * @param widthPx 画布宽度，用于决定降采样桶数；传 0 时按 [defaultWidthPx] 处理。
  */
-fun buildTrendChart(
-    entries: List<TrendEntry>,
+fun buildTrendChartLayout(
+    seriesEntries: List<List<TrendEntry>>,
     range: TrendRange,
     now: Long,
     target: Double?,
     widthPx: Float,
     zone: ZoneId = ZoneId.systemDefault(),
     defaultWidthPx: Float = 360f,
-): TrendChartData {
-    val window = trendWindow(entries, range, now)
+): TrendChartLayout {
+    // 各系列内部按时间升序（视窗取首尾、降采样补首尾都依赖升序），合并后再排一次。
+    val ordered = seriesEntries.map { list -> list.sortedBy { entry -> entry.atMillis } }
+    val window = trendWindow(ordered.flatten(), range, now)
     val span = (window.last - window.first).coerceAtLeast(1L)
-    val visible = entriesInWindow(entries, window)
     val ticks = trendAxisTicks(window, zone)
-    if (visible.isEmpty()) {
-        return TrendChartData(
-            points = emptyList(),
+    val visiblePerSeries = ordered.map { entriesInWindow(it, window) }
+    if (visiblePerSeries.all { it.isEmpty() }) {
+        return TrendChartLayout(
+            series = ordered.map { TrendSeriesData(points = emptyList(), visibleCount = 0) },
             valueMin = 0.0,
             valueMax = 1.0,
             targetFractionY = null,
             axisTicks = ticks,
-            visibleCount = 0,
             spanMillis = span,
         )
     }
-    var minValue = visible.minOf { it.value }
-    var maxValue = visible.maxOf { it.value }
+    var minValue = Double.MAX_VALUE
+    var maxValue = Double.MIN_VALUE
+    visiblePerSeries.flatten().forEach { entry ->
+        minValue = min(minValue, entry.value)
+        maxValue = max(maxValue, entry.value)
+    }
     if (target != null) {
         minValue = min(minValue, target)
         maxValue = max(maxValue, target)
@@ -183,27 +213,67 @@ fun buildTrendChart(
         maxValue += margin
     }
     val valueSpan = maxValue - minValue
-    val sampled = downsampleForWidth(
-        entries = visible,
-        window = window,
-        widthPx = if (widthPx > 0f) widthPx else defaultWidthPx,
-    )
-    val points = sampled.map { entry ->
-        TrendPlotPoint(
-            fractionX = ((entry.atMillis - window.first).toDouble() / span).toFloat().coerceIn(0f, 1f),
-            fractionY = ((maxValue - entry.value) / valueSpan).toFloat().coerceIn(0f, 1f),
-            value = entry.value,
-            atMillis = entry.atMillis,
+    val effectiveWidth = if (widthPx > 0f) widthPx else defaultWidthPx
+    val series = visiblePerSeries.map { visible ->
+        val sampled = downsampleForWidth(
+            entries = visible,
+            window = window,
+            widthPx = effectiveWidth,
+        )
+        TrendSeriesData(
+            points = sampled.map { entry ->
+                TrendPlotPoint(
+                    fractionX = ((entry.atMillis - window.first).toDouble() / span).toFloat().coerceIn(0f, 1f),
+                    fractionY = ((maxValue - entry.value) / valueSpan).toFloat().coerceIn(0f, 1f),
+                    value = entry.value,
+                    atMillis = entry.atMillis,
+                )
+            },
+            visibleCount = visible.size,
         )
     }
-    return TrendChartData(
-        points = points,
+    return TrendChartLayout(
+        series = series,
         valueMin = minValue,
         valueMax = maxValue,
         targetFractionY = target?.let { ((maxValue - it) / valueSpan).toFloat().coerceIn(0f, 1f) },
         axisTicks = ticks,
-        visibleCount = visible.size,
         spanMillis = span,
+    )
+}
+
+/**
+ * 单系列图表数据：多系列的退化形态，小曲线（列表 / 面板部件）用它。
+ *
+ * 与 [buildTrendChartLayout] 共用同一套视窗 / Y 边界 / 降采样逻辑，避免两条口径漂移。
+ */
+fun buildTrendChart(
+    entries: List<TrendEntry>,
+    range: TrendRange,
+    now: Long,
+    target: Double?,
+    widthPx: Float,
+    zone: ZoneId = ZoneId.systemDefault(),
+    defaultWidthPx: Float = 360f,
+): TrendChartData {
+    val layout = buildTrendChartLayout(
+        seriesEntries = listOf(entries),
+        range = range,
+        now = now,
+        target = target,
+        widthPx = widthPx,
+        zone = zone,
+        defaultWidthPx = defaultWidthPx,
+    )
+    val first = layout.series.firstOrNull()
+    return TrendChartData(
+        points = first?.points.orEmpty(),
+        valueMin = layout.valueMin,
+        valueMax = layout.valueMax,
+        targetFractionY = layout.targetFractionY,
+        axisTicks = layout.axisTicks,
+        visibleCount = first?.visibleCount ?: 0,
+        spanMillis = layout.spanMillis,
     )
 }
 

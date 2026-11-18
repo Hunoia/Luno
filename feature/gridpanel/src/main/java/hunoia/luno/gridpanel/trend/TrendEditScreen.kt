@@ -37,9 +37,12 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ColorSource
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.ThemeColorKey
+import hunoia.luno.config.model.TrendFormulaIssue
 import hunoia.luno.config.model.TrendGoalDirection
 import hunoia.luno.config.model.TrendMaxDecimals
+import hunoia.luno.config.model.TrendMaxValues
 import hunoia.luno.config.model.TrendMetric
+import hunoia.luno.config.model.checkTrendFormula
 import hunoia.luno.domain.gridpanel.TrendCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressFilterChip
@@ -129,9 +132,26 @@ private fun TrendEditForm(
     var reminderHour by remember(metric?.id) { mutableIntStateOf(metric?.reminderHour ?: 8) }
     var reminderMinute by remember(metric?.id) { mutableIntStateOf(metric?.reminderMinute ?: 0) }
     var createdAt by remember(metric?.id) { mutableStateOf(metric?.createdAt ?: System.currentTimeMillis()) }
+    // 读数槽位：单值指标历史上存的是空列表，这里统一补到 1 个，UI 上就是「1」。
+    var valueNames by remember(metric?.id) {
+        mutableStateOf(
+            (metric?.valueNames.orEmpty()).let { names ->
+                List(maxOf(1, names.size)) { index -> names.getOrNull(index).orEmpty() }
+            },
+        )
+    }
+    var formula by remember(metric?.id) { mutableStateOf(metric?.formula.orEmpty()) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    /** 增减读数槽位：只追加 / 截断空名，已有的名字不动。 */
+    fun setValueCount(count: Int) {
+        valueNames = valueNames.toMutableList().also { list ->
+            if (count < list.size) list.subList(count, list.size).clear()
+            while (list.size < count) list += ""
+        }
+    }
 
     fun save() {
         val trimmedName = name.trim()
@@ -144,6 +164,18 @@ private fun TrendEditForm(
             showToast(R.string.trend_edit_target_invalid)
             return
         }
+        val formulaText = formula.trim()
+        val formulaIssue = checkTrendFormula(formulaText, valueNames.size)
+        if (formulaIssue != null) {
+            showToast(
+                when (formulaIssue) {
+                    TrendFormulaIssue.SYNTAX -> R.string.trend_edit_formula_syntax
+                    TrendFormulaIssue.BAD_PLACEHOLDER -> R.string.trend_edit_formula_placeholder
+                },
+            )
+            return
+        }
+        val names = valueNames.map { it.trim() }
         val base = metric ?: TrendMetric(createdAt = createdAt)
         val updated = base.copy(
             name = trimmedName,
@@ -157,6 +189,9 @@ private fun TrendEditForm(
             reminderEnabled = reminderEnabled,
             reminderHour = reminderHour,
             reminderMinute = reminderMinute,
+            // 单值指标存空列表（历史口径），多值才落槽位名，`valueCount` 由此派生。
+            valueNames = if (names.size <= 1) emptyList() else names,
+            formula = formulaText,
         )
         scope.launch {
             if (metric == null) TrendCenter.addMetric(updated) else TrendCenter.updateMetric(updated)
@@ -261,6 +296,63 @@ private fun TrendEditForm(
                     }
                 }
             }
+        }
+        LunoGroup(title = stringResource(R.string.trend_edit_values)) {
+            val valueRowCount = valueNames.size
+            LunoGroupItem(shape = segmentedShape(0, valueRowCount)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = PageGutter, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                ) {
+                    (1..TrendMaxValues).forEach { count ->
+                        PressFilterChip(
+                            selected = valueNames.size == count,
+                            onClick = { setValueCount(count) },
+                            label = { Text(stringResource(R.string.trend_edit_values_count, count)) },
+                        )
+                    }
+                }
+            }
+            // 第 1 个槽位不命名（记录面板只显示单位），只有多值时才需要给后面的槽位起名。
+            for (index in 1 until valueNames.size) {
+                LunoCardInput(
+                    value = valueNames[index],
+                    onValueChange = { newValue ->
+                        valueNames = valueNames.toMutableList().also { it[index] = newValue }
+                    },
+                    label = stringResource(R.string.trend_edit_value_name, index + 1),
+                    placeholder = stringResource(R.string.trend_edit_value_name_hint),
+                    shape = segmentedShape(index, valueRowCount),
+                )
+            }
+        }
+        LunoGroup(title = stringResource(R.string.trend_edit_formula)) {
+            val formulaIssue = if (formula.isNotBlank()) {
+                checkTrendFormula(formula.trim(), valueNames.size)
+            } else {
+                null
+            }
+            LunoCardInput(
+                value = formula,
+                onValueChange = { formula = it },
+                placeholder = stringResource(R.string.trend_edit_formula_hint),
+                supportingText = if (formulaIssue == null) {
+                    stringResource(R.string.trend_edit_formula_note)
+                } else {
+                    stringResource(
+                        when (formulaIssue) {
+                            TrendFormulaIssue.SYNTAX -> R.string.trend_edit_formula_syntax
+                            TrendFormulaIssue.BAD_PLACEHOLDER -> R.string.trend_edit_formula_placeholder
+                        },
+                    )
+                },
+                isError = formulaIssue != null,
+                shape = segmentedShape(0, 1),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+            )
         }
         LunoGroup(title = stringResource(R.string.trend_edit_color)) {
             LunoSettingsRow(

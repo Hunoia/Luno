@@ -50,6 +50,8 @@
     <string name="float_ball_suggestion_capacity">建议队列容量</string>
     <string name="float_ball_notification_follow_hand">通知球跟手换边</string>
     <string name="float_ball_notification_follow_hand_subtitle">触钮碰哪侧，通知球就挪到哪侧</string>
+    <string name="float_ball_capsule_hide_system">隐藏系统通知</string>
+    <string name="float_ball_capsule_hide_system_subtitle">只显示通知胶囊，不在通知栏出现</string>
 
 
     <string name="float_ball_color">球颜色</string>
@@ -80,6 +82,6 @@
     <string name="clip_float_copied">已复制</string>
     <string name="clip_float_copy_failed">复制失败</string>
     <string name="clip_float_text">文本</string>
-    <string name="float_ball_suggestion_recognition">识别器</string>
+    <string name="float_ball_suggestion_recognition">分发规则</string>
     <string name="float_ball_suggestion_recognition_hint">输入 → 规则 → 输出的统一规则表</string>
 </resources>

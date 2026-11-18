@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 /**
  * 识屏 OCR 可用的文字体系。
  *
- * ML Kit 的中文模型同时覆盖拉丁字母（中英混排），因此没有单独的 Latin 项；
- * 日文/韩文各用各自模型，命中后再按脚本匹配度去重合并（见 `:capability:ocr`）。
+ * PP-OCRv6 用**单一模型**（统一 50 语言字符表）覆盖中文 / 日文 / 韩文 / 拉丁，
+ * 脚本只作为结果块的标签（用于去重打分），不再选不同模型。
  */
 @Serializable
 @Keep

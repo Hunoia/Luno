@@ -1,7 +1,6 @@
 package hunoia.luno.gridpanel.trend
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.toColor
@@ -62,7 +62,7 @@ fun TrendPickerDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
+                            .pressClickable {
                                 onSelect(metric)
                                 dismiss()
                             }

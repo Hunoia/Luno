@@ -50,6 +50,8 @@
     <string name="float_ball_suggestion_capacity">Suggestion queue capacity</string>
     <string name="float_ball_notification_follow_hand">Follow hand to switch sides</string>
     <string name="float_ball_notification_follow_hand_subtitle">Notification ball moves to the side the gesture button touches</string>
+    <string name="float_ball_capsule_hide_system">Hide system notification</string>
+    <string name="float_ball_capsule_hide_system_subtitle">Only show the capsule; don\'t keep it in the notification shade</string>
 
 
     <string name="float_ball_color">Ball color</string>
@@ -80,6 +82,6 @@
     <string name="clip_float_copied">Copied</string>
     <string name="clip_float_copy_failed">Copy failed</string>
     <string name="clip_float_text">Text</string>
-    <string name="float_ball_suggestion_recognition">Recognizer</string>
+    <string name="float_ball_suggestion_recognition">Dispatch rules</string>
     <string name="float_ball_suggestion_recognition_hint">One rule table for input → rule → output</string>
 </resources>

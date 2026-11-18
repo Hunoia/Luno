@@ -28,7 +28,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.config.model.TrendEntry
+import hunoia.luno.config.model.TrendFormulaResult
 import hunoia.luno.config.model.TrendMetric
+import hunoia.luno.config.model.evaluateTrendFormula
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressIconButton
@@ -41,38 +43,51 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * 已保存记录的编辑：只允许改数值，时间显示为只读。
+ * 已保存记录的编辑：只允许改读数，时间显示为只读。
  *
  * 删除单独二次确认；确认文案明确「只删这一条，不影响指标」。
+ *
+ * 行数取 `max(当前槽位数, 该条已有的读数个数)`：指标后来减了槽位时，旧记录多出的读数仍然
+ * 看得见、改得掉，不会被静默裁掉。
  */
 @Composable
 fun TrendEntryEditSheet(
     metric: TrendMetric,
     entry: TrendEntry,
     onDismiss: () -> Unit,
-    onSave: (Double) -> Unit,
+    onSave: (readings: List<Double>) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var text by remember(entry.id) {
-        mutableStateOf(formatTrendValue(entry.value, metric.safeDecimals))
+    val existing = entry.readings
+    val rowCount = maxOf(metric.valueCount, existing.size)
+    val showSlotLabel = rowCount > 1
+    var texts by remember(entry.id, rowCount) {
+        mutableStateOf(
+            List(rowCount) { index ->
+                existing.getOrNull(index)?.let { formatTrendValue(it, metric.safeDecimals) } ?: ""
+            },
+        )
     }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
+    val focusRequesters = remember(rowCount) { List(rowCount) { FocusRequester() } }
     val timeLabel = remember(entry.atMillis) {
         Instant.ofEpochMilli(entry.atMillis)
             .atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
     }
-    val parsed = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
+    val readings = parseTrendReadings(texts, metric.safeDecimals)
+    val formula = remember(readings) {
+        if (metric.formula.isBlank()) null else evaluateTrendFormula(readings ?: emptyList(), metric.formula, rowCount)
+    }
 
     fun submit() {
-        val value = parsed ?: return
-        onSave(roundTrendValue(value, metric.safeDecimals))
+        val values = readings ?: return
+        onSave(values)
         onDismiss()
     }
 
     LaunchedEffect(entry.id) {
-        runCatching { focusRequester.requestFocus() }
+        runCatching { focusRequesters.firstOrNull()?.requestFocus() }
     }
 
     LunoSheet(onDismissRequest = onDismiss) {
@@ -104,21 +119,52 @@ fun TrendEntryEditSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                trailingIcon = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
-                shape = MaterialTheme.shapes.large,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-            )
+            texts.forEachIndexed { index, text ->
+                val isLast = index == rowCount - 1
+                // 与记录面板同一口径：单值指标用指标名做标签，多值指标用槽位名。
+                val slotLabel = if (showSlotLabel) trendSlotLabel(metric, index) else metric.name
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { newValue ->
+                        texts = texts.toMutableList().also { it[index] = newValue }
+                    },
+                    singleLine = true,
+                    label = { Text(slotLabel) },
+                    trailingIcon = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
+                    shape = MaterialTheme.shapes.large,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = if (isLast) ImeAction.Done else ImeAction.Next,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { submit() },
+                        onNext = {
+                            if (!isLast) runCatching { focusRequesters[index + 1].requestFocus() }
+                        },
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequesters[index]),
+                )
+            }
+            if (readings == null) {
+                Text(
+                    text = stringResource(R.string.trend_record_missing_slots),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            if (formula != null) {
+                val formulaText = when (formula) {
+                    is TrendFormulaResult.Ok -> formatTrendValue(formula.value, metric.safeDecimals) + metric.unit
+                    else -> "—"
+                }
+                Text(
+                    text = stringResource(R.string.trend_formula_preview, metric.formula.trim(), formulaText),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ListSpacing),
@@ -128,7 +174,7 @@ fun TrendEntryEditSheet(
                 PressTextButton(onClick = onDismiss) {
                     Text(stringResource(hunoia.luno.design.R.string.cancel))
                 }
-                PressButton(onClick = ::submit, enabled = parsed != null) {
+                PressButton(onClick = ::submit, enabled = readings != null) {
                     Text(stringResource(R.string.trend_record_save))
                 }
             }

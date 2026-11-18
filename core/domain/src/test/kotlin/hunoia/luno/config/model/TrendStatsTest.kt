@@ -159,4 +159,65 @@ class TrendStatsTest {
     fun `format epoch day is iso date`() {
         assertEquals("2026-01-10", formatEpochDay(LocalDate.of(2026, 1, 10).toEpochDay()))
     }
+
+    // ---------- 多读数槽位投影 ----------
+
+    private fun reading(id: String, day: Int, values: List<Double>, hour: Int = 9) =
+        trendEntry(at(day, hour), values, id = id)
+
+    @Test
+    fun `series projection keeps only the requested slot`() {
+        val entries = listOf(
+            reading("a", 1, listOf(70.0, 68.0)),
+            reading("b", 2, listOf(70.5)),
+            reading("c", 3, listOf(71.0, 67.0)),
+        )
+        val first = seriesEntries(entries, 0)
+        assertEquals(listOf("a", "b", "c"), first.map { it.id })
+        // 缺该读数的记录被跳过，既不补 0 也不拿别的槽位冒充。
+        val second = seriesEntries(entries, 1)
+        assertEquals(listOf("a", "c"), second.map { it.id })
+        assertEquals(68.0, second.first().value, 0.0001)
+        // 投影后收敛成单元素，`value` 与 `readings` 不分裂。
+        assertEquals(listOf(68.0), second.first().readings)
+        assertEquals(68.0, second.first().readingAt(0)!!, 0.0001)
+        assertNull(second.first().readingAt(1))
+    }
+
+    @Test
+    fun `series projection of a bad slot is empty`() {
+        val entries = listOf(reading("a", 1, listOf(70.0)))
+        assertTrue(seriesEntries(entries, -1).isEmpty())
+        assertTrue(seriesEntries(entries, 5).isEmpty())
+        assertTrue(seriesEntries(emptyList(), 0).isEmpty())
+    }
+
+    @Test
+    fun `stats of a series only see that slot`() {
+        val entries = listOf(
+            reading("a", 1, listOf(70.0, 68.0)),
+            reading("b", 5, listOf(70.0)),
+            reading("c", 10, listOf(70.5, 69.0)),
+        )
+        val first = trendStats(seriesEntries(entries, 0), target = null, TrendGoalDirection.NEUTRAL, zone)
+        val second = trendStats(seriesEntries(entries, 1), target = null, TrendGoalDirection.NEUTRAL, zone)
+        assertEquals(0.5, first.deltaFromPrevious!!, 0.0001)
+        // 「b」只填了第 1 个读数，所以第 2 个槽位的序列跳过它：上次基线回到「a」。
+        assertEquals(1.0, second.deltaFromPrevious!!, 0.0001)
+        assertEquals("a", second.previous?.id)
+        assertEquals("c", first.latest?.id)
+    }
+
+    @Test
+    fun `formula value comes from the latest entry`() {
+        val metric = TrendMetric(formula = "#2-#1", valueNames = listOf("晨重", "晚重"))
+        val latest = reading("e", 3, listOf(70.0, 68.5))
+        assertEquals(-1.5, trendFormulaValue(metric, latest)!!, 0.0001)
+        // 公式为空、没有记录都返回 null。
+        assertNull(trendFormulaValue(metric.copy(formula = ""), latest))
+        assertNull(trendFormulaValue(metric, null))
+        // 该条记录缺 #2（只填了前缀）算不出，不是报错。
+        assertNull(trendFormulaValue(metric, reading("p", 3, listOf(70.0))))
+        assertNull(trendFormulaValue(TrendMetric(formula = "#1/0"), latest))
+    }
 }

@@ -22,9 +22,9 @@ object TrendCenter {
     suspend fun addEntry(metricId: String, entry: TrendEntry): Boolean =
         ConfigProvider.addTrendEntry(metricId, entry)
 
-    /** 只改数值，时间不可改（趋势不支持补录）。 */
-    suspend fun updateEntryValue(metricId: String, entryId: String, value: Double) =
-        ConfigProvider.updateTrendEntryValue(metricId, entryId, value)
+    /** 只改读数（时间不可改，趋势不支持补录）；单值指标传只有一个元素的列表。 */
+    suspend fun updateEntryReadings(metricId: String, entryId: String, readings: List<Double>) =
+        ConfigProvider.updateTrendEntryReadings(metricId, entryId, readings)
 
     suspend fun deleteEntry(metricId: String, entryId: String) =
         ConfigProvider.deleteTrendEntry(metricId, entryId)

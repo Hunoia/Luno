@@ -24,6 +24,8 @@ import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.PortalReleaseMode
+import hunoia.luno.config.model.ScreenPickSettings
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.OcrModelState
 import hunoia.luno.facade.PpModelUiState
@@ -32,6 +34,7 @@ import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AnchoredDialog
@@ -52,12 +55,18 @@ import hunoia.luno.ui.component.PressTextButton
 @Composable
 fun ScreenPickSettingsScreen(
     onBack: () -> Unit,
-    /** 识别器页（取字参数 / 二维码 / 松手去向 / 规则表）。 */
+    /** 分发规则页（规则表 / 情景识别）。 */
     onNavToRecognition: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val ocrModels by facades.ocrModels.state.collectAsStateWithLifecycle()
+    // 识屏取字参数（二维码 / 松手去向）在识别器门面：模型在 :core:domain 的 ScreenPickSettings。
+    val screenPick by facades.recognitionSettings.screenPickSettings
+        .collectAsStateWithLifecycle(initialValue = ScreenPickSettings())
+    fun updateScreenPick(transform: (ScreenPickSettings) -> ScreenPickSettings) {
+        scope.launch { facades.recognitionSettings.updateScreenPick(transform) }
+    }
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(
         initialValue = InitialSettings(),
     )
@@ -113,14 +122,53 @@ fun ScreenPickSettingsScreen(
             )
         }
         // ===== 识别规则与取字参数 =====
-        // 松手去向 / OCR 文字体系 / 二维码是识别器的输入侧参数，统一在识别器页；
-        // 这里只留指向（与建议胶囊页同一交互）。
+        // 松手去向 / 二维码是识别后的参数，统一在本页；规则表与情景识别在分发规则页。
         LunoGroup(title = stringResource(R.string.screen_pick_recognition_group)) {
             LunoSettingsRow(
                 title = stringResource(hunoia.luno.link.R.string.recognition_title),
                 subtitle = stringResource(R.string.screen_pick_recognition_hint),
                 shape = segmentedShape(0, 1),
                 onClick = onNavToRecognition,
+            )
+        }
+        // ===== 识屏取字（二维码 / 松手去向）=====
+        // v6 单一模型覆盖 50 语言（中 / 日 / 韩 / 拉丁），文字体系无需选择，只留这两个参数。
+        LunoGroup(
+            title = stringResource(hunoia.luno.link.R.string.recognition_screen_pick_group),
+            subtitle = stringResource(hunoia.luno.link.R.string.recognition_screen_pick_hint),
+        ) {
+            LunoSwitchRow(
+                title = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr),
+                subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr_hint),
+                checked = screenPick.enableQrRecognition,
+                onCheckedChange = { checked ->
+                    updateScreenPick { it.copy(enableQrRecognition = checked) }
+                },
+                shape = segmentedShape(0, 2),
+            )
+            LunoDropdownRow(
+                title = stringResource(hunoia.luno.link.R.string.screen_pick_release_mode),
+                subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_portal_toolbar_hint),
+                options = listOf(
+                    stringResource(hunoia.luno.link.R.string.screen_pick_release_cancel),
+                    stringResource(hunoia.luno.link.R.string.screen_pick_release_stay),
+                ),
+                selectedIndex = when (screenPick.portalReleaseMode) {
+                    PortalReleaseMode.Cancel -> 0
+                    PortalReleaseMode.StayInPicker -> 1
+                },
+                onSelect = { index ->
+                    updateScreenPick {
+                        it.copy(
+                            portalReleaseMode = if (index == 0) {
+                                PortalReleaseMode.Cancel
+                            } else {
+                                PortalReleaseMode.StayInPicker
+                            },
+                        )
+                    }
+                },
+                shape = segmentedShape(1, 2),
             )
         }
         // ===== 识屏诊断 =====

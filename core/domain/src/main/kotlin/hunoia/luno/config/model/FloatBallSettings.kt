@@ -167,6 +167,8 @@ data class NotificationCapsuleSettings(
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
     /** 应用黑名单：这些包的通知不弹胶囊。 */
     val blocklist: List<String> = emptyList(),
+    /** 开启后：进入通知胶囊的系统通知从通知栏隐藏/清掉，只显示胶囊。 */
+    val hideSystemNotification: Boolean = FloatBallDefaults.CapsuleHideSystemNotification,
     /** 用户滑掉后，同 key 的通知在 [dismissSuppressMs] 内再次更新也不再弹。 */
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
@@ -270,6 +272,9 @@ object FloatBallDefaults {
     const val CapsuleDismissSuppressMs = 10_000L
     const val CapsuleDismissSuppressMsMin = 3_000L
     const val CapsuleDismissSuppressMsMax = 60_000L
+
+    /** 通知胶囊：「只显示胶囊」开关默认值（关：系统通知照常显示在通知栏）。 */
+    const val CapsuleHideSystemNotification = false
 
     /** 剪贴板球：自动收起时长默认值与滑杆上下限（ms）。 */
     const val ClipboardBallAutoHideMs = 5_000L

@@ -120,6 +120,19 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var pageHeightPx by mutableIntStateOf(0)
     private var capsuleWidthPx by mutableIntStateOf(0)
 
+    /**
+     * 堆叠模式（通知胶囊）：多条通知同时显示，窗口随条数变高，不翻页、不显示页数徽标。
+     * 单条时高度与普通模式一致。
+     */
+    private var stacked by mutableStateOf(false)
+
+    /** 最近一次按下所在行（堆叠模式点按路由到具体那条通知）。 */
+    private var tappedItemId: String? = null
+
+    /** 窗口实际高度：堆叠 = 可见条数 × 单行高；普通 = 单行高。 */
+    private val windowHeightPx: Int
+        get() = if (stacked) min(items.size, MaxStacked) * pageHeightPx else pageHeightPx
+
     /** 长按后当前页展开的动作行；null = 普通内容。 */
     private var menuItemId by mutableStateOf<String?>(null)
 
@@ -164,8 +177,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         onLongPress = { handleLongPress() },
     )
 
-    /** 正文点按（通知直达 / 建议主动作）。 */
-    var onBodyTapped: (() -> Unit)? = null
+    /** 正文点按（通知直达 / 建议主动作）。[String] 是点中的条目 id（堆叠模式路由到具体行）。 */
+    var onBodyTapped: ((String) -> Unit)? = null
 
     /** 建议动作行 / 主动作回调。 */
     var onSuggestionAction: ((String, SuggestionAction) -> Unit)? = null
@@ -190,6 +203,15 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     fun updateSettings(next: FloatBallSettings) {
         settings = next
+    }
+
+    /** 通知胶囊：切换堆叠（多条同屏）模式。已显示时按新条数立即重排窗口高。 */
+    fun setStackedMode(enabled: Boolean) {
+        if (stacked == enabled) return
+        stacked = enabled
+        if (enabled && items.size > 1) {
+            view?.let { updateWindowLayout(it) }
+        }
     }
 
     fun isPinned(): Boolean = items.getOrNull(currentIndex)?.pinned == true
@@ -218,6 +240,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             currentIndex = index.coerceIn(0, items.lastIndex)
             offsetPx = 0f
             lastReportedId = items[currentIndex].id
+        }
+        // 堆叠模式：条数变化会改变窗口高，立即重排。
+        if (stacked) {
+            view?.let { updateWindowLayout(it) }
         }
     }
 
@@ -330,7 +356,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 startMorphIn(v)
             }
         }
-        if (!wm.safeAddView(created, capsuleLayoutParams(capsuleWidthPx, pageHeightPx))) {
+        if (!wm.safeAddView(created, capsuleLayoutParams(capsuleWidthPx, windowHeightPx))) {
             Log.e(TAG, "capsule addView failed (overlay permission or window rejected)")
             this.items = emptyList()
             return false
@@ -507,6 +533,14 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             settleAnimator?.cancel()
             settleAnimator = null
             hitTarget = resolveHitTarget(v, event.x)
+            // 堆叠模式：点按要路由到按下所在的那一行（通知）。普通模式取当前页。
+            tappedItemId = if (stacked) {
+                val row = (event.y / pageHeightPx.coerceAtLeast(1)).toInt()
+                    .coerceIn(0, min(items.size, MaxStacked) - 1)
+                items.getOrNull(row)?.id
+            } else {
+                items.getOrNull(currentIndex)?.id
+            }
             velocityTracker?.recycle()
             velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
         } else {
@@ -522,6 +556,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
         return handled
     }
+
+    private fun currentTapId(): String? = tappedItemId ?: items.getOrNull(currentIndex)?.id
 
     private fun recycleVelocity() {
         velocityTracker?.recycle()
@@ -550,7 +586,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 if (item is SuggestionItem) {
                     onSuggestionAction?.invoke(item.id, item.primaryAction())
                 } else {
-                    onBodyTapped?.invoke()
+                    val id = currentTapId() ?: return
+                    onBodyTapped?.invoke(id)
                 }
             }
 
@@ -565,7 +602,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     return
                 }
                 hitTarget = HitTarget.Body
-                onBodyTapped?.invoke()
+                val id = currentTapId() ?: return
+                onBodyTapped?.invoke(id)
             }
         }
     }
@@ -590,7 +628,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             val actionStart = v.width - DensityProvider.dp2px(ActionHitDp)
             if (x >= actionStart) return HitTarget.Action
         }
-        val countWidth = if (items.size > 1) DensityProvider.dp2px(CountHitDp) else 0
+        // 堆叠模式不显示页数徽标，右侧没有 Count 命中区。
+        val countWidth = if (stacked || items.size <= 1) 0 else DensityProvider.dp2px(CountHitDp)
         return when {
             items.size > 1 && x >= v.width - countWidth -> HitTarget.Count
             else -> HitTarget.Body
@@ -603,12 +642,19 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (dragAxis == DragAxis.NONE &&
             (abs(dragDx) > touchSlop || abs(dragDy) > touchSlop)
         ) {
-            dragAxis = if (abs(dragDx) > abs(dragDy)) DragAxis.HORIZONTAL else DragAxis.VERTICAL
+            // 堆叠模式不翻页：竖向拖动无意义，只保留横向收起 / 滑掉。
+            dragAxis = if (abs(dragDx) > abs(dragDy)) {
+                DragAxis.HORIZONTAL
+            } else if (stacked) {
+                DragAxis.NONE
+            } else {
+                DragAxis.VERTICAL
+            }
             if (dragAxis == DragAxis.HORIZONTAL) offsetPx = 0f
         }
         val v = view ?: return
         when (dragAxis) {
-            DragAxis.VERTICAL -> {
+            DragAxis.VERTICAL -> if (!stacked) {
                 // 连续跟手：允许一次滑过多条；两端直接停住，不露出空白槽位。
                 offsetPx += dy
                 normalizeOffset()
@@ -773,9 +819,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private fun updateWindowLayout(v: View) {
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
-        if (lp.width == capsuleWidthPx && lp.height == pageHeightPx) return
+        if (lp.width == capsuleWidthPx && lp.height == windowHeightPx) return
         lp.width = capsuleWidthPx
-        lp.height = pageHeightPx
+        lp.height = windowHeightPx
         wm.safeUpdateViewLayout(v, lp)
     }
 
@@ -788,7 +834,13 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         } else {
             anchor.left.coerceIn(0, (screenW - capsuleWidthPx).coerceAtLeast(0))
         }
-        writeBallPosition(v, wm, x.toFloat(), anchor.top.toFloat(), lpOriginY)
+        // 堆叠更高：球贴近底边时窗口会伸出屏外，把顶边夹回屏内（胶囊与球之间留出空隙）。
+        val height = if (v.height > 0) v.height else windowHeightPx
+        var top = anchor.top
+        if (stacked) {
+            top = min(top, (DensityProvider.screenHeightPx - height).coerceAtLeast(0))
+        }
+        writeBallPosition(v, wm, x.toFloat(), top.toFloat(), lpOriginY)
     }
 
     private fun screenOriginY(v: View): Int {
@@ -860,6 +912,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             if (list.isEmpty() || pageHeightPx <= 0) return@SideGestureTheme
             val density = LocalDensity.current
             val pageHeight = with(density) { pageHeightPx.toDp() }
+            if (stacked) {
+                StackedCapsule(list = list, pageHeight = pageHeight)
+                return@SideGestureTheme
+            }
             val base = currentIndex
             Box(modifier = Modifier.fillMaxSize()) {
                 // 每页独立按相对位置摆放：base 页落在窗口原点，前后各留一页跟手。
@@ -879,6 +935,62 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                             )
                         },
                     )
+                }
+            }
+        }
+    }
+
+    /**
+     * 堆叠模式：整窗一个胶囊容器，[MaxStacked] 条最新通知同时显示（最旧一条可被截断）。
+     * 行高 = [pageHeight]，无翻页偏移、无页数徽标；点按按行路由（见 [handleTouch]）。
+     */
+    @Composable
+    private fun StackedCapsule(list: List<BallItem>, pageHeight: androidx.compose.ui.unit.Dp) {
+        val accent = settings.colorSpec.toMarkColor()
+        val contentColor = if (accent.luminance() > 0.5f) Color.Black else Color.White
+        val density = LocalDensity.current
+        val iconSize = with(density) {
+            min(pageHeight.value - 16f, 24f).coerceAtLeast(16f).dp
+        }
+        // 胶囊角色（§2.1.1）：连续曲率胶囊，半径随高度自适应。整窗一个容器，行内不再各自裁形。
+        val shape = CapsuleShape
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true }
+                .clip(shape)
+                .background(accent.copy(alpha = BubbleBackgroundAlpha))
+                .border(1.dp, contentColor.copy(alpha = 0.22f), shape)
+                .padding(horizontal = 10.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            list.take(MaxStacked).forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(pageHeight),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    when (item) {
+                        is NotificationItem -> NotificationContent(
+                            item = item,
+                            contentColor = contentColor,
+                            iconSize = iconSize,
+                            // total=1：不显示页数徽标（全部可见）。
+                            index = 0,
+                            total = 1,
+                        )
+
+                        is SuggestionItem -> SuggestionContent(
+                            item = item,
+                            contentColor = contentColor,
+                            iconSize = iconSize,
+                            index = 0,
+                            total = 1,
+                            copied = copiedItemId == item.id,
+                        )
+                    }
                 }
             }
         }
@@ -1236,6 +1348,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val TAG = LOG_TAG
         const val EnterFallbackMs = 260L
         const val MaxOriginDp = 200f
+
+        /** 堆叠模式（通知胶囊）最多同时显示的条数：再多只显示最新几条。 */
+        const val MaxStacked = 3
 
         const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f

@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 /**
  * 建议胶囊设置页：只管**胶囊自己**（显示 / 跟手 / 停留时长 / 队列 / 图标）。
  *
- * 识别规则、链接分发、情景识别都在识别器页（`RecognitionSettingsScreen`）：
+ * 识别规则、链接分发、情景识别都在分发规则页（`RecognitionSettingsScreen`）：
  * 胶囊只负责把识别结果显示出来，不再拥有一份自己的规则表。
  */
 @Composable
@@ -238,7 +238,7 @@ fun SuggestionCapsuleSettingsScreen(
             }
         }
 
-        // 识别器（规则表 + 情景识别开关/名单）统一在识别器页：情景识别是识别器的第五个输入源，
+        // 分发规则（规则表 + 情景识别开关/名单）统一在分发规则页：情景识别是第五个输入源，
         // 挂在建议胶囊下会让「按来源配置」散在两处。
         item(key = "recognition") {
             LunoGroup {

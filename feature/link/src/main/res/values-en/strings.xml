@@ -3,7 +3,7 @@
     <string name="link_dispatch_open_failed">No app can open this link</string>
 
     <!-- Recognizer (input → rules → output) -->
-    <string name="recognition_title">Recognizer</string>
+    <string name="recognition_title">Dispatch rules</string>
     <string name="recognition_global_group">Behavior</string>
     <string name="recognition_miss_share">System share sheet</string>
     <string name="recognition_miss_browser">Open in browser</string>
@@ -159,26 +159,13 @@
     <string name="recognition_copy_clear_delay_hint">Only applies to &quot;copy then clear&quot; outputs; history stays in the app</string>
     <string name="recognition_copy_clear_off">Never</string>
     <string name="recognition_copy_clear_seconds">After %1$d s</string>
-    <string name="recognition_inputs_group">Inputs</string>
-    <string name="recognition_inputs_hint">Where rules take effect; per-source switches live on their pages</string>
-    <string name="recognition_source_clipboard_hint">Recognize copied text · history settings on the clipboard page</string>
-    <string name="recognition_source_notification_hint">Recognize title and body · listener toggle in capsule settings</string>
-    <string name="recognition_source_screen_pick_hint">Long-press pick or frame select · triggers on the screen pick page</string>
-    <string name="recognition_source_scene_hint">Recognize settled screen text · allowlist below</string>
-    <string name="recognition_source_external_hint">Entry when Luno is the default browser or a share target</string>
     <string name="recognition_screen_pick_group">Screen text capture</string>
-    <string name="recognition_screen_pick_hint">OCR scripts and QR detection; what happens when the release misses the bar</string>
-    <!-- 识屏取字组（参数随识别器页，模型在 :core:domain 的 ScreenPickSettings） -->
+    <string name="recognition_screen_pick_hint">QR detection; what happens when the release misses the bar</string>
+    <!-- 识屏取字组（二维码 / 松手去向；模型在 :core:domain 的 ScreenPickSettings） -->
     <string name="screen_pick_release_mode">Release without picking an action</string>
     <string name="screen_pick_release_cancel">Cancel and close</string>
     <string name="screen_pick_release_stay">Keep recognition layer</string>
     <string name="screen_pick_enable_qr">Recognize QR code</string>
     <string name="screen_pick_enable_qr_hint">Long-press auto-detect + QR button in selection action bar</string>
-    <string name="recognition_ocr_script_zh">Chinese</string>
-    <string name="recognition_ocr_script_zh_hint">Covers Latin letters and digits (mixed CJK)</string>
-    <string name="recognition_ocr_script_ja">Japanese</string>
-    <string name="recognition_ocr_script_ja_hint">Kana + Kanji; needs the Japanese model</string>
-    <string name="recognition_ocr_script_ko">Korean</string>
-    <string name="recognition_ocr_script_ko_hint">Hangul; needs the Korean model</string>
     <string name="screen_pick_portal_toolbar_hint">Drag to a screen edge to reveal the toolbar; release to run the slot under your finger</string>
 </resources>

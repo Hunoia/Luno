@@ -198,6 +198,15 @@
     <string name="trend_edit_unit_note">The unit is only a display label. Historical values are never converted.</string>
     <string name="trend_edit_decimals">Decimal places</string>
     <string name="trend_edit_decimals_value">%1$d</string>
+    <string name="trend_edit_values">Readings</string>
+    <string name="trend_edit_values_count">%1$d</string>
+    <string name="trend_edit_value_name">Reading %1$d</string>
+    <string name="trend_edit_value_name_hint">e.g. morning, evening</string>
+    <string name="trend_edit_formula">Compute within entry</string>
+    <string name="trend_edit_formula_hint">e.g. #2-#1</string>
+    <string name="trend_edit_formula_note">Readings inside one entry only: #1 and #2 are the 1st and 2nd readings; + - * / and parentheses are supported.</string>
+    <string name="trend_edit_formula_syntax">Invalid formula</string>
+    <string name="trend_edit_formula_placeholder">Formula refers to a reading that does not exist</string>
     <string name="trend_edit_color">Color</string>
     <string name="trend_edit_target">Target</string>
     <string name="trend_edit_target_hint">Leave empty to hide the target line</string>
@@ -220,7 +229,9 @@
     <string name="trend_summary_since_seven_days">vs 7 days ago</string>
     <string name="trend_summary_to_target">to target</string>
     <string name="trend_summary_reached">Goal met · %1$s</string>
+    <string name="trend_summary_formula">Within entry</string>
     <string name="trend_delta_from_previous">%1$s vs last</string>
+    <string name="trend_formula_preview">Within entry %1$s = %2$s</string>
     <string name="trend_chart_target">Target %1$s</string>
     <string name="trend_range_7">7d</string>
     <string name="trend_range_30">30d</string>
@@ -230,6 +241,7 @@
     <string name="trend_record_title">Record %1$s</string>
     <string name="trend_record_now">Now %1$s</string>
     <string name="trend_record_hint">Enter a value</string>
+    <string name="trend_record_missing_slots">Some readings are still empty: an earlier reading cannot be skipped</string>
     <string name="trend_record_save">Save</string>
     <string name="trend_record_add">Add record</string>
     <string name="trend_entry_edit_title">Edit %1$s record</string>

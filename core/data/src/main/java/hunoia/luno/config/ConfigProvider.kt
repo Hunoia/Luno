@@ -284,8 +284,9 @@ object ConfigProvider {
         return added
     }
 
-    suspend fun updateTrendEntryValue(metricId: String, entryId: String, value: Double) {
-        updateTrendConfig { it.updateEntryValue(metricId, entryId, value) }
+    /** 只改一条记录的全部读数；单值指标传只有一个元素的列表。 */
+    suspend fun updateTrendEntryReadings(metricId: String, entryId: String, readings: List<Double>) {
+        updateTrendConfig { it.updateEntryReadings(metricId, entryId, readings) }
     }
 
     suspend fun deleteTrendEntry(metricId: String, entryId: String) {

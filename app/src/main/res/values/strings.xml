@@ -569,5 +569,5 @@
     <!-- 趋势提醒 -->
 
     <string name="screen_pick_recognition_group">识别规则</string>
-    <string name="screen_pick_recognition_hint">取字参数、二维码与松手去向都在识别器页</string>
+    <string name="screen_pick_recognition_hint">规则表与情景识别在分发规则页</string>
 </resources>

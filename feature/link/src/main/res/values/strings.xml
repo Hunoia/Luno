@@ -2,8 +2,8 @@
 <resources>
     <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
 
-    <!-- 识别器（输入 → 规则 → 输出） -->
-    <string name="recognition_title">识别器</string>
+    <!-- 分发规则（规则 → 输出） -->
+    <string name="recognition_title">分发规则</string>
     <string name="recognition_global_group">行为</string>
     <string name="recognition_miss_share">系统分享面板</string>
     <string name="recognition_miss_browser">浏览器打开</string>
@@ -159,26 +159,12 @@
     <string name="recognition_copy_clear_delay_hint">只清「复制并清除」这类输出写入的内容；历史仍保留在应用内</string>
     <string name="recognition_copy_clear_off">不清除</string>
     <string name="recognition_copy_clear_seconds">%1$d 秒后</string>
-    <string name="recognition_inputs_group">输入</string>
-    <string name="recognition_inputs_hint">规则对哪些内容生效，各来源的开关与行为在对应页面</string>
-    <string name="recognition_source_clipboard_hint">复制内容时识别 · 记录与上限在剪贴板页</string>
-    <string name="recognition_source_notification_hint">通知到达时识别标题与正文 · 监听开关在通知胶囊设置</string>
-    <string name="recognition_source_screen_pick_hint">长按取词 / 框选识别 · 触发方式与图片保存在识屏页</string>
-    <string name="recognition_source_scene_hint">当前界面文本稳定后识别 · 名单在下方情景识别组</string>
-    <string name="recognition_source_external_hint">设为默认浏览器或分享到 Luno 时的入口</string>
     <string name="recognition_screen_pick_group">识屏取字</string>
-    <string name="recognition_screen_pick_hint">OCR 文字体系与二维码检测；松手未落工具条时的去向</string>
-    <!-- 识屏取字组（参数随识别器页，模型在 :core:domain 的 ScreenPickSettings） -->
+    <string name="recognition_screen_pick_hint">二维码检测；松手未落工具条时的去向</string>
+    <!-- 识屏取字组（二维码 / 松手去向；模型在 :core:domain 的 ScreenPickSettings） -->
     <string name="screen_pick_release_mode">松手未选择动作时</string>
     <string name="screen_pick_release_cancel">取消并关闭</string>
     <string name="screen_pick_release_stay">保留识屏层</string>
     <string name="screen_pick_enable_qr">识别二维码</string>
     <string name="screen_pick_enable_qr_hint">长按自动检测 + 框选动作条「二维码」按钮</string>
-    <string name="recognition_ocr_script_zh">中文</string>
-    <string name="recognition_ocr_script_zh_hint">含拉丁字母与数字（中英混排）</string>
-    <string name="recognition_ocr_script_ja">日文</string>
-    <string name="recognition_ocr_script_ja_hint">假名 + 汉字，需日文模型</string>
-    <string name="recognition_ocr_script_ko">韩文</string>
-    <string name="recognition_ocr_script_ko_hint">谚文，需韩文模型</string>
-    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string>
-</resources>
+    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string></resources>

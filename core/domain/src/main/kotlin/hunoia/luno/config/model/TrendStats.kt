@@ -65,6 +65,35 @@ fun trendStats(
     )
 }
 
+/**
+ * 投影出第 [index] 个读数槽位的单值序列，供 [trendStats] 与图表几何复用。
+ *
+ * 一条记录可有多个读数（[TrendEntry.values]）；多槽位指标就是「每个槽位一条独立序列」。
+ * 该条记录没有这个读数（槽位是后加的，或当时只填了部分）就**跳过**——不拿别的槽位冒充，
+ * 也不补 0（补 0 会把曲线砸到零轴）。投影后 [TrendEntry.readings] 收敛成单元素，
+ * 保证 `value` 与 `values` 在同一份投影里不分裂。
+ */
+fun seriesEntries(entries: List<TrendEntry>, index: Int): List<TrendEntry> {
+    if (index < 0 || entries.isEmpty()) return emptyList()
+    val result = ArrayList<TrendEntry>(entries.size)
+    entries.forEach { entry ->
+        val value = entry.readingAt(index) ?: return@forEach
+        result += entry.copy(value = value, values = listOf(value))
+    }
+    return result
+}
+
+/**
+ * 最新记录按 [TrendMetric.formula] 算出的值。
+ *
+ * 公式为空、没有记录、公式算不出（缺槽位 / 除零）时返回 null，UI 显示占位态。
+ */
+fun trendFormulaValue(metric: TrendMetric, entry: TrendEntry?): Double? {
+    if (entry == null || metric.formula.isBlank()) return null
+    return (evaluateTrendFormula(entry.readings, metric.formula, metric.valueCount)
+        as? TrendFormulaResult.Ok)?.value
+}
+
 /** 本地日期（epochDay）；趋势图与「当天是否已记录」判断共用。 */
 fun epochDayOf(atMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long =
     Instant.ofEpochMilli(atMillis).atZone(zone).toLocalDate().toEpochDay()
