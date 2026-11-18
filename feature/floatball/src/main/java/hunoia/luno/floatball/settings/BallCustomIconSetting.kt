@@ -37,7 +37,7 @@ internal const val BALL_ICON_DIR = "floatball_icon"
 /**
  * 内容球自定义图标的公共设置件：选图 → 裁剪 → 复制落盘 → 写配置。
  *
- * 通知球与建议球各持有自己的 [BallCustomIcon]，共享同一套交互与渲染路径；
+ * 通知球与结果球各持有自己的 [BallCustomIcon]，共享同一套交互与渲染路径；
  * 主球（[FloatBallEditScreen]）沿用自身的扁平字段，但落盘目录与本文件同源。
  */
 @Stable

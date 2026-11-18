@@ -162,12 +162,12 @@ fun shouldShowNotificationCapsule(
     runtimeState,
 )
 
-/** 剪贴板气泡场景。 */
-fun shouldShowClipboardBall(
+/** 结果胶囊场景。 */
+fun shouldShowResultCapsule(
     initialSettings: InitialSettings,
     runtimeState: GestureRuntimeState?,
 ): Boolean = shouldShowSurface(
-    VisibilityTargets.CLIPBOARD_BALL,
+    VisibilityTargets.RESULT_CAPSULE,
     initialSettings,
     runtimeState,
 )

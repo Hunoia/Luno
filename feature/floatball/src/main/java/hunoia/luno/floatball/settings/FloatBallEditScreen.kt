@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
 /**
  * 悬浮球设置页：只负责主球自身外观与单击动作。
  *
- * 通知胶囊与建议胶囊各自独立成页，从动作设置的「功能」组并列进入。
+ * 通知胶囊与结果胶囊各自独立成页，从动作设置的「功能」组并列进入。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

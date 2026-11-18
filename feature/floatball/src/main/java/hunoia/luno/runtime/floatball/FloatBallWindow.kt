@@ -76,7 +76,7 @@ class FloatBallWindow(
     private val onImeLiftChanged: (Float) -> Unit = {},
     /** 窗口收到 IME insets 事件：服务侧立即轮询一次绝对值（事件值仅作触发信号，不直接采信）。 */
     private val onImeInsetsHint: (Int) -> Unit = {},
-    /** 内容球固定图标（通知球 / 建议球）；null = 按单击动作的图标。 */
+    /** 内容球固定图标（通知球 / 结果球）；null = 按单击动作的图标。 */
     private val fixedIcon: Any? = null,
     /** 无徽标时的内容描述；null = 智能球文案。 */
     private val idleDescription: String? = null,

@@ -48,6 +48,7 @@ import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.SceneListMode
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionDefaults
+import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
@@ -88,9 +89,8 @@ private data class ImportPreview(val rules: List<RecognitionRule>)
 /**
  * 分发规则页：**规则 → 输出**的唯一入口。
  *
- * 取代原来的「链接分发」页与「建议规则」列表：两条规则表本来就该是一张表，
- * 只是来源、匹配方式、输出不同。这里按类型筛选不需要单独页面——规则行自己就写清了
- * 三件事（来源 / 匹配 / 输出）。
+ * 规则表只有一张：来源、匹配方式、输出、呈现档（直执行 / 显示胶囊）都写在一条规则里。
+ * 这里按类型筛选不需要单独页面——规则行自己就写清了这四件事。
  */
 @Composable
 fun RecognitionSettingsScreen(
@@ -366,7 +366,43 @@ fun RecognitionSettingsScreen(
                 )
             }
         }
-        // 情景识别：识别器的第五个输入源，开关与范围都在这里（不再挂在建议胶囊下）。
+        // 读取来源：这是「规则读不读这一路输入」的开关，与结果胶囊显示无关
+        // （胶囊没有自己的开关，有胶囊档结果就会显示）。情景的开关与名单在下面一组。
+        item {
+            LunoGroup(
+                title = stringResource(R.string.recognition_read_group),
+                subtitle = stringResource(R.string.recognition_read_group_hint),
+            ) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_read_notification),
+                    subtitle = stringResource(R.string.recognition_read_notification_hint),
+                    checked = settings.notificationReadEnabled,
+                    onCheckedChange = { checked ->
+                        update { it.copy(notificationReadEnabled = checked) }
+                    },
+                    shape = segmentedShape(0, 3),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_read_clipboard),
+                    subtitle = stringResource(R.string.recognition_read_clipboard_hint),
+                    checked = settings.clipboardReadEnabled,
+                    onCheckedChange = { checked ->
+                        update { it.copy(clipboardReadEnabled = checked) }
+                    },
+                    shape = segmentedShape(1, 3),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.recognition_direct_toast),
+                    subtitle = stringResource(R.string.recognition_direct_toast_hint),
+                    checked = settings.directToastEnabled,
+                    onCheckedChange = { checked ->
+                        update { it.copy(directToastEnabled = checked) }
+                    },
+                    shape = segmentedShape(2, 3),
+                )
+            }
+        }
+        // 情景识别：识别器的第五个输入源，开关与范围都在这里（不再挂在结果胶囊下）。
         item {
             val sceneReady = sceneA11yEnabled(context)
             val shizukuReady = shizukuStatus.isReady
@@ -528,7 +564,6 @@ fun RecognitionSettingsScreen(
     }
 }
 
-/** 列表副标题：「来源 · 匹配 → 输出」。 */
 /** 预设行的副标题：说清它会抓什么、送到哪，不用点进去才知道。 */
 @Composable
 private fun presetSummary(preset: RecognitionRule): String = when (val m = preset.match) {
@@ -543,8 +578,8 @@ private fun presetSummary(preset: RecognitionRule): String = when (val m = prese
 /**
  * 可添加的预设：文本类（验证码 / 取件码 / 快递单号 / 订单号）+ 链接类（本机已安装应用）。
  *
- * 按匹配串判重，用户删掉的默认规则也能从这里加回来。文本预设曾经只存在于建议胶囊里，
- * 合并到识别器后必须在这里一并给出，否则「添加常用规则」只剩链接一项。
+ * 按匹配串判重，用户删掉的默认规则也能从这里加回来。文本预设与链接预设同一入口，
+ * 否则「添加常用规则」只剩链接一项。
  */
 private fun addablePresets(
     context: Context,
@@ -576,21 +611,21 @@ private const val SCENE_A11Y_SERVICE_CLASS = "SideGestureService"
  * 单例槽位在这里永远是 null。改查系统设置 —— `ENABLED_ACCESSIBILITY_SERVICES` 是进程无关的
  * 事实源，权限正常时不再误报「需要无障碍服务」。本模块不能反向依赖 `:app`，类名按字符串比对。
  */
-/**
- * Luno 是不是当前默认浏览器。
- *
- * 页面在 Luno 已是默认浏览器时不再显示「设为默认」入口（点了也没事做）。
- * 用浏览器角色判定（`RoleManager.ROLE_BROWSER`，API 29+），与文件里其它平台调用同一口径。
- */
-private fun isLunoDefaultBrowser(context: Context): Boolean =
-    context.getSystemService(RoleManager::class.java)
-        ?.isRoleHeld(RoleManager.ROLE_BROWSER) ?: false
-
 private fun sceneA11yEnabled(context: Context): Boolean =
     hunoia.luno.bridge.system.AccessibilitySettings.enabledComponents(context).any { component ->
         component.packageName == context.packageName &&
             component.className.substringAfterLast('.') == SCENE_A11Y_SERVICE_CLASS
     }
+
+/**
+ * Luno 是不是当前默认浏览器。
+ *
+ * 已是默认浏览器时页面不再显示「设为默认」入口（点了也没事做）。
+ * 用浏览器角色判定（`RoleManager.ROLE_BROWSER`，API 29+），与文件里其它平台调用同一口径。
+ */
+private fun isLunoDefaultBrowser(context: Context): Boolean =
+    context.getSystemService(RoleManager::class.java)
+        ?.isRoleHeld(RoleManager.ROLE_BROWSER) ?: false
 
 @Composable
 internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?): String {
@@ -632,10 +667,20 @@ internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?)
     }
     val summary = stringResource(R.string.recognition_rule_summary, sources, match, output)
     val link = rule.match as? RecognitionMatch.Link
-    return if (link?.resolveShortLink == true) {
-        summary + stringResource(R.string.recognition_rule_resolve_tag)
+    // 直执行档在列表里必须一眼看得见：它与胶囊档的行为差得最远（点了才有 vs 命中就跑）。
+    val directTag = if (rule.display == RecognitionDisplay.Direct &&
+        rule.output !is RecognitionOutput.Notify
+    ) {
+        stringResource(R.string.recognition_rule_direct_tag)
     } else {
-        summary
+        ""
+    }
+    return buildString {
+        append(summary)
+        append(directTag)
+        if (link?.resolveShortLink == true) {
+            append(stringResource(R.string.recognition_rule_resolve_tag))
+        }
     }
 }
 

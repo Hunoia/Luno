@@ -195,7 +195,7 @@ class ButtonVisibilityPolicyTest {
     fun floatBallDefaultsVisibleWithoutProfile() {
         assertTrue(shouldShowFloatBall(InitialSettings(), state()))
         assertTrue(shouldShowNotificationCapsule(InitialSettings(), state()))
-        assertTrue(shouldShowClipboardBall(InitialSettings(), state()))
+        assertTrue(shouldShowResultCapsule(InitialSettings(), state()))
     }
 
     @Test
@@ -214,7 +214,7 @@ class ButtonVisibilityPolicyTest {
         )
         assertTrue(shouldShowFloatBall(hideNotification, state()))
         assertFalse(shouldShowNotificationCapsule(hideNotification, state()))
-        assertTrue(shouldShowClipboardBall(hideNotification, state()))
+        assertTrue(shouldShowResultCapsule(hideNotification, state()))
 
         val hideClipboard = InitialSettings(
             buttonVisibility = ButtonVisibilitySettings(
@@ -223,14 +223,14 @@ class ButtonVisibilityPolicyTest {
                         id = "clipboard",
                         visible = false,
                         mode = VisibilityTargetMode.ONLY,
-                        targetIds = setOf(VisibilityTargets.CLIPBOARD_BALL),
+                        targetIds = setOf(VisibilityTargets.RESULT_CAPSULE),
                     ),
                 ),
             ),
         )
         assertTrue(shouldShowFloatBall(hideClipboard, state()))
         assertTrue(shouldShowNotificationCapsule(hideClipboard, state()))
-        assertFalse(shouldShowClipboardBall(hideClipboard, state()))
+        assertFalse(shouldShowResultCapsule(hideClipboard, state()))
     }
 
     @Test

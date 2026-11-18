@@ -73,8 +73,8 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
-import hunoia.luno.runtime.floatball.inbox.SuggestionItem
-import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.floatball.inbox.ResultItem
+import hunoia.luno.runtime.floatball.inbox.ResultPrimaryAction
 import hunoia.luno.runtime.recognition.RecognitionAction
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
@@ -94,9 +94,9 @@ import kotlin.math.roundToInt
 /**
  * 统一胶囊：从所属球的位置展开，收起时恢复该球。
  *
- * - 通知胶囊展示普通通知；建议胶囊展示验证码 / 链接。
+ * - 通知胶囊展示未命中的普通通知；结果胶囊展示分发规则的胶囊档结果。
  * - 上下滑是连续轮播；横滑朝球侧 = 收起，反向 = 移除当前项。
- * - 点按 = 执行主动作；建议项长按在胶囊内换成动作行（验证码：复制/忽略；
+ * - 点按 = 执行主动作；结果项长按在胶囊内换成动作行（捕获值：复制/忽略；
  *   链接：打开/复制/分享/忽略）。
  */
 internal class SmartBubbleWindow(private val context: android.content.Context) {
@@ -173,15 +173,15 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             }
         },
         onDragEnded = { finishBodyDrag() },
-        // 长按只用于建议项的动作菜单（通知没有长按行为）。
+        // 长按只用于结果项的动作菜单（通知没有长按行为）。
         onLongPress = { handleLongPress() },
     )
 
-    /** 正文点按（通知直达 / 建议主动作）。[String] 是点中的条目 id（堆叠模式路由到具体行）。 */
+    /** 正文点按（通知直达 / 结果项主动作）。[String] 是点中的条目 id（堆叠模式路由到具体行）。 */
     var onBodyTapped: ((String) -> Unit)? = null
 
-    /** 建议动作行 / 主动作回调。 */
-    var onSuggestionAction: ((String, SuggestionAction) -> Unit)? = null
+    /** 结果项动作行 / 主动作回调。 */
+    var onResultAction: ((String, ResultAction) -> Unit)? = null
 
     /** 轮播停到某一页（id）：服务据此更新收件箱当前项。 */
     var onPageSelected: ((String) -> Unit)? = null
@@ -569,22 +569,22 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         when (val target = hitTarget) {
             is HitTarget.Menu -> {
                 hitTarget = HitTarget.Body
-                if (item is SuggestionItem) {
+                if (item is ResultItem) {
                     val actions = menuActions(item)
                     val action = actions.getOrNull(target.index) ?: return
-                    if (action == SuggestionAction.CLOSE) {
+                    if (action == ResultAction.CLOSE) {
                         menuItemId = null
                     } else {
                         menuItemId = null
-                        onSuggestionAction?.invoke(item.id, action)
+                        onResultAction?.invoke(item.id, action)
                     }
                 }
             }
 
             HitTarget.Action -> {
                 hitTarget = HitTarget.Body
-                if (item is SuggestionItem) {
-                    onSuggestionAction?.invoke(item.id, item.primaryAction())
+                if (item is ResultItem) {
+                    onResultAction?.invoke(item.id, item.primaryAction())
                 } else {
                     val id = currentTapId() ?: return
                     onBodyTapped?.invoke(id)
@@ -608,10 +608,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
     }
 
-    /** 长按：只有建议项有动作（在窗内展开动作行）；通知项无长按行为。 */
+    /** 长按：只有结果项有动作（在窗内展开动作行）；通知项无长按行为。 */
     private fun handleLongPress() {
         val item = items.getOrNull(currentIndex)
-        if (item is SuggestionItem) {
+        if (item is ResultItem) {
             menuItemId = item.id
             copiedItemId = null
         }
@@ -619,12 +619,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private fun resolveHitTarget(v: View, x: Float): HitTarget {
         val item = items.getOrNull(currentIndex)
-        if (item is SuggestionItem && menuItemId == item.id) {
+        if (item is ResultItem && menuItemId == item.id) {
             val count = menuActions(item).size.coerceAtLeast(1)
             val index = ((x / v.width.coerceAtLeast(1)) * count).toInt()
             return HitTarget.Menu(index.coerceIn(0, count - 1))
         }
-        if (item is SuggestionItem) {
+        if (item is ResultItem) {
             val actionStart = v.width - DensityProvider.dp2px(ActionHitDp)
             if (x >= actionStart) return HitTarget.Action
         }
@@ -982,7 +982,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                             total = 1,
                         )
 
-                        is SuggestionItem -> SuggestionContent(
+                        is ResultItem -> ResultContent(
                             item = item,
                             contentColor = contentColor,
                             iconSize = iconSize,
@@ -1027,8 +1027,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (menuOpen && item is SuggestionItem) {
-                SuggestionMenuRow(
+            if (menuOpen && item is ResultItem) {
+                ResultMenuRow(
                     item = item,
                     contentColor = contentColor,
                     iconSize = iconSize,
@@ -1043,7 +1043,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         total = total,
                     )
 
-                    is SuggestionItem -> SuggestionContent(
+                    is ResultItem -> ResultContent(
                         item = item,
                         contentColor = contentColor,
                         iconSize = iconSize,
@@ -1093,21 +1093,21 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     @Composable
-    private fun RowScope.SuggestionContent(
-        item: SuggestionItem,
+    private fun RowScope.ResultContent(
+        item: ResultItem,
         contentColor: Color,
         iconSize: androidx.compose.ui.unit.Dp,
         index: Int,
         total: Int,
         copied: Boolean,
     ) {
-        SuggestionIcon(item = item, contentColor = contentColor, size = iconSize)
+        ResultIcon(item = item, contentColor = contentColor, size = iconSize)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             Text(
-                text = suggestionTitle(item),
+                text = resultTitle(item),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
                 color = contentColor.copy(alpha = 0.95f),
@@ -1116,9 +1116,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             )
             Text(
                 text = if (copied) {
-                    stringResource(R.string.suggestion_copied)
+                    stringResource(R.string.result_copied)
                 } else {
-                    suggestionBody(item)
+                    resultBody(item)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = contentColor.copy(alpha = if (copied) 1f else 0.82f),
@@ -1137,7 +1137,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             )
         } else {
             Text(
-                text = suggestionActionLabel(item),
+                text = resultActionLabel(item),
                 style = MaterialTheme.typography.labelSmall,
                 color = contentColor.copy(alpha = 0.95f),
                 maxLines = 1,
@@ -1164,8 +1164,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     @Composable
-    private fun SuggestionMenuRow(
-        item: SuggestionItem,
+    private fun ResultMenuRow(
+        item: ResultItem,
         contentColor: Color,
         iconSize: androidx.compose.ui.unit.Dp,
     ) {
@@ -1183,7 +1183,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     Icon(
                         imageVector = actionIcon(action),
                         contentDescription = actionDescription(action),
-                        tint = if (action == SuggestionAction.IGNORE) {
+                        tint = if (action == ResultAction.IGNORE) {
                             contentColor.copy(alpha = 0.7f)
                         } else {
                             contentColor
@@ -1196,48 +1196,48 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     @Composable
-    private fun suggestionTitle(item: SuggestionItem): String = item.title
-        .ifBlank { stringResource(R.string.suggestion_generic) }
+    private fun resultTitle(item: ResultItem): String = item.title
+        .ifBlank { stringResource(R.string.result_generic) }
         .let { title ->
             // 链接类规则：标题用目标应用名（「发往 小米浏览器」的信息密度比「链接」高）。
             if (item.urls.isNotEmpty() && item.targetLabel != null) item.targetLabel else title
         }
 
     @Composable
-    private fun suggestionBody(item: SuggestionItem): String {
+    private fun resultBody(item: ResultItem): String {
         if (item.urls.size > 1) {
-            return stringResource(R.string.suggestion_link_count, item.urls.size)
+            return stringResource(R.string.result_link_count, item.urls.size)
         }
         return item.text
     }
 
     @Composable
-    private fun suggestionActionLabel(item: SuggestionItem): String = when (item.action) {
-        SuggestionPrimaryAction.COPY -> stringResource(R.string.suggestion_copy)
-        SuggestionPrimaryAction.SHARE -> stringResource(R.string.suggestion_share)
-        SuggestionPrimaryAction.OPEN -> item.targetLabel?.let {
-            stringResource(R.string.suggestion_open_target, it)
-        } ?: stringResource(R.string.suggestion_open)
+    private fun resultActionLabel(item: ResultItem): String = when (item.action) {
+        ResultPrimaryAction.COPY -> stringResource(R.string.result_copy)
+        ResultPrimaryAction.SHARE -> stringResource(R.string.result_share)
+        ResultPrimaryAction.OPEN -> item.targetLabel?.let {
+            stringResource(R.string.result_open_target, it)
+        } ?: stringResource(R.string.result_open)
         // 动作输出：按规则名当按钮标题（用户配的动作自己起过名字）。
-        SuggestionPrimaryAction.RUN_ACTION -> item.title
-            .ifBlank { stringResource(R.string.suggestion_generic) }
+        ResultPrimaryAction.RUN_ACTION -> item.title
+            .ifBlank { stringResource(R.string.result_generic) }
     }
 
     @Composable
-    private fun actionDescription(action: SuggestionAction): String = when (action) {
-        SuggestionAction.OPEN -> stringResource(R.string.suggestion_open)
-        SuggestionAction.COPY -> stringResource(R.string.suggestion_copy)
-        SuggestionAction.SHARE -> stringResource(R.string.suggestion_share)
-        SuggestionAction.IGNORE -> stringResource(R.string.suggestion_ignore)
-        SuggestionAction.CLOSE -> stringResource(R.string.suggestion_close)
+    private fun actionDescription(action: ResultAction): String = when (action) {
+        ResultAction.OPEN -> stringResource(R.string.result_open)
+        ResultAction.COPY -> stringResource(R.string.result_copy)
+        ResultAction.SHARE -> stringResource(R.string.result_share)
+        ResultAction.IGNORE -> stringResource(R.string.result_ignore)
+        ResultAction.CLOSE -> stringResource(R.string.result_close)
     }
 
-    private fun actionIcon(action: SuggestionAction) = when (action) {
-        SuggestionAction.OPEN -> Icons.AutoMirrored.Filled.OpenInNew
-        SuggestionAction.COPY -> Icons.Default.ContentCopy
-        SuggestionAction.SHARE -> Icons.Default.Share
-        SuggestionAction.IGNORE -> Icons.Default.Block
-        SuggestionAction.CLOSE -> Icons.Default.Close
+    private fun actionIcon(action: ResultAction) = when (action) {
+        ResultAction.OPEN -> Icons.AutoMirrored.Filled.OpenInNew
+        ResultAction.COPY -> Icons.Default.ContentCopy
+        ResultAction.SHARE -> Icons.Default.Share
+        ResultAction.IGNORE -> Icons.Default.Block
+        ResultAction.CLOSE -> Icons.Default.Close
     }
 
     /**
@@ -1245,34 +1245,34 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
      *
      * 顺序固定（主张作在前 → 复制 → 分享 → 打开 → 忽略 → 关闭），与识屏工具条的建议槽同源。
      */
-    private fun menuActions(item: SuggestionItem): List<SuggestionAction> {
+    private fun menuActions(item: ResultItem): List<ResultAction> {
         val derived = item.recognized?.actions.orEmpty()
-        val actions = mutableListOf<SuggestionAction>()
+        val actions = mutableListOf<ResultAction>()
         // 主张作（点卡片正面执行的那个）永远排第一，用户已经习惯了它的位置。
-        val primary = item.primaryAction().takeIf { it != SuggestionAction.IGNORE }
+        val primary = item.primaryAction().takeIf { it != ResultAction.IGNORE }
         when (primary) {
-            SuggestionAction.OPEN -> if (item.urls.isNotEmpty()) actions += SuggestionAction.OPEN
-            SuggestionAction.SHARE -> actions += SuggestionAction.SHARE
+            ResultAction.OPEN -> if (item.urls.isNotEmpty()) actions += ResultAction.OPEN
+            ResultAction.SHARE -> actions += ResultAction.SHARE
             else -> Unit
         }
-        if (RecognitionAction.Copy in derived && SuggestionAction.COPY !in actions) {
-            actions += SuggestionAction.COPY
+        if (RecognitionAction.Copy in derived && ResultAction.COPY !in actions) {
+            actions += ResultAction.COPY
         }
-        if (RecognitionAction.Share in derived && SuggestionAction.SHARE !in actions) {
-            actions += SuggestionAction.SHARE
+        if (RecognitionAction.Share in derived && ResultAction.SHARE !in actions) {
+            actions += ResultAction.SHARE
         }
-        if (RecognitionAction.Open in derived && SuggestionAction.OPEN !in actions) {
-            actions += SuggestionAction.OPEN
+        if (RecognitionAction.Open in derived && ResultAction.OPEN !in actions) {
+            actions += ResultAction.OPEN
         }
-        if (SuggestionAction.COPY !in actions) actions += SuggestionAction.COPY
-        actions += SuggestionAction.IGNORE
-        actions += SuggestionAction.CLOSE
+        if (ResultAction.COPY !in actions) actions += ResultAction.COPY
+        actions += ResultAction.IGNORE
+        actions += ResultAction.CLOSE
         return actions
     }
 
     @Composable
-    private fun SuggestionIcon(
-        item: SuggestionItem,
+    private fun ResultIcon(
+        item: ResultItem,
         contentColor: Color,
         size: androidx.compose.ui.unit.Dp,
     ) {
@@ -1372,8 +1372,8 @@ private fun sameItems(a: List<BallItem>, b: List<BallItem>): Boolean {
     return true
 }
 
-/** 建议胶囊的动作。 */
-internal enum class SuggestionAction {
+/** 结果胶囊的动作。 */
+internal enum class ResultAction {
     OPEN,
     COPY,
     SHARE,
@@ -1381,11 +1381,11 @@ internal enum class SuggestionAction {
     CLOSE,
 }
 
-/** 建议项的主动作：由规则动作决定；创建阶段已把无链接的 OPEN 降级为 COPY。 */
-internal fun SuggestionItem.primaryAction(): SuggestionAction = when (action) {
-    SuggestionPrimaryAction.COPY -> SuggestionAction.COPY
-    SuggestionPrimaryAction.OPEN -> SuggestionAction.OPEN
-    SuggestionPrimaryAction.SHARE -> SuggestionAction.SHARE
+/** 结果项的主动作：由规则动作决定；创建阶段已把无链接的 OPEN 降级为 COPY。 */
+internal fun ResultItem.primaryAction(): ResultAction = when (action) {
+    ResultPrimaryAction.COPY -> ResultAction.COPY
+    ResultPrimaryAction.OPEN -> ResultAction.OPEN
+    ResultPrimaryAction.SHARE -> ResultAction.SHARE
     // 动作输出复用 OPEN 的点击通路：具体跑哪个动作由执行口按 ruleId 取规则决定。
-    SuggestionPrimaryAction.RUN_ACTION -> SuggestionAction.OPEN
+    ResultPrimaryAction.RUN_ACTION -> ResultAction.OPEN
 }

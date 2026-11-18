@@ -36,13 +36,13 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 
 /**
- * 建议胶囊设置页：只管**胶囊自己**（显示 / 跟手 / 停留时长 / 队列 / 图标）。
+ * 结果胶囊设置页：只管**胶囊自己**（跟手 / 静置 / 停留时长 / 队列 / 图标）。
  *
- * 识别规则、链接分发、情景识别都在分发规则页（`RecognitionSettingsScreen`）：
- * 胶囊只负责把识别结果显示出来，不再拥有一份自己的规则表。
+ * 规则表、来源读取开关、直执行提示开关都在分发规则页（`RecognitionSettingsScreen`）：
+ * 结果胶囊是分发规则的**结果显示面**，没有自己的开关，也不拥有一份自己的规则表。
  */
 @Composable
-fun SuggestionCapsuleSettingsScreen(
+fun ResultCapsuleSettingsScreen(
     onBack: () -> Unit,
     onNavToRecognition: () -> Unit = {},
 ) {
@@ -53,23 +53,23 @@ fun SuggestionCapsuleSettingsScreen(
     val actionSettings by TuneConfig.action
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val floatBall = actionSettings.floatBall
-    val clipball = floatBall.clipboardBall
+    val capsule = floatBall.resultCapsule
 
-    var localAutoHide by remember(clipball.autoHideMs) {
-        mutableFloatStateOf(clipball.autoHideMs.toFloat())
+    var localAutoHide by remember(capsule.autoHideMs) {
+        mutableFloatStateOf(capsule.autoHideMs.toFloat())
     }
-    var localIdleDim by remember(clipball.idleDimDelayMs) {
-        mutableFloatStateOf(clipball.idleDimDelayMs.toFloat())
+    var localIdleDim by remember(capsule.idleDimDelayMs) {
+        mutableFloatStateOf(capsule.idleDimDelayMs.toFloat())
     }
     var localTtl by remember(floatBall.inbox.clipboardTtlMs) {
         mutableFloatStateOf(floatBall.inbox.clipboardTtlMs.toFloat())
     }
-    var localCapacity by remember(floatBall.inbox.suggestionCapacity, floatBall.inbox.capacity) {
-        mutableFloatStateOf((floatBall.inbox.suggestionCapacity ?: floatBall.inbox.capacity).toFloat())
+    var localCapacity by remember(floatBall.inbox.resultCapacity, floatBall.inbox.capacity) {
+        mutableFloatStateOf((floatBall.inbox.resultCapacity ?: floatBall.inbox.capacity).toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
-    // 建议球自己的图标：选图 → 裁剪 → 落盘，不跟随主球。
+    // 结果球自己的图标：选图 → 裁剪 → 落盘，不跟随主球。
     val iconPicker = rememberBallIconPickerState()
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -95,7 +95,7 @@ fun SuggestionCapsuleSettingsScreen(
     }
 
     LunoScreenLazy(
-        title = stringResource(R.string.float_ball_suggestion_group),
+        title = stringResource(R.string.float_ball_result_group),
         onBack = onBack,
         state = listState,
         bottomContentPadding = FloatingContentBottom,
@@ -103,9 +103,9 @@ fun SuggestionCapsuleSettingsScreen(
             BallCustomIconSheet(
                 context = context,
                 picker = iconPicker,
-                current = clipball.customIcon,
+                current = capsule.customIcon,
                 onChange = { icon ->
-                    update { it.copy(clipboardBall = it.clipboardBall.copy(customIcon = icon)) }
+                    update { it.copy(resultCapsule = it.resultCapsule.copy(customIcon = icon)) }
                 },
             )
         },
@@ -127,27 +127,17 @@ fun SuggestionCapsuleSettingsScreen(
         }
 
         item(key = "behavior") {
-            LunoGroup(title = stringResource(R.string.float_ball_suggestion_group)) {
+            LunoGroup(title = stringResource(R.string.float_ball_result_group)) {
                 LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_suggestion_enabled),
-                    subtitle = stringResource(R.string.float_ball_suggestion_enabled_subtitle),
-                    checked = clipball.enabled,
-                    onCheckedChange = { checked ->
-                        update { it.copy(clipboardBall = it.clipboardBall.copy(enabled = checked)) }
-                        facades.system.setFloatBallEnabled(context, checked)
-                    },
-                    shape = segmentedShape(0, 6),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_suggestion_follow_hand),
-                    subtitle = stringResource(R.string.float_ball_suggestion_follow_hand_subtitle),
-                    checked = clipball.followHand,
+                    title = stringResource(R.string.float_ball_result_follow_hand),
+                    subtitle = stringResource(R.string.float_ball_result_follow_hand_subtitle),
+                    checked = capsule.followHand,
                     onCheckedChange = { checked ->
                         update {
-                            it.copy(clipboardBall = it.clipboardBall.copy(followHand = checked))
+                            it.copy(resultCapsule = it.resultCapsule.copy(followHand = checked))
                         }
                     },
-                    shape = segmentedShape(1, 6),
+                    shape = segmentedShape(0, 5),
                 )
                 LunoTextSlider(
                     value = localIdleDim,
@@ -155,7 +145,7 @@ fun SuggestionCapsuleSettingsScreen(
                     onValueChangeFinished = {
                         update {
                             it.copy(
-                                clipboardBall = it.clipboardBall.copy(
+                                resultCapsule = it.resultCapsule.copy(
                                     idleDimDelayMs = localIdleDim.toLong(),
                                 ),
                             )
@@ -165,7 +155,7 @@ fun SuggestionCapsuleSettingsScreen(
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
                     valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
                         FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
-                    shape = segmentedShape(2, 6),
+                    shape = segmentedShape(1, 5),
                 )
                 LunoTextSlider(
                     value = localAutoHide,
@@ -173,7 +163,7 @@ fun SuggestionCapsuleSettingsScreen(
                     onValueChangeFinished = {
                         update {
                             it.copy(
-                                clipboardBall = it.clipboardBall.copy(
+                                resultCapsule = it.resultCapsule.copy(
                                     autoHideMs = localAutoHide.toLong(),
                                 ),
                             )
@@ -183,7 +173,7 @@ fun SuggestionCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(3, 6),
+                    shape = segmentedShape(2, 5),
                 )
                 LunoTextSlider(
                     value = localTtl,
@@ -193,11 +183,11 @@ fun SuggestionCapsuleSettingsScreen(
                             it.copy(inbox = it.inbox.copy(clipboardTtlMs = localTtl.toLong()))
                         }
                     },
-                    text = stringResource(R.string.float_ball_suggestion_ttl),
+                    text = stringResource(R.string.float_ball_result_ttl),
                     valueDisplay = { "${(it / 1000).toInt()} s" },
-                    valueRange = FloatBallDefaults.InboxSuggestionTtlMsMin.toFloat()..
-                        FloatBallDefaults.InboxSuggestionTtlMsMax.toFloat(),
-                    shape = segmentedShape(4, 6),
+                    valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
+                        FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
+                    shape = segmentedShape(3, 5),
                 )
                 LunoTextSlider(
                     value = localCapacity,
@@ -206,46 +196,46 @@ fun SuggestionCapsuleSettingsScreen(
                         update {
                             it.copy(
                                 inbox = it.inbox.copy(
-                                    suggestionCapacity = localCapacity.toInt(),
+                                    resultCapacity = localCapacity.toInt(),
                                 ),
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_suggestion_capacity),
+                    text = stringResource(R.string.float_ball_result_capacity),
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(5, 6),
+                    shape = segmentedShape(4, 5),
                 )
             }
         }
 
         item(key = "icon") {
-            val hasIcon = clipball.customIcon.path != null
+            val hasIcon = capsule.customIcon.path != null
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 BallCustomIconRows(
                     context = context,
-                    icon = clipball.customIcon,
+                    icon = capsule.customIcon,
                     startIndex = 0,
                     rowCount = if (hasIcon) 2 else 1,
                     onPick = iconPicker::pick,
                     onReset = {
-                        resetBallIcon(scope, clipball.customIcon) { icon ->
-                            update { it.copy(clipboardBall = it.clipboardBall.copy(customIcon = icon)) }
+                        resetBallIcon(scope, capsule.customIcon) { icon ->
+                            update { it.copy(resultCapsule = it.resultCapsule.copy(customIcon = icon)) }
                         }
                     },
                 )
             }
         }
 
-        // 分发规则（规则表 + 情景识别开关/名单）统一在分发规则页：情景识别是第五个输入源，
-        // 挂在建议胶囊下会让「按来源配置」散在两处。
+        // 规则表、来源读取开关、情景识别、直执行提示统一在分发规则页：它们都是「规则」的事，
+        // 挂在这页会让「按来源配置」散在两处。
         item(key = "recognition") {
             LunoGroup {
                 LunoSettingsRow(
                     icon = Icons.Default.Link,
-                    title = stringResource(R.string.float_ball_suggestion_recognition),
-                    subtitle = stringResource(R.string.float_ball_suggestion_recognition_hint),
+                    title = stringResource(R.string.float_ball_result_recognition),
+                    subtitle = stringResource(R.string.float_ball_result_recognition_hint),
                     shape = segmentedShape(0, 1),
                     onClick = onNavToRecognition,
                 )

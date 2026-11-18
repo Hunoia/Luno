@@ -364,12 +364,12 @@ private fun TargetPickerSheet(
                             },
                         )
                     }
-                    item(key = "clipboard_ball") {
+                    item(key = "result_capsule") {
                         LunoSelectableRow(
-                            title = stringResource(R.string.button_visibility_target_clipboard_ball),
-                            selected = VisibilityTargets.CLIPBOARD_BALL in current.targetIds,
+                            title = stringResource(R.string.button_visibility_target_result_capsule),
+                            selected = VisibilityTargets.RESULT_CAPSULE in current.targetIds,
                             onSelectedChange = { checked ->
-                                onTargetToggle(VisibilityTargets.CLIPBOARD_BALL, checked)
+                                onTargetToggle(VisibilityTargets.RESULT_CAPSULE, checked)
                             },
                         )
                     }

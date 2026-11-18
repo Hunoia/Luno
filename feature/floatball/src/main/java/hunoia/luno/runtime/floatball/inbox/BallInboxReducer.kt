@@ -19,7 +19,7 @@ internal sealed interface BallInboxAction {
     data class ClearSource(val source: BallSource) : BallInboxAction
 
     /**
-     * 情景识别的整批替换：移除来自其他界面的建议项（当前项/队列里的过期场景）。
+     * 情景识别的整批替换：移除来自其他界面的结果项（当前项/队列里的过期场景）。
      *
      * [keepScanKey] 传当前这一屏的指纹 = 「同屏重扫不闪」；传 null = 该功能关闭时清干净。
      */
@@ -223,7 +223,7 @@ internal object BallInboxReducer {
 
     private fun dropScene(state: BallInboxState, keepScanKey: String?): BallInboxChange {
         val removed = state.items.filter { item ->
-            item is SuggestionItem && item.sceneKey != null && item.sceneKey != keepScanKey
+            item is ResultItem && item.sceneKey != null && item.sceneKey != keepScanKey
         }
         if (removed.isEmpty()) return BallInboxChange(state)
 

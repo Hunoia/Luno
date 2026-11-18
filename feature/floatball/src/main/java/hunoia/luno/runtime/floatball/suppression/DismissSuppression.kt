@@ -8,7 +8,7 @@ package hunoia.luno.runtime.floatball.suppression
  *
  * 两种来源的时钟语义**故意保留差异**，由调用方各注入各的，不要在这里统一：
  * - 通知用 `uptimeMillis`（不含深睡）；
- * - 建议用 `elapsedRealtime`（含深睡）。
+ * - 结果胶囊用 `elapsedRealtime`（含深睡）。
  */
 internal class DismissSuppression(
     private val nowMs: () -> Long,

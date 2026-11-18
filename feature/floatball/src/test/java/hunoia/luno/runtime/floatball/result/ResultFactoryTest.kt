@@ -1,4 +1,4 @@
-package hunoia.luno.runtime.floatball.suggestion
+package hunoia.luno.runtime.floatball.result
 
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.RecognitionBuiltin
@@ -9,14 +9,14 @@ import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.NotificationPulse
-import hunoia.luno.runtime.floatball.inbox.SuggestionPrimaryAction
+import hunoia.luno.runtime.floatball.inbox.ResultPrimaryAction
 import hunoia.luno.runtime.recognition.Recognizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SuggestionFactoryTest {
+class ResultFactoryTest {
 
     private fun pulse(
         title: String = "标题",
@@ -61,7 +61,7 @@ class SuggestionFactoryTest {
 
     @Test
     fun `notification hits the default verification code rule`() {
-        val items = SuggestionFactory.fromNotification(
+        val items = ResultFactory.fromNotification(
             pulse = pulse(text = "验证码 778899，5 分钟内有效"),
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
@@ -73,15 +73,15 @@ class SuggestionFactoryTest {
         assertEquals("default-code-zh", item.ruleId)
         assertEquals("验证码", item.title)
         assertEquals("778899", item.text)
-        assertEquals(SuggestionPrimaryAction.COPY, item.action)
+        assertEquals(ResultPrimaryAction.COPY, item.action)
         assertTrue(item.fromCapture)
         assertEquals(1_000L, item.receivedAtElapsedMs)
         assertEquals(null, item.ttlMs)
     }
 
     @Test
-    fun `notification without a rule hit yields no suggestion`() {
-        val items = SuggestionFactory.fromNotification(
+    fun `notification without a rule hit yields no result item`() {
+        val items = ResultFactory.fromNotification(
             pulse = pulse(text = "订单已发货"),
             recognizer = recognizer(textRule(pattern = "验证码\\s*(\\d{4,8})")),
             sourceKey = "k1",
@@ -93,7 +93,7 @@ class SuggestionFactoryTest {
 
     @Test
     fun `big text wins over duplicate body text`() {
-        val items = SuggestionFactory.fromNotification(
+        val items = ResultFactory.fromNotification(
             pulse = pulse(text = "验证码 123456", bigText = "标题\n验证码 123456，5 分钟内有效"),
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
@@ -106,7 +106,7 @@ class SuggestionFactoryTest {
     @Test
     fun `clipboard text rule hit is not duplicated by the link rule`() {
         val url = "https://example.com/a"
-        val items = SuggestionFactory.fromClipboard(
+        val items = ResultFactory.fromClipboard(
             text = "打开 $url",
             recognizer = recognizer(
                 textRule(
@@ -128,7 +128,7 @@ class SuggestionFactoryTest {
 
     @Test
     fun `clipboard link without a rule hit still yields the builtin link item`() {
-        val items = SuggestionFactory.fromClipboard(
+        val items = ResultFactory.fromClipboard(
             text = "见 https://example.com/x",
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "clip",
@@ -137,7 +137,7 @@ class SuggestionFactoryTest {
 
         assertEquals(1, items.size)
         assertEquals(RecognitionDefaults.LinkRuleId, items.single().ruleId)
-        assertEquals(SuggestionPrimaryAction.OPEN, items.single().action)
+        assertEquals(ResultPrimaryAction.OPEN, items.single().action)
         assertEquals(listOf("https://example.com/x"), items.single().urls)
     }
 
@@ -150,7 +150,7 @@ class SuggestionFactoryTest {
         val settings = recognizer(rule)
 
         assertTrue(
-            SuggestionFactory.fromClipboard(
+            ResultFactory.fromClipboard(
                 text = "验证码 123456",
                 recognizer = settings,
                 sourceKey = "clip",
@@ -159,7 +159,7 @@ class SuggestionFactoryTest {
         )
         assertEquals(
             "custom",
-            SuggestionFactory.fromNotification(
+            ResultFactory.fromNotification(
                 pulse = pulse(text = "验证码 123456"),
                 recognizer = settings,
                 sourceKey = "k1",
@@ -170,7 +170,7 @@ class SuggestionFactoryTest {
 
     @Test
     fun `scene scan uses the same rule table and keeps the screen key`() {
-        val items = SuggestionFactory.fromScene(
+        val items = ResultFactory.fromScene(
             text = "取件码 1234-5678",
             screenKey = "screen-1",
             recognizer = recognizer(
@@ -190,7 +190,7 @@ class SuggestionFactoryTest {
         // 只有针对别家域名的规则：这条链接不该出建议。
         val otherOnly = recognizer(linkRule("b23.tv"))
         assertTrue(
-            SuggestionFactory.fromScene(
+            ResultFactory.fromScene(
                 text = "页面标题",
                 screenKey = "s1",
                 recognizer = otherOnly,
@@ -200,7 +200,7 @@ class SuggestionFactoryTest {
         )
 
         val covered = recognizer(linkRule("xiaohongshu.com"))
-        val items = SuggestionFactory.fromScene(
+        val items = ResultFactory.fromScene(
             text = "页面标题",
             screenKey = "s1",
             recognizer = covered,
@@ -214,11 +214,10 @@ class SuggestionFactoryTest {
     fun `scene link refresh skips urls already used by rules`() {
         val url = "https://b23.tv/abc"
         val rules = recognizer(linkRule("b23.tv"))
-        val refreshed = SuggestionFactory.sceneLinkItem(
+        val refreshed = ResultFactory.sceneLinkItem(
             text = "页面标题",
             screenKey = "s1",
             recognizer = rules,
-            nowMs = 2,
             sceneUrl = url,
             excludeUrls = setOf(url),
         )

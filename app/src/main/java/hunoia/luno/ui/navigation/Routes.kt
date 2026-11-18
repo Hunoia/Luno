@@ -171,10 +171,10 @@ data object FloatBallEdit
 @Serializable
 data object FloatBallNotificationCapsule
 
-/** 建议胶囊独立设置页（规则表入口）。 */
+/** 结果胶囊独立设置页（外观 / 队列 + 跳分发规则）。 */
 @Keep
 @Serializable
-data object FloatBallSuggestionCapsule
+data object FloatBallResultCapsule
 
 /** 运行日志：开关、最近日志预览、清空与导出。 */
 @Keep

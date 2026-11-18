@@ -17,13 +17,26 @@ object FloatBallUseCase {
         FloatBallService.start(context.applicationContext)
     }
 
-    /** 总闸打开后按落盘配置恢复共同宿主：球 / 通知 / 剪贴板任一开启才需要服务。 */
+    /**
+     * 总闸打开后按落盘配置恢复共同宿主：球 / 通知胶囊 / 直执行规则任一需要才起服务。
+     *
+     * 直执行规则也要算：它的输入（通知监听、剪贴板轮询、情景事件）与执行都在服务里，
+     * 只在「球 / 胶囊开关」上判会让启用的规则静默失效。
+     */
     suspend fun restoreIfEnabled(context: Context) {
         val appContext = context.applicationContext
         val initial = ConfigProvider.getInitialSettings()
         if (!initial.gestureEnabled) return
-        val ball = ConfigProvider.getActionSettings().floatBall
-        if (ball.enabled || ball.notificationCapsule.enabled || ball.clipboardBall.enabled) {
+        val settings = ConfigProvider.getActionSettings()
+        val ball = settings.floatBall
+        val recognition = settings.recognition
+        val readsAnySource = recognition.notificationReadEnabled ||
+            recognition.clipboardReadEnabled ||
+            recognition.sceneEnabled
+        val hasDirectRule = readsAnySource && recognition.rules.any {
+            it.enabled && it.isValid && it.display == hunoia.luno.config.model.RecognitionDisplay.Direct
+        }
+        if (ball.enabled || ball.notificationCapsule.enabled || hasDirectRule) {
             FloatBallService.start(appContext)
         }
     }

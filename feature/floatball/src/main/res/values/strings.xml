@@ -8,18 +8,18 @@
 
     <string name="notification_ball_content_desc">通知胶囊球</string>
     <string name="notification_ball_unread">通知胶囊球，%1$d 条未读</string>
-    <string name="suggestion_ball_content_desc">建议胶囊球</string>
-    <string name="suggestion_ball_unread">建议胶囊球，%1$d 条未读</string>
+    <string name="result_ball_content_desc">结果胶囊球</string>
+    <string name="result_ball_unread">结果胶囊球，%1$d 条未读</string>
 
-    <string name="suggestion_generic">建议</string>
-    <string name="suggestion_copy">复制</string>
-    <string name="suggestion_copied">已复制</string>
-    <string name="suggestion_open">打开</string>
-    <string name="suggestion_open_target">打开 %1$s</string>
-    <string name="suggestion_share">分享</string>
-    <string name="suggestion_ignore">忽略</string>
-    <string name="suggestion_close">关闭</string>
-    <string name="suggestion_link_count">%1$d 条链接</string>
+    <string name="result_generic">结果</string>
+    <string name="result_copy">复制</string>
+    <string name="result_copied">已复制</string>
+    <string name="result_open">打开</string>
+    <string name="result_open_target">打开 %1$s</string>
+    <string name="result_share">分享</string>
+    <string name="result_ignore">忽略</string>
+    <string name="result_close">关闭</string>
+    <string name="result_link_count">%1$d 条链接</string>
 
     <string name="float_ball_foreground_channel">悬浮球</string>
     <string name="float_ball_foreground_title">悬浮球与胶囊待命</string>
@@ -41,13 +41,11 @@
     <string name="float_ball_capsule_suppress_dismiss">滑掉后暂停重弹</string>
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
 
-    <string name="float_ball_suggestion_group">建议胶囊</string>
-    <string name="float_ball_suggestion_enabled">显示建议球</string>
-    <string name="float_ball_suggestion_enabled_subtitle">按自定义规则识别通知与剪贴板文本；后台读取需 Shizuku</string>
-    <string name="float_ball_suggestion_follow_hand">建议球跟手换边</string>
-    <string name="float_ball_suggestion_follow_hand_subtitle">触钮碰哪侧，建议球就挪到哪侧</string>
-    <string name="float_ball_suggestion_ttl">建议保留时长</string>
-    <string name="float_ball_suggestion_capacity">建议队列容量</string>
+    <string name="float_ball_result_group">结果胶囊</string>
+    <string name="float_ball_result_follow_hand">结果球跟手换边</string>
+    <string name="float_ball_result_follow_hand_subtitle">触钮碰哪侧，结果球就挪到哪侧</string>
+    <string name="float_ball_result_ttl">结果保留时长</string>
+    <string name="float_ball_result_capacity">结果队列容量</string>
     <string name="float_ball_notification_follow_hand">通知球跟手换边</string>
     <string name="float_ball_notification_follow_hand_subtitle">触钮碰哪侧，通知球就挪到哪侧</string>
     <string name="float_ball_capsule_hide_system">隐藏系统通知</string>
@@ -82,6 +80,8 @@
     <string name="clip_float_copied">已复制</string>
     <string name="clip_float_copy_failed">复制失败</string>
     <string name="clip_float_text">文本</string>
-    <string name="float_ball_suggestion_recognition">分发规则</string>
-    <string name="float_ball_suggestion_recognition_hint">输入 → 规则 → 输出的统一规则表</string>
+    <string name="float_ball_result_recognition">分发规则</string>
+    <string name="float_ball_result_recognition_hint">输入 → 规则 → 输出的统一规则表</string>
+    <string name="result_direct_toast">已执行：%1$s</string>
+    <string name="float_ball_result_group_hint">分发规则的胶囊档结果落在这里（没有独立开关）</string>
 </resources>

@@ -30,7 +30,8 @@ enum class VisibilityTargetMode {
 object VisibilityTargets {
     const val FLOAT_BALL = "surface:float_ball"
     const val NOTIFICATION_CAPSULE = "surface:notification_capsule"
-    const val CLIPBOARD_BALL = "surface:clipboard_ball"
+    /** 结果胶囊（分发规则的胶囊档结果显示面）。字符串保留旧值：它是对外可见的配置 id。 */
+    const val RESULT_CAPSULE = "surface:clipboard_ball"
 }
 
 /**

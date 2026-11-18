@@ -9,19 +9,19 @@ import org.junit.Test
 /**
  * 情景识别在收件箱里查询「这一屏的项」的纯谓词。
  *
- * 回归重点：内置链接项**就是**链接规则命中的项（[SuggestionItem.ruleId] 恒非空，见
- * [SuggestionFactory.toSuggestion]），判据必须是「ruleId 等于链接规则」而不是「ruleId 为空」。
+ * 回归重点：内置链接项**就是**链接规则命中的项（[ResultItem.ruleId] 恒非空，见
+ * [ResultFactory.toResultItem]），判据必须是「ruleId 等于链接规则」而不是「ruleId 为空」。
  * 旧实现用空判定，导致链接补充的原位替换快路径永远走不到。
  */
 class SceneLinkPredicateTest {
 
     private val scanKey = "screen:com.example.app/12345"
 
-    private fun suggestion(
+    private fun resultItem(
         ruleId: String,
         sceneKey: String? = scanKey,
         urls: List<String> = emptyList(),
-    ) = SuggestionItem(
+    ) = ResultItem(
         sourceKey = "scene:$sceneKey",
         title = "标题-$ruleId",
         text = "正文-$ruleId",
@@ -31,12 +31,12 @@ class SceneLinkPredicateTest {
         sceneKey = sceneKey,
     )
 
-    private val linkItem = suggestion(
+    private val linkItem = resultItem(
         ruleId = RecognitionDefaults.LinkRuleId,
         urls = listOf("https://example.com/a"),
     )
 
-    private val codeItem = suggestion(
+    private val codeItem = resultItem(
         ruleId = RecognitionDefaults.CodeRuleIdZh,
         urls = listOf("https://example.com/short"),
     )
@@ -55,7 +55,7 @@ class SceneLinkPredicateTest {
 
     @Test
     fun builtInLinkIndex_ignoresOtherScreen() {
-        val otherScreen = suggestion(
+        val otherScreen = resultItem(
             ruleId = RecognitionDefaults.LinkRuleId,
             sceneKey = "screen:com.other/999",
         )

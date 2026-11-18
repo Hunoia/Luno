@@ -9,7 +9,7 @@ class BallInboxTtlTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        suggestionTtlMs = 5_000L,
+        resultTtlMs = 5_000L,
         maxItems = 10,
     )
 
@@ -34,7 +34,7 @@ class BallInboxTtlTest {
         receivedAtElapsedMs = at,
     )
 
-    private fun clip(text: String, at: Long) = SuggestionItem(
+    private fun clip(text: String, at: Long) = ResultItem(
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",
@@ -45,7 +45,7 @@ class BallInboxTtlTest {
     private fun ids(state: BallInboxState): List<String> = state.items.map { it.id }
 
     @Test
-    fun `notification and suggestion use their own ttl`() {
+    fun `notification and result items use their own ttl`() {
         val n = notification("n", at = 0)
         val c = clip("c", at = 0)
 
@@ -61,7 +61,7 @@ class BallInboxTtlTest {
 
     @Test
     fun `fixed code ttl outlives the queue default`() {
-        val code = SuggestionItem(
+        val code = ResultItem(
             sourceKey = "k",
             title = "验证码",
             text = "1234",

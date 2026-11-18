@@ -10,10 +10,10 @@ class BallInboxConfigTest {
         val config = BallInboxConfig()
 
         assertEquals(120_000L, config.notificationTtlMs)
-        assertEquals(300_000L, config.suggestionTtlMs)
+        assertEquals(300_000L, config.resultTtlMs)
         assertEquals(10, config.maxItems)
         assertEquals(120_000L, config.ttlFor(BallSource.NOTIFICATION))
-        assertEquals(300_000L, config.ttlFor(BallSource.SUGGESTION))
+        assertEquals(300_000L, config.ttlFor(BallSource.RESULT))
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -28,8 +28,8 @@ class BallInboxConfigTest {
 
     @Test
     fun `item ttl overrides the source default`() {
-        val config = BallInboxConfig(notificationTtlMs = 2_000L, suggestionTtlMs = 5_000L)
-        val code = SuggestionItem(
+        val config = BallInboxConfig(notificationTtlMs = 2_000L, resultTtlMs = 5_000L)
+        val code = ResultItem(
             sourceKey = "k",
             title = "验证码",
             text = "1234",

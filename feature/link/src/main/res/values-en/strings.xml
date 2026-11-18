@@ -168,4 +168,17 @@
     <string name="screen_pick_enable_qr">Recognize QR code</string>
     <string name="screen_pick_enable_qr_hint">Long-press auto-detect + QR button in selection action bar</string>
     <string name="screen_pick_portal_toolbar_hint">Drag to a screen edge to reveal the toolbar; release to run the slot under your finger</string>
+    <string name="recognition_read_group">Inputs</string>
+    <string name="recognition_read_group_hint">Off = that source never reaches the rule table; unrelated to capsule display</string>
+    <string name="recognition_read_notification">Read notifications</string>
+    <string name="recognition_read_notification_hint">Rules apply to notifications; off = notification capsule only</string>
+    <string name="recognition_read_clipboard">Read clipboard</string>
+    <string name="recognition_read_clipboard_hint">Rules apply to copied text; background reading needs Shizuku</string>
+    <string name="recognition_direct_toast">Toast when running directly</string>
+    <string name="recognition_direct_toast_hint">Show "Ran: rule name" after a direct run; off = fully silent</string>
+    <string name="recognition_rule_display">On hit</string>
+    <string name="recognition_rule_display_hint">Direct = run immediately; Capsule = wait in the result capsule</string>
+    <string name="recognition_display_capsule">Show capsule</string>
+    <string name="recognition_display_direct">Run directly</string>
+    <string name="recognition_rule_direct_tag"> · runs directly</string>
 </resources>

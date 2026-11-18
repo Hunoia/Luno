@@ -15,7 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 /**
  * 识别器宿主的唯一实现（`:app`）：跳页、选应用、单链接分发都收敛在这里。
  *
- * 识屏浮层（`:service` 进程的 gesture 模块）与建议胶囊（floatball 模块）都用它，
+ * 识屏浮层（`:service` 进程的 gesture 模块）与结果胶囊（floatball 模块）都用它，
  * 因此两边的「打开链接」行为不可能出现两种写法。
  */
 class AppRecognitionHost(private val context: Context) : RecognitionHost {

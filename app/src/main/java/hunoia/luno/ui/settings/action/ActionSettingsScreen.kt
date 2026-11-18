@@ -70,7 +70,7 @@ fun ActionSettingsTab(
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToNotificationCapsuleSettings: () -> Unit = {},
-    onNavToSuggestionCapsuleSettings: () -> Unit = {},
+    onNavToResultCapsuleSettings: () -> Unit = {},
     onNavToRecognition: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
@@ -179,9 +179,12 @@ fun ActionSettingsTab(
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Lightbulb,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_suggestion_group),
+                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_result_group),
+                        subtitle = stringResource(
+                            hunoia.luno.floatball.R.string.float_ball_result_group_hint,
+                        ),
                         shape = segmentedShape(3, 7),
-                        onClick = onNavToSuggestionCapsuleSettings,
+                        onClick = onNavToResultCapsuleSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.RadioButtonChecked,

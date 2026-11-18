@@ -224,7 +224,6 @@ class GestureCoordinator(
     private fun sceneScanContext(eventPackage: String?): hunoia.luno.runtime.scene.SceneScanContext {
         val state = runtimeSettingsStore.snapshot()
         val floatBall = state.actionSettings.floatBall
-        val clipball = floatBall.clipboardBall
         val locked = environmentTracker.isNowInLockScreenPage
         // 情景识别的开关与名单都归识别器（它是第五个输入源）。
         val recognition = state.actionSettings.recognition
@@ -233,10 +232,10 @@ class GestureCoordinator(
             rule.enabled && rule.isValid &&
                 hunoia.luno.config.model.RecognitionSource.Scene in rule.sources
         }
+        // 「读不读这个来源」是规则侧的开关；结果胶囊没有自己的开关（它只是结果的呈现面）。
         return hunoia.luno.runtime.scene.SceneScanContext(
             enabled = state.initialSettings.gestureEnabled &&
                 floatBall.enabled &&
-                clipball.enabled &&
                 recognition.sceneEnabled,
             locked = locked,
             interactive = !locked,

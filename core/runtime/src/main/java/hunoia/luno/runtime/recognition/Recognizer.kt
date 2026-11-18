@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.recognition
 
 import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
@@ -22,7 +23,8 @@ data class RecognitionInput(
  * - [ruleId]：命中规则（恒非空——内置链接识别也是一条规则，不再有「无规则」的特殊项）；
  * - [value]：要落地的值（链接规则是被模板改写后的 URL，文本规则是捕获组）；
  * - [urls]：与 [value] 相关的链接；多链接时消费者应进选择页而不是直接打开；
- * - [output]：规则声明的输出，原样透传，本层不做降级。
+ * - [output]：规则声明的输出，原样透传，本层不做降级；
+ * - [display]：规则声明的呈现档，消费者用它分流（直执行 / 进胶囊），不必回查规则表。
  */
 data class RecognizedItem(
     val ruleId: String,
@@ -30,7 +32,11 @@ data class RecognizedItem(
     val value: String,
     val urls: List<String>,
     val output: RecognitionOutput,
+    val display: RecognitionDisplay = RecognitionDisplay.Capsule,
 ) {
+    /** 这条结果会不会自己落地（true = 不进胶囊，命中即执行）。 */
+    val isDirect: Boolean get() = display == RecognitionDisplay.Direct
+
     /** 内置输出种类；动作输出时为 null。 */
     val builtin: RecognitionBuiltin?
         get() = (output as? RecognitionOutput.Builtin)?.kind
@@ -175,6 +181,7 @@ class CompiledRecognizer internal constructor(
         value = value,
         urls = urls,
         output = rule.output,
+        display = rule.display,
     )
 
     internal data class CompiledRule(

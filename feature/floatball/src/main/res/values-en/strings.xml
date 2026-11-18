@@ -8,18 +8,18 @@
 
     <string name="notification_ball_content_desc">Notification ball</string>
     <string name="notification_ball_unread">Notification ball, %1$d unread</string>
-    <string name="suggestion_ball_content_desc">Suggestion ball</string>
-    <string name="suggestion_ball_unread">Suggestion ball, %1$d unread</string>
+    <string name="result_ball_content_desc">Result ball</string>
+    <string name="result_ball_unread">Result ball, %1$d unread</string>
 
-    <string name="suggestion_generic">Suggestion</string>
-    <string name="suggestion_copy">Copy</string>
-    <string name="suggestion_copied">Copied</string>
-    <string name="suggestion_open">Open</string>
-    <string name="suggestion_open_target">Open %1$s</string>
-    <string name="suggestion_share">Share</string>
-    <string name="suggestion_ignore">Ignore</string>
-    <string name="suggestion_close">Close</string>
-    <string name="suggestion_link_count">%1$d links</string>
+    <string name="result_generic">Result</string>
+    <string name="result_copy">Copy</string>
+    <string name="result_copied">Copied</string>
+    <string name="result_open">Open</string>
+    <string name="result_open_target">Open %1$s</string>
+    <string name="result_share">Share</string>
+    <string name="result_ignore">Ignore</string>
+    <string name="result_close">Close</string>
+    <string name="result_link_count">%1$d links</string>
 
     <string name="float_ball_foreground_channel">Float ball</string>
     <string name="float_ball_foreground_title">Float ball and capsules on standby</string>
@@ -41,13 +41,11 @@
     <string name="float_ball_capsule_suppress_dismiss">Pause re-peek after dismissing</string>
     <string name="float_ball_capsule_suppress_duration">Pause duration</string>
 
-    <string name="float_ball_suggestion_group">Suggestion capsule</string>
-    <string name="float_ball_suggestion_enabled">Show suggestion ball</string>
-    <string name="float_ball_suggestion_enabled_subtitle">Detects notification and clipboard text with custom rules; background reading needs Shizuku</string>
-    <string name="float_ball_suggestion_follow_hand">Follow hand to switch sides</string>
-    <string name="float_ball_suggestion_follow_hand_subtitle">Suggestion ball moves to the side the gesture button touches</string>
-    <string name="float_ball_suggestion_ttl">Suggestion hold duration</string>
-    <string name="float_ball_suggestion_capacity">Suggestion queue capacity</string>
+    <string name="float_ball_result_group">Result capsule</string>
+    <string name="float_ball_result_follow_hand">Follow hand to switch sides</string>
+    <string name="float_ball_result_follow_hand_subtitle">Result ball moves to the side the gesture button touches</string>
+    <string name="float_ball_result_ttl">Result hold duration</string>
+    <string name="float_ball_result_capacity">Result queue capacity</string>
     <string name="float_ball_notification_follow_hand">Follow hand to switch sides</string>
     <string name="float_ball_notification_follow_hand_subtitle">Notification ball moves to the side the gesture button touches</string>
     <string name="float_ball_capsule_hide_system">Hide system notification</string>
@@ -82,6 +80,8 @@
     <string name="clip_float_copied">Copied</string>
     <string name="clip_float_copy_failed">Copy failed</string>
     <string name="clip_float_text">Text</string>
-    <string name="float_ball_suggestion_recognition">Dispatch rules</string>
-    <string name="float_ball_suggestion_recognition_hint">One rule table for input → rule → output</string>
+    <string name="float_ball_result_recognition">Dispatch rules</string>
+    <string name="float_ball_result_recognition_hint">One rule table for input → rule → output</string>
+    <string name="result_direct_toast">Ran: %1$s</string>
+    <string name="float_ball_result_group_hint">Capsule-mode results of dispatch rules land here (no separate switch)</string>
 </resources>

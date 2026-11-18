@@ -108,12 +108,23 @@ internal object ServiceAutoStart {
             ?.gestureEnabled ?: true
 
     /**
-     * 悬浮球服务要不要起：球开关、通知胶囊或剪贴板球任一开启（FloatBallService 是共同宿主）。
-     * 读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
+     * 悬浮球服务要不要起：球开关、通知胶囊或「有东西要自动执行的规则」任一成立
+     * （FloatBallService 是共同宿主）。读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
      */
     fun readFloatBallEnabled(context: Context): Boolean =
-        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)?.floatBall?.let {
-            it.enabled || it.notificationCapsule.enabled || it.clipboardBall.enabled
+        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)?.let { settings ->
+            settings.floatBall.let { ball ->
+                ball.enabled || ball.notificationCapsule.enabled ||
+                    settings.recognition.let { recognition ->
+                        val readsAnySource = recognition.notificationReadEnabled ||
+                            recognition.clipboardReadEnabled ||
+                            recognition.sceneEnabled
+                        readsAnySource && recognition.rules.any {
+                            it.enabled && it.isValid &&
+                                it.display == hunoia.luno.config.model.RecognitionDisplay.Direct
+                        }
+                    }
+            }
         } ?: false
 
     /** 保活开关（SharedPreferences，与 `KeepAliveUseCase` 同一份）。 */

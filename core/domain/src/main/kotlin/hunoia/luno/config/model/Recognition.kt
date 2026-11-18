@@ -18,7 +18,10 @@ import java.util.UUID
  * 规则表按顺序匹配，第一条命中的规则决定这一条候选的输出；文本里能认出多少条候选
  * 就出多少条（同一条规则对同一条输入只取第一个捕获）。
  *
- * 消费者（建议胶囊、识屏工具条、外部 Intent 入口）只消费识别结果，不自己判规则、
+ * [display] 决定命中之后走哪条路：直接执行，还是进结果胶囊等用户点。它是**规则**的属性，
+ * 不是输出的属性——同一种输出（复制 / 打开链接 / 跑动作）两种呈现都可能有人要。
+ *
+ * 消费者（结果胶囊、识屏工具条、外部 Intent 入口）只消费识别结果，不自己判规则、
  * 不自己判链接——判定只有 `:core:runtime` 的 `Recognizer` 一份。
  */
 @Serializable
@@ -32,10 +35,29 @@ data class RecognitionRule(
     val sources: Set<RecognitionSource> = RecognitionSource.Default,
     val match: RecognitionMatch = RecognitionMatch.Text(),
     val output: RecognitionOutput = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
+    /** 命中之后：直接执行，还是显示成结果胶囊等用户点。 */
+    val display: RecognitionDisplay = RecognitionDisplay.Capsule,
 ) {
     /** 能被识别器使用的最小条件：匹配串非空，且输出可执行。 */
     val isValid: Boolean
         get() = match.isValid && output.isValid
+}
+
+/**
+ * 规则的呈现档：识别结果的两种去向。
+ *
+ * 两档共用同一条执行口（`RecognitionExecutor`），区别只在**谁触发**：
+ * 用户点胶囊，还是命中即执行。`RecognitionOutput.Notify` 不受此项影响——挂岛本身就是
+ * 「命中的事」，编辑页对它隐藏该选项。
+ */
+@Serializable
+@Keep
+enum class RecognitionDisplay {
+    /** 结果进结果胶囊，用户点一下才落地（默认：可预览、可反悔）。 */
+    Capsule,
+
+    /** 命中即执行，留一条短提示（`RecognitionSettings.directToastEnabled` 可关）。 */
+    Direct,
 }
 
 /** 识别输入来源。新增来源 = 加一个枚举值 + 在输入侧产出一条 `RecognitionInput`。 */
@@ -287,6 +309,8 @@ data class RecognitionNotifySpec(
  *
  * **没有总开关**：规则表全空 = 不识别任何文本。少一个状态，语义唯一——
  * 否则「关掉总开关但内置链接还在识别」和「关掉就是全关」两种理解会长期打架。
+ * 「读不读这个来源」（本类的三个读取许可）与「结果显示成什么」是两条独立的轴：
+ * 结果胶囊没有自己的开关，有胶囊档结果就会显示。
  */
 @Serializable
 @Keep
@@ -307,7 +331,21 @@ data class RecognitionSettings(
      */
     val copyClearDelaySeconds: Int = RecognitionDefaults.DEFAULT_COPY_CLEAR_DELAY_SECONDS,
     /**
-     * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则时弹建议。
+     * 通知来源的读取许可：**与通知胶囊的显示开关互不影响**。
+     *
+     * 关掉通知胶囊只是「未命中的普通通知不显示」，规则命中照常出结果；
+     * 关掉此项才是「通知根本不送进识别器」。
+     */
+    val notificationReadEnabled: Boolean = true,
+    /**
+     * 剪贴板来源的读取许可。后台读剪贴板依赖 Shizuku（新 ROM 不向后台应用投递回调），
+     * 读不到内容就什么都不发生。
+     */
+    val clipboardReadEnabled: Boolean = true,
+    /** 直接执行档落地后是否留一行「已执行：规则名」短提示。 */
+    val directToastEnabled: Boolean = true,
+    /**
+     * 情景识别：前台界面稳定后读一次其无障碍文本，命中规则时出结果。
      * 默认关；开启即对规则表里所有 `RecognitionSource.Scene` 的规则生效。
      */
     val sceneEnabled: Boolean = false,
@@ -419,6 +457,9 @@ object RecognitionDefaults {
         match = RecognitionMatch.Text(pattern),
         // 验证码这类「一次性凭证」复制后自动撤掉系统剪贴板；其余常驻由用户自己决定。
         output = RecognitionOutput.Builtin(RecognitionBuiltin.CopyAndClear),
+        // 复制类抓的是值本身，弹一张只写着这个值的卡等于多要一次点击；
+        // 想先预览再复制的人逐条改成「显示胶囊」。
+        display = RecognitionDisplay.Direct,
     )
 
     /** 内置链接识别：不再是散在各处的隐式分支，而是一条可见、可关、可调顺序的规则。 */
@@ -428,6 +469,8 @@ object RecognitionDefaults {
         sources = RecognitionSource.LinkDefault,
         match = RecognitionMatch.Link(matchType = LinkMatchType.CONTAINS, pattern = ""),
         output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
+        // 命中即自动弹出去太激进：链接始终先进胶囊，看一眼再点。
+        display = RecognitionDisplay.Capsule,
     )
 
     val rules: List<RecognitionRule> =

@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 /**
  * 通知胶囊设置页：显示/跟手/停留时长/队列与黑名单。
  *
- * 与悬浮球、建议胶囊并列，只负责通知球自己的行为。
+ * 与悬浮球、结果胶囊并列，只负责通知球自己的行为。
  */
 @Composable
 fun NotificationCapsuleSettingsScreen(

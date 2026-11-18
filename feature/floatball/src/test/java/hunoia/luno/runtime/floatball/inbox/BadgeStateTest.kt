@@ -10,7 +10,7 @@ class BadgeStateTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        suggestionTtlMs = 5_000L,
+        resultTtlMs = 5_000L,
         maxItems = 10,
     )
 
@@ -30,7 +30,7 @@ class BadgeStateTest {
             config = config,
         ).state
 
-    private fun clip(text: String, at: Long = 1L) = SuggestionItem(
+    private fun clip(text: String, at: Long = 1L) = ResultItem(
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",

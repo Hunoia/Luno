@@ -1,25 +1,25 @@
 package hunoia.luno.runtime.floatball.inbox
 
 /**
- * 收件箱策略。通知与建议各有一条队列，容量/TTL 分别配置。
+ * 收件箱策略。通知与结果各有一条队列，容量/TTL 分别配置。
  *
  * TTL 判断优先用条目自己的 [BallItem.ttlMs]（验证码固定 5 分钟），
  * 条目没写死时回落到来源默认值（通知 / 链接）。
  */
 internal data class BallInboxConfig(
     val notificationTtlMs: Long = 120_000L,
-    val suggestionTtlMs: Long = 300_000L,
+    val resultTtlMs: Long = 300_000L,
     val maxItems: Int = 10,
 ) {
     init {
         require(notificationTtlMs > 0L) { "notificationTtlMs 必须大于 0" }
-        require(suggestionTtlMs > 0L) { "suggestionTtlMs 必须大于 0" }
+        require(resultTtlMs > 0L) { "resultTtlMs 必须大于 0" }
         require(maxItems > 0) { "maxItems 必须大于 0" }
     }
 
     fun ttlFor(source: BallSource): Long = when (source) {
         BallSource.NOTIFICATION -> notificationTtlMs
-        BallSource.SUGGESTION -> suggestionTtlMs
+        BallSource.RESULT -> resultTtlMs
     }
 }
 

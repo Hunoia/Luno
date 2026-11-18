@@ -90,12 +90,12 @@ data class FloatBallSettings(
     val landscape: FloatBallPosition = FloatBallPosition(),
     /** 通知球位置（独立球，点按展开自己的胶囊）。 */
     val notificationBallPosition: CapsuleBallPosition = CapsuleBallPosition(),
-    /** 建议球位置（验证码 / 链接）。 */
-    val suggestionBallPosition: CapsuleBallPosition = CapsuleBallPosition(),
-    /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时从通知球向左展开。 */
+    /** 结果球位置（分发规则的结果胶囊挂在这颗球上）。 */
+    val resultBallPosition: CapsuleBallPosition = CapsuleBallPosition(),
+    /** 通知胶囊（独立开关，宿主同为 FloatBallService）：未命中的普通通知到达时从通知球向左展开。 */
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
-    /** 建议胶囊（独立开关）：验证码/链接从建议球展开；沿用旧 clipboardBall 作为总开关。 */
-    val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
+    /** 结果胶囊：分发规则的胶囊档结果从这里展开。**没有开关**——有结果就会显示。 */
+    val resultCapsule: ResultCapsuleSettings = ResultCapsuleSettings(),
     /** 两条队列的 TTL 与容量。 */
     val inbox: BallInboxSettings = BallInboxSettings(),
     /**
@@ -130,14 +130,14 @@ data class FloatBallSettings(
             ?: FloatBallPosition(x = FloatBallDefaults.X, y = FloatBallDefaults.NotificationBallY)
 
     /**
-     * 建议球落点：新字段没写过时从旧 `clipboardBall.x/y` 推导，
+     * 结果球落点：新字段没写过时从旧 `resultCapsule.x/y` 推导，
      * 旧值也为空才用右缘 y=0.54。
      */
-    fun suggestionBall(landscape: Boolean): FloatBallPosition =
-        suggestionBallPosition.position(landscape)
+    fun resultBall(landscape: Boolean): FloatBallPosition =
+        resultBallPosition.position(landscape)
             ?: FloatBallPosition(
-                x = clipboardBall.x ?: FloatBallDefaults.X,
-                y = clipboardBall.y ?: FloatBallDefaults.SuggestionBallY,
+                x = resultCapsule.x ?: FloatBallDefaults.X,
+                y = resultCapsule.y ?: FloatBallDefaults.ResultBallY,
             )
 }
 
@@ -176,34 +176,36 @@ data class NotificationCapsuleSettings(
 )
 
 /**
- * 建议胶囊配置：验证码/链接变化时从建议球展开，[autoHideMs] 后自动收起。
+ * 结果胶囊配置：分发规则的胶囊档结果从这里展开，[autoHideMs] 后自动收起。
+ *
+ * **没有 `enabled`**：胶囊是规则结果的呈现面，不是一项可以单独关掉的功能。
+ * 要不要出结果由规则表（含各来源的读取开关）决定；要停就删规则或关它的开关。
  * 后台读剪贴板依赖 Shizuku 以 shell 身份读取（新 ROM 不向后台应用投递剪贴板回调，
- * 无障碍也不豁免），读不到内容就不弹。
+ * 无障碍也不豁免），读不到内容就什么都不发生。
  */
 @Serializable
 @Keep
-data class ClipboardBallSettings(
-    val enabled: Boolean = false,
-    /** 建议球独立跟手：手势碰哪侧，建议球就挪到哪侧。 */
+data class ResultCapsuleSettings(
+    /** 结果球独立跟手：手势碰哪侧，结果球就挪到哪侧。 */
     val followHand: Boolean = false,
-    /** 建议球自定义图标；未设置时用灯泡，不跟随主球。 */
+    /** 结果球自定义图标；未设置时用灯泡，不跟随主球。 */
     val customIcon: BallCustomIcon = BallCustomIcon(),
-    /** 建议球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
+    /** 结果球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
     val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
     // 情景识别的开关与名单已搬到 [RecognitionSettings]（它是识别器的第五个输入源，
-    // 挂在建议胶囊下会让「按来源配置」散在两处）。
+    // 挂在结果胶囊下会让「按来源配置」散在两处）。
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
     /**
      * 旧版剪贴板球位置：只作为迁移来源，不再继续写。
-     * 新位置见 [FloatBallSettings.suggestionBallPosition]。
+     * 新位置见 [FloatBallSettings.resultBallPosition]。
      */
     val x: Float? = null,
     val y: Float? = null,
 )
 
 /**
- * 两条队列配置：通知与建议各自计时，容量可分别覆盖共享默认值。
+ * 两条队列配置：通知与结果各自计时，容量可分别覆盖共享默认值。
  * 钉住项不参与 TTL；容量包含钉住项。
  */
 @Serializable
@@ -211,14 +213,14 @@ data class ClipboardBallSettings(
 data class BallInboxSettings(
     /** 通知在通知胶囊中的保留时长（ms）。 */
     val notificationTtlMs: Long = FloatBallDefaults.InboxNotificationTtlMs,
-    /** 链接建议的保留时长（ms）；验证码固定 5 分钟，不受此项影响。 */
-    val clipboardTtlMs: Long = FloatBallDefaults.InboxSuggestionTtlMs,
+    /** 链接/结果在结果胶囊中的保留时长（ms）；验证码固定 5 分钟，不受此项影响。 */
+    val clipboardTtlMs: Long = FloatBallDefaults.InboxResultTtlMs,
     /** 共享容量默认值。 */
     val capacity: Int = FloatBallDefaults.InboxCapacity,
     /** 通知队列容量覆盖；null = 用 [capacity]。 */
     val notificationCapacity: Int? = null,
     /** 建议队列容量覆盖；null = 用 [capacity]。 */
-    val suggestionCapacity: Int? = null,
+    val resultCapacity: Int? = null,
 )
 
 object FloatBallDefaults {
@@ -285,13 +287,13 @@ object FloatBallDefaults {
     const val InboxNotificationTtlMs = 120_000L
     const val InboxNotificationTtlMsMin = 30_000L
     const val InboxNotificationTtlMsMax = 600_000L
-    const val InboxSuggestionTtlMs = 300_000L
-    const val InboxSuggestionTtlMsMin = 60_000L
-    const val InboxSuggestionTtlMsMax = 1_800_000L
+    const val InboxResultTtlMs = 300_000L
+    const val InboxResultTtlMsMin = 60_000L
+    const val InboxResultTtlMsMax = 1_800_000L
 
     /** 三球默认落点：右缘纵向错开。 */
     const val NotificationBallY = 0.30f
-    const val SuggestionBallY = 0.54f
+    const val ResultBallY = 0.54f
 
     /** 统一收件箱容量默认值与滑杆上下限。 */
     const val InboxCapacity = 10

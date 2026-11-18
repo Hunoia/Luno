@@ -75,12 +75,12 @@ import hunoia.luno.ui.navigation.PointerSettings
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
-import hunoia.luno.ui.navigation.FloatBallSuggestionCapsule
+import hunoia.luno.ui.navigation.FloatBallResultCapsule
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
-import hunoia.luno.floatball.settings.SuggestionCapsuleSettingsScreen
+import hunoia.luno.floatball.settings.ResultCapsuleSettingsScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
 import hunoia.luno.gesture.settings.SubGestureEditor
@@ -255,8 +255,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToNotificationCapsuleSettings = {
                             navController.navigate(FloatBallNotificationCapsule)
                         },
-                        onNavToSuggestionCapsuleSettings = {
-                            navController.navigate(FloatBallSuggestionCapsule)
+                        onNavToResultCapsuleSettings = {
+                            navController.navigate(FloatBallResultCapsule)
                         },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
@@ -466,8 +466,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
                     )
                 }
-                myComposable<FloatBallSuggestionCapsule> {
-                    SuggestionCapsuleSettingsScreen(
+                myComposable<FloatBallResultCapsule> {
+                    ResultCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToRecognition = { navController.navigate(RecognitionRules) },
                     )

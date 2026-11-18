@@ -11,7 +11,7 @@ class BallInboxReducerTest {
 
     private val config = BallInboxConfig(
         notificationTtlMs = 2_000L,
-        suggestionTtlMs = 5_000L,
+        resultTtlMs = 5_000L,
         maxItems = 3,
     )
 
@@ -41,7 +41,7 @@ class BallInboxReducerTest {
         receivedAtElapsedMs = at,
     )
 
-    private fun clip(text: String, at: Long = 0L) = SuggestionItem(
+    private fun clip(text: String, at: Long = 0L) = ResultItem(
         sourceKey = "hash-$text",
         title = "链接",
         text = "https://example.com/$text",
@@ -113,7 +113,7 @@ class BallInboxReducerTest {
     }
 
     @Test
-    fun `duplicate suggestion refreshes timestamp without duplicating`() {
+    fun `duplicate result item refreshes timestamp without duplicating`() {
         val first = clip("x", at = 100)
         val second = clip("x", at = 200)
 
@@ -171,7 +171,7 @@ class BallInboxReducerTest {
     fun `capacity can evict the current item when switching to a new one`() {
         val tightConfig = BallInboxConfig(
             notificationTtlMs = 2_000L,
-            suggestionTtlMs = 5_000L,
+            resultTtlMs = 5_000L,
             maxItems = 1,
         )
         val a = clip("a", at = 1)
@@ -221,7 +221,7 @@ class BallInboxReducerTest {
     }
 
     @Test
-    fun `pinning a suggestion updates badge and keeps current`() {
+    fun `pinning a result item updates badge and keeps current`() {
         val item = clip("x", at = 1)
         val state = add(BallInboxState(), item, nowMs = 1).state
 

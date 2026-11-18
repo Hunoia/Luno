@@ -6,11 +6,11 @@ import java.security.MessageDigest
 /**
  * 智能球收件箱的内容来源。
  *
- * 现在只有两条独立队列：普通通知进通知胶囊，验证码/链接进建议胶囊。
+ * 只有两条独立队列：未命中的普通通知进通知胶囊，分发规则的胶囊档结果进结果胶囊。
  */
 internal enum class BallSource {
     NOTIFICATION,
-    SUGGESTION,
+    RESULT,
 }
 
 /**
@@ -52,13 +52,13 @@ internal data class NotificationItem(
 }
 
 /**
- * 建议主动作，由识别器的输出决定。
+ * 结果项主动作，由识别器的输出决定。
  *
  * [RUN_ACTION] = 规则配的是「动作输出」：主动作就是跑那条动作，执行细节交给
  * `RecognitionExecutor`，胶囊不再为每种动作长一个分支。
  * OPEN 捕获不到链接时创建阶段已降级为 COPY。
  */
-internal enum class SuggestionPrimaryAction {
+internal enum class ResultPrimaryAction {
     COPY,
     OPEN,
     SHARE,
@@ -66,12 +66,12 @@ internal enum class SuggestionPrimaryAction {
 }
 
 /**
- * 建议项（规则命中或内置链接识别）。
+ * 结果项（规则命中或内置链接识别）。
  *
  * [sourceKey] 是来源去重键（通知 key / 剪贴板内容指纹 / 界面指纹），用于「滑掉后短时间同源抑制重弹」。
  * 捕获文本可能敏感：本类的 [toString] 刻意只保留类型与哈希 ID，不输出正文。
  */
-internal data class SuggestionItem(
+internal data class ResultItem(
     val sourceKey: String,
     override val title: String,
     override val text: String,
@@ -79,7 +79,7 @@ internal data class SuggestionItem(
     override val ttlMs: Long? = null,
     /** 命中的规则 id（内置链接识别也是一条规则，恒非空）。 */
     val ruleId: String? = null,
-    val action: SuggestionPrimaryAction = SuggestionPrimaryAction.COPY,
+    val action: ResultPrimaryAction = ResultPrimaryAction.COPY,
     /**
      * true = 规则从文本里抓出来的**值**（验证码之类），不是链接。
      *
@@ -103,8 +103,8 @@ internal data class SuggestionItem(
     val sceneKey: String? = null,
 ) : BallItem {
     override val id: String =
-        "sug:${stableHash("${ruleId ?: "link"}|$sourceKey|$text|${urls.joinToString("|")}")}"
-    override val source: BallSource = BallSource.SUGGESTION
+        "res:${stableHash("${ruleId ?: "link"}|$sourceKey|$text|${urls.joinToString("|")}")}"
+    override val source: BallSource = BallSource.RESULT
 
     val primaryUrl: String? get() = urls.firstOrNull()
     val linkCount: Int get() = urls.size
@@ -113,7 +113,7 @@ internal data class SuggestionItem(
 
     /** 防泄露：规则捕获文本与链接正文不进日志。 */
     override fun toString(): String =
-        "SuggestionItem(rule=${ruleId ?: "link"}, id=$id, sourceKey=${sourceKey.take(8)}, pinned=$pinned)"
+        "ResultItem(rule=${ruleId ?: "link"}, id=$id, sourceKey=${sourceKey.take(8)}, pinned=$pinned)"
 }
 
 /** 内容指纹哈希（sha-256 前 16 位十六进制），稳定且不落原文。 */
@@ -127,13 +127,13 @@ internal fun stableHash(raw: String): String = runCatching {
 // 纯函数：收件箱的读取方分布在主线程与后台调度器上，把判定收在这里，调用方只需在
 // 自己那一侧负责「取 items」，谓词本身不碰线程、可单测。
 
-/** 当前收件箱里是否已经有这一屏的情景建议。 */
+/** 当前收件箱里是否已经有这一屏的情景结果项。 */
 internal fun hasSceneItems(items: List<BallItem>, scanKey: String): Boolean =
-    items.any { (it as? SuggestionItem)?.sceneKey == scanKey }
+    items.any { (it as? ResultItem)?.sceneKey == scanKey }
 
 /** 这一屏内置链接项（链接规则命中的情景项）的下标；没有返回 -1。 */
 internal fun builtInSceneLinkIndex(items: List<BallItem>, scanKey: String): Int = items.indexOfFirst {
-    val item = it as? SuggestionItem
+    val item = it as? ResultItem
     item != null && item.sceneKey == scanKey && item.ruleId == RecognitionDefaults.LinkRuleId
 }
 
@@ -143,7 +143,7 @@ internal fun hasBuiltInSceneLink(items: List<BallItem>, scanKey: String): Boolea
 
 /** 这一屏文本规则命中项里已用掉的链接：重建链接项时排除，避免同一链接两条。 */
 internal fun usedSceneRuleUrls(items: List<BallItem>, scanKey: String): Set<String> = items.asSequence()
-    .filterIsInstance<SuggestionItem>()
+    .filterIsInstance<ResultItem>()
     .filter { it.sceneKey == scanKey && it.ruleId != RecognitionDefaults.LinkRuleId }
     .flatMap { it.urls.asSequence() }
     .toSet()

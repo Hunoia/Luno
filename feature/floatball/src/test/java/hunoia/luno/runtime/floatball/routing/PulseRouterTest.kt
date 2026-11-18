@@ -1,13 +1,13 @@
 package hunoia.luno.runtime.floatball.routing
 
 import hunoia.luno.core.domain.NotificationPulse
-import hunoia.luno.runtime.floatball.inbox.SuggestionItem
+import hunoia.luno.runtime.floatball.inbox.ResultItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 通知去路判定：规则命中只进建议胶囊（不双弹）、普通通知进通知胶囊、都关了就什么都不弹。
+ * 通知去路判定：命中规则就不双弹、未命中进通知胶囊、通知胶囊也关了就什么都不弹。
  */
 class PulseRouterTest {
 
@@ -24,7 +24,7 @@ class PulseRouterTest {
         key = key,
     )
 
-    private fun suggestion(key: String = "scene:abc") = SuggestionItem(
+    private fun resultItem(key: String = "scene:abc") = ResultItem(
         sourceKey = key,
         title = "验证码",
         text = "123456",
@@ -33,27 +33,54 @@ class PulseRouterTest {
     )
 
     @Test
-    fun ruleHitGoesToSuggestionCapsuleOnly() {
-        val items = listOf(suggestion())
-        val route = PulseRouter.route(pulse(), items, notificationCapsuleEnabled = true, nowMs = now)
-        assertTrue(route is PulseRoute.Suggestion)
-        assertEquals(items, (route as PulseRoute.Suggestion).items)
+    fun ruleHitGoesToResultCapsuleOnly() {
+        val items = listOf(resultItem())
+        val route = PulseRouter.route(
+            pulse = pulse(),
+            resultItems = items,
+            matchedRules = true,
+            notificationCapsuleEnabled = true,
+            nowMs = now,
+        )
+        assertTrue(route is PulseRoute.Result)
+        assertEquals(items, (route as PulseRoute.Result).items)
     }
 
     @Test
     fun ruleHitWinsEvenWhenNotificationCapsuleIsOff() {
         val route = PulseRouter.route(
-            pulse(),
-            listOf(suggestion()),
+            pulse = pulse(),
+            resultItems = listOf(resultItem()),
+            matchedRules = true,
             notificationCapsuleEnabled = false,
             nowMs = now,
         )
-        assertTrue(route is PulseRoute.Suggestion)
+        assertTrue(route is PulseRoute.Result)
+    }
+
+    /** 直执行档不产出胶囊条目，但它已经「处理过」这条通知：仍然不进通知胶囊。 */
+    @Test
+    fun directRuleStillSuppressesNotificationCapsule() {
+        val route = PulseRouter.route(
+            pulse = pulse(),
+            resultItems = emptyList(),
+            matchedRules = true,
+            notificationCapsuleEnabled = true,
+            nowMs = now,
+        )
+        assertTrue(route is PulseRoute.Result)
+        assertEquals(emptyList<ResultItem>(), (route as PulseRoute.Result).items)
     }
 
     @Test
     fun noRuleHitGoesToNotificationCapsule() {
-        val route = PulseRouter.route(pulse(), emptyList(), notificationCapsuleEnabled = true, nowMs = now)
+        val route = PulseRouter.route(
+            pulse = pulse(),
+            resultItems = emptyList(),
+            matchedRules = false,
+            notificationCapsuleEnabled = true,
+            nowMs = now,
+        )
         assertTrue(route is PulseRoute.Notification)
         val item = (route as PulseRoute.Notification).item
         assertEquals("pkg:0:1", item.notificationKey)
@@ -65,15 +92,22 @@ class PulseRouterTest {
 
     @Test
     fun nothingPopsWhenNotificationCapsuleIsOff() {
-        val route = PulseRouter.route(pulse(), emptyList(), notificationCapsuleEnabled = false, nowMs = now)
+        val route = PulseRouter.route(
+            pulse = pulse(),
+            resultItems = emptyList(),
+            matchedRules = false,
+            notificationCapsuleEnabled = false,
+            nowMs = now,
+        )
         assertTrue(route is PulseRoute.Drop)
     }
 
     @Test
     fun notificationKeyFallsBackToPackageAndTitleWhenSystemKeyMissing() {
         val route = PulseRouter.route(
-            pulse(title = "我的标题", key = null),
-            emptyList(),
+            pulse = pulse(title = "我的标题", key = null),
+            resultItems = emptyList(),
+            matchedRules = false,
             notificationCapsuleEnabled = true,
             nowMs = now,
         )

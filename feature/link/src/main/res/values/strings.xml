@@ -167,4 +167,20 @@
     <string name="screen_pick_release_stay">保留识屏层</string>
     <string name="screen_pick_enable_qr">识别二维码</string>
     <string name="screen_pick_enable_qr_hint">长按自动检测 + 框选动作条「二维码」按钮</string>
-    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string></resources>
+    <string name="screen_pick_portal_toolbar_hint">拖到屏幕边缘浮出动作工具条，松手执行指到的那一项</string>
+
+    <!-- 分发规则：读取来源 / 呈现方式（结果胶囊没有开关，只有规则的显示档） -->
+    <string name="recognition_read_group">读取来源</string>
+    <string name="recognition_read_group_hint">关掉某个来源＝它的内容不送进规则表；与结果胶囊显示无关</string>
+    <string name="recognition_read_notification">读取通知</string>
+    <string name="recognition_read_notification_hint">规则对通知生效；关掉后通知只有通知胶囊（若开启）</string>
+    <string name="recognition_read_clipboard">读取剪贴板</string>
+    <string name="recognition_read_clipboard_hint">规则对复制的内容生效；后台读取需 Shizuku</string>
+    <string name="recognition_direct_toast">直接执行时提示</string>
+    <string name="recognition_direct_toast_hint">规则命中即执行后留一行「已执行：规则名」，关掉则完全静默</string>
+    <string name="recognition_rule_display">命中后</string>
+    <string name="recognition_rule_display_hint">直接执行＝命中就跑；显示胶囊＝进结果胶囊等你点</string>
+    <string name="recognition_display_capsule">显示胶囊</string>
+    <string name="recognition_display_direct">直接执行</string>
+    <string name="recognition_rule_direct_tag"> · 直接执行</string>
+</resources>

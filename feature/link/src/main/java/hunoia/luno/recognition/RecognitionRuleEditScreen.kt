@@ -31,6 +31,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.RecognitionBuiltin
+import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
@@ -127,6 +128,7 @@ fun RecognitionRuleEditScreen(
     var sources by remember(ruleId) { mutableStateOf(initial.sources) }
     var match by remember(ruleId) { mutableStateOf(initial.match) }
     var output by remember(ruleId) { mutableStateOf(initial.output) }
+    var display by remember(ruleId) { mutableStateOf(initial.display) }
     var testText by remember(ruleId) { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -140,6 +142,7 @@ fun RecognitionRuleEditScreen(
         sources = sources,
         match = match,
         output = output,
+        display = display,
     )
     val regexError = when (val m = match) {
         is RecognitionMatch.Text -> m.pattern.isNotBlank() &&
@@ -404,12 +407,14 @@ fun RecognitionRuleEditScreen(
         }
         // ---- 输出 ----
         LunoGroup(title = stringResource(R.string.recognition_rule_output_group)) {
+            // 挂岛是「命中的事」发生在后台，没有「先显示再点」这一档：隐藏显示档那一行。
+            val showDisplay = output !is RecognitionOutput.Notify
             val extraRows = when (output) {
                 is RecognitionOutput.Action -> 2
                 is RecognitionOutput.Notify -> 3
                 is RecognitionOutput.Builtin -> 1
             }
-            val rows = extraRows + 1
+            val rows = extraRows + 1 + (if (showDisplay) 1 else 0)
             val outputOptions = listOf(
                 R.string.recognition_output_copy,
                 R.string.recognition_output_copy_and_clear,
@@ -499,6 +504,24 @@ fun RecognitionRuleEditScreen(
                         shape = segmentedShape(2, rows),
                     )
                 }
+            }
+            // 呈现档：规则属性，不是输出属性。同一种输出两种呈现都可能有人要，
+            // 所以放在输出之后、单独一行，而不是塞进输出下拉里。
+            if (showDisplay) {
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_rule_display),
+                    subtitle = stringResource(R.string.recognition_rule_display_hint),
+                    options = listOf(
+                        stringResource(R.string.recognition_display_capsule),
+                        stringResource(R.string.recognition_display_direct),
+                    ),
+                    selectedIndex = if (display == RecognitionDisplay.Direct) 1 else 0,
+                    onSelect = { index ->
+                        display = if (index == 1) RecognitionDisplay.Direct
+                        else RecognitionDisplay.Capsule
+                    },
+                    shape = segmentedShape(extraRows + 1, rows),
+                )
             }
         }
         // ---- 链接目标 / 改写 ----
