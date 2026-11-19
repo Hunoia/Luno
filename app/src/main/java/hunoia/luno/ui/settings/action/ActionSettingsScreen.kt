@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.AppShortcut
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -73,6 +74,7 @@ fun ActionSettingsTab(
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToPointerSettings: () -> Unit = {},
+    onNavToDynamicShortcuts: () -> Unit = {},
     onNavToRecentsGestureSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
@@ -214,13 +216,13 @@ fun ActionSettingsTab(
                         icon = Icons.Default.TouchApp,
                         title = stringResource(R.string.pointer),
                         subtitle = stringResource(R.string.pointer_hint),
-                        shape = segmentedShape(0, 5),
+                        shape = segmentedShape(0, 6),
                         onClick = onNavToPointerSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.FormatListBulleted,
                         title = stringResource(R.string.recents_gesture_settings_title),
-                        shape = segmentedShape(1, 5),
+                        shape = segmentedShape(1, 6),
                         onClick = onNavToRecentsGestureSettings,
                     )
                     LunoSettingsRow(
@@ -231,20 +233,26 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.screen_pick_settings_disabled)
                         },
-                        shape = segmentedShape(2, 5),
+                        shape = segmentedShape(2, 6),
                         onClick = onNavToScreenPickSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Crop,
                         title = stringResource(R.string.action_settings_mini_window_position),
-                        shape = segmentedShape(3, 5),
+                        shape = segmentedShape(3, 6),
                         onClick = onNavToMiniWindowSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
-                        shape = segmentedShape(4, 5),
+                        shape = segmentedShape(4, 6),
                         onClick = onNavToButtonVisibility,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.AppShortcut,
+                        title = stringResource(hunoia.luno.actions.R.string.dynamic_shortcuts_title),
+                        shape = segmentedShape(5, 6),
+                        onClick = onNavToDynamicShortcuts,
                     )
                 }
             }

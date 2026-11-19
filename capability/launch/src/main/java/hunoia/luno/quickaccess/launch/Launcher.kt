@@ -865,6 +865,8 @@ object Launcher {
         shortcutId: String?,
         intentUris: List<String>,
         label: String,
+        /** 动态导入入口所属资料空间；-1 = 主用户（静态快捷方式与旧落库数据）。 */
+        userSerial: Long = -1L,
     ): Boolean {
         if (intentUris.isNotEmpty() &&
             launchShortcutIntents(context, intentUris, label, showFailureToast = false)
@@ -873,11 +875,13 @@ object Launcher {
             return true
         }
         if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
-            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) {
-                Log.i(LOG_TAG, "shortcut launched via LauncherApps pkg=$packageName id=$shortcutId")
+            if (startShortcutViaLauncherApps(context, packageName, shortcutId, userSerial)) {
+                Log.i(LOG_TAG, "shortcut launched via LauncherApps pkg=$packageName id=$shortcutId user=$userSerial")
                 return true
             }
-            if (ShizukuManager.startShortcut(packageName, shortcutId)) {
+            // Shizuku 的 startShortcut 没有资料空间参数，只适用于主用户；工作资料入口
+            // 必须走 LauncherApps，失败就按失败处理，不能误启动主用户里的同名入口。
+            if (userSerial < 0 && ShizukuManager.startShortcut(packageName, shortcutId)) {
                 Log.i(LOG_TAG, "shortcut launched via Shizuku pkg=$packageName id=$shortcutId")
                 return true
             }
@@ -900,18 +904,25 @@ object Launcher {
         context: Context,
         packageName: String,
         shortcutId: String,
+        userSerial: Long = -1L,
     ): Boolean = try {
         val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        val user = if (userSerial < 0) {
+            Process.myUserHandle()
+        } else {
+            hunoia.luno.bridge.launcher.DynamicShortcuts.userForSerial(context, userSerial)
+                ?: return false
+        }
         launcherApps.startShortcut(
             packageName,
             shortcutId,
             null,
             null,
-            Process.myUserHandle(),
+            user,
         )
         true
     } catch (e: Exception) {
-        Log.w(LOG_TAG, "launcherApps.startShortcut failed pkg=$packageName id=$shortcutId", e)
+        Log.w(LOG_TAG, "launcherApps.startShortcut failed pkg=$packageName id=$shortcutId user=$userSerial", e)
         false
     }
 

@@ -152,6 +152,11 @@ data object MiniWindowAdjust
 @Serializable
 data object PointerSettings
 
+/** 动态快捷方式导入页：临时默认桌面 → 读取 pin → 切回。 */
+@Keep
+@Serializable
+data object DynamicShortcutSettings
+
 /** 外观设置页：列表风格与面板 / 浮层 / 浮窗动效档位。 */
 @Keep
 @Serializable

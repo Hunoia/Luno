@@ -100,7 +100,9 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
             source = SRC_SHORTCUT,
             title = title,
             subtitle = subtitle,
-            icon = SearchIcon.AppIcon(shortcut.packageName, shortcut.iconBitmap?.asImageBitmap()),
+            // 快捷方式自带图标（含动态导入的 PNG）；没有文件才回退应用图标。
+            icon = shortcut.iconPath?.let { SearchIcon.Request(it) }
+                ?: SearchIcon.AppIcon(shortcut.packageName, shortcut.iconBitmap?.asImageBitmap()),
             primary = SearchAction.Run(
                 StoredAction.of(
                     "app.launchShortcut",

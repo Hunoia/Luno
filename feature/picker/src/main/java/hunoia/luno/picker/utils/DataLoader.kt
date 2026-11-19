@@ -520,7 +520,7 @@ internal suspend fun updateShortcutInfosBody(
         QuickLaunchFacade.queryShortcutActivities(AppContext.get())
     }
     val launchLauncherInfos = withContext(Dispatchers.IO) {
-        QuickLaunchFacade.queryShortcuts(AppContext.get())
+        QuickLaunchFacade.queryShortcutsIncludingImported(AppContext.get())
     }
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { record ->

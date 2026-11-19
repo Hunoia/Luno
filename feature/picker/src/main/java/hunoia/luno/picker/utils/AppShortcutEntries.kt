@@ -13,8 +13,8 @@ import hunoia.luno.quickaccess.query.SearchText
  * 同一个应用会在页面上出现三次。这里按**包名**归并：应用行点开就是它自己的快捷方式，
  * 用户找「微信 → 发消息」只需要记住应用名。
  *
- * 按包名而不是 [identity] 关联：快捷方式来源只带 `packageName/className`，不带 userId，
- * 同一包的分身会各自带一份相同快捷方式——这比「分身下列不出快捷方式」符合直觉。
+ * 静态入口不带资料空间，随包挂到所有同包行（主/分身共享同一份 shortcuts.xml）；
+ * 动态入口只挂到对应资料空间的行，避免「分身行显示主应用的动态快捷方式」。
  */
 internal data class AppShortcutEntry(
     val app: AppInfo,
@@ -48,10 +48,20 @@ internal fun buildAppShortcutEntries(
         AppShortcutEntry(
             app = app,
             createLaunchers = createByPackage[app.packageName].orEmpty(),
-            launchLaunchers = launchByPackage[app.packageName].orEmpty(),
+            launchLaunchers = launchByPackage[app.packageName].orEmpty()
+                .map { launcher ->
+                    launcher.copy(
+                        shortcuts = launcher.shortcuts.filter { it.belongsTo(app) },
+                    )
+                }
+                .filter { it.shortcuts.isNotEmpty() },
         )
     }
 }
+
+/** 快捷方式是否属于该应用行：静态入口（无资料空间）随包挂所有行，动态只挂对应资料空间。 */
+private fun LauncherInfo.ShortcutInfo.belongsTo(app: AppInfo): Boolean =
+    userId < 0 || userId == app.userId
 
 /** 搜索命中：应用名 / 包名 / 快捷方式名任一命中（拼音、首字母、模糊音由 [SearchText] 统一）。 */
 internal fun AppShortcutEntry.matchesSearch(search: SearchText): Boolean {

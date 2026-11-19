@@ -71,4 +71,13 @@
     <string name="action_group_volume_up">Volume up</string>
     <string name="action_group_volume_down">Volume down</string>
     <string name="action_group_scroll">Scroll</string>
+
+    <!-- Dynamic shortcuts import: only the default home app may read or pin them. -->
+    <string name="dynamic_shortcuts_title">Dynamic shortcuts</string>
+    <string name="dynamic_shortcuts_change_home">Change default home</string>
+    <string name="dynamic_shortcuts_set_default_home_hint">Only the default home can access dynamic shortcuts; collecting and launching need this role</string>
+    <string name="dynamic_shortcuts_collect">Collect all dynamic shortcuts</string>
+    <string name="dynamic_shortcuts_collect_hint">Tap once while set as the default home to collect every dynamic and pinned entry</string>
+    <string name="dynamic_shortcuts_collected_n">Collected %1$d</string>
+    <string name="dynamic_shortcuts_failed">Something went wrong, try again</string>
 </resources>

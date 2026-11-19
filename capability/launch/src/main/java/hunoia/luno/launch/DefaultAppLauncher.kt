@@ -80,14 +80,20 @@ class DefaultAppLauncher(
             hunoia.luno.core.domain.JsonSerializer
                 .decodeFromString<ShortcutIntents>(dataJson)
         }.getOrNull() ?: return false
+        if (!ensureEnabled(shortcut.packageName)) return false
         // 旧落库数据可能只存了 component（快捷方式定义后来才补 action/data），
         // 直接启动就会报“参数无效”。启动前按当前安装包刷新一次定义。
-        val freshIntents = withContext(Dispatchers.IO) {
-            ShortcutQuery.findShortcut(
-                context,
-                shortcut.packageName,
-                shortcut.shortcutId.orEmpty(),
-            )?.intents.orEmpty()
+        // 动态导入的入口没有公开 intent，intents 为空时不必白跑一次 XML 查询。
+        val freshIntents = if (shortcut.intents.isEmpty()) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.IO) {
+                ShortcutQuery.findShortcut(
+                    context,
+                    shortcut.packageName,
+                    shortcut.shortcutId.orEmpty(),
+                )?.intents.orEmpty()
+            }
         }
         val intentUris = freshIntents.ifEmpty { shortcut.intents }
         if (freshIntents.isNotEmpty() && freshIntents != shortcut.intents) {
@@ -97,13 +103,16 @@ class DefaultAppLauncher(
                     "stored=${shortcut.intents.size} fresh=${freshIntents.size}",
             )
         }
-        return Launcher.launchShortcutWithFallback(
+        val launched = Launcher.launchShortcutWithFallback(
             context = context,
             packageName = shortcut.packageName,
             shortcutId = shortcut.shortcutId,
             intentUris = intentUris,
             label = "",
+            userSerial = shortcut.userSerial,
         )
+        if (launched) LaunchCapability.recordLaunch(shortcut.packageName, AppLaunchSource.SHORTCUT)
+        return launched
     }
 
     override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult {
@@ -181,5 +190,7 @@ class DefaultAppLauncher(
 private data class ShortcutIntents(
     val packageName: String = "",
     val shortcutId: String? = null,
+    /** 动态导入入口的资料空间；-1 = 主用户（旧落库 JSON 的默认值）。 */
+    val userSerial: Long = -1L,
     val intents: List<String> = emptyList(),
 )

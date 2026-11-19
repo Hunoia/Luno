@@ -77,6 +77,22 @@
             </intent-filter>
         </activity>
 
+        <!-- 临时桌面入口：只为取得动态快捷方式的读取 / pin 权限。按 Home 时登记
+             「打开导入页」并回主界面，不做任何桌面功能。 -->
+        <activity
+            android:name=".ui.shortcut.ShortcutImportHomeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/dynamic_shortcuts_home_label"
+            android:theme="@style/Theme.SideGesture.Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- 动作库条目外部调用：luno://action/{entryId} -->
         <activity
             android:name=".ui.ActionDeepLinkActivity"

@@ -25,8 +25,10 @@ import hunoia.luno.gridpanel.TrendExtras
 import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.log.IncidentNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
+import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingTrendRecord
+import hunoia.luno.ui.shortcut.ShortcutImportHomeActivity
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +67,7 @@ class MainActivity : ComponentActivity() {
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
         handleIncidentIntent(intent)
+        handleDynamicShortcutIntent(intent)
 
         setContent {
             // 门面注入点（architecture §8.4）：页面与状态持有者只读 LocalFacades。
@@ -92,6 +95,7 @@ class MainActivity : ComponentActivity() {
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
         handleIncidentIntent(intent)
+        handleDynamicShortcutIntent(intent)
     }
 
     /**
@@ -137,6 +141,22 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(IncidentNotifier.EXTRA_OPEN_INCIDENTS, false) != true) return
         intent.removeExtra(IncidentNotifier.EXTRA_OPEN_INCIDENTS)
         PendingIncidentView.request()
+    }
+
+    /**
+     * 临时默认桌面的 HOME 入口被按 Home 时，[ShortcutImportHomeActivity] 把用户拉回主界面
+     * 并带这个标记；导航由 [SideGestureApp] 消费 [PendingDynamicShortcuts] 跳到导入页。
+     */
+    private fun handleDynamicShortcutIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(
+                ShortcutImportHomeActivity.EXTRA_OPEN_DYNAMIC_SHORTCUTS,
+                false,
+            ) != true
+        ) {
+            return
+        }
+        intent.removeExtra(ShortcutImportHomeActivity.EXTRA_OPEN_DYNAMIC_SHORTCUTS)
+        PendingDynamicShortcuts.request()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

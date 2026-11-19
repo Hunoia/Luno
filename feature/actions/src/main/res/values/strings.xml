@@ -71,4 +71,13 @@
     <string name="action_group_volume_up">音量增加</string>
     <string name="action_group_volume_down">音量减小</string>
     <string name="action_group_scroll">滚动</string>
+
+    <!-- 动态快捷方式导入：系统只对默认桌面开放读取与 pin。 -->
+    <string name="dynamic_shortcuts_title">动态快捷方式</string>
+    <string name="dynamic_shortcuts_change_home">更改默认桌面</string>
+    <string name="dynamic_shortcuts_set_default_home_hint">系统只向默认桌面开放动态快捷方式；采集与启动均需此权限</string>
+    <string name="dynamic_shortcuts_collect">采集全部动态快捷方式</string>
+    <string name="dynamic_shortcuts_collect_hint">设为默认桌面后点一次，采集系统全部动态与已固定入口</string>
+    <string name="dynamic_shortcuts_collected_n">已采集 %1$d 条</string>
+    <string name="dynamic_shortcuts_failed">操作失败，请重试</string>
 </resources>

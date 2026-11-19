@@ -20,4 +20,4 @@ val LauncherInfo.ShortcutInfo.componentName: ComponentName
 val LauncherInfo.ShortcutInfo.qualifiedName: String get() = "$packageName/$className"
 
 val LauncherInfo.ShortcutInfo.qualifiedNameWithIntents: String
-    get() = "$packageName/$className(${intents.joinToString()})"
+    get() = "$packageName/$className(${intents.joinToString()})#${shortcutId.orEmpty()}@$userSerial"

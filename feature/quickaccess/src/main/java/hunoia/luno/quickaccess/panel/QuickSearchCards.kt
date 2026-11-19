@@ -234,11 +234,14 @@ private fun ResultGroupCard(
     onTogglePin: (String) -> Unit,
 ) {
     GroupCard(title = cardTitle(source), icon = sourceIcon(source)) {
+        // key 只由内容决定、不带 idx（重排时整列 key 失效会全重建闪一下）；重复项由
+        // stableKeys 补 ~n 保唯一，与平铺路径同口径。
+        val keys = remember(results) { stableKeys(results.map { it.key }) }
         LazyRow(
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            itemsIndexed(results, key = { _, r -> r.key }) { _, result ->
+            itemsIndexed(results, key = { idx, _ -> keys[idx] }) { _, result ->
                 Box {
                     val setQuery = (result.primary as? SearchAction.SetQuery)?.text
                     if (setQuery != null) {

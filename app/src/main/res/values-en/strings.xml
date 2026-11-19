@@ -562,4 +562,5 @@
 
     <string name="screen_pick_recognition_group">Recognition rules</string>
     <string name="screen_pick_recognition_hint">Rule table and scene scan live in the dispatch rules page</string>
+    <string name="dynamic_shortcuts_home_label">Luno shortcut import</string>
 </resources>

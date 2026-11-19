@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 
 import hunoia.luno.picker.ActionSelect
 import hunoia.luno.picker.FloatBallSlot
+import hunoia.luno.actions.shortcut.DynamicShortcutsScreen
 
 import hunoia.luno.gesture.settings.GestureButtonSettings
 
@@ -72,6 +73,8 @@ import hunoia.luno.ui.navigation.MiniWindowSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.PointerAdjust
 import hunoia.luno.ui.navigation.PointerSettings
+import hunoia.luno.ui.navigation.DynamicShortcutSettings
+import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
@@ -205,6 +208,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             }
             navController.navigate(LogSettings) { launchSingleTop = true }
         }
+        // 临时默认桌面的 HOME 入口按 Home → 回主界面并跳到动态快捷方式导入页。
+        val pendingDynamicShortcuts by PendingDynamicShortcuts.requested.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingDynamicShortcuts) {
+            if (!pendingDynamicShortcuts) return@LaunchedEffect
+            PendingDynamicShortcuts.consume()
+            navController.navigate(DynamicShortcutSettings) { launchSingleTop = true }
+        }
         CompositionLocalProvider(
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
@@ -259,6 +269,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToPointerSettings = { navController.navigate(PointerSettings) },
+                        onNavToDynamicShortcuts = {
+                            navController.navigate(DynamicShortcutSettings)
+                        },
                         onNavToRecentsGestureSettings = {
                             navController.navigate(RecentsGestureSettings)
                         },
@@ -442,6 +455,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onAdjustPosition = { follow -> navController.navigate(PointerAdjust(follow)) },
                     )
+                }
+                myComposable<DynamicShortcutSettings> {
+                    DynamicShortcutsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<AppearanceSettings> {
                     AppearanceSettingsScreen(onBack = { navController.popBackStack() })

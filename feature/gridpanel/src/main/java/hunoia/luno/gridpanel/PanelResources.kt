@@ -39,6 +39,8 @@ object PanelResources {
                     library.forEach { add(it.storedAction) }
                     addAll(actionSettings.storedActions())
                 }.flatMapTo(mutableSetOf()) { ShortcutIconFiles.iconPathsOf(it) }
+                // 动态快捷方式导入记录也直接持有图标文件：动作还没配置时它们同样不能被回收。
+                referencedIcons += ConfigProvider.getDynamicShortcutRefs().items.mapNotNull { it.iconPath }
                 ShortcutIconFiles.deleteUnreferenced(AppContext.get(), referencedIcons)
 
                 val referencedWidgetIds = actionSettings.referencedAppWidgetIds()

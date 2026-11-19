@@ -1,7 +1,10 @@
 package hunoia.luno.quickaccess.query
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.SystemClock
+import hunoia.luno.bridge.launcher.DynamicShortcuts
 import hunoia.luno.bridge.system.PackageChangeReceiver
 
 /**
@@ -10,6 +13,8 @@ import hunoia.luno.bridge.system.PackageChangeReceiver
  * 进程内复用同一份索引。
  * - 包变化（装/卸/覆盖）只标记过期，不在后台立刻重扫（避免搜索关着时白耗电）；面板打开期间的
  *   实时刷新由 QuickSearchActivity 自己的包监听负责。
+ * - 动态快捷方式导入发生在主进程：靠 [DynamicShortcuts.ACTION_CHANGED] 标记过期，
+ *   下次打开搜索时重建索引。
  * - 10 分钟 TTL 兜住「切换默认桌面/语言变化」等不广播的情况。
  */
 object QuickSearchIndexProvider {
@@ -20,6 +25,7 @@ object QuickSearchIndexProvider {
     private var cached: QuickSearchIndex? = null
     private var cachedAtMs = 0L
     private var packageObserverRegistered = false
+    private var shortcutObserverRegistered = false
 
     fun get(context: Context): QuickSearchIndex {
         val appContext = context.applicationContext ?: context
@@ -35,6 +41,20 @@ object QuickSearchIndexProvider {
                 packageObserverRegistered = true
                 PackageChangeReceiver.register(appContext) {
                     synchronized(lock) { cached }?.markAppsStale()
+                }
+            }
+            if (!shortcutObserverRegistered) {
+                shortcutObserverRegistered = true
+                runCatching {
+                    appContext.registerReceiver(
+                        object : android.content.BroadcastReceiver() {
+                            override fun onReceive(context: Context?, intent: Intent?) {
+                                synchronized(lock) { cached }?.markAppsStale()
+                            }
+                        },
+                        IntentFilter(DynamicShortcuts.ACTION_CHANGED),
+                        Context.RECEIVER_NOT_EXPORTED,
+                    )
                 }
             }
             return fresh

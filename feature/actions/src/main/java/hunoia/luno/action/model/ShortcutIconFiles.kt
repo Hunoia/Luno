@@ -52,6 +52,35 @@ object ShortcutIconFiles {
         runCatching { directory(context).listFiles()?.forEach { it.delete() } }
     }
 
+    /**
+     * 把动态快捷方式图标落成 PNG，返回绝对路径。
+     *
+     * 文件名由稳定 key 决定：同一入口重新导入时覆盖旧文件，不会在图标目录里留下副本。
+     * 失败返回 null，调用方保留旧 `iconPath`。
+     */
+    fun saveBitmap(
+        context: android.content.Context,
+        bitmap: android.graphics.Bitmap?,
+        key: String,
+    ): String? {
+        if (bitmap == null || key.isBlank()) return null
+        return runCatching {
+            val dir = directory(context)
+            dir.mkdirs()
+            val file = File(dir, "${safeName(key)}.png")
+            file.outputStream().use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            }
+            file.absolutePath
+        }.getOrNull()
+    }
+
+    private fun safeName(key: String): String {
+        val cleaned = key.replace(Regex("[^A-Za-z0-9._-]"), "_").take(96)
+        // 截断后可能撞名（长包名 / 长 shortcut id）：附稳定哈希保证一一对应。
+        return "${cleaned}_${key.hashCode().toUInt().toString(16)}"
+    }
+
     /** 只保留仍被引用的路径（恢复备份后清掉上一份配置遗留的孤儿文件）。 */
     fun deleteUnreferenced(context: android.content.Context, referenced: Set<String>) {
         // 同时按文件名匹配：备份跨安装/跨设备恢复时，JSON 里的绝对路径前缀

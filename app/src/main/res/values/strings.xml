@@ -570,4 +570,5 @@
 
     <string name="screen_pick_recognition_group">识别规则</string>
     <string name="screen_pick_recognition_hint">规则表与情景识别在分发规则页</string>
+    <string name="dynamic_shortcuts_home_label">Luno 快捷方式导入</string>
 </resources>

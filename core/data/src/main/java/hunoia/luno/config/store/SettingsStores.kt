@@ -22,6 +22,7 @@ import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TrendConfig
+import hunoia.luno.core.domain.DynamicShortcutRefs
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -48,6 +49,7 @@ class SettingsStores(
     internal val _annotateSettings: DataStore<AnnotateSettings>,
     internal val _autoBackup: DataStore<AutoBackupSettings>,
     internal val _appControlSettings: DataStore<AppControlSettings>,
+    internal val _dynamicShortcutRefs: DataStore<DynamicShortcutRefs>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -71,6 +73,8 @@ class SettingsStores(
     val autoBackup: Flow<AutoBackupSettings> = _autoBackup.data
     /** 应用冻结：一键名单；禁用状态由系统查询，不走配置。 */
     val appControlSettings: Flow<AppControlSettings> = _appControlSettings.data
+    /** 动态快捷方式导入记录：设备本地引用，不进备份、不被 resetAll 清掉。 */
+    val dynamicShortcutRefs: Flow<DynamicShortcutRefs> = _dynamicShortcutRefs.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -99,6 +103,7 @@ class SettingsStores(
                 _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),
                 _autoBackup = ctx.dataStore(DataStoreFiles.AUTO_BACKUP, AutoBackupSettings()),
                 _appControlSettings = ctx.dataStore(DataStoreFiles.APP_CONTROL_SETTINGS, AppControlSettings()),
+                _dynamicShortcutRefs = ctx.dataStore(DataStoreFiles.DYNAMIC_SHORTCUTS, DynamicShortcutRefs()),
             )
         }
     }

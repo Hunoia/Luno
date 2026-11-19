@@ -104,7 +104,7 @@ class QuickSearchIndex(internal val context: Context) {
         }
     }
 
-    fun refreshApps() {
+    suspend fun refreshApps() {
         // 已加载就跳过：每次调用都全量查包 + 查快捷方式（PackageManager 几百毫秒），
         // 面板重开一次就白跑一次。需要重刷（装卸应用）由调用方先失效后调。
         if (appsLoaded) return
@@ -114,7 +114,10 @@ class QuickSearchIndex(internal val context: Context) {
         }
         try {
             val combined = DisabledAppQuery.queryQuickAppLauncherApps(context)
-            val builtShortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
+            // 静态 XML + 已导入的动态快捷方式：动态入口不在 shortcuts.xml 里，
+            // 只查静态定义会让它们搜不到。
+            val builtShortcuts = QuickLaunchFacade.queryShortcutsIncludingImported(context)
+                .flatMap { it.shortcuts }
             AppSearch.warmIndexes(combined.apps)
             AppSearch.warmShortcutIndexes(builtShortcuts)
             // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
@@ -146,7 +149,7 @@ class QuickSearchIndex(internal val context: Context) {
     }
 
     /** 强制重刷应用索引（装卸应用后）：清闸门再走 [refreshApps]。 */
-    fun invalidateApps() {
+    suspend fun invalidateApps() {
         val duringRefresh = synchronized(loadLock) {
             appsLoaded = false
             if (refreshingApps) {

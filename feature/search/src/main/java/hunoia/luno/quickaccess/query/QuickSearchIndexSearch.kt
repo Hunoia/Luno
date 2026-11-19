@@ -54,7 +54,8 @@ inline fun bestOfFirst(first: TieredMatch, second: () -> TieredMatch): TieredMat
     /** 空输入时的常用：按衰减使用分取前 N 个（禁用应用一并返回，由调用方标注）。 */
 fun QuickSearchIndex.topUsed(usageStats: AppUsageStats, limit: Int = 8): List<QuickSearchResult.App> {
         ensureLoaded()
-        if (!appsLoaded) refreshApps()
+        // 不再 refreshApps() 兜底：全量查包必须在 IO 线程由 Activity 预加载，
+        // 这里只读已经发布的快照（未就绪时返回空，面板稍后由 appsTick 补搜）。
         val data = appData
         val usage = UsageScores(usageStats.launchCount, usageStats.recentLaunchTime, System.currentTimeMillis())
         return data.apps

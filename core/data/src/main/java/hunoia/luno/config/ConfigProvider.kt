@@ -16,6 +16,7 @@ import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.record
 import hunoia.luno.config.model.cleared
+import hunoia.luno.core.domain.DynamicShortcutRefs
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GlobalGestureSettings
@@ -73,6 +74,8 @@ object ConfigProvider {
     val autoBackup: Flow<AutoBackupSettings> = stores.autoBackup
     /** 应用冻结：一键名单（不含系统禁用状态）。 */
     val appControlSettings: Flow<AppControlSettings> = stores.appControlSettings
+    /** 动态快捷方式导入记录：设备本地系统授权引用，不进备份。 */
+    val dynamicShortcutRefs: Flow<DynamicShortcutRefs> = stores.dynamicShortcutRefs
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
     val habitConfig: Flow<HabitConfig> = stores.habitConfig
@@ -97,6 +100,14 @@ object ConfigProvider {
     suspend fun getClipboardSettings(): ClipboardSettings =
         stores._clipboardSettings.data.first().coerced()
     suspend fun getAutoBackup(): AutoBackupSettings = stores._autoBackup.data.first()
+    suspend fun getDynamicShortcutRefs(): DynamicShortcutRefs =
+        stores._dynamicShortcutRefs.data.first()
+
+    suspend fun updateDynamicShortcutRefs(
+        transform: suspend (DynamicShortcutRefs) -> DynamicShortcutRefs,
+    ) {
+        stores._dynamicShortcutRefs.updateData(transform)
+    }
 
     suspend fun updateAutoBackup(transform: suspend (AutoBackupSettings) -> AutoBackupSettings) {
         stores._autoBackup.updateData(transform)

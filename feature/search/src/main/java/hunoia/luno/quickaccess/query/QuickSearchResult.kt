@@ -107,10 +107,13 @@ fun QuickSearchResult.stableId(): String = when (this) {
     // 应用/快捷方式：包名+类名就是唯一标识（AppInfo.qualifiedName）。
     is QuickSearchResult.App ->
         "app#${appInfo.packageName}/${appInfo.className}@${appInfo.userId}"
-    // 快捷方式没有独立 id（XML 解析时 currentId 就丢了），intents 是唯一能区分
-    // 同包同 activity 多个快捷方式的字段。
-    is QuickSearchResult.Shortcut ->
-        "sc#${shortcut.packageName}/${shortcut.className}|${shortcut.intents.joinToString("\u0001")}"
+    // 静态快捷方式没有独立 id（XML 解析时 currentId 就丢了），intents 是唯一能区分
+    // 同包同 activity 多个快捷方式的字段。动态入口（userSerial >= 0）className/intents
+    // 都为空，同包主/分身会撞，必须补 shortcutId + userSerial 才能区分。
+    is QuickSearchResult.Shortcut -> {
+        val base = "sc#${shortcut.packageName}/${shortcut.className}|${shortcut.intents.joinToString("\u0001")}"
+        if (shortcut.userSerial >= 0) "$base#${shortcut.shortcutId.orEmpty()}@${shortcut.userSerial}" else base
+    }
     is QuickSearchResult.Url -> "url#$url"
     is QuickSearchResult.EngineSearch -> "es#${engine.id}|$query"
     is QuickSearchResult.Calc -> "calc#${expression}"

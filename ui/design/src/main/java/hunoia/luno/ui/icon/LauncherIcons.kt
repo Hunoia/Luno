@@ -90,7 +90,7 @@ fun Drawable.toIconBitmap(sizePx: Int): ImageBitmap? {
 
 val LauncherInfo.ShortcutInfo.qualifiedName: String get() = "$packageName/$className"
 
-val LauncherInfo.ShortcutInfo.qualifiedNameWithIntents: String get() = "$packageName/$className(${intents.joinToString()})"
+val LauncherInfo.ShortcutInfo.qualifiedNameWithIntents: String get() = "$packageName/$className(${intents.joinToString()})#${shortcutId.orEmpty()}@$userSerial"
 
 val LauncherInfo.ShortcutInfo.icon: Drawable? @Composable get() {
     val context = LocalContext.current
