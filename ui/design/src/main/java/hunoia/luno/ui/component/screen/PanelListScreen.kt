@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,12 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.component.PressFloatingActionButton
 import hunoia.luno.ui.component.TextIcon
 
@@ -103,17 +100,13 @@ fun PanelListScreen(
                             contentDescription = createItems.firstOrNull()?.label.orEmpty(),
                         )
                     }
-                DropdownMenu(
+                LunoDropdownMenu(
                     expanded = showCreateMenu,
                     onDismissRequest = { showCreateMenu = false },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = LargeShape,
-                    tonalElevation = ElevationSmall,
-                    shadowElevation = 0.dp,
                 ) {
                     createItems.forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(item.label) },
+                        LunoDropdownMenuItem(
+                            text = item.label,
                             leadingIcon = { Icon(item.icon, contentDescription = null) },
                             onClick = {
                                 showCreateMenu = false

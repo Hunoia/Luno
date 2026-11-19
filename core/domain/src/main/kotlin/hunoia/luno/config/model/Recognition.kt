@@ -214,7 +214,7 @@ sealed interface RecognitionOutput {
     }
 
     /**
-     * 通知输出：把捕获值发成通知（方式逐规则可选：LIVE 胶囊 / 标准通知）。
+     * 通知输出：把捕获值发成通知（方式跟随通用通知设置，可逐规则覆盖）。
      *
      * 独立成一种输出（而不是走 `Builtin(Notify)`）是因为它自带一份内容模板，
      * 塞进枚举会需要一张伴随配置表——那就等于第二套模型。
@@ -287,10 +287,10 @@ enum class LinkMissMode {
 }
 
 /**
- * 通知输出规格：内容模板 + 通知方式（[RecognitionNotifySpec.mode]）。
+ * 通知输出规格：内容模板 + 通知方式覆盖（[RecognitionNotifySpec.mode]）。
  *
- * 只放识别器自己关心的内容；通知方式（LIVE 胶囊 / 标准通知）见 [NotificationMode]，
- * 岛外观不再开第二套面板。
+ * 只放识别器自己关心的内容；通知方式（标准 / 实时 / 超级岛）见 [NotificationMode]，
+ * 默认跟随通用通知设置（`NotificationKind.RECOGNITION`），岛外观始终走全局设置。
  */
 @Serializable
 @Keep
@@ -302,11 +302,11 @@ data class RecognitionNotifySpec(
     /** 小岛 / 胶囊摘要；空 = 从捕获值截断。 */
     val capsuleText: String = "",
     /**
-     * 通知方式（每规则可选）：[NotificationMode.LIVE] = Android 16+ 升 Live Update /
-     * 状态栏胶囊（无权限自动落回标准），[NotificationMode.STANDARD] = 普通通知。
-     * 只留这两档；岛外观（自动展开 / 停留 / 超时）不再逐规则配。
+     * 通知方式覆盖：null = **跟随全局通知设置**（`NotificationDisplaySettings`
+     * `modeFor(RECOGNITION)`）；非 null = 本规则覆盖（标准 / 实时 / 超级岛）。
+     * 岛外观（自动展开 / 停留 / 超时 / 保留通知栏）始终由全局设置决定。
      */
-    val mode: NotificationMode = NotificationMode.STANDARD,
+    val mode: NotificationMode? = null,
 )
 
 /**

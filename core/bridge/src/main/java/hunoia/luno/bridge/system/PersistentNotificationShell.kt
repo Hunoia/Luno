@@ -1,7 +1,7 @@
 package hunoia.luno.bridge.system
 
 import hunoia.luno.config.model.HiddenNotificationTarget
-import hunoia.luno.config.model.UserFacingReminderChannelIds
+import hunoia.luno.config.model.KeepAliveNotificationIds
 import hunoia.luno.core.domain.PersistentNotificationEntry
 import hunoia.luno.shizuku.ShizukuManager
 
@@ -70,12 +70,13 @@ object PersistentNotificationShell {
         return keys.size
     }
 
-    /** 隐藏 Luno 当前所有常驻通知（用户开关用，避免误伤将来新增的普通通知）。 */
+    /** 隐藏 Luno 当前「运行保活」的前台服务通知（用户开关用，精确按保活通知 id）。 */
     suspend fun snoozeAllOwnPersistent(packageName: String, durationMs: Long = SNOOZE_DURATION_MS): Int {
         val keys = listPersistent()
-            .filter { it.packageName == packageName }
-            // 习惯 / 待办提醒是面向用户的常驻通知，用户显式开启的提醒不能因「隐藏 Luno 通知」被收走。
-            .filterNot { it.channelId in UserFacingReminderChannelIds }
+            .filter {
+                it.packageName == packageName &&
+                    it.notificationId in KeepAliveNotificationIds
+            }
             .map { it.key }
         keys.forEach { snooze(it, durationMs) }
         return keys.size

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,9 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.component.CheckDropdownMenuItem
-import hunoia.luno.ui.theme.ElevationSmall
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 
 /**
  * 标题行 + 下拉菜单单选，行尾显示当前选项。
@@ -71,17 +69,13 @@ fun LunoDropdownRow(
             onClick = { expanded = true },
         )
         Box(modifier = Modifier.align(Alignment.BottomEnd)) {
-            DropdownMenu(
+            LunoDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = LargeShape,
-                tonalElevation = ElevationSmall,
-                shadowElevation = 0.dp,
             ) {
                 options.forEachIndexed { index, option ->
-                    CheckDropdownMenuItem(
-                        label = option,
+                    LunoDropdownMenuItem(
+                        text = option,
                         selected = index == selectedIndex,
                         onClick = {
                             expanded = false

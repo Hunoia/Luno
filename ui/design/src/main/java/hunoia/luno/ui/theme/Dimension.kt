@@ -41,6 +41,12 @@ val SliderThumbWidth = 20.dp
 val ContentBottom = 24.dp
 val FloatingContentBottom = 120.dp
 val SheetListMaxHeight = 420.dp
+/**
+ * 下拉 / 长按菜单的最大高度：内容超过时菜单内滚动，不为放下更多项而无限加高
+ * （ui-guidelines §4.4）。M3 `DropdownMenu` 内置滚动与自身高度上限（按屏幕高推导，
+ * 常见 ≥504dp），本值作为 Luno 侧更紧的上限生效。
+ */
+val MenuMaxHeight = 420.dp
 
 // Gesture / interaction thresholds
 val MiniWindowWidth = 200.dp

@@ -23,10 +23,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -52,14 +49,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
 import hunoia.luno.ui.theme.BottomBarPadding
-import hunoia.luno.ui.theme.ElevationSmall
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.facade.missingHomePermissions
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.component.sheet.toColorSpec
@@ -624,7 +621,7 @@ private class DockFunctionBall(
     val onClick: () -> Unit,
 )
 
-/** 动作库 + 号的类型菜单：DropdownMenu（同规则页优先级菜单风格），锚定 FAB。 */
+/** 动作库 + 号的类型菜单：LunoDropdownMenu（同规则页优先级菜单风格），锚定 FAB。 */
 @Composable
 private fun LibraryTypeMenu(
     expanded: Boolean,
@@ -635,20 +632,14 @@ private fun LibraryTypeMenu(
         ActionCatalog.libraryDefinitions()
             .sortedBy { libraryCategoryOf(it.typeId).ordinal }
     }
-    DropdownMenu(
+    LunoDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = LargeShape,
-        tonalElevation = ElevationSmall,
-        shadowElevation = 0.dp,
     ) {
         grouped.forEach { def ->
-            DropdownMenuItem(
-                text = { Text(def.name) },
-                leadingIcon = {
-                    Icon(def.icon, contentDescription = null)
-                },
+            LunoDropdownMenuItem(
+                text = def.name,
+                leadingIcon = { Icon(def.icon, contentDescription = null) },
                 onClick = { onSelect(def.typeId) },
             )
         }

@@ -157,10 +157,12 @@
     <string name="recognition_output_copy_and_clear_hint">Clears the system clipboard after the delay below, unless you copied something else in the meantime</string>
     <string name="recognition_output_notify">Notification</string>
     <string name="recognition_notify_mode">Notification style</string>
-    <string name="recognition_notify_mode_hint">LIVE capsule requires Android 16+ with permission; otherwise falls back to a standard notification</string>
+    <string name="recognition_notify_mode_hint">Follows the global notification settings by default; each rule can override</string>
+    <string name="recognition_notify_mode_follow">Follow global</string>
     <string name="recognition_notify_mode_standard">Standard notification</string>
-    <string name="recognition_notify_mode_live">LIVE capsule</string>
-    <string name="recognition_notify_hint">The notification has a single Done button that dismisses it</string>
+    <string name="recognition_notify_mode_live">Live</string>
+    <string name="recognition_notify_mode_island">Super Island</string>
+    <string name="recognition_notify_hint">Live needs Android 16+ with permission and Super Island needs Xiaomi with access; otherwise it falls back to a standard notification. The notification has a single Done button that dismisses it</string>
     <string name="recognition_copy_clear_delay">Clear clipboard after copying</string>
     <string name="recognition_copy_clear_delay_hint">Only applies to &quot;copy then clear&quot; outputs; history stays in the app</string>
     <string name="recognition_copy_clear_off">Never</string>

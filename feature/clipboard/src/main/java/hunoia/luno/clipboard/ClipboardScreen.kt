@@ -42,8 +42,6 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -88,6 +86,8 @@ import hunoia.luno.ui.component.FloatingTabRow
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -393,25 +393,21 @@ private fun ClipboardDataMenu(
                 contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.clipboard_export)) },
+        LunoDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            LunoDropdownMenuItem(
+                text = stringResource(R.string.clipboard_export),
                 onClick = { open = false; onExport() },
                 enabled = contentEnabled,
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.clipboard_import)) },
+            LunoDropdownMenuItem(
+                text = stringResource(R.string.clipboard_import),
                 onClick = { open = false; onImport() },
             )
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(R.string.clipboard_clear_page),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                },
+            LunoDropdownMenuItem(
+                text = stringResource(R.string.clipboard_clear_page),
                 onClick = { open = false; onClearAll() },
                 enabled = contentEnabled,
+                isError = true,
             )
         }
     }
@@ -799,30 +795,27 @@ private fun ClipboardRow(
                             modifier = Modifier.size(20.dp),
                         )
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(
-                                        if (pinned) R.string.clipboard_unpin else R.string.clipboard_pin,
-                                    ),
-                                )
-                            },
+                    LunoDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        LunoDropdownMenuItem(
+                            text = stringResource(
+                                if (pinned) R.string.clipboard_unpin else R.string.clipboard_pin,
+                            ),
                             onClick = { menuOpen = false; onTogglePin() },
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.clipboard_share)) },
+                        LunoDropdownMenuItem(
+                            text = stringResource(R.string.clipboard_share),
                             onClick = { menuOpen = false; onShare() },
                         )
                         if (onFloat != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.clipboard_float)) },
+                            LunoDropdownMenuItem(
+                                text = stringResource(R.string.clipboard_float),
                                 onClick = { menuOpen = false; onFloat() },
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.clipboard_delete)) },
+                        LunoDropdownMenuItem(
+                            text = stringResource(R.string.clipboard_delete),
                             onClick = { menuOpen = false; onDelete() },
+                            isError = true,
                         )
                     }
                 }

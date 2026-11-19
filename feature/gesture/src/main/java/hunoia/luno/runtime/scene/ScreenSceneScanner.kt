@@ -156,7 +156,16 @@ class ScreenSceneScanner(
         scheduler.onScanStarted(SystemClock.uptimeMillis())
         val snapshot = withContext(scanDispatcher) {
             // textOnly：情景识别只要文本叶子，图片 / 布局 / 逐字坐标都是白分配。
-            runCatching { reader.capture(downX = -1, downY = -1, textOnly = true) }.getOrNull()
+            // sceneExpectedPackage：只识别「事件对应应用」的窗口，全屏优先；无全屏回退该应用
+            // 窗口（不再混入他应用文本、targetPackage 恒 = expectedPackage 不触发下方 drop）。
+            runCatching {
+                reader.capture(
+                    downX = -1,
+                    downY = -1,
+                    textOnly = true,
+                    sceneExpectedPackage = expectedPackage,
+                )
+            }.getOrNull()
         } ?: return
         val packageName = snapshot.targetPackage
         if (packageName.isBlank()) return

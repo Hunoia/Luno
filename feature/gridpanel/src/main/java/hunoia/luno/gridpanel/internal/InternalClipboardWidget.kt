@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,6 +53,8 @@ import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 
 /**
  * 剪贴板页面部件：历史列表（文本 + 图片缩略图，最新在最前）。
@@ -280,23 +280,25 @@ private fun HistoryRow(
                         modifier = Modifier.size(16.dp),
                     )
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.grid_panel_clipboard_copy)) },
+                LunoDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    LunoDropdownMenuItem(
+                        text = stringResource(R.string.grid_panel_clipboard_copy),
                         onClick = { menuOpen = false; onCopy() },
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.grid_panel_clipboard_float)) },
+                    LunoDropdownMenuItem(
+                        text = stringResource(R.string.grid_panel_clipboard_float),
                         onClick = { menuOpen = false; onFloat() },
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.grid_panel_clipboard_delete)) },
+                    LunoDropdownMenuItem(
+                        text = stringResource(R.string.grid_panel_clipboard_delete),
                         onClick = { menuOpen = false; onDelete() },
+                        isError = true,
                     )
                     // 清空入口挂在条目菜单里：部件不设标题栏，不做常驻按钮占高度。
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.grid_panel_clipboard_clear)) },
+                    LunoDropdownMenuItem(
+                        text = stringResource(R.string.grid_panel_clipboard_clear),
                         onClick = { menuOpen = false; onClearAll() },
+                        isError = true,
                     )
                 }
             }

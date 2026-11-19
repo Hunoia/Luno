@@ -70,6 +70,30 @@ class SceneScanGateTest {
     }
 
     @Test
+    fun `system ui packages and vendor plugins are rejected`() {
+        // 原生与各厂商 SystemUI 及其插件：它们没有 TYPE_APPLICATION 窗口，事件却密，放行会
+        // 抢占 expectedPackage 导致抓到前台应用后包名比对 drop（「经常不识别」）。
+        listOf(
+            "com.android.systemui",
+            "com.miui.systemui",
+            "miui.systemui.plugin",
+            "com.oplus.systemui",
+            "com.vivo.systemui",
+        ).forEach { pkg ->
+            assertEquals(
+                "应拒绝系统 UI 包 $pkg",
+                SceneScanDecision.SystemUi,
+                SceneScanGate.decide(
+                    eventType = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                    context = context(),
+                    eventPackage = pkg,
+                    ownPackage = "hunoia.luno",
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `blocklist rejects listed apps`() {
         assertEquals(
             SceneScanDecision.BlockedList,

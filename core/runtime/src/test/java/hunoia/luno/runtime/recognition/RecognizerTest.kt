@@ -432,7 +432,7 @@ class RecognizerTest {
     }
 
     @Test
-    fun `notify rule json round trip keeps spec and mode`() {
+    fun `notify rule json round trip keeps spec and mode override`() {
         val rule = RecognitionRule(
             id = "r-notify",
             name = "取件码",
@@ -442,7 +442,7 @@ class RecognizerTest {
                 RecognitionNotifySpec(
                     title = "取件码",
                     text = "{value}",
-                    mode = NotificationMode.LIVE,
+                    mode = NotificationMode.ISLAND,
                 ),
             ),
         )
@@ -452,21 +452,44 @@ class RecognizerTest {
     }
 
     @Test
-    fun `legacy notify spec drops removed display fields`() {
+    fun `notify rule with null mode round trips as follow global`() {
+        // mode 缺省为 null：跟随全局通知设置。空 spec 也必须能完整往返。
         val rule = RecognitionRule(
             id = "r-notify",
             name = "取件码",
             sources = setOf(RecognitionSource.Clipboard),
             match = RecognitionMatch.Text("""\d{6}"""),
+            output = RecognitionOutput.Notify(RecognitionNotifySpec()),
+        )
+        val json = JsonSerializer.encodeToString(listOf(rule))
+        val decoded = JsonSerializer.decodeFromString<List<RecognitionRule>>(json)
+        assertEquals(listOf(rule), decoded)
+        val spec = (decoded.single().output as RecognitionOutput.Notify).spec
+        assertNull(spec.mode)
+    }
+
+    @Test
+    fun `legacy notify spec drops removed display fields`() {
+        // 旧版 spec 带显示字段（autoExpand/expandedSeconds/timeoutSeconds/keepInShade），
+        // 已从模型删除；ignoreUnknownKeys 应静默丢弃，只留内容模板 + 仍有效的 mode。
+        val expected = RecognitionRule(
+            id = "r-notify",
+            name = "取件码",
+            sources = setOf(RecognitionSource.Clipboard),
+            match = RecognitionMatch.Text("""\d{6}"""),
             output = RecognitionOutput.Notify(
-                RecognitionNotifySpec(title = "取件码", text = "{value}"),
+                RecognitionNotifySpec(
+                    title = "取件码",
+                    text = "{value}",
+                    capsuleText = "取件码",
+                    mode = NotificationMode.LIVE,
+                ),
             ),
         )
-        val root = Json.parseToJsonElement(JsonSerializer.encodeToString(listOf(rule))).jsonArray
+        val root = Json.parseToJsonElement(JsonSerializer.encodeToString(listOf(expected))).jsonArray
         val item = (root[0] as JsonObject).toMutableMap()
         val output = (item.getValue("output") as JsonObject).toMutableMap()
         val spec = (output.getValue("spec") as JsonObject).toMutableMap()
-        // 旧版 spec 带显示字段；ignoreUnknownKeys 应静默丢弃，只留内容模板 + 默认 mode。
         spec["autoExpand"] = JsonPrimitive(true)
         spec["expandedSeconds"] = JsonPrimitive(5)
         spec["timeoutSeconds"] = JsonPrimitive(0)
@@ -476,6 +499,6 @@ class RecognizerTest {
         val legacy = JsonArray(listOf(JsonObject(item))).toString()
 
         val decoded = JsonSerializer.decodeFromString<List<RecognitionRule>>(legacy)
-        assertEquals(listOf(rule), decoded)
+        assertEquals(listOf(expected), decoded)
     }
 }

@@ -131,6 +131,29 @@ class UiBoundaryTest {
     }
 
     @Test
+    fun `下拉菜单只在 ui design 封装里实现`() {
+        // 所有下拉 / 长按菜单走 LunoDropdownMenu / LunoDropdownMenuItem（ui-guidelines §4.4）：
+        // 页面 / feature 直接引 M3 DropdownMenu 会绕过 Luno 视觉与 MenuMaxHeight 上限 + 滚动。
+        // 设计系统内部允许（如 LunoDropdownMenu 封装 M3）。
+        val designRoot = "ui/design/src/main/java/"
+        val forbidden = setOf(
+            "androidx.compose.material3.DropdownMenu",
+            "androidx.compose.material3.DropdownMenuItem",
+        )
+        val problems = productionFiles
+            .filterNot { it.repoPath().startsWith(designRoot) }
+            .flatMap { file ->
+                file.imports
+                    .map { it.name }
+                    .filter { it in forbidden }
+                    .map {
+                        "${file.repoPath()} 直接引用 M3 菜单组件（走 LunoDropdownMenu / LunoDropdownMenuItem）"
+                    }
+            }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
     fun `滑杆手势只在 ui design 封装里实现`() {
         // 所有滑杆必须走 LunoSlider：只认横向拖动、点按不跳值、纵向交给父级滚动
         // （ui-guidelines §4.10）。页面直接引 M3 Slider 会绕过这层手势。

@@ -8,6 +8,7 @@ import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.gesture.BuildConfig
 
@@ -93,6 +94,12 @@ class A11yTextSnapshotReader(
         startedAtMs: Long = SystemClock.uptimeMillis(),
         timeBudgetMs: Long = TIME_BUDGET_MS,
         textOnly: Boolean = false,
+        /**
+         * 情景识别的事件包名（`ScreenSceneScanner` 传入）。非 null 时把目标限定为「事件对应
+         * 应用」的窗口：全屏优先，浮在其上的小窗不进快照；该应用无全屏（分屏/纯小窗）时回退
+         * 该应用窗口。长按取词 / 识屏传 null（按下点决定目标），不受影响。
+         */
+        sceneExpectedPackage: String? = null,
     ): TextSnapshot {
         val deadline = startedAtMs + timeBudgetMs
         val windows = runCatching { service.windows }.getOrNull().orEmpty()
@@ -108,16 +115,56 @@ class A11yTextSnapshotReader(
             }
             .toList()
 
-        // 目标窗口 = 按下点所在、layer 最高的应用窗口。屏幕浮着其他应用小窗（画中画 /
-        // 悬浮窗）时，最顶层应用窗口是那层小窗而不是用户长按的背景应用：盲目取顶层会把
-        // targetPackage 定为小窗，且小窗节点树还先吃预算。按下点决定目标，避免「识别不到」。
-        // 按下点不在任何应用窗口（状态栏/导航栏/空隙）时 target 为 null，回退遍历全部窗口。
-        val target = appWindows.firstOrNull { it.window.containsPoint(downX, downY) }
+        // 情景识别（sceneExpectedPackage != null，由 ScreenSceneScanner 传入事件包名）的目标
+        // 窗口集合：只识别「事件对应应用」的窗口，全屏优先。
+        // - 该应用有全屏窗口：只遍历它的**全屏窗口集合**（可能有多个：闪屏/占位/全屏对话框 +
+        //   主窗口。全部遍历，避免选中无文本的单个窗口而漏掉有文本的主窗口；这也正是“只识别
+        //   全屏、排除小窗”的正确实现）。浮在其上的小窗（非全屏）不进快照。
+        // - 该应用无全屏窗口（分屏双开 / 纯小窗）：只遍历该应用的窗口（回退——不再混入其他
+        //   应用文本，targetPackage 恒 = expectedPackage，不触发 scan 的包名比对 drop）。
+        // - 该应用已无窗口（用户已切走）：目标集合为空 → 放弃，与 scan 的包名比对一致。
+        // sceneExpectedPackage == null（长按取词 / 识屏）时保持原逻辑：按下点所在窗口。
+        val sceneTargets: List<TargetWindow>? = if (sceneExpectedPackage != null) {
+            val pkgWindows = appWindows.filter { it.packageName == sceneExpectedPackage }
+            if (pkgWindows.isEmpty()) {
+                null
+            } else {
+                val fullscreen = pkgWindows.filter { entry ->
+                    val r = Rect()
+                    val ok = runCatching { entry.window.getBoundsInScreen(r) }.isSuccess
+                    ok && isSceneFullscreen(
+                        left = r.left,
+                        top = r.top,
+                        right = r.right,
+                        bottom = r.bottom,
+                        screenWidth = DensityProvider.screenWidthPx,
+                        screenHeight = DensityProvider.screenHeightPx,
+                    )
+                }
+                // 有全屏窗口只认全屏（排除小窗）；无全屏回退该应用全部窗口。
+                fullscreen.ifEmpty { pkgWindows }
+            }
+        } else null
 
-        val targetPackage = target?.packageName ?: appWindows.firstOrNull()?.packageName.orEmpty()
-        val targetIds = appWindows
-            .filter { it.packageName == targetPackage }
-            .mapTo(HashSet()) { it.window.id }
+        // 目标窗口（单个）：情景识别取目标集合里 layer 最高的（语义同 targetPackage 兜底），
+        // 长按取词取按下点所在、layer 最高的应用窗口。屏幕浮着其他应用小窗（画中画 / 悬浮窗）
+        // 时，最顶层应用窗口是那层小窗而不是用户长按的背景应用：盲目取顶层会把 targetPackage
+        // 定为小窗，且小窗节点树还先吃预算。按下点决定目标，避免「识别不到」。按下点不在任何
+        // 应用窗口（状态栏/导航栏/空隙）时 target 为 null，回退遍历全部窗口。
+        val target = sceneTargets?.firstOrNull()
+            ?: if (downX < 0 && downY < 0) null
+            else appWindows.firstOrNull { it.window.containsPoint(downX, downY) }
+
+        val targetPackage = sceneTargets?.first()?.packageName
+            ?: target?.packageName
+            ?: appWindows.firstOrNull()?.packageName.orEmpty()
+        val targetIds = if (sceneTargets != null) {
+            sceneTargets.mapTo(HashSet()) { it.window.id }
+        } else {
+            appWindows
+                .filter { it.packageName == targetPackage }
+                .mapTo(HashSet()) { it.window.id }
+        }
 
         val leaves = ArrayList<TextLeaf>()
         if (textOnly) leafNodes.clear()
@@ -138,14 +185,22 @@ class A11yTextSnapshotReader(
             )
         }
 
-        // 目标窗口独占遍历预算：按下点所在层先被完整读入，避免无关小窗（浮在上层、节点
-        // 又多）把预算吃光，导致「按下点区域根本没遍历到、识别不到内容」。非目标窗口不进
-        // 快照（按下点不在它上面），只以窗口 bounds 参与遮挡。
-        val ordered = if (target != null) listOf(target) + appWindows.filter { it !== target }
-        else appWindows
+        // 目标窗口独占遍历预算：目标层先被完整读入，避免无关小窗（浮在上层、节点又多）把
+        // 预算吃光，导致「目标区域根本没遍历到、识别不到内容」。非目标窗口不进快照（不在
+        // 目标上），只以窗口 bounds 参与遮挡。
+        val ordered = when {
+            sceneTargets != null -> appWindows
+            target != null -> listOf(target) + appWindows.filter { it !== target }
+            else -> appWindows
+        }
 
         for (entry in ordered) {
-            if (target != null && entry !== target) continue
+            if (sceneTargets != null) {
+                // 情景识别：只遍历目标集合（全屏窗口 / 事件应用窗口），小窗等非目标不进快照。
+                if (entry !in sceneTargets) continue
+            } else if (target != null && entry !== target) {
+                continue
+            }
             val window = entry.window
             val root = entry.root
             if (visited.value >= MAX_NODES || SystemClock.uptimeMillis() > deadline) {
@@ -466,4 +521,28 @@ class A11yTextSnapshotReader(
         IMAGE_CLASS_HINTS.any { className.contains(it, ignoreCase = true) }
 
     private class IntRef(var value: Int = 0)
+}
+
+/**
+ * 情景识别的「全屏窗口」判定（纯函数）：窗口 bounds 覆盖屏幕的大部分即视为全屏。
+ *
+ * 浮在全屏主窗口上的小窗（画中画 / 悬浮窗 / 分屏小块）面积明显小于屏幕，不满足；分屏双开
+ * （各约 0.5 面积）也不满足。阈值 0.85 用整数比例（×100 vs ×85）避免浮点误差，也容忍全屏
+ * 窗口因系统栏 / 沉浸式略小于屏幕的偏移。
+ */
+internal fun isSceneFullscreen(
+    left: Int,
+    top: Int,
+    right: Int,
+    bottom: Int,
+    screenWidth: Int,
+    screenHeight: Int,
+): Boolean {
+    val width = right - left
+    val height = bottom - top
+    if (width <= 0 || height <= 0) return false
+    val screenArea = screenWidth.toLong() * screenHeight
+    if (screenArea <= 0) return false
+    val windowArea = width.toLong() * height
+    return windowArea * 100 >= screenArea * 85
 }

@@ -16,12 +16,9 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +58,8 @@ import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -68,9 +67,7 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
@@ -249,24 +246,20 @@ fun SearchEngineSettingsScreen(
                     contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
                 )
             }
-            DropdownMenu(
+            LunoDropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = LargeShape,
-                tonalElevation = ElevationSmall,
-                shadowElevation = 0.dp,
             ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.search_engine_export_file)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.search_engine_export_file),
                     leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
                     onClick = {
                         menuOpen = false
                         fileExportLauncher.launch("search-engines.json")
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.search_engine_import_file)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.search_engine_import_file),
                     leadingIcon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
                     onClick = {
                         menuOpen = false
@@ -275,16 +268,16 @@ fun SearchEngineSettingsScreen(
                         )
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.search_engine_export)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.search_engine_export),
                     leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
                     onClick = {
                         menuOpen = false
                         showExportConfirm = true
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.search_engine_import)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.search_engine_import),
                     leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
                     onClick = {
                         menuOpen = false

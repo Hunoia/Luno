@@ -434,7 +434,7 @@
     <string name="persistent_notification_master_hint">Hidden notifications reappear when turned off</string>
     <string name="persistent_notification_luno_group">Luno persistent notifications</string>
     <string name="persistent_notification_luno_hide">Hide Luno persistent notifications</string>
-    <string name="persistent_notification_luno_hide_hint">The two foreground service notifications for keep-alive and float ball</string>
+    <string name="persistent_notification_luno_hide_hint">Only the two foreground service notifications for keep-alive and float ball; other Luno notifications (reminders / recognition) are unaffected</string>
     <string name="persistent_notification_others_group">Other apps</string>
     <string name="persistent_notification_empty">No persistent notifications to hide right now</string>
     <string name="persistent_notification_target_subtitle">%1$s · persistent</string>
@@ -519,6 +519,7 @@
     <string name="notification_display_kind_habit">Habit reminders</string>
     <string name="notification_display_kind_backup">Auto backup</string>
     <string name="notification_display_kind_todo">Todo reminders</string>
+    <string name="notification_display_kind_recognition">Recognition alerts</string>
     <string name="notification_display_override_follow">Default</string>
     <string name="notification_display_island_group">Island</string>
     <string name="notification_display_island_auto_expand">Auto-expand big island</string>

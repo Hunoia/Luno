@@ -49,11 +49,18 @@ data class SceneScanContext(
  */
 internal object SceneScanGate {
 
-    /** 通知栏/锁屏/音量条等系统 UI 的内容变化不是「用户在看的界面」。 */
-    private val SYSTEM_UI_PACKAGES = setOf(
-        "com.android.systemui",
-        "com.miui.systemui",
-    )
+    /**
+     * 通知栏/锁屏/音量条等系统 UI 的内容变化不是「用户在看的界面」。
+     *
+     * 用子串匹配覆盖各厂商 SystemUI 及其插件（小米 `miui.systemui.plugin`、OPPO
+     * `com.oplus.systemui`、vivo `com.vivo.systemui`、原生 `com.android.systemui` …）——它们
+     * 没有 TYPE_APPLICATION 窗口，事件却很密，若放行会把 `expectedPackage` 抢占成系统 UI
+     * 插件，导致 `ScreenSceneScanner` 抓到真实前台应用后因包名比对不一致而 drop（表现为
+     * 「经常不识别」）。与下方 `inputmethod` 的 contains 判定同风格；无合法应用包名含
+     * "systemui"，误伤风险可忽略。
+     */
+    private fun isSystemUiPackage(packageName: String): Boolean =
+        packageName.contains("systemui", ignoreCase = true)
 
     fun decide(
         eventType: Int,
@@ -68,7 +75,7 @@ internal object SceneScanGate {
         if (!context.interactive) return SceneScanDecision.ScreenOff
         if (eventPackage.isNullOrBlank()) return SceneScanDecision.NoPackage
         if (eventPackage == ownPackage) return SceneScanDecision.OwnApp
-        if (eventPackage in SYSTEM_UI_PACKAGES) return SceneScanDecision.SystemUi
+        if (isSystemUiPackage(eventPackage)) return SceneScanDecision.SystemUi
         // 输入法窗口即使被标成 application，也不该触发读屏。
         if (eventPackage.contains("inputmethod", ignoreCase = true)) return SceneScanDecision.InputMethod
         if (context.launcher) return SceneScanDecision.Launcher

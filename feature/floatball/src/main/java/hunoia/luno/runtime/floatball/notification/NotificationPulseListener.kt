@@ -5,7 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.config.model.PersistentNotificationHidingSettings
-import hunoia.luno.config.model.UserFacingReminderChannelIds
+import hunoia.luno.config.model.isSameApplicationVariant
 import hunoia.luno.config.model.shouldHide
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.domain.floatball.FloatBallSettingsCenter
@@ -46,8 +46,9 @@ class NotificationPulseListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
-        // 自家通知（前台服务常驻等）不进胶囊，但命中隐藏配置时要续 snooze。
-        if (sbn.packageName == packageName) {
+        // 自家通知（含同应用的其它构建：release / debug 双包并存）不进胶囊，
+        // 但命中隐藏配置时要续 snooze。
+        if (isSameApplicationVariant(sbn.packageName, packageName)) {
             if (shouldHide(sbn)) snooze(sbn.key)
             return
         }
@@ -102,7 +103,7 @@ class NotificationPulseListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
-        if (sbn.packageName == packageName) return
+        if (isSameApplicationVariant(sbn.packageName, packageName)) return
         val pulse = sbn.toPulse()
         updateActiveCache(removeKey = pulse.key)
         NotificationContentIntents.forget(pulse.key)
@@ -187,13 +188,8 @@ class NotificationPulseListener : NotificationListenerService() {
         config: PersistentNotificationHidingSettings = hiding,
     ): Boolean {
         if (!hidingLoaded) return false
-        // 习惯 / 待办提醒是用户显式开启、面向用户的常驻通知，不属于「固定通知隐藏」范围；
-        // 隐藏功能只该处理后台前台服务这类「系统运行痕迹」。
-        if (sbn.packageName == packageName &&
-            sbn.notification.channelId in UserFacingReminderChannelIds
-        ) {
-            return false
-        }
+        // 常驻判定 + 隐藏判定都收口在 shouldHide（只精确命中「运行保活」通知 id）；
+        // 识别提醒 / 习惯 / 待办等面向用户的常驻通知不在这里被收走。
         val flags = sbn.notification.flags
         val persistent = sbn.isOngoing ||
             (flags and (Notification.FLAG_ONGOING_EVENT or
@@ -215,7 +211,7 @@ class NotificationPulseListener : NotificationListenerService() {
     private fun refreshActiveCache() {
         val current = runCatching { activeNotifications?.mapNotNull { it.toPulse() }.orEmpty() }
             .getOrDefault(emptyList())
-            .filter { it.packageName != packageName }
+            .filterNot { isSameApplicationVariant(it.packageName, packageName) }
         synchronized(activeLock) { activeCache = current }
     }
 

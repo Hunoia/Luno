@@ -23,6 +23,7 @@ import hunoia.luno.R
 import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.DAEMON_NOTIFICATION_ID
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.ui.MainActivity
 import java.text.SimpleDateFormat
@@ -39,7 +40,7 @@ class DaemonService : Service() {
     companion object {
         private const val PREF_NAME = "daemon"
         private const val KEY_KEEP_ALIVE = "keep_alive"
-        private const val NOTIFICATION_ID = 2001
+        private const val NOTIFICATION_ID = DAEMON_NOTIFICATION_ID
         private const val CHANNEL_ID = "daemon"
 
         /** 用户开保活时 KeepAliveUseCase 显式携带：跨进程 prefs 缓存不可靠的兜底。 */

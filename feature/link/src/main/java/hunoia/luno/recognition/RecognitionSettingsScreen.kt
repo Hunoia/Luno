@@ -19,11 +19,7 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +60,8 @@ import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.rememberDragReorderState
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -74,9 +72,7 @@ import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
-import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.RowIconSize
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -204,24 +200,20 @@ fun RecognitionSettingsScreen(
                     contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
                 )
             }
-            DropdownMenu(
+            LunoDropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = LargeShape,
-                tonalElevation = ElevationSmall,
-                shadowElevation = 0.dp,
             ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.recognition_export_file)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.recognition_export_file),
                     leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
                     onClick = {
                         menuOpen = false
                         fileExportLauncher.launch("recognition-rules.json")
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.recognition_import_file)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.recognition_import_file),
                     leadingIcon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
                     onClick = {
                         menuOpen = false
@@ -230,16 +222,16 @@ fun RecognitionSettingsScreen(
                         )
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.recognition_export)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.recognition_export),
                     leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
                     onClick = {
                         menuOpen = false
                         showExportConfirm = true
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.recognition_import)) },
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.recognition_import),
                     leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
                     onClick = {
                         menuOpen = false

@@ -36,6 +36,7 @@ import hunoia.luno.config.model.ClipFloatSettings
 import hunoia.luno.config.model.ClipKind
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.config.model.FLOATBALL_NOTIFICATION_ID
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
@@ -2391,7 +2392,7 @@ class FloatBallService : Service() {
     companion object {
         private const val TAG = LOG_TAG
         private const val CHANNEL_ID = "float_ball"
-        private const val NOTIFICATION_ID = 2002
+        private const val NOTIFICATION_ID = FLOATBALL_NOTIFICATION_ID
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
         private var currentRef: WeakReference<FloatBallService>? = null
 

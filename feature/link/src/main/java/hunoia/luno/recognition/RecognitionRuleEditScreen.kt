@@ -458,20 +458,26 @@ fun RecognitionRuleEditScreen(
                     shape = segmentedShape(1, rows),
                 )
                 is RecognitionOutput.Notify -> {
+                    // 通知方式：跟随全局（null）或逐规则覆盖。默认跟随通用通知设置。
+                    val modeOptions = listOf(
+                        null,
+                        NotificationMode.STANDARD,
+                        NotificationMode.LIVE,
+                        NotificationMode.ISLAND,
+                    )
                     LunoDropdownRow(
                         title = stringResource(R.string.recognition_notify_mode),
                         subtitle = stringResource(R.string.recognition_notify_mode_hint),
                         options = listOf(
+                            stringResource(R.string.recognition_notify_mode_follow),
                             stringResource(R.string.recognition_notify_mode_standard),
                             stringResource(R.string.recognition_notify_mode_live),
+                            stringResource(R.string.recognition_notify_mode_island),
                         ),
-                        selectedIndex = if (o.spec.mode == NotificationMode.LIVE) 1 else 0,
+                        selectedIndex = modeOptions.indexOf(o.spec.mode).coerceAtLeast(0),
                         onSelect = { index ->
                             output = RecognitionOutput.Notify(
-                                o.spec.copy(
-                                    mode = if (index == 1) NotificationMode.LIVE
-                                    else NotificationMode.STANDARD,
-                                ),
+                                o.spec.copy(mode = modeOptions.getOrNull(index)),
                             )
                         },
                         shape = segmentedShape(1, rows),

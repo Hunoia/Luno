@@ -27,8 +27,14 @@ class PersistentNotificationHidingTest {
     @Test
     fun `luno own persistent notifications follow one switch`() {
         val enabled = PersistentNotificationHidingSettings()
+        // 只隐藏「运行保活」的两个前台服务通知。
         assertTrue(enabled.shouldHide(own, own, 2001, null, true))
         assertTrue(enabled.shouldHide(own, own, 2002, null, true))
+        // 其余 Luno 常驻通知（识别提醒 / 习惯 / 待办 / 任何新增通知）不得被收走。
+        assertFalse(enabled.shouldHide(own, own, 9999, null, true))
+        // 同应用另一构建（debug suffix 变体）同样按保活 id 命中，不因变体漏藏 / 误藏。
+        assertTrue(enabled.shouldHide(own, "hunoia.luno.debug", 2001, null, true))
+        assertFalse(enabled.shouldHide(own, "hunoia.luno.debug", 9999, null, true))
 
         val disabled = PersistentNotificationHidingSettings(hideLunoNotifications = false)
         assertFalse(disabled.shouldHide(own, own, 2001, null, true))

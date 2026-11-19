@@ -157,10 +157,12 @@
     <string name="recognition_output_copy_and_clear_hint">复制后按设定的秒数自动清空系统剪贴板（期间你复制了别的内容则不动）</string>
     <string name="recognition_output_notify">通知</string>
     <string name="recognition_notify_mode">通知方式</string>
-    <string name="recognition_notify_mode_hint">LIVE 胶囊需 Android 16+ 且授权；否则自动降级为普通通知</string>
+    <string name="recognition_notify_mode_hint">默认跟随通用通知设置，也可按规则单独选</string>
+    <string name="recognition_notify_mode_follow">跟随全局</string>
     <string name="recognition_notify_mode_standard">标准通知</string>
-    <string name="recognition_notify_mode_live">LIVE 胶囊</string>
-    <string name="recognition_notify_hint">通知上只有「完成」按钮，点它收起</string>
+    <string name="recognition_notify_mode_live">实时</string>
+    <string name="recognition_notify_mode_island">超级岛</string>
+    <string name="recognition_notify_hint">实时需 Android 16+ 且授权、超级岛需小米且已授权，否则自动降级为普通通知；通知上只有「完成」按钮，点它收起</string>
     <string name="recognition_copy_clear_delay">复制后清除剪贴板</string>
     <string name="recognition_copy_clear_delay_hint">只清「复制并清除」这类输出写入的内容；历史仍保留在应用内</string>
     <string name="recognition_copy_clear_off">不清除</string>

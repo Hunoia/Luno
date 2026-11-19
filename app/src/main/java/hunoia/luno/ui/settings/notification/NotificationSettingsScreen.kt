@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.view.KeyEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -25,13 +24,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.NotificationDisplaySettings
 import hunoia.luno.config.model.NotificationKind
 import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.shizuku.ShizukuInputInjection
-import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -47,14 +45,14 @@ import kotlinx.coroutines.launch
  * - 呈现模式：全局默认（标准 / 实时（Android 16+ Live Update）/ 超级岛（焦点通知 + XMSF 绕过，
  *   需 Shizuku））与按类型覆盖；不支持时自动回退实时 → 标准。
  * - 岛细节：自动展开大岛、岛超时。
- * - 「发送测试通知」走真实发布链路（含绕过事务）；非标准模式下发完切最近任务看岛效果。
+ * - 「发送测试通知」走真实发布链路（含绕过事务）；非标准模式下发完切桌面看岛效果。
  */
 /**
- * 切到最近任务后再发通知的间隔：等窗口切走生效，岛才会浮出。
+ * 切到桌面后再发通知的间隔：等桌面切换动画完成，岛才会浮出。
  * 首帧浮出判定发生在**投递瞬间**——应用在前台时 SystemUI 连胶囊都不给（2026-12 真机验证），
- * 所以测试通知必须先切走再发，否则永远看不到展开效果。
+ * 且投递时桌面切换必须已结束；1s 足够 HOME 动画（约 300-500ms）完成。
  */
-private const val TEST_AWAY_DELAY_MS = 800L
+private const val TEST_AWAY_DELAY_MS = 1000L
 
 /** 岛超时可选档位（秒）：不限 / 5 分钟 / 30 分钟 / 1 小时。 */
 private val ISLAND_TIMEOUT_OPTIONS = listOf(0, 300, 1800, 3600)
@@ -115,12 +113,18 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         display.overrides.values.any { it == NotificationMode.ISLAND }
 
     // 测试通知发前先切走：应用在前台时 SystemUI 不建岛，首帧浮出判定在投递瞬间。
-    suspend fun sendTestNotification(progress: Boolean) {
-        if (testMode != NotificationMode.STANDARD) {
-            openRecents(context)
-            delay(TEST_AWAY_DELAY_MS)
+    // goHome 必须在主线程 + activity context（后台线程发 HOME 会被系统拒；applicationContext
+    // 在「隐藏 Luno 后台」下是受限后台启动，切不出去）——用户点击回调即主线程，直接先切走。
+    // delay + showTest 挂进程级 scope：回桌面后 task/Activity 销毁不取消（前台服务保活），
+    // 岛照常浮出；且发布用 applicationContext，不依赖 Activity 存活。
+    fun sendTestNotification(progress: Boolean) {
+        val app = context.applicationContext
+        val away = testMode != NotificationMode.STANDARD
+        if (away) goHome(context)
+        AppContext.applicationScope?.launch {
+            if (away) delay(TEST_AWAY_DELAY_MS)
+            HabitReminderNotifier.showTest(app, testMode, progress = progress)
         }
-        HabitReminderNotifier.showTest(context, testMode, progress = progress)
     }
 
     LunoScreen(
@@ -157,6 +161,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                             NotificationKind.HABIT -> R.string.notification_display_kind_habit
                             NotificationKind.BACKUP -> R.string.notification_display_kind_backup
                             NotificationKind.TODO -> R.string.notification_display_kind_todo
+                            NotificationKind.RECOGNITION -> R.string.notification_display_kind_recognition
                         },
                     ),
                     options = listOf(
@@ -394,17 +399,12 @@ private fun openAppDetails(context: Context) {
 }
 
 /**
- * 发完测试通知后切到最近任务。
+ * 发完测试通知后回桌面。
  *
- * 优选 Shizuku 注入 KEYCODE_APP_SWITCH（就是「最近任务」键，不受无障碍开关影响）；
- * 没装 / 没授权 Shizuku 时退到桌面——岛同样可见，只是不是任务列表。
+ * 直接发 HOME intent 切走前台；应用在前台时 SystemUI 不建岛，回桌面后岛才浮出。
+ * 必须在主线程 + activity context 调用（后台线程发 startActivity 会被系统拒）。
  */
-private suspend fun openRecents(context: Context) {
-    if (ShizukuManager.currentStatus().isReady &&
-        ShizukuInputInjection.keyEvent(KeyEvent.KEYCODE_APP_SWITCH)
-    ) {
-        return
-    }
+private fun goHome(context: Context) {
     runCatching {
         context.startActivity(
             Intent(Intent.ACTION_MAIN)

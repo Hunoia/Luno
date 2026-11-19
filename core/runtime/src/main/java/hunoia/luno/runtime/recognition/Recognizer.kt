@@ -107,7 +107,7 @@ enum class RecognitionAction {
     /** 跑规则声明的动作。 */
     Run,
 
-    /** 发通知（LIVE 胶囊 / 标准通知）。 */
+    /** 发通知（标准 / 实时 / 超级岛，方式跟随通用通知设置）。 */
     Notify,
 }
 
