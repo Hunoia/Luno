@@ -4,8 +4,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.core.net.toUri
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.link.R
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionRule
@@ -33,7 +35,8 @@ data class LinkTarget(
 class LinkDispatcher(private val ports: LinkPorts) {
 
     private companion object {
-        const val BROWSER_LABEL = "浏览器"
+        /** 探测「通用浏览器」用的地址：只认能处理普通网页的应用，避免把 B 站 / 抖音当浏览器。 */
+        const val BROWSER_PROBE_URL = "https://example.com"
     }
 
     /** 规则的目标应用显示名；包名解析失败（已卸载）回退显示包名本身。 */
@@ -41,33 +44,36 @@ class LinkDispatcher(private val ports: LinkPorts) {
         val pkg = match.targetPackage.trim()
         if (pkg.isEmpty()) {
             // 交给浏览器且未指定具体浏览器：显示成「浏览器」，图标走兜底。
-            return if (match.viaBrowser) LinkTarget("", BROWSER_LABEL) else null
+            return if (match.viaBrowser) {
+                LinkTarget("", context.getString(R.string.link_browser_label))
+            } else {
+                null
+            }
         }
-        val label = runCatching {
-            val pm = context.packageManager
-            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-        }.getOrDefault(pkg)
-        return LinkTarget(pkg, label)
+        return LinkTarget(pkg, labelOf(context, pkg))
     }
 
     /**
-     * 规则在 [url] 上实际会用到的目标：`viaBrowser` 且未指定浏览器时，顺手把自动挑选的
-     * 浏览器解析出来，胶囊上才能显示「发往 小米浏览器」而不是笼统的「浏览器」。
+     * 规则实际会用到的目标：目标包名为空时，顺手把自动挑选的浏览器解析出来，
+     * 胶囊上才能显示「发往 小米浏览器」而不是笼统的「浏览器」（或空白）。
      */
-    fun resolvedTargetOf(context: Context, match: RecognitionMatch.Link, url: String): LinkTarget? {
-        if (!match.viaBrowser) return targetOf(context, match)
-        val pkg = match.targetPackage.trim().ifBlank {
-            resolveBrowser(context, url).orEmpty()
+    fun resolvedTargetOf(
+        context: Context,
+        match: RecognitionMatch.Link,
+        browserPackage: String = "",
+    ): LinkTarget? {
+        if (match.targetPackage.isNotBlank()) return targetOf(context, match)
+        val pkg = resolveBrowser(context, browserPackage)
+        return if (pkg == null) {
+            LinkTarget("", context.getString(R.string.link_browser_label))
+        } else {
+            LinkTarget(pkg, labelOf(context, pkg))
         }
-        if (pkg.isEmpty()) return LinkTarget("", BROWSER_LABEL)
-        val label = targetOf(context, match.copy(targetPackage = pkg, viaBrowser = false))?.label
-        return LinkTarget(pkg, label ?: pkg)
     }
 
     /** 按规则 id 解析目标显示名；规则不存在 / 不是链接规则时返回 null。 */
     fun resolvedTargetFor(
         context: Context,
-        url: String,
         ruleId: String,
         settings: RecognitionSettings,
     ): LinkTarget? {
@@ -75,7 +81,7 @@ class LinkDispatcher(private val ports: LinkPorts) {
             .firstOrNull { it.id == ruleId }
             ?.match as? RecognitionMatch.Link
             ?: return null
-        return resolvedTargetOf(context, match, url)
+        return resolvedTargetOf(context, match, settings.browserPackage)
     }
 
     /**
@@ -95,7 +101,12 @@ class LinkDispatcher(private val ports: LinkPorts) {
         } else {
             url to rule
         }
-        val resolution = resolutionOf(context, effectiveUrl, effectiveRule) ?: return false
+        val resolution = resolutionOf(
+            context = context,
+            url = effectiveUrl,
+            rule = effectiveRule,
+            browserPackage = settings.browserPackage,
+        ) ?: return false
         return dispatch(resolution)
     }
 
@@ -127,18 +138,17 @@ class LinkDispatcher(private val ports: LinkPorts) {
         context: Context,
         url: String,
         rule: RecognitionRule,
+        browserPackage: String,
     ): LinkResolution? {
         val match = rule.match as? RecognitionMatch.Link ?: return null
-        val target = if (match.viaBrowser) {
-            match.targetPackage.trim().ifBlank {
-                resolveBrowser(context, url) ?: run {
-                    Log.w(LOG_TAG, "link resolve: no other browser for $url")
-                    return null
-                }
+        // 空目标 = 「用能打开它的应用」：交给浏览器（优先全局设定 / 系统默认，避开 Luno 自己）。
+        // 不这么兜的话，内置「任意链接」规则会产出 packageName 为空的动作，永远启动失败。
+        val target = match.targetPackage.trim().takeIf { it.isNotEmpty() }
+            ?: resolveBrowser(context, browserPackage)
+            ?: run {
+                Log.w(LOG_TAG, "link resolve: no external handler/browser for $url")
+                return null
             }
-        } else {
-            match.targetPackage.trim()
-        }
         // 规则指向 Luno 自己：返回 null 交给上层回退，避免死循环。
         if (target == context.packageName) {
             Log.w(LOG_TAG, "link resolve target is self, skip: $url")
@@ -191,17 +201,19 @@ class LinkDispatcher(private val ports: LinkPorts) {
         startExternalIntent(context, Intent.createChooser(send, null))
     }
 
-    /** 用其他浏览器打开；解析到 Luno 自己时改成「选择应用」，避免自我循环。 */
-    fun openInBrowser(context: Context, url: String) {
-        val view = viewIntent(url)
-        val resolvedPkg = runCatching {
-            context.packageManager.resolveActivity(view, 0)?.activityInfo?.packageName
-        }.getOrNull()
-        if (resolvedPkg == null || resolvedPkg == context.packageName) {
+    /** 用外部浏览器直接打开：优先 [preferredPackage]，否则自动挑（都避开 Luno 自己）。 */
+    fun openInBrowser(context: Context, url: String, preferredPackage: String = "") {
+        val pkg = resolveBrowser(context, preferredPackage)
+        if (pkg == null) {
+            Log.w(LOG_TAG, "link browser: no other browser for $url")
             pickApp(context, url)
             return
         }
-        startExternalIntent(context, view)
+        // 用 setPackage 直达选中的浏览器：Luno 自己是默认浏览器时，裸 ACTION_VIEW 会回到自己。
+        val launched = runCatching {
+            context.startActivity(viewIntent(url).setPackage(pkg))
+        }.onFailure { Log.w(LOG_TAG, "link browser launch failed: $pkg", it) }.isSuccess
+        if (!launched) pickApp(context, url)
     }
 
     /**
@@ -222,30 +234,50 @@ class LinkDispatcher(private val ports: LinkPorts) {
     fun mainActivityIntent(): Intent = ports.mainActivityIntent()
 
     /**
-     * 自动挑一个能打开该链接的浏览器：优先系统默认浏览器，但**绝不含 Luno 自己**
-     * （Luno 常被设为默认浏览器，选它等于自己调自己）；候选为空返回 null。
+     * 本机可用的浏览器：用通用网页地址探测（只认真正能处理任意网页的应用），
+     * 排除 Luno 自己，保留系统解析顺序。
      */
-    fun resolveBrowser(context: Context, url: String): String? {
+    fun browsers(context: Context): List<LinkTarget> {
         val pm = context.packageManager
-        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-        val candidates = runCatching {
-            pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                .map { it.activityInfo.packageName }
-                .distinct()
-                .filter { it != context.packageName }
+        val intent = Intent(Intent.ACTION_VIEW, BROWSER_PROBE_URL.toUri())
+        val resolved = runCatching {
+            pm.queryIntentActivitiesCompat(intent, PackageManager.MATCH_ALL)
         }.getOrElse { emptyList() }
-        if (candidates.isEmpty()) return null
-        val defaultPkg = runCatching {
-            pm.resolveActivity(intent, 0)?.activityInfo?.packageName
-        }.getOrNull()
-        if (defaultPkg != null && defaultPkg != context.packageName && defaultPkg in candidates) {
-            return defaultPkg
-        }
-        return candidates.first()
+        return resolved.asSequence()
+            .map { it.activityInfo.packageName }
+            .filter { it != context.packageName }
+            .distinct()
+            .map { pkg -> LinkTarget(pkg, labelOf(context, pkg)) }
+            .toList()
     }
 
+    /**
+     * 挑一个浏览器：优先 [preferredPackage]，否则系统默认浏览器，再否则列表第一个；
+     * **绝不含 Luno 自己**（Luno 常被设为默认浏览器，选它等于自己调自己）；无候选返回 null。
+     */
+    fun resolveBrowser(context: Context, preferredPackage: String = ""): String? {
+        val candidates = browsers(context).map { it.packageName }
+        if (candidates.isEmpty()) return null
+        val defaultPkg = runCatching {
+            context.packageManager
+                .resolveActivity(Intent(Intent.ACTION_VIEW, BROWSER_PROBE_URL.toUri()), 0)
+                ?.activityInfo?.packageName
+        }.getOrNull()
+        return pickBrowserPackage(
+            candidates = candidates,
+            preferred = preferredPackage,
+            defaultPackage = defaultPkg,
+            selfPackage = context.packageName,
+        )
+    }
+
+    private fun labelOf(context: Context, pkg: String): String = runCatching {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    }.getOrDefault(pkg)
+
     private fun viewIntent(url: String): Intent =
-        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        Intent(Intent.ACTION_VIEW, url.toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     private fun startExternalIntent(context: Context, intent: Intent) {
@@ -267,3 +299,25 @@ data class LinkResolution(
     val url: String,
     val request: ActionRequest,
 )
+
+/**
+ * 浏览器选择（纯逻辑，方便单测）：优先显式指定，其次系统默认，最后候选第一个。
+ *
+ * - 显式指定但已不在候选列表（卸载 / 根本不是浏览器）时继续自动，不静默失败；
+ * - 始终排除 Luno 自己（它是默认浏览器时选它 = 自己调自己）。
+ */
+internal fun pickBrowserPackage(
+    candidates: List<String>,
+    preferred: String,
+    defaultPackage: String?,
+    selfPackage: String,
+): String? {
+    val available = candidates.filter { it != selfPackage }.distinct()
+    if (available.isEmpty()) return null
+    val chosen = preferred.trim()
+    if (chosen.isNotEmpty() && chosen in available) return chosen
+    if (defaultPackage != null && defaultPackage != selfPackage && defaultPackage in available) {
+        return defaultPackage
+    }
+    return available.first()
+}

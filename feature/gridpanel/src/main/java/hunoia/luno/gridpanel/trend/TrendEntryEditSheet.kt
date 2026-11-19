@@ -6,13 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,14 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.config.model.TrendEntry
-import hunoia.luno.config.model.TrendFormulaResult
 import hunoia.luno.config.model.TrendMetric
-import hunoia.luno.config.model.evaluateTrendFormula
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressIconButton
@@ -41,6 +33,8 @@ import hunoia.luno.ui.theme.ListSpacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * 已保存记录的编辑：只允许改读数，时间显示为只读。
@@ -60,7 +54,6 @@ fun TrendEntryEditSheet(
 ) {
     val existing = entry.readings
     val rowCount = maxOf(metric.valueCount, existing.size)
-    val showSlotLabel = rowCount > 1
     var texts by remember(entry.id, rowCount) {
         mutableStateOf(
             List(rowCount) { index ->
@@ -73,12 +66,12 @@ fun TrendEntryEditSheet(
     val timeLabel = remember(entry.atMillis) {
         Instant.ofEpochMilli(entry.atMillis)
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            .format(
+                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                    .withLocale(Locale.getDefault()),
+            )
     }
     val readings = parseTrendReadings(texts, metric.safeDecimals)
-    val formula = remember(readings) {
-        if (metric.formula.isBlank()) null else evaluateTrendFormula(readings ?: emptyList(), metric.formula, rowCount)
-    }
 
     fun submit() {
         val values = readings ?: return
@@ -119,52 +112,15 @@ fun TrendEntryEditSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            texts.forEachIndexed { index, text ->
-                val isLast = index == rowCount - 1
-                // 与记录面板同一口径：单值指标用指标名做标签，多值指标用槽位名。
-                val slotLabel = if (showSlotLabel) trendSlotLabel(metric, index) else metric.name
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { newValue ->
-                        texts = texts.toMutableList().also { it[index] = newValue }
-                    },
-                    singleLine = true,
-                    label = { Text(slotLabel) },
-                    trailingIcon = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
-                    shape = MaterialTheme.shapes.large,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = if (isLast) ImeAction.Done else ImeAction.Next,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { submit() },
-                        onNext = {
-                            if (!isLast) runCatching { focusRequesters[index + 1].requestFocus() }
-                        },
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequesters[index]),
-                )
-            }
-            if (readings == null) {
-                Text(
-                    text = stringResource(R.string.trend_record_missing_slots),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            if (formula != null) {
-                val formulaText = when (formula) {
-                    is TrendFormulaResult.Ok -> formatTrendValue(formula.value, metric.safeDecimals) + metric.unit
-                    else -> "—"
-                }
-                Text(
-                    text = stringResource(R.string.trend_formula_preview, metric.formula.trim(), formulaText),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            TrendReadingsForm(
+                metric = metric,
+                texts = texts,
+                onTextChange = { index, newValue ->
+                    texts = texts.toMutableList().also { it[index] = newValue }
+                },
+                focusRequesters = focusRequesters,
+                onDone = ::submit,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ListSpacing),

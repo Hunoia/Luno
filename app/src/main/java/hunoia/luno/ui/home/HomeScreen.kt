@@ -166,7 +166,6 @@ fun HomeScreen(
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToNotificationCapsuleSettings: () -> Unit = {},
-    onNavToResultCapsuleSettings: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToActionPanels: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
@@ -581,6 +580,7 @@ fun HomeScreen(
                         MainTab.Trends -> TrendListContent(
                             topPadding = topPadding,
                             onOpenMetric = onNavToTrendDetail,
+                            onNewMetric = { onNavToTrendEdit(null) },
                             state = trendListState,
                         )
 
@@ -596,7 +596,6 @@ fun HomeScreen(
                             onNavToSearchEngines = onNavToSearchEngines,
                             onNavToFloatBallSettings = onNavToFloatBallSettings,
                             onNavToNotificationCapsuleSettings = onNavToNotificationCapsuleSettings,
-                            onNavToResultCapsuleSettings = onNavToResultCapsuleSettings,
                             onNavToRecognition = onNavToRecognition,
                             onNavToButtonVisibility = onNavToButtonVisibility,
                             onNavToMiniWindowSettings = onNavToMiniWindowSettings,

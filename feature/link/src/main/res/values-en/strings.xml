@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="link_dispatch_open_failed">No app can open this link</string>
+    <string name="link_browser_label">Browser</string>
 
     <!-- Recognizer (input → rules → output) -->
     <string name="recognition_title">Dispatch rules</string>
@@ -10,6 +11,12 @@
     <string name="recognition_miss_picker">Choose an app</string>
     <string name="recognition_browser_group">Default browser</string>
     <string name="recognition_default_browser">Make Luno the default browser</string>
+    <string name="recognition_browser_choice">Browser for opening links</string>
+    <string name="recognition_browser_choice_hint">Used by "Open in browser" and rules set to open via browser</string>
+
+    <string name="recognition_capsule_group">Display</string>
+    <string name="recognition_capsule_entry">Result capsule</string>
+    <string name="recognition_capsule_entry_hint">Follow-hand / dwell / queue and icon; capsule-mode results land here</string>
 
     <string name="recognition_rules_group">Rules</string>
     <string name="recognition_rules_order">Matched top to bottom; first hit wins</string>
@@ -107,7 +114,7 @@
     <string name="recognition_output_action">Run action</string>
     <string name="recognition_output_copy_hint">Copies to the clipboard and records it in the app history</string>
     <string name="recognition_output_open_link_hint">Multiple links open a picker; misses follow the global fallback</string>
-    <string name="recognition_output_action_hint">Value placeholders: %s encoded / %q raw / {url} {host}</string>
+    <string name="recognition_output_action_hint" formatted="false">Value placeholders: %s encoded / %q raw / {url} {host}</string>
     <string name="recognition_rule_action_pick">Choose action</string>
     <string name="recognition_rule_action_none">No action selected</string>
 
@@ -117,10 +124,8 @@
     <string name="recognition_rule_target_activity_hint">Blank resolves from the link (recommended)</string>
     <string name="recognition_rule_via_browser">Open via browser</string>
     <string name="recognition_rule_via_browser_hint">For short links the app does not declare</string>
-    <string name="recognition_rule_browser_auto">Auto (any non-default browser)</string>
+    <string name="recognition_rule_browser_auto">Auto (avoid Luno)</string>
     <string name="recognition_rule_browser_target">Specific browser</string>
-    <string name="recognition_rule_browser_clear">Back to auto</string>
-    <string name="recognition_rule_browser_clear_hint">Clear the chosen browser and pick automatically</string>
     <string name="recognition_rule_mini_window">Open in mini window</string>
 
     <string name="recognition_rule_advanced_group">Rewrite</string>
@@ -129,8 +134,8 @@
     <string name="recognition_rule_resolve">Resolve short link</string>
     <string name="recognition_rule_resolve_hint">Follow redirects first (3 s timeout)</string>
     <string name="recognition_rule_resolve_tag"> · resolves short links</string>
-    <string name="recognition_rule_miss">On dispatch failure</string>
-    <string name="recognition_rule_miss_hint">What to do when the target app cannot open it</string>
+    <string name="recognition_rule_miss">When it cannot open</string>
+    <string name="recognition_rule_miss_hint">What to do when the target app cannot open it; defaults to global</string>
     <string name="recognition_rule_miss_global">Follow global</string>
     <string name="recognition_rule_miss_share_short">Share</string>
     <string name="recognition_rule_miss_browser_short">Browser</string>

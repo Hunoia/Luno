@@ -32,7 +32,7 @@ object RecognitionLinks {
     suspend fun targetLabel(context: Context, url: String, settings: RecognitionSettings): String? {
         val rule = LinkUrls.firstMatch(url, settings.rules) ?: return null
         return AppRecognitionHost(context).let {
-            hunoia.luno.link.Links.resolvedTargetFor(context, url, rule.id, settings)?.label
+            hunoia.luno.link.Links.resolvedTargetFor(context, rule.id, settings)?.label
         }
     }
 

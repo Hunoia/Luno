@@ -36,6 +36,7 @@ object ShizukuClipboard {
         val binder: IBinder,
         val method: Method,
         val writeMethod: Method?,
+        val clearMethod: Method?,
     )
 
     @Volatile
@@ -57,7 +58,7 @@ object ShizukuClipboard {
         ) { "IClipboard.asInterface returned null" }
         val method = pickGetPrimaryClip()
         Log.i(TAG, "shizuku clipboard session ready (${method.parameterCount}-arg signature)")
-        return Session(proxy, binder, method, pickSetPrimaryClip())
+        return Session(proxy, binder, method, pickSetPrimaryClip(), pickClearPrimaryClip())
     }
 
     /** `setPrimaryClip` 同样有多个签名（带 attributionTag / userId）；找不到就不支持 shell 写。 */
@@ -65,6 +66,14 @@ object ShizukuClipboard {
         HiddenApiBypass.getDeclaredMethods(iclass)
             .filterIsInstance<Method>()
             .filter { it.name == "setPrimaryClip" }
+            .maxByOrNull { it.parameterCount }
+    }.getOrNull()
+
+    /** `clearPrimaryClip` 同样有多个签名；找不到就不支持 shell 清空。 */
+    private fun pickClearPrimaryClip(): Method? = runCatching {
+        HiddenApiBypass.getDeclaredMethods(iclass)
+            .filterIsInstance<Method>()
+            .filter { it.name == "clearPrimaryClip" }
             .maxByOrNull { it.parameterCount }
     }.getOrNull()
 
@@ -172,6 +181,41 @@ object ShizukuClipboard {
             }
         }
         return false
+    }
+
+    /**
+     * 以 shell 身份清空剪贴板（后台应用直清被系统拒绝时的兜底）。
+     *
+     * 优先调 `clearPrimaryClip`；拿不到该方法（ROM 差异）或调用失败时写一段空文本，
+     * 效果等同「不再有可粘贴内容」。返回是否确认执行。
+     *
+     * 与直清路径同口径：**先以 shell 身份读一次并与 [expected] 比对**，用户中途复制了
+     * 别的内容就什么都不做——无脑清空等于把用户的剪贴板偷走。
+     */
+    fun clearClip(expected: String): Boolean {
+        if (expected.isEmpty()) return false
+        if ((readContent() as? ClipboardContent.Text)?.text != expected) return false
+        repeat(2) { attempt ->
+            try {
+                val active = currentSession()
+                val method = active.clearMethod ?: return@repeat
+                val args = when (method.parameterCount) {
+                    3 -> arrayOf<Any?>(SHELL_PACKAGE, null, 0)
+                    2 -> arrayOf<Any?>(SHELL_PACKAGE, 0)
+                    else -> arrayOf<Any?>(SHELL_PACKAGE)
+                }
+                method.invoke(active.proxy, *args)
+                SelfWriteGuard.markText("")
+                return true
+            } catch (t: Throwable) {
+                session = null
+                if (attempt == 1) {
+                    Log.w(TAG, "shizuku clipboard clear failed: ${t::class.simpleName} ${t.message}")
+                }
+            }
+        }
+        // 没有 clearPrimaryClip / 调用失败：写空文本与直清路径的兜底同义。
+        return writeContent(ClipboardContent.Text(""))
     }
 
     /**

@@ -2,7 +2,6 @@ package hunoia.luno.runtime.recognition
 
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
-import hunoia.luno.bridge.system.clearTextIfUnchanged
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.RecognitionBuiltin
@@ -39,8 +38,8 @@ interface RecognitionHost {
     /** 「选择应用打开」页。 */
     fun pickApp(url: String)
 
-    /** 用其他浏览器打开（实现侧负责排除 Luno 自己，避免自我循环）。 */
-    fun openInBrowser(url: String)
+    /** 用浏览器直接打开（实现侧负责避开 Luno 自己，并优先 [preferredPackage]）。 */
+    fun openInBrowser(url: String, preferredPackage: String)
 
     /** 系统分享面板。 */
     fun share(text: String)
@@ -54,9 +53,6 @@ interface RecognitionHost {
         spec: RecognitionNotifySpec,
         idempotencyKey: String?,
     ): Boolean
-
-    /** 清空系统剪贴板的兜底写入需要 Context；返回 null = 不支持（延迟清除静默跳过）。 */
-    fun appContext(): android.content.Context? = null
 
     /** 延迟任务的作用域（进程级）；不提供则「复制后清除」不生效。 */
     fun scope(): kotlinx.coroutines.CoroutineScope
@@ -113,14 +109,13 @@ class RecognitionExecutor(private val host: RecognitionHost) {
      *
      * 用户中途复制了别的东西时什么都不做——那才是最常见的多任务场景，误清等于把用户的
      * 剪贴板偷走。窗口很小（[RecognitionSettings.copyClearDelaySeconds]），挂在进程级
-     * 作用域上，不阻塞调用方。
+     * 作用域上，不阻塞调用方。读取与清空都经 [ClipboardCenter]（后台读不到走 Shizuku）。
      */
     private fun scheduleClipboardClear(text: String, delaySeconds: Int) {
         if (delaySeconds <= 0) return
-        val context = host.appContext() ?: return
         host.scope().launch {
             delay(delaySeconds * 1_000L)
-            val cleared = clearTextIfUnchanged(context, text)
+            val cleared = ClipboardCenter.clearIfUnchanged(text)
             if (cleared) Log.i(LOG_TAG, "clipboard cleared after ${delaySeconds}s")
         }
     }
@@ -177,7 +172,7 @@ class RecognitionExecutor(private val host: RecognitionHost) {
         val mode = own ?: settings.fallback
         when (mode) {
             LinkMissMode.SHARE -> host.share(url)
-            LinkMissMode.BROWSER -> host.openInBrowser(url)
+            LinkMissMode.BROWSER -> host.openInBrowser(url, settings.browserPackage)
             LinkMissMode.PICKER -> host.pickApp(url)
         }
     }
@@ -264,7 +259,7 @@ object RecognitionHosts {
 object UnknownRecognitionHost : RecognitionHost {
     override fun pickLinks(urls: List<String>) = Unit
     override fun pickApp(url: String) = Unit
-    override fun openInBrowser(url: String) = Unit
+    override fun openInBrowser(url: String, preferredPackage: String) = Unit
     override fun share(text: String) = Unit
     override suspend fun dispatchLink(url: String, ruleId: String): Boolean = false
 

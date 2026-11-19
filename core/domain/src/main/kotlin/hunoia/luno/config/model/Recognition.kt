@@ -269,7 +269,10 @@ enum class LinkMatchType {
 enum class LinkMissMode {
     /** 系统分享面板（默认）。 */
     SHARE,
-    /** 用其他浏览器打开（解析到 Luno 自身时改用选择器，避免自我循环）。 */
+    /**
+     * 用浏览器直接打开：优先 [RecognitionSettings.browserPackage]，否则系统默认浏览器，
+     * **不含 Luno 自己**（避免自我循环）；一个可用浏览器都没有时才退回选择器。
+     */
     BROWSER,
     /** 列出能打开 http(s) 的应用让用户挑。 */
     PICKER,
@@ -323,6 +326,13 @@ data class RecognitionSettings(
      * 分不清该调哪个。规则可用自己的 `missAction` 单独覆盖。
      */
     val fallback: LinkMissMode = LinkMissMode.SHARE,
+    /**
+     * 「用浏览器打开」使用的浏览器包名；空 = 自动（系统默认浏览器，排除 Luno 自己）。
+     *
+     * 回退 [LinkMissMode.BROWSER] 与规则里 `viaBrowser` 且未单独指定目标时共用这一份，
+     * 逐条规则仍可用 `RecognitionMatch.Link.targetPackage` 覆盖。
+     */
+    val browserPackage: String = "",
     /**
      * [RecognitionBuiltin.CopyAndClear] 的延迟秒数（0 = 不清）。
      *

@@ -4,6 +4,7 @@ import android.net.Uri
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.SelfWriteGuard
+import hunoia.luno.bridge.system.clearTextIfUnchanged
 import hunoia.luno.bridge.system.readClipboardContentDetailed
 import hunoia.luno.bridge.system.writeImageToClipboard
 import hunoia.luno.bridge.system.writeTextToClipboard
@@ -120,6 +121,21 @@ object ClipboardCenter {
     suspend fun copy(text: String, label: String? = null): Boolean {
         if (text.isEmpty()) return false
         return write(ClipboardContent.Text(text), label)
+    }
+
+    /**
+     * 「复制后自动清除」的唯一入口：只有系统剪贴板仍是 [expected] 时才清空。
+     *
+     * 读走 [read]（后台直读被拒时自动走 Shizuku），清空同样直清优先、shell 兜底。
+     * 中间用户复制了别的内容就什么都不做——误清等于把用户的剪贴板偷走。
+     */
+    suspend fun clearIfUnchanged(expected: String): Boolean = withContext(Dispatchers.IO) {
+        if (expected.isEmpty()) return@withContext false
+        val current = read()
+        if ((current as? ClipboardContent.Text)?.text != expected) return@withContext false
+        if (clearTextIfUnchanged(AppContext.get(), expected)) return@withContext true
+        // shell 兜底自己也复核一遍 expected：清空是不可逆操作，宁可不清也不能误清。
+        ShizukuClipboard.clearClip(expected)
     }
 
     /**

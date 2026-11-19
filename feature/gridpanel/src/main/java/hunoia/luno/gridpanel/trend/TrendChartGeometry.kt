@@ -296,6 +296,24 @@ fun trendAxisTicks(
     }
 }
 
+/**
+ * 十字线读数的时刻标签：跨度短到同一天显示时刻，跨天补月-日，跨年补年份。
+ *
+ * 与 [trendAxisTicks] 同一套分档，保证 X 轴刻度和读数标签不会一个显示「1/2」另一个显示「01-02」。
+ */
+fun trendPointTimeLabel(
+    atMillis: Long,
+    spanMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val formatter = when {
+        spanMillis <= 36L * 60 * 60 * 1000 -> DateTimeFormatter.ofPattern("HH:mm")
+        spanMillis <= 120 * DayMillis -> DateTimeFormatter.ofPattern("MM-dd HH:mm")
+        else -> DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    }
+    return Instant.ofEpochMilli(atMillis).atZone(zone).format(formatter)
+}
+
 // ---------- 展示格式 ----------
 
 /** 按小数位格式化数值；四舍五入用于展示，不改写已存记录。 */

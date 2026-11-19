@@ -181,7 +181,6 @@ internal fun TrendWidgetCell(
                 if (entries.isNotEmpty()) {
                     TrendMiniChart(
                         entries = entries,
-                        target = metric.target,
                         color = color,
                         modifier = Modifier
                             .fillMaxWidth()

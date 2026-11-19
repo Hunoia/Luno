@@ -21,6 +21,9 @@ import hunoia.luno.ui.component.PressFloatingActionButton
 /**
  * 右下角保存/新增 FAB：64dp、无点击 ripple、避让导航栏，全 app 的编辑页与列表页共用一套观感。
  * 内部自带 fillMaxSize Box，LunoScreen（BoxScope 槽）与 LunoScreenLazy（普通槽）都能直接放。
+ *
+ * [containerColor] 可以来自用户自定义色：此时 [contentColor] 必须由调用方按底色亮度给足对比度，
+ * 不能依赖 `contentColorFor` 对非主题色的回落。
  */
 @Composable
 fun LunoFab(
@@ -28,6 +31,7 @@ fun LunoFab(
     icon: ImageVector,
     contentDescription: String,
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: Color? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
             PressFloatingActionButton(
@@ -39,6 +43,7 @@ fun LunoFab(
                     .size(64.dp),
                 shape = FloatingActionButtonDefaults.shape,
                 containerColor = containerColor,
+                contentColor = contentColor ?: androidx.compose.material3.contentColorFor(containerColor),
             ) {
                 Icon(imageVector = icon, contentDescription = contentDescription)
             }

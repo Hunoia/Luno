@@ -24,7 +24,8 @@ class AppRecognitionHost(private val context: Context) : RecognitionHost {
 
     override fun pickApp(url: String) = Links.pickApp(context, url)
 
-    override fun openInBrowser(url: String) = Links.openInBrowser(context, url)
+    override fun openInBrowser(url: String, preferredPackage: String) =
+        Links.openInBrowser(context, url, preferredPackage)
 
     override fun share(text: String) = Links.share(context, text)
 
@@ -45,8 +46,6 @@ class AppRecognitionHost(private val context: Context) : RecognitionHost {
         spec: RecognitionNotifySpec,
         idempotencyKey: String?,
     ): Boolean = RecognitionNotifier.post(context, item, spec, idempotencyKey)
-
-    override fun appContext(): Context = context
 
     /** 进程级作用域：延迟清空剪贴板这类小事不该阻塞任何调用方。 */
     override fun scope(): CoroutineScope = processScope

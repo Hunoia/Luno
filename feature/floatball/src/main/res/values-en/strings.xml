@@ -80,8 +80,5 @@
     <string name="clip_float_copied">Copied</string>
     <string name="clip_float_copy_failed">Copy failed</string>
     <string name="clip_float_text">Text</string>
-    <string name="float_ball_result_recognition">Dispatch rules</string>
-    <string name="float_ball_result_recognition_hint">One rule table for input → rule → output</string>
     <string name="result_direct_toast">Ran: %1$s</string>
-    <string name="float_ball_result_group_hint">Capsule-mode results of dispatch rules land here (no separate switch)</string>
 </resources>

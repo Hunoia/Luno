@@ -66,7 +66,10 @@ import hunoia.luno.runtime.floatball.routing.PulseRoute
 import hunoia.luno.runtime.floatball.routing.PulseRouter
 import hunoia.luno.runtime.floatball.result.DeliveredResults
 import hunoia.luno.runtime.floatball.result.ResultFactory
+import hunoia.luno.runtime.floatball.result.asCopyOutcome
+import hunoia.luno.runtime.floatball.result.asShareOutcome
 import hunoia.luno.runtime.floatball.result.deliverResults
+import hunoia.luno.runtime.floatball.result.isCopyOutcome
 import hunoia.luno.runtime.floatball.suppression.DismissSuppression
 import hunoia.luno.runtime.recognition.CompiledRecognizer
 import hunoia.luno.runtime.recognition.RecognitionDelivery
@@ -979,11 +982,10 @@ class FloatBallService : Service() {
 
     /** 链接目标应用涉及 PackageManager：放后台解析，当前项已切走则丢弃。 */
     private fun resolveResultTarget(item: ResultItem) {
-        val url = item.primaryUrl ?: return
         if (item.linkCount > 1) return
         val ruleId = item.ruleId ?: return
         scope.launch(Dispatchers.Default) {
-            val target = Links.resolvedTargetFor(this@FloatBallService, url, ruleId, recognition)
+            val target = Links.resolvedTargetFor(this@FloatBallService, ruleId, recognition)
                 ?: return@launch
             resultSlot.applyTarget(
                 itemId = item.id,
@@ -1044,8 +1046,8 @@ class FloatBallService : Service() {
         when (action) {
             ResultAction.CLOSE -> Unit
             ResultAction.IGNORE -> resultSlot.removeAndAdvance(itemId)
-            ResultAction.COPY -> runResult(item) { it.copyValue() }
-            ResultAction.SHARE -> runResult(item) { it.shareValue() }
+            ResultAction.COPY -> runResult(item) { it.asCopyOutcome() }
+            ResultAction.SHARE -> runResult(item) { it.asShareOutcome() }
             ResultAction.OPEN -> runResult(item) { it.primaryIntent() }
         }
     }
@@ -1068,34 +1070,19 @@ class FloatBallService : Service() {
             )
             if (ok) {
                 resultSlot.removeAndAdvance(item.id)
-                if (recognized.builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
+                if (recognized.isCopyOutcome()) {
                     resultSlot.onCopied(item)
                     showToast(hunoia.luno.design.R.string.copied)
                 }
             } else {
                 Log.w(TAG, "result action failed rule=${item.ruleId}")
-                if (recognized.builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
+                if (recognized.isCopyOutcome()) {
                     showToast(hunoia.luno.floatball.R.string.clip_float_copy_failed)
                 }
                 resultSlot.showCurrent()
             }
         }
     }
-
-    /** 复制语义：值不是链接时按敏感文本处理（识别器已经判好）。 */
-    private fun RecognizedItem.copyValue(): RecognizedItem =
-        if (builtin == hunoia.luno.config.model.RecognitionBuiltin.Copy) {
-            this
-        } else {
-            copy(output = hunoia.luno.config.model.RecognitionOutput.Builtin(
-                hunoia.luno.config.model.RecognitionBuiltin.Copy,
-            ))
-        }
-
-    private fun RecognizedItem.shareValue(): RecognizedItem =
-        copy(output = hunoia.luno.config.model.RecognitionOutput.Builtin(
-            hunoia.luno.config.model.RecognitionBuiltin.Share,
-        ))
 
     /** 主动作：直接跑规则声明的输出（动作输出也走这里）。 */
     private fun RecognizedItem.primaryIntent(): RecognizedItem = this

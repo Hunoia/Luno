@@ -98,6 +98,7 @@ fun RecognitionSettingsScreen(
     onEditRule: (String) -> Unit,
     onCreateRule: () -> Unit,
     onNavToSceneList: () -> Unit = {},
+    onNavToResultCapsuleSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -315,6 +316,13 @@ fun RecognitionSettingsScreen(
         // 识屏取字参数（OCR 文字体系 / 二维码 / 松手去向）已迁回屏幕识别设置页：
         // v6 单一模型覆盖 50 语言，文字体系无需在此选择。
         item {
+            // 浏览器候选只查一次：PM 查询是阻塞 binder，不跟每帧重组。
+            val browsers = remember { Links.browsers(context) }
+            val browserOptions = listOf(
+                stringResource(R.string.recognition_rule_browser_auto),
+            ) + browsers.map { it.label }
+            val browserIndex = browsers
+                .indexOfFirst { it.packageName == settings.browserPackage } + 1
             LunoGroup(title = stringResource(R.string.recognition_global_group)) {
                 LunoDropdownRow(
                     title = stringResource(R.string.recognition_fallback),
@@ -340,7 +348,22 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_browser_choice),
+                    subtitle = stringResource(R.string.recognition_browser_choice_hint),
+                    options = browserOptions,
+                    selectedIndex = browserIndex.coerceAtLeast(0),
+                    onSelect = { index ->
+                        update {
+                            it.copy(
+                                browserPackage =
+                                if (index == 0) "" else browsers[index - 1].packageName,
+                            )
+                        }
+                    },
+                    shape = segmentedShape(1, 3),
                 )
                 LunoDropdownRow(
                     title = stringResource(R.string.recognition_copy_clear_delay),
@@ -362,7 +385,19 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(2, 3),
+                )
+            }
+        }
+        // 结果胶囊是分发规则的“显示面”：入口放这里，不再在动作设置里重复一份。
+        item(key = "capsule") {
+            LunoGroup(title = stringResource(R.string.recognition_capsule_group)) {
+                LunoSettingsRow(
+                    icon = Icons.Default.Lightbulb,
+                    title = stringResource(R.string.recognition_capsule_entry),
+                    subtitle = stringResource(R.string.recognition_capsule_entry_hint),
+                    shape = segmentedShape(0, 1),
+                    onClick = onNavToResultCapsuleSettings,
                 )
             }
         }
@@ -535,10 +570,11 @@ fun RecognitionSettingsScreen(
                             initialValue = null as LinkTarget?,
                             rule.id,
                             rule.match,
+                            settings.browserPackage,
                         ) {
                             val match = rule.match
                             value = if (match is RecognitionMatch.Link) {
-                                Links.resolvedTargetOf(context, match, url = "")
+                                Links.resolvedTargetOf(context, match, settings.browserPackage)
                             } else {
                                 null
                             }

@@ -179,3 +179,20 @@ internal object ResultFactory {
             .joinToString("\n")
     }
 }
+
+/**
+ * 胶囊菜单「复制」的语义投影：`CopyAndClear` 必须保留，否则「复制后清除」在胶囊里永远不生效；
+ * 其它输出（打开 / 分享 / 动作 / 通知）点击复制时降级为普通复制。
+ */
+internal fun RecognizedItem.asCopyOutcome(): RecognizedItem = when (builtin) {
+    RecognitionBuiltin.Copy, RecognitionBuiltin.CopyAndClear -> this
+    else -> copy(output = RecognitionOutput.Builtin(RecognitionBuiltin.Copy))
+}
+
+/** 胶囊菜单「分享」的语义投影。 */
+internal fun RecognizedItem.asShareOutcome(): RecognizedItem =
+    copy(output = RecognitionOutput.Builtin(RecognitionBuiltin.Share))
+
+/** 复制类输出（`Copy` / `CopyAndClear`）都应按「已复制」反馈。 */
+internal fun RecognizedItem.isCopyOutcome(): Boolean =
+    builtin == RecognitionBuiltin.Copy || builtin == RecognitionBuiltin.CopyAndClear

@@ -80,8 +80,5 @@
     <string name="clip_float_copied">已复制</string>
     <string name="clip_float_copy_failed">复制失败</string>
     <string name="clip_float_text">文本</string>
-    <string name="float_ball_result_recognition">分发规则</string>
-    <string name="float_ball_result_recognition_hint">输入 → 规则 → 输出的统一规则表</string>
     <string name="result_direct_toast">已执行：%1$s</string>
-    <string name="float_ball_result_group_hint">分发规则的胶囊档结果落在这里（没有独立开关）</string>
 </resources>

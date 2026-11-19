@@ -3,7 +3,6 @@ package hunoia.luno.floatball.settings
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -38,13 +37,12 @@ import kotlinx.coroutines.launch
 /**
  * 结果胶囊设置页：只管**胶囊自己**（跟手 / 静置 / 停留时长 / 队列 / 图标）。
  *
- * 规则表、来源读取开关、直执行提示开关都在分发规则页（`RecognitionSettingsScreen`）：
- * 结果胶囊是分发规则的**结果显示面**，没有自己的开关，也不拥有一份自己的规则表。
+ * 规则表、来源读取开关、直执行提示开关、情景识别都在分发规则页（`RecognitionSettingsScreen`），
+ * 本页从那里进入：结果胶囊是分发规则的**结果显示面**，没有自己的开关，也不拥有一份规则表。
  */
 @Composable
 fun ResultCapsuleSettingsScreen(
     onBack: () -> Unit,
-    onNavToRecognition: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -224,20 +222,6 @@ fun ResultCapsuleSettingsScreen(
                             update { it.copy(resultCapsule = it.resultCapsule.copy(customIcon = icon)) }
                         }
                     },
-                )
-            }
-        }
-
-        // 规则表、来源读取开关、情景识别、直执行提示统一在分发规则页：它们都是「规则」的事，
-        // 挂在这页会让「按来源配置」散在两处。
-        item(key = "recognition") {
-            LunoGroup {
-                LunoSettingsRow(
-                    icon = Icons.Default.Link,
-                    title = stringResource(R.string.float_ball_result_recognition),
-                    subtitle = stringResource(R.string.float_ball_result_recognition_hint),
-                    shape = segmentedShape(0, 1),
-                    onClick = onNavToRecognition,
                 )
             }
         }

@@ -6,10 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,13 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import hunoia.luno.config.model.TrendFormulaResult
 import hunoia.luno.config.model.TrendMetric
-import hunoia.luno.config.model.evaluateTrendFormula
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressTextButton
@@ -35,6 +27,8 @@ import hunoia.luno.ui.theme.ListSpacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * 快速记录：只输数值，时间固定为「点保存那一刻」。
@@ -56,7 +50,6 @@ fun TrendRecordSheet(
     onSave: (readings: List<Double>, atMillis: Long) -> Unit,
 ) {
     val slotCount = metric.valueCount
-    val showSlotLabel = slotCount > 1
     val atMillis = remember { System.currentTimeMillis() }
     val texts = remember(metric.id, slotCount) {
         mutableStateOf(List(slotCount) { "" })
@@ -65,12 +58,9 @@ fun TrendRecordSheet(
     val timeLabel = remember(atMillis) {
         Instant.ofEpochMilli(atMillis)
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("HH:mm"))
+            .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()))
     }
     val readings = parseTrendReadings(texts.value, metric.safeDecimals)
-    val formula = remember(readings) {
-        if (metric.formula.isBlank()) null else evaluateTrendFormula(readings ?: emptyList(), metric.formula, metric.valueCount)
-    }
 
     fun submit() {
         val values = readings ?: return
@@ -99,53 +89,15 @@ fun TrendRecordSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            texts.value.forEachIndexed { index, text ->
-                val isLast = index == slotCount - 1
-                // 单值指标没有槽位名，label 用指标名：输入框永远有语义标签，placeholder 才留给提示。
-                val slotLabel = if (showSlotLabel) trendSlotLabel(metric, index) else metric.name
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { newValue ->
-                        texts.value = texts.value.toMutableList().also { it[index] = newValue }
-                    },
-                    singleLine = true,
-                    label = { Text(slotLabel) },
-                    trailingIcon = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
-                    placeholder = { Text(stringResource(R.string.trend_record_hint)) },
-                    shape = MaterialTheme.shapes.large,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = if (isLast) ImeAction.Done else ImeAction.Next,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { submit() },
-                        onNext = {
-                            if (!isLast) runCatching { focusRequesters[index + 1].requestFocus() }
-                        },
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequesters[index]),
-                )
-            }
-            if (readings == null) {
-                Text(
-                    text = stringResource(R.string.trend_record_missing_slots),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            if (formula != null) {
-                val formulaText = when (formula) {
-                    is TrendFormulaResult.Ok -> formatTrendValue(formula.value, metric.safeDecimals) + metric.unit
-                    else -> "—"
-                }
-                Text(
-                    text = stringResource(R.string.trend_formula_preview, metric.formula.trim(), formulaText),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            TrendReadingsForm(
+                metric = metric,
+                texts = texts.value,
+                onTextChange = { index, newValue ->
+                    texts.value = texts.value.toMutableList().also { it[index] = newValue }
+                },
+                focusRequesters = focusRequesters,
+                onDone = ::submit,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ListSpacing),
@@ -163,11 +115,11 @@ fun TrendRecordSheet(
     }
 }
 
-/** 第 [index] 个读数槽位的展示名；未命名时回落「值 N」。单值指标返回空串（不需要标签）。 */
-fun trendSlotLabel(metric: TrendMetric, index: Int): String {
-    if (metric.valueCount <= 1) return ""
-    return metric.valueNames.getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() } ?: "值 ${index + 1}"
-}
+/** 第 [index] 个读数槽位的展示名；未命名时回落「值 N」。调用方已有行数 / 槽位判断，这里不再按单值指标返回空串。 */
+@Composable
+fun trendSlotLabel(metric: TrendMetric, index: Int): String =
+    metric.valueNames.getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: stringResource(R.string.trend_slot_value, index + 1)
 
 /**
  * 把各槽位文本解析成**前缀**读数。

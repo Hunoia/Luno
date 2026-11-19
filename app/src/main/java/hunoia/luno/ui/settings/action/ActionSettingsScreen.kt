@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -70,7 +69,6 @@ fun ActionSettingsTab(
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToNotificationCapsuleSettings: () -> Unit = {},
-    onNavToResultCapsuleSettings: () -> Unit = {},
     onNavToRecognition: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
@@ -162,29 +160,20 @@ fun ActionSettingsTab(
                         icon = Icons.Default.Palette,
                         title = stringResource(R.string.action_settings_appearance_group),
                         subtitle = stringResource(R.string.appearance_settings_entry_hint),
-                        shape = segmentedShape(0, 7),
+                        shape = segmentedShape(0, 6),
                         onClick = onNavToAppearanceSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Adjust,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball),
-                        shape = segmentedShape(1, 7),
+                        shape = segmentedShape(1, 6),
                         onClick = onNavToFloatBallSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Notifications,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball_notification_group),
-                        shape = segmentedShape(2, 7),
+                        shape = segmentedShape(2, 6),
                         onClick = onNavToNotificationCapsuleSettings,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.Lightbulb,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_result_group),
-                        subtitle = stringResource(
-                            hunoia.luno.floatball.R.string.float_ball_result_group_hint,
-                        ),
-                        shape = segmentedShape(3, 7),
-                        onClick = onNavToResultCapsuleSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.RadioButtonChecked,
@@ -195,19 +184,19 @@ fun ActionSettingsTab(
                                 actionSettings.actionGridPanels.panels.size +
                                 hunoia.luno.gridpanel.SinglePanelCatalog.widgets().size,
                         ),
-                        shape = segmentedShape(4, 7),
+                        shape = segmentedShape(3, 6),
                         onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Search,
                         title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
-                        shape = segmentedShape(5, 7),
+                        shape = segmentedShape(4, 6),
                         onClick = onNavToSearchEngines,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(hunoia.luno.link.R.string.recognition_title),
-                        shape = segmentedShape(6, 7),
+                        shape = segmentedShape(5, 6),
                         onClick = onNavToRecognition,
                     )
                 }

@@ -6,7 +6,6 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.floatball.inbox.ResultItem
 import hunoia.luno.runtime.recognition.RecognitionDelivery
 import hunoia.luno.runtime.recognition.RecognitionExecutor
-import hunoia.luno.runtime.recognition.RecognitionRoute
 import hunoia.luno.runtime.recognition.RecognizedItem
 
 /**

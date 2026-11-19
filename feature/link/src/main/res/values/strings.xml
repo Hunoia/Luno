@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
+    <string name="link_browser_label">浏览器</string>
 
     <!-- 分发规则（规则 → 输出） -->
     <string name="recognition_title">分发规则</string>
@@ -10,6 +11,12 @@
     <string name="recognition_miss_picker">选择应用</string>
     <string name="recognition_browser_group">默认浏览器</string>
     <string name="recognition_default_browser">把 Luno 设为默认浏览器</string>
+    <string name="recognition_browser_choice">打开链接用的浏览器</string>
+    <string name="recognition_browser_choice_hint">「浏览器打开」和规则里的「交给浏览器打开」优先用它</string>
+
+    <string name="recognition_capsule_group">显示</string>
+    <string name="recognition_capsule_entry">结果胶囊</string>
+    <string name="recognition_capsule_entry_hint">跟手 / 停留 / 队列与图标；胶囊档的结果都落在这里</string>
 
     <string name="recognition_rules_group">规则</string>
     <string name="recognition_rules_order">按顺序匹配，第一条命中生效</string>
@@ -107,7 +114,7 @@
     <string name="recognition_output_action">执行动作</string>
     <string name="recognition_output_copy_hint">复制到剪贴板并记入应用内历史</string>
     <string name="recognition_output_open_link_hint">多链接进选择页；未命中按全局策略回退</string>
-    <string name="recognition_output_action_hint">捕获值可填进参数：%s 已编码 / %q 原样 / {url} {host}</string>
+    <string name="recognition_output_action_hint" formatted="false">捕获值可填进参数：%s 已编码 / %q 原样 / {url} {host}</string>
     <string name="recognition_rule_action_pick">选择动作</string>
     <string name="recognition_rule_action_none">未选择动作</string>
 
@@ -117,10 +124,8 @@
     <string name="recognition_rule_target_activity_hint">留空按链接自动解析（推荐）</string>
     <string name="recognition_rule_via_browser">交给浏览器打开</string>
     <string name="recognition_rule_via_browser_hint">适合应用未声明的短链</string>
-    <string name="recognition_rule_browser_auto">自动（本机默认浏览器之外）</string>
+    <string name="recognition_rule_browser_auto">自动（避开 Luno）</string>
     <string name="recognition_rule_browser_target">指定浏览器</string>
-    <string name="recognition_rule_browser_clear">改回自动选择</string>
-    <string name="recognition_rule_browser_clear_hint">清除已指定浏览器，改回本机自动挑选</string>
     <string name="recognition_rule_mini_window">小窗方式打开</string>
 
     <string name="recognition_rule_advanced_group">改写</string>
@@ -129,8 +134,8 @@
     <string name="recognition_rule_resolve">解析短链</string>
     <string name="recognition_rule_resolve_hint">先跟随后匹配（3 s 超时）</string>
     <string name="recognition_rule_resolve_tag"> · 解析短链</string>
-    <string name="recognition_rule_miss">分发失败时</string>
-    <string name="recognition_rule_miss_hint">命中后目标应用打不开时的处理</string>
+    <string name="recognition_rule_miss">打不开时</string>
+    <string name="recognition_rule_miss_hint">命中后目标应用没起来时怎么处理；默认跟随全局</string>
     <string name="recognition_rule_miss_global">跟随全局</string>
     <string name="recognition_rule_miss_share_short">分享</string>
     <string name="recognition_rule_miss_browser_short">浏览器</string>

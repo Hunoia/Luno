@@ -10,6 +10,7 @@ import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.floatball.inbox.ResultPrimaryAction
+import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.runtime.recognition.Recognizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -223,5 +224,36 @@ class ResultFactoryTest {
         )
 
         assertEquals(null, refreshed)
+    }
+
+    private fun item(output: RecognitionOutput) = RecognizedItem(
+        ruleId = "r",
+        ruleName = "",
+        value = "https://example.com/x",
+        urls = listOf("https://example.com/x"),
+        output = output,
+    )
+
+    @Test
+    fun `capsule copy keeps copy-and-clear so the delayed clear still runs`() {
+        val source = item(RecognitionOutput.Builtin(RecognitionBuiltin.CopyAndClear))
+        val copied = source.asCopyOutcome()
+
+        assertEquals(RecognitionBuiltin.CopyAndClear, copied.builtin)
+        assertTrue(copied.isCopyOutcome())
+    }
+
+    @Test
+    fun `capsule copy downgrades other outputs to plain copy`() {
+        val copied = item(RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink)).asCopyOutcome()
+
+        assertEquals(RecognitionBuiltin.Copy, copied.builtin)
+        assertTrue(copied.isCopyOutcome())
+    }
+
+    @Test
+    fun `plain copy is still reported as copied`() {
+        assertTrue(item(RecognitionOutput.Builtin(RecognitionBuiltin.Copy)).isCopyOutcome())
+        assertFalse(item(RecognitionOutput.Builtin(RecognitionBuiltin.Share)).isCopyOutcome())
     }
 }

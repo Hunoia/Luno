@@ -181,7 +181,7 @@
     <!-- Trend -->
     <string name="trend_list_title">Trends</string>
     <string name="trend_add">New metric</string>
-    <string name="trend_empty">No trend metrics yet. Tap the button at the bottom right to create one.</string>
+    <string name="trend_empty">No trend metrics yet. Create one to start tracking.</string>
     <string name="trend_list_group">Metrics</string>
     <string name="trend_metric_missing">Metric deleted</string>
     <string name="trend_create_title">New metric</string>
@@ -258,6 +258,14 @@
     <string name="trend_pick_empty">Create a trend metric first</string>
     <string name="trend_record_full">This metric has reached its record limit</string>
     <string name="trend_detail_records_truncated">Showing the latest %1$d records</string>
+    <string name="trend_slot_value">Value %1$d</string>
+    <string name="trend_chart_empty_range">No records in this range</string>
+    <string name="trend_chart_description">Chart: latest %1$s, %2$d records in range</string>
+    <string name="trend_day_today">Today</string>
+    <string name="trend_day_yesterday">Yesterday</string>
+    <string name="trend_time_today">Today %1$s</string>
+    <string name="trend_time_yesterday">Yesterday %1$s</string>
+    <string name="trend_not_recorded_today">Not recorded today</string>
 <string name="notification_display_mode_standard">Standard</string>
 <string name="notification_display_mode_live">Live</string>
 <string name="notification_display_mode_island">Island</string>

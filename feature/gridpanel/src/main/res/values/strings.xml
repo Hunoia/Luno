@@ -181,7 +181,7 @@
     <!-- 趋势记录 -->
     <string name="trend_list_title">趋势</string>
     <string name="trend_add">新建指标</string>
-    <string name="trend_empty">还没有趋势指标，点右下角新建</string>
+    <string name="trend_empty">还没有趋势指标，先创建一个吧</string>
     <string name="trend_list_group">指标</string>
     <string name="trend_metric_missing">指标已删除</string>
     <string name="trend_create_title">新建指标</string>
@@ -200,7 +200,7 @@
     <string name="trend_edit_decimals_value">%1$d 位</string>
     <string name="trend_edit_values">读数</string>
     <string name="trend_edit_values_count">%1$d 个</string>
-    <string name="trend_edit_value_name">%1$d 个读数</string>
+    <string name="trend_edit_value_name">第 %1$d 个读数</string>
     <string name="trend_edit_value_name_hint">如：晨重、晚重</string>
     <string name="trend_edit_formula">本条内计算</string>
     <string name="trend_edit_formula_hint">如：#2-#1</string>
@@ -258,6 +258,14 @@
     <string name="trend_pick_empty">还没有趋势指标，请先创建</string>
     <string name="trend_record_full">该指标记录数已达上限</string>
     <string name="trend_detail_records_truncated">仅显示最近 %1$d 条记录</string>
+    <string name="trend_slot_value">值 %1$d</string>
+    <string name="trend_chart_empty_range">该范围内没有记录</string>
+    <string name="trend_chart_description">图表：最新 %1$s，范围内 %2$d 条记录</string>
+    <string name="trend_day_today">今天</string>
+    <string name="trend_day_yesterday">昨天</string>
+    <string name="trend_time_today">今天 %1$s</string>
+    <string name="trend_time_yesterday">昨天 %1$s</string>
+    <string name="trend_not_recorded_today">今天未记录</string>
 <string name="notification_display_mode_standard">标准</string>
 <string name="notification_display_mode_live">实时</string>
 <string name="notification_display_mode_island">超级岛</string>

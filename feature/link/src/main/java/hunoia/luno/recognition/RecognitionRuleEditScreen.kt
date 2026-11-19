@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -40,7 +39,6 @@ import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.config.model.removeRule
 import hunoia.luno.config.model.upsertRule
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.link.LinkTarget
 import hunoia.luno.link.Links
 import hunoia.luno.link.R
 import hunoia.luno.runtime.recognition.RecognitionInput
@@ -95,8 +93,11 @@ fun RecognitionRuleEditScreen(
     val addMode = ruleId.isBlank()
     var snapshot by remember(ruleId) { mutableStateOf<RecognitionRule?>(null) }
     var missing by remember(ruleId) { mutableStateOf(false) }
+    /** 全局浏览器偏好：不传的话「自动」解析可能与实际分发不一致。 */
+    var browserPackage by remember(ruleId) { mutableStateOf("") }
     LaunchedEffect(ruleId) {
         val settings = facade.actionSettings.first()
+        browserPackage = settings.recognition.browserPackage
         val existing = settings.recognition.rules.firstOrNull { it.id == ruleId }
         if (!addMode && existing == null) {
             missing = true
@@ -528,32 +529,34 @@ fun RecognitionRuleEditScreen(
         val linkMatch = match as? RecognitionMatch.Link
         if (linkMatch != null) {
             LunoGroup(title = stringResource(R.string.recognition_rule_target_group)) {
-                val target by produceState(
-                    initialValue = null as LinkTarget?,
-                    linkMatch,
-                ) {
-                    value = Links.resolvedTargetOf(context, linkMatch, url = "")
+                val target = remember(linkMatch, browserPackage) {
+                    Links.resolvedTargetOf(context, linkMatch, browserPackage)
                 }
                 val appLabel = target?.label
                 if (linkMatch.viaBrowser) {
-                    LunoSettingsRow(
+                    // 浏览器目标只列真正的浏览器：用全应用选择器可能选到 B 站这类非浏览器目标。
+                    val browsers = remember { Links.browsers(context) }
+                    val options = listOf(stringResource(R.string.recognition_rule_browser_auto)) +
+                        browsers.map { it.label }
+                    val selectedIndex = browsers
+                        .indexOfFirst { it.packageName == linkMatch.targetPackage } + 1
+                    LunoDropdownRow(
                         title = stringResource(R.string.recognition_rule_browser_target),
-                        subtitle = when {
-                            linkMatch.targetPackage.isBlank() ->
-                                stringResource(R.string.recognition_rule_browser_auto)
-                            appLabel != null && appLabel != linkMatch.targetPackage ->
-                                "$appLabel (${linkMatch.targetPackage})"
-                            else -> linkMatch.targetPackage
+                        subtitle = if (linkMatch.targetPackage.isBlank()) {
+                            stringResource(R.string.recognition_rule_browser_auto)
+                        } else if (appLabel != null && appLabel != linkMatch.targetPackage) {
+                            "$appLabel (${linkMatch.targetPackage})"
+                        } else {
+                            linkMatch.targetPackage
                         },
-                        shape = segmentedShape(0, 2),
-                        onClick = { showAppPicker = true },
-                    )
-                    LunoSettingsRow(
-                        title = stringResource(R.string.recognition_rule_browser_clear),
-                        subtitle = stringResource(R.string.recognition_rule_browser_clear_hint),
-                        shape = segmentedShape(1, 2),
-                        enabled = linkMatch.targetPackage.isNotBlank(),
-                        onClick = { match = linkMatch.copy(targetPackage = "") },
+                        options = options,
+                        selectedIndex = selectedIndex.coerceAtLeast(0),
+                        onSelect = { index ->
+                            match = linkMatch.copy(
+                                targetPackage = if (index == 0) "" else browsers[index - 1].packageName,
+                            )
+                        },
+                        shape = segmentedShape(0, 1),
                     )
                 } else {
                     LunoSettingsRow(

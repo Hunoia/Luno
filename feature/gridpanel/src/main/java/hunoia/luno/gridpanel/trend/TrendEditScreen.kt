@@ -298,8 +298,10 @@ private fun TrendEditForm(
             }
         }
         LunoGroup(title = stringResource(R.string.trend_edit_values)) {
-            val valueRowCount = valueNames.size
-            LunoGroupItem(shape = segmentedShape(0, valueRowCount)) {
+            // 多值时才需要给槽位起名；第 1 个槽位也可以命名（旧版从第 2 个才开始，导致图例永远是「值 1」）。
+            val nameRows = if (valueNames.size > 1) valueNames.size else 0
+            val totalRows = 1 + nameRows
+            LunoGroupItem(shape = segmentedShape(0, totalRows)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -316,8 +318,7 @@ private fun TrendEditForm(
                     }
                 }
             }
-            // 第 1 个槽位不命名（记录面板只显示单位），只有多值时才需要给后面的槽位起名。
-            for (index in 1 until valueNames.size) {
+            for (index in 0 until nameRows) {
                 LunoCardInput(
                     value = valueNames[index],
                     onValueChange = { newValue ->
@@ -325,7 +326,7 @@ private fun TrendEditForm(
                     },
                     label = stringResource(R.string.trend_edit_value_name, index + 1),
                     placeholder = stringResource(R.string.trend_edit_value_name_hint),
-                    shape = segmentedShape(index, valueRowCount),
+                    shape = segmentedShape(index + 1, totalRows),
                 )
             }
         }

@@ -255,9 +255,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToNotificationCapsuleSettings = {
                             navController.navigate(FloatBallNotificationCapsule)
                         },
-                        onNavToResultCapsuleSettings = {
-                            navController.navigate(FloatBallResultCapsule)
-                        },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
@@ -368,6 +365,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                             navController.navigate(RecognitionRuleEdit(""))
                         },
                         onNavToSceneList = { navController.navigate(SceneRecognizeList) },
+                        onNavToResultCapsuleSettings = {
+                            navController.navigate(FloatBallResultCapsule)
+                        },
                     )
                 }
                 myComposable<RecognitionRuleEdit> {
@@ -469,7 +469,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<FloatBallResultCapsule> {
                     ResultCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToRecognition = { navController.navigate(RecognitionRules) },
                     )
                 }
                 myComposable<SceneRecognizeList> {
