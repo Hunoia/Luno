@@ -462,8 +462,14 @@ class FloatBallWindow(
     private var lockHidden = false
     private var panelHidden = false
 
-    /** 软隐藏的视觉态（lp 旗标 + view alpha 动画的权威）：状态没变不重播过渡。 */
-    private var visuallyHidden = false
+    /**
+     * 软隐藏的视觉态（lp 旗标 + view alpha 动画的权威）：状态没变不重播过渡。
+     *
+     * 必须是 Compose 快照状态：球面动图（GIF/动态 WebP）要跟着它切首帧暂停 —— 隐藏期间
+     * 窗口仍然挂着（只是 alpha=0），动图若不暂停会按屏幕刷新率持续 invalidate，实测
+     * 面板开着时 `:service` 恒烧 15% CPU（121fps 全树重绘 + 每帧上传 164×164 纹理）。
+     */
+    private var visuallyHidden by mutableStateOf(false)
 
     private fun applyHiddenFlags() {
         val current = view ?: return
@@ -951,7 +957,9 @@ class FloatBallWindow(
                 offsetX = settings.customIconOffsetX,
                 offsetY = settings.customIconOffsetY,
                 alpha = settings.customIconAlpha,
-                paused = idled && settings.customIconPauseWhenIdle,
+                // 不可见（面板/胶囊打开、锁屏、软隐藏）时一律暂停动图：此时没人看得到球，
+                // 但窗口仍挂着 —— 不暂停就是 121fps 的空转重绘。可见时再按静置开关决定。
+                paused = visuallyHidden || (idled && settings.customIconPauseWhenIdle),
                 modifier = modifier.size(size),
             )
             return

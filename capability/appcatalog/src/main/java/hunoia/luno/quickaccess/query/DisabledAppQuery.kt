@@ -1,6 +1,7 @@
 package hunoia.luno.quickaccess.query
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.collection.LruCache
 import hunoia.luno.core.AppContext
@@ -44,6 +45,16 @@ object DisabledAppQuery {
         // 预热会在每次包变更事件上白跑一遍 getInstalledApplications + 每包两次 Binder
         // （约 200~400 次），而且没有 in-flight 去重，可能和用户的真实查询并发扫两遍。
         PackageChangeReceiver.register(AppContext.get()) { invalidate() }
+        // 行内的 app.label 跟着系统语言走：语言变了必须整表作废，否则会一直显示旧语言。
+        runCatching {
+            AppContext.get().registerReceiver(
+                object : android.content.BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) = invalidate()
+                },
+                android.content.IntentFilter(Intent.ACTION_LOCALE_CHANGED),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        }
     }
 
     /** 包变更 / 写入成功后整表作废；下一次查询重建。 */

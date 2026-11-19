@@ -74,10 +74,15 @@ fun QuickSearchIndex.hasAllFilesAccess(): Boolean = android.os.Environment.isExt
      * 音乐 + 图片视频 + 文档加载：必须在后台线程调。
      * 有啥权限装啥（部分授权也认）；文档只取非媒体 mime，避开跟图库/音乐重复行。
      */
-fun QuickSearchIndex.ensureMedia() {
-    val audioOk = hasMediaPermission(android.Manifest.permission.READ_MEDIA_AUDIO)
-    val imageOk = hasMediaPermission(android.Manifest.permission.READ_MEDIA_IMAGES)
-    val videoOk = hasMediaPermission(android.Manifest.permission.READ_MEDIA_VIDEO)
+fun QuickSearchIndex.ensureMedia(
+    loadAudio: Boolean,
+    loadGallery: Boolean,
+    loadDocs: Boolean,
+) {
+    // 只装载实际开启的来源：只开「文件」时没必要把整个图库和音乐库也查进来。
+    val audioOk = loadAudio && hasMediaPermission(android.Manifest.permission.READ_MEDIA_AUDIO)
+    val imageOk = loadGallery && hasMediaPermission(android.Manifest.permission.READ_MEDIA_IMAGES)
+    val videoOk = loadGallery && hasMediaPermission(android.Manifest.permission.READ_MEDIA_VIDEO)
     if (audioOk && !audioTried) {
         audioTried = true
         val list = mutableListOf<QuickSearchResult.AudioTrack>()
@@ -148,7 +153,7 @@ fun QuickSearchIndex.ensureMedia() {
         mediaFiles = list.distinctBy { it.uri }
         for (f in mediaFiles) AppSearch.buildIndex(f.name)
     }
-    if (hasAllFilesAccess() && !docsTried) {
+    if (loadDocs && hasAllFilesAccess() && !docsTried) {
         docsTried = true
         val list = mutableListOf<QuickSearchResult.DocFile>()
         runCatching {

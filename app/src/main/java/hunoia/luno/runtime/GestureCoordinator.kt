@@ -548,6 +548,12 @@ class GestureCoordinator(
     /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
     private var keyboardWatchJob: Job? = null
 
+    /**
+     * 息屏期间停掉内核触摸流：识别区只服务前台交互，屏幕关了继续读
+     * `/dev/input` + 常驻 shell 看门狗没有任何收益。亮屏后按配置重新拉起。
+     */
+    private var touchInputSuspendedByScreenOff = false
+
     /** 最近一次窗口状态事件的 Activity 类名：同包内启动新 Activity 也要能收起网格面板。 */
     private var lastWindowClassName: String? = null
 
@@ -575,10 +581,15 @@ class GestureCoordinator(
             closeTransientSurfaces()
             hunoia.luno.service.SideGestureService.current?.closeOverlaysForLock()
             host.runtimePanelOverlay.closeImmediately()
+            touchInputSuspendedByScreenOff = true
+            // 惰性创建过的才停；没建过就不为息屏专门建一个再停。
+            shizukuTouchInputRef?.stop()
             refreshGestureButtons()
         },
         onScreenOn = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen on")
+            touchInputSuspendedByScreenOff = false
+            syncTouchInputSources()
             refreshGestureButtons()
         },
         onUserPresent = {
@@ -920,7 +931,7 @@ class GestureCoordinator(
         shizukuTouchInput.globalFrameListener = listener@{ points, action ->
             globalGestureRuntime.onFrame(points, action)
         }
-        if (gestureEnabled && globalGestureConfig.zones.any { zone ->
+        if (!touchInputSuspendedByScreenOff && gestureEnabled && globalGestureConfig.zones.any { zone ->
                 zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
             }
         ) {

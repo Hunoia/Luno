@@ -213,6 +213,8 @@ class NotificationPulseListener : NotificationListenerService() {
             .getOrDefault(emptyList())
             .filterNot { isSameApplicationVariant(it.packageName, packageName) }
         synchronized(activeLock) { activeCache = current }
+        // 以活跃快照为准收紧 PendingIntent 旁路：个别 ROM 不逐条回调 removed。
+        NotificationContentIntents.retainOnly(current.mapNotNullTo(HashSet()) { it.key })
     }
 
     private fun updateActiveCache(add: NotificationPulse? = null, removeKey: String? = null) {

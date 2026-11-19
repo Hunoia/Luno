@@ -40,22 +40,55 @@ object AppListRepository {
     @Volatile
     private var loadedLocaleTag: String = ""
 
+    /**
+     * 清单是否需要在下次打开时重扫。
+     *
+     * 常驻监听只置脏（包变更 / 语言变更），真正查 PackageManager 放到面板打开时；
+     * 面板关闭期间装卸应用不该在后台白扫（architecture §13「无事件不做功」）。
+     */
+    @Volatile
+    private var stale = true
+
+    /** 常驻包变更标记：只标脏，不触发扫描。 */
+    private var staleObserverRegistered = false
+    private val staleMarker: () -> Unit = { stale = true }
+
+    /** 上一次看到的系统包开关；首次 emission 只同步缓存，不重复触发整表重扫。 */
+    private var lastShowSystemApps: Boolean? = null
+
     private val onPackageChanged: () -> Unit = { reload() }
+
+    private fun ensureStaleObserver() {
+        if (staleObserverRegistered) return
+        staleObserverRegistered = true
+        runCatching { PackageChangeReceiver.register(AppContext.get(), staleMarker) }
+    }
 
     /** 需要应用列表的一方在进入组合时调用（与 [release] 成对）。 */
     fun acquire() {
         synchronized(this) {
             refCount++
+            ensureStaleObserver()
             if (refCount == 1) {
                 PackageChangeReceiver.register(AppContext.get(), onPackageChanged)
-                // 系统应用开关是清单的一部分：打开/关闭时重扫，否则各消费方看到旧集合。
+                // 系统应用开关是清单的一部分：真正变化时才重扫；首次 emission 只同步缓存，
+                // 否则每次打开面板都会因为「重新订阅」白扫一遍系统包。
                 systemAppsJob = scope.launch {
                     SearchCenter.showSystemApps.collect { enabled ->
+                        val changed = lastShowSystemApps != null && lastShowSystemApps != enabled
+                        lastShowSystemApps = enabled
                         AppCatalog.setShowSystemApps(enabled)
-                        reload()
+                        if (changed) {
+                            stale = true
+                            reload()
+                        }
                     }
                 }
-                reload()
+                if (stale || _state.value.apps.isEmpty() ||
+                    loadedLocaleTag != currentLocaleTag()
+                ) {
+                    reload()
+                }
             }
         }
     }
@@ -74,11 +107,18 @@ object AppListRepository {
     }
 
     /** 外部写入（冻结/解冻）后的显式重扫：不等包广播，避免部分 ROM 不发 PACKAGE_CHANGED。 */
-    fun refresh() = reload()
+    fun refresh() {
+        stale = true
+        reload()
+    }
 
     /** 系统语言变了才重扫；返回 true 表示确实触发了重扫。 */
     fun reloadIfLocaleChanged(): Boolean {
         if (currentLocaleTag() == loadedLocaleTag) return false
+        // AppQuery / DisabledAppQuery 里按旧语言 loadLabel 的结果必须一起作废。
+        AppQuery.invalidateLauncherCache()
+        DisabledAppQuery.invalidate()
+        stale = true
         reload()
         return true
     }
@@ -91,12 +131,26 @@ object AppListRepository {
                 val locale = currentLocaleTag()
                 // 先记下语言：扫描期间 UI 再问一次不该判成「变了」而重扫第二遍。
                 loadedLocaleTag = locale
+                stale = false
                 val snapshot = runCatching { hunoia.luno.domain.search.SearchCenter.getSnapshot() }.getOrNull()
                 if (snapshot != null && snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
                     _state.value = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
                 }
-                val fresh = AppCatalog.query(AppContext.get(), includeDisabled = true)
-                _state.value = fresh
+                val fresh = runCatching {
+                    // 先异步刷新开关再显式传值，避免 query 的默认参数走 runBlocking 读配置。
+                    AppCatalog.refreshSystemSetting()
+                    AppCatalog.query(
+                        AppContext.get(),
+                        includeDisabled = true,
+                        includeSystem = AppCatalog.showSystemApps(),
+                    )
+                }.getOrNull()
+                if (fresh != null) {
+                    _state.value = fresh
+                } else {
+                    // 查询失败：保持旧列表，并让下次打开重试。
+                    stale = true
+                }
             }
         }
     }

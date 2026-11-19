@@ -6,7 +6,7 @@ import android.content.res.Configuration
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
-import coil3.gif.GifDecoder
+import coil3.gif.AnimatedImageDecoder
 import coil3.memory.MemoryCache
 import com.aaron.compose.component.UDFComponentDefaults
 import hunoia.luno.ui.UDFComponentDefaultsImpl
@@ -40,8 +40,11 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(AppIconFetcherFactory())
                 add(AppIconKeyer)
-                // 悬浮球自定义 GIF 图标：动图解码，:service 进程复用本单例。
-                add(GifDecoder.Factory())
+                // 悬浮球自定义动图：走 ImageDecoder（AnimatedImageDrawable），帧推进与解码在
+                // 后台 / RenderThread，主线程每帧只做一次位图绘制。旧的 GifDecoder 走
+                // android.graphics.Movie，每次 invalidate 都在主线程软件解码 + 缩放整帧：
+                // 实测球面动图按屏幕刷新率（121fps）重绘，恒烧 ~15% CPU。
+                add(AnimatedImageDecoder.Factory())
             }
             .memoryCache {
                 MemoryCache.Builder()
@@ -101,6 +104,11 @@ class App : Application(), SingletonImageLoader.Factory {
         hunoia.luno.widget.WidgetSync.ensureStarted(applicationContext)
         // 习惯提醒：闹钟 / 部件打卡等入口可能在 MainActivity 未打开时拉起主进程，
         // 在这里订阅配置流才能保证「关提醒 / 打卡 / 删习惯」后立即撤销在屏通知与闹钟。
+        //
+        // 首次 emission 会完整重排一次全部闹钟，这是**有意保留**的：force-stop 会让系统
+        // 清掉本应用所有闹钟，且没有公开 API 能可靠区分「force-stop 后重开」与普通进程
+        // 重启；用签名 / 时间窗跳过会把提醒静默弄丢。重排在 IO 线程且只碰十几个闹钟，
+        // 实测冷启动 80ms（首帧不受影响），不值得为此引入丢失风险。
         if (isProviderProcess) {
             hunoia.luno.gridpanel.reminder.habit.HabitReminderScheduler.startObserving(applicationContext)
             // 待办提醒同理：配置流一变更（设 / 改 / 删 / 完成 / 撤销）就重排，
@@ -187,6 +195,8 @@ class App : Application(), SingletonImageLoader.Factory {
         super.onTrimMemory(level)
         if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             // 进程级搜索索引保留，但拼音索引/图标位图是大头；内存吃紧时退回小上限。
+            // 会话原始列表不在这里清：面板可能正开着，清了数据源不会自动重装；
+            // 它们按 TTL 在下次打开时回收。
             hunoia.luno.quickaccess.query.AppSearch.trimPinyinCache(1_000)
             hunoia.luno.ui.icon.SearchIconCache.clear()
         }

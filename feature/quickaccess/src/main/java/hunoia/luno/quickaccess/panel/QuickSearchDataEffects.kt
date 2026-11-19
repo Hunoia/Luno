@@ -128,7 +128,13 @@ internal fun QuickSearchDataEffects(
         if ((settings.searchMusic || settings.searchFiles) &&
             (grants.audio || grants.images || grants.video || grants.files)
         ) {
-            withContext(Dispatchers.IO) { index.ensureMedia() }
+            withContext(Dispatchers.IO) {
+                index.ensureMedia(
+                    loadAudio = settings.searchMusic,
+                    loadGallery = settings.searchFiles,
+                    loadDocs = settings.searchFiles,
+                )
+            }
             ticks.mediaTick++
         }
     }

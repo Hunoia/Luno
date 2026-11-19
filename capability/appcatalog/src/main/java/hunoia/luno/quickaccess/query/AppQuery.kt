@@ -27,6 +27,18 @@ object AppQuery {
         PackageChangeReceiver.register(AppContext.get()) {
             launcherCache.clear()
         }
+        // label 跟着系统语言走：不广播包变更，必须单独作废。
+        runCatching {
+            AppContext.get().registerReceiver(
+                object : android.content.BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        launcherCache.clear()
+                    }
+                },
+                android.content.IntentFilter(Intent.ACTION_LOCALE_CHANGED),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        }
     }
 
     fun invalidateLauncherCache() {

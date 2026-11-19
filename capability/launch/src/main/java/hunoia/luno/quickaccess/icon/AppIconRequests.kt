@@ -19,7 +19,10 @@ object AppIconRequests {
     fun request(context: Context, packageName: String, sizePx: Int, userId: Int = 0): ImageRequest {
         val key = if (userId == 0) "$packageName@$sizePx" else "$packageName@$sizePx@$userId"
         cache.get(key)?.let { return it }
-        val request = ImageRequest.Builder(context)
+        // ImageRequest 会保存构建时的 Context；这是进程级 LRU，绝不能持 Activity，
+        // 否则每次开搜索/应用页都会把已销毁的 Activity 连同 View 树钉在进程里。
+        val appContext = context.applicationContext ?: context
+        val request = ImageRequest.Builder(appContext)
             .data(AppIconModel(packageName, sizePx, userId))
             .size(sizePx, sizePx)
             .crossfade(false)

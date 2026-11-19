@@ -26,6 +26,7 @@ object QuickSearchIndexProvider {
     private var cachedAtMs = 0L
     private var packageObserverRegistered = false
     private var shortcutObserverRegistered = false
+    private var localeObserverRegistered = false
 
     fun get(context: Context): QuickSearchIndex {
         val appContext = context.applicationContext ?: context
@@ -53,6 +54,24 @@ object QuickSearchIndexProvider {
                             }
                         },
                         IntentFilter(DynamicShortcuts.ACTION_CHANGED),
+                        Context.RECEIVER_NOT_EXPORTED,
+                    )
+                }
+            }
+            if (!localeObserverRegistered) {
+                localeObserverRegistered = true
+                runCatching {
+                    appContext.registerReceiver(
+                        object : android.content.BroadcastReceiver() {
+                            override fun onReceive(context: Context?, intent: Intent?) {
+                                // 应用名跟着系统语言走：label 缓存与搜索索引必须一起作废，
+                                // 否则切语言后仍按旧语言匹配/展示，直到进程重启。
+                                AppQuery.invalidateLauncherCache()
+                                DisabledAppQuery.invalidate()
+                                synchronized(lock) { cached }?.markAppsStale()
+                            }
+                        },
+                        IntentFilter(Intent.ACTION_LOCALE_CHANGED),
                         Context.RECEIVER_NOT_EXPORTED,
                     )
                 }

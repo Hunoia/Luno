@@ -38,7 +38,8 @@ import kotlinx.coroutines.withContext
  *
  * [alpha] 整体透明度（0.1..1.0）。
  *
- * [paused] 为 true 时把动图换成其首帧静态位图显示（静置暂停，省电）。Coil 3 不暴露
+ * [paused] 为 true 时把动图换成其首帧静态位图显示（静置或浮窗不可见时暂停，省电）。
+ * 不可见 ≠ 不绘制：窗口只是 alpha 归零时仍按刷新率重组/重绘，动图必须显式暂停。Coil 3 不暴露
  * `MovieDrawable` 句柄（`AsyncImagePainter` 无公开 drawable 访问器），无法直接 `stop()`，
  * 故用「换 model」实现：静态图与 GIF 各自有独立缓存 key，切回原 model 时命中内存缓存
  * 继续播，不会重新解码。

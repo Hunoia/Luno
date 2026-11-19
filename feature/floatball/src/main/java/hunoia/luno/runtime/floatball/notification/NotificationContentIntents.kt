@@ -24,6 +24,19 @@ object NotificationContentIntents {
 
     fun get(key: String?): PendingIntent? = key?.let(intents::get)
 
+    /**
+     * 只保留当前通知栏里仍存活的 key。
+     *
+     * `onNotificationRemoved` 在个别 ROM 上不保证逐条回调；重连/重投时按活跃快照
+     * 收敛一次，避免 PendingIntent 随通知数量缓慢累积。
+     */
+    fun retainOnly(keys: Set<String>) {
+        val iterator = intents.keys.iterator()
+        while (iterator.hasNext()) {
+            if (iterator.next() !in keys) iterator.remove()
+        }
+    }
+
     /** 监听断开 / 服务销毁时清空：通知快照已失效，避免 PendingIntent 残留累积。 */
     fun clear() {
         intents.clear()

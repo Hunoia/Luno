@@ -24,7 +24,6 @@ import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.quickaccess.panel.QuickSearchContent
-import hunoia.luno.quickaccess.query.AppSearch
 import hunoia.luno.quickaccess.query.QuickSearchIndexProvider
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchResult
@@ -143,6 +142,9 @@ class QuickSearchActivity : ComponentActivity() {
             shownEventPosted = true
             Events.post(PanelShownEvent())
         }
+        // 会话数据按 TTL 复用：只有距上次打开超过 10 分钟才丢弃，避免每次打开都
+        // 重扫联系人/媒体/文件并重建拼音索引（大图库上约 0.5s CPU）。
+        index.beginSession()
         // 数据准备放后台：首次输入不再卡主线程，且每次打开都刷新应用/快捷方式。
         lifecycleScope.launch(Dispatchers.IO) {
             index.ensureLoaded()
@@ -278,11 +280,10 @@ class QuickSearchActivity : ComponentActivity() {
             shownEventPosted = false
             Events.post(PanelDismissedEvent())
         }
-        // 索引本身留在进程里复用；拼音索引和联系人/媒体等大表是内存大头，
-        // 关面板后压回小容量，下次打开按需重建。
+        // 索引本身留在进程里复用；会话数据只在 TTL 过期时释放（内存吃紧由
+        // App.onTrimMemory 兜底），正常关闭不丢，下次打开直接复用。
         if (isFinishing) {
-            AppSearch.trimPinyinCache()
-            index.trimSessionSources()
+            index.trimSessionSourcesIfExpired()
         }
         super.onDestroy()
     }

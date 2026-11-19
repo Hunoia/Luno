@@ -65,6 +65,7 @@ import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
@@ -83,6 +84,15 @@ private const val MENU_REOPEN_SUPPRESS_MS = 400L
 
 /** 首屏图标预热上限：只解码当前可能露出的前几行，长尾交给列表可见时 Coil 按需加载。 */
 private const val ICON_PREWARM_LIMIT = 24
+
+/**
+ * 输入防抖：连续按键只让最后一次真正跑全源搜索。
+ *
+ * 一次搜索要扫应用/快捷方式/动作/联系人/媒体/文件/短信/通话等全部来源，实测单键
+ * 约 110ms CPU；`mapLatest` 只取消上一轮，来不及取消的中间轮仍是白跑。40ms 对输入
+ * 延迟几乎无感，快速连打时能把轮次压到 1/3 左右。
+ */
+private const val SEARCH_DEBOUNCE_MS = 40L
 
 private data class SearchSnapshot(
     val text: String,
@@ -242,6 +252,9 @@ internal fun QuickSearchContent(
                 effectiveSearchSettings, clipsState.value,
             )
         }.mapLatest { s ->
+            // 非空输入先让出一小段：新的按键会取消当前块（含这里的 delay），
+            // 只有停手超过 40ms 的那次才真正执行全源搜索。
+            if (s.text.isNotBlank()) delay(SEARCH_DEBOUNCE_MS)
             val text = s.text
             if (text.isBlank()) {
                 SearchPacket(text, emptyList(), directive = false)

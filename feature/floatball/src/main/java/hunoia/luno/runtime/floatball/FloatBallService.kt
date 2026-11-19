@@ -159,6 +159,16 @@ class FloatBallService : Service() {
     private var clipboardPollJob: Job? = null
     private var lastSeenClip: ClipboardContent? = null
 
+    /**
+     * 当前轮询间隔：连续读不到（后台被拒 / Shizuku 不可用）时逐级退避到 [CLIP_POLL_MAX_MS]，
+     * 成功读到时复位。系统每次拒绝都会记一条 ClipboardService 日志，硬按 2s 重试等于
+     * 一天几万条无效唤醒。
+     */
+    private var clipboardPollDelayMs = CLIP_POLL_MS
+
+    /** 上一次轮询是因为「结果胶囊不可见」而降速的；可见后立即恢复最快间隔。 */
+    private var clipboardPollIdleBySlot = false
+
     /** 识别器配置（随 actionSettings 流更新）：胶囊、链接目标解析都读它。 */
     private var recognition: RecognitionSettings = RecognitionSettings()
 
@@ -1017,11 +1027,21 @@ class FloatBallService : Service() {
             canDrawOverlays() &&
             gestureEnabledSnapshot &&
             !isScreenLocked()
+        if (shouldRun && clipboardPollJob?.isActive == true &&
+            clipboardPollIdleBySlot && resultSlot.allowed
+        ) {
+            // 胶囊刚恢复可见：从降速态立即回到 2s，别让用户等满一个退避周期。
+            clipboardPollDelayMs = CLIP_POLL_MS
+            clipboardPollIdleBySlot = false
+        }
         if (shouldRun && clipboardPollJob?.isActive != true) {
             clipboardPollJob?.cancel()
+            // 新会话（解锁 / 规则重开 / 屏幕重新可见）先按最快间隔试一次。
+            clipboardPollDelayMs = CLIP_POLL_MS
+            clipboardPollIdleBySlot = false
             clipboardPollJob = scope.launch {
                 while (isActive) {
-                    delay(CLIP_POLL_MS)
+                    delay(clipboardPollDelayMs)
                     pollClipboard()
                 }
             }
@@ -1032,9 +1052,22 @@ class FloatBallService : Service() {
     }
 
     private suspend fun pollClipboard() {
-        if (!resultSlot.allowed) return
+        // 结果胶囊当前不可见：没有消费者，按最长间隔空转即可。
+        if (!resultSlot.allowed) {
+            clipboardPollDelayMs = CLIP_POLL_MAX_MS
+            clipboardPollIdleBySlot = true
+            return
+        }
+        clipboardPollIdleBySlot = false
         val info = readClip()
-        if (info == null || (info is ClipboardContent.Text && info.text.isBlank())) return
+        if (info == null) {
+            // 后台直读被 ROM 拒绝（或无 Shizuku 可用）：逐级退避，别每 2s 硬试一次。
+            clipboardPollDelayMs = nextClipboardPollDelay(clipboardPollDelayMs)
+            return
+        }
+        // 读到了（即使剪贴板为空）就复位：内容随时可能变化，该恢复灵敏。
+        clipboardPollDelayMs = CLIP_POLL_MS
+        if (info is ClipboardContent.Text && info.text.isBlank()) return
         val previous = lastSeenClip
         if (previous == null) {
             lastSeenClip = info
@@ -1042,6 +1075,14 @@ class FloatBallService : Service() {
         }
         if (previous == info) return
         if (onClipboardContent(info)) lastSeenClip = info
+    }
+
+    /** 读失败时的退避阶梯：2s → 5s → 10s → 20s → 30s（上限）。 */
+    private fun nextClipboardPollDelay(current: Long): Long = when {
+        current < 5_000L -> 5_000L
+        current < 10_000L -> 10_000L
+        current < 20_000L -> 20_000L
+        else -> CLIP_POLL_MAX_MS
     }
 
     // ---- 结果动作 ----
@@ -2470,6 +2511,9 @@ class FloatBallService : Service() {
         private const val FOLLOW_HAND_RETRY_MS = 120L
         private const val FOLLOW_HAND_RETRY_MAX = 12
         private const val CLIP_POLL_MS = 2_000L
+
+        /** 连续读不到剪贴板时的退避上限：30s 一次足以发现「重新可读」。 */
+        private const val CLIP_POLL_MAX_MS = 30_000L
         private const val CAPSULE_SETTLE_MS = 300L
         private const val SETTLE_JOBS_MAX = 16
         private const val CAPSULE_HIDDEN_MAX = 32

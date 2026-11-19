@@ -2,6 +2,7 @@ package hunoia.luno.quickaccess.query
 
 
 import android.content.Context
+import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.core.domain.AppInfo
@@ -55,6 +56,9 @@ class QuickSearchIndex(internal val context: Context) {
     @Volatile internal var smsTried = false
     @Volatile internal var callsTried = false
 
+    /** 会话数据最近一次打开面板的时间（elapsedRealtime）；0 = 没有可复用数据。 */
+    @Volatile private var sessionTouchedAtMs = 0L
+
     /** 加载互斥：各源"查一次就够"的闸门靠它保证只跑一遍。 */
     private val loadLock = Any()
     @Volatile private var refreshingApps = false
@@ -68,8 +72,30 @@ class QuickSearchIndex(internal val context: Context) {
     val indexVersion: StateFlow<Int> = _indexVersion.asStateFlow()
 
     /**
-     * 关闭搜索面板后释放体积大、且下次可重新扫描的会话数据（联系人/媒体/文件/
-     * 日历/短信/通话）。应用与快捷方式索引保留，避免再次全量查 PackageManager。
+     * 面板打开时调：会话数据按 [SESSION_TTL_MS] 保留，只有真的过期才释放。
+     *
+     * 旧实现每次关面板都清空（见 [trimSessionSources]），下次打开必须把联系人 / 媒体 /
+     * 文件 / 日历 / 短信 / 通话全部重扫一遍并重建拼音索引；大图库上单次打开 0.5s CPU 量级。
+     */
+    fun beginSession(nowMs: Long = SystemClock.elapsedRealtime()) {
+        val last = sessionTouchedAtMs
+        if (last != 0L && nowMs - last >= SESSION_TTL_MS) {
+            trimSessionSources()
+        }
+        sessionTouchedAtMs = nowMs
+    }
+
+    /** 关闭面板等时机调用：仍在 TTL 内就保留，下次打开直接复用。 */
+    fun trimSessionSourcesIfExpired(nowMs: Long = SystemClock.elapsedRealtime()): Boolean {
+        val last = sessionTouchedAtMs
+        if (last == 0L || nowMs - last < SESSION_TTL_MS) return false
+        trimSessionSources()
+        return true
+    }
+
+    /**
+     * 释放体积大、且下次可重新扫描的会话数据（联系人/媒体/文件/日历/短信/通话）。
+     * 应用与快捷方式索引保留，避免再次全量查 PackageManager。
      */
     fun trimSessionSources() {
         contacts = emptyList()
@@ -86,6 +112,10 @@ class QuickSearchIndex(internal val context: Context) {
         calendarTried = false
         smsTried = false
         callsTried = false
+        // 拼音索引是这轮会话的内存/CPU 大头；列表都丢了就没必要继续占着 48k 条。
+        // 仍保留应用/快捷方式索引（下次打开不重扫 PackageManager），它们按需重建。
+        AppSearch.trimPinyinCache()
+        sessionTouchedAtMs = 0L
     }
 
     fun ensureLoaded() {
@@ -171,6 +201,14 @@ class QuickSearchIndex(internal val context: Context) {
             appsLoaded = false
             if (refreshingApps) invalidateRequested = true
         }
+    }
+
+    private companion object {
+        /**
+         * 会话数据 TTL：与 [QuickSearchIndexProvider] 的索引 TTL 对齐。
+         * 期间多次开关搜索只查内存；过期后的第一次打开再全量装载。
+         */
+        const val SESSION_TTL_MS = 10 * 60 * 1000L
     }
 }
 

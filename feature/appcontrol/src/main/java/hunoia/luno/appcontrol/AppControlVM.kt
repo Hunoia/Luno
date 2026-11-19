@@ -124,15 +124,25 @@ class AppControlVM : ViewModel() {
         val list = runCatching {
             AppCatalog.query(context, includeDisabled = true, includeSystem = showSystemApps)
         }.getOrNull()
-        val disabled = runCatching { DisabledAppQuery.queryDisabledEntries(context) }
-            .getOrDefault(emptyList())
-            .associateBy { it.app.packageName }
+        val disabledEntries = runCatching {
+            DisabledAppQuery.queryDisabledEntries(context)
+        }.getOrNull()
+        val disabled = disabledEntries?.associateBy { it.app.packageName }
 
         // 禁用包可能没有桌面入口且系统包开关关闭，AppCatalog 不会给出它们；补进来，
         // 否则用户看不到「谁会被一键解冻」。
-        val all = list?.apps.orEmpty() + disabled.values.map { it.app }
+        val all = list?.apps.orEmpty() + disabledEntries.orEmpty().map { it.app }
         val apps = all.distinctBy { it.packageName }
-            .map { app -> app.toManaged(context, disabled[app.packageName]?.availability) }
+            .map { app ->
+                val known = disabled?.get(app.packageName)?.availability
+                // 批量表已经给出「禁用/冻结」全集：不在表里的就是 enabled，不再每包
+                // 两次 PackageManager Binder（系统包全开时是数百次 IPC）。批量查询失败
+                // 时传 null 退回逐包判定，保证状态不会误报。
+                app.toManaged(
+                    context,
+                    known ?: if (disabled != null) AppAvailability.ENABLED else null,
+                )
+            }
             .sortedBy { it.label.lowercase() }
         return apps to showSystemApps
     }
