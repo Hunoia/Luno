@@ -32,4 +32,8 @@
     <string name="action_group_selected">Selected: %1$s</string>
     <string name="create_shortcut">Create shortcut</string>
     <string name="shortcut_count">%1$d shortcuts</string>
+    <string name="action_select_multi_cd">Multi-select</string>
+    <string name="action_select_clear_cd">Clear selection</string>
+    <string name="action_select_submit_cd">Submit selected (%1$d)</string>
+    <string name="action_select_none_selected">Nothing selected</string>
 </resources>

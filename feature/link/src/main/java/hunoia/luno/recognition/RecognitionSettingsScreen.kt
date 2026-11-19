@@ -639,7 +639,7 @@ private fun addablePresets(
     val text = RecognitionDefaults.textPresets
         .filter { used.add(it.match.pattern.trim().lowercase()) }
         .map { it.copy(id = java.util.UUID.randomUUID().toString()) }
-    // 「挂到超级岛」的变体不受 pattern 判重影响（它和普通预设同正则但输出不同），
+    // 「通知」的变体不受 pattern 判重影响（它和普通预设同正则但输出不同），
     // 按名字判重，避免重复添加。
     val usedNames = existing.map { it.name }.toMutableSet()
     val island = RecognitionDefaults.islandPresets
@@ -715,9 +715,8 @@ internal fun recognitionRuleSummary(rule: RecognitionRule, targetLabel: String?)
     val summary = stringResource(R.string.recognition_rule_summary, sources, match, output)
     val link = rule.match as? RecognitionMatch.Link
     // 直执行档在列表里必须一眼看得见：它与胶囊档的行为差得最远（点了才有 vs 命中就跑）。
-    val directTag = if (rule.display == RecognitionDisplay.Direct &&
-        rule.output !is RecognitionOutput.Notify
-    ) {
+    // 通知输出恒为直执行（effectiveDisplay），标签一并显示。
+    val directTag = if (rule.effectiveDisplay == RecognitionDisplay.Direct) {
         stringResource(R.string.recognition_rule_direct_tag)
     } else {
         ""

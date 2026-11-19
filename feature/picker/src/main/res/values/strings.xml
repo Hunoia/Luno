@@ -31,4 +31,8 @@
     <string name="action_group_selected">已选：%1$s</string>
     <string name="create_shortcut">创建快捷方式</string>
     <string name="shortcut_count">%1$d 个快捷方式</string>
+    <string name="action_select_multi_cd">多选</string>
+    <string name="action_select_clear_cd">清空已选</string>
+    <string name="action_select_submit_cd">提交已选 (%1$d)</string>
+    <string name="action_select_none_selected">未选择任何动作</string>
 </resources>

@@ -99,4 +99,30 @@ class FloatBallSettingsTest {
         assertEquals(2_500L, decoded.notificationCapsule.idleDimDelayMs)
         assertEquals(4_000L, decoded.resultCapsule.idleDimDelayMs)
     }
+
+    @Test
+    fun `legacy notification capsule decodes with the default visible rows`() {
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            """
+            {
+              "notificationCapsule": { "enabled": true, "autoHideMs": 5000 }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(FloatBallDefaults.CapsuleVisibleRows, decoded.notificationCapsule.visibleRows)
+    }
+
+    @Test
+    fun `visible rows survive a serialization round trip`() {
+        val settings = FloatBallSettings(
+            notificationCapsule = NotificationCapsuleSettings(visibleRows = 5),
+        )
+
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            JsonSerializer.encodeToString(settings),
+        )
+
+        assertEquals(5, decoded.notificationCapsule.visibleRows)
+    }
 }

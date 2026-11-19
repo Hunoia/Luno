@@ -40,7 +40,7 @@ class AppRecognitionHost(private val context: Context) : RecognitionHost {
         runCatching { ConfigProvider.getActionSettings().recognition }
             .getOrDefault(RecognitionSettings())
 
-    /** 「挂到超级岛」：通道 / 回退链 / 完成按钮都归 [RecognitionNotifier]。 */
+    /** 「通知」：通道 / 完成按钮都归 [RecognitionNotifier]。 */
     override suspend fun notifyRecognition(
         item: RecognizedItem,
         spec: RecognitionNotifySpec,

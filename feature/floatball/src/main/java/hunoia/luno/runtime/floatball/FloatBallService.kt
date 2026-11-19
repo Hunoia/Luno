@@ -445,7 +445,7 @@ class FloatBallService : Service() {
                 settings.clipboardReadEnabled ||
                 settings.sceneEnabled
             readsAnySource && settings.rules.any {
-                it.enabled && it.isValid && it.display == RecognitionDisplay.Direct
+                it.enabled && it.isValid && it.effectiveDisplay == RecognitionDisplay.Direct
             }
         }
 
@@ -1725,7 +1725,7 @@ class FloatBallService : Service() {
                     hideCapsule()
                     refreshBadge()
                 }
-                onSwipedAway = { onSwipedAway() }
+                onSwipedAway = { id -> onSwipedAway(id) }
                 onPressStateChanged = { pressed ->
                     bubblePressed = pressed
                     if (pressed) {
@@ -2202,10 +2202,13 @@ class FloatBallService : Service() {
         fun removeById(id: String) {
             if (state.items.none { it.id == id }) return
             removeItem(id)
-            if (state.items.isEmpty()) {
-                hideCapsule()
-            } else if (showing) {
-                showCurrent()
+            when {
+                state.items.isEmpty() -> hideCapsule()
+                // 通知是滚动栈：系统侧移除一条时保留滚动位置，别把正在看的列表拉回顶部。
+                showing && source == BallSource.NOTIFICATION ->
+                    bubble.updateItems(state.items, state.currentIndex)
+
+                showing -> showCurrent()
             }
         }
 
@@ -2219,7 +2222,14 @@ class FloatBallService : Service() {
             )
             state = change.state
             when {
-                wasLast || state.items.isEmpty() -> hideCapsule()
+                state.items.isEmpty() -> hideCapsule()
+                // 通知胶囊是滚动栈：删一行不收起、不跳回顶部，保留其余行的阅读位置。
+                source == BallSource.NOTIFICATION -> {
+                    if (showing) bubble.updateItems(state.items, state.currentIndex)
+                    refreshBadge()
+                }
+
+                wasLast -> hideCapsule()
                 showing -> showCurrent()
                 else -> refreshBadge()
             }
@@ -2259,8 +2269,9 @@ class FloatBallService : Service() {
             if (showing) hideCapsule() else showCurrent()
         }
 
-        fun onSwipedAway() {
-            val item = state.current ?: return
+        fun onSwipedAway(id: String) {
+            // 堆叠模式下横滑的是「按下那一行」，不是队列当前项。
+            val item = state.items.firstOrNull { it.id == id } ?: state.current ?: return
             if (item.pinned) {
                 hideCapsule()
                 refreshBadge()

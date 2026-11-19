@@ -57,7 +57,7 @@ data class RecognizedItem(
  * - [RecognitionBuiltin.OpenLink] → 打开（值不是链接时执行口自己降级为复制，动作集照旧给复制）；
  * - [RecognitionBuiltin.Share] → 分享 + 复制（分享之外总得能复制）；
  * - 动作输出 → 跑动作 + 复制 + 分享；链接可分享/可打开时再补上；
- * - 通知输出 → 挂岛 + 复制（用户常想先把值拿走再关岛）。
+ * - 通知输出 → 发通知 + 复制（用户常想先把值拿走再关通知）。
  */
 fun actionsOf(output: RecognitionOutput, urls: List<String>): List<RecognitionAction> {
     val out = LinkedHashSet<RecognitionAction>(4)
@@ -107,7 +107,7 @@ enum class RecognitionAction {
     /** 跑规则声明的动作。 */
     Run,
 
-    /** 挂到超级岛 / 通知栏。 */
+    /** 发通知（LIVE 胶囊 / 标准通知）。 */
     Notify,
 }
 
@@ -181,7 +181,7 @@ class CompiledRecognizer internal constructor(
         value = value,
         urls = urls,
         output = rule.output,
-        display = rule.display,
+        display = rule.effectiveDisplay,
     )
 
     internal data class CompiledRule(

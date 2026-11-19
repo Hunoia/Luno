@@ -11,30 +11,25 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
-import hunoia.luno.capability.notify.DefaultNotificationPresenter
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.NotificationDisplaySettings
+import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.RecognitionNotifySpec
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
-import hunoia.luno.core.domain.IslandActionSpec
-import hunoia.luno.core.domain.IslandIntentKind
-import hunoia.luno.core.domain.IslandNotificationSpec
-import hunoia.luno.core.domain.IslandPublishResult
-import hunoia.luno.core.domain.NotificationPresenter
 import hunoia.luno.link.R
 import hunoia.luno.runtime.recognition.RecognizedItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 识别结果的「挂到超级岛」输出。
+ * 识别结果的「通知」输出。
  *
- * 岛的呈现机制全部来自 `:capability:notify`（FocusTemplate V3 + XMSF 鉴定绕过），
- * 这里只负责三件识别器自己的事：内容占位替换、通道归属、回退链（ISLAND → 标准通知）。
+ * 每规则可选 [RecognitionNotifySpec.mode]：
+ * - [NotificationMode.LIVE]：Android 16+ 升 Live Update / 状态栏胶囊（无权限自动落回标准）；
+ * - [NotificationMode.STANDARD]：普通通知。
  *
- * 岛上的按钮只有一个「完成」：点它收起岛并撤通知。识别器的产物是一次性凭证
- * （取件码 / 验证码），用户看完就走，不需要在岛上再挂「复制」——值已经进过剪贴板了。
+ * 通道归属与本模块；内容占位替换（`{value}` `{rule}` `{host}`）也在这里。
+ * 通知上只有一个「完成」按钮：点它撤掉通知。识别器的产物是一次性凭证（取件码 / 验证码），
+ * 用户看完就走，不需要在通知上再挂「复制」——值已经进过剪贴板了。
  */
 internal object RecognitionNotifier {
 
@@ -46,7 +41,10 @@ internal object RecognitionNotifier {
     /** 点「完成」的广播。 */
     const val ACTION_DISMISS = "hunoia.luno.action.RECOGNITION_NOTIFY_DISMISS"
 
-    /** 通知 id 由规则 id + 值的哈希派生：同一条规则抓到同一个值不会堆两条岛。 */
+    /** 状态栏胶囊摘要文案上限：系统按「几个字」排版，过长会溢出，先自行收敛。 */
+    private const val SHORT_CRITICAL_TEXT_MAX = 8
+
+    /** 通知 id 由规则 id + 值的哈希派生：同一条规则抓到同一个值不会堆两条通知。 */
     private fun notificationId(item: RecognizedItem): Int =
         ("${item.ruleId}:${item.value}").hashCode() and 0x7FFFFFFF
 
@@ -63,87 +61,69 @@ internal object RecognitionNotifier {
         }
         ensureChannel(app)
         val id = notificationId(item)
-        val display = currentDisplay()
-        val presenter: NotificationPresenter by lazy { DefaultNotificationPresenter(app) }
-
-        val islandSpec = IslandNotificationSpec(
-            channelId = CHANNEL_ID,
-            notificationId = id,
-            title = spec.title.resolve(item).ifBlank { item.ruleName.ifBlank { item.value } },
-            text = spec.text.resolve(item).ifBlank { item.value },
-            capsuleText = spec.capsuleText.resolve(item).ifBlank { capsuleOf(item.value) },
-            autoExpand = spec.autoExpand,
-            expandedSeconds = spec.expandedSeconds,
-            blockWindowMs = display.islandDisconnectMs,
-            outerGlow = display.islandOuterGlow,
-            showInShade = spec.keepInShade,
-            timeoutSeconds = spec.timeoutSeconds,
-            ongoing = false,
-            actions = listOf(
-                IslandActionSpec(
-                    key = "done",
-                    title = app.getString(R.string.recognition_notify_done),
-                    intentUri = dismissIntent(app, id).toUri(Intent.URI_INTENT_SCHEME),
-                    intentKind = IslandIntentKind.BROADCAST,
-                    highlighted = true,
-                    // 一按就结束：SystemUI 直接收起岛，再由接收器撤掉通知栏条目。
-                    collapseOnClick = true,
-                ),
-            ),
-        )
-        when (presenter.publishIsland(islandSpec)) {
-            IslandPublishResult.Posted -> {
-                LunoLog.i(LOG_TAG, "recognition island posted: rule=${item.ruleId} id=$id")
-                true
-            }
-            else -> {
-                // 非 Xiaomi / 绕过不可用 / 鉴权被撤：回退标准通知，内容一样，只是没有岛。
-                LunoLog.w(LOG_TAG, "recognition island fallback to standard: rule=${item.ruleId}")
-                postStandard(app, id, islandSpec)
-            }
-        }
-    }
-
-    private fun postStandard(app: Context, id: Int, spec: IslandNotificationSpec): Boolean {
+        val title = spec.title.resolve(item).ifBlank { item.ruleName.ifBlank { item.value } }
+        val text = spec.text.resolve(item).ifBlank { item.value }
         val done = PendingIntent.getBroadcast(
             app,
             id,
             dismissIntent(app, id),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = Notification.Builder(app, CHANNEL_ID)
+        val builder = Notification.Builder(app, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(spec.title)
-            .setContentText(spec.text)
-            .setStyle(Notification.BigTextStyle().bigText(spec.text))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
             .setOngoing(false)
             .setAutoCancel(true)
             .addAction(
                 Notification.Action.Builder(null, app.getString(R.string.recognition_notify_done), done)
                     .build(),
             )
-            .build()
+        // LIVE 胶囊：Android 16+ 且有 promoted 权限才升，否则保持标准通知。
+        if (spec.mode == NotificationMode.LIVE) applyLiveUpdate(app, builder, text)
         // 与其它通知器同口径：开关 + 运行期权限各查一次，再吞掉系统拒绝。
-        if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return false
+        if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return@withContext false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            return false
+            return@withContext false
         }
-        return runCatching {
-            NotificationManagerCompat.from(app).notify(id, notification)
+        runCatching {
+            NotificationManagerCompat.from(app).notify(id, builder.build())
             true
         }.getOrDefault(false)
+    }
+
+    /**
+     * Android 16+：升为 Live Update / 状态栏胶囊（HyperOS 4 会渲染成超级岛）；
+     * 无权限时保持标准通知。
+     *
+     * 必须用 `canPostPromotedNotifications()` 先探权限：未授权时仍强行
+     * `setRequestPromotedOngoing(true)`，系统会把整条通知判为非法并直接撤回，
+     * 用户会连普通通知都收不到。
+     */
+    private fun applyLiveUpdate(app: Context, builder: Notification.Builder, text: String) {
+        if (Build.VERSION.SDK_INT < 36) return
+        val granted = runCatching {
+            app.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
+        }.getOrDefault(false)
+        if (!granted) {
+            LunoLog.w(LOG_TAG, "recognition live update not granted, fallback to standard")
+            return
+        }
+        builder.setRequestPromotedOngoing(true)
+        builder.setShortCriticalText(text.take(SHORT_CRITICAL_TEXT_MAX))
     }
 
     private fun ensureChannel(app: Context) {
         val manager = app.getSystemService(NotificationManager::class.java) ?: return
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            // HIGH：岛要求能悬浮；关掉悬浮时系统会自己降级成普通通知。
+            // HIGH：LIVE 胶囊 / 悬浮态需要高重要级；关掉悬浮时系统会自己降级成普通通知。
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "识别器命中规则时挂到超级岛"
+                description = "识别器命中规则时发通知"
                 setShowBadge(false)
             },
         )
@@ -155,13 +135,6 @@ internal object RecognitionNotifier {
             putExtra(EXTRA_NOTIFICATION_ID, id)
         }
 
-    /** 岛摘要态文案上限：HyperOS 实测超过 ~8 字会被裁。 */
-    private fun capsuleOf(value: String): String = value.take(8)
-
-    private suspend fun currentDisplay(): NotificationDisplaySettings =
-        runCatching { ConfigProvider.getAdvancedSettings().notificationDisplay }
-            .getOrDefault(NotificationDisplaySettings())
-
     /** 模板占位：`{value}` / `{rule}` / `{host}`。 */
     private fun String.resolve(item: RecognizedItem): String = this
         .replace("{value}", item.value)
@@ -171,7 +144,7 @@ internal object RecognitionNotifier {
     const val EXTRA_NOTIFICATION_ID = "hunoia.luno.extra.RECOGNITION_NOTIFICATION_ID"
 }
 
-/** 「完成」按钮的接收器：收起岛 / 撤通知。 */
+/** 「完成」按钮的接收器：撤通知。 */
 class RecognitionNotifyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != RecognitionNotifier.ACTION_DISMISS) return

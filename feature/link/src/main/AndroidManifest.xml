@@ -5,7 +5,7 @@
 
     <application>
 
-        <!-- 识别器「挂到超级岛」的「完成」按钮：只撤通知，无业务逻辑。 -->
+        <!-- 识别器「通知」的「完成」按钮：只撤通知，无业务逻辑。 -->
         <receiver
             android:name="hunoia.luno.recognition.RecognitionNotifyReceiver"
             android:exported="false" />
@@ -16,10 +16,11 @@
             android:name=".LinkSelectionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:finishOnTaskLaunch="true"
             android:launchMode="singleTop"
             android:noHistory="true"
             android:taskAffinity="hunoia.luno.linkdispatch"
-            android:theme="@style/Theme.SideGesture" />
+            android:theme="@style/LinkSheetTheme" />
 
     </application>
 

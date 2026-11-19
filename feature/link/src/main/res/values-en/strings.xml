@@ -155,11 +155,12 @@
     <string name="recognition_notify_done">Done</string>
     <string name="recognition_output_copy_and_clear">Copy then clear</string>
     <string name="recognition_output_copy_and_clear_hint">Clears the system clipboard after the delay below, unless you copied something else in the meantime</string>
-    <string name="recognition_output_notify">Show on Super Island</string>
-    <string name="recognition_notify_auto_expand">Expand the island on arrival</string>
-    <string name="recognition_notify_auto_expand_hint">Off keeps it to the status-bar capsule</string>
-    <string name="recognition_notify_expand_seconds">Island stays</string>
-    <string name="recognition_notify_hint">The island has a single Done button. Non-Xiaomi devices fall back to a standard notification</string>
+    <string name="recognition_output_notify">Notification</string>
+    <string name="recognition_notify_mode">Notification style</string>
+    <string name="recognition_notify_mode_hint">LIVE capsule requires Android 16+ with permission; otherwise falls back to a standard notification</string>
+    <string name="recognition_notify_mode_standard">Standard notification</string>
+    <string name="recognition_notify_mode_live">LIVE capsule</string>
+    <string name="recognition_notify_hint">The notification has a single Done button that dismisses it</string>
     <string name="recognition_copy_clear_delay">Clear clipboard after copying</string>
     <string name="recognition_copy_clear_delay_hint">Only applies to &quot;copy then clear&quot; outputs; history stays in the app</string>
     <string name="recognition_copy_clear_off">Never</string>

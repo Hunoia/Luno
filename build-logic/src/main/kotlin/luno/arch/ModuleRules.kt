@@ -46,10 +46,9 @@ object ModuleRules {
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:execute", ":ui:design", ":capability:launch",
         ),
-        // 识别器的「挂到超级岛」输出要用 :capability:notify 的 FocusTemplate 发布器；
-        // 呈现机制属于平台能力，识别器只表达「挂哪个内容」。
+        // 识别器的「通知」输出只表达「通知什么」，呈现机制（LIVE 胶囊 / 标准通知）
+        // 直接走系统 Notification API，不依赖 :capability:notify 的岛发布器。
         ":feature:link" to setOf(
-            ":capability:notify",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:facade", ":core:runtime", ":ui:design", ":feature:actions",
         ),

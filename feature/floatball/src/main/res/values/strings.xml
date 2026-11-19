@@ -34,6 +34,7 @@
     <string name="float_ball_notification_ttl">通知保留时长</string>
     <string name="float_ball_notification_capacity">通知队列容量</string>
     <string name="float_ball_capsule_auto_hide">胶囊停留时长</string>
+    <string name="float_ball_capsule_visible_rows">同屏条数</string>
     <string name="float_ball_capsule_blocklist">通知黑名单</string>
     <string name="float_ball_capsule_blocklist_count">%1$d 个应用</string>
     <string name="float_ball_capsule_need_permission">需要通知使用权</string>

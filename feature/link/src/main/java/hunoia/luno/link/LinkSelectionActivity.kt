@@ -8,27 +8,40 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.icon.SearchIconCache
+import hunoia.luno.ui.component.row.LocalListStyle
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -36,31 +49,41 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 链接选择/接管页，两种模式：
+ * 链接选择/接管页，两种模式（都是 luno 风格底部弹窗）：
  * - **多链接**（[EXTRA_URLS]）：一次认出多条链接时列出每一条及其分发目标，点行进目标应用，
  *   长按进系统分享面板。
  * - **选应用**（[EXTRA_PICK_URL]）：未命中规则且回退策略为「选择应用」时，列出本机所有能打开
  *   该链接的应用。自己实现而不是 `Intent.createChooser`：系统选择器在「Luno 已被设为默认
  *   浏览器」时会把唯一的默认项排除掉，界面直接空白（HyperOS 实测），也无法排序/排除自身。
+ *
+ * 两种模式都用透明窗口承载底部弹窗（edge-to-edge 下 sheet 浮在先前界面之上），
+ * 不再整页跳转。
  */
 class LinkSelectionActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 底部弹窗宿主：窗口透明由 LinkSheetTheme（translucent + 关平台 dim）负责，
+        // 让 LunoSheet 的遮罩连同 sheet 浮在先前界面之上，不再整页跳转、也不会黑底。
         val pickUrl = intent?.getStringExtra(LinkExtras.EXTRA_PICK_URL)
         val urls = intent?.getStringArrayListExtra(LinkExtras.EXTRA_URLS).orEmpty()
-        when {
-            pickUrl != null -> setContent {
-                SideGestureTheme {
-                    AppPickerContent(url = pickUrl, onDone = { finish() })
+        if (pickUrl == null && urls.isEmpty()) {
+            finish()
+            return
+        }
+        setContent {
+            SideGestureTheme {
+                // 列表风格（分段 / 大卡）由用户设置决定，LunoGroup 靠 LocalListStyle 分风格；
+                // 本宿主是独立 Activity，须像应用根一样提供该 local，否则永远走默认分段。
+                val advancedSettings by TuneConfig.advanced
+                    .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+                CompositionLocalProvider(LocalListStyle provides advancedSettings.listStyle) {
+                    when {
+                        pickUrl != null -> AppPickerContent(url = pickUrl, onDone = { finish() })
+                        else -> LinkSelectionContent(urls = urls, onDone = { finish() })
+                    }
                 }
             }
-            urls.isNotEmpty() -> setContent {
-                SideGestureTheme {
-                    LinkSelectionContent(urls = urls, onDone = { finish() })
-                }
-            }
-            else -> finish()
         }
     }
 
@@ -82,6 +105,30 @@ class LinkSelectionActivity : ComponentActivity() {
             Intent(context, LinkSelectionActivity::class.java)
                 .putExtra(LinkExtras.EXTRA_PICK_URL, url)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+}
+
+/** 底部弹窗统一骨架：标题 + 可滚动内容（sheet 自带左右 gutter）。 */
+@Composable
+private fun LinkSheetChrome(
+    title: String,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    LunoSheet(onDismissRequest = onDismissRequest, showDragHandle = true) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = PageGutter),
+        ) {
+            Text(
+                modifier = Modifier.padding(vertical = 8.dp),
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            content()
+        }
     }
 }
 
@@ -115,9 +162,9 @@ private fun LinkSelectionContent(
         onDone()
     }
 
-    LunoScreen(
+    LinkSheetChrome(
         title = stringResource(R.string.link_dispatch_select_title),
-        onBack = onDone,
+        onDismissRequest = onDone,
     ) {
         LunoGroup(
             subtitle = stringResource(R.string.link_dispatch_select_hint, urls.size),
@@ -189,9 +236,9 @@ private fun AppPickerContent(
         onDone()
     }
 
-    LunoScreen(
+    LinkSheetChrome(
         title = stringResource(R.string.link_dispatch_pick_app_title),
-        onBack = onDone,
+        onDismissRequest = onDone,
     ) {
         LunoGroup(
             subtitle = if (handlers.isEmpty()) {

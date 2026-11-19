@@ -106,6 +106,11 @@ class ActionSelectVM(
             finish()
             return
         }
+        // 多选：只切换勾选，不落盘、不返回（右上角「提交」统一落盘）。
+        if (uiState.selectedRecord.multiSelect) {
+            updateUiState { it.copy(selectedRecord = it.selectedRecord.toggle(obj)) }
+            return
+        }
         when (obj) {
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }
             is LauncherInfo.ShortcutInfo -> updateUiState { selectShortcutInfoTransform(it, obj) }
@@ -114,6 +119,51 @@ class ActionSelectVM(
             is ActionLibraryEntry -> updateUiState { selectActionTransform(it, obj.toStoredAction()) }
         }
         done()
+    }
+
+    /** 进入/退出多选：进出都清空已选，避免单选残留混进多选列表。 */
+    fun toggleMultiSelect() {
+        updateUiState { state ->
+            val next = !state.selectedRecord.multiSelect
+            state.copy(
+                selectedRecord = state.selectedRecord.copy(multiSelect = next, list = emptyList()),
+            )
+        }
+    }
+
+    /** 清空多选已选（保持多选模式）。 */
+    fun clearSelection() {
+        updateUiState { state ->
+            state.copy(selectedRecord = state.selectedRecord.copy(list = emptyList()))
+        }
+    }
+
+    /** 多选确认：按调用方分派落盘；成功 / 缺面板收页，页满（网格）留在页面。 */
+    fun confirmMultiSelect() {
+        val items = uiState.selectedRecord.multiActions
+        if (items.isEmpty()) {
+            toast(R.string.action_select_none_selected)
+            return
+        }
+        viewModelScope.launch {
+            val outcome = if (actionSelect.actionPanelId.isNotBlank()) {
+                saveActionPanelItems(actionSelect, items)
+            } else {
+                saveGridPanelItems(actionSelect, items)
+            }
+            when (outcome) {
+                SaveOutcome.Saved -> toast(R.string.save_success)
+                SaveOutcome.PageFull -> toast(R.string.grid_panel_page_full)
+                SaveOutcome.TargetMissing -> toast(
+                    if (actionSelect.actionPanelId.isNotBlank()) {
+                        hunoia.luno.gridpanel.R.string.action_panel_missing
+                    } else {
+                        R.string.grid_panel_missing
+                    },
+                )
+            }
+            if (outcome != SaveOutcome.PageFull) finish()
+        }
     }
 
     /**

@@ -47,7 +47,7 @@ interface RecognitionHost {
     /** 按规则的目标应用分发单条链接；返回是否确认送达。 */
     suspend fun dispatchLink(url: String, ruleId: String): Boolean
 
-    /** 把识别结果挂到超级岛 / 通知栏（通道、回退链、点击行为都由宿主决定）。 */
+    /** 把识别结果发成通知（通道、通知方式与「完成」按钮都由宿主决定）。 */
     suspend fun notifyRecognition(
         item: RecognizedItem,
         spec: RecognitionNotifySpec,
@@ -127,7 +127,7 @@ class RecognitionExecutor(private val host: RecognitionHost) {
         written
     }
 
-    /** 超级岛 / 通知输出：交给宿主（`:app` 才有通道与回退链），本层只做占位替换。 */
+    /** 通知输出：交给宿主（`:app` 才有通道与「完成」按钮），本层只做占位替换。 */
     private suspend fun notify(
         item: RecognizedItem,
         spec: RecognitionNotifySpec,

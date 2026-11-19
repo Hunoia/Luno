@@ -8,6 +8,7 @@ import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
 import hunoia.luno.core.LunoLog as Log
 import java.io.File
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -16,7 +17,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +34,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -98,6 +109,9 @@ fun ActionSelectContent(
     ) { uiState ->
         val coroutineScope = rememberCoroutineScope()
 
+        // 多选模式下返回键先退出多选（不提交），再按才收页；搜索框展开时由底栏 BackHandler 先收搜索。
+        BackHandler(enabled = uiState.selectedRecord.multiSelect) { vm.toggleMultiSelect() }
+
         // 习惯部件（历史 / 热力图）选择：指定目标习惯后落盘（params 见 architecture §9.2）。
         var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
         val habitConfig by HabitCenter.habitConfig
@@ -111,6 +125,42 @@ fun ActionSelectContent(
         LunoScreenPlain(
             title = uiState.title,
             onBack = onDismissRequest,
+            actions = {
+                // 仅可多选调用方（动作面板 / 网格面板加项）显示。非多选=入口图标；
+                // 多选=清空 × + 已选数纯数字（点数字=提交）。
+                if (actionSelect.supportsMultiSelect) {
+                    val submitDescription = stringResource(
+                        R.string.action_select_submit_cd,
+                        uiState.selectedRecord.size,
+                    )
+                    if (uiState.selectedRecord.multiSelect) {
+                        IconButton(onClick = vm::clearSelection) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.action_select_clear_cd),
+                            )
+                        }
+                        IconButton(
+                            onClick = vm::confirmMultiSelect,
+                            modifier = Modifier.semantics {
+                                contentDescription = submitDescription
+                            },
+                        ) {
+                            Text(
+                                text = "${uiState.selectedRecord.size}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = vm::toggleMultiSelect) {
+                            Icon(
+                                imageVector = Icons.Default.Checklist,
+                                contentDescription = stringResource(R.string.action_select_multi_cd),
+                            )
+                        }
+                    }
+                }
+            },
             dialogs = {
                 // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（architecture §9.2）。
                 // 选中后不在这里卸弹层：由 HabitPickerDialog 播完退场再回调 onDismiss，

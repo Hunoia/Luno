@@ -121,7 +121,7 @@ internal object ServiceAutoStart {
                             recognition.sceneEnabled
                         readsAnySource && recognition.rules.any {
                             it.enabled && it.isValid &&
-                                it.display == hunoia.luno.config.model.RecognitionDisplay.Direct
+                                it.effectiveDisplay == hunoia.luno.config.model.RecognitionDisplay.Direct
                         }
                     }
             }

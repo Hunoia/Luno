@@ -169,6 +169,11 @@ data class NotificationCapsuleSettings(
     val blocklist: List<String> = emptyList(),
     /** 开启后：进入通知胶囊的系统通知从通知栏隐藏/清掉，只显示胶囊。 */
     val hideSystemNotification: Boolean = FloatBallDefaults.CapsuleHideSystemNotification,
+    /**
+     * 同屏可见行数（1–5）：胶囊内最多同时显示几条通知，超出部分竖向滚动查看。
+     * 只影响展示，不改变队列容量（[BallInboxSettings.notificationCapacity]）。
+     */
+    val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
     /** 用户滑掉后，同 key 的通知在 [dismissSuppressMs] 内再次更新也不再弹。 */
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
@@ -277,6 +282,11 @@ object FloatBallDefaults {
 
     /** 通知胶囊：「只显示胶囊」开关默认值（关：系统通知照常显示在通知栏）。 */
     const val CapsuleHideSystemNotification = false
+
+    /** 通知胶囊：同屏可见行数默认值与滑杆上下限（行）。 */
+    const val CapsuleVisibleRows = 3
+    const val CapsuleVisibleRowsMin = 1
+    const val CapsuleVisibleRowsMax = 5
 
     /** 剪贴板球：自动收起时长默认值与滑杆上下限（ms）。 */
     const val ClipboardBallAutoHideMs = 5_000L

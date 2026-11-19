@@ -173,6 +173,31 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, selection: S
 }
 
 /**
+ * 多选：动作面板一次追加多条（各 `withoutVariantKey()`）。无页满概念；
+ * 返回 TargetMissing = 面板在选择期间被删。
+ */
+internal suspend fun saveActionPanelItems(
+    actionSelect: ActionSelect,
+    items: List<StoredAction>,
+): SaveOutcome {
+    if (items.isEmpty()) return SaveOutcome.Saved
+    val panelId = actionSelect.actionPanelId
+    var outcome = SaveOutcome.Saved
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionPanels.panelById(panelId) ?: run {
+            outcome = SaveOutcome.TargetMissing
+            return@updateAction settings
+        }
+        settings.copy(
+            actionPanels = settings.actionPanels.withPanel(
+                panel.copy(items = panel.items + items.map { it.withoutVariantKey() }),
+            ),
+        )
+    }
+    return outcome
+}
+
+/**
  * 网格面板项落盘：新增项落到 [ActionSelect.gridPanelPageIndex] 指定页的首个空位
  *（只在本页内扫，跨页不占位）。只进不出，无「替换已有项」分支，也无长按变体。
  */
@@ -208,6 +233,56 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, selection: Sto
                             kind = GridPanelItem.Kind.Action(listOf(selection.withoutVariantKey())),
                         ),
                     )
+                },
+            ),
+        )
+    }
+    return outcome
+}
+
+/**
+ * 多选：网格面板一次追加多条（各 1×1 动作项），按本页空位顺填；行数派生无上限，
+ * 基本总能放下，全放不下才返回 PageFull（已放的不回滚）。
+ */
+internal suspend fun saveGridPanelItems(
+    actionSelect: ActionSelect,
+    items: List<StoredAction>,
+): SaveOutcome {
+    if (items.isEmpty()) return SaveOutcome.Saved
+    var outcome = SaveOutcome.PageFull
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
+            outcome = SaveOutcome.TargetMissing
+            return@updateAction settings
+        }
+        val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
+        var pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
+        val additions = ArrayList<GridPanelItem>()
+        for (selection in items) {
+            val pageOccupied = pageItems.maxOfOrNull { it.bottom } ?: 0
+            val rows = ctx.rows.coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行
+            val free = GridPanelItemLayout.firstFreeSlot(
+                items = pageItems,
+                columns = ctx.columns,
+                rows = rows,
+                spanX = 1,
+                spanY = 1,
+            ) ?: break
+            val added = GridPanelItem(
+                x = free.x,
+                y = free.y,
+                pageIndex = ctx.pageIndex,
+                kind = GridPanelItem.Kind.Action(listOf(selection.withoutVariantKey())),
+            )
+            pageItems = pageItems + added
+            additions += added
+        }
+        if (additions.isEmpty()) return@updateAction settings
+        outcome = SaveOutcome.Saved
+        settings.copy(
+            actionGridPanels = settings.actionGridPanels.withPanel(
+                panel.withOrientation(ctx.landscape) { orientation ->
+                    orientation.copy(items = orientation.items + additions)
                 },
             ),
         )

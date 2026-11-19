@@ -2,15 +2,23 @@ package hunoia.luno.runtime.recognition
 
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.LinkMissMode
+import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionDefaults
+import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionMatch
+import hunoia.luno.config.model.RecognitionNotifySpec
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.domain.StoredAction
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -400,6 +408,8 @@ class RecognizerTest {
         assertEquals(1, items.size)
         assertTrue(items.single().output is RecognitionOutput.Notify)
         assertEquals("654321", items.single().value)
+        // 通知输出恒为直执行：命中即发通知，不进结果胶囊（effectiveDisplay 单点口径）。
+        assertEquals(RecognitionDisplay.Direct, items.single().display)
     }
 
     @Test
@@ -418,6 +428,54 @@ class RecognizerTest {
         val json = JsonSerializer.encodeToString(listOf(rule))
         val decoded = JsonSerializer.decodeFromString<List<RecognitionRule>>(json)
 
+        assertEquals(listOf(rule), decoded)
+    }
+
+    @Test
+    fun `notify rule json round trip keeps spec and mode`() {
+        val rule = RecognitionRule(
+            id = "r-notify",
+            name = "取件码",
+            sources = setOf(RecognitionSource.Clipboard),
+            match = RecognitionMatch.Text("""\d{6}"""),
+            output = RecognitionOutput.Notify(
+                RecognitionNotifySpec(
+                    title = "取件码",
+                    text = "{value}",
+                    mode = NotificationMode.LIVE,
+                ),
+            ),
+        )
+        val json = JsonSerializer.encodeToString(listOf(rule))
+        val decoded = JsonSerializer.decodeFromString<List<RecognitionRule>>(json)
+        assertEquals(listOf(rule), decoded)
+    }
+
+    @Test
+    fun `legacy notify spec drops removed display fields`() {
+        val rule = RecognitionRule(
+            id = "r-notify",
+            name = "取件码",
+            sources = setOf(RecognitionSource.Clipboard),
+            match = RecognitionMatch.Text("""\d{6}"""),
+            output = RecognitionOutput.Notify(
+                RecognitionNotifySpec(title = "取件码", text = "{value}"),
+            ),
+        )
+        val root = Json.parseToJsonElement(JsonSerializer.encodeToString(listOf(rule))).jsonArray
+        val item = (root[0] as JsonObject).toMutableMap()
+        val output = (item.getValue("output") as JsonObject).toMutableMap()
+        val spec = (output.getValue("spec") as JsonObject).toMutableMap()
+        // 旧版 spec 带显示字段；ignoreUnknownKeys 应静默丢弃，只留内容模板 + 默认 mode。
+        spec["autoExpand"] = JsonPrimitive(true)
+        spec["expandedSeconds"] = JsonPrimitive(5)
+        spec["timeoutSeconds"] = JsonPrimitive(0)
+        spec["keepInShade"] = JsonPrimitive(true)
+        output["spec"] = JsonObject(spec)
+        item["output"] = JsonObject(output)
+        val legacy = JsonArray(listOf(JsonObject(item))).toString()
+
+        val decoded = JsonSerializer.decodeFromString<List<RecognitionRule>>(legacy)
         assertEquals(listOf(rule), decoded)
     }
 }

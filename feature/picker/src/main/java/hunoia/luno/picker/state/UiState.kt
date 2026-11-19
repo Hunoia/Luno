@@ -56,12 +56,21 @@ data class UiState(
     /**
      * 单选：一个槽至多一个动作。内部仍是 List<Any>（应用/快捷方式/库条目类型不同，
      * 统一由 [toStoredAction] 收敛），对外 [action] 才是单值。
+     * 多选：list 可有多个（均收敛成 StoredAction），行点选切换勾选，右上角统一提交。
      */
-    data class SelectedRecord(val list: List<Any> = emptyList()) {
+    data class SelectedRecord(
+        val list: List<Any> = emptyList(),
+        /** true = 多选模式（list 里多条，点行切换，右上角提交/清空）。 */
+        val multiSelect: Boolean = false,
+    ) {
 
         val size: Int get() = list.size
 
         val isEmpty: Boolean get() = list.isEmpty()
+
+        /** 多选模式下收敛成 StoredAction 的已选列表（单选时为空）。 */
+        val multiActions: List<StoredAction>
+            get() = if (multiSelect) list.mapNotNull { it.toStoredActionOrNull() } else emptyList()
 
         /**
          * 原始选择：「无动作」保留为 `internal.none`。
@@ -91,8 +100,30 @@ data class UiState(
         fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo): SelectedRecord =
             selectOne(shortcut.toStoredAction())
 
+        /** 多选切换：在则移除、不在则加（收敛成 StoredAction，与单选同一口径）。 */
+        fun toggle(obj: Any): SelectedRecord {
+            val converted = obj.toStoredActionOrNull() ?: return this
+            val exists = list.any { matchesStored(it.toStoredActionOrNull(), converted) }
+            return copy(
+                list = if (exists) {
+                    list.filterNot { matchesStored(it.toStoredActionOrNull(), converted) }
+                } else {
+                    list + converted
+                },
+            )
+        }
+
         fun isSelected(obj: Any): Boolean {
+            if (multiSelect) {
+                return list.any { matchesStored(it.toStoredActionOrNull(), obj) }
+            }
             val current = action ?: return obj is StoredAction && obj.typeId == Action.NONE_TYPE_ID
+            return matchesStored(current, obj)
+        }
+
+        /** 统一命中判定：候选 StoredAction vs 行对象（应用 / 快捷方式 / 动作）。 */
+        private fun matchesStored(current: StoredAction?, obj: Any): Boolean {
+            if (current == null) return false
             return when (obj) {
                 is AppInfo -> current.launchQualifiedName() == obj.identity
                 is LauncherInfo.ShortcutInfo ->

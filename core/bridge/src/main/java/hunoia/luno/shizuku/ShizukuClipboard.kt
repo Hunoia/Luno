@@ -141,6 +141,36 @@ object ShizukuClipboard {
     }
 
     /**
+     * 按方法**真实签名**逐位补全 shell 身份参数并调用。
+     *
+     * 不能按参数个数猜：HyperOS 的 `setPrimaryClip` 是 5 参、`clearPrimaryClip` 是 4 参
+     * （AOSP 版 + deviceId），旧代码的 `when(parameterCount)` 只覆盖 4/3/2 与 3/2/1，
+     * 新签名落入 `else` 只传了 2/1 个参数，反射抛 `IllegalArgumentException expected 5/4, got 2/1`，
+     * shell 写 / 清兜底随之静默失效（「复制后清空无效」）。
+     *
+     * [leading] 是调用方已知的头部参数（`setPrimaryClip` 的 ClipData）；其后按参数类型补：
+     * 第一个 String 是 callingPackage（写 shell 包名）、后续 String 是 attributionTag（null）、
+     * int / boolean / long 给零值、未知类型给 null。
+     */
+    private fun invokeWithShellArgs(method: Method, proxy: Any, vararg leading: Any?) {
+        val types = method.parameterTypes
+        val args = Array<Any?>(types.size) { i ->
+            if (i < leading.size) {
+                leading[i]
+            } else {
+                when (types[i]) {
+                    String::class.java -> if (i == leading.size) SHELL_PACKAGE else null
+                    java.lang.Integer.TYPE -> 0
+                    java.lang.Boolean.TYPE -> false
+                    java.lang.Long.TYPE -> 0L
+                    else -> null
+                }
+            }
+        }
+        method.invoke(proxy, *args)
+    }
+
+    /**
      * 以 shell 身份写剪贴板（应用直写失败时的兜底）。
      *
      * 注意语义差异：写入后剪贴板 owner 是 `com.android.shell`，个别应用会拒绝粘贴
@@ -164,12 +194,7 @@ object ShizukuClipboard {
             try {
                 val active = currentSession()
                 val method = active.writeMethod ?: return false
-                val args = when (method.parameterCount) {
-                    4 -> arrayOf(clip, SHELL_PACKAGE, null, 0)
-                    3 -> arrayOf(clip, SHELL_PACKAGE, 0)
-                    else -> arrayOf(clip, SHELL_PACKAGE)
-                }
-                method.invoke(active.proxy, *args)
+                invokeWithShellArgs(method, active.proxy, clip)
                 // shell 写入同样要打自写标记：否则监听读回这条内容会当成外部复制。
                 (content as? ClipboardContent.Text)?.let { SelfWriteGuard.markText(it.text) }
                 return true
@@ -199,12 +224,7 @@ object ShizukuClipboard {
             try {
                 val active = currentSession()
                 val method = active.clearMethod ?: return@repeat
-                val args = when (method.parameterCount) {
-                    3 -> arrayOf<Any?>(SHELL_PACKAGE, null, 0)
-                    2 -> arrayOf<Any?>(SHELL_PACKAGE, 0)
-                    else -> arrayOf<Any?>(SHELL_PACKAGE)
-                }
-                method.invoke(active.proxy, *args)
+                invokeWithShellArgs(method, active.proxy)
                 SelfWriteGuard.markText("")
                 return true
             } catch (t: Throwable) {

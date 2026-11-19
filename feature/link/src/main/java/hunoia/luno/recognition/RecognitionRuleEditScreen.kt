@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.LinkMissMode
+import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionMatch
@@ -408,11 +409,11 @@ fun RecognitionRuleEditScreen(
         }
         // ---- 输出 ----
         LunoGroup(title = stringResource(R.string.recognition_rule_output_group)) {
-            // 挂岛是「命中的事」发生在后台，没有「先显示再点」这一档：隐藏显示档那一行。
+            // 通知是「命中的事」发生在后台，没有「先显示再点」这一档：隐藏显示档那一行。
             val showDisplay = output !is RecognitionOutput.Notify
             val extraRows = when (output) {
                 is RecognitionOutput.Action -> 2
-                is RecognitionOutput.Notify -> 3
+                is RecognitionOutput.Notify -> 2
                 is RecognitionOutput.Builtin -> 1
             }
             val rows = extraRows + 1 + (if (showDisplay) 1 else 0)
@@ -457,30 +458,27 @@ fun RecognitionRuleEditScreen(
                     shape = segmentedShape(1, rows),
                 )
                 is RecognitionOutput.Notify -> {
-                    LunoSwitchRow(
-                        title = stringResource(R.string.recognition_notify_auto_expand),
-                        subtitle = stringResource(R.string.recognition_notify_auto_expand_hint),
-                        checked = o.spec.autoExpand,
-                        onCheckedChange = {
-                            output = RecognitionOutput.Notify(o.spec.copy(autoExpand = it))
+                    LunoDropdownRow(
+                        title = stringResource(R.string.recognition_notify_mode),
+                        subtitle = stringResource(R.string.recognition_notify_mode_hint),
+                        options = listOf(
+                            stringResource(R.string.recognition_notify_mode_standard),
+                            stringResource(R.string.recognition_notify_mode_live),
+                        ),
+                        selectedIndex = if (o.spec.mode == NotificationMode.LIVE) 1 else 0,
+                        onSelect = { index ->
+                            output = RecognitionOutput.Notify(
+                                o.spec.copy(
+                                    mode = if (index == 1) NotificationMode.LIVE
+                                    else NotificationMode.STANDARD,
+                                ),
+                            )
                         },
                         shape = segmentedShape(1, rows),
                     )
-                    LunoDropdownRow(
-                        title = stringResource(R.string.recognition_notify_expand_seconds),
-                        options = listOf(3, 5, 10).map { "$it 秒" },
-                        selectedIndex = listOf(3, 5, 10)
-                            .indexOf(o.spec.expandedSeconds).coerceAtLeast(0),
-                        onSelect = { index ->
-                            output = RecognitionOutput.Notify(
-                                o.spec.copy(expandedSeconds = listOf(3, 5, 10)[index]),
-                            )
-                        },
-                        shape = segmentedShape(2, rows),
-                    )
                     RecognitionHintRow(
                         text = stringResource(R.string.recognition_notify_hint),
-                        shape = segmentedShape(3, rows),
+                        shape = segmentedShape(2, rows),
                     )
                 }
                 is RecognitionOutput.Action -> {

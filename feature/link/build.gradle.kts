@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":core:facade"))
     implementation(project(":ui:design"))
     implementation(project(":feature:actions"))
-    implementation(project(":capability:notify"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

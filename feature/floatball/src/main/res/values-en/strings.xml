@@ -34,6 +34,7 @@
     <string name="float_ball_notification_ttl">Notification hold duration</string>
     <string name="float_ball_notification_capacity">Notification queue capacity</string>
     <string name="float_ball_capsule_auto_hide">Capsule hold duration</string>
+    <string name="float_ball_capsule_visible_rows">Rows shown at once</string>
     <string name="float_ball_capsule_blocklist">Notification blocklist</string>
     <string name="float_ball_capsule_blocklist_count">%1$d apps</string>
     <string name="float_ball_capsule_need_permission">Notification access required</string>

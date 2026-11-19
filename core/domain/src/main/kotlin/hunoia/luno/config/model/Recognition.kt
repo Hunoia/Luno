@@ -38,6 +38,14 @@ data class RecognitionRule(
     /** 命中之后：直接执行，还是显示成结果胶囊等用户点。 */
     val display: RecognitionDisplay = RecognitionDisplay.Capsule,
 ) {
+    /**
+     * 规则最终呈现档：通知输出不受 [display] 影响——命中即发通知（本身就是「命中的事」），
+     * 编辑页对 [RecognitionOutput.Notify] 隐藏呈现档开关，这里统一成单点口径，
+     * 消费者只读 [effectiveDisplay]，不再各判 `display == Direct` 又各漏一种输出。
+     */
+    val effectiveDisplay: RecognitionDisplay
+        get() = if (output is RecognitionOutput.Notify) RecognitionDisplay.Direct else display
+
     /** 能被识别器使用的最小条件：匹配串非空，且输出可执行。 */
     val isValid: Boolean
         get() = match.isValid && output.isValid
@@ -47,8 +55,8 @@ data class RecognitionRule(
  * 规则的呈现档：识别结果的两种去向。
  *
  * 两档共用同一条执行口（`RecognitionExecutor`），区别只在**谁触发**：
- * 用户点胶囊，还是命中即执行。`RecognitionOutput.Notify` 不受此项影响——挂岛本身就是
- * 「命中的事」，编辑页对它隐藏该选项。
+ * 用户点胶囊，还是命中即执行。`RecognitionOutput.Notify` 不受此项影响——通知本身就是
+ * 「命中的事」（[RecognitionRule.effectiveDisplay] 恒为 Direct），编辑页对它隐藏该选项。
  */
 @Serializable
 @Keep
@@ -206,7 +214,7 @@ sealed interface RecognitionOutput {
     }
 
     /**
-     * 通知输出：把捕获值挂到超级岛 / 通知栏。
+     * 通知输出：把捕获值发成通知（方式逐规则可选：LIVE 胶囊 / 标准通知）。
      *
      * 独立成一种输出（而不是走 `Builtin(Notify)`）是因为它自带一份内容模板，
      * 塞进枚举会需要一张伴随配置表——那就等于第二套模型。
@@ -224,7 +232,7 @@ sealed interface RecognitionOutput {
  * 内置输出种类。
  *
  * 只保留这几条是因为它们各自带着**不能交给动作库的手感**（复制后延迟清空系统剪贴板、
- * 多链接进选择页、链接未命中按 `missAction` 回退、挂到超级岛）。其余输出一律用
+ * 多链接进选择页、链接未命中按 `missAction` 回退、发通知）。其余输出一律用
  * `RecognitionOutput.Action` 表达，不在这里长枚举。
  */
 @Serializable
@@ -279,10 +287,10 @@ enum class LinkMissMode {
 }
 
 /**
- * 「挂到超级岛」的输出参数。
+ * 通知输出规格：内容模板 + 通知方式（[RecognitionNotifySpec.mode]）。
  *
- * 只放识别器自己关心的几项；岛的网络绕过 / 外发光等调参沿用通用通知设置的全局值，
- * 不在这里开第二套面板。
+ * 只放识别器自己关心的内容；通知方式（LIVE 胶囊 / 标准通知）见 [NotificationMode]，
+ * 岛外观不再开第二套面板。
  */
 @Serializable
 @Keep
@@ -293,16 +301,12 @@ data class RecognitionNotifySpec(
     val text: String = "",
     /** 小岛 / 胶囊摘要；空 = 从捕获值截断。 */
     val capsuleText: String = "",
-    /** 首发是否自动展开大岛。 */
-    val autoExpand: Boolean = true,
-    /** 大岛停留秒数；0 = 不展开。 */
-    val expandedSeconds: Int = 5,
     /**
-     * 岛超时秒数；0 = 不设超时（跟随用户手动关闭 / 点击「完成」）。
+     * 通知方式（每规则可选）：[NotificationMode.LIVE] = Android 16+ 升 Live Update /
+     * 状态栏胶囊（无权限自动落回标准），[NotificationMode.STANDARD] = 普通通知。
+     * 只留这两档；岛外观（自动展开 / 停留 / 超时）不再逐规则配。
      */
-    val timeoutSeconds: Int = 0,
-    /** 是否同时在通知栏保留条目（false = 只有岛）。 */
-    val keepInShade: Boolean = true,
+    val mode: NotificationMode = NotificationMode.STANDARD,
 )
 
 /**
@@ -505,15 +509,15 @@ object RecognitionDefaults {
     val textPresets: List<RecognitionRule> get() = AllTextRules
 
     /**
-     * 「取件码 → 挂到超级岛」：同样的正则，输出换成通知。
+     * 「取件码 → 通知」：同样的正则，输出换成通知。
      *
-     * 单独列一条而不是改默认输出，是因为「抓完就复制」和「挂到岛上等我去取」是两种
+     * 单独列一条而不是改默认输出，是因为「抓完就复制」和「发通知等我去取」是两种
      * 使用习惯；默认保持复制（最高频、最少打扰）。
      */
     val islandPresets: List<RecognitionRule> = listOf(
         RecognitionRule(
             id = "preset-pickup-island",
-            name = "取件码（挂岛）",
+            name = "取件码（通知）",
             sources = CodeSources,
             match = RecognitionMatch.Text(
                 """(?i)(?:取件码|取货码|提货码|取餐码|取件号)[^0-9A-Za-z]{0,12}([0-9A-Za-z][0-9A-Za-z-]{2,15})(?![0-9A-Za-z-])""",
@@ -528,7 +532,7 @@ object RecognitionDefaults {
         ),
         RecognitionRule(
             id = "preset-code-island",
-            name = "验证码（挂岛）",
+            name = "验证码（通知）",
             sources = CodeSources,
             match = RecognitionMatch.Text(CodePatternZh),
             output = RecognitionOutput.Notify(

@@ -76,6 +76,11 @@
   不下发到应用侧。**只做诊断，不参与决策**：拿它否决 `islandAutoExpand` 会把用户开关弄死。
 - **常驻 / 一次性**：spec 的 `ongoing` 默认 true（习惯提醒）；备份失败这类一次性事件传
   false，发布器同时设 `setAutoCancel` 与 `setTimeoutAfter`，岛与通知栏一起收走。
+- **展开必须 ongoing（真机结论，勿回退）**：HyperOS 把非 ongoing 的焦点通知当瞬时 toast
+  按**小胶囊**渲染，`enableFloat` / `islandFirstFloat` 的展开指令被忽略——想「首发展开大岛」
+  （识别「挂到超级岛」）必须 `ongoing=true`，与习惯提醒同路；`ongoing=false` 只留给设计上
+  就弹胶囊的一次性事件（备份失败）。代价：`setTimeoutAfter` 只在 `!ongoing` 时设，所以
+  `ongoing=true` 的岛设了 `timeoutSeconds>0` 时，岛到点收起、通知栏条目留到用户点「完成」。
 - 图标使用应用图标（v1 不接外部位图）。
 
 ## 使用方

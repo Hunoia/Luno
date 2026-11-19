@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 链接选择页主题：与 app 同构的 Compose 承载页。app 侧同名样式优先，
-         两处父主题一致，合并后无行为差异。 -->
-    <style name="Theme.SideGesture" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 链接选择/接管底部弹窗宿主：与桌面部件弹窗（待办编辑等）同窗口约束。
+         全屏透明 + 无窗口动画 + 禁用启动预览，遮罩由 Compose 层（LunoSheet scrim @ 0.22）画，
+         平台 dim 关掉 —— 否则不透明的窗口表面会让遮罩底下变成纯黑。 -->
+    <style name="LinkSheetTheme" parent="@android:style/Theme.DeviceDefault.Dialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
 </resources>

@@ -34,7 +34,7 @@ object FloatBallUseCase {
             recognition.clipboardReadEnabled ||
             recognition.sceneEnabled
         val hasDirectRule = readsAnySource && recognition.rules.any {
-            it.enabled && it.isValid && it.display == hunoia.luno.config.model.RecognitionDisplay.Direct
+            it.enabled && it.isValid && it.effectiveDisplay == hunoia.luno.config.model.RecognitionDisplay.Direct
         }
         if (ball.enabled || ball.notificationCapsule.enabled || hasDirectRule) {
             FloatBallService.start(appContext)

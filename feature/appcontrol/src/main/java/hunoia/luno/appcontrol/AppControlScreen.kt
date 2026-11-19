@@ -26,11 +26,11 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.AddToQueue
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.RemoveFromQueue
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Icon
@@ -280,9 +280,9 @@ fun AppControlScreen(
                                             Icon(
                                                 modifier = Modifier.size(24.dp),
                                                 imageVector = if (app.inOneKey) {
-                                                    Icons.Default.RemoveFromQueue
+                                                    Icons.Default.Remove
                                                 } else {
-                                                    Icons.Default.AddToQueue
+                                                    Icons.Default.Add
                                                 },
                                                 contentDescription = stringResource(
                                                     if (app.inOneKey) {
@@ -491,7 +491,7 @@ private fun ToolbarNormalContent(
         if (showAdd) {
             PressIconButton(onClick = onAdd) {
                 Icon(
-                    Icons.Default.AddToQueue,
+                    Icons.Default.Add,
                     contentDescription = stringResource(R.string.app_control_one_key_add),
                 )
             }
@@ -586,7 +586,7 @@ private fun ToolbarSelectionContent(
         }
         PressIconButton(onClick = onRemoveOneKey, enabled = selectedCount > 0 && !busy) {
             Icon(
-                Icons.Default.RemoveFromQueue,
+                Icons.Default.Remove,
                 contentDescription = stringResource(R.string.app_control_one_key_remove_selected),
             )
         }

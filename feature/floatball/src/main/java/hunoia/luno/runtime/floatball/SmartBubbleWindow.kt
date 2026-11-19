@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Block
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -95,7 +97,8 @@ import kotlin.math.roundToInt
  * 统一胶囊：从所属球的位置展开，收起时恢复该球。
  *
  * - 通知胶囊展示未命中的普通通知；结果胶囊展示分发规则的胶囊档结果。
- * - 上下滑是连续轮播；横滑朝球侧 = 收起，反向 = 移除当前项。
+ * - 结果胶囊上下滑是连续轮播；通知胶囊每条一颗独立胶囊，同屏行数可配，超出竖向滚动。
+ * - 横滑朝球侧 = 收起，反向 = 移除按下那一行。
  * - 点按 = 执行主动作；结果项长按在胶囊内换成动作行（捕获值：复制/忽略；
  *   链接：打开/复制/分享/忽略）。
  */
@@ -117,21 +120,49 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var items by mutableStateOf<List<BallItem>>(emptyList())
     private var currentIndex by mutableIntStateOf(0)
     private var offsetPx by mutableFloatStateOf(0f)
+
+    /** 锚点球高度：普通模式的行高，也是 [collapsedScale] 的形变基准。 */
     private var pageHeightPx by mutableIntStateOf(0)
+
+    /** 堆叠模式单行高：跟着球高走但夹在 [RowHeightMinDp]–[RowHeightMaxDp]，不随大球膨胀。 */
+    private var rowHeightPx by mutableIntStateOf(0)
     private var capsuleWidthPx by mutableIntStateOf(0)
 
     /**
-     * 堆叠模式（通知胶囊）：多条通知同时显示，窗口随条数变高，不翻页、不显示页数徽标。
-     * 单条时高度与普通模式一致。
+     * 堆叠模式（通知胶囊）：每条通知一颗独立胶囊，超出可见行数时整串竖向滚动。
+     * 不翻页、不显示页数徽标；单条时高度与普通模式一致。
      */
     private var stacked by mutableStateOf(false)
 
-    /** 最近一次按下所在行（堆叠模式点按路由到具体那条通知）。 */
+    /** 最近一次按下所在行（堆叠模式点按 / 横滑都路由到具体那条通知）。 */
     private var tappedItemId: String? = null
 
-    /** 窗口实际高度：堆叠 = 可见条数 × 单行高；普通 = 单行高。 */
+    /** 多胶囊：按下那颗的缩放反馈；手势升级为拖动时立即清掉，滚动不再保持缩小态。 */
+    private var pressedRowId by mutableStateOf<String?>(null)
+
+    /** 多胶囊横滑：反向滑动只位移按下的那颗；朝球侧收起时才动整窗。 */
+    private var rowDragId by mutableStateOf<String?>(null)
+    private var rowDragDx by mutableFloatStateOf(0f)
+
+    /** 滚动条只在拖动 / 惯性期间出现，停下后延时隐藏。 */
+    private var scrollThumbVisible by mutableStateOf(false)
+    private var scrollThumbHide: Runnable? = null
+
+    /** 滚动栈几何：窗口高、可滚动距离、按下点 → 行号共用同一份口径。 */
+    private val stackMetrics: StackMetrics
+        get() = StackMetrics(
+            rowHeightPx = rowHeightPx,
+            itemCount = items.size,
+            visibleRows = settings.notificationCapsule.visibleRows.coerceIn(
+                FloatBallDefaults.CapsuleVisibleRowsMin,
+                FloatBallDefaults.CapsuleVisibleRowsMax,
+            ),
+            gapPx = DensityProvider.dp2px(RowGapDp),
+        )
+
+    /** 窗口实际高度：堆叠 = 可见胶囊 + 彼此间距；普通 = 单行高。 */
     private val windowHeightPx: Int
-        get() = if (stacked) min(items.size, MaxStacked) * pageHeightPx else pageHeightPx
+        get() = if (stacked) stackMetrics.viewportHeightPx else pageHeightPx
 
     /** 长按后当前页展开的动作行；null = 普通内容。 */
     private var menuItemId by mutableStateOf<String?>(null)
@@ -164,17 +195,25 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             this.pressed = pressed
             onPressStateChanged?.invoke(pressed)
             cancelEnterFeedback()
-            // 按压缩放反馈（§5.3）：与主球同一档位。pivot 落在展开侧，收起方向与进场动画一致。
-            applyPressScale(pressed)
+            if (stacked) {
+                // 多胶囊：只缩按下的那一颗；整窗缩放会让整串一起抖。
+                pressedRowId = if (pressed) tappedItemId else null
+                applyPressScale(false)
+            } else {
+                // 翻页模式：沿用整窗按压缩放（§5.3，与主球同一档位）。
+                applyPressScale(pressed)
+            }
             if (pressed) {
                 dragDx = 0f
                 dragDy = 0f
                 dragAxis = DragAxis.NONE
+                resetRowDrag()
             }
         },
         onDragEnded = { finishBodyDrag() },
         // 长按只用于结果项的动作菜单（通知没有长按行为）。
         onLongPress = { handleLongPress() },
+        longPressEnabled = { !stacked },
     )
 
     /** 正文点按（通知直达 / 结果项主动作）。[String] 是点中的条目 id（堆叠模式路由到具体行）。 */
@@ -189,8 +228,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     /** 朝球所在侧横滑：只收起，保留队列项、不标记 dismissed。 */
     var onCollapsed: (() -> Unit)? = null
 
-    /** 反向横滑：移除当前项并翻下一条（多条）/ 收起（末条/单条）。 */
-    var onSwipedAway: (() -> Unit)? = null
+    /** 反向横滑：移除按下那一行并翻下一条（多条）/ 收起（末条/单条）。参数是条目 id。 */
+    var onSwipedAway: ((String) -> Unit)? = null
 
     /** 按住状态：暂停 / 恢复自动收起。 */
     var onPressStateChanged: ((Boolean) -> Unit)? = null
@@ -202,15 +241,28 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     var onUnavailable: (() -> Unit)? = null
 
     fun updateSettings(next: FloatBallSettings) {
+        val previousRows = settings.notificationCapsule.visibleRows
         settings = next
+        if (!stacked) return
+        // 同屏行数变了必须立即改窗口高：否则新视口会被旧窗口裁掉 / 留白。
+        if (previousRows == next.notificationCapsule.visibleRows) return
+        offsetPx = stackMetrics.clamp(offsetPx)
+        view?.let { v ->
+            updateWindowLayout(v)
+            v.post { applyWindowBounds() }
+        }
     }
 
-    /** 通知胶囊：切换堆叠（多条同屏）模式。已显示时按新条数立即重排窗口高。 */
+    /** 通知胶囊：切换堆叠（同屏多行 + 胶囊内滚动）模式。已显示时按新几何立即重排窗口。 */
     fun setStackedMode(enabled: Boolean) {
         if (stacked == enabled) return
         stacked = enabled
-        if (enabled && items.size > 1) {
-            view?.let { updateWindowLayout(it) }
+        offsetPx = 0f
+        if (enabled) {
+            view?.let { v ->
+                updateWindowLayout(v)
+                v.post { applyWindowBounds() }
+            }
         }
     }
 
@@ -234,6 +286,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         // 否则 Compose 会为一次没变化的更新整树重组（三页都读同一批状态）。
         if (sameItems(items, this.items)) return
         this.items = items
+        pruneRowTransient(items)
         if (menuItemId != null && items.none { it.id == menuItemId }) menuItemId = null
         if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
         if (currentIndex > items.lastIndex) {
@@ -241,8 +294,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             offsetPx = 0f
             lastReportedId = items[currentIndex].id
         }
-        // 堆叠模式：条数变化会改变窗口高，立即重排。
+        // 堆叠模式：条数变化会改变窗口高，立即重排；滚动位置按新范围收拢。
         if (stacked) {
+            offsetPx = stackMetrics.clamp(offsetPx)
             view?.let { updateWindowLayout(it) }
         }
     }
@@ -259,6 +313,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (items.isEmpty()) return false
         // 与 [updateItems] 同一条纪律：内容没变就不通知快照，避免无谓的整树重组。
         if (!sameItems(items, this.items)) this.items = items
+        pruneRowTransient(this.items)
         this.anchor = anchor
         val originProvided = originY > 0
         if (originProvided) {
@@ -267,6 +322,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         sideRight = anchor.centerX >= DensityProvider.screenWidthPx / 2
         val newHeight = (anchor.bottom - anchor.top).coerceAtLeast(1)
         if (newHeight != pageHeightPx) pageHeightPx = newHeight
+        val newRowHeight = rowHeightFor(pageHeightPx)
+        if (newRowHeight != rowHeightPx) rowHeightPx = newRowHeight
         val newWidth = fixedCapsuleWidth()
         if (newWidth != capsuleWidthPx) capsuleWidthPx = newWidth
         // 用户正在拖动时不要抢当前页。
@@ -493,6 +550,11 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         enterPending = false
         pressed = false
         items = emptyList()
+        tappedItemId = null
+        pressedRowId = null
+        resetRowDrag()
+        scrollThumbVisible = false
+        scrollThumbHide = null
         menuItemId = null
         copiedItemId = null
         offsetPx = 0f
@@ -515,15 +577,44 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val newSideRight = anchor.centerX >= DensityProvider.screenWidthPx / 2
         val heightChanged = newHeight != pageHeightPx
         if (heightChanged) pageHeightPx = newHeight
+        val newRowHeight = rowHeightFor(pageHeightPx)
+        val rowHeightChanged = newRowHeight != rowHeightPx
+        if (rowHeightChanged) rowHeightPx = newRowHeight
         sideRight = newSideRight
         val newWidth = fixedCapsuleWidth()
         if (newWidth != capsuleWidthPx) capsuleWidthPx = newWidth
         view?.let { v ->
-            if (heightChanged || newWidth != v.width) updateWindowLayout(v)
+            if (heightChanged || rowHeightChanged || newWidth != v.width) updateWindowLayout(v)
             v.pivotX = if (sideRight) v.width.toFloat() else 0f
             v.pivotY = v.height / 2f
             v.post { applyWindowBounds() }
         }
+    }
+
+    // ---- 多胶囊行状态 ----
+
+    private fun resetRowDrag() {
+        rowDragId = null
+        rowDragDx = 0f
+    }
+
+    /** 列表变化后清掉已不存在的按压 / 横滑行，避免状态指向幽灵条目。 */
+    private fun pruneRowTransient(items: List<BallItem>) {
+        if (pressedRowId != null && items.none { it.id == pressedRowId }) pressedRowId = null
+        if (rowDragId != null && items.none { it.id == rowDragId }) resetRowDrag()
+    }
+
+    /** 滚动条：拖动 / 惯性期间显示，最后一次滚动后 [ScrollThumbHideMs] 隐藏。 */
+    private fun showScrollThumb() {
+        if (!stacked) return
+        if (!scrollThumbVisible) scrollThumbVisible = true
+        scrollThumbHide?.let(mainHandler::removeCallbacks)
+        val hide = Runnable {
+            scrollThumbVisible = false
+            scrollThumbHide = null
+        }
+        scrollThumbHide = hide
+        mainHandler.postDelayed(hide, ScrollThumbHideMs)
     }
 
     // ---- 手势 ----
@@ -533,11 +624,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             settleAnimator?.cancel()
             settleAnimator = null
             hitTarget = resolveHitTarget(v, event.x)
-            // 堆叠模式：点按要路由到按下所在的那一行（通知）。普通模式取当前页。
+            // 堆叠模式：点按 / 横滑都要路由到按下所在的那一行（通知）。
             tappedItemId = if (stacked) {
-                val row = (event.y / pageHeightPx.coerceAtLeast(1)).toInt()
-                    .coerceIn(0, min(items.size, MaxStacked) - 1)
-                items.getOrNull(row)?.id
+                items.getOrNull(stackMetrics.rowAt(event.y, offsetPx))?.id
             } else {
                 items.getOrNull(currentIndex)?.id
             }
@@ -642,31 +731,57 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         if (dragAxis == DragAxis.NONE &&
             (abs(dragDx) > touchSlop || abs(dragDy) > touchSlop)
         ) {
-            // 堆叠模式不翻页：竖向拖动无意义，只保留横向收起 / 滑掉。
-            dragAxis = if (abs(dragDx) > abs(dragDy)) {
-                DragAxis.HORIZONTAL
-            } else if (stacked) {
-                DragAxis.NONE
-            } else {
-                DragAxis.VERTICAL
+            // 竖向 = 翻页 / 滚动，横向 = 收起 / 滑掉；先跨 slop 的方向定轴。
+            dragAxis = if (abs(dragDx) > abs(dragDy)) DragAxis.HORIZONTAL else DragAxis.VERTICAL
+            // 一旦进入拖动就撤掉按压形变：滚动 / 横滑不该保持缩小的样子。
+            pressedRowId = null
+            applyPressScale(false)
+            if (dragAxis == DragAxis.HORIZONTAL) {
+                if (stacked) resetRowDrag() else offsetPx = 0f
             }
-            if (dragAxis == DragAxis.HORIZONTAL) offsetPx = 0f
+            if (stacked && dragAxis == DragAxis.VERTICAL) showScrollThumb()
         }
         val v = view ?: return
         when (dragAxis) {
-            DragAxis.VERTICAL -> if (!stacked) {
+            DragAxis.VERTICAL -> if (stacked) {
+                // 滚动栈：内容跟随手指，两端直接停住，不露出空白槽位。
+                offsetPx = stackMetrics.clamp(offsetPx + dy)
+                showScrollThumb()
+            } else {
                 // 连续跟手：允许一次滑过多条；两端直接停住，不露出空白槽位。
                 offsetPx += dy
                 normalizeOffset()
             }
 
-            DragAxis.HORIZONTAL -> {
+            DragAxis.HORIZONTAL -> if (stacked) {
+                onStackRowDragged(v)
+            } else {
                 v.translationX = dragDx * CollapseFollowRatio
                 val fade = (abs(dragDx) / collapseThresholdPx).coerceIn(0f, 1f)
                 v.alpha = 1f - fade * 0.25f
             }
 
             DragAxis.NONE -> Unit
+        }
+    }
+
+    /**
+     * 多胶囊横滑：朝球侧整串收起（窗口整体位移），反向只动按下那颗胶囊。
+     *
+     * 反向用 1:1 跟手，像滑掉一条通知；阈值过半即删除，其余胶囊原地重排。
+     */
+    private fun onStackRowDragged(v: View) {
+        val towardEdge = if (sideRight) dragDx >= 0f else dragDx <= 0f
+        if (towardEdge) {
+            if (rowDragId != null) resetRowDrag()
+            v.translationX = dragDx * CollapseFollowRatio
+            val fade = (abs(dragDx) / collapseThresholdPx).coerceIn(0f, 1f)
+            v.alpha = 1f - fade * 0.25f
+        } else {
+            v.translationX = 0f
+            v.alpha = 1f
+            rowDragId = tappedItemId
+            rowDragDx = dragDx
         }
     }
 
@@ -697,9 +812,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val dx = dragDx
         val axis = dragAxis
         val vy = flingVelocityY()
+        // 松手前记住被横滑的那颗：resetRowDrag 之后还要用它决定删哪一条。
+        val swipedId = rowDragId ?: currentTapId()
         dragDx = 0f
         dragDy = 0f
         dragAxis = DragAxis.NONE
+        resetRowDrag()
         if (v != null) {
             v.alpha = 1f
             v.translationX = 0f
@@ -707,17 +825,17 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         when (axis) {
             DragAxis.VERTICAL -> {
                 menuItemId = null
-                settleVertical(vy)
+                if (stacked) settleScroll(vy) else settleVertical(vy)
             }
 
             DragAxis.HORIZONTAL -> {
-                offsetPx = 0f
+                if (!stacked) offsetPx = 0f
                 menuItemId = null
                 val towardEdge = if (sideRight) dx >= collapseThresholdPx else dx <= -collapseThresholdPx
                 val awayFromEdge = if (sideRight) dx <= -collapseThresholdPx else dx >= collapseThresholdPx
                 when {
                     towardEdge -> onCollapsed?.invoke()
-                    awayFromEdge -> onSwipedAway?.invoke()
+                    awayFromEdge -> swipedId?.let { onSwipedAway?.invoke(it) }
                 }
             }
 
@@ -763,6 +881,55 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             }
         }
         animateSettle(targetOffset, targetIndex)
+    }
+
+    /**
+     * 滚动栈松手：按速度做一次投影，再夹进 [StackMetrics.maxScrollPx]。
+     * 没有溢出 / 已经到位就不播动画，避免轻点也起一个 ValueAnimator。
+     */
+    private fun settleScroll(vy: Float) {
+        val metrics = stackMetrics
+        if (metrics.maxScrollPx <= 0) {
+            offsetPx = 0f
+            return
+        }
+        val projected = if (abs(vy) >= FlingVelocityPxPerSec) {
+            offsetPx + vy * FlingProjectionSec
+        } else {
+            offsetPx
+        }
+        val target = metrics.clamp(projected)
+        if (target == offsetPx) return
+        animateScrollTo(target)
+    }
+
+    private fun animateScrollTo(target: Float) {
+        settleAnimator?.cancel()
+        showScrollThumb()
+        val from = offsetPx
+        val animator = ValueAnimator.ofFloat(from, target).apply {
+            duration = motionMillis(MotionFamily.FloatingSnap).toLong()
+            interpolator = DecelerateInterpolator()
+            // 动画途中队列可能变短（TTL / 系统移除）：每帧都按最新范围夹一次。
+            addUpdateListener { offsetPx = stackMetrics.clamp(it.animatedValue as Float) }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (settleAnimator !== animation) return
+                    settleAnimator = null
+                    offsetPx = target
+                }
+            })
+        }
+        settleAnimator = animator
+        animator.start()
+    }
+
+    /** 滚动条拇指的纵向位置：在 offset lambda 里调用，读偏移只触发 layout 不触发重组。 */
+    private fun scrollThumbTopPx(metrics: StackMetrics, thumbHeightPx: Int): Float {
+        val track = (metrics.viewportHeightPx - thumbHeightPx).coerceAtLeast(0)
+        if (track <= 0 || metrics.maxScrollPx <= 0) return 0f
+        val progress = (-offsetPx / metrics.maxScrollPx).coerceIn(0f, 1f)
+        return progress * track
     }
 
     private fun advanceOne() {
@@ -817,11 +984,21 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         return max(pageHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f)))
     }
 
+    /** 堆叠单行高：跟着球高走，但不让大球把多行胶囊撑成整屏。 */
+    private fun rowHeightFor(anchorHeightPx: Int): Int =
+        anchorHeightPx.coerceIn(
+            DensityProvider.dp2px(RowHeightMinDp),
+            DensityProvider.dp2px(RowHeightMaxDp),
+        )
+
     private fun updateWindowLayout(v: View) {
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
-        if (lp.width == capsuleWidthPx && lp.height == windowHeightPx) return
+        val height = windowHeightPx
+        // 首帧前 rowHeight 还没测出来：别把窗口写成 0 高。
+        if (capsuleWidthPx <= 0 || height <= 0) return
+        if (lp.width == capsuleWidthPx && lp.height == height) return
         lp.width = capsuleWidthPx
-        lp.height = windowHeightPx
+        lp.height = height
         wm.safeUpdateViewLayout(v, lp)
     }
 
@@ -911,11 +1088,13 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             val list = items
             if (list.isEmpty() || pageHeightPx <= 0) return@SideGestureTheme
             val density = LocalDensity.current
-            val pageHeight = with(density) { pageHeightPx.toDp() }
             if (stacked) {
-                StackedCapsule(list = list, pageHeight = pageHeight)
+                if (rowHeightPx <= 0) return@SideGestureTheme
+                val rowHeight = with(density) { rowHeightPx.toDp() }
+                CapsuleStack(list = list, rowHeight = rowHeight)
                 return@SideGestureTheme
             }
+            val pageHeight = with(density) { pageHeightPx.toDp() }
             val base = currentIndex
             Box(modifier = Modifier.fillMaxSize()) {
                 // 每页独立按相对位置摆放：base 页落在窗口原点，前后各留一页跟手。
@@ -941,57 +1120,108 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     /**
-     * 堆叠模式：整窗一个胶囊容器，[MaxStacked] 条最新通知同时显示（最旧一条可被截断）。
-     * 行高 = [pageHeight]，无翻页偏移、无页数徽标；点按按行路由（见 [handleTouch]）。
+     * 通知胶囊的滚动栈：每条通知一颗独立胶囊，最多设置里的同屏条数可见，超出竖向滚动。
+     *
+     * 窗口只做透明承载；每颗胶囊各自裁形 / 底色 / 描边，之间留 [RowGapDp] 的间距。
+     * 滚动位移直接作用在 Column 的 layout offset 上（[offsetPx] 在 lambda 里读），
+     * 跟手与横滑都不触发重组。
      */
     @Composable
-    private fun StackedCapsule(list: List<BallItem>, pageHeight: androidx.compose.ui.unit.Dp) {
+    private fun CapsuleStack(list: List<BallItem>, rowHeight: androidx.compose.ui.unit.Dp) {
         val accent = settings.colorSpec.toMarkColor()
         val contentColor = if (accent.luminance() > 0.5f) Color.Black else Color.White
         val density = LocalDensity.current
         val iconSize = with(density) {
-            min(pageHeight.value - 16f, 24f).coerceAtLeast(16f).dp
+            min(rowHeight.value - 16f, 24f).coerceAtLeast(16f).dp
         }
-        // 胶囊角色（§2.1.1）：连续曲率胶囊，半径随高度自适应。整窗一个容器，行内不再各自裁形。
+        // 胶囊角色（§2.1.1）：连续曲率胶囊，半径随高度自适应。每颗各自裁形，不共享容器。
         val shape = CapsuleShape
-        Column(
+        val metrics = stackMetrics
+        val thumbHeightPx = if (metrics.maxScrollPx > 0) {
+            (metrics.viewportHeightPx.toFloat() * metrics.viewportHeightPx / metrics.contentHeightPx)
+                .roundToInt()
+                .coerceIn(DensityProvider.dp2px(ScrollThumbMinDp), metrics.viewportHeightPx)
+        } else {
+            0
+        }
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true }
-                .clip(shape)
-                .background(accent.copy(alpha = BubbleBackgroundAlpha))
-                .border(1.dp, contentColor.copy(alpha = 0.22f), shape)
-                .padding(horizontal = 10.dp),
-            verticalArrangement = Arrangement.Center,
+                .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true },
         ) {
-            list.take(MaxStacked).forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(pageHeight),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    when (item) {
-                        is NotificationItem -> NotificationContent(
-                            item = item,
-                            contentColor = contentColor,
-                            iconSize = iconSize,
-                            // total=1：不显示页数徽标（全部可见）。
-                            index = 0,
-                            total = 1,
-                        )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(0, offsetPx.roundToInt()) },
+                verticalArrangement = Arrangement.spacedBy(RowGapDp.dp),
+            ) {
+                list.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(rowHeight)
+                            .graphicsLayer {
+                                // 横滑只让按下的那颗跟手；其余胶囊原地不动。
+                                val dragging = item.id == rowDragId
+                                translationX = if (dragging) rowDragDx else 0f
+                                alpha = if (dragging) {
+                                    1f - (abs(rowDragDx) / collapseThresholdPx).coerceIn(0f, 1f) * 0.5f
+                                } else {
+                                    1f
+                                }
+                                // 按压反馈也只缩按下的那颗；拖动开始即被清空。
+                                val scale = if (item.id == pressedRowId) {
+                                    FloatBallDefaults.PressScale
+                                } else {
+                                    1f
+                                }
+                                scaleX = scale
+                                scaleY = scale
+                            }
+                            .clip(shape)
+                            .background(accent.copy(alpha = BubbleBackgroundAlpha))
+                            .border(1.dp, contentColor.copy(alpha = 0.22f), shape)
+                            .padding(horizontal = RowHorizontalPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        when (item) {
+                            is NotificationItem -> NotificationContent(
+                                item = item,
+                                contentColor = contentColor,
+                                iconSize = iconSize,
+                                // total=1：不显示页数徽标（滚动栈里逐行标号没有意义）。
+                                index = 0,
+                                total = 1,
+                            )
 
-                        is ResultItem -> ResultContent(
-                            item = item,
-                            contentColor = contentColor,
-                            iconSize = iconSize,
-                            index = 0,
-                            total = 1,
-                            copied = copiedItemId == item.id,
-                        )
+                            is ResultItem -> ResultContent(
+                                item = item,
+                                contentColor = contentColor,
+                                iconSize = iconSize,
+                                index = 0,
+                                total = 1,
+                                copied = copiedItemId == item.id,
+                            )
+                        }
                     }
                 }
+            }
+            if (scrollThumbVisible && thumbHeightPx > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .width(ScrollThumbWidth)
+                        .height(with(density) { thumbHeightPx.toDp() })
+                        .offset {
+                            IntOffset(
+                                x = -DensityProvider.dp2px(ScrollThumbInsetDp),
+                                y = scrollThumbTopPx(metrics, thumbHeightPx).roundToInt(),
+                            )
+                        }
+                        .clip(CircleShape)
+                        .background(contentColor.copy(alpha = ScrollThumbAlpha)),
+                )
             }
         }
     }
@@ -1349,8 +1579,21 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val EnterFallbackMs = 260L
         const val MaxOriginDp = 200f
 
-        /** 堆叠模式（通知胶囊）最多同时显示的条数：再多只显示最新几条。 */
-        const val MaxStacked = 3
+        /** 堆叠模式单行高：跟随球高，但夹在 48–56dp，大球不会把多行胶囊撑成整屏。 */
+        const val RowHeightMinDp = 48f
+        const val RowHeightMaxDp = 56f
+
+        /** 滚动松手后的惯性投影时长（秒）：速度 × 时长 ≈ 还会滑多远。 */
+        const val FlingProjectionSec = 0.12f
+
+        /** 滚动栈：行内横向留白、胶囊间距、右缘滚动条与隐藏延时。 */
+        val RowHorizontalPadding = 10.dp
+        const val RowGapDp = 6f
+        val ScrollThumbWidth = 2.dp
+        const val ScrollThumbInsetDp = 4f
+        const val ScrollThumbMinDp = 16f
+        const val ScrollThumbAlpha = 0.3f
+        const val ScrollThumbHideMs = 600L
 
         const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f

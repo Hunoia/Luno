@@ -44,7 +44,15 @@ data class ActionSelect(
      * 由调用方自己决定把动作存在哪里；不落盘，因此不会写出一份悬空配置。
      */
     val pickActionToken: String = "",
-)
+) {
+    /**
+     * 本调用方是否支持多选：只对「加项」开放（动作面板新增、网格面板新增）。
+     * 长按变体编辑、网格原位替换、手势槽、悬浮球、复制链接、pick token 均不支持。
+     */
+    val supportsMultiSelect: Boolean
+        get() = (actionPanelId.isNotBlank() && actionPanelItemIndex < 0) ||
+            (gridPanelId.isNotBlank() && gridPanelReplaceItemId.isBlank())
+}
 
 /** 悬浮球的动作槽。只有「单击」一个：滑动固定读面板引用，长按固定是拖球。 */
 object FloatBallSlot {
