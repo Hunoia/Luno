@@ -37,6 +37,10 @@ data class RecognitionRule(
     val output: RecognitionOutput = RecognitionOutput.Builtin(RecognitionBuiltin.Copy),
     /** 命中之后：直接执行，还是显示成结果胶囊等用户点。 */
     val display: RecognitionDisplay = RecognitionDisplay.Capsule,
+    /** 直执行提示开关：null = 跟随全局 [RecognitionSettings.directToastEnabled]。 */
+    val directPromptEnabled: Boolean? = null,
+    /** 直执行提示呈现方式：null = 跟随全局 [RecognitionSettings.directPromptMode]。 */
+    val directPromptMode: ToastPresentation? = null,
 ) {
     /**
      * 规则最终呈现档：通知输出不受 [display] 影响——命中即发通知（本身就是「命中的事」），
@@ -358,6 +362,11 @@ data class RecognitionSettings(
     val clipboardReadEnabled: Boolean = true,
     /** 直接执行档落地后是否留一行「已执行：规则名」短提示。 */
     val directToastEnabled: Boolean = true,
+    /**
+     * 直执行提示的呈现方式（独立于全局 Toast 呈现；默认系统 Toast，维持现行为）。
+     * 每规则可单独覆盖（[RecognitionRule.directPromptMode]）。
+     */
+    val directPromptMode: ToastPresentation = ToastPresentation.TOAST,
     /**
      * 命中规则的通知是否也从系统通知栏清掉。
      *

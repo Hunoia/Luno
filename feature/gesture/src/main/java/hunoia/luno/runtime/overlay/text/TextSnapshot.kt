@@ -86,6 +86,13 @@ data class TextSnapshot(
     val capturedAtMs: Long = 0L,
     val targetPackage: String = "",
     val targetWindowIds: Set<Int> = emptySet(),
+    /**
+     * 情景识别（sceneExpectedPackage 非 null）时是否明确选中了目标窗口（全屏主窗口或事件
+     * 应用窗口）。true = capture 识别的是「用户在看」的目标；false = 没找到事件应用窗口
+     * （用户已切走），回退遍历全部。消费方（ScreenSceneScanner）据此放宽包名比对：事件来自
+     * 浮在小窗上的应用时，识别全屏主窗口也算命中，不因包名不一致而 drop。
+     */
+    val sceneTargetMatched: Boolean = false,
     /** false = 抓取超时/预算用尽，只保证已抓到的部分可用。 */
     val complete: Boolean = true,
 ) {

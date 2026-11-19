@@ -833,4 +833,15 @@
             column="9"/>
     </issue>
 
+    <issue
+        id="NewApi"
+        message="Call requires API level 36.1 (current min is 33): `android.app.Notification.Builder#setRequestPromotedOngoing`"
+        errorLine1="        runCatching { builder.setRequestPromotedOngoing(true) }"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/hunoia/luno/domain/system/ConfigurableToastPresenter.kt"
+            line="127"
+            column="31"/>
+    </issue>
+
 </issues>

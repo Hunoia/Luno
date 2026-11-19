@@ -57,4 +57,57 @@ class A11yTextSnapshotReaderTest {
         assertTrue(isSceneFullscreen(0, 0, screenW, 2040, screenW, screenH))
         assertFalse(isSceneFullscreen(0, 0, screenW, 2039, screenW, screenH))
     }
+
+    @Test
+    fun `fullscreen event window is never a small window event`() {
+        // 事件来源窗口即全屏主窗口：主窗口事件，不忽略（它是扫描的正当来源）。
+        assertFalse(isSceneSmallWindowSignal(eventWindowFullscreen = true, hasOtherFullscreenMain = true))
+        assertFalse(isSceneSmallWindowSignal(eventWindowFullscreen = true, hasOtherFullscreenMain = false))
+    }
+
+    @Test
+    fun `small event window over a fullscreen main window is a small window event`() {
+        // 小红书/Paseo 小窗浮在 QQ 全屏主窗口上：事件来源窗口非全屏 + 屏幕另有全屏主窗口 →
+        // 忽略（方案 A）。
+        assertTrue(isSceneSmallWindowSignal(eventWindowFullscreen = false, hasOtherFullscreenMain = true))
+    }
+
+    @Test
+    fun `small event window with no fullscreen main window is not a small window event`() {
+        // 纯小窗 / 分屏 / 桌面：无全屏主窗口 → 不算小窗事件，识别事件应用（现状）。
+        assertFalse(isSceneSmallWindowSignal(eventWindowFullscreen = false, hasOtherFullscreenMain = false))
+    }
+
+    @Test
+    fun `lowest layer fullscreen window is the main window`() {
+        // 主窗口（layer 10）+ 浮在其上的 freeform 放大 frame（layer 12，都报全屏 bounds）：
+        // 最低 layer 的全屏窗口是主窗口。
+        val main = SnapshotRect(0, 0, screenW, screenH)
+        val windows = listOf(10 to main, 12 to main)
+        assertTrue(isSceneFullscreenMain(10, main, windows, screenW, screenH))
+    }
+
+    @Test
+    fun `higher layer fullscreen window is a freeform inflated frame not the main window`() {
+        // MIUI freeform 小窗的合成放大 frame：报全屏 bounds 但浮在主窗口之上（更高 layer）。
+        val main = SnapshotRect(0, 0, screenW, screenH)
+        val windows = listOf(10 to main, 12 to main)
+        assertFalse(isSceneFullscreenMain(12, main, windows, screenW, screenH))
+    }
+
+    @Test
+    fun `only fullscreen window is the main window`() {
+        // 唯一全屏窗口（纯小窗放大 frame / 单窗口应用）→ 当作主窗口（无更低层全屏可区分）。
+        val main = SnapshotRect(0, 0, screenW, screenH)
+        val windows = listOf(10 to main)
+        assertTrue(isSceneFullscreenMain(10, main, windows, screenW, screenH))
+    }
+
+    @Test
+    fun `non fullscreen window is never the main window`() {
+        val main = SnapshotRect(0, 0, screenW, screenH)
+        val small = SnapshotRect(100, 100, 500, 800)
+        val windows = listOf(10 to main, 12 to small)
+        assertFalse(isSceneFullscreenMain(12, small, windows, screenW, screenH))
+    }
 }

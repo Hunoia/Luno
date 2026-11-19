@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
-import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.config.model.HabitDefaultSnoozeMinutes
 import hunoia.luno.config.model.currentStreak
@@ -13,7 +12,6 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.reminder.ProgressNotificationDismisser
-import hunoia.luno.gridpanel.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,7 +109,6 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 val count = HabitReminderNotifier.nextTestProgressCount()
                 if (count >= HabitReminderNotifier.TEST_PROGRESS_TARGET) {
                     HabitReminderNotifier.cancel(context, habitId)
-                    showToast(R.string.habit_reminder_test_done)
                 } else {
                     CoroutineScope(Dispatchers.IO).launch {
                         val mode = HabitReminderScheduler.currentMode()
@@ -125,7 +122,6 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 }
             } else {
                 HabitReminderNotifier.cancel(context, habitId)
-                showToast(R.string.habit_reminder_test_done)
             }
             return
         }
@@ -197,7 +193,6 @@ class HabitReminderReceiver : BroadcastReceiver() {
         HabitReminderNotifier.cancel(context, habitId)
         // 测试通知（假 id）：收起即可，不要挂一个指向不存在习惯的推迟闹钟。
         if (HabitReminderNotifier.isTestHabit(habitId)) {
-            showToast(R.string.habit_reminder_test_done)
             return
         }
         HabitReminderScheduler.scheduleSnooze(context, habitId, minutes, slot)

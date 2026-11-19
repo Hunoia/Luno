@@ -19,6 +19,12 @@ internal enum class SceneScanDecision {
     InputMethod,
     Launcher,
     BlockedList,
+    /**
+     * 事件来自「无全屏窗口的小窗应用」且屏幕上有全屏主窗口（另一应用）。这类事件与主窗口
+     * 无关却高频（悬浮窗时钟/动画），放行会把防抖 burst 一直推迟到 maxDeferMs（识别变慢），
+     * 故忽略——主窗口识别由主窗口自身事件负责（方案 A）。
+     */
+    SmallWindow,
 }
 
 /**

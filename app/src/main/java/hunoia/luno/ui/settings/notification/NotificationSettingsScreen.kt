@@ -28,6 +28,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.NotificationDisplaySettings
 import hunoia.luno.config.model.NotificationKind
 import hunoia.luno.config.model.NotificationMode
+import hunoia.luno.config.model.ToastPresentation
 import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -70,7 +71,7 @@ private const val ISLAND_ROWS = 7
 private val PROGRESS_DISMISS_OPTIONS = NotificationDisplaySettings.PROGRESS_DISMISS_SECONDS_OPTIONS
 
 /** 测试分组行数（普通 / 进度）。 */
-private const val TEST_ROWS = 2
+private const val TEST_ROWS = 3
 
 @Composable
 fun NotificationSettingsScreen(onBack: () -> Unit) {
@@ -124,6 +125,19 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         AppContext.applicationScope?.launch {
             if (away) delay(TEST_AWAY_DELAY_MS)
             HabitReminderNotifier.showTest(app, testMode, progress = progress)
+        }
+    }
+
+    // 测试 Toast 提示：只走全局 showToast（读 toastPresentation 呈现），与通知测试分开，
+    // 单测系统 Toast / 标准 / 实时 / 岛 / 胶囊。岛 / 胶囊同样要先切走（前台不建岛）。
+    fun sendTestToast() {
+        val app = context.applicationContext
+        val toastMode = display.toastPresentation
+        val away = toastMode == ToastPresentation.ISLAND || toastMode == ToastPresentation.CAPSULE
+        if (away) goHome(context)
+        AppContext.applicationScope?.launch {
+            if (away) delay(TEST_AWAY_DELAY_MS)
+            showToast(R.string.notification_display_test_toast_sent)
         }
     }
 
@@ -185,6 +199,27 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                     shape = segmentedShape(index, NotificationKind.entries.size),
                 )
             }
+        }
+
+        LunoGroup(
+            title = stringResource(R.string.toast_presentation_group),
+            subtitle = stringResource(R.string.toast_presentation_hint),
+        ) {
+            LunoDropdownRow(
+                title = stringResource(R.string.toast_presentation_row),
+                options = listOf(
+                    stringResource(R.string.toast_presentation_toast),
+                    stringResource(R.string.toast_presentation_standard),
+                    stringResource(R.string.toast_presentation_live),
+                    stringResource(R.string.toast_presentation_island),
+                    stringResource(R.string.toast_presentation_capsule),
+                ),
+                selectedIndex = display.toastPresentation.ordinal,
+                onSelect = { index ->
+                    update { it.copy(toastPresentation = ToastPresentation.entries[index]) }
+                },
+                shape = segmentedShape(0, 1),
+            )
         }
 
         if (islandInUse) {
@@ -302,7 +337,6 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                     scope.launch {
                         // 非标准模式：先切走再投递，否则前台应用拿不到岛（生产路径都是后台发）。
                         sendTestNotification(progress = false)
-                        showToast(R.string.notification_display_test_sent)
                     }
                 },
             )
@@ -313,8 +347,15 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                 onClick = {
                     scope.launch {
                         sendTestNotification(progress = true)
-                        showToast(R.string.notification_display_test_sent)
                     }
+                },
+            )
+            LunoSettingsRow(
+                title = stringResource(R.string.notification_display_test_toast),
+                subtitle = stringResource(R.string.notification_display_test_toast_hint),
+                shape = segmentedShape(2, TEST_ROWS),
+                onClick = {
+                    scope.launch { sendTestToast() }
                 },
             )
         }

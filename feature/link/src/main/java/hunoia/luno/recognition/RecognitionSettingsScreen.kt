@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.showToast
@@ -49,6 +48,7 @@ import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
+import hunoia.luno.config.model.ToastPresentation
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.link.LinkPresets
 import hunoia.luno.link.LinkTarget
@@ -409,7 +409,7 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(notificationReadEnabled = checked) }
                     },
-                    shape = segmentedShape(0, 4),
+                    shape = segmentedShape(0, 5),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_hide_matched_notification),
@@ -418,7 +418,7 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(hideMatchedNotification = checked) }
                     },
-                    shape = segmentedShape(1, 4),
+                    shape = segmentedShape(1, 5),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_read_clipboard),
@@ -427,7 +427,7 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(clipboardReadEnabled = checked) }
                     },
-                    shape = segmentedShape(2, 4),
+                    shape = segmentedShape(2, 5),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_direct_toast),
@@ -436,7 +436,23 @@ fun RecognitionSettingsScreen(
                     onCheckedChange = { checked ->
                         update { it.copy(directToastEnabled = checked) }
                     },
-                    shape = segmentedShape(3, 4),
+                    shape = segmentedShape(3, 5),
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_direct_prompt_mode),
+                    subtitle = stringResource(R.string.recognition_direct_prompt_mode_hint),
+                    options = listOf(
+                        stringResource(R.string.recognition_direct_prompt_toast),
+                        stringResource(R.string.recognition_direct_prompt_standard),
+                        stringResource(R.string.recognition_direct_prompt_live),
+                        stringResource(R.string.recognition_direct_prompt_island),
+                        stringResource(R.string.recognition_direct_prompt_capsule),
+                    ),
+                    selectedIndex = settings.directPromptMode.ordinal,
+                    onSelect = { index ->
+                        update { it.copy(directPromptMode = ToastPresentation.entries[index]) }
+                    },
+                    shape = segmentedShape(4, 5),
                 )
             }
         }

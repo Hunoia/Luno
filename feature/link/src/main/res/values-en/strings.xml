@@ -186,6 +186,21 @@
     <string name="recognition_read_clipboard_hint">Rules apply to copied text; background reading needs Shizuku</string>
     <string name="recognition_direct_toast">Toast when running directly</string>
     <string name="recognition_direct_toast_hint">Show "Ran: rule name" after a direct run; off = fully silent</string>
+    <string name="recognition_direct_prompt_mode">Direct-run prompt presentation</string>
+    <string name="recognition_direct_prompt_mode_hint">How the direct-run prompt is shown; each rule can override</string>
+    <string name="recognition_direct_prompt_toast">System toast</string>
+    <string name="recognition_direct_prompt_standard">Standard notification</string>
+    <string name="recognition_direct_prompt_live">Live</string>
+    <string name="recognition_direct_prompt_island">Island</string>
+    <string name="recognition_direct_prompt_capsule">Capsule island</string>
+    <string name="recognition_rule_direct_prompt">Direct-run prompt</string>
+    <string name="recognition_rule_direct_prompt_hint">Shown after a direct run; notify output skips it (the notification is the feedback)</string>
+    <string name="recognition_rule_direct_prompt_enabled">Prompt switch</string>
+    <string name="recognition_rule_direct_prompt_follow">Follow global</string>
+    <string name="recognition_rule_direct_prompt_on">On</string>
+    <string name="recognition_rule_direct_prompt_off">Off</string>
+    <string name="recognition_rule_direct_prompt_mode">Prompt presentation</string>
+    <string name="recognition_rule_direct_prompt_mode_follow">Follow global</string>
     <string name="recognition_rule_display">On hit</string>
     <string name="recognition_rule_display_hint">Direct = run immediately; Capsule = wait in the result capsule</string>
     <string name="recognition_display_capsule">Show capsule</string>

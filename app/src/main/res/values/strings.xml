@@ -522,6 +522,16 @@
     <string name="notification_display_mode_standard">标准</string>
     <string name="notification_display_mode_live">实时</string>
     <string name="notification_display_mode_island">超级岛</string>
+    <string name="toast_prompt_title">提示</string>
+    <string name="toast_prompt_channel_name">Toast 提示</string>
+    <string name="toast_presentation_group">Toast 提示</string>
+    <string name="toast_presentation_row">Toast 提示呈现方式</string>
+    <string name="toast_presentation_hint">默认系统 Toast；可选标准 / 实时 / 超级岛 / 胶囊岛，几秒自动收起</string>
+    <string name="toast_presentation_toast">系统 Toast</string>
+    <string name="toast_presentation_standard">标准通知</string>
+    <string name="toast_presentation_live">实时</string>
+    <string name="toast_presentation_island">超级岛</string>
+    <string name="toast_presentation_capsule">胶囊岛</string>
     <string name="notification_display_override_group">按类型覆盖</string>
     <string name="notification_display_override_hint">「默认」跟随全局呈现模式</string>
     <string name="notification_display_kind_habit">习惯提醒</string>
@@ -562,7 +572,9 @@
     <string name="notification_display_test_send_hint">走真实发布链路，非标准模式发完切最近任务看效果</string>
     <string name="notification_display_test_progress">发送进度测试通知</string>
     <string name="notification_display_test_progress_hint">假数据 1/3；点「+1」验进度与自动移除</string>
-    <string name="notification_display_test_sent">已发送测试通知</string>
+    <string name="notification_display_test_toast">发送测试Toast</string>
+    <string name="notification_display_test_toast_hint">走全局 toast 呈现链路（系统Toast/标准/实时/岛/胶囊），与通知测试分开</string>
+    <string name="notification_display_test_toast_sent">Toast 测试提示</string>
     <string name="notification_display_perm_group">权限状态</string>
     <string name="notification_display_settings_entry">通知</string>
     <string name="notification_display_settings_entry_hint">呈现模式、超级岛与权限</string>

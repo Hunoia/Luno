@@ -96,6 +96,16 @@ class ScreenSceneScanner(
         }
         lastDecision = null
         val packageName = eventPackage ?: return
+        // 方案 A：小窗事件不触发全屏主窗口扫描。事件来源窗口非全屏且屏幕上另有全屏主窗口时
+        // 忽略——主窗口识别由主窗口自身事件负责，避免小窗高频事件（悬浮窗时钟/动画）把防抖
+        // burst 一直推迟到 maxDeferMs（识别变慢）。
+        if (reader.isSceneSmallWindowEvent(event)) {
+            if (BuildConfig.DEBUG && lastDecision != SceneScanDecision.SmallWindow) {
+                Log.i(LOG_TAG, "scene scan ignored: SmallWindow pkg=$packageName")
+            }
+            lastDecision = SceneScanDecision.SmallWindow
+            return
+        }
         lastEventPackage = packageName
         val delayMs = scheduler.onSignal(
             nowMs = SystemClock.uptimeMillis(),
@@ -169,8 +179,12 @@ class ScreenSceneScanner(
         } ?: return
         val packageName = snapshot.targetPackage
         if (packageName.isBlank()) return
-        // 事件说的是 A，抓到的是 B：用户在这几百毫秒里切走了，A 的卡片不能压在 B 上。
-        if (expectedPackage != null && packageName != expectedPackage) {
+        // 事件说的是 A，抓到的是 B。情景识别放宽：capture 明确选中了用户在看的目标
+        // （全屏主窗口或事件应用窗口，sceneTargetMatched=true）时，即使事件来自浮在其上的
+        // 小窗（expectedPackage=小窗应用，如 Paseo）也识别目标，不 drop——满足「小窗 + 全屏
+        // 时只识别全屏」；只有没找到事件应用窗口（用户已切走，sceneTargetMatched=false）且
+        // 抓到别的前台时才 drop（A 的卡片不能压在 B 上）。
+        if (expectedPackage != null && packageName != expectedPackage && !snapshot.sceneTargetMatched) {
             if (BuildConfig.DEBUG) {
                 Log.i(LOG_TAG, "scene scan dropped: expected=$expectedPackage got=$packageName")
             }

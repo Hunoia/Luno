@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -522,9 +523,12 @@ private fun trendEntryTime(atMillis: Long, zone: ZoneId): String =
 
 @Composable
 private fun trendMomentLabel(atMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
+    // LocalConfiguration.current 是配置感知的可观察来源（lint: NonObservableLocale 禁止在
+    // composable 里裸读 Locale.getDefault()——配置变化会读到过期区域）。
+    val locale = LocalConfiguration.current.locales[0]
     val dateTime = Instant.ofEpochMilli(atMillis).atZone(zone)
     val time = dateTime.format(
-        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()),
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale),
     )
     val today = LocalDate.now(zone)
     return when (dateTime.toLocalDate()) {

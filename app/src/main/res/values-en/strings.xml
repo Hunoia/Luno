@@ -514,6 +514,16 @@
     <string name="notification_display_mode_standard">Standard</string>
     <string name="notification_display_mode_live">Live</string>
     <string name="notification_display_mode_island">Island</string>
+    <string name="toast_prompt_title">Notice</string>
+    <string name="toast_prompt_channel_name">Toast prompt</string>
+    <string name="toast_presentation_group">Toast prompt</string>
+    <string name="toast_presentation_row">Toast prompt presentation</string>
+    <string name="toast_presentation_hint">System toast by default; optional Standard / Live / Island / Capsule island, auto-dismiss after a few seconds</string>
+    <string name="toast_presentation_toast">System toast</string>
+    <string name="toast_presentation_standard">Standard notification</string>
+    <string name="toast_presentation_live">Live</string>
+    <string name="toast_presentation_island">Island</string>
+    <string name="toast_presentation_capsule">Capsule island</string>
     <string name="notification_display_override_group">Override by type</string>
     <string name="notification_display_override_hint">"Default" follows the global display mode</string>
     <string name="notification_display_kind_habit">Habit reminders</string>
@@ -554,7 +564,9 @@
     <string name="notification_display_test_send_hint">Uses the real publish path; switch to recents to see the island effect</string>
     <string name="notification_display_test_progress">Send progress test</string>
     <string name="notification_display_test_progress_hint">Fake 1/3; +1 checks progress and auto-dismiss</string>
-    <string name="notification_display_test_sent">Test notification sent</string>
+    <string name="notification_display_test_toast">Send test toast</string>
+    <string name="notification_display_test_toast_hint">Uses the global toast presentation path (System toast / Standard / Live / Island / Capsule)</string>
+    <string name="notification_display_test_toast_sent">Toast test prompt</string>
     <string name="notification_display_perm_group">Permission status</string>
     <string name="notification_display_settings_entry">Notifications</string>
     <string name="notification_display_settings_entry_hint">Display mode, island and permissions</string>

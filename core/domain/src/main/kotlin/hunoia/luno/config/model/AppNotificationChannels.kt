@@ -21,6 +21,12 @@ const val DAEMON_NOTIFICATION_ID = 2001
 /** 悬浮球的前台服务通知 id。 */
 const val FLOATBALL_NOTIFICATION_ID = 2002
 
+/** 系统 Toast 提示可配置呈现的通知通道（用户可单独管理）。 */
+const val TOAST_CHANNEL_ID = "toast_prompt"
+
+/** 系统 Toast 提示通知的固定 id。 */
+const val TOAST_NOTIFICATION_ID = 3001
+
 /**
  * 固定通知隐藏只该收走这两个「运行保活」的前台服务通知（daemon / float ball），
  * 其余 Luno 通知（习惯 / 待办 / 趋势 / 识别提醒）都是用户显式开启、面向用户的，

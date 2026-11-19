@@ -6,6 +6,7 @@ import android.graphics.RectF
 import android.os.Bundle
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
+import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.bridge.ui.DensityProvider
@@ -129,22 +130,65 @@ class A11yTextSnapshotReader(
             if (pkgWindows.isEmpty()) {
                 null
             } else {
-                val fullscreen = pkgWindows.filter { entry ->
+                // 全屏主窗口从**所有**应用窗口里筛（不限定事件应用）：小窗事件（eventPackage =
+                // 悬浮小窗应用，如 Paseo/小红书）触发时，只要屏幕上有全屏主窗口（如 QQ），就
+                // 识别它，而不是识别浮在其上的小窗——满足「小窗 + 全屏时只识别全屏」。
+                // 用 isSceneFullscreenMain（排除 MIUI freeform 放大 frame）而非裸 isSceneFullscreen。
+                val geometry = appWindows.mapNotNull { entry ->
+                    val r = Rect()
+                    if (!runCatching { entry.window.getBoundsInScreen(r) }.isSuccess) null
+                    else entry.layer to SnapshotRect(r.left, r.top, r.right, r.bottom)
+                }
+                val sw = DensityProvider.screenWidthPx
+                val sh = DensityProvider.screenHeightPx
+                val fullscreen = appWindows.filter { entry ->
                     val r = Rect()
                     val ok = runCatching { entry.window.getBoundsInScreen(r) }.isSuccess
-                    ok && isSceneFullscreen(
-                        left = r.left,
-                        top = r.top,
-                        right = r.right,
-                        bottom = r.bottom,
-                        screenWidth = DensityProvider.screenWidthPx,
-                        screenHeight = DensityProvider.screenHeightPx,
+                    ok && isSceneFullscreenMain(
+                        windowLayer = entry.layer,
+                        bounds = SnapshotRect(r.left, r.top, r.right, r.bottom),
+                        windows = geometry,
+                        screenWidth = sw,
+                        screenHeight = sh,
                     )
                 }
-                // 有全屏窗口只认全屏（排除小窗）；无全屏回退该应用全部窗口。
+                // 有全屏主窗口只认它（排除小窗）；无全屏（分屏/纯小窗）回退事件应用窗口。
                 fullscreen.ifEmpty { pkgWindows }
             }
         } else null
+
+        if (BuildConfig.DEBUG) {
+            val geometry = appWindows.mapNotNull { entry ->
+                val r = Rect()
+                if (!runCatching { entry.window.getBoundsInScreen(r) }.isSuccess) null
+                else entry.layer to SnapshotRect(r.left, r.top, r.right, r.bottom)
+            }
+            val sw = DensityProvider.screenWidthPx
+            val sh = DensityProvider.screenHeightPx
+            val fullscreenPkgs = appWindows.mapNotNull { entry ->
+                val r = Rect()
+                if (!runCatching { entry.window.getBoundsInScreen(r) }.isSuccess) return@mapNotNull null
+                val b = SnapshotRect(r.left, r.top, r.right, r.bottom)
+                if (!isSceneFullscreenMain(entry.layer, b, geometry, sw, sh)) return@mapNotNull null
+                "${entry.packageName}[${r.left},${r.top},${r.right},${r.bottom}]"
+            }
+            Log.i(
+                TAG,
+                "scene targets: expected=$sceneExpectedPackage " +
+                    "fullscreen=${fullscreenPkgs} " +
+                    "chosen=${sceneTargets?.map { it.packageName }}",
+            )
+        }
+
+        // 事件应用已无窗口（用户已切走）：sceneExpectedPackage 非 null 且场景目标为空时，这一
+        // 扫必然被 scan() 的包名比对丢弃（targetPackage 回退到别的应用，如浮着的小窗），树遍历
+        // 是白跑 250ms。直接返回空快照（targetPackage=""），scan() 立即返回、不遍历、不空扫重试。
+        if (sceneExpectedPackage != null && sceneTargets == null) {
+            if (BuildConfig.DEBUG) {
+                Log.i(TAG, "scene skip: expected=$sceneExpectedPackage no window (switched away)")
+            }
+            return TextSnapshot(complete = true)
+        }
 
         // 目标窗口（单个）：情景识别取目标集合里 layer 最高的（语义同 targetPackage 兜底），
         // 长按取词取按下点所在、layer 最高的应用窗口。屏幕浮着其他应用小窗（画中画 / 悬浮窗）
@@ -260,6 +304,7 @@ class A11yTextSnapshotReader(
             capturedAtMs = startedAtMs,
             targetPackage = targetPackage,
             targetWindowIds = targetIds,
+            sceneTargetMatched = sceneTargets != null,
             complete = complete,
         )
         if (BuildConfig.DEBUG) {
@@ -272,6 +317,56 @@ class A11yTextSnapshotReader(
             )
         }
         return snapshot
+    }
+
+    /**
+     * 方案 A：事件来源是否「浮在全屏主窗口上的小窗」事件。
+     *
+     * 按事件来源窗口判定（`event.windowId`），不用包名猜「事件应用是否有全屏窗口」——那个
+     * 在 MIUI 上不可靠（freeform 合成缩放让 `getBoundsInScreen` 返回被放大的 frame，包名
+     * 与全屏窗口的归属会反复横跳，导致主窗口被误判成小窗）。用来源窗口自己判：
+     * - 事件来源窗口即全屏主窗口 → 主窗口事件，是扫描的正当来源，不忽略；
+     * - 事件来源窗口非全屏（小窗/浮窗）且屏幕上还有全屏主窗口 → 忽略（小窗事件，主窗口识别
+     *   由主窗口自身事件负责），避免小窗高频事件把防抖 burst 推迟到 maxDeferMs（识别变慢）。
+     * 只在门禁接受后调用（真实应用事件）：窗口枚举是几次 binder 调用，相比被推迟的 250ms
+     * 树遍历可忽略。
+     */
+    fun isSceneSmallWindowEvent(event: AccessibilityEvent): Boolean {
+        val windowId = if (event.windowId >= 0) {
+            event.windowId
+        } else {
+            runCatching { event.source?.windowId }.getOrNull()?.takeIf { it >= 0 } ?: return false
+        }
+        val windows = runCatching { service.windows }.getOrNull().orEmpty()
+        val appWindows = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val sw = DensityProvider.screenWidthPx
+        val sh = DensityProvider.screenHeightPx
+        // 一次取全窗口几何（id → (layer, bounds)）供 isSceneFullscreenMain 复用（bounds 是 IPC）。
+        val geometry = appWindows.mapNotNull { w ->
+            val r = Rect()
+            if (!runCatching { w.getBoundsInScreen(r) }.isSuccess) null
+            else w.id to (w.layer to SnapshotRect(r.left, r.top, r.right, r.bottom))
+        }.toMap()
+        val pairs = geometry.values.toList()
+        val eventGeom = geometry[windowId] ?: return false
+        // isSceneFullscreenMain 排除浮在更低层全屏窗口之上的 freeform 放大 frame（小窗）。
+        val eventFullscreen = isSceneFullscreenMain(eventGeom.first, eventGeom.second, pairs, sw, sh)
+        if (eventFullscreen) return false
+        // 屏幕上还有另一个全屏主窗口（真主窗口，非 freeform 放大 frame）→ 事件来源窗口是
+        // 浮在其上的小窗，忽略（主窗口识别由主窗口自身事件负责）。
+        val hasFullscreenMain = geometry.any { (id, g) ->
+            id != windowId && isSceneFullscreenMain(g.first, g.second, pairs, sw, sh)
+        }
+        val result = isSceneSmallWindowSignal(eventFullscreen, hasFullscreenMain)
+        if (BuildConfig.DEBUG) {
+            val b = eventGeom.second
+            Log.i(
+                TAG,
+                "scene smallwindow: win=$windowId bounds=(${b.left},${b.top},${b.right},${b.bottom}) " +
+                    "evFull=$eventFullscreen otherFull=$hasFullscreenMain => $result",
+            )
+        }
+        return result
     }
 
     /**
@@ -546,3 +641,48 @@ internal fun isSceneFullscreen(
     val windowArea = width.toLong() * height
     return windowArea * 100 >= screenArea * 85
 }
+
+/**
+ * 情景识别的「全屏主窗口」判定（纯函数，供单测）：在 [isSceneFullscreen] 的基础上排除
+ * MIUI/HyperOS freeform 小窗的合成放大 frame。
+ *
+ * 系统在合成层把 freeform 小窗再缩一次（可见尺寸 / frame 尺寸 ≈ 0.7），而
+ * `AccessibilityWindowInfo.getBoundsInScreen()` 返回的是被放大的 WindowManager frame——
+ * 浮在全屏主窗口上的 freeform 小窗因此会报出「覆盖整个屏幕」的 bounds，被误判成全屏，
+ * 导致小窗被当成识别目标、其事件也不被抑制。区分信号：真全屏主窗口是**最低 layer** 的
+ * 全屏窗口；浮在其上、更高 layer 的全屏窗口是 freeform 放大 frame（小窗），不算主窗口。
+ */
+internal fun isSceneFullscreenMain(
+    windowLayer: Int,
+    bounds: SnapshotRect,
+    windows: List<Pair<Int, SnapshotRect>>,
+    screenWidth: Int,
+    screenHeight: Int,
+): Boolean {
+    if (!isSceneFullscreen(bounds.left, bounds.top, bounds.right, bounds.bottom, screenWidth, screenHeight)) {
+        return false
+    }
+    // 更低 layer 也存在覆盖 ≥85% 的窗口 → 本窗口浮在其上，是 freeform 放大 frame（小窗）。
+    return windows.none { (layer, other) ->
+        layer < windowLayer &&
+            isSceneFullscreen(other.left, other.top, other.right, other.bottom, screenWidth, screenHeight)
+    }
+}
+
+/**
+ * 方案 A 的小窗事件判定（纯函数，供单测）：事件来源是否「浮在全屏主窗口上的小窗」事件。
+ *
+ * 事件来源窗口非全屏（小窗 / 浮窗），而屏幕上另有全屏主窗口时，事件来自浮在其上的小窗
+ * （画中画 / 悬浮窗，如 Paseo / 小红书）。这类事件与主窗口无关却高频（悬浮窗时钟 / 动画 /
+ * 状态每秒多条），若放行会把 [SceneScanScheduler] 的防抖 burst 一直推迟到
+ * [SceneScanScheduler.MAX_DEFER_MS] 上限，表现为「小窗时识别变慢」——故忽略，主窗口识别由
+ * 主窗口自身事件负责。
+ *
+ * @param eventWindowFullscreen 事件来源窗口是否全屏（true = 主窗口事件，不忽略）。
+ * @param hasOtherFullscreenMain 屏幕上是否还有另一个全屏主窗口（非事件来源窗口）。
+ *   false = 无全屏主窗口（纯小窗 / 分屏 / 桌面），不算小窗事件（保持现状识别事件应用）。
+ */
+internal fun isSceneSmallWindowSignal(
+    eventWindowFullscreen: Boolean,
+    hasOtherFullscreenMain: Boolean,
+): Boolean = !eventWindowFullscreen && hasOtherFullscreenMain

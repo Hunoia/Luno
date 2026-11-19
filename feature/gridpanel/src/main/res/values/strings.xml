@@ -282,7 +282,6 @@
 <string name="habit_reminder_status_progress_short">今日 %1$d/%2$d</string>
 <string name="habit_reminder_status_plain">该打卡了</string>
 <string name="habit_reminder_share_content">【%1$s】%2$s</string>
-<string name="habit_reminder_test_done">测试完成 · 已收起</string>
 <string name="habit_reminder_capsule">该打卡</string>
 <string name="todo_reminder_channel">待办提醒</string>
 <string name="todo_reminder_title">待办提醒</string>

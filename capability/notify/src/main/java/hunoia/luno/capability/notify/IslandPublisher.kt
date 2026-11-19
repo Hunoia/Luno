@@ -121,11 +121,12 @@ internal class IslandPublisher(
             // 保持通知可更新：不可更新的焦点通知被 SystemUI 视为一次性，点击即收走。
             .put("updatable", true)
             .put("reopen", "close")
-            // enableFloat（是否建立大岛浮出区）恒 true：关自动展开时 islandFirstFloat=false +
-            // expandedTime=0 只让首帧不展开成小胶囊，但浮出区必须建立，否则整个岛不显示
-            // （曾把 enableFloat 写成 spec.autoExpand，关自动展开后岛直接不浮出）。
-            // islandFirstFloat 决定首帧是否直接展开，跟随开关。
-            .put("enableFloat", true)
+            // 浮出开关必须同值（README「浮出开关必须同值」）：enableFloat / islandFirstFloat
+            // （及 extras 的 miui.enableFloat / miui.island.firstFloat）都写 spec.autoExpand。
+            // enableFloat=false 时小岛胶囊照常出现、只是不展开（真机复核；旧结论
+            // 「首发 noFloat 就不出胶囊」不成立）。曾把 enableFloat 恒 true 只让
+            // islandFirstFloat 跟随开关 → 自动展开开关拨了没反应。
+            .put("enableFloat", spec.autoExpand)
             .put("islandFirstFloat", spec.autoExpand)
             // 焦点通知默认可能不进通知栏；习惯提醒的正文与「完成」按钮还要在那里。
             .put("isShowNotification", spec.showInShade)
@@ -189,8 +190,8 @@ internal class IslandPublisher(
                     actionsBundle(spec)?.let { putBundle(FOCUS_ACTIONS, it) }
                     putBoolean(ISLAND_UPDATE_NO_FLOAT, !spec.autoExpand)
                     putBoolean(ISLAND_FIRST_FLOAT, spec.autoExpand)
-                    // 与 param_v2.enableFloat 同口径：浮出区恒建立，不展开由 islandFirstFloat 控制。
-                    putBoolean(MIUI_ENABLE_FLOAT, true)
+                    // 与 param_v2.enableFloat 同口径（浮出开关必须同值）。
+                    putBoolean(MIUI_ENABLE_FLOAT, spec.autoExpand)
                 },
             )
             .build()

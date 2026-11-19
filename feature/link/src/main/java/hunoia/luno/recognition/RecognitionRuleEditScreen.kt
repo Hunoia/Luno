@@ -32,6 +32,7 @@ import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.config.model.RecognitionDisplay
+import hunoia.luno.config.model.ToastPresentation
 import hunoia.luno.config.model.RecognitionMatch
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionRule
@@ -131,6 +132,8 @@ fun RecognitionRuleEditScreen(
     var match by remember(ruleId) { mutableStateOf(initial.match) }
     var output by remember(ruleId) { mutableStateOf(initial.output) }
     var display by remember(ruleId) { mutableStateOf(initial.display) }
+    var directPromptEnabled by remember(ruleId) { mutableStateOf(initial.directPromptEnabled) }
+    var directPromptMode by remember(ruleId) { mutableStateOf(initial.directPromptMode) }
     var testText by remember(ruleId) { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -145,6 +148,8 @@ fun RecognitionRuleEditScreen(
         match = match,
         output = output,
         display = display,
+        directPromptEnabled = directPromptEnabled,
+        directPromptMode = directPromptMode,
     )
     val regexError = when (val m = match) {
         is RecognitionMatch.Text -> m.pattern.isNotBlank() &&
@@ -526,6 +531,52 @@ fun RecognitionRuleEditScreen(
                         else RecognitionDisplay.Capsule
                     },
                     shape = segmentedShape(extraRows + 1, rows),
+                )
+            }
+        }
+        // ---- 直接执行提示（仅直执行档；通知输出不弹，通知即反馈）----
+        if (output !is RecognitionOutput.Notify && display == RecognitionDisplay.Direct) {
+            LunoGroup(
+                title = stringResource(R.string.recognition_rule_direct_prompt),
+                subtitle = stringResource(R.string.recognition_rule_direct_prompt_hint),
+            ) {
+                val enabledOptions = listOf(null as Boolean?, true, false)
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_rule_direct_prompt_enabled),
+                    options = listOf(
+                        stringResource(R.string.recognition_rule_direct_prompt_follow),
+                        stringResource(R.string.recognition_rule_direct_prompt_on),
+                        stringResource(R.string.recognition_rule_direct_prompt_off),
+                    ),
+                    selectedIndex = enabledOptions.indexOf(directPromptEnabled).coerceAtLeast(0),
+                    onSelect = { index ->
+                        directPromptEnabled = enabledOptions.getOrNull(index)
+                    },
+                    shape = segmentedShape(0, 2),
+                )
+                val modeOptions = listOf(
+                    null as ToastPresentation?,
+                    ToastPresentation.TOAST,
+                    ToastPresentation.STANDARD,
+                    ToastPresentation.LIVE,
+                    ToastPresentation.ISLAND,
+                    ToastPresentation.CAPSULE,
+                )
+                LunoDropdownRow(
+                    title = stringResource(R.string.recognition_rule_direct_prompt_mode),
+                    options = listOf(
+                        stringResource(R.string.recognition_rule_direct_prompt_mode_follow),
+                        stringResource(R.string.recognition_direct_prompt_toast),
+                        stringResource(R.string.recognition_direct_prompt_standard),
+                        stringResource(R.string.recognition_direct_prompt_live),
+                        stringResource(R.string.recognition_direct_prompt_island),
+                        stringResource(R.string.recognition_direct_prompt_capsule),
+                    ),
+                    selectedIndex = modeOptions.indexOf(directPromptMode).coerceAtLeast(0),
+                    onSelect = { index ->
+                        directPromptMode = modeOptions.getOrNull(index)
+                    },
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

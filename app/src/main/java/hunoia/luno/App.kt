@@ -90,6 +90,11 @@ class App : Application(), SingletonImageLoader.Factory {
         hunoia.luno.runtime.surface.ClipFloatDispatch.show = { context, id ->
             hunoia.luno.runtime.floatball.FloatBallService.showClipFloat(context, id)
         }
+        // 系统 Toast 可配置呈现：全局开关（Toast / 标准 / 实时 / 岛 / 胶囊）注入；
+        // 未注入（或配置为 Toast）时保持系统 Toast。
+        hunoia.luno.bridge.ui.setToastPresenter(
+            hunoia.luno.domain.system.ConfigurableToastPresenter(),
+        )
         Events.initScope(appScope) { isMainThread() }
         // 桌面小部件实时同步（architecture §7.5）：进程启动即订阅配置流。
         // receiver onUpdate 只在放置/周期更新触发，进程重启后不保证重发，故在此兜底。

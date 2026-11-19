@@ -30,6 +30,28 @@ enum class NotificationMode {
 enum class NotificationKind { HABIT, BACKUP, TODO, RECOGNITION }
 
 /**
+ * 系统 Toast 提示的呈现方式（通用通知设置，全局）。
+ *
+ * - [TOAST]：保持系统 Toast（默认，浮层文本几秒自关）。
+ * - [STANDARD] / [LIVE] / [ISLAND]：用对应通知方式呈现（见 [NotificationMode]）。
+ * - [CAPSULE]：岛胶囊不展开、几秒自关（不可展开胶囊岛，同系统切换静音时的胶囊）。
+ *   岛 / 胶囊依赖焦点通知能力，失败按 LIVE → STANDARD 回退。
+ */
+@Keep
+enum class ToastPresentation {
+    TOAST,
+    STANDARD,
+    LIVE,
+    ISLAND,
+    CAPSULE,
+    ;
+
+    companion object {
+        val DEFAULT = TOAST
+    }
+}
+
+/**
  * 通用通知显示设置（D11：不做旧配置兼容；`habitReminderStyle` 直接替换为本模型）。
  */
 @Serializable
@@ -38,6 +60,8 @@ data class NotificationDisplaySettings(
     val mode: NotificationMode = NotificationMode.DEFAULT,
     /** 按 [NotificationKind] 覆盖全局 [mode]；缺省类型跟随全局。 */
     val overrides: Map<NotificationKind, NotificationMode> = emptyMap(),
+    /** 系统 Toast 提示的呈现方式（全局）；默认保持系统 Toast。 */
+    val toastPresentation: ToastPresentation = ToastPresentation.DEFAULT,
     /** 岛是否首发自动展开大岛（`islandFirstFloat` / `enableFloat`）。 */
     val islandAutoExpand: Boolean = false,
     /** 岛超时秒数；0 = 不设超时（跟随通知 ongoing 语义）。 */

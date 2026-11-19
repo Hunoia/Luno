@@ -78,6 +78,7 @@ import hunoia.luno.runtime.recognition.RecognitionExecutor
 import hunoia.luno.runtime.recognition.Recognizer
 import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.config.model.RecognitionDisplay
+import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.runtime.notification.NotificationPulseHub
@@ -970,15 +971,19 @@ class FloatBallService : Service() {
         }
     }
 
-    /** 直执行档的落地提示：可关（`RecognitionSettings.directToastEnabled`）。 */
+    /** 直执行档的落地提示：全局开关可关，提示方式全局可配 + 每规则覆盖。 */
     private fun announceDirect(delivered: DeliveredResults) {
         val first = delivered.executed.firstOrNull() ?: return
-        if (!recognition.directToastEnabled) return
+        // Notify 输出已发通知：通知本身就是反馈，不再另弹「已执行」（去双重反馈）。
+        if (first.output is RecognitionOutput.Notify) return
+        val rule = recognition.rules.firstOrNull { it.id == first.ruleId }
+        if (!(rule?.directPromptEnabled ?: recognition.directToastEnabled)) return
         val text = getString(
             R.string.result_direct_toast,
             first.ruleName.ifBlank { getString(R.string.result_generic) },
         )
-        scope.launch(Dispatchers.Main) { showToast(text) }
+        val mode = rule?.directPromptMode ?: recognition.directPromptMode
+        scope.launch(Dispatchers.Main) { showToast(text, presentation = mode) }
     }
 
     /** 链接目标应用涉及 PackageManager：放后台解析，当前项已切走则丢弃。 */

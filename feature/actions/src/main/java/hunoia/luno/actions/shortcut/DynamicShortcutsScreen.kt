@@ -6,7 +6,7 @@ import androidx.compose.material.icons.filled.AppShortcut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -33,7 +33,9 @@ fun DynamicShortcutsScreen(
     vm: DynamicShortcutViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    // LocalResources.current 是配置感知的 Compose 资源读取（lint: LocalContextGetResourceValueCall
+    // 禁止用 LocalContext.current.getString——配置变化会读到过期值）。
+    val resources = LocalResources.current
 
     // 从系统「默认桌面」页返回：权限可能变了，重新读一遍。
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -43,8 +45,8 @@ fun DynamicShortcutsScreen(
     LaunchedEffect(vm) {
         vm.messages.collect { message ->
             val text = message.count?.let { count ->
-                context.getString(message.resId, count)
-            } ?: context.getString(message.resId)
+                resources.getString(message.resId, count)
+            } ?: resources.getString(message.resId)
             showToast(text)
         }
     }
