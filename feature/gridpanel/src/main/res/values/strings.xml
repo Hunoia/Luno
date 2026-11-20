@@ -102,8 +102,8 @@
     <string name="todo_delete">删除</string>
     <string name="todo_empty">还没有待办</string>
     <string name="todo_list_title">待办</string>
-    <string name="todo_group_pending">未完成</string>
-    <string name="todo_group_done">已完成（%1$d）</string>
+    <string name="todo_group_other">其他</string>
+    <string name="todo_group_done_plain">已完成</string>
     <string name="todo_settings_title">待办设置</string>
     <string name="todo_settings_group_notify">提醒</string>
     <string name="todo_settings_group_done">已完成</string>
@@ -118,13 +118,6 @@
     <string name="todo_group_collapse">收起</string>
     <string name="todo_save">保存</string>
     <string name="todo_text_hint">如：买牛奶、交电费</string>
-    <!-- 与 :feature:widget 的 widget_todo_complete_* 同文案（模块间同值镜像，见 architecture §7.5）。 -->
-    <string name="todo_complete_confirm_title">完成待办</string>
-    <string name="todo_complete_confirm_text">把「%1$s」标记为完成？</string>
-    <string name="todo_complete_confirm_action">完成</string>
-    <string name="todo_uncomplete_confirm_title">撤销完成</string>
-    <string name="todo_uncomplete_confirm_text">把「%1$s」恢复为未完成？</string>
-    <string name="todo_uncomplete_confirm_action">撤销</string>
 
     <!-- 待办提醒 -->
     <string name="todo_reminder_add">添加提醒</string>
@@ -147,6 +140,27 @@
     <string name="todo_reminder_snooze_hours">推迟 %1$d h</string>
     <string name="todo_reminder_snooze_hours_minutes">推迟 %1$d h %2$d min</string>
     <string name="todo_reminder_setting">推迟时长</string>
+
+    <!-- 待办页（ui-guidelines §4.1 例外记录）：紧迫度分区头 + 卡片行 + 撤销条。 -->
+    <string name="todo_group_overdue">已过期</string>
+    <string name="todo_group_today">今天</string>
+    <string name="todo_group_upcoming">即将</string>
+    <string name="todo_undo_complete">已完成「%1$s」</string>
+    <string name="todo_undo_delete">已删除「%1$s」</string>
+    <string name="todo_undo_action">撤销</string>
+    <string name="todo_progress_remaining">%1$d 项待完成</string>
+    <string name="todo_progress_all_done">全部完成</string>
+    <string name="todo_progress_overdue">%1$d 项已过期</string>
+    <string name="todo_progress_done">已完成 %1$d 项</string>
+    <string name="todo_swipe_complete">滑动完成</string>
+    <string name="todo_swipe_delete">滑动删除</string>
+    <string name="todo_check_complete">标记完成：%1$s</string>
+    <string name="todo_check_uncomplete">标记未完成：%1$s</string>
+    <string name="todo_action_complete">标记完成</string>
+    <string name="todo_action_uncomplete">恢复未完成</string>
+    <string name="todo_done_completed_at">完成于 %1$s</string>
+    <string name="todo_done_expand">展开全文</string>
+    <string name="todo_done_collapse">收起全文</string>
     <string name="habit_add">新建习惯</string>
     <string name="habit_group_today_due">今日待打卡</string>
     <string name="habit_group_today_done">今日已完成</string>

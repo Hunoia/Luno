@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
@@ -48,6 +49,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
 import hunoia.luno.ui.theme.BottomBarPadding
+import hunoia.luno.ui.theme.DockBallSize
+import hunoia.luno.ui.theme.DockOverlayGap
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
@@ -590,13 +593,22 @@ fun HomeScreen(
                             state = habitListState,
                         )
 
-                        MainTab.Todos -> TodoListContent(
-                            topPadding = topPadding,
-                            addRequest = todoAddRequest,
-                            onAddRequestHandled = { todoAddRequest = 0 },
-                            onNewTodo = { todoAddRequest++ },
-                            state = todoListState,
-                        )
+                        MainTab.Todos -> {
+                            // 内容画在 Scaffold body 里，底栏是叠在上面的兄弟节点：
+                            // 列表底部留白与撤销条都要自己让开「导航栏 + 停靠栏」。
+                            // 停靠栏高度恒为 DockBallSize（展开成胶囊也不变）。
+                            val navBottom = navigationWindowInsets.asPaddingValues()
+                                .calculateBottomPadding()
+                            TodoListContent(
+                                topPadding = topPadding,
+                                addRequest = todoAddRequest,
+                                onAddRequestHandled = { todoAddRequest = 0 },
+                                onNewTodo = { todoAddRequest++ },
+                                state = todoListState,
+                                bottomContentPadding = navBottom + FloatingContentBottom,
+                                undoBarBottomInset = navBottom + BottomBarPadding + DockBallSize + DockOverlayGap,
+                            )
+                        }
 
                         MainTab.Trends -> TrendListContent(
                             topPadding = topPadding,

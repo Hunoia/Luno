@@ -182,6 +182,8 @@ object PanelWidgetRegistry {
                     spanX = scope.spanX,
                     spanY = scope.spanY,
                     enabled = scope.enabled,
+                    // 单功能面板整页：底部「文本/图片」tab 栏与面板底边齐平衔接。
+                    isGridItem = scope.isGridItem,
                 )
             },
         )

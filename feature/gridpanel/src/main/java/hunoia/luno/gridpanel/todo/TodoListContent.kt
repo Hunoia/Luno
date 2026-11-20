@@ -1,34 +1,26 @@
 package hunoia.luno.gridpanel.todo
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,14 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,55 +36,103 @@ import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
-import hunoia.luno.gridpanel.TodoReminderFormat
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.pressClickable
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoGroupItem
-import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.PageGutter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.ZoneId
 
 /**
  * 代办执行面：主页「代办」tab 嵌入用。
  *
  * 共享主页外壳的顶栏（右上齿轮 = 待办设置页），没有自己的顶栏 / 返回键 / FAB；
  * 新建入口是底栏的功能球，空态里的按钮走 [onNewTodo]。
- * 数据源 [TodoCenter.todoConfig]；切换完成 / 增删改走 domain 门面（配置写入，不走 Action）。
+ * 数据源 [TodoCenter.todoConfig]；切换 / 增删改走 domain 门面（配置写入，不走 Action）。
  *
- * 与「设置」彻底分开：设置项（推迟时长 / 保留天数 / 清空）在 [TodoSettingsScreen]。
- * 两组：未完成（保持创建顺序）+ 已完成（按完成时间倒序、默认收起、可展开）。
- * 完成 / 撤销完成都先走确认弹层，与桌面部件、面板内置待办同口径。
+ * 版式（页面自有，见 ui-guidelines §4.1 例外记录）：
+ * - 顶部一行进度摘要 + 进度线（无卡片）；
+ * - 未完成按紧迫度分区（已过期 → 今天 → 即将 → 其他），只有一个分区时不画分区头；
+ * - 每行一张独立卡，提醒在第二行；未完成行右滑完成 / 左滑删除，已完成行只左滑删除；
+ * - 已完成组默认收起，展开后点行可原地展开全文（不改文案）。
+ *
+ * 完成 / 撤销完成即时生效（不再弹确认层）——这是待办页与桌面部件 / 面板内置待办
+ * 「先确认」口径的**有意分叉**，记录见 ui-guidelines §4.1 例外条目。
+ *
+ * [bottomContentPadding] / [undoBarBottomInset] 由宿主按停靠栏几何传入：
+ * 页面内容画在 Scaffold body 里，底栏是叠在上面的兄弟节点，不抬高就会压住撤销条。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TodoListContent(
     topPadding: Dp,
     addRequest: Int,
     onAddRequestHandled: () -> Unit,
-    onNewTodo: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onNewTodo: () -> Unit = {},
     state: LazyListState = rememberLazyListState(),
+    bottomContentPadding: Dp = FloatingContentBottom,
+    undoBarBottomInset: Dp = 12.dp,
 ) {
     val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoConfig())
     val scope = rememberCoroutineScope()
-    val pending = config.todos.filter { !it.done }
+    // 分钟级时钟：跨天 / 提醒到点后紧迫度与提醒文案要自己刷新，不能等下一次无关重组。
+    val now = rememberNow()
+    val groups = remember(config.todos, now) {
+        groupPending(config.todos.filterNot { it.done }, now)
+    }
+    val pendingCount = groups.sumOf { it.todos.size }
+    val overdueCount = groups.firstOrNull { it.urgency == TodoUrgency.Overdue }?.todos?.size ?: 0
+    val sectionHeadersVisible = showSectionHeaders(groups)
     // 完成组：按完成时间倒序（刚完成的在上）；无完成时间排最后。
-    val done = config.todos.filter { it.done }
-        .sortedByDescending { it.completedAt ?: Long.MIN_VALUE }
+    val done = remember(config.todos) {
+        config.todos.filter { it.done }
+            .sortedByDescending { it.completedAt ?: Long.MIN_VALUE }
+    }
 
     var creating by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<String?>(null) }
-    // 完成 / 撤销完成都先确认：与桌面部件、面板内置待办的确认口径一致。
-    var pendingToggle by remember { mutableStateOf<TodoItem?>(null) }
     // 已完成组默认收起（计划定稿）；会话内记忆，重进页保持。
     var doneExpanded by rememberSaveable { mutableStateOf(false) }
+    // 已完成行一次只展开一条，点行切换；展开后显示全文与完成时间。
+    var expandedDoneId by rememberSaveable { mutableStateOf<String?>(null) }
+    // 待撤销的动作：完成 / 删除即时生效后弹出撤销条，4s 自动消失；同一时刻一条。
+    var undo by remember { mutableStateOf<TodoUndo?>(null) }
+
+    // 撤销条计时：按「当前动作实例」重来，同文案的第二次动作不会沿用上一次的剩余时间。
+    LaunchedEffect(undo) {
+        val action = undo ?: return@LaunchedEffect
+        delay(UndoBarDurationMs)
+        if (undo === action) undo = null
+    }
+
+    fun complete(todo: TodoItem) {
+        scope.launch {
+            TodoCenter.toggleTodo(todo.id, true)
+            undo = TodoUndo(text = todo.text, kind = TodoUndoKind.Complete) {
+                scope.launch { TodoCenter.toggleTodo(todo.id, false) }
+            }
+        }
+    }
+
+    fun delete(todo: TodoItem) {
+        scope.launch {
+            TodoCenter.deleteTodo(todo.id)
+            undo = TodoUndo(text = todo.text, kind = TodoUndoKind.Delete) {
+                scope.launch { TodoCenter.addTodo(todo) }
+            }
+        }
+    }
+
+    // 点勾：完成（即时 + 撤销条）；撤销完成也即时（再点一次即可重做，无需撤销条）。
+    fun onToggle(todo: TodoItem) {
+        if (todo.done) {
+            scope.launch { TodoCenter.toggleTodo(todo.id, false) }
+        } else {
+            complete(todo)
+        }
+    }
 
     // 功能球的「添加」：调用方把请求数 +1，这里消费一次后归零，避免重进 tab 又弹窗。
     LaunchedEffect(addRequest) {
@@ -121,86 +154,117 @@ fun TodoListContent(
         if (target != null) editingId = target.id
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        state = state,
-        contentPadding = PaddingValues(
-            start = PageGutter,
-            top = topPadding,
-            end = PageGutter,
-            bottom = FloatingContentBottom,
-        ),
-        verticalArrangement = Arrangement.spacedBy(ListSpacing),
-    ) {
-        if (config.todos.isEmpty()) {
-            item {
-                EmptyState(
-                    message = stringResource(R.string.todo_empty),
-                    action = {
-                        PressTextButton(onClick = onNewTodo) {
-                            Text(stringResource(R.string.todo_add))
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            state = state,
+            contentPadding = PaddingValues(
+                start = PageGutter,
+                top = topPadding,
+                end = PageGutter,
+                bottom = bottomContentPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (config.todos.isEmpty()) {
+                item(key = "empty") {
+                    EmptyState(
+                        message = stringResource(R.string.todo_empty),
+                        action = {
+                            PressTextButton(onClick = onNewTodo) {
+                                Text(stringResource(R.string.todo_add))
+                            }
+                        },
+                    )
+                }
+            } else {
+                item(key = "summary") {
+                    TodoProgressHeader(
+                        pending = pendingCount,
+                        done = done.size,
+                        overdue = overdueCount,
+                    )
+                }
+                groups.forEach { group ->
+                    if (sectionHeadersVisible) {
+                        stickyHeader(key = "section_${group.urgency}") {
+                            TodoSectionHeader(
+                                title = urgencyTitle(group.urgency),
+                                count = group.todos.size,
+                                error = group.urgency == TodoUrgency.Overdue,
+                            )
                         }
-                    },
-                )
-            }
-        } else {
-            if (pending.isNotEmpty()) {
-                item {
-                    LunoGroup(title = stringResource(R.string.todo_group_pending)) {
-                        pending.forEachIndexed { index, todo ->
-                            TodoListRow(
+                    }
+                    items(group.todos, key = { "pending_${it.id}" }) { todo ->
+                        TodoCard(
+                            todo = todo,
+                            nowMillis = now,
+                            onToggle = { onToggle(todo) },
+                            onEdit = { editingId = todo.id },
+                            onComplete = { complete(todo) },
+                            onDelete = { delete(todo) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+                if (done.isNotEmpty()) {
+                    item(key = "done_header") {
+                        TodoSectionHeader(
+                            title = stringResource(R.string.todo_group_done_plain),
+                            count = done.size,
+                            onClick = { doneExpanded = !doneExpanded },
+                            expanded = doneExpanded,
+                        )
+                    }
+                    if (doneExpanded) {
+                        items(done, key = { "done_${it.id}" }) { todo ->
+                            TodoCard(
                                 todo = todo,
-                                shape = segmentedShape(index, pending.size),
-                                onToggle = { pendingToggle = todo },
-                                onEdit = { editingId = todo.id },
+                                nowMillis = now,
+                                onToggle = { onToggle(todo) },
+                                onDelete = { delete(todo) },
+                                expanded = expandedDoneId == todo.id,
+                                onToggleExpanded = {
+                                    expandedDoneId = if (expandedDoneId == todo.id) null else todo.id
+                                },
+                                modifier = Modifier.animateItem(),
                             )
                         }
                     }
                 }
             }
-            if (done.isNotEmpty()) {
-                item {
-                    DoneGroup(
-                        done = done,
-                        expanded = doneExpanded,
-                        onExpandedChange = { doneExpanded = it },
-                        onToggle = { pendingToggle = it },
-                    )
-                }
+        }
+
+        // 撤销条浮在停靠栏上方（底部 inset 由宿主给），不占列表布局。
+        val undoAction = undo
+        AnimatedVisibility(
+            visible = undoAction != null,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = PageGutter, end = PageGutter, bottom = undoBarBottomInset),
+            enter = fadeIn(tween(MotionSubtle)) + slideInVertically(tween(MotionSubtle)) { it / 2 },
+            exit = fadeOut(tween(MotionSubtle)) + slideOutVertically(tween(MotionSubtle)) { it / 2 },
+        ) {
+            // 退出动画期间 undoAction 已经是 null，用最后一次非空值把内容留住。
+            var shown by remember { mutableStateOf(undoAction) }
+            LaunchedEffect(undoAction) {
+                if (undoAction != null) shown = undoAction
+            }
+            shown?.let { action ->
+                TodoUndoBar(
+                    message = stringResource(
+                        when (action.kind) {
+                            TodoUndoKind.Complete -> R.string.todo_undo_complete
+                            TodoUndoKind.Delete -> R.string.todo_undo_delete
+                        },
+                        action.text,
+                    ),
+                    onUndo = {
+                        action.onUndo()
+                        undo = null
+                    },
+                )
             }
         }
-    }
-
-    // 同一时刻最多一个弹层（ui-guidelines §3.2-5）；确认后才写回完成态。
-    pendingToggle?.let { todo ->
-        ConfirmDialog(
-            title = stringResource(
-                if (todo.done) {
-                    R.string.todo_uncomplete_confirm_title
-                } else {
-                    R.string.todo_complete_confirm_title
-                },
-            ),
-            text = stringResource(
-                if (todo.done) {
-                    R.string.todo_uncomplete_confirm_text
-                } else {
-                    R.string.todo_complete_confirm_text
-                },
-                todo.text,
-            ),
-            confirmLabel = stringResource(
-                if (todo.done) {
-                    R.string.todo_uncomplete_confirm_action
-                } else {
-                    R.string.todo_complete_confirm_action
-                },
-            ),
-            onDismissRequest = { pendingToggle = null },
-            onConfirm = {
-                scope.launch { TodoCenter.toggleTodo(todo.id, !todo.done) }
-            },
-        )
     }
 
     if (creating) {
@@ -217,209 +281,43 @@ fun TodoListContent(
     }
 }
 
-/**
- * 已完成组：可展开的头行 + 展开后的完成行。
- * 头行点按只展开 / 收起；行内点按仍进编辑 / 撤销完成确认。
- */
-@Composable
-private fun DoneGroup(
-    done: List<TodoItem>,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onToggle: (TodoItem) -> Unit,
-) {
-    // 头行 + 展开后的 N 行共用一个分段块（ui-guidelines §4.1 可展开组行）。
-    // 已完成行只供回看 + 撤销完成，不再进编辑弹窗（编辑会改字又绕过完成时间）。
-    val totalRows = if (expanded) done.size + 1 else 1
-    LunoGroup {
-        DoneHeaderRow(
-            count = done.size,
-            expanded = expanded,
-            shape = segmentedShape(0, totalRows),
-            onClick = { onExpandedChange(!expanded) },
-        )
-        if (expanded) {
-            done.forEachIndexed { index, todo ->
-                TodoListRow(
-                    todo = todo,
-                    shape = segmentedShape(index + 1, totalRows),
-                    onToggle = { onToggle(todo) },
-                )
-            }
-        }
-    }
-}
+/** 待撤销动作的文案类型：完成 / 删除。文案在渲染时用 `stringResource` 取，避免持有 context。 */
+private enum class TodoUndoKind { Complete, Delete }
 
-/** 已完成组头行：标题 + 数量 + 展开箭头（180ms 旋转，MotionSubtle）。 */
+/** 待撤销的动作：待办文案 + 动作类型 + 恢复回调（完成 → 恢复未完成；删除 → 重新加入）。 */
+private class TodoUndo(
+    val text: String,
+    val kind: TodoUndoKind,
+    val onUndo: () -> Unit,
+)
+
+/** 分区头文案（按紧迫度）；无提醒归到「其他」，不叫「未完成」（整页都是未完成）。 */
 @Composable
-private fun DoneHeaderRow(
-    count: Int,
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    shape: Shape = MaterialTheme.shapes.small,
-) {
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(MotionSubtle),
-        label = "doneChevron",
-    )
-    // 整行只做展开 / 收起：无障碍给出动作名，而不是笼统的「双击激活」。
-    val toggleLabel = stringResource(
-        if (expanded) R.string.todo_group_collapse else R.string.todo_group_expand,
-    )
-    LunoGroupItem(
-        shape = shape,
-        dividerStartInset = PageGutter,
-        modifier = modifier,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MinInteractiveSize)
-                .pressClickable(onClickLabel = toggleLabel, onClick = onClick)
-                .padding(horizontal = PageGutter),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.todo_group_done, count),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(rotation),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+private fun urgencyTitle(urgency: TodoUrgency): String = when (urgency) {
+    TodoUrgency.Overdue -> stringResource(R.string.todo_group_overdue)
+    TodoUrgency.Today -> stringResource(R.string.todo_group_today)
+    TodoUrgency.Upcoming -> stringResource(R.string.todo_group_upcoming)
+    TodoUrgency.NoReminder -> stringResource(R.string.todo_group_other)
 }
 
 /**
- * 一行代办：左圆点切换完成（先确认）+ 文字 + 可选提醒徽标。
- * [onEdit] 非空时点行进编辑弹窗；null（已完成行）时行不可点，只留圆点撤销。
+ * 当前时刻（分钟对齐）：`System.currentTimeMillis()` 不是 State，直接读会让
+ * 跨天 / 提醒到点后的分组与文案停在上一次重组。
  */
 @Composable
-private fun TodoListRow(
-    todo: TodoItem,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
-    shape: Shape = MaterialTheme.shapes.small,
-    onEdit: (() -> Unit)? = null,
-) {
-    val scheme = MaterialTheme.colorScheme
-    // 大卡分割线风格：行不画自身底色/圆角，由 LunoGroup 的卡片统一托底，
-    // 仅非首行顶部画分割线（与 LunoRow 同口径）。分割线左起点越过左侧圆点，
-    // 对齐文字列（行内边距 16dp + 48dp 命中区 + 间距 8dp）。
-    val dividerStartInset = 16.dp + MinInteractiveSize + 8.dp
-    LunoGroupItem(
-        shape = shape,
-        dividerStartInset = dividerStartInset,
-        modifier = modifier,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MinInteractiveSize)
-                .then(
-                    if (onEdit != null) {
-                        Modifier.pressClickable(onClick = onEdit)
-                    } else {
-                        Modifier
-                    },
-                )
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TodoCheckToggle(
-                done = todo.done,
-                onToggle = onToggle,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = todo.text,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium,
-                color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
-                textDecoration = if (todo.done) TextDecoration.LineThrough else null,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            // 已完成的待办不再显示闹钟：提醒已被取消，显示未来时间会误导用户。
-            todo.reminder?.takeIf { !todo.done }?.let { reminder ->
-                val past = reminder.isPast(System.currentTimeMillis(), ZoneId.systemDefault())
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.Alarm,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = if (past) scheme.error else scheme.primary,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = TodoReminderFormat.label(LocalContext.current, reminder),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (past) scheme.error else scheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
+private fun rememberNow(): Long {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val toNextMinute = MinuteMillis - (System.currentTimeMillis() % MinuteMillis)
+            delay(toNextMinute.coerceAtLeast(1_000L))
+            now = System.currentTimeMillis()
         }
     }
+    return now
 }
 
-/**
- * 完成切换圆点：48dp 命中区（视觉 24dp）。未完成 = 空心描边；已完成 = 实心主色 + 白勾。
- * 点按只发切换请求，确认在列表页弹层。
- */
-@Composable
-private fun TodoCheckToggle(
-    done: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val size = 24.dp
-    val label = stringResource(
-        if (done) {
-            R.string.todo_uncomplete_confirm_title
-        } else {
-            R.string.todo_complete_confirm_title
-        },
-    )
-    Box(
-        modifier = modifier
-            .size(MinInteractiveSize)
-            .clip(CircleShape)
-            .pressClickable(onClickLabel = label, onClick = onToggle),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (done) {
-            Box(
-                Modifier
-                    .size(size)
-                    .clip(CircleShape)
-                    .background(scheme.primary),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-        } else {
-            Box(
-                Modifier
-                    .size(size)
-                    .border(2.dp, scheme.onSurfaceVariant.copy(alpha = 0.5f), CircleShape),
-            )
-        }
-    }
-}
+private const val MinuteMillis = 60_000L
+
+/** 撤销条自动消失时长（ms）。 */
+private const val UndoBarDurationMs = 4_000L

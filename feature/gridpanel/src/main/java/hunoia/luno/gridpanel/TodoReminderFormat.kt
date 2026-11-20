@@ -7,6 +7,7 @@ import hunoia.luno.config.model.TodoReminder
 import hunoia.luno.config.model.TodoReminderLabel
 import hunoia.luno.config.model.TodoReminderLabelKind
 import hunoia.luno.config.model.label
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -105,8 +106,28 @@ object TodoReminderFormat {
         }
     }
 
-    /** 推迟时长文案（`30 分钟` / `1 小时 30 分钟`），设置行与通知按钮共用。 */
-    fun snoozeDurationLabel(context: Context, minutes: Int): String {
+    /**
+     * 已完成代办的完成时刻：`11/19 18:20`。
+     *
+     * 复用提醒的短日期 / 时间格式（`todo_reminder_short_date` + `todo_reminder_time`），
+     * 列表展开已完成行时展示，不再另写一套日期格式。
+     */
+    fun completedAt(
+        context: Context,
+        millis: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String {
+        val time = Instant.ofEpochMilli(millis).atZone(zone)
+        val clock = context.getString(R.string.todo_reminder_time, time.hour, time.minute)
+        return context.getString(
+            R.string.todo_reminder_short_date,
+            time.monthValue,
+            time.dayOfMonth,
+            clock,
+        )
+    }
+
+    /** 推迟时长文案（`30 分钟` / `1 小时 30 分钟`），设置行与通知按钮共用。 */    fun snoozeDurationLabel(context: Context, minutes: Int): String {
         val safe = minutes.coerceIn(TodoMinSnoozeMinutes, TodoMaxSnoozeMinutes)
         val hours = safe / 60
         val rest = safe % 60

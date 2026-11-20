@@ -26,3 +26,10 @@ val DockMaxWidth = 600.dp
 
 /** 窄屏压缩 tab 宽度的下限；三球同排时 320dp 屏约 49dp，316dp 以下压到 48dp。 */
 val DockMinTabWidth = 48.dp
+
+/**
+ * 浮层（待办页撤销条等）与停靠栏之间的留白。
+ * 浮层底边 inset = 导航栏 inset + `BottomBarPadding` + [DockBallSize] + 本值；
+ * 用 `max(FloatingContentBottom, …)` 兜住列表底部留白，避免最后一条被球压住。
+ */
+val DockOverlayGap = 12.dp

@@ -102,8 +102,8 @@
     <string name="todo_delete">Delete</string>
     <string name="todo_empty">No todos yet</string>
     <string name="todo_list_title">Todos</string>
-    <string name="todo_group_pending">Incomplete</string>
-    <string name="todo_group_done">Done (%1$d)</string>
+    <string name="todo_group_other">Other</string>
+    <string name="todo_group_done_plain">Completed</string>
     <string name="todo_settings_title">Todo settings</string>
     <string name="todo_settings_group_notify">Reminders</string>
     <string name="todo_settings_group_done">Completed</string>
@@ -118,13 +118,6 @@
     <string name="todo_group_collapse">Collapse</string>
     <string name="todo_save">Save</string>
     <string name="todo_text_hint">e.g. Buy milk, pay electricity bill</string>
-    <!-- Same wording as :feature:widget's widget_todo_complete_* (same-value mirror across modules, see architecture §7.5). -->
-    <string name="todo_complete_confirm_title">Complete todo</string>
-    <string name="todo_complete_confirm_text">Mark "%1$s" as complete?</string>
-    <string name="todo_complete_confirm_action">Complete</string>
-    <string name="todo_uncomplete_confirm_title">Undo complete</string>
-    <string name="todo_uncomplete_confirm_text">Restore "%1$s" to incomplete?</string>
-    <string name="todo_uncomplete_confirm_action">Undo</string>
 
     <!-- Todo reminders -->
     <string name="todo_reminder_add">Add reminder</string>
@@ -147,6 +140,27 @@
     <string name="todo_reminder_snooze_hours">Snooze %1$d h</string>
     <string name="todo_reminder_snooze_hours_minutes">Snooze %1$d h %2$d min</string>
     <string name="todo_reminder_setting">Snooze duration</string>
+
+    <!-- Todo page (ui-guidelines §4.1 exception): urgency headers, card rows, undo bar. -->
+    <string name="todo_group_overdue">Overdue</string>
+    <string name="todo_group_today">Today</string>
+    <string name="todo_group_upcoming">Upcoming</string>
+    <string name="todo_undo_complete">Completed “%1$s”</string>
+    <string name="todo_undo_delete">Deleted “%1$s”</string>
+    <string name="todo_undo_action">Undo</string>
+    <string name="todo_progress_remaining">%1$d to do</string>
+    <string name="todo_progress_all_done">All done</string>
+    <string name="todo_progress_overdue">%1$d overdue</string>
+    <string name="todo_progress_done">%1$d completed</string>
+    <string name="todo_swipe_complete">Swipe to complete</string>
+    <string name="todo_swipe_delete">Swipe to delete</string>
+    <string name="todo_check_complete">Mark done: %1$s</string>
+    <string name="todo_check_uncomplete">Mark not done: %1$s</string>
+    <string name="todo_action_complete">Mark done</string>
+    <string name="todo_action_uncomplete">Mark not done</string>
+    <string name="todo_done_completed_at">Completed %1$s</string>
+    <string name="todo_done_expand">Show full text</string>
+    <string name="todo_done_collapse">Collapse text</string>
     <string name="habit_add">New habit</string>
     <string name="habit_group_today_due">Due today</string>
     <string name="habit_group_today_done">Done today</string>

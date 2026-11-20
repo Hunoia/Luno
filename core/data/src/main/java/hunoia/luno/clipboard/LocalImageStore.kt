@@ -7,7 +7,7 @@ import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
-import java.util.UUID
+import java.security.MessageDigest
 import hunoia.luno.config.model.ClipboardImageMaxBytes
 import hunoia.luno.config.model.ClipboardImageMaxPx
 import hunoia.luno.core.LOG_TAG
@@ -76,7 +76,10 @@ internal object LocalImageStore {
     }
 
     private fun write(context: Context, dirName: String, bytes: ByteArray): String {
-        val name = "${UUID.randomUUID()}.jpg"
+        // 文件名 = 内容哈希：同一张图（落盘字节全等）每次映射到同一文件名，
+        // `ClipboardHistory.record` 的图片去重键（"i:文件名"）才能命中 —— 随机 UUID
+        // 会让同一张图每次复制都成新条目（去重键永远不同）。
+        val name = clipboardImageName(bytes)
         File(dir(context, dirName), name).writeBytes(bytes)
         return name
     }
@@ -116,3 +119,14 @@ internal object LocalImageStore {
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }.getOrNull()
 }
+
+/**
+ * 剪贴板图片副本文件名 = 落盘字节的 SHA-256 十六进制 + ".jpg"。
+ *
+ * 内容哈希而非随机名：同一张图（落盘字节全等）映射到同一文件名，`ClipboardHistory.record`
+ * 的图片去重键（`"i:文件名"`）才能命中，避免「同一张图复制两次出现两条记录」。
+ * 纯函数，JVM 单测覆盖（同字节同名 / 异字节异名 / 后缀与长度）。
+ */
+internal fun clipboardImageName(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes)
+        .joinToString("") { "%02x".format(it) } + ".jpg"

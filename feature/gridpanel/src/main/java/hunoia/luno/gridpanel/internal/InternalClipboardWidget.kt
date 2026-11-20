@@ -1,5 +1,6 @@
 package hunoia.luno.gridpanel.internal
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -8,18 +9,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
@@ -56,6 +58,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
@@ -83,6 +86,7 @@ import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ClipboardTabBarMinCellHeight
 import hunoia.luno.ui.theme.GridCellSpacing
+import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.theme.containerShape
@@ -96,11 +100,19 @@ private val CompactMaxWidth = 210.dp
 private val CompactMaxHeight = 190.dp
 
 /**
- * 多列网格的最小格宽（≈2 个面板格）：宽度够才加一列，文字格不致过窄。
- * 面板卡宽固定（默认 0.72 × 屏宽），整宽部件内容宽恒约 231dp，因此上限 2 列；
- * 若下调到 <96dp，需同步收紧文本排版（两行在 fontScale 2.0 下会裁）。
+ * 部件内卡宽（dp）上下界。列数由 [ClipboardCardMinWidth] 驱动（能塞几列塞几列，
+ * 让卡随部件宽自适应变小）；卡宽统一夹到 [ClipboardCardMaxWidth]（文本/图片同宽）。
+ * 下限低于旧 112dp：大字体（fontScale 2.0）下 2 行文本会略挤，是「列数优先」的取舍。
  */
-private val GridMinCell = 112.dp
+private val ClipboardCardMinWidth = 88.dp
+private val ClipboardCardMaxWidth = 112.dp
+
+/**
+ * 图片卡高度按图片宽高比推（宽图 → 扁条、方图 → 方形、长图 → 高），夹到此范围：
+ * 下限兼作命中区（整卡可点复制），上限避免超长图片把行顶得过高。
+ */
+private val ClipboardImageMinHeight = 48.dp
+private val ClipboardImageMaxHeight = 160.dp
 
 /**
  * 剪贴板页面部件：历史（文本 + 图片缩略图，最新在最前），多列网格自适应宽度。
@@ -123,8 +135,9 @@ fun ClipboardPageCell(
     spanY: Int = 3,
     /** 编辑态=false：条目点按/菜单全禁，事件让给层根拖拽/缩放。 */
     enabled: Boolean = true,
+    /** 单功能面板整页（false）：底部「文本/图片」tab 栏齐平面板底边，与面板衔接。 */
+    isGridItem: Boolean = true,
 ) {
-    val outerPadding = PaddingValues(WidgetInnerPadding)
     val closePanel = LocalGridPanelClose.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -208,14 +221,14 @@ fun ClipboardPageCell(
         EmptyClipboardHint(
             message = stringResource(R.string.grid_panel_clipboard_empty),
             vertical = spanY > spanX,
-            modifier = modifier.fillMaxSize().padding(outerPadding),
+            modifier = modifier.fillMaxSize().padding(WidgetInnerPadding),
         )
         return
     }
 
     // 当前 tab 的条目：固定项置顶，其余按新→旧（`ClipboardHistory.ofKind` 一份口径）。
     val ordered = if (tab == ClipKind.TEXT) textEntries else imageEntries
-    val gridState = rememberLazyGridState()
+    val gridState = rememberLazyStaggeredGridState()
     // 切 tab 回顶：新内容从头部开始（固定组在顶）。
     LaunchedEffect(tab) { gridState.scrollToItem(0) }
     // 只拦惯性：网格 fling 到边后剩余速度不再带动面板；直接拖到边界仍会滑面板。
@@ -226,30 +239,41 @@ fun ClipboardPageCell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .padding(outerPadding),
+            // 侧/上留白由容器给，底部交给 tab 栏（单面板齐平衔接、网格项保 4dp 内边距）。
+            .padding(
+                start = WidgetInnerPadding,
+                top = WidgetInnerPadding,
+                end = WidgetInnerPadding,
+            ),
     ) {
         // 1 行高的格子放不下 tab 栏（会吃掉整个网格区）：此时只按自动类型显示，
         // 拉高部件后再切换；两者都从同一份 [chosenTab] 派生。
         val showTabs = enabled && maxHeight >= ClipboardTabBarMinCellHeight
         // 紧凑阈值与资源监控同一口径（部件自有几何，不进主题）：低于它收紧三点 / 文本排版。
         val compact = maxWidth < CompactMaxWidth || maxHeight < CompactMaxHeight
-        // 列数由内容宽推（多列阈值在部件内，不再让主题层背单点 token）；上限占格，最少 1 列。
-        val columns = (maxWidth / GridMinCell).toInt().coerceIn(1, spanX.coerceAtLeast(1))
+        // 列数由 [ClipboardCardMinWidth] 驱动：能塞几列塞几列（卡宽随之自适应变小），
+        // 上限占格、最少 1 列。列宽再按剩余空间均分，卡宽统一夹到 [ClipboardCardMaxWidth]。
+        val gap = GridCellSpacing
+        val columns = ((maxWidth + gap) / (ClipboardCardMinWidth + gap)).toInt()
+            .coerceIn(1, spanX.coerceAtLeast(1))
+        val columnW = ((maxWidth - gap * (columns - 1)) / columns).coerceAtLeast(24.dp)
+        val cardW = minOf(columnW, ClipboardCardMaxWidth)
         Column(modifier = Modifier.fillMaxSize()) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(columns),
+            // 错落布局：同排项不强制等高，文本按 1–5 行、图片按宽高比，各列纵向错开。
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Fixed(columns),
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .nestedScroll(flingGate),
                 state = gridState,
-                verticalArrangement = Arrangement.spacedBy(GridCellSpacing),
+                verticalItemSpacing = GridCellSpacing,
                 horizontalArrangement = Arrangement.spacedBy(GridCellSpacing),
                 // 编辑态禁用内部滚动：否则在部件上拖会滚网格而不拖项。
                 userScrollEnabled = enabled,
             ) {
                 if (ordered.isEmpty()) {
-                    item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                    item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
                         EmptyClipboardHint(
                             message = stringResource(
                                 if (tab == ClipKind.TEXT) R.string.grid_panel_clipboard_empty_text
@@ -261,81 +285,87 @@ fun ClipboardPageCell(
                     }
                 } else {
                     items(ordered, key = { it.id }) { entry ->
-                        HistoryCell(
-                            entry = entry,
-                            enabled = enabled,
-                            // 新条目进入 / 删除 / 固定重排走放置动画（ui-guidelines §3.2 第 6 条）。
-                            modifier = Modifier.animateItem(),
-                            compact = compact,
-                            onCopy = { copyAndClose(entry) },
-                            onPin = { togglePin(entry) },
-                            onShare = { share(entry) },
-                            onFloat = {
-                                ClipFloatDispatch.show?.invoke(context, entry.id)
-                                closePanel()
-                            },
-                            onDelete = {
-                                scope.launch {
-                                    runCatching { ClipboardCenter.remove(entry.id) }
-                                }
-                            },
-                            onDragStart = { windowPos, screenPos ->
-                                when {
-                                    entry.kind == ClipKind.TEXT && entry.text.isNotBlank() ->
-                                        ghost?.begin(entry.text, windowPos)
-                                    entry.kind == ClipKind.IMAGE && !entry.imagePath.isNullOrBlank() ->
-                                        ghost?.begin(imageLabel, windowPos)
-                                }
-                                ghost?.moveDrag(screenPos)
-                            },
-                            onDrag = { windowPos, screenPos ->
-                                ghost?.move(windowPos)
-                                ghost?.moveDrag(screenPos)
-                            },
-                            onDragThresholdPassed = {
-                                ghost?.hideChrome()
-                                ghost?.beginDrag(dragSlots)
-                            },
-                            onDragEnd = { screenPos ->
-                                val action = ghost?.resolveDrag(screenPos)
-                                    ?.let { id -> ClipDragAction.entries.firstOrNull { it.name == id } }
-                                when (action) {
-                                    // 落空（条体范围外松手）= 默认插入到落点；命中「取消」则反悔。
-                                    ClipDragAction.CANCEL -> {
-                                        ghost.showChrome()
-                                        ghost.end()
+                        // 卡宽被 [ClipboardCardMaxWidth] 截断时在格内居中（留对称边隙）；
+                        // 放置动画（ui-guidelines §3.2 第 6 条）在格层，不随卡宽/卡高。
+                        Box(
+                            modifier = Modifier.fillMaxWidth().animateItem(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            HistoryCell(
+                                entry = entry,
+                                enabled = enabled,
+                                cardW = cardW,
+                                compact = compact,
+                                onCopy = { copyAndClose(entry) },
+                                onPin = { togglePin(entry) },
+                                onShare = { share(entry) },
+                                onFloat = {
+                                    ClipFloatDispatch.show?.invoke(context, entry.id)
+                                    closePanel()
+                                },
+                                onDelete = {
+                                    scope.launch {
+                                        runCatching { ClipboardCenter.remove(entry.id) }
                                     }
-                                    null -> when {
+                                },
+                                onDragStart = { windowPos, screenPos ->
+                                    when {
                                         entry.kind == ClipKind.TEXT && entry.text.isNotBlank() ->
-                                            dropToInput(entry.text, screenPos)
-                                        entry.kind == ClipKind.IMAGE -> entry.imagePath
-                                            ?.takeIf { it.isNotBlank() }
-                                            ?.let { path ->
-                                                ghost?.end()
-                                                dropImageToInput(path, entry.mime, screenPos, closePanel)
-                                            }
+                                            ghost?.begin(entry.text, windowPos)
+                                        entry.kind == ClipKind.IMAGE && !entry.imagePath.isNullOrBlank() ->
+                                            ghost?.begin(imageLabel, windowPos)
                                     }
-                                    ClipDragAction.COPY -> {
-                                        ghost.end()
-                                        copyAndClose(entry)
+                                    ghost?.moveDrag(screenPos)
+                                },
+                                onDrag = { windowPos, screenPos ->
+                                    ghost?.move(windowPos)
+                                    ghost?.moveDrag(screenPos)
+                                },
+                                onDragThresholdPassed = {
+                                    ghost?.hideChrome()
+                                    ghost?.beginDrag(dragSlots)
+                                },
+                                onDragEnd = { screenPos ->
+                                    val action = ghost?.resolveDrag(screenPos)
+                                        ?.let { id -> ClipDragAction.entries.firstOrNull { it.name == id } }
+                                    when (action) {
+                                        // 落空（条体范围外松手）= 默认插入到落点；命中「取消」则反悔。
+                                        ClipDragAction.CANCEL -> {
+                                            ghost.showChrome()
+                                            ghost.end()
+                                        }
+                                        null -> when {
+                                            entry.kind == ClipKind.TEXT && entry.text.isNotBlank() ->
+                                                dropToInput(entry.text, screenPos)
+                                            entry.kind == ClipKind.IMAGE -> entry.imagePath
+                                                ?.takeIf { it.isNotBlank() }
+                                                ?.let { path ->
+                                                    ghost?.end()
+                                                    dropImageToInput(path, entry.mime, screenPos, closePanel)
+                                                }
+                                        }
+                                        ClipDragAction.COPY -> {
+                                            ghost.end()
+                                            copyAndClose(entry)
+                                        }
+                                        ClipDragAction.FLOAT -> {
+                                            ghost.end()
+                                            ClipFloatDispatch.show?.invoke(context, entry.id)
+                                            closePanel()
+                                        }
+                                        ClipDragAction.SHARE -> {
+                                            ghost.end()
+                                            share(entry)
+                                        }
                                     }
-                                    ClipDragAction.FLOAT -> {
-                                        ghost.end()
-                                        ClipFloatDispatch.show?.invoke(context, entry.id)
-                                        closePanel()
-                                    }
-                                    ClipDragAction.SHARE -> {
-                                        ghost.end()
-                                        share(entry)
-                                    }
-                                }
-                            },
-                            onDragCancel = {
-                                ghost?.showChrome()
-                                ghost?.end()
-                                ghost?.endDrag()
-                            },
-                        )
+                                },
+                                onDragCancel = {
+                                    ghost?.showChrome()
+                                    ghost?.end()
+                                    ghost?.endDrag()
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -343,7 +373,12 @@ fun ClipboardPageCell(
                 ClipboardTabBar(
                     tab = tab,
                     onTabChange = { chosenTab = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = WidgetInnerPadding),
+                    // 单面板：底部 0 内边距，齐平面板底边（与面板衔接）；网格项保留 4dp。
+                    flushBottom = !isGridItem,
+                    modifier = Modifier.fillMaxWidth().padding(
+                        top = WidgetInnerPadding,
+                        bottom = if (isGridItem) WidgetInnerPadding else 0.dp,
+                    ),
                 )
             }
         }
@@ -351,14 +386,17 @@ fun ClipboardPageCell(
 }
 
 /**
- * 多列网格里的历史格：文本（两行省略）或方形图片缩略图，角上叠固定徽标与三点菜单
- * （复制 / 固定 / 悬浮 / 分享 / 删除）。整格 [itemDrag]：短按写回并关面板；长按拖出
- * 插入 / 动作条（见 [dropToInput]）。
+ * 多列网格里的历史格：文本（按内容 1–5 行省略）或图片缩略图（宽按 [cardW]、高按图片
+ * 宽高比，夹到 [ClipboardImageMinHeight]..[ClipboardImageMaxHeight]），角上叠固定徽标与
+ * 三点菜单（复制 / 固定 / 悬浮 / 分享 / 删除）。整格 [itemDrag]：短按写回并关面板；
+ * 长按拖出插入 / 动作条（见 [dropToInput]）。
  */
 @Composable
 private fun HistoryCell(
     entry: ClipboardEntry,
     enabled: Boolean,
+    /** 卡宽（部件列宽推得，已夹到 [ClipboardCardMaxWidth]）；文本/图片同宽。 */
+    cardW: Dp,
     modifier: Modifier = Modifier,
     /** 部件整体短/窄（低于 [CompactMaxWidth] / [CompactMaxHeight]）：三点缩到 20dp、文本上留白收紧。 */
     compact: Boolean,
@@ -387,11 +425,36 @@ private fun HistoryCell(
     val imageDesc = stringResource(R.string.grid_panel_clipboard_image)
     val pinnedState = stringResource(R.string.grid_panel_clipboard_pinned)
     val copyLabel = stringResource(R.string.grid_panel_clipboard_copy)
+    // 图片缩略图高度：按宽高比推（宽图 → 扁条、方图 → 方形、长图 → 高），夹到上下限；
+    // 比例用 BitmapFactory 只读文件头（不解码像素），按路径缓存；读不到/异常兜底方形。
+    val imageHeight = remember(entry.imagePath) {
+        entry.imagePath
+            ?.let { ClipboardCenter.imageFile(it) }
+            ?.let { file ->
+                runCatching {
+                    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(file.absolutePath, opts)
+                    if (opts.outWidth > 0 && opts.outHeight > 0) {
+                        opts.outWidth.toFloat() / opts.outHeight
+                    } else {
+                        null
+                    }
+                }.getOrNull()
+            }
+            ?.let { aspect -> (cardW / aspect).coerceIn(ClipboardImageMinHeight, ClipboardImageMaxHeight) }
+            ?: cardW
+    }
     Box(
         modifier = modifier
-            // 统一方形：网格不会把同排条目拉到等高，文本 1 行 / 2 行混排会锯齿。
-            .fillMaxWidth()
-            .aspectRatio(1f)
+            // 宽由 [cardW]；高按内容：文本随行数（1–5 行，命中区下限 48dp）、图片按宽高比。
+            .width(cardW)
+            .then(
+                if (entry.kind == ClipKind.TEXT) {
+                    Modifier.heightIn(min = MinInteractiveSize)
+                } else {
+                    Modifier.height(imageHeight)
+                },
+            )
             // 与外层格子同心：外角 ItemCorner、内边距 WidgetInnerPadding（ui-guidelines §2.1.4）。
             .clip(containerShape(ItemCorner - WidgetInnerPadding))
             .then(
@@ -427,16 +490,19 @@ private fun HistoryCell(
                 text = entry.text,
                 style = MaterialTheme.typography.bodySmall,
                 color = onCard,
-                maxLines = 2,
+                // 高度随内容（1–5 行），长文本省略；行高随 fontScale 长高（ui-guidelines §3）。
+                minLines = 1,
+                maxLines = 5,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .fillMaxWidth()
-                    // 上留白让开固定徽标（16dp + 3dp 底片）；右留白让开三点菜单命中区。
+                    // 三点菜单浮在文字右上角上（不占整卡竖向空间）：右留白只留 4dp 让文字
+                    // 延伸到按钮下方；上留白收紧到 10/8dp（紧凑档）。固定徽标（左上）同为覆盖式。
                     .padding(
                         start = CardInnerSpacing,
-                        end = if (enabled) menuSize + 4.dp else CardInnerSpacing,
-                        top = if (compact) 14.dp else 18.dp,
+                        end = if (enabled) 4.dp else CardInnerSpacing,
+                        top = if (compact) 8.dp else 10.dp,
                         bottom = CardInnerSpacing,
                     ),
             )
@@ -446,7 +512,8 @@ private fun HistoryCell(
                     model = file,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    // 满幅贴边：方形缩略图直接裁到格子的圆角，不再叠一层看不见的内角裁切。
+                    // 满幅贴边：宽按 [cardW]、高按宽高比（已夹上下限），直接裁到格子圆角，
+                    // 不再叠一层看不见的内角裁切；超长/超宽只裁多余的那一维。
                     modifier = Modifier.fillMaxSize(),
                     imageLoader = context.imageLoader,
                 )
@@ -528,10 +595,22 @@ private fun ClipboardTabBar(
     tab: ClipKind,
     onTabChange: (ClipKind) -> Unit,
     modifier: Modifier = Modifier,
+    /** 单面板整页：外下角放大到面板圆角（ItemCorner），与面板底边衔接（去掉底部间隙）。 */
+    flushBottom: Boolean = false,
 ) {
     val onCard = gridPanelOnCardColor
-    // 与外层格子同心（§2.1.4）：外角 ItemCorner − WidgetInnerPadding。
-    val shape = containerShape(ItemCorner - WidgetInnerPadding)
+    // 与外层格子同心（§2.1.4）：外角 ItemCorner − WidgetInnerPadding；单面板齐平衔接时
+    // 底角放大到 ItemCorner，贴着面板圆角弧线，与面板底边融为一体。
+    val shape = if (flushBottom) {
+        containerShape(
+            topStart = ItemCorner - WidgetInnerPadding,
+            topEnd = ItemCorner - WidgetInnerPadding,
+            bottomStart = ItemCorner,
+            bottomEnd = ItemCorner,
+        )
+    } else {
+        containerShape(ItemCorner - WidgetInnerPadding)
+    }
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(GridCellSpacing),
