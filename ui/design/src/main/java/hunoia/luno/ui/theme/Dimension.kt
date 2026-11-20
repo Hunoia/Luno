@@ -137,6 +137,10 @@ val CandidateMaxHeight = 96.dp
 val GridCellSpacing = 4.dp
 val AppItemPadding = 4.dp
 
+// 剪贴板部件画「文本 / 图片」tab 栏的最小可用高度：低于它（约 1 行高的格）tab 栏会吃掉
+// 整个网格区，此时只按自动类型显示内容，交给用户把部件拉高再切换。
+val ClipboardTabBarMinCellHeight = 120.dp
+
 // 应用抽屉的组头（⭐ 常用区 / 字母）：上留白拉开与上一节的距离，下留白贴近本节图标
 val AppSectionHeaderTopPadding = 6.dp
 val AppSectionHeaderBottomPadding = 2.dp
@@ -308,3 +312,9 @@ val HabitCalendarHeaderGap = 6.dp
 val HabitCalendarPaddingVertical = 12.dp
 val HabitDayTextAlpha = 0.6f
 val HabitWeekdayAlpha = 0.7f
+
+// 主页「今日习惯」行内近 7 天点阵：比日历格（HabitDayDotSize）更密，行尾只有一个打卡按钮，
+// 点阵本身不可点，因此点径可以小于 48dp 基线（ui-guidelines §1.6 的密排网格判据）。
+val HabitTodayDotSize = 10.dp
+val HabitTodayDotMarkSize = 6.dp
+val HabitTodayDotGap = 3.dp

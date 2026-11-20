@@ -111,4 +111,96 @@ class TodoConfigTest {
         val pruned = cfg.pruneDone(now, 7)
         assertTrue(pruned === cfg) // 无变化原样返回
     }
+
+    // ---------- doneRetentionDays ----------
+
+    @Test
+    fun `retention default is 7`() {
+        assertEquals(7, TodoConfig().doneRetentionDays)
+    }
+
+    @Test
+    fun `retention clamps to allowed range`() {
+        assertEquals(TodoDoneRetentionMinDays, TodoConfig().withDoneRetentionDays(0).doneRetentionDays)
+        assertEquals(TodoDoneRetentionMaxDays, TodoConfig().withDoneRetentionDays(90).doneRetentionDays)
+        assertEquals(14, TodoConfig().withDoneRetentionDays(14).doneRetentionDays)
+    }
+
+    @Test
+    fun `done count ignores pending`() {
+        val cfg = TodoConfig(
+            todos = listOf(
+                TodoItem(id = "t1"),
+                TodoItem(id = "t2", done = true, completedAt = now),
+                TodoItem(id = "t3", done = true, completedAt = now),
+            ),
+        )
+        assertEquals(2, cfg.doneCount)
+    }
+
+    // ---------- clearDone ----------
+
+    @Test
+    fun `clear done removes only completed`() {
+        val cfg = TodoConfig(
+            todos = listOf(
+                TodoItem(id = "t1"),
+                TodoItem(id = "t2", done = true, completedAt = now),
+                TodoItem(id = "t3", done = true, completedAt = now - 3 * day),
+            ),
+        )
+        val cleared = cfg.clearDone()
+        assertEquals(1, cleared.todos.size)
+        assertTrue(cleared.todoById("t1") != null)
+        assertTrue(cleared.todoById("t2") == null)
+        assertTrue(cleared.todoById("t3") == null)
+    }
+
+    @Test
+    fun `clear done keeps pending order`() {
+        val cfg = TodoConfig(
+            todos = listOf(
+                TodoItem(id = "a"),
+                TodoItem(id = "b", done = true, completedAt = now),
+                TodoItem(id = "c"),
+            ),
+        )
+        val cleared = cfg.clearDone()
+        assertEquals(listOf("a", "c"), cleared.todos.map { it.id })
+    }
+
+    // ---------- 预览计数与裁剪同一口径 ----------
+
+    @Test
+    fun `count prunable matches what prune removes`() {
+        val cfg = TodoConfig(
+            todos = listOf(
+                TodoItem(id = "t1", done = true, completedAt = now),
+                TodoItem(id = "t2", done = true, completedAt = now - 5 * day),
+                TodoItem(id = "t3", done = true, completedAt = now - 8 * day),
+                TodoItem(id = "t4", done = true, completedAt = now - 20 * day),
+                TodoItem(id = "t5"),
+            ),
+        )
+        val expected = cfg.countPrunable(now, 7)
+        assertEquals(2, expected)
+        assertEquals(cfg.todos.size - expected, cfg.pruneDone(now, 7).todos.size)
+    }
+
+    @Test
+    fun `prune clamps out of range retention`() {
+        // 存进来的档位若被导入 / 手改成越界值，裁剪也要按声明区间走（0 天不能等于「全删」）。
+        val cfg = TodoConfig(
+            todos = listOf(TodoItem(id = "t1", done = true, completedAt = now - day / 2)),
+        )
+        assertEquals(0, cfg.countPrunable(now, 0))
+        assertTrue(cfg.pruneDone(now, 0).todoById("t1") != null)
+    }
+
+    @Test
+    fun `retention normalizer is the single clamp`() {
+        assertEquals(TodoDoneRetentionMinDays, normalizeDoneRetentionDays(-3))
+        assertEquals(TodoDoneRetentionMaxDays, normalizeDoneRetentionDays(365))
+        assertEquals(14, normalizeDoneRetentionDays(14))
+    }
 }

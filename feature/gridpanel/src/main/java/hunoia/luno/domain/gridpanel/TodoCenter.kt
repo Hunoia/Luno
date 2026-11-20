@@ -30,4 +30,12 @@ object TodoCenter {
     /** 待办域全局推迟时长（分钟）：只影响通知「推迟」后的重弹间隔，不改原提醒时间。 */
     suspend fun setReminderSnoozeMinutes(minutes: Int) =
         ConfigProvider.updateTodoConfig { it.withReminderSnoozeMinutes(minutes) }
+
+    /** 已完成保留天数：降低档位时立即裁剪旧数据。 */
+    suspend fun setDoneRetentionDays(days: Int) =
+        ConfigProvider.setDoneRetentionDays(days)
+
+    /** 清空全部已完成代办（保留未完成）。 */
+    suspend fun clearDoneTodos() =
+        ConfigProvider.clearDoneTodos()
 }

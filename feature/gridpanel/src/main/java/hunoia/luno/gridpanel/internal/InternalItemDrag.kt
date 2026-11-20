@@ -2,6 +2,8 @@ package hunoia.luno.gridpanel.internal
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -116,11 +118,15 @@ internal class ItemDragHandlers(
  * 条目的统一手势：短按 [ItemDragHandlers.onTap]；长按拿起后可拖到面板外的输入框。
  *
  * [draggable] = false：长按没有可拖的内容，等同一次点按。
+ *
+ * 按压反馈：按压缩放需要 press 事件，这里按下发 `PressInteraction.Press`、
+ * 终点按抬起/取消发 `Release` / `Cancel`（ui-guidelines §5.3，面板内可点项一律按压缩放）。
  */
 @Composable
 internal fun Modifier.itemDrag(
     key: Any,
     draggable: Boolean,
+    interactionSource: MutableInteractionSource,
     handlers: ItemDragHandlers,
 ): Modifier {
     val view = LocalView.current
@@ -133,12 +139,16 @@ internal fun Modifier.itemDrag(
             coords = it
             origin = it.positionInWindow()
         }
-        .pointerInput(key, draggable) {
+        .pointerInput(key, draggable, interactionSource) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 // 吃掉 down：面板根的「点空白关窗 / 长按进编辑」不再把这次按压当自己的。
                 // 列表滚动不受影响：scrollable 用 requireUnconsumed=false 看后续移动。
                 down.consume()
+                val press = PressInteraction.Press(down.position)
+                interactionSource.tryEmit(press)
+                fun release() = interactionSource.tryEmit(PressInteraction.Release(press))
+                fun cancel() = interactionSource.tryEmit(PressInteraction.Cancel(press))
                 // 长按前：抬手 = 点按；滑出 slop = 让给列表滚动/面板翻页。
                 var tapUp: PointerInputChange? = null
                 val longPressed = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
@@ -162,11 +172,13 @@ internal fun Modifier.itemDrag(
                         up.consume()
                         handlers.onTap()
                     }
+                    release()
                     return@awaitEachGesture
                 }
                 if (!draggable) {
                     // 没有可拖内容：长按等同一次点按。
                     handlers.onTap()
+                    release()
                     return@awaitEachGesture
                 }
                 // 长按成立：拿起。之后手指移动就是拖拽，抬手按落点找输入框。
@@ -199,8 +211,10 @@ internal fun Modifier.itemDrag(
                 }
                 if (moved >= dragSlopPx) {
                     handlers.onDragEnd(screenOf(lastLocal))
+                    release()
                 } else {
                     handlers.onDragCancel()
+                    cancel()
                 }
             }
         }

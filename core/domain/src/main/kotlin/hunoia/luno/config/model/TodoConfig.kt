@@ -4,10 +4,21 @@ import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
-/** 已完成代办保留天数：完成超 `now − retention` 天写时惰性裁剪，避免无限增长。 */
-const val TodoDoneRetentionDays = 7
+/** 已完成代办保留天数默认值：完成超 `now − retention` 天写时惰性裁剪，避免无限增长。 */
+const val TodoDefaultDoneRetentionDays = 7
+
+/** 已完成保留天数可选范围（天）。 */
+const val TodoDoneRetentionMinDays = 1
+const val TodoDoneRetentionMaxDays = 30
 
 private const val DayMillis = 86_400_000L
+
+/**
+ * 保留天数收敛到允许范围：[withDoneRetentionDays] 写入与 [TodoConfig.pruneDone] /
+ * [TodoConfig.countPrunable] 读取共用这一份，避免「存进去的档位」与「按档裁剪」两套口径。
+ */
+fun normalizeDoneRetentionDays(days: Int): Int =
+    days.coerceIn(TodoDoneRetentionMinDays, TodoDoneRetentionMaxDays)
 
 /**
  * 一个代办。一次性任务：只有文字 + 完成标记（无 streak / interval / 历史点阵）。
@@ -46,12 +57,25 @@ data class TodoConfig(
      * [TodoMinSnoozeMinutes]..[TodoMaxSnoozeMinutes]。只影响推迟重弹，不改原提醒时间。
      */
     val reminderSnoozeMinutes: Int = TodoDefaultSnoozeMinutes,
+    /**
+     * 已完成代办保留天数：完成超 `now − retention` 天写时惰性裁剪，范围
+     * [TodoDoneRetentionMinDays]..[TodoDoneRetentionMaxDays]。设置页可调，降低后立即裁剪。
+     */
+    val doneRetentionDays: Int = TodoDefaultDoneRetentionDays,
 ) {
 
     val pendingCount: Int get() = todos.count { !it.done }
 
+    val doneCount: Int get() = todos.count { it.done }
+
     fun withReminderSnoozeMinutes(minutes: Int): TodoConfig =
         copy(reminderSnoozeMinutes = minutes.coerceIn(TodoMinSnoozeMinutes, TodoMaxSnoozeMinutes))
+
+    fun withDoneRetentionDays(days: Int): TodoConfig =
+        copy(doneRetentionDays = normalizeDoneRetentionDays(days))
+
+    /** 清空全部已完成代办（保留未完成）。 */
+    fun clearDone(): TodoConfig = copy(todos = todos.filterNot { it.done })
 
     fun todoById(id: String): TodoItem? = todos.firstOrNull { it.id == id }
 
@@ -82,14 +106,24 @@ data class TodoConfig(
     }
 
     /**
+     * 按 [retentionDays] 会被裁掉的已完成条数（设置页「将删除 N 项」的预览）。
+     * 与 [pruneDone] 共用同一判定，预览数字与真正落盘结果不会分叉。
+     */
+    fun countPrunable(nowMillis: Long, retentionDays: Int): Int =
+        todos.count { isPrunable(it, nowMillis, retentionDays) }
+
+    /**
      * 惰性裁剪：移除完成超 `now − retentionDays` 天的代办。无变化原样返回（避免无意义写盘）。
-     * 写时调用，存储有界（见 [TodoDoneRetentionDays]）。
+     * 写时调用，存储有界；保留天数见 [doneRetentionDays]，调用方传当前配置值。
      */
     fun pruneDone(nowMillis: Long, retentionDays: Int): TodoConfig {
-        val cutoff = nowMillis - retentionDays.coerceAtLeast(0) * DayMillis
-        val next = todos.filterNot { todo ->
-            todo.done && todo.completedAt?.let { it < cutoff } == true
-        }
+        val next = todos.filterNot { isPrunable(it, nowMillis, retentionDays) }
         return if (next == todos) this else copy(todos = next)
+    }
+
+    /** 该条是否已超过保留期（[countPrunable] 与 [pruneDone] 的唯一判定）。 */
+    private fun isPrunable(todo: TodoItem, nowMillis: Long, retentionDays: Int): Boolean {
+        val cutoff = nowMillis - normalizeDoneRetentionDays(retentionDays) * DayMillis
+        return todo.done && todo.completedAt?.let { it < cutoff } == true
     }
 }

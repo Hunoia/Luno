@@ -17,32 +17,45 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.GridPanelDragGhost
+import hunoia.luno.ui.overlay.EdgeBarEdge
 import hunoia.luno.ui.theme.containerShape
 import kotlin.math.roundToInt
 
 /**
  * 面板根层的拖拽幽灵：**中心**对准手指、不被格子裁剪。不吃触摸（没有 pointerInput），
  * 事件照常落到下面的列表/拖拽检测节点上。
+ *
+ * 剪贴板部件带动作条拖拽时（[GridPanelDragGhost.dragActive]），卡片沿动作条法线方向
+ * 让位（见 [GridPanelDragGhost.dragBar]），避免盖住要松手的那一格。
  */
 @Composable
 fun GridPanelDragGhostLayer(ghost: GridPanelDragGhost, modifier: Modifier = Modifier) {
     if (!ghost.active) return
     // 幽灵宽度随文本变化，中心对齐要等它量出来才知道；量到之前按左上角跟手，不会跳。
     var size by remember { mutableStateOf(IntSize.Zero) }
+    val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
     Box(modifier.fillMaxSize()) {
+        // 带动作条：卡片中心让开条体（法线方向推到屏内那侧），露出整条动作条。
+        val bar = if (ghost.dragActive) ghost.dragBar else null
+        var left = ghost.position.x - size.width / 2f
+        var top = ghost.position.y - size.height / 2f
+        bar?.let {
+            when (it.edge) {
+                EdgeBarEdge.LEFT -> left = maxOf(left, it.bounds.right + gapPx)
+                EdgeBarEdge.RIGHT -> left = minOf(left, it.bounds.left - gapPx - size.width)
+                EdgeBarEdge.TOP -> top = maxOf(top, it.bounds.bottom + gapPx)
+                EdgeBarEdge.BOTTOM -> top = minOf(top, it.bounds.top - gapPx - size.height)
+            }
+        }
         Surface(
             modifier = Modifier
-                .offset {
-                    IntOffset(
-                        (ghost.position.x - size.width / 2f).roundToInt(),
-                        (ghost.position.y - size.height / 2f).roundToInt(),
-                    )
-                }
+                .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
                 .widthIn(max = 240.dp)
                 .alpha(0.94f)
                 .onSizeChanged { size = it },

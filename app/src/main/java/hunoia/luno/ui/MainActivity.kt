@@ -24,7 +24,7 @@ import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.TrendExtras
 import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.log.IncidentNotifier
-import hunoia.luno.ui.navigation.PendingHabitEdit
+import hunoia.luno.ui.navigation.PendingHabitDetail
 import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingTrendRecord
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
             HabitReminderNotifier.warmupIsland(applicationContext)
         }
 
-        handleHabitEditIntent(intent)
+        handleHabitDetailIntent(intent)
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
         handleIncidentIntent(intent)
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleHabitEditIntent(intent)
+        handleHabitDetailIntent(intent)
         handleTodoListIntent(intent)
         handleTrendIntent(intent)
         handleIncidentIntent(intent)
@@ -99,13 +99,13 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 习惯面板部件的「打开编辑页」：`HabitExtras.EXTRA_EDIT_HABIT_ID` 带 habit id。
-     * 导航由 [SideGestureApp] 消费 [PendingHabitEdit] 完成；这里只负责收件。
+     * 习惯部件 / 提醒通知的「打开详情页」：`HabitExtras.EXTRA_DETAIL_HABIT_ID` 带 habit id。
+     * 导航由 [SideGestureApp] 消费 [PendingHabitDetail] 完成；这里只负责收件。
      */
-    private fun handleHabitEditIntent(intent: Intent?) {
-        val habitId = intent?.getStringExtra(HabitExtras.EXTRA_EDIT_HABIT_ID) ?: return
-        intent.removeExtra(HabitExtras.EXTRA_EDIT_HABIT_ID)
-        PendingHabitEdit.request(habitId)
+    private fun handleHabitDetailIntent(intent: Intent?) {
+        val habitId = intent?.getStringExtra(HabitExtras.EXTRA_DETAIL_HABIT_ID) ?: return
+        intent.removeExtra(HabitExtras.EXTRA_DETAIL_HABIT_ID)
+        PendingHabitDetail.request(habitId)
     }
 
     /**

@@ -1,27 +1,14 @@
 package hunoia.luno.ui.component.screen
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.component.ListAddFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -29,7 +16,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.component.PressFloatingActionButton
 import hunoia.luno.ui.component.TextIcon
 
 /** 面板列表屏的一行：[id] 进编辑页，[title]/[subtitle] 展示。 */
@@ -76,30 +62,10 @@ fun PanelListScreen(
     var showCreateMenu by remember { mutableStateOf(false) }
 
     val addFab: @Composable () -> Unit = {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(end = 16.dp, bottom = 16.dp),
-            ) {
-                    PressFloatingActionButton(
-                        onClick = { showCreateMenu = true },
-                        modifier = Modifier.size(64.dp),
-                        shape = FloatingActionButtonDefaults.shape,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 0.dp,
-                            focusedElevation = 0.dp,
-                            hoveredElevation = 0.dp,
-                        ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = createItems.firstOrNull()?.label.orEmpty(),
-                        )
-                    }
+        ListAddFab(
+            onClick = { showCreateMenu = true },
+            contentDescription = createItems.firstOrNull()?.label.orEmpty(),
+            dropdown = {
                 LunoDropdownMenu(
                     expanded = showCreateMenu,
                     onDismissRequest = { showCreateMenu = false },
@@ -115,8 +81,8 @@ fun PanelListScreen(
                         )
                     }
                 }
-            }
-        }
+            },
+        )
     }
 
     val totalRows = sections.sumOf { it.rows.size }

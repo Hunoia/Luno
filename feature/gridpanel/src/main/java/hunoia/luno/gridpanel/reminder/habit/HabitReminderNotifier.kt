@@ -318,7 +318,7 @@ object HabitReminderNotifier {
                 null
             },
             timeoutSeconds = display.islandTimeoutSeconds,
-            contentIntentUri = editIntentUri(app, habit.id, test),
+            contentIntentUri = detailIntentUri(app, habit.id, test),
             actions = buildList {
                 doneIntentUri?.let {
                     add(
@@ -402,12 +402,12 @@ object HabitReminderNotifier {
         }
     }
 
-    private fun editIntentUri(app: Context, habitId: String, test: Boolean): String? {
+    private fun detailIntentUri(app: Context, habitId: String, test: Boolean): String? {
         val intent = if (test) {
             Intent().setClassName(app, "hunoia.luno.ui.MainActivity")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } else {
-            HabitExtras.editIntent(app, habitId)
+            HabitExtras.detailIntent(app, habitId)
         }
         return runCatching { intent.toUri(Intent.URI_INTENT_SCHEME) }.getOrNull()
     }
@@ -441,7 +441,7 @@ object HabitReminderNotifier {
         wantLive: Boolean,
         silent: Boolean = false,
     ) {
-        val contentIntent = editPendingIntent(app, habit.id, test, notificationId)
+        val contentIntent = detailPendingIntent(app, habit.id, test, notificationId)
         val doneIntent = actionPendingIntent(
             app,
             habit.id,
@@ -518,7 +518,7 @@ object HabitReminderNotifier {
         }.onFailure { LunoLog.w(LOG_TAG, "habit reminder notify failed: ${it.message}") }
     }
 
-    private fun editPendingIntent(
+    private fun detailPendingIntent(
         app: Context,
         habitId: String,
         test: Boolean,
@@ -530,7 +530,7 @@ object HabitReminderNotifier {
             Intent().setClassName(app, "hunoia.luno.ui.MainActivity")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } else {
-            HabitExtras.editIntent(app, habitId)
+            HabitExtras.detailIntent(app, habitId)
         },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )

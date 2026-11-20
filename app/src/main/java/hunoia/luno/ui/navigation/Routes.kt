@@ -101,6 +101,18 @@ data class HabitEdit(
     val habitId: String = "",
 )
 
+/** 习惯详情：近 30 天补卡 / 改历史 + 90 天热力图（与设置分开）。 */
+@Keep
+@Serializable
+data class HabitDetail(
+    val habitId: String = "",
+)
+
+/** 待办设置：推迟时长 / 已完成保留 / 清空。 */
+@Keep
+@Serializable
+data object TodoSettings
+
 /** 趋势详情；[openRecord] = 进页即弹快速记录（部件主体 / 提醒通知）。 */
 @Keep
 @Serializable

@@ -215,6 +215,18 @@ class ClipboardHistoryTest {
     }
 
     @Test
+    fun `of kind keeps pinned first and filters other kinds`() {
+        val out = ClipboardHistory()
+            .record(text("plain-new"), now = 1L)
+            .record(image("a.png"), now = 2L)
+            .record(text("fixed", pinned = true), now = 3L)
+            .record(image("b.png"), now = 4L)
+
+        assertEquals(listOf("fixed", "plain-new"), out.ofKind(ClipKind.TEXT).map { it.text })
+        assertEquals(listOf("b.png", "a.png"), out.ofKind(ClipKind.IMAGE).map { it.imagePath })
+    }
+
+    @Test
     fun `merge imported respects max entries`() {
         val merged = ClipboardHistory().mergeImported(
             (20 downTo 1).map { ClipboardExportEntry("t$it") },

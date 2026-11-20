@@ -64,6 +64,8 @@ import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SinglePanelEdit
 import hunoia.luno.ui.navigation.HabitEdit
+import hunoia.luno.ui.navigation.HabitDetail
+import hunoia.luno.ui.navigation.TodoSettings
 import hunoia.luno.ui.navigation.TrendDetail
 import hunoia.luno.ui.navigation.TrendEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
@@ -119,6 +121,8 @@ import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.gridpanel.habit.HabitEditScreen
+import hunoia.luno.gridpanel.habit.HabitDetailScreen
+import hunoia.luno.gridpanel.todo.TodoSettingsScreen
 import hunoia.luno.gridpanel.trend.TrendDetailScreen
 import hunoia.luno.gridpanel.trend.TrendEditScreen
 import hunoia.luno.quickaccess.settings.SearchEngineSettingsScreen
@@ -137,7 +141,7 @@ import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalPanelRefIcon
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
-import hunoia.luno.ui.navigation.PendingHabitEdit
+import hunoia.luno.ui.navigation.PendingHabitDetail
 import hunoia.luno.ui.navigation.PendingIncidentView
 import hunoia.luno.ui.navigation.PendingTrendRecord
 import hunoia.luno.gridpanel.todo.TodoListRequests
@@ -169,12 +173,12 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
         // 设置列表视觉风格：全局开关，LunoGroup 读取后决定分段式 / 大卡分割线。
         val advancedSettings by TuneConfig.advanced
             .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
-        // 习惯面板部件「打开编辑页」：跨进程 Intent → [PendingHabitEdit]，消费一次就跳对应编辑页。
-        val pendingHabitEditId by PendingHabitEdit.habitId.collectAsStateWithLifecycle()
-        LaunchedEffect(pendingHabitEditId) {
-            val habitId = pendingHabitEditId ?: return@LaunchedEffect
-            PendingHabitEdit.consume()
-            navController.navigate(HabitEdit(habitId)) { launchSingleTop = true }
+        // 习惯部件 / 提醒通知「打开详情页」：跨进程 Intent → [PendingHabitDetail]，消费一次就跳详情页。
+        val pendingHabitDetailId by PendingHabitDetail.habitId.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingHabitDetailId) {
+            val habitId = pendingHabitDetailId ?: return@LaunchedEffect
+            PendingHabitDetail.consume()
+            navController.navigate(HabitDetail(habitId)) { launchSingleTop = true }
         }
         // 趋势部件 / 提醒通知 → [PendingTrendRecord]：有指标进详情（可自动弹快速记录），无指标回主页趋势 tab。
         val pendingTrendOpen by PendingTrendRecord.open.collectAsStateWithLifecycle()
@@ -309,6 +313,12 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToHabitEdit = { habitId ->
                             navController.navigate(HabitEdit(habitId ?: ""))
+                        },
+                        onNavToHabitDetail = { habitId ->
+                            navController.navigate(HabitDetail(habitId))
+                        },
+                        onNavToTodoSettings = {
+                            navController.navigate(TodoSettings)
                         },
                         onNavToTrendEdit = { metricId ->
                             navController.navigate(TrendEdit(metricId ?: ""))
@@ -577,6 +587,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<HabitEdit> {
                     HabitEditScreen(
                         habitId = it.toRoute<HabitEdit>().habitId.takeIf { h -> h.isNotBlank() },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<HabitDetail> {
+                    HabitDetailScreen(
+                        habitId = it.toRoute<HabitDetail>().habitId,
+                        onBack = { navController.popBackStack() },
+                        onEdit = { habitId -> navController.navigate(HabitEdit(habitId)) },
+                    )
+                }
+                myComposable<TodoSettings> {
+                    TodoSettingsScreen(
                         onBack = { navController.popBackStack() },
                     )
                 }

@@ -220,11 +220,11 @@ private fun HeatmapBody(
     )
 
     Column(modifier = GlanceModifier.fillMaxSize()) {
-        // 标题行：主色点 + 「名 · N 天」；点击打开编辑页。
+        // 标题行：主色点 + 「名 · N 天」；点击打开详情页。
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .clickable(onClick = actionStartActivity(HabitExtras.editIntent(context, habit.id))),
+                .clickable(onClick = actionStartActivity(HabitExtras.detailIntent(context, habit.id))),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -263,7 +263,7 @@ private fun HeatmapBody(
                 ),
             )
         } else {
-            actionStartActivity(HabitExtras.editIntent(context, habit.id))
+            actionStartActivity(HabitExtras.detailIntent(context, habit.id))
         }
         Box(
             modifier = GlanceModifier

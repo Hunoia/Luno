@@ -61,6 +61,7 @@ import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.actions.library.ActionLibraryScreen
+import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.DefaultHomeDockSide
 import hunoia.luno.ui.component.HomeDock
 import hunoia.luno.ui.component.HomeDockSide
@@ -181,6 +182,8 @@ fun HomeScreen(
     onNavToClipboard: () -> Unit = {},
     onNavToAppControl: () -> Unit = {},
     onNavToHabitEdit: (habitId: String?) -> Unit = {},
+    onNavToHabitDetail: (habitId: String) -> Unit = {},
+    onNavToTodoSettings: () -> Unit = {},
     onNavToTrendEdit: (metricId: String?) -> Unit = {},
     onNavToTrendDetail: (metricId: String) -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
@@ -286,6 +289,25 @@ fun HomeScreen(
 
         HomeShell(
             title = stringResource(mainTab.titleRes),
+            actions = {
+                // 记录页的「设置」入口：执行面（今天的打卡 / 待办）与设置分开，管理项进二级页
+                // （ui-guidelines §3.1 模板选择：普通设置页用 LunoScreen，不塞进行内）。
+                // 习惯 tab 不设顶栏入口：行点按进详情页，编辑在详情页顶栏；待办 tab 齿轮 = 待办设置。
+                val openSettings: (() -> Unit)? = when (mainTab) {
+                    MainTab.Todos -> onNavToTodoSettings
+                    else -> null
+                }
+                openSettings?.let { onClick ->
+                    PressIconButton(onClick = onClick) {
+                        Icon(
+                            imageVector = Icons.TwoTone.Settings,
+                            contentDescription = stringResource(
+                                hunoia.luno.gridpanel.R.string.todo_settings_title,
+                            ),
+                        )
+                    }
+                }
+            },
             sheets = {
                 if (colorPickerTarget != null) {
                 val scheme = MaterialTheme.colorScheme
@@ -563,7 +585,8 @@ fun HomeScreen(
 
                         MainTab.Habits -> HabitListContent(
                             topPadding = topPadding,
-                            onEditHabit = onNavToHabitEdit,
+                            onOpenHabit = onNavToHabitDetail,
+                            onNewHabit = { onNavToHabitEdit(null) },
                             state = habitListState,
                         )
 
@@ -571,6 +594,7 @@ fun HomeScreen(
                             topPadding = topPadding,
                             addRequest = todoAddRequest,
                             onAddRequestHandled = { todoAddRequest = 0 },
+                            onNewTodo = { todoAddRequest++ },
                             state = todoListState,
                         )
 

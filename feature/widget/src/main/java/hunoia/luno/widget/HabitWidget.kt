@@ -85,7 +85,7 @@ internal val WidgetOuterTop = 14.dp
  *
  * 绑定：放置时经 [HabitWidgetConfigActivity] 挑一个习惯，写进每实例 state。
  * 交互：标题点击打开该习惯编辑页；点阵区今天可打卡时 → 普通确认弹窗（[WidgetConfirmDialogActivity]），
- * 已打卡 / 跳过时 → 直接打开编辑页。
+ * 已打卡 / 跳过时 → 直接打开详情页。
  *
  * 配色：主色 = `habit.colorSpec` 实时解析（自定义 ARGB / 主题角色，镜像 ui/design
  * `ColorSpec.toColor`），文字/背景走 `GlanceTheme.colors`（Material You 动态主题），
@@ -280,11 +280,11 @@ private fun HabitBody(
     Column(
         modifier = GlanceModifier.fillMaxSize(),
     ) {
-        // 标题行：主色点 + 「名 · N 天」；点击打开编辑页。
+        // 标题行：主色点 + 「名 · N 天」；点击打开详情页。
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .clickable(onClick = actionStartActivity(HabitExtras.editIntent(context, habit.id))),
+                .clickable(onClick = actionStartActivity(HabitExtras.detailIntent(context, habit.id))),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -324,7 +324,7 @@ private fun HabitBody(
                 ),
             )
         } else {
-            actionStartActivity(HabitExtras.editIntent(context, habit.id))
+            actionStartActivity(HabitExtras.detailIntent(context, habit.id))
         }
         Box(
             modifier = GlanceModifier

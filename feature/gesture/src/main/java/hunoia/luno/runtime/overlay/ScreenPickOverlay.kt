@@ -71,6 +71,9 @@ import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.ui.component.selection.SelectionHandle
+import hunoia.luno.ui.overlay.EdgeBar
+import hunoia.luno.ui.overlay.EdgeBarEdge
+import hunoia.luno.ui.overlay.EdgeBarLayout
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
 import hunoia.luno.ui.component.selection.resized
@@ -138,10 +141,11 @@ private const val AdjustMinSizeDp = 16f
 
 /**
  * 幽灵卡的一次快照：`anchor`/`finger` 是屏幕坐标；[ScreenPickScreen] 渲染前会减窗口原点。
- * 卡片与工具条的几何（含命中判定）由 [PortalLayout] 统一计算。
+ * 卡片几何由 [PortalLayout] 算；工具条几何（含命中判定）由 `:ui:design` 的
+ * [EdgeBarLayout] 统一计算（剪贴板部件的拖拽动作条读同一份）。
  *
  * [bar] / [activeSlot] / [slots] 是「拖到哪条边 + 指到哪一格」，由松手前的 MOVE 一路更新；
- * 松手结算用同一份 [PortalLayout.Bar]，渲染与命中不会分叉。
+ * 松手结算用同一份 [EdgeBar]，渲染与命中不会分叉。
  */
 private data class PortalState(
     val anchor: Offset?,
@@ -149,7 +153,7 @@ private data class PortalState(
     val content: PortalContent,
     val resolving: Boolean,
     val slots: List<PortalSlot>,
-    val bar: PortalLayout.Bar?,
+    val bar: EdgeBar?,
     val activeSlot: Int,
 )
 
@@ -295,7 +299,7 @@ class ScreenPickOverlay(
      *
      * [portalBar] 为 null = 手指没在任一条边的带宽内（工具条不出现，松手按设置取消）。
      */
-    private var portalBar by mutableStateOf<PortalLayout.Bar?>(null)
+    private var portalBar by mutableStateOf<EdgeBar?>(null)
     private var portalActiveSlot by mutableStateOf(-1)
 
     /**
@@ -500,16 +504,16 @@ class ScreenPickOverlay(
     /** 工具条几何（屏幕坐标）：没有格子（还在识别中 / 无内容）时不出现。 */
     private fun portalBarFor(
         finger: Offset,
-        insets: PortalLayout.Insets,
-        edge: PortalEdge?,
+        insets: EdgeBarLayout.Insets,
+        edge: EdgeBarEdge?,
         anchor: Offset?,
-    ): PortalLayout.Bar? {
+    ): EdgeBar? {
         if (portalSlots.isEmpty() || edge == null) return null
         // 锚点只在同一条边上有效（换边时 refreshPortalBar 会重新锁）。
         val axis = anchor?.let {
-            if (edge == PortalEdge.Left || edge == PortalEdge.Right) it.y else it.x
+            if (edge == EdgeBarEdge.LEFT || edge == EdgeBarEdge.RIGHT) it.y else it.x
         }
-        return PortalLayout.bar(
+        return EdgeBarLayout.bar(
             finger = finger,
             screenWidth = DensityProvider.screenWidthPx.toFloat(),
             screenHeight = DensityProvider.screenHeightPx.toFloat(),
@@ -521,7 +525,7 @@ class ScreenPickOverlay(
     }
 
     /** 锚点当前锁在哪条边上；null = 没有锚点。 */
-    private var anchorEdge: PortalEdge? = null
+    private var anchorEdge: EdgeBarEdge? = null
 
     private fun systemBars(): hunoia.luno.bridge.ui.SystemBarsSafeArea =
         host.context.windowManager().systemBarsSafeAreaOrNull()
@@ -535,8 +539,8 @@ class ScreenPickOverlay(
      */
     private fun refreshPortalBar(finger: Offset) {
         val area = systemBars()
-        val insets = PortalLayout.Insets(top = area.top.toFloat(), bottom = area.bottom.toFloat())
-        val edge = PortalLayout.edgeFor(
+        val insets = EdgeBarLayout.Insets(top = area.top.toFloat(), bottom = area.bottom.toFloat())
+        val edge = EdgeBarLayout.edgeFor(
             finger = finger,
             screenWidth = DensityProvider.screenWidthPx.toFloat(),
             screenHeight = DensityProvider.screenHeightPx.toFloat(),
@@ -552,7 +556,7 @@ class ScreenPickOverlay(
         }
         val bar = portalBarFor(finger, insets, edge, portalBarAnchor)
         portalBar = bar
-        portalActiveSlot = PortalLayout.hit(bar, finger) ?: -1
+        portalActiveSlot = EdgeBarLayout.hit(bar, finger) ?: -1
     }
 
     /** 锚点作废：工具条收起 / 换会话时调用，下一次浮出按当时手指位置重新锁定。 */
@@ -565,7 +569,7 @@ class ScreenPickOverlay(
      * 松手结算。落在格上就执行该格；否则按设置撤卡关层或留在识屏页
      * （留在识屏页时半透明拾取层保持不动，可继续长按取词 / 拖动框选，点空白仍是关层）。
      */
-    private fun settlePortal(bar: PortalLayout.Bar?, point: Offset) {
+    private fun settlePortal(bar: EdgeBar?, point: Offset) {
         val mode = screenPickSettings().portalReleaseMode
         when (val release = resolvePortalRelease(bar, point, mode)) {
             is PortalRelease.Act -> {

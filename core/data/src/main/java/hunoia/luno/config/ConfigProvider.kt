@@ -30,7 +30,6 @@ import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
-import hunoia.luno.config.model.TodoDoneRetentionDays
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.config.model.TrendEntry
@@ -245,10 +244,11 @@ object ConfigProvider {
         stores._todoConfig.updateData(transform)
     }
 
-    /** 切换完成态：done=true 记完成时刻。写后按保留天数惰性裁剪已完成代办。 */
+    /** 切换完成态：done=true 记完成时刻。写后按配置的保留天数惰性裁剪已完成代办。 */
     suspend fun toggleTodo(todoId: String, done: Boolean) {
         updateTodoConfig {
-            it.toggleTodo(todoId, done).pruneDone(System.currentTimeMillis(), TodoDoneRetentionDays)
+            it.toggleTodo(todoId, done)
+                .pruneDone(System.currentTimeMillis(), it.doneRetentionDays)
         }
     }
 
@@ -262,6 +262,18 @@ object ConfigProvider {
 
     suspend fun deleteTodo(todoId: String) {
         updateTodoConfig { it.deleteTodo(todoId) }
+    }
+
+    /** 设置已完成保留天数：降低档位时立即按新档裁剪，避免旧数据滞留。 */
+    suspend fun setDoneRetentionDays(days: Int) {
+        updateTodoConfig {
+            val next = it.withDoneRetentionDays(days)
+            next.pruneDone(System.currentTimeMillis(), next.doneRetentionDays)
+        }
+    }
+
+    suspend fun clearDoneTodos() {
+        updateTodoConfig { it.clearDone() }
     }
 
     // ---------- 趋势域 ----------

@@ -182,7 +182,6 @@ object PanelWidgetRegistry {
                     spanX = scope.spanX,
                     spanY = scope.spanY,
                     enabled = scope.enabled,
-                    gridItem = scope.isGridItem,
                 )
             },
         )

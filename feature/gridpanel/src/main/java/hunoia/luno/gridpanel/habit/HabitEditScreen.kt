@@ -3,18 +3,11 @@ package hunoia.luno.gridpanel.habit
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -37,13 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,17 +45,14 @@ import hunoia.luno.config.model.HabitMaxSnoozeMinutes
 import hunoia.luno.config.model.HabitMinSnoozeMinutes
 import hunoia.luno.config.model.HabitReminderTime
 import hunoia.luno.config.model.ThemeColorKey
-import hunoia.luno.config.model.habitDayState
 import hunoia.luno.config.model.normalizeReminderTimes
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.R
-import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.input.WheelColumn
 import hunoia.luno.ui.component.input.wheelNumber
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -82,36 +66,22 @@ import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.gridpanel.ui.snoozeDurationLabel
 import hunoia.luno.ui.theme.ContentBottom
-import hunoia.luno.ui.theme.HabitCalendarCellGap
-import hunoia.luno.ui.theme.HabitCalendarHeaderGap
-import hunoia.luno.ui.theme.HabitCalendarPaddingVertical
-import hunoia.luno.ui.theme.HabitDayCellMinHeight
-import hunoia.luno.ui.theme.HabitDayCellPaddingVertical
-import hunoia.luno.ui.theme.HabitDayCheckIconSize
-import hunoia.luno.ui.theme.HabitDayDotSize
-import hunoia.luno.ui.theme.HabitDayDotStroke
-import hunoia.luno.ui.theme.HabitDayTextAlpha
-import hunoia.luno.ui.theme.HabitDayTextDotGap
-import hunoia.luno.ui.theme.HabitWeekdayAlpha
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.roundToInt
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
-import hunoia.luno.ui.component.pressClickable
 
 /**
  * 习惯编辑：新增（habitId 空）或编辑。字段 = 名字 / 颜色 / 每 x 日 / 每日次数 /
- * 多个提醒时间 / 推迟时长 / 近 30 天补改。
+ * 多个提醒时间 / 推迟时长。入口是详情页顶栏（新建走主页功能球 / 空态）；
+ * 近 30 天补卡与热力图在 [HabitDetailScreen]，今日打卡在 [HabitListContent]。
  *
  * **即时保存**：没有保存按钮。字段改动防抖 400ms 写盘，返回 / 系统返回 / onStop
  * 都会先 flush；新建习惯在名字首次非空时立即创建（空名退出不落库）。删除前先停
@@ -127,7 +97,6 @@ fun HabitEditScreen(
     onBack: () -> Unit,
 ) {
     val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitConfig())
-    val today = rememberTodayEpochDay()
     val scope = rememberCoroutineScope()
     val writeMutex = remember { Mutex() }
     val flushHolder = remember { FlushJobHolder() }
@@ -273,47 +242,6 @@ fun HabitEditScreen(
                                 scope.launch {
                                     HabitCenter.deleteHabit(habit.id)
                                     onBack()
-                                }
-                            },
-                        )
-                    }
-                }
-                is HabitEditDialog.Check -> {
-                    if (habit != null) {
-                        val date = LocalDate.ofEpochDay(dialog.day)
-                        ConfirmDialog(
-                            title = stringResource(
-                                if (dialog.targetChecked) {
-                                    R.string.habit_check_confirm_title
-                                } else {
-                                    R.string.habit_uncheck_confirm_title
-                                },
-                            ),
-                            text = stringResource(
-                                if (dialog.targetChecked) {
-                                    R.string.habit_check_confirm_text
-                                } else {
-                                    R.string.habit_uncheck_confirm_text
-                                },
-                                date.monthValue,
-                                date.dayOfMonth,
-                            ),
-                            confirmLabel = stringResource(
-                                if (dialog.targetChecked) {
-                                    R.string.habit_check_confirm_action
-                                } else {
-                                    R.string.habit_uncheck_confirm_action
-                                },
-                            ),
-                            destructive = !dialog.targetChecked,
-                            onDismissRequest = { state.dialog = null },
-                            onConfirm = {
-                                scope.launch {
-                                    HabitCenter.setHabitCheck(
-                                        habit.id,
-                                        dialog.day,
-                                        dialog.targetChecked,
-                                    )
                                 }
                             },
                         )
@@ -509,65 +437,6 @@ fun HabitEditScreen(
                 )
             }
         }
-        if (habit != null) {
-            RecentChecksGrid(
-                habitId = habit.id,
-                color = shownColorSpec.toColor(),
-                config = config,
-                today = today,
-                interval = shownInterval,
-                target = shownTarget,
-                onDayClick = { day, targetChecked ->
-                    state.showColorPicker = false
-                    state.dialog = HabitEditDialog.Check(day, targetChecked)
-                },
-            )
-            HabitHeatmapCard(
-                habitId = habit.id,
-                color = shownColorSpec.toColor(),
-                config = config,
-                today = today,
-                target = shownTarget,
-            )
-        }
-    }
-}
-
-/**
- * 近 90 天热力图：纯展示，不响应点击；颜色 / 目标用编辑中的草稿值即时预览。
- *
- * 与面板热力图部件共用 [HabitHeatmapGrid] 与同一套几何 / 分档；这里按可用宽度铺满
- * （最多 13 列），窄屏自动减列，不做横向滚动。
- */
-@Composable
-private fun HabitHeatmapCard(
-    habitId: String,
-    color: Color,
-    config: HabitConfig,
-    today: Long,
-    target: Int,
-) {
-    val description = stringResource(R.string.habit_heatmap_desc)
-    LunoGroup(title = stringResource(R.string.habit_heatmap)) {
-        LunoGroupItem(shape = segmentedShape(0, 1)) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
-                contentAlignment = Alignment.Center,
-            ) {
-                HabitHeatmapGrid(
-                    geometry = habitHeatmapGeometryFillWidth(maxWidth),
-                    today = today,
-                    checks = config.checks[habitId].orEmpty(),
-                    counts = config.counts[habitId].orEmpty(),
-                    target = target,
-                    habitColor = color,
-                    baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    modifier = Modifier.semantics { contentDescription = description },
-                )
-            }
-        }
     }
 }
 
@@ -679,12 +548,9 @@ internal class HabitEditState(
     var dialog by mutableStateOf<HabitEditDialog?>(null)
 }
 
-/** 弹层互斥：删除 / 补卡 / 取消打卡，任一时刻只存在一个（ui-guidelines §3.2-5）。 */
+/** 弹层互斥：删除，任一时刻只存在一个（ui-guidelines §3.2-5）。补卡确认在 [HabitDetailScreen]。 */
 internal sealed interface HabitEditDialog {
     object Delete : HabitEditDialog
-
-    /** [targetChecked] = 确认后要写入的目标状态；文案与破坏性语义都由此派生。 */
-    data class Check(val day: Long, val targetChecked: Boolean) : HabitEditDialog
 }
 
 /** 只保存字段草稿；弹层是瞬态，重建后不恢复。新建 id 也要存，避免进程重建后重复创建。 */
@@ -731,150 +597,4 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
     },
 )
 
-/** 近 30 天补 / 改打卡：标准日历网格（星期头固定一~日，today 落真实星期列、前导空格对齐首日）。 */
-@Composable
-private fun RecentChecksGrid(
-    habitId: String,
-    color: Color,
-    config: HabitConfig,
-    today: Long,
-    interval: Int,
-    target: Int,
-    onDayClick: (day: Long, targetChecked: Boolean) -> Unit,
-) {
-    val outline = MaterialTheme.colorScheme.onSurfaceVariant
-    val palette = habitDayPalette(primary = color, neutral = outline)
-    val checks = config.checks[habitId].orEmpty()
-    val weekdays = stringArrayResource(R.array.habit_weekdays)
-    // 标准日历：today 在末行、其真实星期列（一=0…日=6）；窗口 today-29..today，
-    // today 右侧（未来）与窗口前（前导对齐）留空。
-    val todayPos = 4 * 7 + (LocalDate.ofEpochDay(today).dayOfWeek.value - 1)
-    LunoGroup(title = stringResource(R.string.habit_recent_checks)) {
-        LunoGroupItem(shape = segmentedShape(0, 1)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = HabitCalendarPaddingVertical),
-            ) {
-                // 顶部星期单字（一~日），与下方列对齐。
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    weekdays.forEach { weekday ->
-                        Text(
-                            text = weekday,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = outline.copy(alpha = HabitWeekdayAlpha),
-                        )
-                    }
-                }
-                Spacer(Modifier.height(HabitCalendarHeaderGap))
-                // 35 槽：pos = row*7+col；dayOffset = todayPos-pos（0=today，>0=过去，<0=未来）。
-                for (row in 0 until 5) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(HabitCalendarCellGap),
-                    ) {
-                        for (col in 0 until 7) {
-                            val dayOffset = todayPos - (row * 7 + col)
-                            if (dayOffset < 0 || dayOffset > 29) {
-                                Spacer(
-                                    Modifier
-                                        .weight(1f)
-                                        .heightIn(min = HabitDayCellMinHeight),
-                                )
-                            } else {
-                                val day = today - dayOffset
-                                val state = habitDayState(checks, day, interval, today)
-                                val checked = config.isChecked(habitId, day)
-                                val count = config.countOf(habitId, day, target)
-                                val date = LocalDate.ofEpochDay(day)
-                                DayDotCell(
-                                    month = date.monthValue,
-                                    day = date.dayOfMonth,
-                                    visual = state.visual(),
-                                    stateLabel = state.label(),
-                                    isToday = dayOffset == 0,
-                                    palette = palette,
-                                    count = count,
-                                    target = target,
-                                    onClick = { onDayClick(day, !checked) },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
-/**
- * 日历格子：视觉语义由 [HabitDayVisual] 统一派生，与面板部件的四态口径一致
- * （跳过日 = 半透明主色 + 横杠）。多次习惯在圆点内画进度弧；点击只发事件，
- * 写盘在确认弹层之后。
- */
-@Composable
-private fun DayDotCell(
-    month: Int,
-    day: Int,
-    visual: HabitDayVisual,
-    stateLabel: String,
-    isToday: Boolean,
-    palette: HabitDayPalette,
-    count: Int,
-    target: Int,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val cellDesc = stringResource(R.string.habit_day_cell_desc, month, day, stateLabel)
-    Column(
-        modifier = modifier
-            // heightIn 而非固定 height：fontScale 1.4 / 2.0 下文字可长高、不裁切（ui-guidelines §1.5）。
-            .heightIn(min = HabitDayCellMinHeight)
-            .clip(SmallShape)
-            .then(
-                if (isToday) {
-                    Modifier.border(HabitDayDotStroke, palette.primary, SmallShape)
-                } else {
-                    Modifier
-                },
-            )
-            .pressClickable(onClick = onClick)
-            .semantics { contentDescription = cellDesc }
-            .padding(vertical = HabitDayCellPaddingVertical),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = day.toString(),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isToday) palette.primary else palette.neutral.copy(alpha = HabitDayTextAlpha),
-        )
-        Spacer(Modifier.height(HabitDayTextDotGap))
-        Box(
-            modifier = Modifier
-                .size(HabitDayDotSize)
-                .clip(CircleShape)
-                .background(visual.fillColor(palette))
-                .border(HabitDayDotStroke, visual.borderColor(palette), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            HabitDayMarkIcon(
-                mark = visual.mark,
-                color = visual.markTint(palette),
-                modifier = Modifier.size(HabitDayCheckIconSize),
-            )
-            // 多次习惯的部分完成：与面板点阵 / 桌面部件同一套进度弧语义。
-            if (target > 1 && count in 1 until target) {
-                HabitProgressArc(
-                    progress = count.toFloat() / target,
-                    color = palette.primary,
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 2.dp,
-                )
-            }
-        }
-    }
-}

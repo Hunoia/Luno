@@ -123,14 +123,14 @@ internal fun HabitHeatmapCell(
                 .fillMaxSize()
                 .padding(WidgetInnerPadding),
         ) {
-            // 标题行：主色点 + 「名 · streak 天」；点击打开主应用对应编辑页（并关面板）。
+            // 标题行：主色点 + 「名 · streak 天」；点击打开主应用对应详情页（并关面板）。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
                         if (enabled) {
                             Modifier.pressClickable {
-                                context.startActivity(HabitExtras.editIntent(context, habit.id))
+                                context.startActivity(HabitExtras.detailIntent(context, habit.id))
                                 closePanel()
                             }
                         } else {
@@ -166,7 +166,7 @@ internal fun HabitHeatmapCell(
                             Modifier.pressClickable {
                                 when {
                                     !canCheckToday -> {
-                                        context.startActivity(HabitExtras.editIntent(context, habit.id))
+                                        context.startActivity(HabitExtras.detailIntent(context, habit.id))
                                         closePanel()
                                     }
                                     pending -> {

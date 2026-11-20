@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -32,14 +31,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -58,10 +52,13 @@ import hunoia.luno.config.model.RecognitionBuiltin
 import hunoia.luno.runtime.recognition.RecognitionAction
 import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.gesture.R
-import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.component.overlay.EdgeActionBar
+import hunoia.luno.ui.component.overlay.EdgeBarSlot
+import hunoia.luno.ui.overlay.EdgeBar
+import hunoia.luno.ui.overlay.EdgeBarEdge
+import hunoia.luno.ui.overlay.EdgeBarLayout
 import hunoia.luno.ui.theme.containerShape
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -176,31 +173,14 @@ internal fun portalSlotsFor(
     return slots
 }
 
-/** 手指拖向的那条边。 */
-enum class PortalEdge { Top, Bottom, Left, Right }
-
 /**
- * 幽灵卡与工具条的几何：**屏幕像素坐标**。
+ * 幽灵卡几何：**屏幕像素坐标**。
  *
- * 摆放（Compose 渲染）与松手判定共用这一份计算，否则会出现
- * “看着拖到「复制」上了、松手却没执行”。纯函数，可在 JVM 单测里钉死。
- *
- * 模型：卡片跟手（内容预览），手指拖到某条边附近时该边浮出工具条；工具条沿边跟着手指走，
- * 松手落在哪一格就是哪个动作，落空按 [PortalReleaseMode] 处置（[resolvePortalRelease]）。
+ * 卡片跟手（内容预览）；拖到某条边时浮出工具条。工具条的几何 / 命中 / 沿边锚定
+ * 收口在 `:ui:design` 的 [EdgeBarLayout]（与剪贴板部件的拖拽动作条同一份实现），
+ * 这里只保留卡片尺寸与「给工具条让位」的摆放。
  */
 object PortalLayout {
-
-    /** 单格尺寸：工具条只装图标，48dp 满足浮层命中区基线。 */
-    const val SlotDp = 48f
-    const val IconDp = 20f
-    const val GapDp = 6f
-    const val PaddingDp = 6f
-
-    /** 工具条贴边距离：留在系统边缘手势 / 圆角之外。 */
-    const val EdgeMarginDp = 12f
-
-    /** 判定「拖到这一边」的带宽：手指离边的垂直距离小于它才浮出工具条。 */
-    const val EdgeBandDp = 96f
 
     /** 幽灵卡尺寸（dp）：宽度按内容自适应，封顶 [CardMaxWidthDp]、保底 [CardMinWidthDp]；高度封顶 [CardMaxHeightDp]。 */
     const val CardMinWidthDp = 160f
@@ -208,175 +188,6 @@ object PortalLayout {
     const val CardMaxHeightDp = 320f
     const val CardEstimatedHeightDp = 96f
     const val CardRadiusDp = 18f
-
-    /** 系统栏 / 导航条 inset（px）：工具条与卡片都要让开。 */
-    data class Insets(
-        val top: Float = 0f,
-        val bottom: Float = 0f,
-        val left: Float = 0f,
-        val right: Float = 0f,
-    )
-
-    /** 工具条几何：哪条边、整条的范围、每一格的矩形（屏幕像素坐标）。 */
-    data class Bar(
-        val edge: PortalEdge,
-        val bounds: Rect,
-        val slots: List<Rect>,
-    ) {
-        val isVertical: Boolean get() = edge == PortalEdge.Left || edge == PortalEdge.Right
-
-        /** 整条平移：几何按屏幕坐标算，渲染前减窗口原点用。 */
-        fun translated(dx: Float, dy: Float): Bar = Bar(
-            edge = edge,
-            bounds = Rect(bounds.left + dx, bounds.top + dy, bounds.right + dx, bounds.bottom + dy),
-            slots = slots.map { Rect(it.left + dx, it.top + dy, it.right + dx, it.bottom + dy) },
-        )
-    }
-
-    /**
-     * 手指落在哪条边的工具条带上；返回 null = 离所有边都远，工具条不出现（松手即取消）。
-     *
-     * 取距离最近的一条边；等距时按 底 → 顶 → 左 → 右 的顺序选，保证四角处行为确定。
-     */
-    fun edgeFor(
-        finger: Offset,
-        screenWidth: Float,
-        screenHeight: Float,
-        density: Float,
-        bandDp: Float = EdgeBandDp,
-        insets: Insets = Insets(),
-    ): PortalEdge? {
-        if (screenWidth <= 0f || screenHeight <= 0f) return null
-        val band = bandDp * density
-        val candidates = listOf(
-            PortalEdge.Bottom to (screenHeight - insets.bottom - finger.y),
-            PortalEdge.Top to (finger.y - insets.top),
-            PortalEdge.Left to (finger.x - insets.left),
-            PortalEdge.Right to (screenWidth - insets.right - finger.x),
-        )
-        val nearest = candidates.minBy { it.second }
-        return if (nearest.second <= band) nearest.first else null
-    }
-
-    /**
-     * 工具条几何。未到边缘（[edgeFor] 为 null）、没有格子、屏幕尺寸无效时返回 null。
-     *
-     * **沿边位置锚定在 [anchorAxis]，不跟手**：跟手会让整条随手指滑动，格子在指下不停变，
-     * 用户永远选不中同一个动作。锚点由调用方在「工具条首次浮出」时锁定一次（见
-     * [ScreenPickOverlay.movePortal]）；为 null 时退回按手指居中，只用于无状态的一次性计算。
-     *
-     * [slotMainPx] 是单格主轴尺寸；0 用 [SlotDp]。一屏放不下时整条等比缩小，绝不溢出屏外。
-     */
-    fun bar(
-        finger: Offset,
-        screenWidth: Float,
-        screenHeight: Float,
-        density: Float,
-        count: Int,
-        insets: Insets = Insets(),
-        slotMainPx: Float = 0f,
-        bandDp: Float = EdgeBandDp,
-        anchorAxis: Float? = null,
-    ): Bar? {
-        if (count <= 0 || screenWidth <= 0f || screenHeight <= 0f) return null
-        val edge = edgeFor(finger, screenWidth, screenHeight, density, bandDp, insets) ?: return null
-        val cross = SlotDp * density
-        val pad = PaddingDp * density
-        val depth = cross + pad * 2
-        var main = if (slotMainPx > 0f) slotMainPx else cross
-        var gap = GapDp * density
-        val margin = EdgeMarginDp * density
-        val vertical = edge == PortalEdge.Left || edge == PortalEdge.Right
-        val axisStart = if (vertical) insets.top else insets.left
-        val axisEnd = if (vertical) screenHeight - insets.bottom else screenWidth - insets.right
-        // 可用主轴长度要两头都留出贴边距，否则缩小后仍会顶出屏外。
-        val axisRoom = (axisEnd - axisStart - margin * 2).coerceAtLeast(0f)
-
-        // 放不下：主轴尺寸与间距一体等比缩小，保证整条留在屏内。
-        val natural = count * main + (count - 1) * gap
-        if (axisRoom > 0f && natural + pad * 2 > axisRoom) {
-            val scale = ((axisRoom - pad * 2) / natural).coerceIn(0.05f, 1f)
-            main *= scale
-            gap *= scale
-        }
-        val total = count * main + (count - 1) * gap + pad * 2
-
-        // 沿边定位：锚定在浮出那一刻的手指位置（不随手指滑动），贴到安全区就夹住。
-        val anchor = anchorAxis ?: if (vertical) finger.y else finger.x
-        val axisMin = axisStart + margin
-        val axisMax = (axisEnd - margin - total).coerceAtLeast(axisMin)
-        val axisPos = (anchor - total / 2f).coerceIn(axisMin, axisMax)
-
-        val bounds = when (edge) {
-            PortalEdge.Left -> Rect(
-                insets.left + margin,
-                axisPos,
-                insets.left + margin + depth,
-                axisPos + total,
-            )
-            PortalEdge.Right -> Rect(
-                screenWidth - insets.right - margin - depth,
-                axisPos,
-                screenWidth - insets.right - margin,
-                axisPos + total,
-            )
-            PortalEdge.Top -> Rect(
-                axisPos,
-                insets.top + margin,
-                axisPos + total,
-                insets.top + margin + depth,
-            )
-            PortalEdge.Bottom -> Rect(
-                axisPos,
-                screenHeight - insets.bottom - margin - depth,
-                axisPos + total,
-                screenHeight - insets.bottom - margin,
-            )
-        }
-
-        val slots = List(count) { index ->
-            val shift = pad + index * (main + gap)
-            when (edge) {
-                PortalEdge.Left, PortalEdge.Right -> Rect(
-                    bounds.left + pad,
-                    bounds.top + shift,
-                    bounds.right - pad,
-                    bounds.top + shift + main,
-                )
-                PortalEdge.Top, PortalEdge.Bottom -> Rect(
-                    bounds.left + shift,
-                    bounds.top + pad,
-                    bounds.left + shift + main,
-                    bounds.bottom - pad,
-                )
-            }
-        }
-        return Bar(edge = edge, bounds = bounds, slots = slots)
-    }
-
-    /**
-     * 松手落在哪一格：整条范围内取主轴中点最近的一格（格间缝隙也算，不逼用户压线）。
-     * 未进入工具条范围返回 null。
-     */
-    fun hit(bar: Bar?, point: Offset): Int? {
-        if (bar == null || bar.slots.isEmpty()) return null
-        if (!bar.bounds.contains(point)) return null
-        val vertical = bar.isVertical
-        var bestIndex = 0
-        var bestDistance = Float.MAX_VALUE
-        bar.slots.forEachIndexed { index, rect ->
-            val distance = if (vertical) {
-                abs(point.y - rect.center.y)
-            } else {
-                abs(point.x - rect.center.x)
-            }
-            if (distance < bestDistance) {
-                bestDistance = distance
-                bestIndex = index
-            }
-        }
-        return bestIndex
-    }
 
     /**
      * 幽灵卡矩形；手势层用它判断“按在卡上=移动、按在空白=框选”。
@@ -390,21 +201,21 @@ object PortalLayout {
         density: Float,
         cardWidthPx: Float = CardMaxWidthDp * density,
         cardHeightPx: Float = CardEstimatedHeightDp * density,
-        bar: Bar? = null,
-        insets: Insets = Insets(),
+        bar: EdgeBar? = null,
+        insets: EdgeBarLayout.Insets = EdgeBarLayout.Insets(),
     ): Rect {
         val width = cardWidthPx.takeIf { it > 0f } ?: CardMaxWidthDp * density
         val height = cardHeightPx.takeIf { it > 0f } ?: CardEstimatedHeightDp * density
-        val gap = GapDp * density
+        val gap = EdgeBarLayout.GapDp * density
         // 卡片中心对齐手指（跟手：指下即卡心）；贴边时整卡回推到屏内。
         var x = finger.x - width / 2f
         var y = finger.y - height / 2f
         if (bar != null) {
             when (bar.edge) {
-                PortalEdge.Left -> x = maxOf(x, bar.bounds.right + gap)
-                PortalEdge.Right -> x = minOf(x, bar.bounds.left - gap - width)
-                PortalEdge.Top -> y = maxOf(y, bar.bounds.bottom + gap)
-                PortalEdge.Bottom -> y = minOf(y, bar.bounds.top - gap - height)
+                EdgeBarEdge.LEFT -> x = maxOf(x, bar.bounds.right + gap)
+                EdgeBarEdge.RIGHT -> x = minOf(x, bar.bounds.left - gap - width)
+                EdgeBarEdge.TOP -> y = maxOf(y, bar.bounds.bottom + gap)
+                EdgeBarEdge.BOTTOM -> y = minOf(y, bar.bounds.top - gap - height)
             }
         }
         x = x.coerceIn(insets.left, (screenWidth - insets.right - width).coerceAtLeast(insets.left))
@@ -423,14 +234,14 @@ sealed interface PortalRelease {
 /**
  * 松手结算：命中工具条格就执行；否则按 [mode] 决定撤卡关层还是留在识屏页。
  *
- * 与 [PortalLayout.hit] 同源（同一份 [PortalLayout.Bar]），渲染与结算不会分叉。
+ * 与 [EdgeBarLayout.hit] 同源（同一份 [EdgeBar]），渲染与结算不会分叉。
  */
 fun resolvePortalRelease(
-    bar: PortalLayout.Bar?,
+    bar: EdgeBar?,
     point: Offset,
     mode: PortalReleaseMode,
 ): PortalRelease {
-    val index = PortalLayout.hit(bar, point)
+    val index = EdgeBarLayout.hit(bar, point)
     return if (index != null) {
         PortalRelease.Act(index)
     } else {
@@ -501,7 +312,7 @@ private fun PortalSlot.icon(): ImageVector = when (this) {
  * 封顶 [PortalLayout.CardMaxWidthDp] 并保底 [PortalLayout.CardMinWidthDp]；高度封顶
  * [PortalLayout.CardMaxHeightDp]；文字最多两行（动作仍拿全文，不截断）。
  *
- * 卡片上**没有按钮**：动作只在边缘工具条上松手结算（见 [PortalLayout.bar] /
+ * 卡片上**没有按钮**：动作只在边缘工具条上松手结算（见 [EdgeBarLayout.bar] /
  * [resolvePortalRelease]）。
  *
  * @param finger 手指位置（视图坐标）
@@ -516,7 +327,7 @@ internal fun PortalLayer(
     content: PortalContent,
     resolving: Boolean,
     slots: List<PortalSlot>,
-    bar: PortalLayout.Bar?,
+    bar: EdgeBar?,
     activeSlot: Int,
     cardHeightPx: Float,
     cardWidthPx: Float = 0f,
@@ -611,129 +422,12 @@ internal fun PortalLayer(
             }
         }
         if (bar != null && slots.isNotEmpty()) {
-            PortalBarLayer(bar = bar, slots = slots, activeSlot = activeSlot)
-        }
-    }
-}
-
-/**
- * 边缘工具条：贴边一条胶囊，每格一个圆形图标；指到哪一格哪一格放大，
- * 并在条内侧浮出该格的名字（内容动作名 / 规则名），松手即执行。
- */
-@Composable
-private fun PortalBarLayer(
-    bar: PortalLayout.Bar,
-    slots: List<PortalSlot>,
-    activeSlot: Int,
-) {
-    val depth = (PortalLayout.SlotDp + PortalLayout.PaddingDp * 2).dp
-    Box(modifier = Modifier.fillMaxSize()) {
-        val icons: @Composable () -> Unit = {
-            slots.forEachIndexed { index, slot ->
-                PortalBarIcon(slot = slot, active = index == activeSlot)
-            }
-        }
-        Box(
-            modifier = Modifier
-                .offsetPx(bar.bounds.left, bar.bounds.top)
-                .let { base -> if (bar.isVertical) base.width(depth) else base.height(depth) }
-                .background(
-                    MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.88f),
-                    CapsuleShape,
-                )
-                .padding(PortalLayout.PaddingDp.dp),
-        ) {
-            if (bar.isVertical) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(PortalLayout.GapDp.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) { icons() }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(PortalLayout.GapDp.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) { icons() }
-            }
-        }
-        slots.getOrNull(activeSlot)?.let { slot ->
-            PortalSlotLabel(bar = bar, text = slot.label())
-        }
-    }
-}
-
-@Composable
-private fun PortalBarIcon(
-    slot: PortalSlot,
-    active: Boolean,
-) {
-    val tint = if (active) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.inverseOnSurface
-    }
-    Box(
-        modifier = Modifier
-            .size(PortalLayout.SlotDp.dp)
-            .scale(if (active) 1.1f else 1f)
-            .background(
-                if (active) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-                } else {
-                    Color.White.copy(alpha = 0.10f)
-                },
-                CircleShape,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = slot.icon(),
-            contentDescription = slot.label(),
-            tint = tint,
-            modifier = Modifier.size(PortalLayout.IconDp.dp),
-        )
-    }
-}
-
-/** 当前格的名字：浮在工具条内侧（屏内那侧），不遮挡手指。 */
-@Composable
-private fun PortalSlotLabel(
-    bar: PortalLayout.Bar,
-    text: String,
-) {
-    var size by remember { mutableStateOf(IntSize.Zero) }
-    val density = DensityProvider.density
-    val gap = 8f * density
-    val screenWidth = DensityProvider.screenWidthPx.toFloat()
-    val screenHeight = DensityProvider.screenHeightPx.toFloat()
-    val chipWidth = size.width.toFloat()
-    val chipHeight = size.height.toFloat()
-    val centeredX = bar.bounds.left + (bar.bounds.width - chipWidth) / 2f
-    val centeredY = bar.bounds.top + (bar.bounds.height - chipHeight) / 2f
-    val (x, y) = when (bar.edge) {
-        PortalEdge.Left -> (bar.bounds.right + gap) to centeredY
-        PortalEdge.Right -> (bar.bounds.left - gap - chipWidth) to centeredY
-        PortalEdge.Top -> centeredX to (bar.bounds.bottom + gap)
-        PortalEdge.Bottom -> centeredX to (bar.bounds.top - gap - chipHeight)
-    }
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .offsetPx(
-                    x.coerceIn(0f, (screenWidth - chipWidth).coerceAtLeast(0f)),
-                    y.coerceIn(0f, (screenHeight - chipHeight).coerceAtLeast(0f)),
-                )
-                .onSizeChanged { size = it }
-                .background(
-                    MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.92f),
-                    CapsuleShape,
-                )
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-        ) {
-            Text(
-                text = text,
-                color = MaterialTheme.colorScheme.inverseOnSurface,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
+            EdgeActionBar(
+                bar = bar,
+                slots = slots.map { EdgeBarSlot(icon = it.icon(), label = it.label()) },
+                activeSlot = activeSlot,
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
             )
         }
     }

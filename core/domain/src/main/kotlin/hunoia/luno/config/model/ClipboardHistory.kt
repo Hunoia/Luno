@@ -74,6 +74,13 @@ data class ClipboardHistory(
 ) {
     val pinned: List<ClipboardEntry> get() = entries.filter { it.pinned }
     val unpinned: List<ClipboardEntry> get() = entries.filterNot { it.pinned }
+
+    /**
+     * 某一类型的条目：固定项置顶，其余保持原有顺序（新→旧）。
+     * 面板部件的「文本 / 图片」分段读这一份，不各自拼 `pinned + unpinned`。
+     */
+    fun ofKind(kind: ClipKind): List<ClipboardEntry> =
+        pinned.filter { it.kind == kind } + unpinned.filter { it.kind == kind }
 }
 
 /** 未固定条目的默认上限（可在剪贴板设置页调整，范围见 [ClipboardMaxEntriesRange]）。 */

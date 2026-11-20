@@ -37,6 +37,8 @@ dependencies {
     api(libs.squircle.shape) {
         exclude(group = "org.jetbrains.compose.material3")
     }
+    // 纯几何 / 纯函数的 JVM 单测（EdgeBarLayoutTest：识屏工具条与剪贴板动作条共用）
+    testImplementation(libs.junit)
     // 仅 debug：形状软度画廊（src/debug/.../ShapeGalleryPreviews.kt）只在 Android Studio 预览生效
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.tooling.preview)

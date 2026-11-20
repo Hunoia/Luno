@@ -119,7 +119,7 @@ internal fun HabitHistoryCell(
     val context = LocalContext.current
     // 点标题进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
     val closePanel = LocalGridPanelClose.current
-    // 点阵区：今天可打卡 → 内联倒计时环确认；已打 / 跳过 → 打开编辑页（与桌面部件同口径）。
+    // 点阵区：今天可打卡 → 内联倒计时环确认；已打 / 跳过 → 打开详情页（与桌面部件同口径）。
     val canCheckToday = canCheck(checks, today, habit.interval, today)
     var pending by remember { mutableStateOf(false) }
     val progress = rememberConfirmProgress(
@@ -162,14 +162,14 @@ internal fun HabitHistoryCell(
                 .fillMaxSize()
                 .padding(WidgetInnerPadding),
         ) {
-            // 标题行：主色点 + 「名 · streak 天」；点击打开主应用对应编辑页（并关面板）。
+            // 标题行：主色点 + 「名 · streak 天」；点击打开主应用对应详情页（并关面板）。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
                         if (enabled) {
                             Modifier.pressClickable {
-                                context.startActivity(HabitExtras.editIntent(context, habit.id))
+                                context.startActivity(HabitExtras.detailIntent(context, habit.id))
                                 closePanel()
                             }
                         } else {
@@ -207,7 +207,7 @@ internal fun HabitHistoryCell(
                             Modifier.pressClickable {
                                 when {
                                     !canCheckToday -> {
-                                        context.startActivity(HabitExtras.editIntent(context, habit.id))
+                                        context.startActivity(HabitExtras.detailIntent(context, habit.id))
                                         closePanel()
                                     }
                                     pending -> {

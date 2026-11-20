@@ -1,5 +1,7 @@
 package hunoia.luno.gridpanel.todo
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,12 +32,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -48,29 +52,30 @@ import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoReminderFormat
-import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
+import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LocalInDividedCard
-import hunoia.luno.ui.component.row.groupItemTopLine
+import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
+import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.PageGutter
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 
 /**
- * 代办列表内容：主页「代办」tab 嵌入用。
+ * 代办执行面：主页「代办」tab 嵌入用。
  *
- * 共享主页外壳的顶栏，没有自己的顶栏 / 返回键 / FAB；新建入口是底栏的功能球，
- * 调用方把 [addRequest] 递增一次就会打开新建弹窗，弹窗打开后由 [onAddRequestHandled] 归零。
+ * 共享主页外壳的顶栏（右上齿轮 = 待办设置页），没有自己的顶栏 / 返回键 / FAB；
+ * 新建入口是底栏的功能球，空态里的按钮走 [onNewTodo]。
  * 数据源 [TodoCenter.todoConfig]；切换完成 / 增删改走 domain 门面（配置写入，不走 Action）。
- * 单列合并（未完成在前、完成在后置灰划线）；添加/编辑都在弹窗完成（无独立编辑页）。
+ *
+ * 与「设置」彻底分开：设置项（推迟时长 / 保留天数 / 清空）在 [TodoSettingsScreen]。
+ * 两组：未完成（保持创建顺序）+ 已完成（按完成时间倒序、默认收起、可展开）。
  * 完成 / 撤销完成都先走确认弹层，与桌面部件、面板内置待办同口径。
  */
 @Composable
@@ -78,20 +83,23 @@ fun TodoListContent(
     topPadding: Dp,
     addRequest: Int,
     onAddRequestHandled: () -> Unit,
+    onNewTodo: () -> Unit = {},
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
 ) {
     val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoConfig())
     val scope = rememberCoroutineScope()
     val pending = config.todos.filter { !it.done }
+    // 完成组：按完成时间倒序（刚完成的在上）；无完成时间排最后。
     val done = config.todos.filter { it.done }
-    val all = pending + done
+        .sortedByDescending { it.completedAt ?: Long.MIN_VALUE }
 
     var creating by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<String?>(null) }
     // 完成 / 撤销完成都先确认：与桌面部件、面板内置待办的确认口径一致。
     var pendingToggle by remember { mutableStateOf<TodoItem?>(null) }
-    var showSnoozeDialog by remember { mutableStateOf(false) }
+    // 已完成组默认收起（计划定稿）；会话内记忆，重进页保持。
+    var doneExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 功能球的「添加」：调用方把请求数 +1，这里消费一次后归零，避免重进 tab 又弹窗。
     LaunchedEffect(addRequest) {
@@ -124,36 +132,40 @@ fun TodoListContent(
         ),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-        item {
-            LunoGroup {
-                LunoSettingsRow(
-                    title = stringResource(R.string.todo_reminder_setting),
-                    subtitle = TodoReminderFormat.snoozeDurationLabel(
-                        LocalContext.current,
-                        config.reminderSnoozeMinutes,
-                    ),
-                    onClick = { showSnoozeDialog = true },
-                )
-            }
-        }
         if (config.todos.isEmpty()) {
             item {
-                EmptyState(message = stringResource(R.string.todo_empty))
+                EmptyState(
+                    message = stringResource(R.string.todo_empty),
+                    action = {
+                        PressTextButton(onClick = onNewTodo) {
+                            Text(stringResource(R.string.todo_add))
+                        }
+                    },
+                )
             }
         } else {
-            item {
-                // 直接渲染行（镜像 HabitListContent）：LunoGroup 的 ColumnScope 里逐行
-                // forEachIndexed + segmentedShape，响应式正确（不用 LunoSegmentedGroup——
-                // 它靠 composition 期间改 mutableListOf，刷新可能偶发失效）。
-                LunoGroup {
-                    all.forEachIndexed { index, todo ->
-                        TodoListRow(
-                            todo = todo,
-                            shape = segmentedShape(index, all.size),
-                            onToggle = { pendingToggle = todo },
-                            onEdit = { editingId = todo.id },
-                        )
+            if (pending.isNotEmpty()) {
+                item {
+                    LunoGroup(title = stringResource(R.string.todo_group_pending)) {
+                        pending.forEachIndexed { index, todo ->
+                            TodoListRow(
+                                todo = todo,
+                                shape = segmentedShape(index, pending.size),
+                                onToggle = { pendingToggle = todo },
+                                onEdit = { editingId = todo.id },
+                            )
+                        }
                     }
+                }
+            }
+            if (done.isNotEmpty()) {
+                item {
+                    DoneGroup(
+                        done = done,
+                        expanded = doneExpanded,
+                        onExpandedChange = { doneExpanded = it },
+                        onToggle = { pendingToggle = it },
+                    )
                 }
             }
         }
@@ -190,16 +202,6 @@ fun TodoListContent(
             },
         )
     }
-    if (showSnoozeDialog) {
-        SnoozeDurationDialog(
-            initialMinutes = config.reminderSnoozeMinutes,
-            onDismiss = { showSnoozeDialog = false },
-            onConfirm = { minutes ->
-                scope.launch { TodoCenter.setReminderSnoozeMinutes(minutes) }
-                showSnoozeDialog = false
-            },
-        )
-    }
 
     if (creating) {
         TodoEditDialog(
@@ -215,68 +217,166 @@ fun TodoListContent(
     }
 }
 
-/** 一行代办：左圆点切换完成（先确认）+ 文字（点行进编辑弹窗）+ 可选提醒徽标。 */
+/**
+ * 已完成组：可展开的头行 + 展开后的完成行。
+ * 头行点按只展开 / 收起；行内点按仍进编辑 / 撤销完成确认。
+ */
 @Composable
-private fun TodoListRow(
-    todo: TodoItem,
-    onToggle: () -> Unit,
-    onEdit: () -> Unit,
+private fun DoneGroup(
+    done: List<TodoItem>,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onToggle: (TodoItem) -> Unit,
+) {
+    // 头行 + 展开后的 N 行共用一个分段块（ui-guidelines §4.1 可展开组行）。
+    // 已完成行只供回看 + 撤销完成，不再进编辑弹窗（编辑会改字又绕过完成时间）。
+    val totalRows = if (expanded) done.size + 1 else 1
+    LunoGroup {
+        DoneHeaderRow(
+            count = done.size,
+            expanded = expanded,
+            shape = segmentedShape(0, totalRows),
+            onClick = { onExpandedChange(!expanded) },
+        )
+        if (expanded) {
+            done.forEachIndexed { index, todo ->
+                TodoListRow(
+                    todo = todo,
+                    shape = segmentedShape(index + 1, totalRows),
+                    onToggle = { onToggle(todo) },
+                )
+            }
+        }
+    }
+}
+
+/** 已完成组头行：标题 + 数量 + 展开箭头（180ms 旋转，MotionSubtle）。 */
+@Composable
+private fun DoneHeaderRow(
+    count: Int,
+    expanded: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = MaterialTheme.shapes.small,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    // 大卡分割线风格：行不画自身底色/圆角，由 LunoGroup 的卡片统一托底，
-    // 仅非首行顶部画分割线（与 LunoRow 同口径）。分割线左起点越过左侧圆点，
-    // 对齐文字列（行内边距 16dp + 圆点 24dp + 间距 12dp）。
-    val inDividedCard = LocalInDividedCard.current
-    val dividerStartInset = 16.dp + 24.dp + 12.dp
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = MinInteractiveSize)
-            .clip(if (inDividedCard) RectangleShape else shape)
-            .background(if (inDividedCard) Color.Transparent else scheme.surfaceBright)
-            .then(Modifier.groupItemTopLine(shape, dividerStartInset))
-            .pressClickable(onClick = onEdit)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(MotionSubtle),
+        label = "doneChevron",
+    )
+    // 整行只做展开 / 收起：无障碍给出动作名，而不是笼统的「双击激活」。
+    val toggleLabel = stringResource(
+        if (expanded) R.string.todo_group_collapse else R.string.todo_group_expand,
+    )
+    LunoGroupItem(
+        shape = shape,
+        dividerStartInset = PageGutter,
+        modifier = modifier,
     ) {
-        TodoCheckToggle(
-            done = todo.done,
-            onToggle = onToggle,
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = todo.text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
-            textDecoration = if (todo.done) TextDecoration.LineThrough else null,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        // 已完成的待办不再显示闹钟：提醒已被取消，显示未来时间会误导用户。
-        todo.reminder?.takeIf { !todo.done }?.let { reminder ->
-            val past = reminder.isPast(System.currentTimeMillis(), ZoneId.systemDefault())
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Default.Alarm,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = if (past) scheme.error else scheme.primary,
-            )
-            Spacer(Modifier.width(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = MinInteractiveSize)
+                .pressClickable(onClickLabel = toggleLabel, onClick = onClick)
+                .padding(horizontal = PageGutter),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = TodoReminderFormat.label(LocalContext.current, reminder),
-                style = MaterialTheme.typography.labelMedium,
-                color = if (past) scheme.error else scheme.onSurfaceVariant,
+                text = stringResource(R.string.todo_group_done, count),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(rotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-/** 完成切换圆点：未完成 = 空心描边；已完成 = 实心主色 + 白勾。点按只发切换请求，确认在列表页弹层。 */
+/**
+ * 一行代办：左圆点切换完成（先确认）+ 文字 + 可选提醒徽标。
+ * [onEdit] 非空时点行进编辑弹窗；null（已完成行）时行不可点，只留圆点撤销。
+ */
+@Composable
+private fun TodoListRow(
+    todo: TodoItem,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = MaterialTheme.shapes.small,
+    onEdit: (() -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    // 大卡分割线风格：行不画自身底色/圆角，由 LunoGroup 的卡片统一托底，
+    // 仅非首行顶部画分割线（与 LunoRow 同口径）。分割线左起点越过左侧圆点，
+    // 对齐文字列（行内边距 16dp + 48dp 命中区 + 间距 8dp）。
+    val dividerStartInset = 16.dp + MinInteractiveSize + 8.dp
+    LunoGroupItem(
+        shape = shape,
+        dividerStartInset = dividerStartInset,
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = MinInteractiveSize)
+                .then(
+                    if (onEdit != null) {
+                        Modifier.pressClickable(onClick = onEdit)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TodoCheckToggle(
+                done = todo.done,
+                onToggle = onToggle,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = todo.text,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
+                textDecoration = if (todo.done) TextDecoration.LineThrough else null,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // 已完成的待办不再显示闹钟：提醒已被取消，显示未来时间会误导用户。
+            todo.reminder?.takeIf { !todo.done }?.let { reminder ->
+                val past = reminder.isPast(System.currentTimeMillis(), ZoneId.systemDefault())
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.Alarm,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = if (past) scheme.error else scheme.primary,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = TodoReminderFormat.label(LocalContext.current, reminder),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (past) scheme.error else scheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 完成切换圆点：48dp 命中区（视觉 24dp）。未完成 = 空心描边；已完成 = 实心主色 + 白勾。
+ * 点按只发切换请求，确认在列表页弹层。
+ */
 @Composable
 private fun TodoCheckToggle(
     done: Boolean,
@@ -285,17 +385,24 @@ private fun TodoCheckToggle(
 ) {
     val scheme = MaterialTheme.colorScheme
     val size = 24.dp
+    val label = stringResource(
+        if (done) {
+            R.string.todo_uncomplete_confirm_title
+        } else {
+            R.string.todo_complete_confirm_title
+        },
+    )
     Box(
         modifier = modifier
-            .size(size)
+            .size(MinInteractiveSize)
             .clip(CircleShape)
-            .pressClickable(onClick = onToggle),
+            .pressClickable(onClickLabel = label, onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
         if (done) {
             Box(
                 Modifier
-                    .fillMaxSize()
+                    .size(size)
                     .clip(CircleShape)
                     .background(scheme.primary),
                 contentAlignment = Alignment.Center,
@@ -310,7 +417,7 @@ private fun TodoCheckToggle(
         } else {
             Box(
                 Modifier
-                    .fillMaxSize()
+                    .size(size)
                     .border(2.dp, scheme.onSurfaceVariant.copy(alpha = 0.5f), CircleShape),
             )
         }

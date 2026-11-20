@@ -28,6 +28,7 @@ import hunoia.luno.config.model.singlePanelWidgetId
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.bridge.ui.showToastLong
+import hunoia.luno.gridpanel.ui.ClipboardDragBarLayer
 import hunoia.luno.gridpanel.ui.GridPanelDragGhostLayer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
 import hunoia.luno.runtime.overlay.OverlayPanelHost
@@ -427,6 +428,7 @@ object GridPanelOverlay : OverlayPanelHost(
                     editState = editModeState,
                     )
                     GridPanelDragGhostLayer(dragGhost)
+                    ClipboardDragBarLayer(dragGhost)
                 }
             }
         }
