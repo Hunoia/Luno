@@ -207,9 +207,34 @@ class FloatBallService : Service() {
     /** insets 推播是否已确认可用（确认后可停掉 IME 兜底轮询）。 */
     private var imePushConfirmed = false
     private var imeHintCount = 0
+    /** 上次从运行态看到的键盘活动态；`null` = 尚未收到首份快照。 */
+    private var lastKeyboardInputActive: Boolean? = null
 
-    /** 显隐场景随运行态（前台应用 / 锁屏 / 横屏 / 键盘）重算。 */
-    private val runtimeStateObserver: (GestureRuntimeState) -> Unit = { refreshWindows() }
+    /**
+     * 运行态观察者：显隐场景随运行态重算（[refreshWindows]），键盘态翻转时**事件驱动**让位。
+     *
+     * 键盘状态以 `:core:runtime` 的 `hunoia.luno.runtime.environment.EnvironmentTracker`
+     * （a11y TYPE_INPUT_METHOD 窗口驱动）为唯一来源，经 [RuntimeStateHub] 送到这里 ——
+     * 与显隐设置的 KEYBOARD_INPUT 维度同一份判定，不在悬浮球里再写一套。状态翻转即采一次
+     * IME 高度，键盘弹出球立即上抬。
+     */
+    private val runtimeStateObserver: (GestureRuntimeState) -> Unit = { state ->
+        onRuntimeStateChanged(state)
+    }
+
+    private fun onRuntimeStateChanged(state: GestureRuntimeState) {
+        val keyboardActive = state.isKeyboardInputActive
+        if (lastKeyboardInputActive != keyboardActive) {
+            val firstSnapshot = lastKeyboardInputActive == null
+            lastKeyboardInputActive = keyboardActive
+            // 首份快照只作基线，不把「键盘已弹出」当翻转；但球可能在键盘已弹时挂载，
+            // 该让位一次（insets 事件路径通常也会触发，这里只是不让挂载期漏抬）。
+            if (!firstSnapshot || keyboardActive) {
+                if (sampleImeOnce() > 0) confirmImePush()
+            }
+        }
+        refreshWindows()
+    }
 
     /** 悬浮球在 SurfaceController 的句柄：短态软隐藏、长态摘窗。 */
     private val surfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
@@ -1160,13 +1185,27 @@ class FloatBallService : Service() {
 
     // ---- 键盘让位 ----
 
+    /**
+     * 键盘让位：运行态事件驱动 + 低频固定兜底（非退避）。
+     *
+     * 键盘状态只从运行态快照读（`GestureRuntimeState.isKeyboardInputActive`，`:core:runtime`
+     * 的 `hunoia.luno.runtime.environment.EnvironmentTracker` 以 a11y TYPE_INPUT_METHOD 窗口驱动）
+     * —— 与显隐设置的 KEYBOARD_INPUT 维度同一份判定，不在悬浮球里另写一套。翻转即采一次 IME
+     * 高度，键盘弹出球立即上抬（见 [onRuntimeStateChanged]）。
+     *
+     * 这里的轮询只兜「a11y 事件与 insets 事件都漏派发」的极端 ROM，**固定低频、不指数退避**：
+     * 退避会把「键盘弹出避让」延迟到 30s，功能等于没有。10s 一次、仅球可见，空闲 CPU 可忽略
+     * （simpleperf 实测：500ms 高频轮询占主线程样本 ~36%、空闲 ~4% CPU，元凶就是它）。
+     */
     private fun observeIme() {
         imeJob?.cancel()
         imeJob = scope.launch {
             while (isActive) {
-                delay(IME_POLL_MS)
+                delay(IME_POLL_FALLBACK_MS)
                 if (!ballVisible || visibility.isHidden || softHidden) continue
-                pollImeOnce()
+                // 兜底只复测，不参与「事件路径可靠」的确认 —— 确认后要停的就是本轮询，
+                // 若自己给自己确认，事件不可靠的 ROM 会把唯一兜底也停掉，球再抬不起。
+                sampleImeOnce()
             }
         }
     }
@@ -1176,19 +1215,28 @@ class FloatBallService : Service() {
         imeHintJob = scope.launch {
             delay(32)
             if (!ballVisible || visibility.isHidden || softHidden) return@launch
-            pollImeOnce()
-            if (imeBottom > 0) {
-                imeHintCount++
-                if (!imePushConfirmed && imeHintCount >= IME_PUSH_CONFIRM_HINTS) {
-                    imePushConfirmed = true
-                    imeJob?.cancel()
-                    imeJob = null
-                }
-            }
+            if (sampleImeOnce() > 0) confirmImePush()
         }
     }
 
-    private fun pollImeOnce() {
+    /** 事件驱动路径（运行态翻转 / insets 提示）与兜底轮询共用的让位采样，主线程。 */
+    private fun sampleImeOnce(): Int {
+        if (!ballVisible || visibility.isHidden || softHidden) return 0
+        return pollImeOnce()
+    }
+
+    /** 连续若干次事件确认「事件路径可靠」后停掉兜底轮询：事件已够，轮询纯省电。 */
+    private fun confirmImePush() {
+        imeHintCount++
+        if (!imePushConfirmed && imeHintCount >= IME_PUSH_CONFIRM_HINTS) {
+            imePushConfirmed = true
+            imeJob?.cancel()
+            imeJob = null
+        }
+    }
+
+    /** 读一次键盘底部高度（display 绝对参考系）。 */
+    private fun pollImeOnce(): Int {
         val imeBottom = runCatching {
             windowManager?.currentWindowMetrics
                 ?.windowInsets
@@ -1196,6 +1244,7 @@ class FloatBallService : Service() {
                 ?.bottom
         }.getOrNull() ?: 0
         ballWindow.updateIme(imeBottom)
+        return imeBottom
     }
 
     private fun ensureImeObserver() {
@@ -2506,7 +2555,8 @@ class FloatBallService : Service() {
             }.onFailure { Log.e(TAG, "show clip float FAILED", it) }
         }
 
-        private const val IME_POLL_MS = 500L
+        /** IME 兜底轮询固定周期：非退避（退避会把键盘避让延迟到 30s，等于没有）。 */
+        private const val IME_POLL_FALLBACK_MS = 10_000L
         private const val IME_PUSH_CONFIRM_HINTS = 2
         private const val FOLLOW_HAND_RETRY_MS = 120L
         private const val FOLLOW_HAND_RETRY_MAX = 12

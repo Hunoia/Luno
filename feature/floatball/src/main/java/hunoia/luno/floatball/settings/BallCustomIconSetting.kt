@@ -28,6 +28,7 @@ import hunoia.luno.ui.theme.MarkColorSize
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -140,22 +141,29 @@ fun BallCustomIconSheet(
         initialAlpha = current.alpha,
         onDismiss = { picker.pendingUri = null },
         onConfirm = { scale, offsetX, offsetY ->
+            // 确认即退场（AnchoredDialog 播完退场回调这里）：把 pendingUri 置空会让本组合
+            // 函数提前 return、退出组合，rememberCoroutineScope 随之取消 —— 若 persist 挂在
+            // 该 scope 上，IO 复制虽能跑完，恢复主线程时会被取消，onChange（落盘
+            // customIconPath）永远执行不到，表现为「文件已复制、设置没写入、球仍是默认图标」。
+            // 用 NonCancellable 让复制+落盘在弹层拆掉后仍完成（短操作，无取消价值）。
             picker.pendingUri = null
             scope.launch {
-                val path = withContext(Dispatchers.IO) { copyIconToFiles(context, uri) }
-                if (path == null) {
-                    showToast(R.string.float_ball_custom_icon_copy_failed)
-                    return@launch
+                withContext(NonCancellable) {
+                    val path = withContext(Dispatchers.IO) { copyIconToFiles(context, uri) }
+                    if (path == null) {
+                        showToast(R.string.float_ball_custom_icon_copy_failed)
+                        return@withContext
+                    }
+                    withContext(Dispatchers.IO) { deleteIconFile(current.path) }
+                    onChange(
+                        current.copy(
+                            path = path,
+                            scale = scale,
+                            offsetX = offsetX,
+                            offsetY = offsetY,
+                        ),
+                    )
                 }
-                withContext(Dispatchers.IO) { deleteIconFile(current.path) }
-                onChange(
-                    current.copy(
-                        path = path,
-                        scale = scale,
-                        offsetX = offsetX,
-                        offsetY = offsetY,
-                    ),
-                )
             }
         },
     )

@@ -28,6 +28,12 @@ if ! grep -q "TOTAL unused imports: 0" <<<"$unused"; then
     exit 1
 fi
 
+step "脚本语法（bash -n，无设备也能跑）"
+for script in scripts/*.sh; do
+    bash -n "$script"
+done
+echo "shell syntax OK"
+
 if [ -d docs ]; then
     step "文档一致性"
     python3 scripts/spec_docs.py generate >/dev/null
