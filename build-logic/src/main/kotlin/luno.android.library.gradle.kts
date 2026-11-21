@@ -20,5 +20,8 @@ extensions.configure<LibraryExtension> {
         lintConfig = rootProject.layout.projectDirectory.file("lint.xml").asFile
         baseline = file("lint-baseline.xml")
         enable += "UnusedResources"
+        // release 构建不挂 lintVital：assembleRelease 省掉 fatal lint 分析（R8 已占大头）。
+        // 门禁不受影响：ci.sh 显式跑 lintDebug，本配置只挡 lintVital 的自动挂载。
+        checkReleaseBuilds = false
     }
 }
