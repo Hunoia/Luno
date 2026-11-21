@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -25,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.input.rememberControlledTextFieldState
 
 /**
  * 玻璃胶囊内联搜索框（动作选择页底栏与页面常驻搜索框共用）：不用 M3 OutlinedTextField ——
@@ -45,6 +48,7 @@ fun LunoSearchField(
 ) {
     val textStyle = MaterialTheme.typography.bodyLarge
     val interactionSource = remember { MutableInteractionSource() }
+    val fieldState = rememberControlledTextFieldState(query, onQueryChange)
     Row(
         modifier = modifier
             .fillMaxHeight()
@@ -64,16 +68,15 @@ fun LunoSearchField(
             modifier = Modifier.size(20.dp),
         )
         BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
+            state = fieldState,
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 8.dp)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            decorationBox = { innerTextField ->
+            decorator = TextFieldDecorator { innerTextField ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (query.isEmpty()) {
                         Text(

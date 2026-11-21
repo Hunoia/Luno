@@ -26,6 +26,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -78,6 +80,7 @@ import hunoia.luno.ui.theme.resolveColor
 import java.util.Locale
 import kotlin.math.roundToInt
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.input.rememberControlledTextFieldState
 import hunoia.luno.ui.component.pressClickable
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,6 +149,28 @@ fun ColorPickerBottomSheet(
         selectedTab = 0
     }
 
+    // 输入框走 TextFieldState（foundation 1.13 起 value/onValueChange 重载弃用）：归一化仍在
+    // 这里做，回写由桥接负责（外部值 → state，state 变化 → onValueChange）。
+    val hexState = rememberControlledTextFieldState(hexField) { raw ->
+        val digits = raw.uppercase(Locale.ROOT)
+            .filter { it.isDigit() || it in 'A'..'F' }
+            .take(8)
+        // 主题 tab 里编辑 hex：先把自定义态对齐到当前预览色再切回，
+        // 保证自定义 tab 的圆盘/滑块与输入框内容一致。
+        if (selectedTab == 1) {
+            val base = previewColor
+            val hsv = FloatArray(3)
+            AndroidColor.colorToHSV(base.toArgb(), hsv)
+            hue = hsv[0]
+            saturation = hsv[1]
+            value = hsv[2]
+            alpha = base.alpha
+            selectedTab = 0
+        }
+        hexField = "#$digits"
+        applyHex(digits)
+    }
+
     val context = LocalContext.current
     val copiedHint = stringResource(R.string.color_picker_copied)
 
@@ -189,30 +214,11 @@ fun ColorPickerBottomSheet(
                             ),
                     )
                     BasicTextField(
-                        value = hexField,
-                        onValueChange = { raw ->
-                            val digits = raw.uppercase(Locale.ROOT)
-                                .filter { it.isDigit() || it in 'A'..'F' }
-                                .take(8)
-                            // 主题 tab 里编辑 hex：先把自定义态对齐到当前预览色再切回，
-                            // 保证自定义 tab 的圆盘/滑块与输入框内容一致。
-                            if (selectedTab == 1) {
-                                val base = previewColor
-                                val hsv = FloatArray(3)
-                                AndroidColor.colorToHSV(base.toArgb(), hsv)
-                                hue = hsv[0]
-                                saturation = hsv[1]
-                                value = hsv[2]
-                                alpha = base.alpha
-                                selectedTab = 0
-                            }
-                            hexField = "#$digits"
-                            applyHex(digits)
-                        },
+                        state = hexState,
                         modifier = Modifier
                             .weight(1f)
                             .onFocusChanged { hexFocused = it.isFocused },
-                        singleLine = true,
+                        lineLimits = TextFieldLineLimits.SingleLine,
                         textStyle = MaterialTheme.typography.titleMedium.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                         ),
@@ -221,7 +227,7 @@ fun ColorPickerBottomSheet(
                             keyboardType = KeyboardType.Ascii,
                             imeAction = ImeAction.Done,
                         ),
-                        decorationBox = { innerTextField ->
+                        decorator = TextFieldDecorator { innerTextField ->
                             Box(
                                 modifier = Modifier
                                     .clip(LargeShape)

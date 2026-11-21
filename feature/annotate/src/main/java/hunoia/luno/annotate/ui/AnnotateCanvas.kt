@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -172,7 +176,8 @@ fun AnnotateCanvas(
     // 画笔范围环：视图坐标 + 实际笔刷半径（视图 px）。纯提示态，不写文档、不进撤销。
     var brushCursor by remember { mutableStateOf<BrushCursor?>(null) }
     var editor by remember { mutableStateOf<TextEditor?>(null) }
-    var textValue by remember { mutableStateOf("") }
+    // 文字编辑的文本源：TextFieldState 即事实源（foundation 1.13 起 value 重载弃用）。
+    val textFieldState = rememberTextFieldState("")
     // 双指开始时递增：进行中的单指绘制据此丢弃草稿，避免缩放时留下半截笔迹。
     var viewTransformGeneration by remember { mutableStateOf(0) }
     // 元素几何缓存（图片坐标）：缩放/平移时不重算每个点。
@@ -197,7 +202,7 @@ fun AnnotateCanvas(
 
     fun commitText() {
         val currentEditor = editor ?: return
-        val text = textValue.trim()
+        val text = textFieldState.text.toString().trim()
         if (text.isNotEmpty()) {
             val existing = currentEditor.existing
             if (existing != null) {
@@ -216,7 +221,7 @@ fun AnnotateCanvas(
             }
         }
         editor = null
-        textValue = ""
+        textFieldState.clearText()
     }
 
     LaunchedEffect(document) {
@@ -231,7 +236,7 @@ fun AnnotateCanvas(
         draftErase = null
         brushCursor = null
         editor = null
-        textValue = ""
+        textFieldState.clearText()
         viewTransformGeneration = 0
         geometryCache.clear()
     }
@@ -425,7 +430,7 @@ fun AnnotateCanvas(
                                 .firstOrNull { it.realHitBounds(currentFit).contains(startImage) }
                             val target = hit?.position ?: startImage
                             editor = TextEditor(position = target, existing = hit)
-                            textValue = hit?.text ?: ""
+                            textFieldState.setTextAndPlaceCursorAtEnd(hit?.text ?: "")
                             drag(down.id) { it.consume() }
                         }
 
@@ -1070,8 +1075,7 @@ fun AnnotateCanvas(
                         },
                 )
                 BasicTextField(
-                    value = textValue,
-                    onValueChange = { textValue = it },
+                    state = textFieldState,
                     modifier = Modifier
                         .widthIn(min = 48.dp)
                         .focusRequester(focusRequester)
@@ -1085,7 +1089,7 @@ fun AnnotateCanvas(
                         .onKeyEvent { event ->
                             if (event.key == Key.Escape) {
                                 editor = null
-                                textValue = ""
+                                textFieldState.clearText()
                                 true
                             } else {
                                 false
@@ -1103,7 +1107,7 @@ fun AnnotateCanvas(
                     cursorBrush = SolidColor(Color(textStyle.colorArgb)),
                     // 多行（D3）：回车换行。结束编辑走旁边的 ✓ 按钮——
                     // IME 的 Done 键在多行下会把换行吞掉，不能当完成入口。
-                    singleLine = false,
+                    lineLimits = TextFieldLineLimits.MultiLine(),
                 )
                 // ✓ 完成按钮：浮层窗口 NOT_FOCUSABLE，无法依赖 IME 完成键，
                 // 按钮必须与编辑器同窗内联（画布同层）。

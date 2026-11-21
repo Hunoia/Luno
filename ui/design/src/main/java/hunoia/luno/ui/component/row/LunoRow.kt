@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import hunoia.luno.ui.component.input.rememberControlledTextFieldState
 import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.DisabledAlpha
@@ -155,7 +158,8 @@ internal fun LunoRowBase(
                 if (selectable) this.selected = selected
                 stateDescription?.let { this.stateDescription = it }
             },
-        headlineContent = headline ?: {
+        // M3 1.5.0 起标题参数改名 content（旧 headlineContent 重载已弃用）。
+        content = headline ?: {
             Text(
                 modifier = if (marquee) Modifier.basicMarquee(velocity = MarqueeVelocity) else Modifier,
                 text = title,
@@ -381,6 +385,7 @@ fun LunoInputRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val fieldState = rememberControlledTextFieldState(value, onValueChange)
     LunoGroupItem(shape = shape, modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -396,7 +401,7 @@ fun LunoInputRow(
                     color = colorScheme.onSurfaceVariant,
                 )
                 // 占位与输入叠在同一个定宽容器里：宽度必须落在 BasicTextField 本体上
-                // （decorationBox 的核心文本节点拿松约束自适宽，TextAlign.End 不生效）。
+                // （decorator 的核心文本节点拿松约束自适宽，TextAlign.End 不生效）。
                 Box(modifier = Modifier.weight(1f)) {
                     if (value.isEmpty() && placeholder.isNotEmpty()) {
                         Text(
@@ -409,15 +414,18 @@ fun LunoInputRow(
                         )
                     }
                     BasicTextField(
-                        value = value,
-                        onValueChange = onValueChange,
+                        state = fieldState,
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.titleMedium.copy(
                             textAlign = TextAlign.End,
                             color = if (isError) colorScheme.error else colorScheme.onSurface,
                         ),
                         cursorBrush = SolidColor(colorScheme.primary),
-                        singleLine = singleLine,
+                        lineLimits = if (singleLine) {
+                            TextFieldLineLimits.SingleLine
+                        } else {
+                            TextFieldLineLimits.MultiLine()
+                        },
                         keyboardOptions = keyboardOptions,
                     )
                 }
@@ -460,6 +468,7 @@ fun LunoCardInput(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val fieldState = rememberControlledTextFieldState(value, onValueChange)
     LunoGroupItem(shape = shape, modifier = modifier) {
         Column(
             modifier = Modifier
@@ -479,17 +488,19 @@ fun LunoCardInput(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
+                    state = fieldState,
                     modifier = Modifier.weight(1f),
                     textStyle = MaterialTheme.typography.titleMedium.copy(
                         color = if (isError) colorScheme.error else colorScheme.onSurface,
                     ),
                     cursorBrush = SolidColor(colorScheme.primary),
-                    singleLine = singleLine,
-                    minLines = minLines,
+                    lineLimits = if (singleLine) {
+                        TextFieldLineLimits.SingleLine
+                    } else {
+                        TextFieldLineLimits.MultiLine(minHeightInLines = minLines)
+                    },
                     keyboardOptions = keyboardOptions,
-                    decorationBox = { innerField ->
+                    decorator = TextFieldDecorator { innerField ->
                         Box(Modifier.fillMaxWidth()) {
                             if (value.isEmpty() && placeholder.isNotEmpty()) {
                                 Text(

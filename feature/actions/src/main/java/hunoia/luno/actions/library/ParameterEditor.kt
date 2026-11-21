@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -33,6 +35,7 @@ import hunoia.luno.actions.R
 import hunoia.luno.core.AppContext
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.input.rememberControlledTextFieldState
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoInputRow
@@ -292,14 +295,14 @@ private fun KvField(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val fieldState = rememberControlledTextFieldState(value, onValueChange)
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state = fieldState,
         modifier = modifier,
         textStyle = MaterialTheme.typography.titleMedium.copy(color = colorScheme.onSurface),
         cursorBrush = SolidColor(colorScheme.primary),
-        singleLine = true,
-        decorationBox = { innerField ->
+        lineLimits = TextFieldLineLimits.SingleLine,
+        decorator = TextFieldDecorator { innerField ->
             Box(Modifier.fillMaxWidth()) {
                 if (value.isEmpty()) {
                     Text(
