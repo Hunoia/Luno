@@ -56,7 +56,7 @@ import hunoia.luno.quickaccess.query.QuickSearchIndex
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchIcon
 import hunoia.luno.quickaccess.query.SearchResult
-import hunoia.luno.quickaccess.query.normalizePinQuery
+import hunoia.luno.quickaccess.query.pinnedKeyList
 import hunoia.luno.quickaccess.query.searchOutcome
 import hunoia.luno.quickaccess.query.topUsed
 import hunoia.luno.quickaccess.query.toSearchResult
@@ -387,9 +387,9 @@ internal fun QuickSearchContent(
         menuResult?.let { menuDismissal = DismissedMenu(it.key, SystemClock.uptimeMillis()) }
         menuResult = null
     }
-    // 当前 query 的结果级 Pin key 集（trim+lowercase，与索引层同口径）。
+    // 当前 query 的结果级 Pin key 集：与索引层裁剪同一份口径（pinnedKeyList，含 MAX 截断）。
     val resultPinnedKeys = remember(searchSettings.pinnedResults, query.text) {
-        searchSettings.pinnedResults[normalizePinQuery(query.text.trim())].orEmpty().toSet()
+        searchSettings.pinnedKeyList(query.text).toSet()
     }
     val safeAction: (SearchAction, String) -> Unit = { a, q -> if (!closing) onAction(a, q) }
     Box(

@@ -22,6 +22,3 @@ data class SubGestureAngle(
         return if (resized === boundaries) this else SubGestureAngle(resized)
     }
 }
-
-fun SubGestureAngle.copyNewNoGap(index: Int, newP: Float): SubGestureAngle =
-    copy(boundaries = copyDirectionAngleBoundary(boundaries, index, newP))

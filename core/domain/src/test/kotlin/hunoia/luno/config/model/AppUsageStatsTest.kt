@@ -1,6 +1,5 @@
 package hunoia.luno.config.model
 
-import hunoia.luno.core.domain.AppLaunchSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -16,46 +15,11 @@ class AppUsageStatsTest {
     }
 
     @Test
-    fun `records and updates last source`() {
-        val first = AppUsageStats().recordLaunch(
-            "pkg",
-            now = 1_000L,
-            source = AppLaunchSource.QUICK_LAUNCHER,
-            minIntervalMs = 0L,
-        )
-        assertEquals(AppLaunchSource.QUICK_LAUNCHER, first.lastSource["pkg"])
-        val second = first.recordLaunch(
-            "pkg",
-            now = 2_000L,
-            source = AppLaunchSource.ACTION_DISPATCH,
-            minIntervalMs = 0L,
-        )
-        assertEquals(AppLaunchSource.ACTION_DISPATCH, second.lastSource["pkg"])
-    }
-
-    @Test
     fun `duplicate launch inside debounce window is ignored`() {
         val first = AppUsageStats().recordLaunch("pkg", now = 1_000L, minIntervalMs = 300L)
         val second = first.recordLaunch("pkg", now = 1_200L, minIntervalMs = 300L)
         assertTrue(first === second)
         assertEquals(1L, second.launchCount["pkg"])
-    }
-
-    @Test
-    fun `debounced launch still records latest source`() {
-        val first = AppUsageStats().recordLaunch(
-            "pkg",
-            now = 1_000L,
-            source = AppLaunchSource.QUICK_LAUNCHER,
-        )
-        val second = first.recordLaunch(
-            "pkg",
-            now = 1_100L,
-            source = AppLaunchSource.ACTION_DISPATCH,
-        )
-        assertEquals(1L, second.launchCount["pkg"])
-        assertEquals(1_000L, second.recentLaunchTime["pkg"])
-        assertEquals(AppLaunchSource.ACTION_DISPATCH, second.lastSource["pkg"])
     }
 
     @Test
@@ -83,7 +47,6 @@ class AppUsageStatsTest {
 
         assertFalse("old" in stats.recentLaunchTime)
         assertFalse("old" in stats.launchCount)
-        assertFalse("old" in stats.lastSource)
         assertTrue("mid" in stats.launchCount)
         assertTrue("new" in stats.launchCount)
     }

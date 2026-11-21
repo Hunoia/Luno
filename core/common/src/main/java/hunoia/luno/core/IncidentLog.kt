@@ -1,6 +1,5 @@
 package hunoia.luno.core
 
-import android.app.Application
 import android.util.Log as AndroidLog
 import java.io.File
 import java.io.PrintWriter
@@ -91,15 +90,7 @@ object IncidentLog {
     @Volatile
     private var notifyCached = true
 
-    private val processLabel: String by lazy {
-        val name = runCatching { Application.getProcessName() }.getOrNull().orEmpty()
-        when {
-            name.isEmpty() -> "unknown"
-            !name.contains(':') -> "main"
-            else -> name.substringAfter(':').ifBlank { "process" }
-                .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        }
-    }
+    private val processLabel: String by lazy { currentProcessLabel() }
 
     /** 记录一次崩溃：同步写入后再交给系统默认处理器，避免进程死亡时丢记录。 */
     fun recordCrash(throwable: Throwable, thread: Thread) {

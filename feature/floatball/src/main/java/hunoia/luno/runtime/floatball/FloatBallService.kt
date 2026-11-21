@@ -196,7 +196,6 @@ class FloatBallService : Service() {
         get() = hunoia.luno.runtime.recognition.RecognitionHosts.executor
     /** Surface 隐藏状态机：面板计数 + 临时隐藏，窗口动作仍由本服务负责。 */
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
-    private var tempHideJob: Job? = null
 
     /**
      * Surface 短态软隐藏（标注等）：与 [visibility] 一样只是求值输入。
@@ -406,12 +405,9 @@ class FloatBallService : Service() {
         followHandRetryJob?.cancel()
         followHandRetryJob = null
         pendingFollowHandSide = null
-        Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
         RuntimeStateHub.removeObserver(runtimeStateObserver)
         NotificationPulseHub.removePostedObserver(notificationObserver)
         NotificationPulseHub.removeRemovedObserver(notificationRemovedObserver)
-        tempHideJob?.cancel()
-        tempHideJob = null
         notificationSlot.destroy()
         resultSlot.destroy()
         clipboardPollJob?.cancel()
@@ -624,31 +620,13 @@ class FloatBallService : Service() {
     private fun observePanels() {
         Events.subscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.subscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
-        Events.subscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
     }
 
     // ---- 临时隐藏 ----
 
-    private val tempHideSubscriber: (FloatBallTempHideEvent) -> Unit = { event ->
-        scheduleTempHide(event.durationMs)
-    }
-
-    private fun scheduleTempHide(durationMs: Long) {
-        if (!visibility.applyTempHide(durationMs)) return
-        tempHideJob?.cancel()
-        tempHideJob = scope.launch {
-            delay(visibility.tempHideRemainingMs())
-            visibility.cancelTempHide()
-            seedClipboardBaseline()
-            refreshWindows()
-        }
-        refreshWindows()
-    }
-
+    /** 关球时同步撤销未到期的临时隐藏（生产方接回前 hasTempHide 恒 false）。 */
     private fun cancelTempHide() {
         if (!visibility.hasTempHide) return
-        tempHideJob?.cancel()
-        tempHideJob = null
         visibility.cancelTempHide()
         refreshWindows()
     }

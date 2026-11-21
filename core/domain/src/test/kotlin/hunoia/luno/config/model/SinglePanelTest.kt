@@ -26,9 +26,5 @@ class SinglePanelTest {
 
         assertEquals(2, settings.panels.size)
         assertEquals(0.8f, settings.panelByWidgetId(SinglePanelIds.CLIPBOARD)?.appearance?.cardAlpha)
-        assertEquals(
-            first.refId,
-            settings.panelByRefId(singlePanelRefId(SinglePanelIds.CLIPBOARD))?.refId,
-        )
     }
 }

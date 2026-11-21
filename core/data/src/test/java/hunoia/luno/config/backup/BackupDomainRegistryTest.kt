@@ -27,7 +27,6 @@ class BackupDomainRegistryTest {
         // 触发内置域安装（读取版本判定即可）。
         Backup().isSupported()
 
-        assertEquals(BackupDomain.entries.toSet(), BackupDomainRegistry.registeredDomains)
         BackupDomain.entries.forEach { domain ->
             assertTrue(
                 "domain $domain 缺少导出大小上限",

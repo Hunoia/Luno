@@ -3,6 +3,7 @@ package hunoia.luno.annotate.model
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import hunoia.luno.config.model.AnnotateToolStyle
 
 /**
  * 宿主持有的可变文档包装。所有写入口都走 [AnnotateOps]，
@@ -85,10 +86,6 @@ class AnnotateDocument(initial: AnnotateState) {
         viewTransform = AnnotateViewTransform(zoom, pan).sanitized()
     }
 
-    fun resetViewTransform() {
-        viewTransform = viewTransform.reset()
-    }
-
     fun updateSafeViewZoom(zoom: Float) {
         safeViewZoom = zoom.coerceIn(AnnotateOps.MIN_VIEW_ZOOM, 1f)
     }
@@ -120,12 +117,12 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.setEraserRect(state, enabled)
     }
 
-    fun updateStyle(tool: ToolKind, style: ToolStyle) {
+    fun updateStyle(tool: ToolKind, style: AnnotateToolStyle) {
         state = AnnotateOps.updateStyle(state, tool, style)
     }
 
     /** 打开标注时应用持久化偏好（每工具风格）；不进撤销历史。 */
-    fun applySettings(styles: Map<ToolKind, ToolStyle>) {
+    fun applySettings(styles: Map<ToolKind, AnnotateToolStyle>) {
         state = AnnotateOps.applySettings(state, styles)
     }
 

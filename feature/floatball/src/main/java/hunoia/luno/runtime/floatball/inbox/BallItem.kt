@@ -106,7 +106,6 @@ internal data class ResultItem(
         "res:${stableHash("${ruleId ?: "link"}|$sourceKey|$text|${urls.joinToString("|")}")}"
     override val source: BallSource = BallSource.RESULT
 
-    val primaryUrl: String? get() = urls.firstOrNull()
     val linkCount: Int get() = urls.size
 
     override fun withPinned(pinned: Boolean): BallItem = copy(pinned = pinned)

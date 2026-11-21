@@ -1,15 +1,14 @@
 package hunoia.luno.gridpanel.reminder.trend
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.TrendCenter
+import hunoia.luno.gridpanel.reminder.ReminderAlarms
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -139,24 +138,10 @@ object TrendReminderScheduler {
     }
 
     private fun setAlarm(context: Context, metricId: String, atMillis: Long) {
-        val manager = context.getSystemService(AlarmManager::class.java) ?: return
-        val pending = pendingIntent(context, metricId)
-        try {
-            val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
-            if (exact) {
-                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending)
-            } else {
-                manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending)
-            }
-            LunoLog.i(LOG_TAG, "trend reminder scheduled: metric=$metricId at=$atMillis exact=$exact")
-        } catch (e: SecurityException) {
-            LunoLog.w(LOG_TAG, "trend reminder exact alarm denied: ${e.message}")
-            runCatching { manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending) }
-        }
+        ReminderAlarms.setExactFallback(context, atMillis, pendingIntent(context, metricId), "trend reminder")
     }
 
     private fun cancelAlarm(context: Context, metricId: String) {
-        val manager = context.getSystemService(AlarmManager::class.java) ?: return
-        runCatching { manager.cancel(pendingIntent(context, metricId)) }
+        ReminderAlarms.cancel(context, pendingIntent(context, metricId))
     }
 }

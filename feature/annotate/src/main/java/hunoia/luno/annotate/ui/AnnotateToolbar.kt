@@ -65,7 +65,7 @@ import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.ShapeKind
 import hunoia.luno.annotate.model.ToolKind
-import hunoia.luno.annotate.model.ToolStyle
+import hunoia.luno.config.model.AnnotateToolStyle
 import hunoia.luno.annotate.render.exportPixelSize
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
@@ -388,7 +388,7 @@ private fun SelectionPanelContent(
 /** 固定调色板行。 */
 @Composable
 private fun ColorPaletteRow(
-    style: ToolStyle,
+    style: AnnotateToolStyle,
     onColorChange: (Long) -> Unit,
 ) {
     Row(
@@ -575,7 +575,7 @@ val AnnotatePalette: List<Long> = listOf(
     0xFF000000,
 )
 
-private fun ToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
+private fun AnnotateToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     ToolKind.TEXT -> textSize
     ToolKind.NUMBER -> textSize
     ToolKind.MOSAIC -> mosaicCell
@@ -583,7 +583,7 @@ private fun ToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     else -> strokeWidth
 }
 
-private fun ToolStyle.withPrimarySize(tool: ToolKind, value: Float): ToolStyle = when (tool) {
+private fun AnnotateToolStyle.withPrimarySize(tool: ToolKind, value: Float): AnnotateToolStyle = when (tool) {
     ToolKind.TEXT -> copy(textSize = value)
     ToolKind.NUMBER -> copy(textSize = value)
     ToolKind.MOSAIC -> copy(mosaicCell = value)

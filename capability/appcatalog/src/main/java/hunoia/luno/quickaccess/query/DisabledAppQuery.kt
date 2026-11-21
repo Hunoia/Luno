@@ -167,12 +167,6 @@ object DisabledAppQuery {
     fun queryDisabledApplications(context: Context): List<AppInfo> =
         queryDisabledEntries(context).map { it.app }
 
-    /** suspend 包集合：页面只读展示，且不进入任何解冻目标。 */
-    fun querySuspendedPackages(context: Context): Set<String> =
-        queryDisabledEntries(context)
-            .filter { it.availability == AppAvailability.SUSPENDED }
-            .mapTo(mutableSetOf()) { it.app.packageName }
-
     fun queryQuickAppLauncherApps(context: Context): QuickAppLauncherAppList =
         AppCatalog.query(context, includeDisabled = true)
 }

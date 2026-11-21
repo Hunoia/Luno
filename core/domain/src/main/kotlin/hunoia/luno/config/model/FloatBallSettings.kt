@@ -310,8 +310,7 @@ object FloatBallDefaults {
     const val InboxCapacityMin = 1
     const val InboxCapacityMax = 10
 
-    /** 自定义图标透明度默认值与滑杆上下限（下限 0.1：全透明会让球找不着）。 */
-    const val CustomIconAlpha = 1f
+    /** 自定义图标透明度滑杆上下限（下限 0.1：全透明会让球找不着）。 */
     const val CustomIconAlphaMin = 0.1f
     const val CustomIconAlphaMax = 1f
 

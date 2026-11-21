@@ -38,7 +38,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
  *
  * 与面板浮窗同进程：透明 Activity 承载同一个 [ActionSelectContent]，选择经 DataLoader
  * 落盘（选择页无返回值），finish 即回面板，回显事件走进程内 Events 总线。
- * 环境 locals 照抄 SideGestureApp 的提供方：ActionDisplay 渲染行名要用。
+ * 环境 locals 照抄 SideGestureApp 的提供方：`actionText` 渲染行名要用。
  */
 class ActionSelectHostActivity : ComponentActivity() {
 

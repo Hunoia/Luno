@@ -1,7 +1,6 @@
 package hunoia.luno.config.model
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,16 +30,6 @@ class QuickSearchEngineSettingsTest {
             engineOrder = listOf("b", "a"),
         )
         assertEquals(settings.allEngines(), settings.effectiveEngines())
-    }
-
-    @Test
-    fun `primary engine is first engine in order or null when empty`() {
-        val settings = QuickSearchSettings(
-            customEngines = listOf(engine("a"), engine("b")),
-            engineOrder = listOf("b", "a"),
-        )
-        assertEquals("b", settings.primaryEngineOrNull()?.id)
-        assertNull(QuickSearchSettings().primaryEngineOrNull())
     }
 
     @Test

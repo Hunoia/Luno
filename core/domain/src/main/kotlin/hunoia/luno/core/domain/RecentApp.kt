@@ -16,13 +16,5 @@ data class RecentApp(
     companion object {
         fun blockKey(packageName: String, userId: Int): String =
             if (userId == 0) packageName else "$packageName#$userId"
-
-        /** 解析持久化键；无 `#userId` 后缀或后缀非法时按主应用处理。 */
-        fun fromBlockKey(key: String): RecentApp {
-            val index = key.lastIndexOf('#')
-            if (index <= 0 || index == key.lastIndex) return RecentApp(key)
-            val userId = key.substring(index + 1).toIntOrNull() ?: return RecentApp(key)
-            return RecentApp(key.substring(0, index), userId)
-        }
     }
 }

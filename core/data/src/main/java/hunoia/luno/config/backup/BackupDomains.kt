@@ -105,12 +105,6 @@ object BackupDomainRegistry {
         }
     }
 
-    val registeredDomains: Set<BackupDomain>
-        get() {
-            ensureBuiltins()
-            return handlers.keys.toSet()
-        }
-
     private fun ensureBuiltins() = BuiltinBackupDomains.ensure()
 }
 

@@ -448,7 +448,7 @@ object RecognitionDefaults {
     // ---- 常用文本规则：默认表与「添加常用规则」共用同一份定义 ----
     //
     // 以前默认表和预设各写一遍正则，两边必须手抄同步；这里只写一次，
-    // 默认表 = 前 [DefaultTextRuleCount] 条，预设 = 整张表（按 pattern 判重后补进规则表）。
+    // 默认表 = [DefaultTextRuleIds] 命中的条目，预设 = 整张表（按 pattern 判重后补进规则表）。
 
     private val CodeZh = textRule(CodeRuleIdZh, "验证码", CodePatternZh)
     private val CodeEn = textRule(CodeRuleIdEn, "验证码（英文）", CodePatternEn)
@@ -506,8 +506,6 @@ object RecognitionDefaults {
 
     val rules: List<RecognitionRule> =
         AllTextRules.filter { it.id in DefaultTextRuleIds } + LinkRule
-
-    val codeRules: List<RecognitionRule> get() = AllTextRules
 
     /**
      * 「添加常用规则」里的文本类预设（链接类见 `LinkPresets`），整张常用表。

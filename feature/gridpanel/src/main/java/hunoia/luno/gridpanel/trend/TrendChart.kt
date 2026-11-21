@@ -394,29 +394,6 @@ fun TrendSeriesChart(
     }
 }
 
-/** 单系列折线：多系列的退化形态，给单值指标的详情页用。 */
-@Composable
-fun TrendChart(
-    entries: List<TrendEntry>,
-    target: Double?,
-    decimals: Int,
-    unit: String,
-    color: Color,
-    range: TrendRange,
-    modifier: Modifier = Modifier,
-    labels: List<String> = emptyList(),
-    onShowAll: (() -> Unit)? = null,
-) = TrendSeriesChart(
-    series = listOf(TrendSeries(entries = entries, color = color)),
-    target = target,
-    decimals = decimals,
-    unit = unit,
-    range = range,
-    labels = labels,
-    modifier = modifier,
-    onShowAll = onShowAll,
-)
-
 /** 列表 / 面板部件用的小曲线：不画坐标轴、目标和网格，只保留走势。 */
 @Composable
 fun TrendMiniChart(

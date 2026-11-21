@@ -9,7 +9,6 @@ import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
-import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.RuntimeStateHub
 import hunoia.luno.runtime.overlay.ButtonWindowController
@@ -141,33 +140,3 @@ fun shouldShowSurface(
     val state = runtimeState ?: return true
     return evaluateProfiles(targetId, visibility.profiles, state)
 }
-
-/** 悬浮球场景。 */
-fun shouldShowFloatBall(
-    initialSettings: InitialSettings,
-    runtimeState: GestureRuntimeState?,
-): Boolean = shouldShowSurface(
-    VisibilityTargets.FLOAT_BALL,
-    initialSettings,
-    runtimeState,
-)
-
-/** 通知气泡场景。 */
-fun shouldShowNotificationCapsule(
-    initialSettings: InitialSettings,
-    runtimeState: GestureRuntimeState?,
-): Boolean = shouldShowSurface(
-    VisibilityTargets.NOTIFICATION_CAPSULE,
-    initialSettings,
-    runtimeState,
-)
-
-/** 结果胶囊场景。 */
-fun shouldShowResultCapsule(
-    initialSettings: InitialSettings,
-    runtimeState: GestureRuntimeState?,
-): Boolean = shouldShowSurface(
-    VisibilityTargets.RESULT_CAPSULE,
-    initialSettings,
-    runtimeState,
-)

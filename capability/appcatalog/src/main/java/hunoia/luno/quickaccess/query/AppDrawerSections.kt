@@ -132,17 +132,11 @@ object AppDrawerSections {
     }
 
     /**
-     * 纯字母序分节：不掺使用频率、不置顶，字母节按 A–# 排列、节内按全拼 → 原串 → 标题排。
-     *
-     * 动作选择页用它：那里找应用靠「我记得它叫什么」，不是「我常用它」，
-     * 右侧字母滑杆要能稳定跳到某个字母。抽屉仍走 [layout]（使用频率序 + 常用区）。
-     */
-    fun alphabeticalSections(apps: List<AppInfo>): List<AppSection> =
-        alphabeticalSectionsOf(apps) { it.label }.map { AppSection(it.letter, it.items) }
-
-    /**
      * 任意列表的字母分节（同一个标签 -> 拼音口径）。[labelOf] 取用于排序的标题，
      * 同标签条目（分身）保持入参顺序，稳定排序不会把分身拆开。
+     *
+     * 动作选择页 / 应用选择 sheet 用它：那里找应用靠「我记得它叫什么」，不是「我常用它」，
+     * 右侧字母滑杆要能稳定跳到某个字母。抽屉仍走 [layout]（使用频率序 + 常用区）。
      */
     fun <T> alphabeticalSectionsOf(
         items: List<T>,

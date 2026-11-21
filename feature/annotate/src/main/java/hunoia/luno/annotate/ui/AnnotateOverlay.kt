@@ -58,7 +58,6 @@ import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
 import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.annotate.screenshot.AnnotateScreenshot
-import hunoia.luno.annotate.store.AnnotateSettingsStore
 import hunoia.luno.annotate.store.flushAnnotateSettings
 import hunoia.luno.annotate.store.observeAnnotateSettings
 import hunoia.luno.annotate.store.restoreAnnotateSettings
@@ -101,8 +100,6 @@ class AnnotateOverlay(
     /** 重新截屏入口；调用前本层窗口已隐藏。失败带原因，宿主据此选提示。 */
     private val captureScreenshot: suspend () -> AnnotateScreenshot.CaptureResult,
     private val onClosed: () -> Unit = {},
-    /** 偏好持久化端口；由宿主注入，feature 不直连配置层。 */
-    private val settingsStore: AnnotateSettingsStore? = null,
 ) {
 
     private companion object {
@@ -175,7 +172,7 @@ class AnnotateOverlay(
 
         val doc = AnnotateDocument(AnnotateState.of(imageWidth, imageHeight))
         // 先恢复偏好再挂窗：工具条首个位置就是持久化位置，避免打开后跳一下。
-        restoreAnnotateSettings(doc, settingsStore)
+        restoreAnnotateSettings(doc)
         document = doc
         // 默认穿透：进页不铺底图（铺了黑 gutter 会盖满屏幕），画布也不可触摸。
         base = null
@@ -198,7 +195,7 @@ class AnnotateOverlay(
         }
         // 面板独立窗口：懒创建（首次显示样式卡/导出/确认时才 addView），
         // 工具条窗口高度恒定，面板开合不影响工具条位置。
-        scope.observeAnnotateSettings(doc, settingsStore)
+        scope.observeAnnotateSettings(doc)
         Log.i(LOG_TAG, "annotate overlay shown (penetrating) ${imageWidth}x${imageHeight}")
         return true
     }
@@ -208,7 +205,7 @@ class AnnotateOverlay(
         document?.commitPendingText()
         hideIme()
         // 防抖窗口内退出不丢偏好：立即补一次落盘（独立于本层 scope）。
-        document?.let { flushAnnotateSettings(it, settingsStore) }
+        document?.let { flushAnnotateSettings(it) }
         val wm = service.getSystemService(WindowManager::class.java)
         val canvas = canvasView
         val toolbar = toolbarView

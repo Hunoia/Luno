@@ -60,9 +60,6 @@ data class SinglePanelSettings(
     fun panelByWidgetId(widgetId: String): SinglePanel? =
         panels.firstOrNull { it.widgetId == widgetId }
 
-    fun panelByRefId(panelId: String): SinglePanel? =
-        singlePanelWidgetId(panelId)?.let(::panelByWidgetId)
-
     /** 按 widgetId 更新/新增：一功能只保留一条。 */
     fun withPanel(panel: SinglePanel): SinglePanelSettings = copy(
         panels = if (panels.any { it.widgetId == panel.widgetId }) {

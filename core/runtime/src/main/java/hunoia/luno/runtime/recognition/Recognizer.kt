@@ -122,10 +122,6 @@ class CompiledRecognizer internal constructor(
 ) {
     val isEmpty: Boolean get() = rules.isEmpty()
 
-    /** 本规则表里是否存在对 [source] 生效的链接规则（决定要不要做链接提取）。 */
-    fun hasLinkRulesFor(source: RecognitionSource): Boolean =
-        rules.any { it.rule.match is RecognitionMatch.Link && source in it.rule.sources }
-
     fun match(input: RecognitionInput): List<RecognizedItem> {
         if (input.text.isEmpty() || rules.isEmpty()) return emptyList()
         val scan = if (input.text.length > MaxScanChars) {

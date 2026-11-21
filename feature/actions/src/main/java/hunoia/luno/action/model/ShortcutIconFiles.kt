@@ -5,6 +5,7 @@ import kotlinx.serialization.json.contentOrNull
 import java.io.File
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
+import hunoia.luno.core.sanitizeFileNameSegment
 
 /**
  * 快捷方式位图图标的落盘与清理。图标必须存文件（`iconPath` 会被序列化进动作），
@@ -76,7 +77,7 @@ object ShortcutIconFiles {
     }
 
     private fun safeName(key: String): String {
-        val cleaned = key.replace(Regex("[^A-Za-z0-9._-]"), "_").take(96)
+        val cleaned = sanitizeFileNameSegment(key).take(96)
         // 截断后可能撞名（长包名 / 长 shortcut id）：附稳定哈希保证一一对应。
         return "${cleaned}_${key.hashCode().toUInt().toString(16)}"
     }

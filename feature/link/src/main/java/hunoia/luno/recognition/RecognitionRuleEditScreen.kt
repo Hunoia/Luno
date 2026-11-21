@@ -80,7 +80,7 @@ fun RecognitionRuleEditScreen(
     appPicker: AppPickerSlot? = null,
     /**
      * 动作选择器：起选择页并返回本次挑选的 token（null = 起不来）。
-     * 选中结果由调用方「监听 token 对应的事件」后回填 [onActionPicked]。
+     * 选中结果由调用方经 [subscribePickedAction] 监听 token 对应的事件后回填。
      */
     actionPicker: ((Context) -> String?)? = null,
     /**

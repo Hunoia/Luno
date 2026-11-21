@@ -14,6 +14,7 @@ data class AnnotateViewTransform(
         zoom = zoom.coerceIn(AnnotateOps.MIN_VIEW_ZOOM, AnnotateOps.MAX_VIEW_ZOOM),
     )
 
+    /** 换底图 / 复位视口：回到默认缩放与原点。 */
     fun reset(): AnnotateViewTransform = AnnotateViewTransform()
 
     /** 适应按钮循环：安全区域适配 ↔ 全屏适配。 */

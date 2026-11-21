@@ -24,23 +24,22 @@ private const val PERSIST_DEBOUNCE_MS = 250L
  */
 private val flushScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-/** 读取持久化偏好并应用到文档；没有 store / 读取失败都按默认值打开（不影响标注本身）。 */
-suspend fun restoreAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsStore?) {
-    val preferences = store?.let { runCatching { it.load() }.getOrNull() } ?: AnnotatePreferences()
+/** 读取持久化偏好并应用到文档；读取失败按默认值打开（不影响标注本身）。 */
+suspend fun restoreAnnotateSettings(document: AnnotateDocument) {
+    val preferences = runCatching { AnnotateSettingsCenter.load() }.getOrNull() ?: AnnotatePreferences()
     document.applySettings(styles = preferences.styles)
 }
 
-/** 立即把文档当前偏好写回 store（关闭 / 换底图时调用）。 */
-fun flushAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsStore?) {
-    if (store == null) return
+/** 立即把文档当前偏好写回配置（关闭 / 换底图时调用）。 */
+fun flushAnnotateSettings(document: AnnotateDocument) {
     val preferences = AnnotatePreferences(
         styles = document.state.styles,
     )
-    flushScope.launch { runCatching { store.save(preferences) } }
+    flushScope.launch { runCatching { AnnotateSettingsCenter.save(preferences) } }
 }
 
 /**
- * 把文档里的偏好变化写回 store，挂在宿主 scope 上随宿主/文档取消。
+ * 把文档里的偏好变化写回配置，挂在宿主 scope 上随宿主/文档取消。
  *
  * 首次发射是打开时刚恢复的偏好，跳过不写；之后样式变化就防抖落盘。
  * scope 取消会中断防抖中的等待，因此关闭路径必须再调用一次 [flushAnnotateSettings]，
@@ -48,22 +47,18 @@ fun flushAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsSto
  */
 fun CoroutineScope.observeAnnotateSettings(
     document: AnnotateDocument,
-    store: AnnotateSettingsStore?,
-): Job? {
-    if (store == null) return null
-    return launch {
-        snapshotFlow {
-            AnnotatePreferences(
-                styles = document.state.styles,
-            )
-        }
-            .distinctUntilChanged()
-            .drop(1)
-            .collectLatest { preferences ->
-                delay(PERSIST_DEBOUNCE_MS)
-                withContext(NonCancellable) {
-                    runCatching { store.save(preferences) }
-                }
-            }
+): Job = launch {
+    snapshotFlow {
+        AnnotatePreferences(
+            styles = document.state.styles,
+        )
     }
+        .distinctUntilChanged()
+        .drop(1)
+        .collectLatest { preferences ->
+            delay(PERSIST_DEBOUNCE_MS)
+            withContext(NonCancellable) {
+                runCatching { AnnotateSettingsCenter.save(preferences) }
+            }
+        }
 }

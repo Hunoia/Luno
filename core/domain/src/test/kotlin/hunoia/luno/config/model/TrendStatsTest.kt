@@ -155,11 +155,6 @@ class TrendStatsTest {
         assertFalse(hasEntryOn(entries, LocalDate.of(2026, 1, 11).toEpochDay(), zone))
     }
 
-    @Test
-    fun `format epoch day is iso date`() {
-        assertEquals("2026-01-10", formatEpochDay(LocalDate.of(2026, 1, 10).toEpochDay()))
-    }
-
     // ---------- 多读数槽位投影 ----------
 
     private fun reading(id: String, day: Int, values: List<Double>, hour: Int = 9) =

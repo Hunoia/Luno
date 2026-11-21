@@ -130,10 +130,9 @@ val PanelPaddingVertical = 10.dp
 val CandidateColumnWidth = 64.dp
 val CandidateRowSpacing = 2.dp
 
-// 单行候选项的高度上下界。QuickLaunchBody 用下界兜底面板内容高度，
+// 单行候选项的高度下界。QuickLaunchBody 用它兜底面板内容高度，
 // 见 requiredContentHeight。
 val CandidateMinHeight = 40.dp
-val CandidateMaxHeight = 96.dp
 
 // 网格 cell 与 AppItem 的内边距
 val GridCellSpacing = 4.dp
@@ -150,7 +149,7 @@ val AppSectionHeaderIconSize = 16.dp
 
 // 字母索引条（应用抽屉边缘滑杆）：高度够时整条全显，放不下只显示当前附近 3–7 个字母；
 // 选中位固定在条中心、滑动的是字母条本身（气泡贴在选中位内侧）。
-// 条目高 = 可用高 / 字母数，夹在实测字高（字形不被裁剪）与 ItemMaxHeight 之间；
+// 条目高 = 可用高 / 字母数，夹在实测字高（字形不被裁剪）与 LetterIndexItemMaxHeight 之间；
 // 连三个完整字母都放不下就整条隐藏（宁可没有滑杆，也不给一排裁掉半截的字）。
 val LetterIndexTouchWidth = 28.dp
 val LetterIndexIdealItemHeight = 32.dp
@@ -273,7 +272,6 @@ const val MotionSwapIn = 160
 const val MotionSwapOut = 120
 const val MotionPress = 120
 const val MotionSettle = 240
-const val MotionReturn = 250
 const val MotionSubtle = 180
 const val MotionStatusIn = 220
 const val MotionStatusOut = 140

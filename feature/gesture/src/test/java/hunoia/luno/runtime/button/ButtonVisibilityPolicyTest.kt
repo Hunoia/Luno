@@ -187,15 +187,15 @@ class ButtonVisibilityPolicyTest {
             targetIds = setOf(VisibilityTargets.FLOAT_BALL),
         )
         val settings = InitialSettings(buttonVisibility = ButtonVisibilitySettings(listOf(profile)))
-        assertFalse(shouldShowFloatBall(settings, state()))
+        assertFalse(shouldShowSurface(VisibilityTargets.FLOAT_BALL, settings, state()))
         assertTrue(policy(listOf(profile)).shouldShow(button1))
     }
 
     @Test
     fun floatBallDefaultsVisibleWithoutProfile() {
-        assertTrue(shouldShowFloatBall(InitialSettings(), state()))
-        assertTrue(shouldShowNotificationCapsule(InitialSettings(), state()))
-        assertTrue(shouldShowResultCapsule(InitialSettings(), state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.FLOAT_BALL, InitialSettings(), state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.NOTIFICATION_CAPSULE, InitialSettings(), state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.RESULT_CAPSULE, InitialSettings(), state()))
     }
 
     @Test
@@ -212,9 +212,9 @@ class ButtonVisibilityPolicyTest {
                 ),
             ),
         )
-        assertTrue(shouldShowFloatBall(hideNotification, state()))
-        assertFalse(shouldShowNotificationCapsule(hideNotification, state()))
-        assertTrue(shouldShowResultCapsule(hideNotification, state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.FLOAT_BALL, hideNotification, state()))
+        assertFalse(shouldShowSurface(VisibilityTargets.NOTIFICATION_CAPSULE, hideNotification, state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.RESULT_CAPSULE, hideNotification, state()))
 
         val hideClipboard = InitialSettings(
             buttonVisibility = ButtonVisibilitySettings(
@@ -228,9 +228,9 @@ class ButtonVisibilityPolicyTest {
                 ),
             ),
         )
-        assertTrue(shouldShowFloatBall(hideClipboard, state()))
-        assertTrue(shouldShowNotificationCapsule(hideClipboard, state()))
-        assertFalse(shouldShowResultCapsule(hideClipboard, state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.FLOAT_BALL, hideClipboard, state()))
+        assertTrue(shouldShowSurface(VisibilityTargets.NOTIFICATION_CAPSULE, hideClipboard, state()))
+        assertFalse(shouldShowSurface(VisibilityTargets.RESULT_CAPSULE, hideClipboard, state()))
     }
 
     @Test
@@ -243,7 +243,7 @@ class ButtonVisibilityPolicyTest {
                 ),
             ),
         )
-        assertFalse(shouldShowFloatBall(settings, state()))
+        assertFalse(shouldShowSurface(VisibilityTargets.FLOAT_BALL, settings, state()))
     }
 
     @Test

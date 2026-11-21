@@ -97,32 +97,7 @@ internal object ResultFactory {
         sourceKey: String,
     ): List<RecognizedItem> = recognizer.match(RecognitionInput(source, text, sourceKey))
 
-    // ---- 投影：识别结果 → 收件箱条目（纯胶囊档路径 / 测试用） ----
-
-    fun fromNotification(
-        pulse: NotificationPulse,
-        recognizer: CompiledRecognizer,
-        sourceKey: String,
-        nowMs: Long,
-    ): List<ResultItem> = matchNotification(pulse, recognizer, sourceKey)
-        .map { item -> toResultItem(item, sourceKey, nowMs, sceneKey = null) }
-
-    fun fromClipboard(
-        text: String,
-        recognizer: CompiledRecognizer,
-        sourceKey: String,
-        nowMs: Long,
-    ): List<ResultItem> = matchClipboard(text, recognizer, sourceKey)
-        .map { item -> toResultItem(item, sourceKey, nowMs, sceneKey = null) }
-
-    fun fromScene(
-        text: String,
-        screenKey: String,
-        recognizer: CompiledRecognizer,
-        nowMs: Long,
-        sceneUrl: String? = null,
-    ): List<ResultItem> = matchScene(text, screenKey, recognizer, sceneUrl)
-        .map { item -> toResultItem(item, "scene:$screenKey", nowMs, sceneKey = screenKey) }
+    // ---- 投影：识别结果 → 收件箱条目 ----
 
     fun toResultItem(
         item: RecognizedItem,

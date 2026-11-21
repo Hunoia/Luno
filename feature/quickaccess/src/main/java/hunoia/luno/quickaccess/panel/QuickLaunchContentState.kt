@@ -120,14 +120,6 @@ class QuickLaunchContentState(
     }
 
     /**
-     * 每次唤起新会话前清查询词：state 跨会话常驻，不清的话上一次的 tokens 会带进新会话。
-     * `currentPage` 不在这里清：它活在 content 的 `remember` 里，收起时已随组合销毁。
-     */
-    fun resetForNewSession() {
-        tokens = emptyList()
-    }
-
-    /**
      * 只预热当前查询命中列表的前 [PREWARM_COUNT] 个（由调用方传 `filteredApps`，已排序）：
      * 固定取 `appListState.apps` 前 N 个与用户眼前的列表几乎无关，等于白预热。
      * 挂在 `AppContext.applicationScope` 而非面板 scope：面板收起即销毁，预热会被中途取消。

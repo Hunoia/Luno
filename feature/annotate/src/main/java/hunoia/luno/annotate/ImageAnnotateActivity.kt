@@ -76,7 +76,6 @@ import hunoia.luno.annotate.ui.ConfirmPanel
 import hunoia.luno.annotate.ui.ExportAction
 import hunoia.luno.annotate.ui.StylePanel
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.annotate.store.AnnotateSettingsCenter
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -239,7 +238,7 @@ class ImageAnnotateActivity : ComponentActivity() {
         }
         if (owned !== source && !source.isRecycled) source.recycle()
         // 换图前把旧文档的偏好补一次落盘（防抖窗口内换图不丢），再取消旧观察协程。
-        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
+        document?.let { flushAnnotateSettings(it) }
         // 上一份底图交给 GC：可能还有一帧在 RenderThread 上绘制，立即回收会崩。
         settingsJob?.cancel()
         document = null
@@ -284,9 +283,9 @@ class ImageAnnotateActivity : ComponentActivity() {
         // 读盘通常 <100ms；期间用户改样式被覆盖的概率可忽略。文档一致性保护避免
         // 换图后旧协程把旧文档的样式写进新文档。
         settingsJob = lifecycleScope.launch {
-            restoreAnnotateSettings(doc, AnnotateSettingsCenter)
+            restoreAnnotateSettings(doc)
             if (document !== doc) return@launch
-            observeAnnotateSettings(doc, AnnotateSettingsCenter)
+            observeAnnotateSettings(doc)
         }
     }
 
@@ -344,7 +343,7 @@ class ImageAnnotateActivity : ComponentActivity() {
         settingsJob?.cancel()
         settingsJob = null
         // 防抖窗口内退出不丢偏好：立即补一次落盘。
-        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
+        document?.let { flushAnnotateSettings(it) }
         base = null
         document = null
         sourceUri = null
