@@ -39,7 +39,7 @@ class GestureButtonAngleTest {
 
     @Test
     fun `sector widths sum to full circle`() {
-        val total = angle.boundaries.indices.sumOf { angle.slotWidthDegrees(it).toDouble() }
+        val total = angle.boundaries.indices.sumOf { sectorWidthDegrees(angle.boundaries, it).toDouble() }
         assertEquals(360.0, total, 0.01)
     }
 
@@ -47,7 +47,7 @@ class GestureButtonAngleTest {
     fun `single direction ignores angle`() {
         val single = GestureButtonAngle(evenBoundaries(1))
         assertEquals(1, single.count)
-        assertEquals(360f, single.slotWidthDegrees(0), 0.01f)
+        assertEquals(360f, sectorWidthDegrees(single.boundaries, 0), 0.01f)
         assertEquals(0, single.directionOf(Offset(10f, 0f)))
         assertEquals(0, single.directionOf(Offset(-7f, 9f)))
     }
@@ -58,7 +58,7 @@ class GestureButtonAngleTest {
         assertEquals(8, eight.count)
         assertEquals(angle.slotCenterDegrees(0), eight.slotCenterDegrees(0), 0.01f)
         eight.boundaries.indices.forEach {
-            assertEquals(45f, eight.slotWidthDegrees(it), 0.01f)
+            assertEquals(45f, sectorWidthDegrees(eight.boundaries, it), 0.01f)
         }
         // 8 等分后每个扇区仍能命中一个槽，且不越界。
         repeat(16) { step ->
@@ -136,7 +136,7 @@ class GestureButtonAngleTest {
         uneven.boundaries.indices.forEach { oldSlot ->
             val newSlot = newSlotOfOld[oldSlot]
             assertEquals(
-                uneven.slotWidthDegrees(oldSlot),
+                sectorWidthDegrees(uneven.boundaries, oldSlot),
                 sectorWidthDegrees(mirrored, newSlot),
                 0.01f,
             )

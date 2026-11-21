@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import hunoia.luno.config.model.MotionSpeed
 import hunoia.luno.config.model.MotionTuningSettings
+import hunoia.luno.config.model.NotificationAlertEffect
 import kotlin.math.roundToInt
 
 /**
@@ -36,6 +37,26 @@ enum class MotionFamily(val baseMillis: Int) {
 
     /** 浮窗气泡 snap（位置 + alpha）。 */
     FloatingSnap(170),
+
+    /**
+     * 通知胶囊到达提示动效：**每个效果一个家族**，单循环基准（呼吸一圈 / 一波粒子 /
+     * 一圈光环 / 一次脉冲 / 一次扫光）各按效果的实际观感定值，不共用（需求确认口径）。
+     * 总时长 = 各自基准 × 节奏档（节奏是配置项，不是档位）；全部走浮窗档位。
+     * 效果 → 家族的唯一映射见 [hunoia.luno.ui.theme.toAlertFamily]。
+     */
+    AlertEdgeGlow(1400),
+
+    /** 顶部粒子掉落的单循环（一波粒子从顶缘落到淡出）。 */
+    AlertParticles(1000),
+
+    /** 球光环扩散的单循环（一圈光环从球缘扩出并淡出）。 */
+    AlertRing(1000),
+
+    /** 胶囊本体脉冲的单循环（描边辉光呼吸一次）。 */
+    AlertPulse(1000),
+
+    /** 胶囊边框流光的单循环（亮带沿边框扫过一次）。 */
+    AlertShimmer(1150),
 }
 
 /** 一次动效的完整 spec：时长 + 缓动。对称由调用点用同一 spec 正反播放保证。 */
@@ -54,6 +75,9 @@ data class MotionProfile(
         MotionFamily.PanelCard, MotionFamily.PanelFull -> panel
         MotionFamily.Overlay -> overlay
         MotionFamily.Floating, MotionFamily.FloatingMorph, MotionFamily.FloatingSnap -> floating
+        MotionFamily.AlertEdgeGlow, MotionFamily.AlertParticles, MotionFamily.AlertRing,
+        MotionFamily.AlertPulse, MotionFamily.AlertShimmer,
+        -> floating
     }
 
     fun millisOf(family: MotionFamily): Int =
@@ -113,3 +137,15 @@ fun floatingSpec(family: MotionFamily = MotionFamily.Floating): MotionSpec =
 
 /** 把 spec 转成 Compose 的 tween（时长已含应用档位，系统缩放由 Recomposer 自动乘）。 */
 fun <T> MotionSpec.tween(): TweenSpec<T> = tween(durationMillis, easing = easing)
+
+/**
+ * 到达提示效果 → 动效家族的唯一映射（效果与家族一一对应，各按观感定基准时长）。
+ * 服务侧按所选效果经此取单循环时长，已含应用档位。
+ */
+fun NotificationAlertEffect.toAlertFamily(): MotionFamily = when (this) {
+    NotificationAlertEffect.EdgeGlow -> MotionFamily.AlertEdgeGlow
+    NotificationAlertEffect.TopParticles -> MotionFamily.AlertParticles
+    NotificationAlertEffect.BallRing -> MotionFamily.AlertRing
+    NotificationAlertEffect.CapsulePulse -> MotionFamily.AlertPulse
+    NotificationAlertEffect.CapsuleShimmer -> MotionFamily.AlertShimmer
+}

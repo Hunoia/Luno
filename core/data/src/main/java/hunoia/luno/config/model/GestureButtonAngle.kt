@@ -27,6 +27,3 @@ data class GestureButtonAngle(
         return if (resized === boundaries) this else GestureButtonAngle(resized)
     }
 }
-
-fun GestureButtonAngle.copyNewNoGap(index: Int, newBoundary: Float): GestureButtonAngle =
-    copy(boundaries = copyDirectionAngleBoundary(boundaries, index, newBoundary))

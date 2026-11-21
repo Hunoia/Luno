@@ -190,8 +190,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                     annotateOverlay = null
                     restoreAnnotateSurfaces()
                 },
-                // 偏好落库走 app 的配置门面，feature 只依赖端口。
-                settingsStore = hunoia.luno.annotate.store.AnnotateSettingsCenter,
             )
             annotateOverlay = overlay
             // open() 现在是 suspend（先读偏好再挂窗）：保持 annotateOpening 到真正挂完，

@@ -9,7 +9,9 @@ import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.config.model.RecognitionSource
 import hunoia.luno.core.domain.NotificationPulse
+import hunoia.luno.runtime.floatball.inbox.ResultItem
 import hunoia.luno.runtime.floatball.inbox.ResultPrimaryAction
+import hunoia.luno.runtime.recognition.CompiledRecognizer
 import hunoia.luno.runtime.recognition.RecognizedItem
 import hunoia.luno.runtime.recognition.Recognizer
 import org.junit.Assert.assertEquals
@@ -60,9 +62,35 @@ class ResultFactoryTest {
         output = RecognitionOutput.Builtin(RecognitionBuiltin.OpenLink),
     )
 
+    // 生产口是 matchXxx + toResultItem 的组合；测试侧在这里投影，与 FloatBallService 同路径。
+    private fun fromNotification(
+        pulse: NotificationPulse,
+        recognizer: CompiledRecognizer,
+        sourceKey: String,
+        nowMs: Long,
+    ): List<ResultItem> = ResultFactory.matchNotification(pulse, recognizer, sourceKey)
+        .map { ResultFactory.toResultItem(it, sourceKey, nowMs, sceneKey = null) }
+
+    private fun fromClipboard(
+        text: String,
+        recognizer: CompiledRecognizer,
+        sourceKey: String,
+        nowMs: Long,
+    ): List<ResultItem> = ResultFactory.matchClipboard(text, recognizer, sourceKey)
+        .map { ResultFactory.toResultItem(it, sourceKey, nowMs, sceneKey = null) }
+
+    private fun fromScene(
+        text: String,
+        screenKey: String,
+        recognizer: CompiledRecognizer,
+        nowMs: Long,
+        sceneUrl: String? = null,
+    ): List<ResultItem> = ResultFactory.matchScene(text, screenKey, recognizer, sceneUrl)
+        .map { ResultFactory.toResultItem(it, "scene:$screenKey", nowMs, sceneKey = screenKey) }
+
     @Test
     fun `notification hits the default verification code rule`() {
-        val items = ResultFactory.fromNotification(
+        val items = fromNotification(
             pulse = pulse(text = "验证码 778899，5 分钟内有效"),
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
@@ -82,7 +110,7 @@ class ResultFactoryTest {
 
     @Test
     fun `notification without a rule hit yields no result item`() {
-        val items = ResultFactory.fromNotification(
+        val items = fromNotification(
             pulse = pulse(text = "订单已发货"),
             recognizer = recognizer(textRule(pattern = "验证码\\s*(\\d{4,8})")),
             sourceKey = "k1",
@@ -94,7 +122,7 @@ class ResultFactoryTest {
 
     @Test
     fun `big text wins over duplicate body text`() {
-        val items = ResultFactory.fromNotification(
+        val items = fromNotification(
             pulse = pulse(text = "验证码 123456", bigText = "标题\n验证码 123456，5 分钟内有效"),
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "k1",
@@ -107,7 +135,7 @@ class ResultFactoryTest {
     @Test
     fun `clipboard text rule hit is not duplicated by the link rule`() {
         val url = "https://example.com/a"
-        val items = ResultFactory.fromClipboard(
+        val items = fromClipboard(
             text = "打开 $url",
             recognizer = recognizer(
                 textRule(
@@ -129,7 +157,7 @@ class ResultFactoryTest {
 
     @Test
     fun `clipboard link without a rule hit still yields the builtin link item`() {
-        val items = ResultFactory.fromClipboard(
+        val items = fromClipboard(
             text = "见 https://example.com/x",
             recognizer = recognizer(*RecognitionDefaults.rules.toTypedArray()),
             sourceKey = "clip",
@@ -151,7 +179,7 @@ class ResultFactoryTest {
         val settings = recognizer(rule)
 
         assertTrue(
-            ResultFactory.fromClipboard(
+            fromClipboard(
                 text = "验证码 123456",
                 recognizer = settings,
                 sourceKey = "clip",
@@ -160,7 +188,7 @@ class ResultFactoryTest {
         )
         assertEquals(
             "custom",
-            ResultFactory.fromNotification(
+            fromNotification(
                 pulse = pulse(text = "验证码 123456"),
                 recognizer = settings,
                 sourceKey = "k1",
@@ -171,7 +199,7 @@ class ResultFactoryTest {
 
     @Test
     fun `scene scan uses the same rule table and keeps the screen key`() {
-        val items = ResultFactory.fromScene(
+        val items = fromScene(
             text = "取件码 1234-5678",
             screenKey = "screen-1",
             recognizer = recognizer(
@@ -191,7 +219,7 @@ class ResultFactoryTest {
         // 只有针对别家域名的规则：这条链接不该出建议。
         val otherOnly = recognizer(linkRule("b23.tv"))
         assertTrue(
-            ResultFactory.fromScene(
+            fromScene(
                 text = "页面标题",
                 screenKey = "s1",
                 recognizer = otherOnly,
@@ -201,7 +229,7 @@ class ResultFactoryTest {
         )
 
         val covered = recognizer(linkRule("xiaohongshu.com"))
-        val items = ResultFactory.fromScene(
+        val items = fromScene(
             text = "页面标题",
             screenKey = "s1",
             recognizer = covered,

@@ -192,7 +192,7 @@ class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         Action.NONE_TYPE_ID, "internal.subGesture",
-        "internal.hideTriggerButton",
+        "internal.hideTriggerButton", "internal.hideFloatBall",
         "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
@@ -207,6 +207,11 @@ class InternalExecutors : ActionExecutor {
             is Action.HideTriggerButton -> {
                 // 只作用于触发本次动作的触钮；没有来源按钮（浮球/面板等）时静默跳过。
                 context.hideTriggerButton()
+                ActionResult.Success()
+            }
+            is Action.HideFloatBall -> {
+                // toggle：隐藏中再触发 = 恢复。球未运行时命令未注册，静默成功。
+                context.surfaces.toggleFloatBallHide()
                 ActionResult.Success()
             }
             is Action.QuickSearch -> {

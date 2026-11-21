@@ -1,7 +1,6 @@
 package hunoia.luno.config
 
 import hunoia.luno.core.AppContext
-import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.core.domain.LaunchTelemetry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -14,11 +13,11 @@ import kotlinx.coroutines.launch
  * 只做异步落库，不阻塞启动链路；失败静默（统计不影响功能）。
  */
 object DataLaunchTelemetry : LaunchTelemetry {
-    override fun recordLaunch(packageName: String, source: AppLaunchSource) {
+    override fun recordLaunch(packageName: String) {
         if (packageName.isBlank()) return
         val scope = AppContext.applicationScope ?: return
         scope.launch(Dispatchers.IO) {
-            runCatching { ConfigProvider.recordAppLaunch(packageName, source) }
+            runCatching { ConfigProvider.recordAppLaunch(packageName) }
         }
     }
 }

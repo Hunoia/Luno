@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
+import kotlin.coroutines.cancellation.CancellationException
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -225,6 +226,10 @@ object AutoBackupRepository {
         if (safDoc != null) {
             try {
                 BackupOperator.backup(context, safDoc)
+            } catch (e: CancellationException) {
+                // 写盘中途被取消：清掉半成品文档后原样上抛，不误标为 WRITE_FAILED。
+                runCatching { DocumentsContract.deleteDocument(context.contentResolver, safDoc) }
+                throw e
             } catch (e: SecurityException) {
                 runCatching { DocumentsContract.deleteDocument(context.contentResolver, safDoc) }
                 throw AutoBackupException(Failure.PERMISSION_LOST, e)
@@ -253,6 +258,10 @@ object AutoBackupRepository {
         val target = File(dir, name)
         try {
             BackupOperator.backupToFile(context, target)
+        } catch (e: CancellationException) {
+            // 写盘中途被取消：清掉半成品文件后原样上抛，不误标为 WRITE_FAILED。
+            target.delete()
+            throw e
         } catch (e: SecurityException) {
             throw AutoBackupException(Failure.PERMISSION_LOST, e)
         } catch (e: BackupOperator.ExportTooLargeException) {

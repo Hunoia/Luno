@@ -307,16 +307,6 @@ class RecognizerTest {
         assertEquals(RecognitionBuiltin.OpenLink, items.first { it.ruleId == "open" }.builtin)
     }
 
-    @Test
-    fun `hasLinkRulesFor tells whether link extraction is worth doing`() {
-        val onlyText = compiled(textRule(pattern = "(\\d+)"))
-        assertFalse(onlyText.hasLinkRulesFor(RecognitionSource.Clipboard))
-
-        val sceneLink = compiled(linkRule(pattern = "", sources = setOf(RecognitionSource.Scene)))
-        assertTrue(sceneLink.hasLinkRulesFor(RecognitionSource.Scene))
-        assertFalse(sceneLink.hasLinkRulesFor(RecognitionSource.Clipboard))
-    }
-
     // ---- 默认规则 ----
 
     @Test

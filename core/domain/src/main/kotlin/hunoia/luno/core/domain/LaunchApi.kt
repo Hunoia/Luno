@@ -61,7 +61,7 @@ interface AppLauncher {
  * 实现放 `:core:data`（`ConfigProvider.recordAppLaunch` 的薄包装），由 `:app` 注入能力库。
  */
 fun interface LaunchTelemetry {
-    fun recordLaunch(packageName: String, source: AppLaunchSource)
+    fun recordLaunch(packageName: String)
 }
 
 /** 可启动的 launcher 目标（包名 + Activity）。 */
@@ -78,24 +78,4 @@ data class LaunchTarget(
  */
 fun interface LaunchTargetResolver {
     suspend fun launcherActivity(packageName: String): LaunchTarget?
-}
-
-/**
- * 被禁用/冻结应用的状态查询与标记，启动能力库解冻前后要用。
- *
- * 实现方在 `:capability:launch`（`DisabledAppQuery` + 启动器缓存失效），
- * 全应用只有这一份缓存；UI 与启动链路读同一事实源。
- */
-interface DisabledAppState {
-    /** enabled 位被禁用（Luno 可解冻）。 */
-    fun isDisabled(packageName: String): Boolean
-
-    /** 厂商/系统 suspend：Luno 无法通过 enablePackage 解除。 */
-    fun isSuspended(packageName: String): Boolean
-
-    /** 解冻成功后标记为可用（含缓存失效）。 */
-    fun markEnabled(packageName: String)
-
-    /** 解冻成功后让启动器查询缓存失效。 */
-    fun invalidateLauncherCache()
 }

@@ -49,10 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.SaveAlt
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,6 +59,7 @@ import hunoia.luno.annotate.model.AnnotateOps
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.R as AnnotateR
+import hunoia.luno.annotate.StickerPickActivity
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
@@ -71,12 +68,11 @@ import hunoia.luno.annotate.store.flushAnnotateSettings
 import hunoia.luno.annotate.store.observeAnnotateSettings
 import hunoia.luno.annotate.store.restoreAnnotateSettings
 import hunoia.luno.annotate.ui.AnnotateCanvas
+import hunoia.luno.annotate.ui.AnnotatePanelCard
+import hunoia.luno.annotate.ui.AnnotatePanelContent
+import hunoia.luno.annotate.ui.AnnotatePanelKind
 import hunoia.luno.annotate.ui.AnnotateToolbar
-import hunoia.luno.annotate.ui.ConfirmPanel
-import hunoia.luno.annotate.ui.ExportAction
-import hunoia.luno.annotate.ui.StylePanel
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.annotate.store.AnnotateSettingsCenter
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -132,8 +128,11 @@ class ImageAnnotateActivity : ComponentActivity() {
 
     private var document by mutableStateOf<AnnotateDocument?>(null)
     private var base by mutableStateOf<BaseImage?>(null)
-    private var dialog by mutableStateOf<Dialog?>(null)
-    /** 当前展开样式面板的工具；null = 无。与 [dialog] 互斥。 */
+    /** 工具条上方面板（导出/退出确认），与浮层宿主共用同一枚举。 */
+    private var panel by mutableStateOf(AnnotatePanelKind.None)
+    /** 仅替换图片维持模态面板（破坏性操作）。 */
+    private var showReplace by mutableStateOf(false)
+    /** 当前展开样式面板的工具；null = 无。与 [panel] 互斥。 */
     private var stylePanelTool by mutableStateOf<ToolKind?>(null)
     private var busy by mutableStateOf(false)
     private var pickerLaunched = false
@@ -191,7 +190,7 @@ class ImageAnnotateActivity : ComponentActivity() {
             if (document?.state?.hasElements == true) {
                 pendingReplace?.let { if (!it.isRecycled) it.recycle() }
                 pendingReplace = handed
-                dialog = Dialog.Replace
+                showReplace = true
             } else {
                 install(handed)
             }
@@ -204,7 +203,7 @@ class ImageAnnotateActivity : ComponentActivity() {
     private fun confirmReplace() {
         val next = pendingReplace ?: return
         pendingReplace = null
-        dialog = Dialog.None
+        showReplace = false
         install(next)
     }
 
@@ -239,12 +238,13 @@ class ImageAnnotateActivity : ComponentActivity() {
         }
         if (owned !== source && !source.isRecycled) source.recycle()
         // 换图前把旧文档的偏好补一次落盘（防抖窗口内换图不丢），再取消旧观察协程。
-        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
+        document?.let { flushAnnotateSettings(it) }
         // 上一份底图交给 GC：可能还有一帧在 RenderThread 上绘制，立即回收会崩。
         settingsJob?.cancel()
         document = null
         base = null
-        dialog = Dialog.None
+        panel = AnnotatePanelKind.None
+        showReplace = false
         stylePanelTool = null
         // payload 模式没有可重解码的源：传 null 时导出直接用交接位图原尺寸。
         sourceUri = uri
@@ -259,23 +259,29 @@ class ImageAnnotateActivity : ComponentActivity() {
                     ImageAnnotateScreen(
                         document = currentDocument,
                         base = currentBase,
-                        dialog = dialog ?: Dialog.None,
+                        panel = panel,
                         stylePanelTool = stylePanelTool,
+                        showReplace = showReplace,
                         busy = busy,
-                        onDialog = { next ->
-                            // 关掉替换确认 = 取消：暂存的新图没人接走，回收掉。
-                            if (next == Dialog.None && dialog == Dialog.Replace) discardPendingReplace()
-                            if (next != Dialog.None) stylePanelTool = null
-                            dialog = next
+                        onPanel = { next ->
+                            if (next != AnnotatePanelKind.None) stylePanelTool = null
+                            panel = next
+                        },
+                        onReplaceCancel = {
+                            showReplace = false
+                            discardPendingReplace()
                         },
                         onToolClick = { tool ->
                             // 点工具：选中由工具条完成，这里管理样式卡开合（与弹出卡互斥）。
-                            if (dialog != Dialog.None) dialog = Dialog.None
+                            if (panel != AnnotatePanelKind.None) panel = AnnotatePanelKind.None
                             stylePanelTool = if (stylePanelTool == tool) null else tool
                         },
+                        // 形状子类型选完自动收卡（P3 手感）。
+                        onShapeSelected = { stylePanelTool = null },
                         onClose = { finish() },
                         onExport = { kind -> export(kind) },
                         onReplace = ::confirmReplace,
+                        onPickSticker = { StickerPickActivity.start(this) },
                     )
                 }
             }
@@ -284,9 +290,9 @@ class ImageAnnotateActivity : ComponentActivity() {
         // 读盘通常 <100ms；期间用户改样式被覆盖的概率可忽略。文档一致性保护避免
         // 换图后旧协程把旧文档的样式写进新文档。
         settingsJob = lifecycleScope.launch {
-            restoreAnnotateSettings(doc, AnnotateSettingsCenter)
+            restoreAnnotateSettings(doc)
             if (document !== doc) return@launch
-            observeAnnotateSettings(doc, AnnotateSettingsCenter)
+            observeAnnotateSettings(doc)
         }
     }
 
@@ -344,7 +350,7 @@ class ImageAnnotateActivity : ComponentActivity() {
         settingsJob?.cancel()
         settingsJob = null
         // 防抖窗口内退出不丢偏好：立即补一次落盘。
-        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
+        document?.let { flushAnnotateSettings(it) }
         base = null
         document = null
         sourceUri = null
@@ -436,30 +442,33 @@ class ImageAnnotateActivity : ComponentActivity() {
 
 private data class DecodedFull(val bitmap: Bitmap, val capped: Boolean)
 
-internal enum class Dialog { None, Exit, Export, Replace }
-
 @Composable
 private fun ImageAnnotateScreen(
     document: AnnotateDocument,
     base: BaseImage,
-    dialog: Dialog,
+    panel: AnnotatePanelKind,
     stylePanelTool: ToolKind?,
+    showReplace: Boolean,
     busy: Boolean,
-    onDialog: (Dialog) -> Unit,
+    onPanel: (AnnotatePanelKind) -> Unit,
+    onReplaceCancel: () -> Unit,
     onToolClick: (ToolKind) -> Unit,
     onClose: () -> Unit,
     onExport: (ExportKind) -> Unit,
     onReplace: () -> Unit,
+    onPickSticker: () -> Unit,
+    /** 形状子类型选完收样式卡（P3 手感）。 */
+    onShapeSelected: () -> Unit,
 ) {
     val requestClose = {
         document.commitPendingText()
-        if (document.state.hasElements) onDialog(Dialog.Exit) else onClose()
+        if (document.state.hasElements) onPanel(AnnotatePanelKind.ConfirmExit) else onClose()
     }
     BackHandler {
         // 面板优先：返回键先关样式卡/弹出卡，不直接弹放弃确认。
         when {
             stylePanelTool != null -> onToolClick(stylePanelTool!!)
-            dialog != Dialog.None -> onDialog(Dialog.None)
+            panel != AnnotatePanelKind.None -> onPanel(AnnotatePanelKind.None)
             else -> requestClose()
         }
     }
@@ -484,9 +493,10 @@ private fun ImageAnnotateScreen(
                     .fillMaxSize(),
             // 落笔即交互开始：收起样式卡/弹出卡。
             onPointerDown = {
-                if (dialog != Dialog.None) onDialog(Dialog.None)
+                if (panel != AnnotatePanelKind.None) onPanel(AnnotatePanelKind.None)
                 stylePanelTool?.let { onToolClick(it) }
             },
+            onPickSticker = onPickSticker,
             cropResetToken = cropResetToken,
         )
 
@@ -523,70 +533,32 @@ private fun ImageAnnotateScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // 样式二层卡/退出/导出确认从工具卡上方弹出（无遮罩、无阴影）；
+                // 样式二层卡/退出/导出确认从工具卡上方弹出（无遮罩、无阴影），
+                // 内容与浮层宿主共用 [AnnotatePanelContent]；
                 // 替换图片是破坏性操作，仍走模态面板。样式卡与弹出卡互斥。
-                when {
-                    stylePanelTool != null -> AnnotateInlineCard {
-                        StylePanel(
-                            tool = stylePanelTool!!,
+                if (stylePanelTool != null || panel != AnnotatePanelKind.None) {
+                    AnnotatePanelCard {
+                        AnnotatePanelContent(
                             document = document,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                            panel = panel,
+                            stylePanelTool = stylePanelTool,
+                            onPanel = onPanel,
+                            onExport = { kind ->
+                                onPanel(AnnotatePanelKind.None)
+                                onExport(kind)
+                            },
+                            onConfirmExit = onClose,
                             onCropReset = { cropResetToken++ },
+                            // 形状子类型选完自动收卡（P3 手感）。
+                            onShapeSelected = onShapeSelected,
                         )
-                    }
-
-                    dialog == Dialog.Exit -> AnnotateInlineCard {
-                        ConfirmPanel(
-                            title = stringResource(AnnotateR.string.annotate_discard_title),
-                            onCancel = { onDialog(Dialog.None) },
-                        ) {
-                            PressTextButton(
-                                onClick = onClose,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(stringResource(AnnotateR.string.annotate_discard_confirm))
-                            }
-                        }
-                    }
-
-                    dialog == Dialog.Export -> AnnotateInlineCard {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            ExportAction(
-                                icon = Icons.Default.SaveAlt,
-                                label = stringResource(AnnotateR.string.annotate_save_to_gallery),
-                            ) {
-                                onDialog(Dialog.None)
-                                onExport(ExportKind.Save)
-                            }
-                            ExportAction(
-                                icon = Icons.Default.ContentCopy,
-                                label = stringResource(AnnotateR.string.annotate_copy),
-                            ) {
-                                onDialog(Dialog.None)
-                                onExport(ExportKind.Copy)
-                            }
-                            ExportAction(
-                                icon = Icons.Default.Share,
-                                label = stringResource(AnnotateR.string.annotate_share),
-                            ) {
-                                onDialog(Dialog.None)
-                                onExport(ExportKind.Share)
-                            }
-                            PressTextButton(onClick = { onDialog(Dialog.None) }) {
-                                Text(stringResource(AnnotateR.string.annotate_cancel))
-                            }
-                        }
                     }
                 }
 
                 AnnotateToolbar(
                     document = document,
                     onExit = requestClose,
-                    onExport = { onDialog(Dialog.Export) },
+                    onExport = { onPanel(AnnotatePanelKind.Export) },
                     exportLabel = stringResource(AnnotateR.string.annotate_export),
                     modifier = Modifier.fillMaxWidth(),
                     onToolClick = onToolClick,
@@ -606,9 +578,10 @@ private fun ImageAnnotateScreen(
             }
         }
 
-        if (dialog == Dialog.Replace) {
+        if (showReplace) {
             ActionPanel(
-                onDismiss = { onDialog(Dialog.None) },
+                // 取消替换：暂存位图没人接走，回收避免泄漏大图（宿主接线）。
+                onDismiss = onReplaceCancel,
                 onReplace = onReplace,
             )
         }

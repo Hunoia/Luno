@@ -23,6 +23,8 @@ object SystemUseCases : SystemFacade {
 
     override fun refreshFloatBall(context: Context) = FloatBallUseCase.refresh(context)
 
+    override fun previewFloatBallAlert(context: Context) = FloatBallUseCase.previewAlert(context)
+
     override suspend fun restoreFloatBall(context: Context) =
         FloatBallUseCase.restoreIfEnabled(context)
 

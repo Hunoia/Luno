@@ -78,8 +78,10 @@ internal fun createTitle(actionSelect: ActionSelect): String {
     if (actionSelect.copyDeepLink) {
         return context.getString(R.string.action_deep_links_pick_title)
     }
-    if (actionSelect.floatBallSlot == FloatBallSlot.TAP) {
-        return context.getString(hunoia.luno.floatball.R.string.float_ball_tap_action)
+    when (actionSelect.floatBallSlot) {
+        FloatBallSlot.TAP -> return context.getString(hunoia.luno.floatball.R.string.float_ball_tap_action)
+        FloatBallSlot.LONG_PRESS -> return context.getString(hunoia.luno.floatball.R.string.float_ball_long_press_action)
+        FloatBallSlot.DROP_CENTER -> return context.getString(hunoia.luno.floatball.R.string.float_ball_drop_action)
     }
     if (actionSelect.actionPanelId.isNotBlank()) {
         return if (actionSelect.actionPanelItemIndex >= 0) {

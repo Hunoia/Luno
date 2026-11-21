@@ -75,10 +75,6 @@ data class TrendMetric(
     val safeDecimals: Int
         get() = decimals.coerceIn(0, TrendMaxDecimals)
 
-    /** 提醒时间（当天分钟数），便于调度与展示。 */
-    val reminderMinutesOfDay: Int
-        get() = reminderHour.coerceIn(0, 23) * 60 + reminderMinute.coerceIn(0, 59)
-
     /** 实际读数槽位数：空 [valueNames] 按单值指标处理，钳到 [TrendMaxValues] 以内。 */
     val valueCount: Int
         get() = valueNames.size.coerceIn(1, TrendMaxValues)
@@ -152,8 +148,6 @@ data class TrendConfig(
     fun metricById(id: String): TrendMetric? = metrics.firstOrNull { it.id == id }
 
     fun entriesOf(metricId: String): List<TrendEntry> = entries[metricId].orEmpty()
-
-    fun latestOf(metricId: String): TrendEntry? = entriesOf(metricId).lastOrNull()
 
     fun addMetric(metric: TrendMetric): TrendConfig = copy(metrics = metrics + metric)
 

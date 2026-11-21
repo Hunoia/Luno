@@ -221,6 +221,14 @@ sealed interface Action {
     data object HideTriggerButton : Action {
         override val typeId: String = "internal.hideTriggerButton"
     }
+    /**
+     * 界面级临时隐藏悬浮球（toggle）：再次触发立即恢复；前台离开触发时的应用或锁屏
+     * 即自动恢复，返回同一应用不会重新隐藏。只作用球本体，不动通知 / 结果胶囊。
+     * 内存态，进程重启失效。
+     */
+    data object HideFloatBall : Action {
+        override val typeId: String = "internal.hideFloatBall"
+    }
     data class VolumeScrub(
         /** 每档位移阈值（dp）；null = 未指定，由实现侧用配置默认值。本层不持默认值。 */
         val stepThresholdDp: Int? = null,

@@ -86,13 +86,6 @@ class ClipboardHistoryTest {
     }
 
     @Test
-    fun `cleared empties history and is idempotent`() {
-        val out = ClipboardHistory().record(text("a"), now = 1_000L)
-        assertTrue(out.cleared().entries.isEmpty())
-        assertTrue(ClipboardHistory().cleared().entries.isEmpty())
-    }
-
-    @Test
     fun `cleared keeping pinned removes only unpinned and is idempotent`() {
         val out = ClipboardHistory()
             .record(text("fixed", pinned = true), now = 1_000L)

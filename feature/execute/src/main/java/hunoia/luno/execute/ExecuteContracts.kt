@@ -53,6 +53,9 @@ interface SurfaceHost {
     /** 按全局「手势工具」里的时长临时隐藏指定触钮。 */
     fun hideTriggerButton(buttonId: String)
 
+    /** 界面级临时隐藏悬浮球（toggle）：再次触发立即恢复；前台离开 / 锁屏由球服务随运行态清。 */
+    fun toggleFloatBallHide()
+
     /** 切到最近访问的非黑名单应用。 */
     suspend fun previousApp()
 

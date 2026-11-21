@@ -1,11 +1,9 @@
 package hunoia.luno.gridpanel.reminder.habit
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Build
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
@@ -17,6 +15,7 @@ import hunoia.luno.config.model.habitDayState
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.gridpanel.reminder.ReminderAlarms
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -330,52 +329,24 @@ object HabitReminderScheduler {
     }
 
     private fun setAlarm(context: Context, habitId: String, slot: Int, triggerMillis: Long) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val pi = reminderPendingIntent(context, habitId, slot)
-        val type = AlarmManager.RTC_WAKEUP
-        try {
-            val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-            if (canExact) {
-                am.setExactAndAllowWhileIdle(type, triggerMillis, pi)
-            } else {
-                am.setAndAllowWhileIdle(type, triggerMillis, pi)
-            }
-        } catch (e: SecurityException) {
-            // 无精确闹钟权限（Android 12+ 用户可关）：降级非精确，宁可晚到也不丢提醒。
-            LunoLog.w(LOG_TAG, "habit reminder exact alarm denied, fallback: ${e.message}")
-            runCatching { am.setAndAllowWhileIdle(type, triggerMillis, pi) }
-        }
+        ReminderAlarms.setExactFallback(context, triggerMillis, reminderPendingIntent(context, habitId, slot), "habit reminder")
     }
 
     private fun cancelAlarm(context: Context, habitId: String, slot: Int) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        am.cancel(reminderPendingIntent(context, habitId, slot))
+        ReminderAlarms.cancel(context, reminderPendingIntent(context, habitId, slot))
     }
 
     /** 「推迟」到点重弹：独立闹钟，不动每日调度。 */
     fun scheduleSnooze(context: Context, habitId: String, minutes: Int, slot: Int) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val safeMinutes = minutes.coerceIn(1, HabitMaxSnoozeMinutes)
         val trigger = System.currentTimeMillis() + safeMinutes.toLong() * 60_000L
-        val pi = snoozePendingIntent(context, habitId, slot)
-        try {
-            val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-            if (canExact) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
-            }
-        } catch (e: SecurityException) {
-            LunoLog.w(LOG_TAG, "habit snooze exact alarm denied, fallback: ${e.message}")
-            runCatching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi) }
-        }
+        ReminderAlarms.setExactFallback(context, trigger, snoozePendingIntent(context, habitId, slot), "habit snooze")
         LunoLog.i(LOG_TAG, "habit snooze scheduled: habit=$habitId minutes=$safeMinutes slot=$slot")
     }
 
     fun cancelSnooze(context: Context, habitId: String) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         // 同一习惯同一时刻只有一个在途的推迟闹钟：请求码只按 habitId 区分，槽位放在 extra 里。
-        am.cancel(snoozePendingIntent(context, habitId, slot = 0))
+        ReminderAlarms.cancel(context, snoozePendingIntent(context, habitId, slot = 0))
     }
 
     private fun snoozePendingIntent(context: Context, habitId: String, slot: Int): PendingIntent {
@@ -394,28 +365,15 @@ object HabitReminderScheduler {
 
     /** 下一个本地 0 点：通知只活到当天，跨日统一收起。 */
     private fun setExpiryAlarm(context: Context) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val trigger = LocalDate.now().plusDays(1)
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
-        val pi = expiryPendingIntent(context)
-        try {
-            val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-            if (canExact) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
-            }
-        } catch (e: SecurityException) {
-            LunoLog.w(LOG_TAG, "habit reminder expiry exact alarm denied, fallback: ${e.message}")
-            runCatching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi) }
-        }
+        ReminderAlarms.setExactFallback(context, trigger, expiryPendingIntent(context), "habit reminder expiry")
     }
 
     private fun cancelExpiryAlarm(context: Context) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        am.cancel(expiryPendingIntent(context))
+        ReminderAlarms.cancel(context, expiryPendingIntent(context))
     }
 
     private fun expiryPendingIntent(context: Context): PendingIntent {

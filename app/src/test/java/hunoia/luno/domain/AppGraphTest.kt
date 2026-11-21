@@ -26,6 +26,8 @@ class AppGraphTest {
 
         override fun refreshFloatBall(context: Context) = Unit
 
+        override fun previewFloatBallAlert(context: Context) = Unit
+
         override suspend fun restoreFloatBall(context: Context) = Unit
 
         override fun isNotificationAccessGranted(context: Context): Boolean = false

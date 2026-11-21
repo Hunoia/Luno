@@ -16,8 +16,6 @@ interface DirectionLayout {
 
     fun directionOf(offset: Offset): Int = directionSlotOf(boundaries, offset)
 
-    fun slotWidthDegrees(index: Int): Float = sectorWidthDegrees(boundaries, index)
-
     fun slotCenterDegrees(index: Int): Float = sectorCenterDegrees(boundaries, index)
 
     fun zeroWidthSlots(): Set<Int> = zeroWidthSlots(boundaries)

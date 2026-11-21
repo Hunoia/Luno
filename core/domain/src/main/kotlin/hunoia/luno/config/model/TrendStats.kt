@@ -2,7 +2,6 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -101,10 +100,3 @@ fun epochDayOf(atMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long =
 /** 指定本地日期是否已有记录。 */
 fun hasEntryOn(entries: List<TrendEntry>, day: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
     entries.any { epochDayOf(it.atMillis, zone) == day }
-
-/** 本地日期 → 当天最后一刻的 epochDay（仅用于编辑 / 展示分组，不做补录）。 */
-fun trendEntryDay(entry: TrendEntry, zone: ZoneId = ZoneId.systemDefault()): Long =
-    epochDayOf(entry.atMillis, zone)
-
-/** 展示用：把本地日期转成 `yyyy-MM-dd`。 */
-fun formatEpochDay(day: Long): String = LocalDate.ofEpochDay(day).toString()

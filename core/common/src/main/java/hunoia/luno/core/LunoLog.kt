@@ -1,6 +1,5 @@
 package hunoia.luno.core
 
-import android.app.Application
 import android.util.Log as AndroidLog
 import hunoia.luno.core.common.BuildConfig
 import java.io.File
@@ -276,11 +275,5 @@ object LunoLog {
         else -> 'A'
     }
 
-    private fun resolveProcessLabel(): String {
-        val name = runCatching { Application.getProcessName() }.getOrNull().orEmpty()
-        if (name.isEmpty()) return "unknown"
-        if (!name.contains(':')) return "main"
-        val suffix = name.substringAfter(':').ifBlank { "process" }
-        return suffix.replace(Regex("[^A-Za-z0-9._-]"), "_")
-    }
+    private fun resolveProcessLabel(): String = currentProcessLabel()
 }

@@ -7,8 +7,7 @@ import org.junit.Test
 
 class SurfaceVisibilityStateTest {
 
-    private var now = 1_000L
-    private val state = SurfaceVisibilityState(now = { now })
+    private val state = SurfaceVisibilityState()
 
     @Test
     fun `panel count hides until dismissed`() {
@@ -31,28 +30,64 @@ class SurfaceVisibilityStateTest {
     }
 
     @Test
-    fun `temp hide extends to the later deadline and expires`() {
-        assertTrue(state.applyTempHide(500L))
-        now += 100L
-        assertFalse(state.applyTempHide(200L))
-        assertEquals(400L, state.tempHideRemainingMs())
-
-        now += 400L
-        assertFalse(state.isTempHidden())
-        assertTrue(state.hasTempHide)
-        state.cancelTempHide()
-        assertFalse(state.hasTempHide)
+    fun `screen hide persists while staying on the same screen`() {
+        assertTrue(state.enterScreenHide("app.a"))
+        assertTrue(state.isScreenHidden)
+        assertTrue(state.isHidden)
+        // 停留期间重复进入无状态变化（toggle 路径由调用方先清再进）。
+        assertFalse(state.enterScreenHide("app.a"))
+        // 前台未变（含窗口内跳页）不清槽。
+        assertFalse(state.clearScreenHideIfLeft("app.a", locked = false))
+        assertTrue(state.isScreenHidden)
     }
 
     @Test
-    fun `reset clears both hidden sources`() {
+    fun `leaving the screen clears the hide`() {
+        state.enterScreenHide("app.a")
+        assertTrue(state.clearScreenHideIfLeft("app.b", locked = false))
+        assertFalse(state.isScreenHidden)
+        assertFalse(state.isHidden)
+    }
+
+    @Test
+    fun `lock screen clears the hide`() {
+        state.enterScreenHide("app.a")
+        // 锁屏视为离开：即使前台包名未变（keyguard 盖在上面）也清槽。
+        assertTrue(state.clearScreenHideIfLeft("app.a", locked = true))
+        assertFalse(state.isScreenHidden)
+    }
+
+    @Test
+    fun `returning after leaving does not re-hide`() {
+        state.enterScreenHide("app.a")
+        state.clearScreenHideIfLeft("app.b", locked = false)
+        // 回到当初隐藏它的界面：槽已清，不重新隐藏；显式再触发动作才会再进。
+        assertFalse(state.clearScreenHideIfLeft("app.a", locked = false))
+        assertFalse(state.isScreenHidden)
+    }
+
+    @Test
+    fun `clear without hide is a no-op`() {
+        assertFalse(state.clearScreenHide())
+        assertFalse(state.clearScreenHideIfLeft("app.b", locked = false))
+        assertFalse(state.isScreenHidden)
+    }
+
+    @Test
+    fun `blank package cannot enter hide`() {
+        assertFalse(state.enterScreenHide(""))
+        assertFalse(state.isScreenHidden)
+    }
+
+    @Test
+    fun `reset clears screen hide`() {
         state.onPanelShown()
-        state.applyTempHide(1_000L)
+        state.enterScreenHide("app.a")
         assertTrue(state.isHidden)
 
         state.reset()
         assertEquals(0, state.panelCount)
-        assertFalse(state.hasTempHide)
+        assertFalse(state.isScreenHidden)
         assertFalse(state.isHidden)
     }
 }

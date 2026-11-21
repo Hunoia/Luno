@@ -1,5 +1,7 @@
 package hunoia.luno.annotate.model
 
+import hunoia.luno.config.model.AnnotateToolStyle
+
 /**
  * 标注文档的不可变快照。宿主只持有 [AnnotateDocument]（Compose state 包装），
  * 所有变换集中在 [AnnotateOps]，便于 JVM 单测。
@@ -15,7 +17,7 @@ data class AnnotateState(
     val activeShape: ShapeKind = ShapeKind.RECT,
     /** 橡皮的矩形擦模式（审计 C1）：仅 ERASER 下生效，切走工具时复位。 */
     val eraserRect: Boolean = false,
-    val styles: Map<ToolKind, ToolStyle> = DEFAULT_STYLES,
+    val styles: Map<ToolKind, AnnotateToolStyle> = DEFAULT_STYLES,
     /**
      * SELECT 工具当前点中的元素（B5）。只影响画布上的选中框与工具条删除按钮，
      * 不是笔迹内容，不进撤销历史；元素被删/撤销掉时自动失效。
@@ -26,21 +28,23 @@ data class AnnotateState(
 ) {
     val hasElements: Boolean get() = elements.isNotEmpty()
 
-    fun styleFor(tool: ToolKind): ToolStyle = styles[tool] ?: ToolStyle()
+    fun styleFor(tool: ToolKind): AnnotateToolStyle = styles[tool] ?: AnnotateToolStyle()
 
     companion object {
-        val DEFAULT_STYLES: Map<ToolKind, ToolStyle> = ToolKind.entries.associateWith { tool ->
+        val DEFAULT_STYLES: Map<ToolKind, AnnotateToolStyle> = ToolKind.entries.associateWith { tool ->
             when (tool) {
-                ToolKind.MOSAIC -> ToolStyle(colorArgb = 0xFF000000, mosaicCell = 24f)
-                ToolKind.TEXT -> ToolStyle(textSize = 48f, strokeWidth = 4f)
-                ToolKind.HIGHLIGHT -> ToolStyle(colorArgb = 0xFFFFCC00, strokeWidth = 10f)
+                ToolKind.MOSAIC -> AnnotateToolStyle(colorArgb = 0xFF000000, mosaicCell = 24f)
+                ToolKind.TEXT -> AnnotateToolStyle(textSize = 48f, strokeWidth = 4f)
+                ToolKind.HIGHLIGHT -> AnnotateToolStyle(colorArgb = 0xFFFFCC00, strokeWidth = 10f)
                 // 序号圆底：默认红色，直径默认 40 图片像素。
-                ToolKind.NUMBER -> ToolStyle(colorArgb = 0xFFFF3B30, textSize = 40f, strokeWidth = 3f)
+                ToolKind.NUMBER -> AnnotateToolStyle(colorArgb = 0xFFFF3B30, textSize = 40f, strokeWidth = 3f)
                 // 形状默认仅描边，不填充。
-                ToolKind.SHAPE -> ToolStyle(shapeFilled = false)
+                ToolKind.SHAPE -> AnnotateToolStyle(shapeFilled = false)
                 // 橡皮默认比画笔粗：擦除需要覆盖面积。
-                ToolKind.ERASER -> ToolStyle(strokeWidth = 12f)
-                else -> ToolStyle()
+                ToolKind.ERASER -> AnnotateToolStyle(strokeWidth = 12f)
+                // 模糊默认半径 16 图片像素（截图上肉眼可辨）。
+                ToolKind.BLUR -> AnnotateToolStyle(blurRadius = 16f)
+                else -> AnnotateToolStyle()
             }
         }
 
@@ -173,6 +177,34 @@ object AnnotateOps {
         state.selectedElementId?.let { removeElement(state, it) } ?: state
 
     /**
+     * 图层调整（P2c）：把 [id] 元素上移一层；[toTop] 时直接置顶。
+     * 图层顺序 = 列表顺序（后画的在上）。已在顶层时原样返回，不产生空历史。
+     */
+    fun raiseElement(state: AnnotateState, id: Long, toTop: Boolean): AnnotateState {
+        val index = state.elements.indexOfFirst { it.id == id }
+        if (index < 0 || index == state.elements.lastIndex) return state
+        val remaining = state.elements.toMutableList()
+        val element = remaining.removeAt(index)
+        if (toTop) {
+            remaining.add(element)
+        } else {
+            remaining.add(index + 1, element)
+        }
+        val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
+        return state.copy(elements = remaining, undoStack = undo, redoStack = emptyList())
+    }
+
+    /**
+     * 复制元素（P2c）：副本平移 [offset]，平移后的副本成为新顶层并被选中
+     * （调用方接着调 [selectElement]）。没有 [id] 对应元素时原样返回。
+     */
+    fun duplicateElement(state: AnnotateState, id: Long, newId: Long, offset: Pt): AnnotateState {
+        val source = state.elements.firstOrNull { it.id == id } ?: return state
+        val copy = source.translated(offset.x, offset.y).withElementId(newId)
+        return addElement(state, copy)
+    }
+
+    /**
      * 选区填充马赛克（B6）：把整个选区铺成马赛克块，作为普通元素参与撤销 /
      * 选中 / 删除。没有有效选区时原样返回。
      */
@@ -214,7 +246,7 @@ object AnnotateOps {
     fun setEraserRect(state: AnnotateState, enabled: Boolean): AnnotateState =
         state.copy(eraserRect = enabled)
 
-    fun updateStyle(state: AnnotateState, tool: ToolKind, style: ToolStyle): AnnotateState =
+    fun updateStyle(state: AnnotateState, tool: ToolKind, style: AnnotateToolStyle): AnnotateState =
         state.copy(styles = state.styles + (tool to style))
 
     /**
@@ -223,7 +255,7 @@ object AnnotateOps {
      */
     fun applySettings(
         state: AnnotateState,
-        styles: Map<ToolKind, ToolStyle>,
+        styles: Map<ToolKind, AnnotateToolStyle>,
     ): AnnotateState = state.copy(styles = state.styles + styles)
 
     /**

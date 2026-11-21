@@ -3,7 +3,6 @@
     <string name="smart_ball_content_desc">智能球</string>
     <string name="smart_ball_unread">智能球，%1$d 条未读</string>
     <string name="smart_ball_pinned_only">智能球，已钉住内容</string>
-    <string name="smart_ball_count">%1$d/%2$d</string>
     <string name="smart_ball_notification">通知</string>
 
     <string name="notification_ball_content_desc">通知胶囊球</string>
@@ -42,6 +41,28 @@
     <string name="float_ball_capsule_suppress_dismiss">滑掉后暂停重弹</string>
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
 
+    <string name="float_ball_capsule_alert_group">到达提示动效</string>
+    <string name="float_ball_capsule_alert_enabled">新通知提示动效</string>
+    <string name="float_ball_capsule_alert_enabled_subtitle">新通知把胶囊拉起时播放一次</string>
+    <string name="float_ball_capsule_alert_effect">效果</string>
+    <string name="float_ball_capsule_alert_effect_edge_glow">屏幕边缘呼吸光</string>
+    <string name="float_ball_capsule_alert_effect_particles">顶部粒子掉落</string>
+    <string name="float_ball_capsule_alert_effect_pulse">胶囊本体脉冲</string>
+    <string name="float_ball_capsule_alert_effect_ring">球光环扩散</string>
+    <string name="float_ball_capsule_alert_effect_shimmer">胶囊边框流光</string>
+    <string name="float_ball_capsule_alert_intensity">强度</string>
+    <string name="float_ball_capsule_alert_pace">节奏</string>
+    <string name="float_ball_capsule_alert_preview">试播一次</string>
+    <string name="float_ball_capsule_alert_preview_subtitle">按当前配置立即播放；胶囊层效果会先弹出演示通知</string>
+    <string name="float_ball_capsule_alert_preview_title">试播演示</string>
+    <string name="float_ball_capsule_alert_preview_text">到达提示动效演示通知</string>
+
+    <string name="float_ball_capsule_ball_color">球颜色</string>
+    <string name="float_ball_capsule_background_color">胶囊背景色</string>
+    <string name="float_ball_capsule_color_follow_ball">跟随悬浮球</string>
+    <string name="float_ball_capsule_color_custom">自定义</string>
+    <string name="float_ball_capsule_color_reset">重置为跟随悬浮球</string>
+
     <string name="float_ball_result_group">结果胶囊</string>
     <string name="float_ball_result_follow_hand">结果球跟手换边</string>
     <string name="float_ball_result_follow_hand_subtitle">触钮碰哪侧，结果球就挪到哪侧</string>
@@ -51,6 +72,17 @@
     <string name="float_ball_notification_follow_hand_subtitle">触钮碰哪侧，通知球就挪到哪侧</string>
     <string name="float_ball_capsule_hide_system">隐藏系统通知</string>
     <string name="float_ball_capsule_hide_system_subtitle">只显示通知胶囊，不在通知栏出现</string>
+
+    <string name="float_ball_capsule_gestures">手势</string>
+    <string name="float_ball_ball_long_press">球长按动作</string>
+    <string name="float_ball_row_long_press">行长按动作</string>
+    <string name="float_ball_row_swipe_away">背球侧滑</string>
+    <string name="float_ball_row_swipe_toward">向球侧滑</string>
+    <string name="float_ball_gesture_none">无</string>
+    <string name="float_ball_gesture_ignore_row">忽略该行</string>
+    <string name="float_ball_gesture_collapse">收起胶囊</string>
+    <string name="float_ball_gesture_menu">操作菜单</string>
+    <string name="float_ball_gesture_clear_queue">清空队列</string>
 
 
     <string name="float_ball_color">球颜色</string>
@@ -72,6 +104,11 @@
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_size">球大小</string>
     <string name="float_ball_tap_action">悬浮球单击动作</string>
+    <string name="float_ball_long_press_action">悬浮球长按动作</string>
+    <string name="float_ball_drop_action">悬浮球拖入判定区动作</string>
+    <string name="float_ball_drop_zone_adjust">判定区调整</string>
+    <string name="float_ball_drop_zone_adjust_subtitle">拖入彩蛋的判定位置与大小（横竖屏各一份）</string>
+    <string name="float_ball_long_press_ms">长按触发时长</string>
     <string name="float_ball_tap_unset">未设置</string>
     <string name="float_ball_trigger_actions">触发动作</string>
     <string name="clip_float_image">图片</string>

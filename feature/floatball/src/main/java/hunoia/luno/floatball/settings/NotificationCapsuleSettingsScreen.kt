@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,17 +25,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.CapsuleGestureBehavior
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
@@ -74,10 +83,18 @@ fun NotificationCapsuleSettingsScreen(
     var localVisibleRows by remember(capsule.visibleRows) {
         mutableFloatStateOf(capsule.visibleRows.toFloat())
     }
+    var localAlertIntensity by remember(capsule.alert.intensity) {
+        mutableFloatStateOf(capsule.alert.intensity.toFloat())
+    }
+    var localAlertPace by remember(capsule.alert.pace) {
+        mutableFloatStateOf(capsule.alert.pace.toFloat())
+    }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     // 通知球自己的图标：未设置时仍显示通知应用图标 / 铃铛，不再继承主球。
     val iconPicker = rememberBallIconPickerState()
+    var showBallColorPicker by remember { mutableStateOf(false) }
+    var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var notifAccessGranted by remember {
         mutableStateOf(facades.system.isNotificationAccessGranted(context))
     }
@@ -121,6 +138,52 @@ fun NotificationCapsuleSettingsScreen(
                     update { it.copy(notificationCapsule = it.notificationCapsule.copy(customIcon = icon)) }
                 },
             )
+            if (showBallColorPicker) {
+                val scheme = MaterialTheme.colorScheme
+                ColorPickerBottomSheet(
+                    onDismissRequest = { showBallColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
+                    initialSelection = capsule.ballColor.toInitialSelection(
+                        scheme = scheme,
+                        primaryFallback = true,
+                    ),
+                    onColorSelected = { selection ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    ballColor = selection.toColorSpec(scheme),
+                                ),
+                            )
+                        }
+                        showBallColorPicker = false
+                    },
+                )
+            }
+            if (showBackgroundColorPicker) {
+                val scheme = MaterialTheme.colorScheme
+                ColorPickerBottomSheet(
+                    onDismissRequest = { showBackgroundColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
+                    initialSelection = capsule.backgroundColor.toInitialSelection(
+                        scheme = scheme,
+                        primaryFallback = true,
+                    ),
+                    onColorSelected = { selection ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    backgroundColor = selection.toColorSpec(scheme),
+                                ),
+                            )
+                        }
+                        showBackgroundColorPicker = false
+                    },
+                )
+            }
         },
     ) {
         if (!overlayGranted) {
@@ -159,18 +222,44 @@ fun NotificationCapsuleSettingsScreen(
 
         item(key = "icon") {
             val hasIcon = capsule.customIcon.path != null
+            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 2–3 行），段形随之。
+            val iconRows = if (hasIcon) 2 else 1
+            val colorRows = capsuleColorRowCount(capsule.ballColor, capsule.backgroundColor)
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 BallCustomIconRows(
                     context = context,
                     icon = capsule.customIcon,
                     startIndex = 0,
-                    rowCount = if (hasIcon) 2 else 1,
+                    rowCount = iconRows + colorRows,
                     onPick = iconPicker::pick,
                     onReset = {
                         resetBallIcon(scope, capsule.customIcon) { icon ->
                             update {
                                 it.copy(notificationCapsule = it.notificationCapsule.copy(customIcon = icon))
                             }
+                        }
+                    },
+                )
+                CapsuleColorRows(
+                    ballSpec = capsule.ballColor,
+                    backgroundSpec = capsule.backgroundColor,
+                    followColor = floatBall.colorSpec.toMarkColor(),
+                    startIndex = iconRows,
+                    rowCount = iconRows + colorRows,
+                    onBallClick = { showBallColorPicker = true },
+                    onBackgroundClick = { showBackgroundColorPicker = true },
+                    onBallReset = {
+                        update {
+                            it.copy(notificationCapsule = it.notificationCapsule.copy(ballColor = ColorSpec.Unset))
+                        }
+                    },
+                    onBackgroundReset = {
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    backgroundColor = ColorSpec.Unset,
+                                ),
+                            )
                         }
                     },
                 )
@@ -358,5 +447,186 @@ fun NotificationCapsuleSettingsScreen(
                 )
             }
         }
+
+        // 手势：球长按与行级手势仅在内置行为间互选；默认值 = 出厂行为（零破坏）。
+        item(key = "gestures") {
+            val rows = 4
+            LunoGroup(title = stringResource(R.string.float_ball_capsule_gestures)) {
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_ball_long_press),
+                    current = capsule.ballLongPressBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.NONE,
+                        CapsuleGestureBehavior.CLEAR_QUEUE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    ballLongPress = value,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(0, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_long_press),
+                    current = capsule.rowLongPressBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.NONE,
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    rowLongPress = value,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(1, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_swipe_away),
+                    current = capsule.rowSwipeAwayBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                        CapsuleGestureBehavior.COLLAPSE,
+                        CapsuleGestureBehavior.NONE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    rowSwipeAway = value,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(2, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_swipe_toward),
+                    current = capsule.rowSwipeTowardBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.COLLAPSE,
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                        CapsuleGestureBehavior.NONE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    rowSwipeToward = value,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(3, rows),
+                )
+            }
+        }
+
+        // 到达提示动效：只在胶囊开启时有意义；默认关（老用户升级零感知）。
+        if (capsule.enabled) {
+            item(key = "alert") {
+                val alert = capsule.alert
+                val alertRows = if (alert.enabled) 5 else 1
+                LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_enabled),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
+                        checked = alert.enabled,
+                        onCheckedChange = { checked ->
+                            update {
+                                it.copy(
+                                    notificationCapsule = it.notificationCapsule.copy(
+                                        alert = it.notificationCapsule.alert.copy(enabled = checked),
+                                    ),
+                                )
+                            }
+                        },
+                        shape = segmentedShape(0, alertRows),
+                    )
+                    if (alert.enabled) {
+                        val effects = NotificationAlertEffect.entries
+                        LunoDropdownRow(
+                            title = stringResource(R.string.float_ball_capsule_alert_effect),
+                            options = effects.map { stringResource(it.labelRes()) },
+                            selectedIndex = effects.indexOf(alert.effect).coerceAtLeast(0),
+                            onSelect = { index ->
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(effect = effects[index]),
+                                        ),
+                                    )
+                                }
+                            },
+                            shape = segmentedShape(1, alertRows),
+                        )
+                        LunoTextSlider(
+                            value = localAlertIntensity,
+                            onValueChange = { value -> localAlertIntensity = value },
+                            onValueChangeFinished = {
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(
+                                                intensity = localAlertIntensity.toInt(),
+                                            ),
+                                        ),
+                                    )
+                                }
+                            },
+                            text = stringResource(R.string.float_ball_capsule_alert_intensity),
+                            valueDisplay = { "${it.toInt()}%" },
+                            valueRange = FloatBallDefaults.AlertIntensityMin.toFloat()..
+                                FloatBallDefaults.AlertIntensityMax.toFloat(),
+                            shape = segmentedShape(2, alertRows),
+                        )
+                        LunoTextSlider(
+                            value = localAlertPace,
+                            onValueChange = { value -> localAlertPace = value },
+                            onValueChangeFinished = {
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(
+                                                pace = localAlertPace.toInt(),
+                                            ),
+                                        ),
+                                    )
+                                }
+                            },
+                            text = stringResource(R.string.float_ball_capsule_alert_pace),
+                            valueDisplay = { "${it.toInt()} ×" },
+                            valueRange = FloatBallDefaults.AlertPaceMin.toFloat()..
+                                FloatBallDefaults.AlertPaceMax.toFloat(),
+                            shape = segmentedShape(3, alertRows),
+                        )
+                        // 试播：按当前配置立即播一次，不等真通知（用户显式点击即授权）。
+                        LunoSettingsRow(
+                            title = stringResource(R.string.float_ball_capsule_alert_preview),
+                            subtitle = stringResource(R.string.float_ball_capsule_alert_preview_subtitle),
+                            icon = Icons.Default.PlayArrow,
+                            shape = segmentedShape(4, alertRows),
+                            onClick = { facades.system.previewFloatBallAlert(context) },
+                        )
+                    }
+                }
+            }
+        }
     }
+}
+
+/** 提示动效各形态的展示名（单选下拉用，选项顺序 = 枚举声明顺序）。 */
+private fun NotificationAlertEffect.labelRes(): Int = when (this) {
+    NotificationAlertEffect.EdgeGlow -> R.string.float_ball_capsule_alert_effect_edge_glow
+    NotificationAlertEffect.TopParticles -> R.string.float_ball_capsule_alert_effect_particles
+    NotificationAlertEffect.CapsulePulse -> R.string.float_ball_capsule_alert_effect_pulse
+    NotificationAlertEffect.BallRing -> R.string.float_ball_capsule_alert_effect_ring
+    NotificationAlertEffect.CapsuleShimmer -> R.string.float_ball_capsule_alert_effect_shimmer
 }

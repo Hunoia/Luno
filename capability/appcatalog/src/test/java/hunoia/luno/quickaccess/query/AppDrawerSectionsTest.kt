@@ -138,13 +138,13 @@ class AlphabeticalSectionsTest {
             app("淘宝", "pkg.tb"),
         )
 
-        val sections = AppDrawerSections.alphabeticalSections(apps)
+        val sections = AppDrawerSections.alphabeticalSectionsOf(apps) { it.label }
 
         assertEquals(listOf('A', 'T', 'W', '#'), sections.map { it.letter })
-        assertEquals(listOf("Alipay"), sections[0].apps.map { it.label })
-        assertEquals(listOf("淘宝"), sections[1].apps.map { it.label })
-        assertEquals(listOf("微信"), sections[2].apps.map { it.label })
-        assertEquals(listOf("4K 壁纸"), sections[3].apps.map { it.label })
+        assertEquals(listOf("Alipay"), sections[0].items.map { it.label })
+        assertEquals(listOf("淘宝"), sections[1].items.map { it.label })
+        assertEquals(listOf("微信"), sections[2].items.map { it.label })
+        assertEquals(listOf("4K 壁纸"), sections[3].items.map { it.label })
     }
 
     @Test

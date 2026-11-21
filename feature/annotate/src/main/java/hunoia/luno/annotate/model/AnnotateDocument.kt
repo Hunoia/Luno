@@ -3,6 +3,7 @@ package hunoia.luno.annotate.model
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import hunoia.luno.config.model.AnnotateToolStyle
 
 /**
  * 宿主持有的可变文档包装。所有写入口都走 [AnnotateOps]，
@@ -75,6 +76,28 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.removeSelected(state)
     }
 
+    /** 图层上移一层（选中元素），一步撤销。 */
+    fun raiseSelected() {
+        state.selectedElementId?.let { state = AnnotateOps.raiseElement(state, it, toTop = false) }
+    }
+
+    /** 图层置顶（选中元素），一步撤销。 */
+    fun raiseSelectedToTop() {
+        state.selectedElementId?.let { state = AnnotateOps.raiseElement(state, it, toTop = true) }
+    }
+
+    /**
+     * 复制选中的元素（P2c）：副本按图片短边 2% 平移（至少 8px），生成后选中副本，
+     * 一步撤销。没有选中元素时不动。
+     */
+    fun duplicateSelected() {
+        val id = state.selectedElementId ?: return
+        val newId = nextElementId()
+        val shift = (minOf(imageWidth, imageHeight).toFloat() * 0.02f).coerceAtLeast(8f)
+        state = AnnotateOps.duplicateElement(state, id, newId, Pt(shift, shift))
+        state = AnnotateOps.selectElement(state, newId)
+    }
+
     /** 选区填充马赛克（B6），一步撤销。 */
     fun fillSelectionMosaic(cellSize: Float) {
         state = AnnotateOps.fillSelectionMosaic(state, nextElementId(), cellSize)
@@ -83,10 +106,6 @@ class AnnotateDocument(initial: AnnotateState) {
     /** 双指缩放/平移（B7），不进撤销。 */
     fun setViewTransform(zoom: Float, pan: Pt) {
         viewTransform = AnnotateViewTransform(zoom, pan).sanitized()
-    }
-
-    fun resetViewTransform() {
-        viewTransform = viewTransform.reset()
     }
 
     fun updateSafeViewZoom(zoom: Float) {
@@ -120,12 +139,12 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.setEraserRect(state, enabled)
     }
 
-    fun updateStyle(tool: ToolKind, style: ToolStyle) {
+    fun updateStyle(tool: ToolKind, style: AnnotateToolStyle) {
         state = AnnotateOps.updateStyle(state, tool, style)
     }
 
     /** 打开标注时应用持久化偏好（每工具风格）；不进撤销历史。 */
-    fun applySettings(styles: Map<ToolKind, ToolStyle>) {
+    fun applySettings(styles: Map<ToolKind, AnnotateToolStyle>) {
         state = AnnotateOps.applySettings(state, styles)
     }
 

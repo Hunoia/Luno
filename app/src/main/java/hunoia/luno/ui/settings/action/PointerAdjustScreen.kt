@@ -98,13 +98,6 @@ fun PointerAdjustContent(
     val dotHitPx = with(density) { 24.dp.toPx() }
     val dotRadiusPx = with(density) { 6.dp.toPx() }
 
-    fun clampToScreen(position: Offset) = clampPointerPoint(
-        x = position.x,
-        y = position.y,
-        screenWidthPx = screenPx.width,
-        screenHeightPx = screenPx.height,
-    )
-
     fun commitCursor(display: Offset) {
         val width = screenPx.width
         val height = screenPx.height

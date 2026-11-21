@@ -280,6 +280,8 @@ object SurfaceActionRuntime {
             hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchImage(context, uri, mimeType)
 
         override fun hideTriggerButton(buttonId: String) = Unit
+
+        override fun toggleFloatBallHide() = Unit
     }
 
     private fun appLauncher(context: Context): DefaultAppLauncher = DefaultAppLauncher(

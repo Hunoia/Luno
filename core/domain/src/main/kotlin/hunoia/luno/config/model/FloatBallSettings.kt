@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
  * 挂在 [ActionSettings.floatBall] 下才能顺着 ConfigProvider → SettingsStore →
  * SettingsState 到达 `:service` 进程的 `FloatBallService`；挂到别的域会静默失效。
  * 位置坐标归一化（0..1），横竖屏各存一份，转屏后各用各的落点。
- * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]。
+ * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]；
+ * 长按 = 按住不动到 [longPressMs] 执行 [longPressAction]，触发后本次手势不再跟手。
  */
 @Serializable
 @Keep
@@ -79,6 +80,22 @@ data class FloatBallSettings(
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
     /**
+     * 长按球执行的动作：按住不动到 [longPressMs] 触发（先动 = 拖；触发后本次手势
+     * 不再跟手，与触钮子手势同仲裁）。null = 长按无行为。
+     */
+    val longPressAction: StoredAction? = null,
+    /** 长按触发时长（ms），滑杆范围 [FloatBallDefaults.LongPressMsMin]..[FloatBallDefaults.LongPressMsMax]。 */
+    val longPressMs: Long = FloatBallDefaults.LongPressMs,
+    /**
+     * 拖入判定区松手执行的动作（彩蛋）：球心落进 [dropZone] 判定区时球面高亮，
+     * 松手执行动作后球仍按普通落位吸附边缘。null = 无彩蛋，判定区不参与。
+     */
+    val dropAction: StoredAction? = null,
+    /** 竖屏判定区（归一化矩形）；null = 未自定义，用默认居中 [FloatBallDefaults.defaultDropZone]。 */
+    val dropZonePortrait: WindowBounds? = null,
+    /** 横屏判定区；语义同 [dropZonePortrait]。 */
+    val dropZoneLandscape: WindowBounds? = null,
+    /**
      * 静置多久后变暗缩小。0 = 关闭。
      */
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
@@ -121,6 +138,11 @@ data class FloatBallSettings(
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait
 
+    /** 当前朝向的判定区；未自定义时用默认居中矩形（竖横同一组占比）。 */
+    fun dropZone(landscape: Boolean): WindowBounds =
+        (if (landscape) dropZoneLandscape else dropZonePortrait)
+            ?: FloatBallDefaults.defaultDropZone()
+
     val colorSpec: ColorSpec
         get() = ColorSpec(colorSource, colorThemeKey, color)
 
@@ -149,6 +171,49 @@ fun FloatBallSettings.withPosition(
     if (landscape) copy(landscape = transform(this.landscape))
     else copy(portrait = transform(portrait))
 
+/** 只写当前朝向那份判定区（判定区调整页确认时用）。 */
+fun FloatBallSettings.withDropZone(landscape: Boolean, zone: WindowBounds): FloatBallSettings =
+    if (landscape) copy(dropZoneLandscape = zone) else copy(dropZonePortrait = zone)
+
+/**
+ * 胶囊手势槽绑定的内置行为（仅互选，不接动作库）。
+ * 存储字段保存原值；读时经各胶囊设置类的 `*Behavior` 归一化属性收口——
+ * 槽位不允许的行为（手改数据 / 旧备份）回退到该槽的出厂默认，规则见各属性 KDoc。
+ */
+@Serializable
+@Keep
+enum class CapsuleGestureBehavior {
+    /** 无行为。 */
+    NONE,
+
+    /** 忽略该行（移除 + 同源重弹抑制）。 */
+    IGNORE_ROW,
+
+    /** 收起整个胶囊。 */
+    COLLAPSE,
+
+    /** 打开该行的操作菜单（仅结果行长按合法）。 */
+    MENU,
+
+    /** 清空该胶囊队列（仅球长按合法；清空后球随可见性刷新自然消失）。 */
+    CLEAR_QUEUE,
+}
+
+/** 读时归一化：[this] 不在 [allowed] 里（手改数据 / 旧备份）就回 [fallback]。 */
+private fun CapsuleGestureBehavior.coerceTo(
+    allowed: Set<CapsuleGestureBehavior>,
+    fallback: CapsuleGestureBehavior,
+): CapsuleGestureBehavior = if (this in allowed) this else fallback
+
+private val BallLongPressAllowed =
+    setOf(CapsuleGestureBehavior.NONE, CapsuleGestureBehavior.CLEAR_QUEUE)
+private val ResultRowLongPressAllowed =
+    setOf(CapsuleGestureBehavior.NONE, CapsuleGestureBehavior.IGNORE_ROW, CapsuleGestureBehavior.MENU)
+private val NotificationRowLongPressAllowed =
+    setOf(CapsuleGestureBehavior.NONE, CapsuleGestureBehavior.IGNORE_ROW)
+private val RowSwipeAllowed =
+    setOf(CapsuleGestureBehavior.NONE, CapsuleGestureBehavior.IGNORE_ROW, CapsuleGestureBehavior.COLLAPSE)
+
 /**
  * 通知胶囊配置：普通通知到达时从通知球向左展开「图标 + 标题 + 正文」，
  * 点击直达（通知 contentIntent 优先，失败回退启动应用），[autoHideMs] 后自动收起。
@@ -161,6 +226,10 @@ data class NotificationCapsuleSettings(
     val followHand: Boolean = false,
     /** 通知球自定义图标；未设置时用通知应用图标 / 铃铛，不跟随主球。 */
     val customIcon: BallCustomIcon = BallCustomIcon(),
+    /** 通知球颜色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    val ballColor: ColorSpec = ColorSpec.Unset,
+    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    val backgroundColor: ColorSpec = ColorSpec.Unset,
     /** 通知球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
     val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
@@ -178,6 +247,76 @@ data class NotificationCapsuleSettings(
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
     val dismissSuppressMs: Long = FloatBallDefaults.CapsuleDismissSuppressMs,
+    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（默认关）。 */
+    val alert: NotificationAlertSettings = NotificationAlertSettings(),
+    /** 存储原值，读请走 [ballLongPressBehavior]。 */
+    val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
+    /** 存储原值，读请走 [rowLongPressBehavior]。 */
+    val rowLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
+    /** 存储原值，读请走 [rowSwipeAwayBehavior]。 */
+    val rowSwipeAway: CapsuleGestureBehavior = CapsuleGestureBehavior.IGNORE_ROW,
+    /** 存储原值，读请走 [rowSwipeTowardBehavior]。 */
+    val rowSwipeToward: CapsuleGestureBehavior = CapsuleGestureBehavior.COLLAPSE,
+) {
+    /** 通知球长按行为：仅允许 无 / 清空队列，其余归 无。 */
+    val ballLongPressBehavior: CapsuleGestureBehavior
+        get() = ballLongPress.coerceTo(BallLongPressAllowed, CapsuleGestureBehavior.NONE)
+
+    /** 通知行长按行为：仅允许 无 / 忽略该行，其余归 无。 */
+    val rowLongPressBehavior: CapsuleGestureBehavior
+        get() = rowLongPress.coerceTo(NotificationRowLongPressAllowed, CapsuleGestureBehavior.NONE)
+
+    /** 通知行背球侧滑行为：仅允许 忽略该行 / 收起胶囊 / 无，其余归 忽略该行（现行为）。 */
+    val rowSwipeAwayBehavior: CapsuleGestureBehavior
+        get() = rowSwipeAway.coerceTo(RowSwipeAllowed, CapsuleGestureBehavior.IGNORE_ROW)
+
+    /** 通知行向球侧滑行为：集合同上，其余归 收起胶囊（现行为）。 */
+    val rowSwipeTowardBehavior: CapsuleGestureBehavior
+        get() = rowSwipeToward.coerceTo(RowSwipeAllowed, CapsuleGestureBehavior.COLLAPSE)
+}
+
+/**
+ * 到达提示动效的形态（单选）。
+ *
+ * [EdgeGlow] / [TopParticles] / [BallRing] 是按需挂摘的独立 overlay 窗；
+ * [CapsulePulse] / [CapsuleShimmer] 画在胶囊窗口自己的 Compose 层，不动窗口几何。
+ */
+@Serializable
+@Keep
+enum class NotificationAlertEffect {
+    /** 屏幕边缘呼吸光。 */
+    EdgeGlow,
+
+    /** 顶部粒子掉落。 */
+    TopParticles,
+
+    /** 胶囊本体脉冲（描边亮度脉冲，不新增窗口）。 */
+    CapsulePulse,
+
+    /** 球光环扩散（雷达 ping，锚定通知球）。 */
+    BallRing,
+
+    /** 胶囊边框流光（光带沿边框扫过，不新增窗口）。 */
+    CapsuleShimmer,
+}
+
+/**
+ * 新通知到达提示动效配置。事件驱动、一次性播放：只在「通知到达把胶囊从隐藏拉起」的
+ * 时机播放，播完自动停；熄屏 / 锁屏 / 勿扰 / 全屏沉浸 / 胶囊已可见时都不播。
+ *
+ * [intensity] 与 [pace] 是两个通用旋钮，含义随 [effect] 变化（设置页标签跟随）：
+ * 强度 = 光晕 / 粒子量 / 亮度峰值的映射输入；节奏 = 播放次数（呼吸圈数 / 粒子波次 /
+ * 光环圈数 / 扫光次数），总时长 = 节奏 × 单循环时长（按效果走各自的 `MotionFamily.Alert*`）。
+ */
+@Serializable
+@Keep
+data class NotificationAlertSettings(
+    val enabled: Boolean = FloatBallDefaults.AlertEnabled,
+    val effect: NotificationAlertEffect = NotificationAlertEffect.EdgeGlow,
+    /** 强度（0–100，滑杆约束），按 [effect] 映射为透明度峰值或粒子数量。 */
+    val intensity: Int = FloatBallDefaults.AlertIntensity,
+    /** 节奏（1–4，滑杆约束）：播放循环次数，总时长随之倍增。 */
+    val pace: Int = FloatBallDefaults.AlertPace,
 )
 
 /**
@@ -195,6 +334,10 @@ data class ResultCapsuleSettings(
     val followHand: Boolean = false,
     /** 结果球自定义图标；未设置时用灯泡，不跟随主球。 */
     val customIcon: BallCustomIcon = BallCustomIcon(),
+    /** 结果球颜色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    val ballColor: ColorSpec = ColorSpec.Unset,
+    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    val backgroundColor: ColorSpec = ColorSpec.Unset,
     /** 结果球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
     val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
     // 情景识别的开关与名单已搬到 [RecognitionSettings]（它是识别器的第五个输入源，
@@ -202,12 +345,41 @@ data class ResultCapsuleSettings(
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
     /**
+     * 同屏可见行数（1–5）：胶囊内最多同时显示几条结果，超出部分竖向滚动查看。
+     * 只影响展示，不改变队列容量（[BallInboxSettings.resultCapacity]）。
+     */
+    val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
+    /** 存储原值，读请走 [ballLongPressBehavior]。 */
+    val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
+    /** 存储原值，读请走 [rowLongPressBehavior]。 */
+    val rowLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.MENU,
+    /** 存储原值，读请走 [rowSwipeAwayBehavior]。 */
+    val rowSwipeAway: CapsuleGestureBehavior = CapsuleGestureBehavior.IGNORE_ROW,
+    /** 存储原值，读请走 [rowSwipeTowardBehavior]。 */
+    val rowSwipeToward: CapsuleGestureBehavior = CapsuleGestureBehavior.COLLAPSE,
+    /**
      * 旧版剪贴板球位置：只作为迁移来源，不再继续写。
      * 新位置见 [FloatBallSettings.resultBallPosition]。
      */
     val x: Float? = null,
     val y: Float? = null,
-)
+) {
+    /** 结果球长按行为：仅允许 无 / 清空队列，其余归 无。 */
+    val ballLongPressBehavior: CapsuleGestureBehavior
+        get() = ballLongPress.coerceTo(BallLongPressAllowed, CapsuleGestureBehavior.NONE)
+
+    /** 结果行长按行为：仅允许 操作菜单 / 忽略该行 / 无，其余归 操作菜单（现行为）。 */
+    val rowLongPressBehavior: CapsuleGestureBehavior
+        get() = rowLongPress.coerceTo(ResultRowLongPressAllowed, CapsuleGestureBehavior.MENU)
+
+    /** 结果行背球侧滑行为：仅允许 忽略该行 / 收起胶囊 / 无，其余归 忽略该行（现行为）。 */
+    val rowSwipeAwayBehavior: CapsuleGestureBehavior
+        get() = rowSwipeAway.coerceTo(RowSwipeAllowed, CapsuleGestureBehavior.IGNORE_ROW)
+
+    /** 结果行向球侧滑行为：集合同上，其余归 收起胶囊（现行为）。 */
+    val rowSwipeTowardBehavior: CapsuleGestureBehavior
+        get() = rowSwipeToward.coerceTo(RowSwipeAllowed, CapsuleGestureBehavior.COLLAPSE)
+}
 
 /**
  * 两条队列配置：通知与结果各自计时，容量可分别覆盖共享默认值。
@@ -218,8 +390,12 @@ data class ResultCapsuleSettings(
 data class BallInboxSettings(
     /** 通知在通知胶囊中的保留时长（ms）。 */
     val notificationTtlMs: Long = FloatBallDefaults.InboxNotificationTtlMs,
-    /** 链接/结果在结果胶囊中的保留时长（ms）；验证码固定 5 分钟，不受此项影响。 */
-    val clipboardTtlMs: Long = FloatBallDefaults.InboxResultTtlMs,
+    /**
+     * 结果在结果胶囊中的保留时长（ms）；验证码固定 5 分钟，不受此项影响。
+     * 旧名 clipboardTtlMs（剪贴板球时代误称）：改名即迁移，旧落盘键被 ignoreUnknownKeys
+     * 丢弃、全部设备落新默认（§11.2）。结果按「即时提示」口径默认只留 60s。
+     */
+    val resultTtlMs: Long = FloatBallDefaults.InboxResultTtlMs,
     /** 共享容量默认值。 */
     val capacity: Int = FloatBallDefaults.InboxCapacity,
     /** 通知队列容量覆盖；null = 用 [capacity]。 */
@@ -260,6 +436,23 @@ object FloatBallDefaults {
     /** touchSlop（dp），点按与拖动分界。 */
     const val TouchSlopDp = 12f
 
+    /** 长按动作触发时长（ms）默认值与滑杆上下限（与动作面板的长按口径同范围）。 */
+    const val LongPressMs = 500L
+    const val LongPressMsMin = 200L
+    const val LongPressMsMax = 1200L
+
+    /** 判定区默认占比：居中、宽 / 高约屏宽（高）的 1/3 × 1/4，竖横同一组。 */
+    const val DropZoneWidthFraction = 1f / 3f
+    const val DropZoneHeightFraction = 1f / 4f
+
+    /** 未自定义时的判定区：以屏幕中心为中心的 [DropZoneWidthFraction] × [DropZoneHeightFraction]。 */
+    fun defaultDropZone(): WindowBounds = WindowBounds(
+        x = (1f - DropZoneWidthFraction) / 2f,
+        y = (1f - DropZoneHeightFraction) / 2f,
+        width = DropZoneWidthFraction,
+        height = DropZoneHeightFraction,
+    )
+
     /** 键盘弹出时球与键盘顶边的间距（dp）。 */
     /** 键盘让位额外抬升：键盘顶上一般还有应用自己的输入栏/发送按钮，只留 ImeMargin 会挡住它。 */
     const val ImeExtraLiftDp = 48f
@@ -283,7 +476,16 @@ object FloatBallDefaults {
     /** 通知胶囊：「只显示胶囊」开关默认值（关：系统通知照常显示在通知栏）。 */
     const val CapsuleHideSystemNotification = false
 
-    /** 通知胶囊：同屏可见行数默认值与滑杆上下限（行）。 */
+    /** 到达提示动效：默认关（老用户升级零感知），开启后默认边缘呼吸光。 */
+    const val AlertEnabled = false
+    const val AlertIntensity = 60
+    const val AlertIntensityMin = 0
+    const val AlertIntensityMax = 100
+    const val AlertPace = 2
+    const val AlertPaceMin = 1
+    const val AlertPaceMax = 4
+
+    /** 内容胶囊（通知 / 结果）同屏可见行数默认值与滑杆上下限（行）。 */
     const val CapsuleVisibleRows = 3
     const val CapsuleVisibleRowsMin = 1
     const val CapsuleVisibleRowsMax = 5
@@ -297,9 +499,11 @@ object FloatBallDefaults {
     const val InboxNotificationTtlMs = 120_000L
     const val InboxNotificationTtlMsMin = 30_000L
     const val InboxNotificationTtlMsMax = 600_000L
-    const val InboxResultTtlMs = 300_000L
-    const val InboxResultTtlMsMin = 60_000L
-    const val InboxResultTtlMsMax = 1_800_000L
+
+    /** 结果 TTL 默认 60s（即时提示口径）与滑杆上下限；验证码走 per-item 5 分钟覆盖。 */
+    const val InboxResultTtlMs = 60_000L
+    const val InboxResultTtlMsMin = 30_000L
+    const val InboxResultTtlMsMax = 600_000L
 
     /** 三球默认落点：右缘纵向错开。 */
     const val NotificationBallY = 0.30f
@@ -310,8 +514,7 @@ object FloatBallDefaults {
     const val InboxCapacityMin = 1
     const val InboxCapacityMax = 10
 
-    /** 自定义图标透明度默认值与滑杆上下限（下限 0.1：全透明会让球找不着）。 */
-    const val CustomIconAlpha = 1f
+    /** 自定义图标透明度滑杆上下限（下限 0.1：全透明会让球找不着）。 */
     const val CustomIconAlphaMin = 0.1f
     const val CustomIconAlphaMax = 1f
 

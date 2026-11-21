@@ -757,6 +757,11 @@ class GestureCoordinator(
                 runtimeSettingsStore.snapshot().actionSettings.gestureTools.triggerButtonHideMs,
             )
         }
+
+        override fun toggleFloatBallHide() {
+            // 球未运行（命令未注册）时静默：显隐动作对不可用的 Surface 无失败语义。
+            hunoia.luno.runtime.floatball.FloatBallCommand.toggleScreenHide?.invoke()
+        }
     }
 
     /**
@@ -857,7 +862,7 @@ class GestureCoordinator(
     private var actionPanelFullscreen = false
 
     /**
-     * 按住类触发的指针光标画在主 overlay 里（[hunoia.luno.runtime.pointer.rememberPointerHandle]）。
+     * 按住类触发的指针光标（`PointerCursor`）画在主 overlay 里。
      * 主 overlay 平时收成 1x1 省 buffer，光标就看不见 —— 指针会话期间必须临时撑全屏。
      */
     private var pointerCursorHosted = false

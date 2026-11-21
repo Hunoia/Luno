@@ -117,6 +117,7 @@ class FloatBallSettingsTest {
     fun `visible rows survive a serialization round trip`() {
         val settings = FloatBallSettings(
             notificationCapsule = NotificationCapsuleSettings(visibleRows = 5),
+            resultCapsule = ResultCapsuleSettings(visibleRows = 2),
         )
 
         val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
@@ -124,5 +125,42 @@ class FloatBallSettingsTest {
         )
 
         assertEquals(5, decoded.notificationCapsule.visibleRows)
+        assertEquals(2, decoded.resultCapsule.visibleRows)
+    }
+
+    @Test
+    fun `result ttl default is the instant-hint value and the legacy key is dropped`() {
+        assertEquals(60_000L, FloatBallSettings().inbox.resultTtlMs)
+
+        // 旧名 clipboardTtlMs 的落盘键被 ignoreUnknownKeys 丢弃：改名即迁移到新默认（§11.2）。
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            """
+            { "inbox": { "clipboardTtlMs": 300000 } }
+            """.trimIndent(),
+        )
+
+        assertEquals(FloatBallDefaults.InboxResultTtlMs, decoded.inbox.resultTtlMs)
+    }
+
+    @Test
+    fun `gesture behaviors normalize to slot-legal defaults`() {
+        // 通知行长按不支持操作菜单；两颗球的球长按都不支持菜单；滑动手势不支持清空队列。
+        val notification = NotificationCapsuleSettings(
+            rowLongPress = CapsuleGestureBehavior.MENU,
+            ballLongPress = CapsuleGestureBehavior.MENU,
+            rowSwipeAway = CapsuleGestureBehavior.CLEAR_QUEUE,
+        )
+        assertEquals(CapsuleGestureBehavior.NONE, notification.rowLongPressBehavior)
+        assertEquals(CapsuleGestureBehavior.NONE, notification.ballLongPressBehavior)
+        assertEquals(CapsuleGestureBehavior.IGNORE_ROW, notification.rowSwipeAwayBehavior)
+
+        // 结果行长按默认保留操作菜单：合法值原样读出。
+        val result = ResultCapsuleSettings()
+        assertEquals(CapsuleGestureBehavior.MENU, result.rowLongPressBehavior)
+        assertEquals(
+            CapsuleGestureBehavior.MENU,
+            ResultCapsuleSettings(rowLongPress = CapsuleGestureBehavior.MENU).rowLongPressBehavior,
+        )
+        assertEquals(CapsuleGestureBehavior.NONE, ResultCapsuleSettings().ballLongPressBehavior)
     }
 }

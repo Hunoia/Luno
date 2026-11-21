@@ -262,6 +262,3 @@ val DefaultSourceTriggers: Map<String, String> = mapOf(
 /** 生效标识：自定义优先，缺 key 用默认，空串表示关闭（调用方跳过空串）。 */
 fun QuickSearchSettings.effectiveTrigger(source: String): String =
     sourceTriggers[source] ?: DefaultSourceTriggers[source].orEmpty()
-
-/** 主引擎：引擎列表第一位（顺序由设置页拖拽决定）；用户不再单独选默认。 */
-fun QuickSearchSettings.primaryEngineOrNull(): SearchEngine? = effectiveEngines().firstOrNull()

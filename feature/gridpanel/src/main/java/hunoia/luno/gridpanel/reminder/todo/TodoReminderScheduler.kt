@@ -1,11 +1,9 @@
 package hunoia.luno.gridpanel.reminder.todo
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.NotificationKind
 import hunoia.luno.config.model.NotificationMode
@@ -17,6 +15,7 @@ import hunoia.luno.config.model.TodoReminder
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.TodoCenter
+import hunoia.luno.gridpanel.reminder.ReminderAlarms
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -299,45 +298,19 @@ object TodoReminderScheduler {
     private fun snoozeKey(todoId: String): String = KEY_SNOOZE_PREFIX + todoId
 
     private fun setReminderAlarm(context: Context, todoId: String, triggerMillis: Long) {
-        setAlarm(context, triggerMillis, reminderPendingIntent(context, todoId), "todo reminder")
+        ReminderAlarms.setExactFallback(context, triggerMillis, reminderPendingIntent(context, todoId), "todo reminder")
     }
 
     private fun cancelReminderAlarm(context: Context, todoId: String) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        am.cancel(reminderPendingIntent(context, todoId))
+        ReminderAlarms.cancel(context, reminderPendingIntent(context, todoId))
     }
 
     private fun setSnoozeAlarm(context: Context, todoId: String, triggerMillis: Long) {
-        setAlarm(context, triggerMillis, snoozePendingIntent(context, todoId), "todo snooze")
+        ReminderAlarms.setExactFallback(context, triggerMillis, snoozePendingIntent(context, todoId), "todo snooze")
     }
 
     private fun cancelSnoozeAlarm(context: Context, todoId: String) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        am.cancel(snoozePendingIntent(context, todoId))
-    }
-
-    private fun setAlarm(
-        context: Context,
-        triggerMillis: Long,
-        pendingIntent: PendingIntent,
-        label: String,
-    ) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        try {
-            val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-            if (canExact) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            }
-        } catch (e: SecurityException) {
-            // 无精确闹钟权限（Android 12+ 用户可关）：降级非精确，宁可晚到也不丢提醒。
-            LunoLog.w(LOG_TAG, "$label exact alarm denied, fallback: ${e.message}")
-            runCatching {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            }
-        }
-        LunoLog.i(LOG_TAG, "$label scheduled: trigger=$triggerMillis")
+        ReminderAlarms.cancel(context, snoozePendingIntent(context, todoId))
     }
 
     private fun reminderPendingIntent(context: Context, todoId: String): PendingIntent {

@@ -1,7 +1,5 @@
 package hunoia.luno.launch
 
-import hunoia.luno.core.domain.AppLaunchSource
-import hunoia.luno.core.domain.DisabledAppState
 import hunoia.luno.core.domain.LaunchTarget
 import hunoia.luno.core.domain.LaunchTargetResolver
 import hunoia.luno.core.domain.LaunchTelemetry
@@ -19,7 +17,7 @@ import hunoia.luno.quickaccess.query.DisabledAppQuery
  * 未注入时退化为 no-op：能力库可以独立编译与单测，不需要宿主。
  */
 object LaunchCapability {
-    var telemetry: LaunchTelemetry = LaunchTelemetry { _, _ -> }
+    var telemetry: LaunchTelemetry = LaunchTelemetry { _ -> }
     var targetResolver: LaunchTargetResolver = LaunchTargetResolver { packageName ->
         AppQuery.findLauncherActivity(AppContext.get(), packageName)
             ?.let { LaunchTarget(it.packageName, it.className) }
@@ -33,29 +31,37 @@ object LaunchCapability {
      */
     var onPackageStateChanged: () -> Unit = {}
 
-    var disabledApps: DisabledAppState = object : DisabledAppState {
-        override fun isDisabled(packageName: String): Boolean =
-            DisabledAppQuery.isDisabled(AppContext.get(), packageName)
-
-        override fun isSuspended(packageName: String): Boolean =
-            DisabledAppQuery.isSuspended(AppContext.get(), packageName)
-
-        override fun markEnabled(packageName: String) {
-            DisabledAppQuery.markEnabled(packageName)
-            AppQuery.invalidateLauncherCache()
-        }
-
-        override fun invalidateLauncherCache() {
-            AppQuery.invalidateLauncherCache()
-        }
-    }
-
     suspend fun resolveLauncherActivity(packageName: String): LaunchTarget? =
         targetResolver.launcherActivity(packageName)
 
-    fun recordLaunch(packageName: String, source: AppLaunchSource) {
-        telemetry.recordLaunch(packageName, source)
+    fun recordLaunch(packageName: String) {
+        telemetry.recordLaunch(packageName)
+    }
+}
+
+/**
+ * 被禁用/冻结应用的状态查询与标记，启动能力库解冻前后要用。
+ *
+ * 实现收口在 `DisabledAppQuery` + 启动器缓存失效，全应用只有这一份缓存；
+ * UI 与启动链路读同一事实源。
+ */
+object DisabledApps {
+    /** enabled 位被禁用（Luno 可解冻）。 */
+    fun isDisabled(packageName: String): Boolean =
+        DisabledAppQuery.isDisabled(AppContext.get(), packageName)
+
+    /** 厂商/系统 suspend：Luno 无法通过 enablePackage 解除。 */
+    fun isSuspended(packageName: String): Boolean =
+        DisabledAppQuery.isSuspended(AppContext.get(), packageName)
+
+    /** 解冻成功后标记为可用（含缓存失效）。 */
+    fun markEnabled(packageName: String) {
+        DisabledAppQuery.markEnabled(packageName)
+        AppQuery.invalidateLauncherCache()
     }
 
-    fun resolveDisabledState(): DisabledAppState = disabledApps
+    /** 解冻成功后让启动器查询缓存失效。 */
+    fun invalidateLauncherCache() {
+        AppQuery.invalidateLauncherCache()
+    }
 }

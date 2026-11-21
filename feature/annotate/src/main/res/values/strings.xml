@@ -17,9 +17,7 @@
     <string name="annotate_tool_triangle">三角形</string>
     <string name="annotate_tool_check">对勾</string>
     <string name="annotate_tool_cross">叉</string>
-    <string name="annotate_tool_star">五角星</string>
     <string name="annotate_tool_round_rect">圆角矩形</string>
-    <string name="annotate_tool_heart">心形</string>
     <string name="annotate_tool_dashed_line">虚线</string>
     <string name="annotate_shape_fill">形状填充</string>
     <string name="annotate_undo">撤销</string>
@@ -36,7 +34,6 @@
     <string name="annotate_exit">退出标注</string>
     <string name="annotate_save">保存</string>
     <string name="annotate_export">导出</string>
-    <string name="annotate_save_to_gallery">保存到相册</string>
     <string name="annotate_copy">复制</string>
     <string name="annotate_share">分享</string>
     <string name="annotate_penetrate">穿透</string>
@@ -58,4 +55,11 @@
     <string name="annotate_replace_title">替换图片？</string>
     <string name="annotate_replace_message">当前图片上的标注将被丢弃。</string>
     <string name="annotate_replace_confirm">替换</string>
+    <string name="annotate_tool_blur">模糊</string>
+    <string name="annotate_tool_sticker">贴纸</string>
+    <string name="annotate_blur_radius">模糊半径</string>
+    <string name="annotate_layer_top">置顶</string>
+    <string name="annotate_layer_up">上移一层</string>
+    <string name="annotate_duplicate">复制副本</string>
+    <string name="annotate_sticker_hint">点画布插入贴纸；选中后拖角缩放</string>
 </resources>

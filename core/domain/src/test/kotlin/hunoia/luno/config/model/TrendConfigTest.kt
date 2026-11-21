@@ -58,7 +58,6 @@ class TrendConfigTest {
         cfg = cfg.addEntry("m1", entry("e1", 100L, 1.0))!!
         cfg = cfg.addEntry("m1", entry("e3", 300L, 3.0))!!
         assertEquals(listOf("e1", "e2", "e3"), cfg.entriesOf("m1").map { it.id })
-        assertEquals("e3", cfg.latestOf("m1")?.id)
     }
 
     @Test
@@ -166,11 +165,6 @@ class TrendConfigTest {
         assertEquals(1, m.safeDecimals)
         assertEquals(0, TrendMetric(decimals = -1).safeDecimals)
         assertEquals(TrendMaxDecimals, TrendMetric(decimals = 99).safeDecimals)
-        assertEquals(8 * 60, m.reminderMinutesOfDay)
-        assertEquals(
-            23 * 60 + 59,
-            TrendMetric(reminderHour = 99, reminderMinute = 99).reminderMinutesOfDay,
-        )
         assertNull(m.target)
     }
 }

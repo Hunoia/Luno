@@ -1,7 +1,7 @@
 package hunoia.luno.quickaccess.launch
 
 import android.content.Context
-import hunoia.luno.launch.LaunchCapability
+import hunoia.luno.launch.DisabledApps
 import hunoia.luno.launch.PackageControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +37,8 @@ class DisabledPackageEnabler(
             if (result.success) {
                 // 解冻成功后同步能力层的禁用缓存：否则同一轮 app.launch 还会再判一次
                 // disabled，且下次启动仍可能命中旧的 false/true。
-                LaunchCapability.resolveDisabledState().markEnabled(packageName)
-                LaunchCapability.resolveDisabledState().invalidateLauncherCache()
+                DisabledApps.markEnabled(packageName)
+                DisabledApps.invalidateLauncherCache()
                 log("enable_package: success pkg=$packageName elapsed=${System.currentTimeMillis() - start}ms")
             } else {
                 log("enable_package: failed pkg=$packageName error=${result.errorMessage}")

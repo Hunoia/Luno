@@ -19,6 +19,9 @@ interface SystemFacade {
     fun setFloatBallEnabled(context: Context, enabled: Boolean)
     fun refreshFloatBall(context: Context)
 
+    /** 试播一次通知胶囊的到达提示动效（按当前落盘配置；服务没在跑时不播）。 */
+    fun previewFloatBallAlert(context: Context)
+
     /** 总闸重新打开后按落盘配置恢复悬浮球宿主（球 / 通知 / 剪贴板任一开启才拉起）。 */
     suspend fun restoreFloatBall(context: Context)
 

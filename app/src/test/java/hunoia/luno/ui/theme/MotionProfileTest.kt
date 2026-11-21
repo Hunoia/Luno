@@ -1,6 +1,7 @@
 package hunoia.luno.ui.theme
 
 import hunoia.luno.config.model.MotionSpeed
+import hunoia.luno.config.model.NotificationAlertEffect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -30,6 +31,13 @@ class MotionProfileTest {
 
         assertEquals(306, profile(floating = MotionSpeed.Slowest).millisOf(MotionFamily.FloatingMorph))
         assertEquals(136, profile(floating = MotionSpeed.Faster).millisOf(MotionFamily.FloatingSnap))
+
+        // 到达提示家族：各效果独立基准（1.0× 浮窗档）。
+        assertEquals(1400, profile().millisOf(MotionFamily.AlertEdgeGlow))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertParticles))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertRing))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertPulse))
+        assertEquals(1150, profile().millisOf(MotionFamily.AlertShimmer))
     }
 
     @Test
@@ -45,6 +53,21 @@ class MotionProfileTest {
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.Floating))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingMorph))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingSnap))
+        // 到达提示五家族全部走浮窗档位。
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdgeGlow))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertParticles))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertRing))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertPulse))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertShimmer))
+    }
+
+    @Test
+    fun `到达提示效果与家族一一映射`() {
+        assertEquals(MotionFamily.AlertEdgeGlow, NotificationAlertEffect.EdgeGlow.toAlertFamily())
+        assertEquals(MotionFamily.AlertParticles, NotificationAlertEffect.TopParticles.toAlertFamily())
+        assertEquals(MotionFamily.AlertRing, NotificationAlertEffect.BallRing.toAlertFamily())
+        assertEquals(MotionFamily.AlertPulse, NotificationAlertEffect.CapsulePulse.toAlertFamily())
+        assertEquals(MotionFamily.AlertShimmer, NotificationAlertEffect.CapsuleShimmer.toAlertFamily())
     }
 
     @Test

@@ -217,6 +217,17 @@
             android:theme="@style/Theme.SideGesture.Annotate"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 贴纸选择壳（图片标注贴纸工具）：无界面，进来即弹系统图片选择器，
+             选中后进程内交付 StickerPickCenter 并结束自己。 -->
+        <activity
+            android:name="hunoia.luno.annotate.StickerPickActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.annotate"
+            android:theme="@style/Theme.SideGesture.Transparent" />
+
         <!-- 拍照识别页：:service 透明 Activity（动作 image.recognize）。
              相机走系统相机 App（ACTION_IMAGE_CAPTURE + FileProvider 输出），页面内有
              「拍照 / 从相册选」两入口；拍完/选完进 OCR 结果页拖框识别。

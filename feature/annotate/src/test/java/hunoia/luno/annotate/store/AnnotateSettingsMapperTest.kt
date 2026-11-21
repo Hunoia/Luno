@@ -1,7 +1,6 @@
 package hunoia.luno.annotate.store
 
 import hunoia.luno.annotate.model.ToolKind
-import hunoia.luno.annotate.model.ToolStyle
 import hunoia.luno.annotate.store.AnnotatePreferences
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AnnotateToolStyle
@@ -34,7 +33,7 @@ class AnnotateSettingsMapperTest {
     @Test
     fun `every known tool and shape fill survive a round trip`() {
         val styles = ToolKind.entries.associateWith { tool ->
-            ToolStyle(
+            AnnotateToolStyle(
                 colorArgb = 0xFF000000 or tool.ordinal.toLong(),
                 strokeWidth = tool.ordinal + 1f,
                 textSize = tool.ordinal + 10f,

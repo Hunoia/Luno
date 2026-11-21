@@ -14,9 +14,13 @@ sealed interface AnnotationElement {
 enum class ElementKind {
     STROKE, ERASER, RECT, LINE, ARROW, TEXT, MOSAIC,
     // 快速标注器扩展形状 + 序号。
-    ELLIPSE, TRIANGLE, CHECK, CROSS, STAR, ROUND_RECT, HEART, NUMBER,
+    ELLIPSE, TRIANGLE, CHECK, CROSS, ROUND_RECT, NUMBER,
     // 虚线直线（与 moting DASHED_LINE 对齐）。
     DASHED_LINE,
+    // 局部模糊（真模糊，非马赛克）。
+    BLUR,
+    // 图片贴纸。
+    STICKER,
 }
 
 /** 自由笔迹。 [erase] 为 true 时是橡皮：只擦标注层，不擦底图（导出时 saveLayer + CLEAR）。 */
@@ -107,6 +111,46 @@ data class MosaicElement(
 }
 
 /**
+ * 局部模糊：涂抹轨迹（[points] + [width]）或选区矩形填充（[rect]），二者可并存。
+ * 渲染时从冻结底图的预模糊副本经轨迹 mask 取样，预览与导出一致。
+ * 模糊不参与矩形擦（同文字/马赛克语义，走选中删除）。
+ */
+data class BlurElement(
+    override val id: Long,
+    /** 涂抹轨迹，图片像素。 */
+    val points: List<Pt> = emptyList(),
+    /** 笔刷直径，图片像素。 */
+    val width: Float = 1f,
+    /** 模糊半径，图片像素。 */
+    val radius: Float,
+    /** 选区填充：整块矩形也模糊。 */
+    val rect: PxRect? = null,
+) : AnnotationElement {
+    override val kind: ElementKind = ElementKind.BLUR
+
+    /** 归一化并限制尺寸，避免 0 或负数把绘制/命中测试卡死。 */
+    fun sanitized(maxRadius: Float = 96f): BlurElement = copy(
+        radius = radius.coerceIn(2f, maxRadius),
+        width = width.coerceIn(2f, 256f),
+        rect = rect?.normalized(),
+    )
+}
+
+/**
+ * 图片贴纸：一张位图按 [rect]（图片像素）摆放，可拖动 / 角柄缩放（保纵横比）/ 删除。
+ * 笔迹不落盘，位图只在内存里（与整份文档同生命周期）。
+ */
+data class StickerElement(
+    override val id: Long,
+    /** 贴纸目标矩形（图片像素）。 */
+    val rect: PxRect,
+    /** 贴纸位图；绘制时缩放到 [rect]。 */
+    val bitmap: android.graphics.Bitmap,
+) : AnnotationElement {
+    override val kind: ElementKind = ElementKind.STICKER
+}
+
+/**
  * 把元素几何包成图片坐标矩形（命中测试 / 重排 / 调试用）。
  *
  * 注意：文字只是 `textSize * text.length` 的**估算**，全角/半角混排不准；
@@ -117,9 +161,11 @@ fun AnnotationElement.bounds(): PxRect = when (this) {
     is ShapeElement -> bounds.let { it.inset(-width / 2f) }
     is TextElement -> PxRect(position.x, position.y, position.x + textSize * text.length, position.y + textSize)
     is NumberElement -> badgeBounds
-    is MosaicElement -> {
-        val stroke = pointsBounds(points, width / 2f)
-        val fill = rect?.normalized()
+    is StickerElement -> rect.normalized()
+    else -> {
+        // MosaicElement / BlurElement：轨迹包围盒 ∪ 选区填充矩形。
+        val stroke = pointsBoundsOf(this)
+        val fill = fillRectOf(this)?.normalized()
         when {
             fill == null -> stroke
             stroke.isEmptyRaw() -> fill
@@ -131,6 +177,20 @@ fun AnnotationElement.bounds(): PxRect = when (this) {
             )
         }
     }
+}
+
+/** 轨迹型元素（马赛克/模糊）的涂抹包围盒。 */
+private fun pointsBoundsOf(element: AnnotationElement): PxRect = when (element) {
+    is MosaicElement -> pointsBounds(element.points, element.width / 2f)
+    is BlurElement -> pointsBounds(element.points, element.width / 2f)
+    else -> PxRect(0f, 0f, 0f, 0f)
+}
+
+/** 轨迹型元素（马赛克/模糊）的选区填充矩形。 */
+private fun fillRectOf(element: AnnotationElement): PxRect? = when (element) {
+    is MosaicElement -> element.rect
+    is BlurElement -> element.rect
+    else -> null
 }
 
 /** 点集包围盒外扩 [pad]；空点集返回退化矩形。 */
@@ -170,41 +230,20 @@ fun AnnotationElement.erasedBy(rect: PxRect): Boolean = when (this) {
     }
 
     is ShapeElement -> {
-        // 按「实际画出来的边段」判：矩形/圆/三角等闭合形状用轮廓边段，直线/箭头用主干，
-        // 箭头翼尺寸随线宽走忽略不计。旋转元素先绕中心旋转回实际位置再判。
+        // 按「实际画出来的边段」判（线段表与点选命中同一份，见 [shapeSegments]）：
+        // 矩形/圆/三角等闭合形状用轮廓边段，直线/箭头用主干，箭头翼尺寸随线宽走忽略不计。
+        // 旋转元素先绕中心旋转回实际位置再判。
         val center = bounds.center
         val rot = rotationRad
         fun seg(a: Pt, b: Pt): Boolean =
             segmentIntersectsRect(rotateAround(a, center, rot), rotateAround(b, center, rot), rect)
-        when (kind) {
-            ElementKind.RECT -> {
-                val b = bounds
-                val tl = Pt(b.left, b.top)
-                val tr = Pt(b.right, b.top)
-                val br = Pt(b.right, b.bottom)
-                val bl = Pt(b.left, b.bottom)
-                seg(tl, tr) || seg(tr, br) || seg(br, bl) || seg(bl, tl)
-            }
-
-            ElementKind.LINE, ElementKind.ARROW, ElementKind.DASHED_LINE -> seg(start, end)
-
-            ElementKind.CROSS -> shapeCrossSegments(start, end).any { seg(it.first, it.second) }
-
-            ElementKind.CHECK -> {
-                val pts = shapeOutlinePoints(kind, start, end)
-                pts.zipWithNext().any { seg(it.first, it.second) }
-            }
-
-            else -> {
-                val pts = shapeOutlinePoints(kind, start, end)
-                pts.size >= 2 &&
-                    (pts.zipWithNext().any { seg(it.first, it.second) } || seg(pts.last(), pts.first()))
-            }
-        }
+        shapeSegments(kind, start, end).any { (a, b) -> seg(a, b) }
     }
     is TextElement -> false
     is NumberElement -> false
     is MosaicElement -> false
+    is BlurElement -> false
+    is StickerElement -> false
 }
 
 /**
@@ -236,6 +275,24 @@ fun AnnotationElement.transformed(from: PxRect, to: PxRect): AnnotationElement {
                 PxRect(a.x, a.y, b.x, b.y).normalized()
             },
         )
+        is BlurElement -> copy(
+            points = points.map(::map),
+            width = (width * s).coerceAtLeast(2f),
+            radius = (radius * s).coerceIn(2f, 96f),
+            rect = rect?.let { r ->
+                val a = map(Pt(r.left, r.top))
+                val b = map(Pt(r.right, r.bottom))
+                PxRect(a.x, a.y, b.x, b.y).normalized()
+            },
+        )
+        // 贴纸位图不重采样，缩放由绘制侧按目标矩形承担；矩形按两轴平均比例
+        // 等比缩放（保纵横比，不把贴纸拉变形）。
+        is StickerElement -> {
+            val tl = map(Pt(rect.left, rect.top))
+            val newWidth = (rect.width * s).coerceAtLeast(8f)
+            val newHeight = newWidth * (rect.height / rect.width.coerceAtLeast(1f))
+            copy(rect = PxRect(tl.x, tl.y, tl.x + newWidth, tl.y + newHeight))
+        }
     }
 }
 
@@ -250,7 +307,27 @@ fun AnnotationElement.translated(dx: Float, dy: Float): AnnotationElement =
             points = points.map { Pt(it.x + dx, it.y + dy) },
             rect = rect?.let { PxRect(it.left + dx, it.top + dy, it.right + dx, it.bottom + dy) },
         )
+        is BlurElement -> copy(
+            points = points.map { Pt(it.x + dx, it.y + dy) },
+            rect = rect?.let { PxRect(it.left + dx, it.top + dy, it.right + dx, it.bottom + dy) },
+        )
+        is StickerElement -> copy(
+            rect = PxRect(
+                rect.left + dx, rect.top + dy, rect.right + dx, rect.bottom + dy,
+            ),
+        )
     }
+
+/** 副本 / 提交草稿时改 id（几何不变）。 */
+fun AnnotationElement.withElementId(id: Long): AnnotationElement = when (this) {
+    is StrokeElement -> copy(id = id)
+    is ShapeElement -> copy(id = id)
+    is TextElement -> copy(id = id)
+    is NumberElement -> copy(id = id)
+    is MosaicElement -> copy(id = id)
+    is BlurElement -> copy(id = id)
+    is StickerElement -> copy(id = id)
+}
 
 /** 元素当前旋转角（弧度）。不可旋转的元素恒为 0。 */
 fun AnnotationElement.rotationRadOf(): Float = when (this) {

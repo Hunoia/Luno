@@ -6,7 +6,6 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppControlSettings
-import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
 import hunoia.luno.config.model.BatteryHistory
@@ -18,7 +17,6 @@ import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.record
-import hunoia.luno.config.model.cleared
 import hunoia.luno.core.domain.DynamicShortcutRefs
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -170,8 +168,8 @@ object ConfigProvider {
     }
 
     /** 记录一次成功的 Luno 触发应用启动（包名维度）。 */
-    suspend fun recordAppLaunch(packageName: String, source: AppLaunchSource) {
-        appUsageRepository.recordLaunch(packageName, source)
+    suspend fun recordAppLaunch(packageName: String) {
+        appUsageRepository.recordLaunch(packageName)
     }
 
     /** 面板首开同步读一次快照。 */

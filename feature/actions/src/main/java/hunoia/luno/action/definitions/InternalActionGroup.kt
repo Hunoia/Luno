@@ -56,8 +56,10 @@ internal object InternalActionGroup : ActionGroup {
         ActionDefinition(GRID_PANEL_TYPE_ID, "面板", ActionCategory.PANEL, Capability.None,
             icon = Icons.Default.GridView),
         // 显隐统一收进「设置 → 显隐」：显示/隐藏由场景规则覆盖。
-        // 选择页只留临时隐藏，且只作用于触发本次动作的触钮。
-        ActionDefinition("internal.hideTriggerButton", "临时隐藏", ActionCategory.VISIBILITY, Capability.None,
+        // 选择页只留两条临时隐藏：触钮版按时长（手势工具设置）、悬浮球版按界面级失效。
+        ActionDefinition("internal.hideTriggerButton", "临时隐藏触钮", ActionCategory.VISIBILITY, Capability.None,
+            icon = Icons.Default.VisibilityOff),
+        ActionDefinition("internal.hideFloatBall", "临时隐藏悬浮球", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.VisibilityOff),
         ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.Search),
@@ -87,6 +89,7 @@ internal object InternalActionGroup : ActionGroup {
         ActionMappingRegistry.register(Action.NONE_TYPE_ID) { Action.None }
         ActionMappingRegistry.register("internal.subGesture") { Action.SubGesture }
         ActionMappingRegistry.register("internal.hideTriggerButton") { Action.HideTriggerButton }
+        ActionMappingRegistry.register("internal.hideFloatBall") { Action.HideFloatBall }
         ActionMappingRegistry.register("internal.gridPanel") { p ->
             Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
         }

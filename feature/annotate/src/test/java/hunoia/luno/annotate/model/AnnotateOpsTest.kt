@@ -1,5 +1,6 @@
 package hunoia.luno.annotate.model
 
+import hunoia.luno.config.model.AnnotateToolStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -260,7 +261,7 @@ class AnnotateOpsTest {
     fun `apply settings merges styles and keeps built-in defaults`() {
         val s = AnnotateOps.applySettings(
             state(),
-            styles = mapOf(ToolKind.PEN to ToolStyle(colorArgb = 0xFF0000FF, strokeWidth = 12f)),
+            styles = mapOf(ToolKind.PEN to AnnotateToolStyle(colorArgb = 0xFF0000FF, strokeWidth = 12f)),
         )
 
         assertEquals(0xFF0000FF, s.styleFor(ToolKind.PEN).colorArgb)
@@ -277,7 +278,7 @@ class AnnotateOpsTest {
         val before = s.undoStack.size
         s = AnnotateOps.applySettings(
             s,
-            styles = mapOf(ToolKind.ERASER to ToolStyle(strokeWidth = 24f)),
+            styles = mapOf(ToolKind.ERASER to AnnotateToolStyle(strokeWidth = 24f)),
         )
         assertEquals(listOf(1L), s.elements.map { it.id })
         assertEquals(before, s.undoStack.size)

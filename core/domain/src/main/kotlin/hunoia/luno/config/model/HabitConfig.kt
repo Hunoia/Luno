@@ -208,7 +208,7 @@ data class HabitConfig(
 }
 
 /**
- * 面板部件参数：习惯部件（`internal.habitCheck` / `internal.habitHistory`）指向的具体习惯。
+ * 面板部件参数：习惯部件（`internal.habitHistory` / `internal.habitHeatmap`）指向的具体习惯。
  *
  * 经 `GridPanelItem.Kind.Internal.params`（JSON 串）落盘，见 architecture §9.2。
  */

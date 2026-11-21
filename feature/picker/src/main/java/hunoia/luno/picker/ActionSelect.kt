@@ -54,9 +54,11 @@ data class ActionSelect(
             (gridPanelId.isNotBlank() && gridPanelReplaceItemId.isBlank())
 }
 
-/** 悬浮球的动作槽。只有「单击」一个：滑动固定读面板引用，长按固定是拖球。 */
+/** 悬浮球的动作槽：单击 / 长按 / 拖至中央松手（彩蛋）。滑动固定读面板引用，不占槽。 */
 object FloatBallSlot {
     const val TAP = "tap"
+    const val LONG_PRESS = "longPress"
+    const val DROP_CENTER = "dropCenter"
 
-    fun isValid(slot: String): Boolean = slot == TAP
+    fun isValid(slot: String): Boolean = slot == TAP || slot == LONG_PRESS || slot == DROP_CENTER
 }

@@ -108,3 +108,10 @@ internal fun strokeWidthInImagePx(
  */
 internal fun mosaicBrushWidth(cellSize: Float): Float =
     max(cellSize * 5f, 40f).coerceAtMost(256f)
+
+/**
+ * 局部模糊涂抹笔刷直径（图片像素）：半径越大刷得越宽；
+ * 下限 20 图片像素保证小半径也有可感知的笔触。
+ */
+internal fun blurBrushWidth(radius: Float): Float =
+    max(radius * 2.5f, 20f).coerceAtMost(200f)

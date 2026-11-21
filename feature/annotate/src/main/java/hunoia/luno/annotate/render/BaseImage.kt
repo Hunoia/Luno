@@ -32,6 +32,9 @@ class BaseImage(source: Bitmap) {
      */
     private val mosaicCache = LinkedHashMap<Int, Bitmap>()
 
+    /** 局部模糊预栅格化缓存（键 = 模糊半径整数值）。 */
+    private val blurCache = LinkedHashMap<Int, Bitmap>()
+
     fun mosaicImage(cellSize: Float): Bitmap {
         // 量化到 4px 步进：滑杆连续拖动时缓存键稳定，避免反复重建缩略图。
         val cell = ((cellSize / 4f).roundToInt() * 4).coerceIn(4, 96)
@@ -51,7 +54,39 @@ class BaseImage(source: Bitmap) {
         return scaled
     }
 
+    /**
+     * 局部模糊预栅格化（P2d）：按模糊半径把整图「金字塔缩放」糊一遍再放大回原尺寸，
+     * 绘制时经轨迹 mask 取样（与马赛克同一管线）。
+     *
+     * 半径 → 下采样倍数：radius 2 → 2×，radius 96 → 32×；两级下采样 + 回升带来
+     * 视觉等效的高斯感，成本只有几次 bilinear 缩放。按半径整数值缓存最近几份
+     * （滑杆连续拖动不逐帧重做）。
+     */
+    fun blurImage(radiusPx: Float): Bitmap {
+        val radius = radiusPx.roundToInt().coerceIn(2, 96)
+        blurCache.remove(radius)?.let { cached ->
+            blurCache[radius] = cached
+            return cached
+        }
+        if (blurCache.size >= BLUR_CACHE_LIMIT) {
+            blurCache.remove(blurCache.keys.first())
+        }
+        val downScale = (radius / 3f).coerceIn(2f, 32f)
+        val smallW = (width / downScale).toInt().coerceAtLeast(2)
+        val smallH = (height / downScale).toInt().coerceAtLeast(2)
+        var current = Bitmap.createScaledBitmap(bitmap, smallW, smallH, true)
+        // 再缩半回升一级：补一层低频模糊，避免强 radius 下残留块状边缘。
+        val halfW = (smallW / 2).coerceAtLeast(1)
+        val halfH = (smallH / 2).coerceAtLeast(1)
+        current = Bitmap.createScaledBitmap(current, halfW, halfH, true)
+        current = Bitmap.createScaledBitmap(current, smallW, smallH, true)
+        val up = Bitmap.createScaledBitmap(current, width, height, true)
+        blurCache[radius] = up
+        return up
+    }
+
     private companion object {
         const val MOSAIC_CACHE_LIMIT = 6
+        const val BLUR_CACHE_LIMIT = 4
     }
 }
