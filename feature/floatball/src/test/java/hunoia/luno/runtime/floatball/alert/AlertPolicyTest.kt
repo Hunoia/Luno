@@ -6,6 +6,7 @@ import hunoia.luno.config.model.NotificationAlertSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -61,5 +62,22 @@ class AlertPolicyTest {
         assertEquals(FloatBallDefaults.AlertPaceMax, plan.cycles)
         assertEquals(1, plan.cycleMillis)
         assertEquals(FloatBallDefaults.AlertPaceMax, plan.totalMillis)
+    }
+
+    @Test
+    fun `tuning helpers map intensity into per effect ranges`() {
+        // 区间映射：0 → 下限，1 → 上限，中点线性。
+        assertEquals(0.5f, 0f.lerpInRange(0.5f, 1f), 0.001f)
+        assertEquals(1f, 1f.lerpInRange(0.5f, 1f), 0.001f)
+        assertEquals(0.75f, 0.5f.lerpInRange(0.5f, 1f), 0.001f)
+        // 缓出：k=1 退化为线性，k>1 收尾减速（终点仍为 1）。
+        assertEquals(0.5f, 0.5f.easedOut(1f), 0.001f)
+        assertEquals(1f, 1f.easedOut(2.2f), 0.001f)
+        assertTrue(0.5f.easedOut(2.2f) > 0.5f)
+        // 光环行程随强度单调不减，且始终为非负。
+        val ballPx = 96
+        assertTrue(ringTravelPx(ballPx, 0f) <= ringTravelPx(ballPx, 0.5f))
+        assertTrue(ringTravelPx(ballPx, 0.5f) <= ringTravelPx(ballPx, 1f))
+        assertEquals(0, ringTravelPx(0, 1f))
     }
 }

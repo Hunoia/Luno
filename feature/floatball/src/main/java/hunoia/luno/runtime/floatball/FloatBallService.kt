@@ -32,11 +32,13 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ButtonVisibilitySettings
+import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.ClipFloatSettings
 import hunoia.luno.config.model.ClipKind
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.FLOATBALL_NOTIFICATION_ID
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
@@ -47,6 +49,7 @@ import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
+import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
 import hunoia.luno.runtime.floatball.alert.AlertEnvironment
 import hunoia.luno.runtime.floatball.alert.AlertOverlayWindow
 import hunoia.luno.runtime.floatball.alert.AlertRingGeometry
@@ -90,6 +93,7 @@ import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.motionMillis
+import hunoia.luno.ui.theme.toAlertFamily
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
@@ -392,6 +396,15 @@ class FloatBallService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_PREVIEW_ALERT) {
+            previewArrivalAlert()
+            refreshWindows()
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            return START_STICKY
+        }
         refreshWindows()
         if (shouldStopSelf()) {
             stopSelf()
@@ -510,12 +523,12 @@ class FloatBallService : Service() {
         val shared = settings.inbox.capacity
         val notificationNext = BallInboxConfig(
             notificationTtlMs = settings.inbox.notificationTtlMs,
-            resultTtlMs = settings.inbox.clipboardTtlMs,
+            resultTtlMs = settings.inbox.resultTtlMs,
             maxItems = settings.inbox.notificationCapacity ?: shared,
         )
         val resultNext = BallInboxConfig(
             notificationTtlMs = settings.inbox.notificationTtlMs,
-            resultTtlMs = settings.inbox.clipboardTtlMs,
+            resultTtlMs = settings.inbox.resultTtlMs,
             maxItems = settings.inbox.resultCapacity ?: shared,
         )
         notificationSlot.applyConfig(notificationNext)
@@ -683,18 +696,32 @@ class FloatBallService : Service() {
                 "dnd=${env.dndActive}")
             return
         }
-        val plan = buildPlan(alert, motionMillis(MotionFamily.NotificationAlert))
+        dispatchAlertPlan(slot, buildAlertPlan())
+    }
+
+    /** 当前配置 → 播放计划：单循环时长按效果家族解析（各效果不共用基准，需求确认口径）。 */
+    private fun buildAlertPlan(): AlertPlayPlan {
+        val alert = settings.notificationCapsule.alert
+        return buildPlan(alert, motionMillis(alert.effect.toAlertFamily()))
+    }
+
+    /** 到达动效统一取通知球色：未设置时回退主球色（与球渲染的回退链一致）。 */
+    private fun alertColorSpec(): ColorSpec =
+        settings.notificationCapsule.ballColor.takeUnless { it.isUnset } ?: settings.colorSpec
+
+    /** 按计划分发效果：真到达与试播共用；胶囊层效果要求胶囊已可见，由调用方保证。 */
+    private fun dispatchAlertPlan(slot: CapsuleSlot, plan: AlertPlayPlan) {
         Log.i(TAG, "capsule alert play effect=${plan.effect} cycles=${plan.cycles} " +
             "total=${plan.totalMillis}ms")
         when (plan.effect) {
             // 胶囊本体脉冲 / 边框流光画在胶囊窗自己的 Compose 层，不新增窗口。
             NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
-                notificationSlot.bubble.playArrivalAlert(plan)
+                slot.bubble.playArrivalAlert(plan)
 
             NotificationAlertEffect.EdgeGlow -> alertOverlay.show(
                 kind = AlertWindowKind.EdgeGlow,
                 plan = plan,
-                colorSpec = settings.colorSpec,
+                colorSpec = alertColorSpec(),
                 ring = null,
                 onFinished = {},
             )
@@ -702,7 +729,7 @@ class FloatBallService : Service() {
             NotificationAlertEffect.TopParticles -> alertOverlay.show(
                 kind = AlertWindowKind.TopParticles,
                 plan = plan,
-                colorSpec = settings.colorSpec,
+                colorSpec = alertColorSpec(),
                 ring = null,
                 onFinished = {},
             )
@@ -712,7 +739,7 @@ class FloatBallService : Service() {
                 alertOverlay.show(
                     kind = AlertWindowKind.BallRing,
                     plan = plan,
-                    colorSpec = settings.colorSpec,
+                    colorSpec = alertColorSpec(),
                     ring = AlertRingGeometry(
                         centerX = anchor.centerX,
                         centerY = anchor.centerY,
@@ -721,6 +748,23 @@ class FloatBallService : Service() {
                     onFinished = {},
                 )
             }
+        }
+    }
+
+    /**
+     * 试播：按当前配置立即播一次提示动效（设置页入口）。
+     *
+     * 用户显式点击即授权，忽略 enabled 与熄屏 / 锁屏 / 勿扰闸；胶囊层效果需要胶囊可见，
+     * 未显时插入一条带标记的演示通知拉起，播完移除（见 [CapsuleSlot.previewCapsuleAlert]）。
+     */
+    private fun previewArrivalAlert() {
+        val plan = buildAlertPlan()
+        when (plan.effect) {
+            // 胶囊层效果要先保证胶囊可见：走演示行路径（未显则插入演示通知拉起）。
+            NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
+                notificationSlot.previewCapsuleAlert(plan)
+
+            else -> dispatchAlertPlan(notificationSlot, plan)
         }
     }
 
@@ -899,14 +943,14 @@ class FloatBallService : Service() {
         when (route) {
             is PulseRoute.Result -> {
                 if (route.items.isNotEmpty() && !resultSlot.isDismissed(key)) {
-                    resultSlot.enqueueAll(route.items, makeCurrent = !resultSlot.manualSession)
+                    resultSlot.enqueueAll(route.items, makeCurrent = true)
                     route.items.forEach(::resolveResultTarget)
                 }
                 keepHidden = recognition.hideMatchedNotification
             }
 
             is PulseRoute.Notification -> if (!notificationSlot.isDismissed(pulse.key)) {
-                notificationSlot.enqueue(route.item, makeCurrent = !notificationSlot.manualSession)
+                notificationSlot.enqueue(route.item, makeCurrent = true)
                 keepHidden = true
             }
 
@@ -983,7 +1027,7 @@ class FloatBallService : Service() {
         announceDirect(delivered)
         if (delivered.capsule.isEmpty()) return true
         if (resultSlot.isDismissed(sourceKey)) return true
-        resultSlot.enqueueAll(delivered.capsule, makeCurrent = !resultSlot.manualSession)
+        resultSlot.enqueueAll(delivered.capsule, makeCurrent = true)
         delivered.capsule.forEach(::resolveResultTarget)
         return true
     }
@@ -1040,7 +1084,7 @@ class FloatBallService : Service() {
                     resultSlot.replaceScene(
                         scanKey = event.screenKey,
                         items = delivered.capsule,
-                        makeCurrent = !resultSlot.manualSession,
+                        makeCurrent = true,
                     )
                     delivered.capsule.forEach(::resolveResultTarget)
                 }
@@ -1201,7 +1245,7 @@ class FloatBallService : Service() {
             ?: return
         when (action) {
             ResultAction.CLOSE -> Unit
-            ResultAction.IGNORE -> resultSlot.removeAndAdvance(itemId)
+            ResultAction.IGNORE -> resultSlot.removeRow(itemId)
             ResultAction.COPY -> runResult(item) { it.asCopyOutcome() }
             ResultAction.SHARE -> runResult(item) { it.asShareOutcome() }
             ResultAction.OPEN -> runResult(item) { it.primaryIntent() }
@@ -1225,7 +1269,7 @@ class FloatBallService : Service() {
                 idempotencyKey = "capsule:${item.id}",
             )
             if (ok) {
-                resultSlot.removeAndAdvance(item.id)
+                resultSlot.removeRow(item.id)
                 if (recognized.isCopyOutcome()) {
                     resultSlot.onCopied(item)
                     showToast(hunoia.luno.design.R.string.copied)
@@ -1824,7 +1868,6 @@ class FloatBallService : Service() {
         var config = BallInboxConfig()
         var showing = false
         var visible = false
-        var manualSession = false
         var bubblePressed = false
         var timerJob: Job? = null
         var ttlJob: Job? = null
@@ -1906,15 +1949,20 @@ class FloatBallService : Service() {
                 },
             ).apply {
                 onTap = { onContentBallTapped() }
+                onLongPress = { onBallLongPressed() }
                 onDragStarted = { if (showing) hideCapsule() }
                 onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
             bubble = SmartBubbleWindow(this@FloatBallService).apply {
-                // 通知胶囊：多条同屏堆叠；结果胶囊保持翻页（用户只关心最新一条）。
-                setStackedMode(isNotification)
+                // 两颗胶囊同构：多行栈；行数与手势行为按各自设置注入（见 updateSettings）。
+                visibleRowsSource = {
+                    when (source) {
+                        BallSource.NOTIFICATION -> settings.notificationCapsule.visibleRows
+                        BallSource.RESULT -> settings.resultCapsule.visibleRows
+                    }
+                }
                 onBodyTapped = { id -> onCapsuleTapped(id) }
                 onResultAction = { id, action -> onResultAction(id, action) }
-                onPageSelected = { id -> onPageSelected(id) }
                 onCollapsed = {
                     hideCapsule()
                     refreshBadge()
@@ -1965,9 +2013,20 @@ class FloatBallService : Service() {
                 BallSource.NOTIFICATION -> base.notificationCapsule.idleDimDelayMs
                 BallSource.RESULT -> base.resultCapsule.idleDimDelayMs
             }
+            // 球色 / 胶囊背景色都按胶囊各取各的；未设置（isUnset）时保持跟随主球色。
+            val ballSpec = when (source) {
+                BallSource.NOTIFICATION -> base.notificationCapsule.ballColor
+                BallSource.RESULT -> base.resultCapsule.ballColor
+            }
+            val backgroundSpec = when (source) {
+                BallSource.NOTIFICATION -> base.notificationCapsule.backgroundColor
+                BallSource.RESULT -> base.resultCapsule.backgroundColor
+            }
             val synthesized = base.copy(
                 enabled = true,
                 tapAction = null,
+                // 长按触发时长沿用主球滑杆：一个旋钮管三颗球。
+                longPressMs = base.longPressMs,
                 idleDimDelayMs = idleDimMs,
                 followHand = followHandEnabled,
                 portrait = portrait,
@@ -1979,9 +2038,26 @@ class FloatBallService : Service() {
                 customIconAlpha = icon.alpha,
                 // 内容球不提供「静置暂停动图」开关；保持动画播放。
                 customIconPauseWhenIdle = false,
-            )
+            ).withColorSpec(ballSpec, fallback = base)
             ball.updateSettings(synthesized)
-            bubble.updateSettings(base)
+            bubble.updateSettings(base.withColorSpec(backgroundSpec, fallback = base))
+            // 行手势：读归一化后的行为（非法组合已在设置层收口为出厂默认）。
+            bubble.setRowGestures(
+                CapsuleRowGestures(
+                    longPress = when (source) {
+                        BallSource.NOTIFICATION -> base.notificationCapsule.rowLongPressBehavior
+                        BallSource.RESULT -> base.resultCapsule.rowLongPressBehavior
+                    },
+                    swipeAway = when (source) {
+                        BallSource.NOTIFICATION -> base.notificationCapsule.rowSwipeAwayBehavior
+                        BallSource.RESULT -> base.resultCapsule.rowSwipeAwayBehavior
+                    },
+                    swipeToward = when (source) {
+                        BallSource.NOTIFICATION -> base.notificationCapsule.rowSwipeTowardBehavior
+                        BallSource.RESULT -> base.resultCapsule.rowSwipeTowardBehavior
+                    },
+                ),
+            )
             val iconSize = DensityProvider.dp2px(base.sizeDp)
             if (source == BallSource.NOTIFICATION && iconSize != notificationIconSizePx) {
                 notificationIconSizePx = iconSize
@@ -2159,6 +2235,29 @@ class FloatBallService : Service() {
             onCapsuleArrivalShown(this, wasShowing)
         }
 
+        /**
+         * 试播胶囊层效果（设置页入口）：胶囊未显时插入一条带标记的演示通知拉起——
+         * 走真实展示管线（含展开动画与自动收起），播完移除演示行，不写用户真实队列的
+         * 语义（不走系统侧通知、不动抑制表）。重复试播按 key 去重合并，不堆叠演示行。
+         */
+        fun previewCapsuleAlert(plan: AlertPlayPlan) {
+            val demo = NotificationItem(
+                notificationKey = PreviewNotificationKey,
+                packageName = packageName,
+                title = getString(R.string.float_ball_capsule_alert_preview_title),
+                text = getString(R.string.float_ball_capsule_alert_preview_text),
+                receivedAtElapsedMs = SystemClock.elapsedRealtime(),
+            )
+            enqueue(demo, makeCurrent = true, show = false)
+            showIfNeeded()
+            bubble.playArrivalAlert(plan)
+            // 播完（含一帧收尾余量）移除演示行；队列因此为空则随 removeById 收起。
+            scope.launch {
+                delay(plan.totalMillis.toLong() + PreviewCleanupSlackMs)
+                removeById(demo.id)
+            }
+        }
+
         /** 当前收件箱里是否已经有这一屏的情景结果项。 */
         fun hasSceneItemsFor(scanKey: String): Boolean = hasSceneItems(state.items, scanKey)
 
@@ -2247,10 +2346,8 @@ class FloatBallService : Service() {
             if (item is ResultItem && item.fromCapture && isScreenLocked()) {
                 pendingSensitivePop = true
             }
-            if (manualSession || !allowed) {
-                if (showing && manualSession) {
-                    bubble.updateItems(state.items, state.currentIndex)
-                }
+            if (!allowed) {
+                if (showing) bubble.updateItems(state.items, state.currentIndex)
                 refreshBadge()
                 scheduleTtl()
                 return change
@@ -2263,9 +2360,9 @@ class FloatBallService : Service() {
             return change
         }
 
-        /** 有内容且不在手动会话时，保证胶囊处于展示态。 */
+        /** 有内容且允许展示时，保证胶囊处于展示态。 */
         private fun showIfNeeded() {
-            if (state.current == null || manualSession || !allowed) return
+            if (state.current == null || !allowed) return
             showCurrent()
         }
 
@@ -2297,7 +2394,6 @@ class FloatBallService : Service() {
         }
 
         fun hideCapsule() {
-            manualSession = false
             timerJob?.cancel()
             timerJob = null
             if (!showing) {
@@ -2412,8 +2508,11 @@ class FloatBallService : Service() {
             }
         }
 
-        fun removeAndAdvance(id: String) {
-            val wasLast = state.currentId == id && state.currentIndex == state.items.lastIndex
+        /**
+         * 移除一行（长按忽略 / 滑掉 / 动作执行成功）：多行栈删行不收起、不跳回顶部，
+         * 保留其余行的阅读位置；删到空则收起并刷新可见性。
+         */
+        fun removeRow(id: String) {
             val change = BallInboxReducer.reduce(
                 state,
                 BallInboxAction.Remove(id),
@@ -2421,39 +2520,18 @@ class FloatBallService : Service() {
                 config,
             )
             state = change.state
+            if (showing && state.items.isNotEmpty()) {
+                bubble.updateItems(state.items, state.currentIndex)
+            }
             when {
-                state.items.isEmpty() -> hideCapsule()
-                // 通知胶囊是滚动栈：删一行不收起、不跳回顶部，保留其余行的阅读位置。
-                source == BallSource.NOTIFICATION -> {
-                    if (showing) bubble.updateItems(state.items, state.currentIndex)
-                    refreshBadge()
+                state.items.isEmpty() -> {
+                    hideCapsule()
+                    refreshWindows()
                 }
 
-                wasLast -> hideCapsule()
-                showing -> showCurrent()
                 else -> refreshBadge()
             }
             scheduleTtl()
-            if (state.items.isEmpty()) refreshWindows()
-        }
-
-        fun select(id: String) {
-            val change = BallInboxReducer.reduce(
-                state,
-                BallInboxAction.Select(id),
-                SystemClock.elapsedRealtime(),
-                config,
-            )
-            if (!change.changed) return
-            state = change.state
-            manualSession = true
-            refreshBadge()
-            scheduleAutoHide()
-            scheduleTtl()
-        }
-
-        fun onPageSelected(id: String) {
-            select(id)
         }
 
         fun onCapsuleTapped(id: String) {
@@ -2467,6 +2545,18 @@ class FloatBallService : Service() {
         /** 内容球点按：展开 / 收起自己的胶囊。 */
         fun onContentBallTapped() {
             if (showing) hideCapsule() else showCurrent()
+        }
+
+        /**
+         * 内容球长按（可配，默认无行为）：清空队列后球随可见性刷新自然消失。
+         * 触觉反馈由 FloatBallWindow 的长按接线统一给出（与主球同档）。
+         */
+        fun onBallLongPressed() {
+            val behavior = when (source) {
+                BallSource.NOTIFICATION -> settings.notificationCapsule.ballLongPressBehavior
+                BallSource.RESULT -> settings.resultCapsule.ballLongPressBehavior
+            }
+            if (behavior == CapsuleGestureBehavior.CLEAR_QUEUE) clear()
         }
 
         fun onSwipedAway(id: String) {
@@ -2490,7 +2580,7 @@ class FloatBallService : Service() {
 
                 is ResultItem -> resultSuppression.markDismissed(item.sourceKey)
             }
-            removeAndAdvance(item.id)
+            removeRow(item.id)
         }
 
         fun onCopied(item: ResultItem) {
@@ -2499,7 +2589,7 @@ class FloatBallService : Service() {
             scope.launch {
                 delay(COPIED_FEEDBACK_MS)
                 if (item.fromCapture) {
-                    if (state.currentId == item.id) removeAndAdvance(item.id)
+                    if (state.currentId == item.id) removeRow(item.id)
                     else if (state.items.any { it.id == item.id }) bubble.clearCopied()
                 } else if (state.items.any { it.id == item.id }) {
                     bubble.clearCopied()
@@ -2593,6 +2683,7 @@ class FloatBallService : Service() {
         private const val CHANNEL_ID = "float_ball"
         private const val NOTIFICATION_ID = FLOATBALL_NOTIFICATION_ID
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
+        const val ACTION_PREVIEW_ALERT = "hunoia.luno.action.PREVIEW_CAPSULE_ALERT"
         private var currentRef: WeakReference<FloatBallService>? = null
 
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
@@ -2674,6 +2765,12 @@ class FloatBallService : Service() {
         /** 结果来源的滑掉抑制窗口：与剪贴板 / 情景来源同口径。 */
         private const val ResultDismissSuppressMs = 10_000L
 
+        /** 试播演示通知的 key：稳定 id 供去重与播后清理。 */
+        private const val PreviewNotificationKey = "capsule-alert-preview"
+
+        /** 试播演示行的清理余量（ms）：动画播完 + 一帧收尾。 */
+        private const val PreviewCleanupSlackMs = 300L
+
         /**
          * 直执行档的去重窗口：与滑掉抑制同量级。
          *
@@ -2701,6 +2798,20 @@ class FloatBallService : Service() {
             }
         }
 
+        /**
+         * 试播到达提示动效（设置页入口）：服务没在跑时不播——试播的前提是
+         * 通知胶囊已启用，而胶囊启用时宿主必然已被拉起（见恢复口径）。
+         */
+        fun previewAlert(context: Context) {
+            runCatching {
+                context.startService(
+                    Intent(context, FloatBallService::class.java).setAction(ACTION_PREVIEW_ALERT),
+                )
+            }.onFailure {
+                Log.e(TAG, "preview capsule alert FAILED", it)
+            }
+        }
+
         fun stop(context: Context) {
             runCatching {
                 context.startService(
@@ -2711,6 +2822,23 @@ class FloatBallService : Service() {
             }
         }
     }
+}
+
+/**
+ * 胶囊独立颜色合成：[spec] 已设置时覆写颜色三字段，未设置（isUnset）回落 [fallback]
+ * ——即跟随主球色的历史行为。
+ */
+private fun FloatBallSettings.withColorSpec(
+    spec: ColorSpec,
+    fallback: FloatBallSettings,
+): FloatBallSettings = if (spec.isUnset) {
+    fallback
+} else {
+    copy(
+        color = spec.customColor,
+        colorSource = spec.source,
+        colorThemeKey = spec.themeKey,
+    )
 }
 
 private data class FloatBallRuntimeConfig(

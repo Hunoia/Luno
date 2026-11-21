@@ -3,6 +3,7 @@ package hunoia.luno.floatball.settings
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +21,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.CapsuleGestureBehavior
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
@@ -30,8 +33,12 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
@@ -59,16 +66,21 @@ fun ResultCapsuleSettingsScreen(
     var localIdleDim by remember(capsule.idleDimDelayMs) {
         mutableFloatStateOf(capsule.idleDimDelayMs.toFloat())
     }
-    var localTtl by remember(floatBall.inbox.clipboardTtlMs) {
-        mutableFloatStateOf(floatBall.inbox.clipboardTtlMs.toFloat())
+    var localTtl by remember(floatBall.inbox.resultTtlMs) {
+        mutableFloatStateOf(floatBall.inbox.resultTtlMs.toFloat())
     }
     var localCapacity by remember(floatBall.inbox.resultCapacity, floatBall.inbox.capacity) {
         mutableFloatStateOf((floatBall.inbox.resultCapacity ?: floatBall.inbox.capacity).toFloat())
+    }
+    var localVisibleRows by remember(capsule.visibleRows) {
+        mutableFloatStateOf(capsule.visibleRows.toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     // 结果球自己的图标：选图 → 裁剪 → 落盘，不跟随主球。
     val iconPicker = rememberBallIconPickerState()
+    var showBallColorPicker by remember { mutableStateOf(false) }
+    var showBackgroundColorPicker by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -106,6 +118,52 @@ fun ResultCapsuleSettingsScreen(
                     update { it.copy(resultCapsule = it.resultCapsule.copy(customIcon = icon)) }
                 },
             )
+            if (showBallColorPicker) {
+                val scheme = MaterialTheme.colorScheme
+                ColorPickerBottomSheet(
+                    onDismissRequest = { showBallColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
+                    initialSelection = capsule.ballColor.toInitialSelection(
+                        scheme = scheme,
+                        primaryFallback = true,
+                    ),
+                    onColorSelected = { selection ->
+                        update {
+                            it.copy(
+                                resultCapsule = it.resultCapsule.copy(
+                                    ballColor = selection.toColorSpec(scheme),
+                                ),
+                            )
+                        }
+                        showBallColorPicker = false
+                    },
+                )
+            }
+            if (showBackgroundColorPicker) {
+                val scheme = MaterialTheme.colorScheme
+                ColorPickerBottomSheet(
+                    onDismissRequest = { showBackgroundColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
+                    initialSelection = capsule.backgroundColor.toInitialSelection(
+                        scheme = scheme,
+                        primaryFallback = true,
+                    ),
+                    onColorSelected = { selection ->
+                        update {
+                            it.copy(
+                                resultCapsule = it.resultCapsule.copy(
+                                    backgroundColor = selection.toColorSpec(scheme),
+                                ),
+                            )
+                        }
+                        showBackgroundColorPicker = false
+                    },
+                )
+            }
         },
     ) {
         if (!overlayGranted) {
@@ -135,7 +193,7 @@ fun ResultCapsuleSettingsScreen(
                             it.copy(resultCapsule = it.resultCapsule.copy(followHand = checked))
                         }
                     },
-                    shape = segmentedShape(0, 5),
+                    shape = segmentedShape(0, 6),
                 )
                 LunoTextSlider(
                     value = localIdleDim,
@@ -153,7 +211,7 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
                     valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
                         FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
-                    shape = segmentedShape(1, 5),
+                    shape = segmentedShape(1, 6),
                 )
                 LunoTextSlider(
                     value = localAutoHide,
@@ -171,21 +229,39 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(2, 5),
+                    shape = segmentedShape(2, 6),
+                )
+                LunoTextSlider(
+                    value = localVisibleRows,
+                    onValueChange = { value -> localVisibleRows = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                resultCapsule = it.resultCapsule.copy(
+                                    visibleRows = localVisibleRows.toInt(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_capsule_visible_rows),
+                    valueDisplay = { "${it.toInt()}" },
+                    valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
+                        FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
+                    shape = segmentedShape(3, 6),
                 )
                 LunoTextSlider(
                     value = localTtl,
                     onValueChange = { value -> localTtl = value },
                     onValueChangeFinished = {
                         update {
-                            it.copy(inbox = it.inbox.copy(clipboardTtlMs = localTtl.toLong()))
+                            it.copy(inbox = it.inbox.copy(resultTtlMs = localTtl.toLong()))
                         }
                     },
                     text = stringResource(R.string.float_ball_result_ttl),
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
                         FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
-                    shape = segmentedShape(3, 5),
+                    shape = segmentedShape(4, 6),
                 )
                 LunoTextSlider(
                     value = localCapacity,
@@ -203,23 +279,115 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(4, 5),
+                    shape = segmentedShape(5, 6),
+                )
+            }
+        }
+
+        // 手势：球长按与行级手势仅在内置行为间互选；行长按默认保留操作菜单（现行为）。
+        item(key = "gestures") {
+            val rows = 4
+            LunoGroup(title = stringResource(R.string.float_ball_capsule_gestures)) {
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_ball_long_press),
+                    current = capsule.ballLongPressBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.NONE,
+                        CapsuleGestureBehavior.CLEAR_QUEUE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(resultCapsule = it.resultCapsule.copy(ballLongPress = value))
+                        }
+                    },
+                    shape = segmentedShape(0, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_long_press),
+                    current = capsule.rowLongPressBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.MENU,
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                        CapsuleGestureBehavior.NONE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(resultCapsule = it.resultCapsule.copy(rowLongPress = value))
+                        }
+                    },
+                    shape = segmentedShape(1, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_swipe_away),
+                    current = capsule.rowSwipeAwayBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                        CapsuleGestureBehavior.COLLAPSE,
+                        CapsuleGestureBehavior.NONE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(resultCapsule = it.resultCapsule.copy(rowSwipeAway = value))
+                        }
+                    },
+                    shape = segmentedShape(2, rows),
+                )
+                GestureBehaviorRow(
+                    title = stringResource(R.string.float_ball_row_swipe_toward),
+                    current = capsule.rowSwipeTowardBehavior,
+                    options = listOf(
+                        CapsuleGestureBehavior.COLLAPSE,
+                        CapsuleGestureBehavior.IGNORE_ROW,
+                        CapsuleGestureBehavior.NONE,
+                    ),
+                    onSelect = { value ->
+                        update {
+                            it.copy(resultCapsule = it.resultCapsule.copy(rowSwipeToward = value))
+                        }
+                    },
+                    shape = segmentedShape(3, rows),
                 )
             }
         }
 
         item(key = "icon") {
             val hasIcon = capsule.customIcon.path != null
+            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 2–3 行），段形随之。
+            val iconRows = if (hasIcon) 2 else 1
+            val colorRows = capsuleColorRowCount(capsule.ballColor, capsule.backgroundColor)
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 BallCustomIconRows(
                     context = context,
                     icon = capsule.customIcon,
                     startIndex = 0,
-                    rowCount = if (hasIcon) 2 else 1,
+                    rowCount = iconRows + colorRows,
                     onPick = iconPicker::pick,
                     onReset = {
                         resetBallIcon(scope, capsule.customIcon) { icon ->
                             update { it.copy(resultCapsule = it.resultCapsule.copy(customIcon = icon)) }
+                        }
+                    },
+                )
+                CapsuleColorRows(
+                    ballSpec = capsule.ballColor,
+                    backgroundSpec = capsule.backgroundColor,
+                    followColor = floatBall.colorSpec.toMarkColor(),
+                    startIndex = iconRows,
+                    rowCount = iconRows + colorRows,
+                    onBallClick = { showBallColorPicker = true },
+                    onBackgroundClick = { showBackgroundColorPicker = true },
+                    onBallReset = {
+                        update {
+                            it.copy(resultCapsule = it.resultCapsule.copy(ballColor = ColorSpec.Unset))
+                        }
+                    },
+                    onBackgroundReset = {
+                        update {
+                            it.copy(
+                                resultCapsule = it.resultCapsule.copy(
+                                    backgroundColor = ColorSpec.Unset,
+                                ),
+                            )
                         }
                     },
                 )

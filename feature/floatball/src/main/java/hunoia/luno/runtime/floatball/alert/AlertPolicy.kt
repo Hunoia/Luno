@@ -30,7 +30,7 @@ data class AlertPlayPlan(
     val intensity: Float,
     /** 循环次数（呼吸圈数 / 粒子波次 / 光环圈数 / 扫光次数）。 */
     val cycles: Int,
-    /** 单循环时长（ms），来自 `motionMillis(MotionFamily.NotificationAlert)`。 */
+    /** 单循环时长（ms），按效果来自各自 `MotionFamily.Alert*` 家族（已含应用档位）。 */
     val cycleMillis: Int,
 ) {
     /** 总时长（ms）：熔断兜底与窗口拆除都以此为基准。 */

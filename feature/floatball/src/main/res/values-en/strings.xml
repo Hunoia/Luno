@@ -3,7 +3,6 @@
     <string name="smart_ball_content_desc">Smart ball</string>
     <string name="smart_ball_unread">Smart ball, %1$d unread</string>
     <string name="smart_ball_pinned_only">Smart ball, pinned content</string>
-    <string name="smart_ball_count">%1$d/%2$d</string>
     <string name="smart_ball_notification">Notification</string>
 
     <string name="notification_ball_content_desc">Notification ball</string>
@@ -35,6 +34,16 @@
     <string name="float_ball_notification_capacity">Notification queue capacity</string>
     <string name="float_ball_capsule_auto_hide">Capsule hold duration</string>
     <string name="float_ball_capsule_visible_rows">Rows shown at once</string>
+    <string name="float_ball_capsule_gestures">Gestures</string>
+    <string name="float_ball_ball_long_press">Ball long-press action</string>
+    <string name="float_ball_row_long_press">Row long-press action</string>
+    <string name="float_ball_row_swipe_away">Swipe away from ball</string>
+    <string name="float_ball_row_swipe_toward">Swipe toward ball</string>
+    <string name="float_ball_gesture_none">None</string>
+    <string name="float_ball_gesture_ignore_row">Ignore row</string>
+    <string name="float_ball_gesture_collapse">Collapse capsule</string>
+    <string name="float_ball_gesture_menu">Action menu</string>
+    <string name="float_ball_gesture_clear_queue">Clear queue</string>
     <string name="float_ball_capsule_blocklist">Notification blocklist</string>
     <string name="float_ball_capsule_blocklist_count">%1$d apps</string>
     <string name="float_ball_capsule_need_permission">Notification access required</string>
@@ -53,6 +62,16 @@
     <string name="float_ball_capsule_alert_effect_shimmer">Border shimmer</string>
     <string name="float_ball_capsule_alert_intensity">Intensity</string>
     <string name="float_ball_capsule_alert_pace">Pace</string>
+    <string name="float_ball_capsule_alert_preview">Preview once</string>
+    <string name="float_ball_capsule_alert_preview_subtitle">Plays the current setup right away; capsule effects show a demo notification first</string>
+    <string name="float_ball_capsule_alert_preview_title">Preview demo</string>
+    <string name="float_ball_capsule_alert_preview_text">Arrival alert demo notification</string>
+
+    <string name="float_ball_capsule_ball_color">Ball color</string>
+    <string name="float_ball_capsule_background_color">Capsule background</string>
+    <string name="float_ball_capsule_color_follow_ball">Follow floating ball</string>
+    <string name="float_ball_capsule_color_custom">Custom</string>
+    <string name="float_ball_capsule_color_reset">Reset to follow floating ball</string>
 
     <string name="float_ball_result_group">Result capsule</string>
     <string name="float_ball_result_follow_hand">Follow hand to switch sides</string>

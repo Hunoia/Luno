@@ -17,6 +17,11 @@ object FloatBallUseCase {
         FloatBallService.start(context.applicationContext)
     }
 
+    /** 试播一次通知胶囊的到达提示动效（设置页入口，见 [FloatBallService.previewAlert]）。 */
+    fun previewAlert(context: Context) {
+        FloatBallService.previewAlert(context.applicationContext)
+    }
+
     /**
      * 总闸打开后按落盘配置恢复共同宿主：球 / 通知胶囊 / 直执行规则任一需要才起服务。
      *
