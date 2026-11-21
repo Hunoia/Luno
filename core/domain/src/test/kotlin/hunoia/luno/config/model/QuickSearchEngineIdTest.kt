@@ -19,12 +19,22 @@ class QuickSearchEngineIdTest {
 
     @Test
     fun `engine without id gets a stable derived id`() {
-        val engine = legacy()
-        val first = QuickSearchSettings(customEngines = listOf(engine)).withUniqueEngineTriggers()
-        val second = QuickSearchSettings(customEngines = listOf(engine)).withUniqueEngineTriggers()
-        val id = first.customEngines.first().id
-        assertTrue(id.isNotBlank())
-        assertEquals(id, second.customEngines.first().id)
+        // 导入引擎 id 撞已有引擎时留空入库，归一化按内容派生稳定 id：
+        // 同一份导入数据两次解码-归一化得到同一 id，重复导入可被 order 正确引用。
+        for (fixture in listOf(
+            legacy(),
+            SearchEngine(
+                name = "Naver",
+                urlTemplate = "https://search.naver.com/search.naver?query=%s",
+                trigger = "nv",
+            ),
+        )) {
+            val first = QuickSearchSettings(customEngines = listOf(fixture)).withUniqueEngineTriggers()
+            val second = QuickSearchSettings(customEngines = listOf(fixture)).withUniqueEngineTriggers()
+            val id = first.customEngines.first().id
+            assertTrue(id.isNotBlank())
+            assertEquals(id, second.customEngines.first().id)
+        }
     }
 
     @Test

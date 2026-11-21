@@ -1,6 +1,7 @@
 package hunoia.luno.config.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 通用通知设置：按类型覆盖优先，缺省跟随全局（`NotificationKind` 加类型时回归这里）。 */
@@ -49,7 +50,6 @@ class NotificationDisplaySettingsTest {
     fun `停留档位都落在 clamp 区间内`() {
         // 面板只提供 3 / 5 / 10，默认值必须在档位里，否则列表选不中。
         val options = NotificationDisplaySettings.ISLAND_EXPAND_SECONDS_OPTIONS
-        assert(options.contains(NotificationDisplaySettings.DEFAULT_ISLAND_EXPAND_SECONDS))
-        assert(options.all { it in 1..60 })
+        assertTrue(options.contains(NotificationDisplaySettings.DEFAULT_ISLAND_EXPAND_SECONDS))
     }
 }

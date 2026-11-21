@@ -47,6 +47,7 @@ import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
+import hunoia.luno.config.model.withAnchorY
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
 import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
@@ -992,8 +993,6 @@ class FloatBallService : Service() {
 
     // ---- 剪贴板（规则来源） ----
 
-    private suspend fun readClip(): ClipboardContent? = ClipboardCenter.readCurrent()
-
     /**
      * 剪贴板变化：跑一遍规则表，胶囊档进结果胶囊，直执行档当场落地。
      * 返回值 = 这次变化已处理（可推进已读基线）。
@@ -1046,7 +1045,9 @@ class FloatBallService : Service() {
             // 滑掉后 10 秒内不再为同一屏重弹（同一条抑制表，sourceKey 带 scene: 前缀）。
             if (resultSlot.isDismissed("scene:${event.screenKey}")) return@launch
             // 链接补充：这一屏已有结果且已有内置链接项时，只换那一条，不重跑规则 / 不重排队列。
-            if (event.refinedUrl != null && resultSlot.hasSceneLinkFor(event.screenKey)) {
+            if (event.refinedUrl != null &&
+                hasBuiltInSceneLink(resultSlot.state.items, event.screenKey)
+            ) {
                 refineSceneLink(event)
                 return@launch
             }
@@ -1075,7 +1076,7 @@ class FloatBallService : Service() {
                     // 同一屏的后续扫描没产出时不要覆盖已有结果：页面还在加载 / 标题栏一过性读不到，
                     // 都会得到空结果，把刚弹出来的卡片抹掉看着就像“时灵时不灵”。
                     if (delivered.capsule.isEmpty() &&
-                        resultSlot.hasSceneItemsFor(event.screenKey)
+                        hasSceneItems(resultSlot.state.items, event.screenKey)
                     ) {
                         return@withContext
                     }
@@ -1100,7 +1101,7 @@ class FloatBallService : Service() {
         val url = event.refinedUrl ?: return
         scope.launch(sceneLane) {
             val exclude = withContext(Dispatchers.Main) {
-                resultSlot.sceneRuleUrlsFor(event.screenKey)
+                usedSceneRuleUrls(resultSlot.state.items, event.screenKey)
             }
             val now = SystemClock.elapsedRealtime()
             val sourceKey = "scene:${event.screenKey}"
@@ -1165,7 +1166,7 @@ class FloatBallService : Service() {
     private fun seedClipboardBaseline() {
         if (!gestureEnabledSnapshot || !recognition.clipboardReadEnabled || isScreenLocked()) return
         scope.launch {
-            val info = readClip() ?: return@launch
+            val info = ClipboardCenter.read() ?: return@launch
             if (info is ClipboardContent.Text && info.text.isBlank()) return@launch
             lastSeenClip = info
         }
@@ -1210,7 +1211,7 @@ class FloatBallService : Service() {
             return
         }
         clipboardPollIdleBySlot = false
-        val info = readClip()
+        val info = ClipboardCenter.read()
         if (info == null) {
             // 后台直读被 ROM 拒绝（或无 Shizuku 可用）：逐级退避，别每 2s 硬试一次。
             clipboardPollDelayMs = nextClipboardPollDelay(clipboardPollDelayMs)
@@ -1246,7 +1247,8 @@ class FloatBallService : Service() {
             ResultAction.IGNORE -> resultSlot.removeRow(itemId)
             ResultAction.COPY -> runResult(item) { it.asCopyOutcome() }
             ResultAction.SHARE -> runResult(item) { it.asShareOutcome() }
-            ResultAction.OPEN -> runResult(item) { it.primaryIntent() }
+            // OPEN：直接跑规则声明的输出（动作输出也走这里）。
+            ResultAction.OPEN -> runResult(item) { it }
         }
     }
 
@@ -1281,9 +1283,6 @@ class FloatBallService : Service() {
             }
         }
     }
-
-    /** 主动作：直接跑规则声明的输出（动作输出也走这里）。 */
-    private fun RecognizedItem.primaryIntent(): RecognizedItem = this
 
     // ---- 通知点按 ----
 
@@ -1386,6 +1385,10 @@ class FloatBallService : Service() {
     }
 
     // ---- 跟随持机手（仅主球） ----
+    // 注意：CapsuleSlot 里有一套平行的跟手换位实现（requestFollowHandSwap / tryFollowHandSwap /
+    // scheduleFollowHandRetry / followHandAnchorY / onFollowHandLanded）。两者共享骨架但语义不同：
+    // 主球按活窗口判侧、软隐藏时跳过重试；内容球按落盘回退判侧、showing 时挂起、
+    // 不可见/锁屏时直接落盘。改这里先对照那份实现确认语义是否该同步。
 
     private fun requestFollowHandSwap(leftSide: Boolean): Boolean {
         if (!settings.followHand || !ballVisible) return false
@@ -1463,26 +1466,14 @@ class FloatBallService : Service() {
     private fun persistMainBallPosition(x: Float, y: Float) {
         val left = x < 0.5f
         val landscape = isLandscapeNow()
-        settings = settings.withPosition(landscape) { position ->
-            position.copy(
-                x = x,
-                y = y,
-                leftAnchorY = if (left) y else position.leftAnchorY,
-                rightAnchorY = if (!left) y else position.rightAnchorY,
-            )
-        }
+        settings = settings.withPosition(landscape) { it.withAnchorY(left, x, y) }
         ballWindow.updateSettings(settings)
         scope.launch {
             runCatching {
                 hunoia.luno.domain.floatball.FloatBallSettingsCenter.updateActionSettings { current ->
                     current.copy(
-                        floatBall = current.floatBall.withPosition(landscape) { position ->
-                            position.copy(
-                                x = x,
-                                y = y,
-                                leftAnchorY = if (left) y else position.leftAnchorY,
-                                rightAnchorY = if (!left) y else position.rightAnchorY,
-                            )
+                        floatBall = current.floatBall.withPosition(landscape) {
+                            it.withAnchorY(left, x, y)
                         },
                     )
                 }
@@ -1508,12 +1499,7 @@ class FloatBallService : Service() {
             BallSource.NOTIFICATION -> settings.notificationBall(landscape)
             BallSource.RESULT -> settings.resultBall(landscape)
         }
-        val updated = base.copy(
-            x = x,
-            y = y,
-            leftAnchorY = if (left) y else base.leftAnchorY,
-            rightAnchorY = if (!left) y else base.rightAnchorY,
-        )
+        val updated = base.withAnchorY(left, x, y)
         settings = if (source == BallSource.NOTIFICATION) {
             settings.copy(
                 notificationBallPosition = settings.notificationBallPosition
@@ -1534,12 +1520,7 @@ class FloatBallService : Service() {
                         BallSource.NOTIFICATION -> floatBall.notificationBall(landscape)
                         BallSource.RESULT -> floatBall.resultBall(landscape)
                     }
-                    val position = baseCurrent.copy(
-                        x = x,
-                        y = y,
-                        leftAnchorY = if (left) y else baseCurrent.leftAnchorY,
-                        rightAnchorY = if (!left) y else baseCurrent.rightAnchorY,
-                    )
+                    val position = baseCurrent.withAnchorY(left, x, y)
                     current.copy(
                         floatBall = if (source == BallSource.NOTIFICATION) {
                             floatBall.copy(
@@ -2110,6 +2091,8 @@ class FloatBallService : Service() {
         }
 
         // ---- 跟手换边（每个内容球独立） ----
+        // 与服务层主球的跟手换位（requestFollowHandSwap 系列）平行：骨架相同，
+        // 但门禁、判侧来源（活窗口 vs 落盘）、showing 挂起与不可见直接落盘是内容球特有。改时对照。
 
         /**
          * 请求换到 [leftSide] 侧。[showing] 期间只挂起，收胶囊时结算；
@@ -2257,14 +2240,8 @@ class FloatBallService : Service() {
             }
         }
 
-        /** 当前收件箱里是否已经有这一屏的情景结果项。 */
-        fun hasSceneItemsFor(scanKey: String): Boolean = hasSceneItems(state.items, scanKey)
-
-        /** 这一屏是否已经有一条内置链接项（链接规则命中的情景项）。 */
-        fun hasSceneLinkFor(scanKey: String): Boolean = hasBuiltInSceneLink(state.items, scanKey)
-
-        /** 这一屏规则命中项里已用掉的链接：重建链接项时排除，避免同一链接两条。 */
-        fun sceneRuleUrlsFor(scanKey: String): Set<String> = usedSceneRuleUrls(state.items, scanKey)
+        /** 当前收件箱里是否已经有这一屏的情景结果项、是否已有内置链接项、已用掉哪些规则链接：
+         *  见 BallItem.kt 的 hasSceneItems / hasBuiltInSceneLink / usedSceneRuleUrls。 */
 
         /**
          * 原位替换这一屏的内置链接项（链接补充专用）。

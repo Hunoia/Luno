@@ -1,6 +1,7 @@
 package hunoia.luno.quickaccess.query
 
 import android.content.Context
+import android.content.Intent
 import hunoia.luno.search.R
 import hunoia.luno.config.model.EngineContentMode
 import hunoia.luno.config.model.EngineIconType
@@ -9,6 +10,53 @@ import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.copyUrl
 import hunoia.luno.config.model.effectiveLaunch
+import hunoia.luno.config.model.fillSearchQuery
+import hunoia.luno.config.model.SearchLaunch.Action as SearchLaunchAction
+import hunoia.luno.config.model.SearchLaunch.Activity as SearchLaunchActivity
+import hunoia.luno.config.model.SearchLaunch.Chooser
+import hunoia.luno.config.model.SearchLaunch.Share as SearchLaunchShare
+import hunoia.luno.config.model.SearchLaunch.ShareImage as SearchLaunchShareImage
+import hunoia.luno.config.model.SearchLaunch.Url as SearchLaunchUrl
+
+/**
+ * 引擎/来源 launch 配置 → 展示层动作：查询词模板填充在这里一次完成。
+ * 引擎行、直达行共用；新来源的 launch 配置也走这里。
+ */
+fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
+    is SearchLaunchUrl -> SearchAction.OpenUrl(
+        url = template.fillSearchQuery(query),
+        packageName = packageName,
+        fallbackUrl = fallbackTemplate.takeIf { it.isNotBlank() }
+            ?.fillSearchQuery(query)
+            .orEmpty(),
+        useCustomTabs = useCustomTabs,
+    )
+
+    is Chooser -> SearchAction.OpenUrl(
+        url = template.fillSearchQuery(query),
+        forceChooser = true,
+    )
+
+    is SearchLaunchShare -> SearchAction.Open(
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, textTemplate.fillSearchQuery(query))
+            if (packageName.isNotBlank()) setPackage(packageName)
+        },
+    )
+
+    is SearchLaunchShareImage -> SearchAction.PickImage(packageName)
+
+    is SearchLaunchActivity -> SearchAction.InjectQuery(
+        targetPackage = targetPackage,
+        targetActivity = targetActivity,
+        externLink = externLink,
+        query = query,
+        autoInputEnter = autoInputEnter,
+    )
+
+    is SearchLaunchAction -> SearchAction.Run(action.fillSearchQuery(query))
+}
 
 /**
  * 单个引擎的结果行：默认行与「标识直达」行共用这一份。

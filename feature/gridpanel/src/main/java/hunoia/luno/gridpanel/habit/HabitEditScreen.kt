@@ -215,7 +215,7 @@ fun HabitEditScreen(
                 PressIconButton(
                     onClick = {
                         state.showColorPicker = false
-                        state.dialog = HabitEditDialog.Delete
+                        state.showDeleteDialog = true
                     },
                 ) {
                     Icon(
@@ -226,28 +226,25 @@ fun HabitEditScreen(
             }
         },
         dialogs = {
-            // 同一时刻最多一个弹层；删除与补卡/取消打卡共用一个 dialog 槽位（ui-guidelines §3.2-5 / §4.4）。
-            when (val dialog = state.dialog) {
-                HabitEditDialog.Delete -> {
-                    if (habit != null) {
-                        ConfirmDialog(
-                            title = stringResource(R.string.habit_delete),
-                            text = stringResource(R.string.habit_delete_confirm),
-                            destructive = true,
-                            onDismissRequest = { state.dialog = null },
-                            onConfirm = {
-                                // 先停自动保存，避免删除后 onStop 又把习惯写回来。
-                                state.deleted = true
-                                flushHolder.job?.cancel()
-                                scope.launch {
-                                    HabitCenter.deleteHabit(habit.id)
-                                    onBack()
-                                }
-                            },
-                        )
-                    }
+            // 删除确认；与其他弹层（时间选择等）互斥由各自开关保证（ui-guidelines §3.2-5 / §4.4）。
+            if (state.showDeleteDialog) {
+                if (habit != null) {
+                    ConfirmDialog(
+                        title = stringResource(R.string.habit_delete),
+                        text = stringResource(R.string.habit_delete_confirm),
+                        destructive = true,
+                        onDismissRequest = { state.showDeleteDialog = false },
+                        onConfirm = {
+                            // 先停自动保存，避免删除后 onStop 又把习惯写回来。
+                            state.deleted = true
+                            flushHolder.job?.cancel()
+                            scope.launch {
+                                HabitCenter.deleteHabit(habit.id)
+                                onBack()
+                            }
+                        },
+                    )
                 }
-                null -> Unit
             }
             if (state.showTimePicker) {
                 val initial = state.editingReminderIndex?.let { shownReminders.getOrNull(it) }
@@ -339,7 +336,7 @@ fun HabitEditScreen(
                     )
                 },
                 onClick = {
-                    state.dialog = null
+                    state.showDeleteDialog = false
                     state.showColorPicker = true
                 },
             )
@@ -395,7 +392,7 @@ fun HabitEditScreen(
                         ),
                         shape = segmentedShape(index + 1, reminderRowCount),
                         onClick = {
-                            state.dialog = null
+                            state.showDeleteDialog = false
                             state.showSnoozeDialog = false
                             state.editingReminderIndex = index
                             state.showTimePicker = true
@@ -545,12 +542,7 @@ internal class HabitEditState(
     var showTimePicker by mutableStateOf(false)
     var showSnoozeDialog by mutableStateOf(false)
     var editingReminderIndex by mutableStateOf<Int?>(null)
-    var dialog by mutableStateOf<HabitEditDialog?>(null)
-}
-
-/** 弹层互斥：删除，任一时刻只存在一个（ui-guidelines §3.2-5）。补卡确认在 [HabitDetailScreen]。 */
-internal sealed interface HabitEditDialog {
-    object Delete : HabitEditDialog
+    var showDeleteDialog by mutableStateOf(false)
 }
 
 /** 只保存字段草稿；弹层是瞬态，重建后不恢复。新建 id 也要存，避免进程重建后重复创建。 */

@@ -70,9 +70,12 @@ class TouchDeviceScannerTest {
     }
 
     @Test
-    fun `探测命令必须带 -l 且逐节点`() {
-        val cmd = TouchDeviceScanner.PROBE_COMMAND
-        assertTrue("探测必须用 -pl（保留 ABS 标签）", "-pl" in cmd)
-        assertTrue("探测必须逐节点指定文件（避开 ROM 的目录 watch 限制）", "/dev/input/event*" in cmd)
+    fun `探测命令固定为 -pl 逐节点`() {
+        // 探测协议锚：-pl 保留 ABS 标签（hex 码解析不出触摸屏，见上例）、
+        // 逐节点指定文件（避开 ROM 的目录 watch 限制）。改命令先过这条。
+        assertEquals(
+            "for f in /dev/input/event*; do getevent -pl \"\$f\" 2>/dev/null; done",
+            TouchDeviceScanner.PROBE_COMMAND,
+        )
     }
 }

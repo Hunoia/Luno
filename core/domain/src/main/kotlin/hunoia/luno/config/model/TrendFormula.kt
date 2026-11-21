@@ -19,8 +19,8 @@ sealed interface TrendFormulaResult {
      */
     data object NotApplicable : TrendFormulaResult
 
-    /** 公式本身写错（语法或占位符编号越界），编辑页不允许保存。 */
-    data class Invalid(val issue: TrendFormulaIssue) : TrendFormulaResult
+    /** 公式本身写错（语法或占位符编号越界），编辑页不允许保存。原因由 [checkTrendFormula] 单独给出。 */
+    data object Invalid : TrendFormulaResult
 }
 
 /** 公式非法的两种原因；文案由 UI 侧给，这里只传原因。 */
@@ -44,9 +44,9 @@ fun evaluateTrendFormula(
         val value = TrendFormulaParser(text, readings, slotCount).run()
         if (value.isFinite()) TrendFormulaResult.Ok(value) else TrendFormulaResult.NotApplicable
     } catch (e: TrendFormulaSyntax) {
-        TrendFormulaResult.Invalid(TrendFormulaIssue.SYNTAX)
+        TrendFormulaResult.Invalid
     } catch (e: TrendFormulaBadPlaceholder) {
-        TrendFormulaResult.Invalid(TrendFormulaIssue.BAD_PLACEHOLDER)
+        TrendFormulaResult.Invalid
     } catch (e: TrendFormulaNotApplicable) {
         TrendFormulaResult.NotApplicable
     }

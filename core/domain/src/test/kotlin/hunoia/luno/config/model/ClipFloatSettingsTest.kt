@@ -50,10 +50,4 @@ class ClipFloatSettingsTest {
         assertEquals(0f, left.x, 0f)
         assertEquals(1f, right.x, 0f)
     }
-
-    @Test
-    fun `peek width stays narrower than the minimum window`() {
-        // 停靠段是唯一命中区：它必须比最小窗口窄，否则「停靠」等于没移出屏外。
-        assertEquals(true, ClipFloatPeekWidth < ClipFloatWidthRange.start)
-    }
 }

@@ -441,6 +441,14 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
         created.alpha = 0f
         created.setOnTouchListener { v, event -> handleTouch(v, event) }
+        // 展开动画的一次性触发：enterPending 守卫保证 morph 只启动一次，
+        // 四个时机（布局、post、420ms 兜底、EnterFallbackMs）谁先就绪谁触发。
+        fun startMorphIfPending(v: View) {
+            if (enterPending) {
+                enterPending = false
+                startMorphIn(v)
+            }
+        }
         created.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (v.width <= 0 || v.height <= 0) return@addOnLayoutChangeListener
             if (!originReady) {
@@ -448,10 +456,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 originReady = true
             }
             applyWindowBounds()
-            if (enterPending) {
-                enterPending = false
-                startMorphIn(v)
-            }
+            startMorphIfPending(v)
         }
         if (!wm.safeAddView(
                 created,
@@ -471,10 +476,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             val v = view
             if (v === created) {
                 applyWindowBounds()
-                if (enterPending) {
-                    enterPending = false
-                    startMorphIn(v)
-                }
+                startMorphIfPending(v)
             }
         }
         // 安全网：极端时序下展开动画/定位未跑，也保证胶囊可见且尺寸正确。
@@ -509,10 +511,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 originReady = true
                 applyWindowBounds()
             }
-            if (v === created && enterPending) {
-                enterPending = false
-                startMorphIn(v)
-            }
+            if (v === created) startMorphIfPending(v)
         }, EnterFallbackMs)
         return true
     }

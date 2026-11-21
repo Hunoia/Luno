@@ -18,30 +18,6 @@ enum class TouchInterruption {
 }
 
 /**
- * 取消底层应用正在进行的触摸手势。
- *
- * 语义：在 [x],[y] 处注入 `ACTION_DOWN` → 短暂停留 → `ACTION_CANCEL`，让目标窗口收到一对
- * 完整的 DOWN/CANCEL 并放弃它自己的手势判定（长按、点击、滑动）。
- *
- * 为什么不是注入 UP：UP 会被当作真实点击（可能触发打开链接 / 点按钮）；CANCEL 才是
- * 「这次触摸作废」的语义。
- *
- * 契约：
- * - 只做平台原语。谁该打断、打断后做什么由调用方决定；Trigger 侧不得直接调用（架构 §2.3）。
- * - [isCurrent] 在注入前与每次注入前都会被查询；返回 false 立即放弃 **且不再注入任何事件**。
- *   它防的是「调用方已取消，但本函数还在 IO 线程里跑」——一旦放行过 DOWN，就必须补 CANCEL，
- *   所以守卫只在 DOWN 之前有意义，之后必须走完 CANCEL（见 [TouchInterruptionSequence]）。
- * - 阻塞调用，必须在 IO 线程执行（架构 §4.6）。
- */
-interface TouchInterruptor {
-    suspend fun interrupt(
-        x: Int,
-        y: Int,
-        isCurrent: () -> Boolean,
-    ): TouchInterruption
-}
-
-/**
  * 注入时序的唯一实现：先 DOWN、再 CANCEL，且「只要尝试过 DOWN 就必须尝试 CANCEL」。
  *
  * 为什么单独抽出来：这是整个打断能力里唯一不能出错的地方。漏掉 CANCEL 会让源应用

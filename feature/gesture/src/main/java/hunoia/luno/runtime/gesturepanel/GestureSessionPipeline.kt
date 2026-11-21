@@ -132,7 +132,7 @@ class GestureSessionPipeline(
     var dragInFlight: Boolean = false
         private set
 
-    private val ballTapSubscriber: (BallTapActionEvent) -> Unit = { event -> runBallTapActions(event) }
+    private val ballTapSubscriber: (BallTapActionEvent) -> Unit = ::runBallTapActions
 
     init {
         Events.subscribe(BallTapActionEvent::class, ballTapSubscriber)

@@ -6,6 +6,9 @@ import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.HiddenNotificationTarget
 import hunoia.luno.config.model.PersistentNotificationHidingSettings
+import hunoia.luno.config.model.sameNotificationAs
+import hunoia.luno.config.model.toTarget
+import hunoia.luno.config.model.withTargetHidden
 import hunoia.luno.core.domain.PersistentNotificationEntry
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.Dispatchers
@@ -99,14 +102,7 @@ object PersistentNotificationHidingUseCase {
         val target = notification.toTarget()
         val enabled = readSettings().enabled
         // 在 updateData 内基于最新配置增删，避免连续快速切换时后一次读到旧快照覆盖前一次。
-        update { current ->
-            val targets = if (hidden) {
-                current.hiddenTargets.filterNot { it.sameNotificationAs(target) } + target
-            } else {
-                current.hiddenTargets.filterNot { it.sameNotificationAs(target) }
-            }
-            current.copy(hiddenTargets = targets)
-        }
+        update { current -> current.withTargetHidden(target, hidden) }
         withContext(Dispatchers.IO) {
             if (hidden) {
                 // 列表里的目标可能已被 snooze 移出通知栏（key 为空）：按 package/id/tag 再找一次。
@@ -134,13 +130,8 @@ object PersistentNotificationHidingUseCase {
         }
     }
 
-    private fun PersistentNotificationEntry.toTarget(): HiddenNotificationTarget =
-        HiddenNotificationTarget(
-            packageName = packageName,
-            notificationId = notificationId,
-            tag = tag,
-            channelId = channelId,
-        )
+    private fun PersistentNotificationEntry.matches(target: HiddenNotificationTarget): Boolean =
+        toTarget().sameNotificationAs(target)
 
     private fun HiddenNotificationTarget.toEntry(): PersistentNotificationEntry =
         PersistentNotificationEntry(
@@ -152,14 +143,4 @@ object PersistentNotificationHidingUseCase {
             title = "",
             text = "",
         )
-
-    private fun PersistentNotificationEntry.matches(target: HiddenNotificationTarget): Boolean =
-        packageName == target.packageName &&
-            notificationId == target.notificationId &&
-            tag == target.tag
-
-    private fun HiddenNotificationTarget.sameNotificationAs(other: HiddenNotificationTarget): Boolean =
-        packageName == other.packageName &&
-            notificationId == other.notificationId &&
-            tag == other.tag
 }

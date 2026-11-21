@@ -299,6 +299,9 @@ private fun ppBadge(pp: PpModelUiState): String? = when (pp.state) {
     else -> null
 }
 
+/** 模型导入时间的时间格式化：重组里反复调，构造一次复用（SDF 内部要建 Calendar）。 */
+private val modelImportTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+
 @Composable
 private fun ppDetail(pp: PpModelUiState): String {
     val state = pp.state
@@ -318,7 +321,7 @@ private fun ppDetail(pp: PpModelUiState): String {
             add(
                 stringResource(
                     R.string.ocr_model_pp_imported_at,
-                    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(it)),
+                    modelImportTimeFormat.format(Date(it)),
                 ),
             )
         }

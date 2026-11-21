@@ -21,16 +21,6 @@ fun SearchResult.isResultOverrideAllowed(): Boolean = when (source) {
     else -> true
 }
 
-/** 与 [SearchResult.isResultOverrideAllowed] 同口径的索引层版本：裁剪时不能把「本来不允许 Pin」的行当 Pin 旁路。 */
-fun QuickSearchResult.isResultPinAllowed(): Boolean = when (this) {
-    is QuickSearchResult.EngineSearch,
-    is QuickSearchResult.Url,
-    is QuickSearchResult.Calc,
-    is QuickSearchResult.ClipEntry,
-    -> false
-    else -> true
-}
-
 /** 当前 query 的 Pin 置顶；其余结果保持原排序。 */
 fun List<SearchResult>.applyResultPins(
     query: String,

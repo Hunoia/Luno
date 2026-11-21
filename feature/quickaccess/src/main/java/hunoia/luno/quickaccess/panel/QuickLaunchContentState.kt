@@ -93,12 +93,6 @@ class QuickLaunchContentState(
         AppListRepository.release()
     }
 
-    /**
-     * 系统语言变了要重扫 —— `loadLabel` 的结果跟着语言走，而常驻列表不会自己更新。
-     * 返回 true 表示确实触发了重扫（实际扫描在共享仓里跑）。
-     */
-    fun reloadAppsIfLocaleChanged(): Boolean = AppListRepository.reloadIfLocaleChanged()
-
     val filteredApps: List<AppInfo> by derivedStateOf {
         sortApps(appListState.apps, usageStats, tokens)
     }

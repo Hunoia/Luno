@@ -1,6 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.core.domain.PersistentNotificationEntry
 import kotlinx.serialization.Serializable
 
 /**
@@ -26,6 +27,38 @@ data class HiddenNotificationTarget(
     val channelId: String? = null,
 )
 
+/** 通知身份子集（包名 + id + tag）判等：shouldHide / isTargetHidden / 目标增删共用。channelId 不参与。 */
+fun HiddenNotificationTarget.sameNotificationAs(
+    packageName: String,
+    notificationId: Int,
+    tag: String?,
+): Boolean =
+    this.packageName == packageName && this.notificationId == notificationId && this.tag == tag
+
+fun HiddenNotificationTarget.sameNotificationAs(other: HiddenNotificationTarget): Boolean =
+    sameNotificationAs(other.packageName, other.notificationId, other.tag)
+
+/** 列表条目 → 隐藏目标（身份子集抽取，channelId 只随行便于展示）：门面与设置页共用。 */
+fun PersistentNotificationEntry.toTarget(): HiddenNotificationTarget =
+    HiddenNotificationTarget(
+        packageName = packageName,
+        notificationId = notificationId,
+        tag = tag,
+        channelId = channelId,
+    )
+
+/** 勾选 / 取消同一入口：门面落盘与设置页乐观更新共用，避免两处各写一份增删。 */
+fun PersistentNotificationHidingSettings.withTargetHidden(
+    target: HiddenNotificationTarget,
+    hidden: Boolean,
+): PersistentNotificationHidingSettings = copy(
+    hiddenTargets = if (hidden) {
+        hiddenTargets.filterNot { it.sameNotificationAs(target) } + target
+    } else {
+        hiddenTargets.filterNot { it.sameNotificationAs(target) }
+    },
+)
+
 /**
  * 是否应隐藏这条通知。只处理常驻通知；Luno 自身按保活通知 id 精确命中（[KeepAliveNotificationIds]），
  * 其余 Luno 通知（习惯 / 待办 / 趋势 / 识别提醒）一律不隐藏。
@@ -45,9 +78,7 @@ fun PersistentNotificationHidingSettings.shouldHide(
         return true
     }
     return hiddenTargets.any { target ->
-        target.packageName == packageName &&
-            target.notificationId == notificationId &&
-            target.tag == tag
+        target.sameNotificationAs(packageName, notificationId, tag)
     }
 }
 
@@ -66,8 +97,4 @@ fun PersistentNotificationHidingSettings.isTargetHidden(
     packageName: String,
     notificationId: Int,
     tag: String?,
-): Boolean = hiddenTargets.any { target ->
-    target.packageName == packageName &&
-        target.notificationId == notificationId &&
-        target.tag == tag
-}
+): Boolean = hiddenTargets.any { it.sameNotificationAs(packageName, notificationId, tag) }

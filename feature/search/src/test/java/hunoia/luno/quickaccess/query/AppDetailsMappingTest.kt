@@ -9,12 +9,12 @@ import org.junit.Test
 
 /**
  * 分身应用详情必须携带 userId，否则系统设置页按 `package:` 只认主用户实例，
- * 长按分身会打开主应用详情（见 [QuickSearchResultMapping.toSearchResult]）。
+ * 长按分身会打开主应用详情（见 [AppInfo.toResult]）。
  */
 class AppDetailsMappingTest {
 
     private fun detailsAction(appInfo: AppInfo): StoredAction {
-        val result = QuickSearchResult.App(appInfo).toSearchResult()
+        val result = appInfo.toResult(disabled = false)
         val item = result.actions.single()
         return (item.action as SearchAction.Run).action
     }

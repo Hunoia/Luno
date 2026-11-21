@@ -59,7 +59,6 @@ import hunoia.luno.quickaccess.query.SearchResult
 import hunoia.luno.quickaccess.query.pinnedKeyList
 import hunoia.luno.quickaccess.query.searchOutcome
 import hunoia.luno.quickaccess.query.topUsed
-import hunoia.luno.quickaccess.query.toSearchResult
 import hunoia.luno.ui.component.panel.awaitPanelExitFrame
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
@@ -340,7 +339,6 @@ internal fun QuickSearchContent(
     LaunchedEffect(usageStats, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) {
             index.topUsed(usageStats)
-                .map { it.toSearchResult() }
         }
     }
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。

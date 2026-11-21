@@ -209,7 +209,8 @@ class AnnotateOpsTest {
         assertEquals(listOf(1L, 2L), s.elements.map { it.id })
     }
 
-    // ---- 清除全部（可撤销）与单点删除 ----    @Test
+    // ---- 清除全部（可撤销）与单点删除 ----
+    @Test
     fun `clear all is undoable unlike destructive clear`() {
         var s = state()
         s = AnnotateOps.addElement(s, stroke(1))

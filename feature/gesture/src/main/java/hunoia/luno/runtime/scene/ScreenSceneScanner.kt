@@ -152,13 +152,13 @@ class ScreenSceneScanner(
         settleJob?.cancel()
         settleJob = scope.launch {
             delay(delayMs)
-            scan(expectedPackage = packageName, force = false)
+            scan(expectedPackage = packageName)
         }
     }
 
-    private suspend fun scan(expectedPackage: String?, force: Boolean) {
+    private suspend fun scan(expectedPackage: String) {
         // 排队期间用户已经切走 / 锁屏 / 回桌面：这条扫描从一开始就不该执行。
-        if (expectedPackage != null && expectedPackage != lastEventPackage) return
+        if (expectedPackage != lastEventPackage) return
         val context = contextOf(expectedPackage)
         if (!context.enabled || !context.hasRules || context.locked || !context.interactive) return
         if (context.launcher) return
@@ -184,7 +184,7 @@ class ScreenSceneScanner(
         // 小窗（expectedPackage=小窗应用，如 Paseo）也识别目标，不 drop——满足「小窗 + 全屏
         // 时只识别全屏」；只有没找到事件应用窗口（用户已切走，sceneTargetMatched=false）且
         // 抓到别的前台时才 drop（A 的卡片不能压在 B 上）。
-        if (expectedPackage != null && packageName != expectedPackage && !snapshot.sceneTargetMatched) {
+        if (expectedPackage != packageName && !snapshot.sceneTargetMatched) {
             if (BuildConfig.DEBUG) {
                 Log.i(LOG_TAG, "scene scan dropped: expected=$expectedPackage got=$packageName")
             }
@@ -196,11 +196,11 @@ class ScreenSceneScanner(
                 Log.i(LOG_TAG, "scene scan empty: pkg=$packageName leaves=${snapshot.leaves.size}")
             }
             scheduler.onScanResult(SystemClock.uptimeMillis(), published = false)
-            retryEmptySnapshot(expectedPackage, force)
+            retryEmptySnapshot(expectedPackage)
             return
         }
         val screenKey = fingerprint(packageName, text)
-        if (!force && ledger.isSameAsPublished(packageName, screenKey)) {
+        if (ledger.isSameAsPublished(packageName, screenKey)) {
             scheduler.onScanResult(SystemClock.uptimeMillis(), published = false)
             return
         }
@@ -223,14 +223,13 @@ class ScreenSceneScanner(
      * 后到），而加载之后又可能不再有内容事件。这里只做**一次跟随补扫**，不是定时轮询：
      * 同一应用最多 [SceneScanLedger.MAX_EMPTY_RETRIES] 次，换屏 / 推送成功即复位。
      */
-    private fun retryEmptySnapshot(expectedPackage: String?, force: Boolean) {
-        if (force || expectedPackage == null) return
+    private fun retryEmptySnapshot(expectedPackage: String) {
         if (expectedPackage != lastEventPackage) return
         if (!ledger.shouldRetryEmpty(expectedPackage)) return
         // 注意：这里是当前协程自己续一拍，不取消自己（settleJob 即将结束）。
         settleJob = scope.launch {
             delay(EMPTY_RETRY_DELAY_MS)
-            scan(expectedPackage = expectedPackage, force = false)
+            scan(expectedPackage = expectedPackage)
         }
     }
 

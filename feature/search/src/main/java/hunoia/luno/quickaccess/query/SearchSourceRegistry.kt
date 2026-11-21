@@ -26,7 +26,7 @@ data class SearchSource(
     @param:StringRes val titleRes: Int,
     val enabled: (QuickSearchSettings) -> Boolean = { true },
     val match: (SearchContext) -> List<RankedHit>,
-    val bare: (SearchContext) -> List<QuickSearchResult>?,
+    val bare: (SearchContext) -> List<SearchResult>?,
 )
 
 data class SearchContext(
@@ -63,7 +63,7 @@ object SearchSourceRegistry {
         enabled: (QuickSearchSettings) -> Boolean = { true },
         match: (SearchContext) -> List<RankedHit>,
         // 默认裸标识列表就是本来源的近项列表：key 由 source() 注入，避免每个来源手抄 SRC_X。
-        bare: (SearchContext) -> List<QuickSearchResult>? = { c ->
+        bare: (SearchContext) -> List<SearchResult>? = { c ->
             c.index.bareSource(key, c.usage, c.settings, c.clips)
         },
     ) = SearchSource(
@@ -179,7 +179,7 @@ object SearchSourceRegistry {
         return entry.match(context)
     }
 
-    fun bare(source: String, context: SearchContext): List<QuickSearchResult>? {
+    fun bare(source: String, context: SearchContext): List<SearchResult>? {
         val entry = byKey[source] ?: return null
         if (!entry.enabled(context.settings)) return null
         return entry.bare(context)

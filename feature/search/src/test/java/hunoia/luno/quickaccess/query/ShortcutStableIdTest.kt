@@ -12,37 +12,33 @@ import org.junit.Test
 class ShortcutStableIdTest {
 
     /** 动态入口：无 Activity 类名、无 intent，靠 shortcutId + userSerial 区分。 */
-    private fun dynamic(pkg: String, id: String, serial: Long) = QuickSearchResult.Shortcut(
-        LauncherInfo.ShortcutInfo(
-            packageName = pkg,
-            className = "",
-            intents = emptyList(),
-            label = "x",
-            shortcutId = id,
-            userSerial = serial,
-        ),
+    private fun dynamic(pkg: String, id: String, serial: Long) = LauncherInfo.ShortcutInfo(
+        packageName = pkg,
+        className = "",
+        intents = emptyList(),
+        label = "x",
+        shortcutId = id,
+        userSerial = serial,
     )
 
-    private fun static(pkg: String, cls: String, intents: List<String>) = QuickSearchResult.Shortcut(
-        LauncherInfo.ShortcutInfo(
-            packageName = pkg,
-            className = cls,
-            intents = intents,
-            label = "x",
-        ),
+    private fun static(pkg: String, cls: String, intents: List<String>) = LauncherInfo.ShortcutInfo(
+        packageName = pkg,
+        className = cls,
+        intents = intents,
+        label = "x",
     )
 
     @Test
     fun `main and clone dynamic shortcuts get distinct ids`() {
-        val main = dynamic("com.aistra.hail", "id1", 0).stableId()
-        val clone = dynamic("com.aistra.hail", "id1", 10).stableId()
+        val main = dynamic("com.aistra.hail", "id1", 0).toResult().key
+        val clone = dynamic("com.aistra.hail", "id1", 10).toResult().key
         assertNotEquals(main, clone)
     }
 
     @Test
     fun `same user different shortcut ids get distinct ids`() {
-        val a = dynamic("com.aistra.hail", "id1", 0).stableId()
-        val b = dynamic("com.aistra.hail", "id2", 0).stableId()
+        val a = dynamic("com.aistra.hail", "id1", 0).toResult().key
+        val b = dynamic("com.aistra.hail", "id2", 0).toResult().key
         assertNotEquals(a, b)
     }
 
@@ -51,7 +47,7 @@ class ShortcutStableIdTest {
         val sc = static("com.aistra.hail", "MainActivity", listOf("intent://a", "intent://b"))
         assertEquals(
             "sc#com.aistra.hail/MainActivity|intent://a\u0001intent://b",
-            sc.stableId(),
+            sc.toResult().key,
         )
     }
 }

@@ -49,11 +49,10 @@ import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.ClipPools
-import hunoia.luno.quickaccess.query.QuickSearchResult
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchResult
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
-import hunoia.luno.quickaccess.query.toSearchResult
+import hunoia.luno.quickaccess.query.clipResult
 import hunoia.luno.core.domain.TextIcon
 import hunoia.luno.ui.component.row.segmentedShape
 
@@ -167,7 +166,7 @@ internal fun QuickSearchEmptyList(
                 }
             }
             itemsIndexed(clipTexts, key = { _, c -> "c#$c" }) { pos, clipText ->
-                val clipResult = QuickSearchResult.ClipEntry(clipText).toSearchResult()
+                val clipResult = clipResult(clipText)
                 ClipboardRow(
                     text = clipText,
                     shape = segmentedShape(total - 1 - pos, total),

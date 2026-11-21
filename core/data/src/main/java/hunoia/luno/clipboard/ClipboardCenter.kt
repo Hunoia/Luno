@@ -72,9 +72,6 @@ object ClipboardCenter {
         runCatching { readClipboardContentDetailed(AppContext.get()) }.getOrNull()
     }
 
-    /** 兼容旧调用名：与 [read] 同义。 */
-    suspend fun readCurrent(): ClipboardContent? = read()
-
     /**
      * 补一次捕获（页面 / 面板 / 球打开时调用，幂等），并返回读到的内容。
      *

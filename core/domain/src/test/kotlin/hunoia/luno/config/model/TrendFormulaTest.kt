@@ -2,7 +2,6 @@ package hunoia.luno.config.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 一条记录内部读数计算的求值器；纯函数，逐条覆盖语法分支。 */
@@ -66,12 +65,9 @@ class TrendFormulaTest {
     @Test
     fun `placeholder beyond the slot count is a bad formula`() {
         val result = evaluateTrendFormula(readings, "#4-#1", slotCount = 3)
-        assertEquals(
-            TrendFormulaResult.Invalid(TrendFormulaIssue.BAD_PLACEHOLDER),
-            result,
-        )
+        assertEquals(TrendFormulaResult.Invalid, result)
         val zero = evaluateTrendFormula(readings, "#0", slotCount = 3)
-        assertEquals(TrendFormulaResult.Invalid(TrendFormulaIssue.BAD_PLACEHOLDER), zero)
+        assertEquals(TrendFormulaResult.Invalid, zero)
     }
 
     @Test
@@ -115,7 +111,7 @@ class TrendFormulaTest {
             val result = evaluateTrendFormula(readings, formula, 3)
             assertEquals(
                 "expected SYNTAX for `$formula`",
-                TrendFormulaResult.Invalid(TrendFormulaIssue.SYNTAX),
+                TrendFormulaResult.Invalid,
                 result,
             )
         }
@@ -143,10 +139,8 @@ class TrendFormulaTest {
     }
 
     @Test
-    fun `formula result is deterministic`() {
+    fun `self division cancels out to the first reading`() {
         val a = eval("#1*#2/#2")
-        val b = eval("#1*#2/#2")
-        assertTrue(a == b)
         assertEquals(readings[0], (a as TrendFormulaResult.Ok).value, 0.0001)
     }
 }

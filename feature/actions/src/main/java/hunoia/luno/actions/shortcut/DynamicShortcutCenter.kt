@@ -1,7 +1,6 @@
 package hunoia.luno.actions.shortcut
 
 import android.content.Context
-import hunoia.luno.action.model.ActionDeepLink
 import hunoia.luno.action.model.ShortcutIconFiles
 import hunoia.luno.bridge.launcher.DynamicShortcuts
 import hunoia.luno.bridge.launcher.toShortcutInfo
@@ -96,8 +95,6 @@ object DynamicShortcutCenter {
             onSettled = onSettled,
         )
     }
-
-    fun actionLink(ref: DynamicShortcutRef): String = ActionDeepLink.ofAction(ref.storedAction())
 
     private fun iconKey(packageName: String, shortcutId: String, userSerial: Long): String =
         "dyn_${packageName}_${shortcutId}_${userSerial}"

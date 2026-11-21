@@ -196,10 +196,6 @@ object ConfigProvider {
         stores._clipboardHistory.updateData(transform)
     }.getOrNull()
 
-    suspend fun clearClipboardHistory() {
-        runCatching { stores._clipboardHistory.updateData { it.cleared() } }
-    }
-
     // ---------- 电池历史域 ----------
     // 电量 / 功率采样是设备本地派生数据，不进备份；写入不走 Dispatcher（§1.3）。
 
@@ -208,10 +204,6 @@ object ConfigProvider {
     /** 追加一条采样：同值去抖、7 天窗口与条数上限都在 [BatteryHistory.appended] 里收口。 */
     suspend fun appendBatterySample(sample: BatterySample) {
         stores._batteryHistory.updateData { it.appended(sample) }
-    }
-
-    suspend fun clearBatteryHistory() {
-        runCatching { stores._batteryHistory.updateData { BatteryHistory() } }
     }
 
     // ---------- 习惯域 ----------

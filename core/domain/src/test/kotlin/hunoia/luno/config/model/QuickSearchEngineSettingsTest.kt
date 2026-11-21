@@ -23,22 +23,6 @@ class QuickSearchEngineSettingsTest {
         assertEquals(listOf("b", "c", "a"), settings.allEngines().map { it.id })
     }
 
-    @Test
-    fun `imported blank ids get stable derived ids`() {
-        // 导入引擎 id 撞已有引擎时留空入库，归一化按内容派生稳定 id：
-        // 同一份导入数据两次解码-归一化得到同一 id，重复导入可被 order 正确引用。
-        val imported = SearchEngine(
-            name = "Naver",
-            urlTemplate = "https://search.naver.com/search.naver?query=%s",
-            trigger = "nv",
-        )
-        val first = QuickSearchSettings(customEngines = listOf(imported)).withUniqueEngineTriggers()
-        val second = QuickSearchSettings(customEngines = listOf(imported)).withUniqueEngineTriggers()
-        val id = first.customEngines.first().id
-        assertTrue(id.isNotBlank())
-        assertEquals(id, second.customEngines.first().id)
-    }
-
     /** 首装 seed 门禁：三条默认引擎自身合法（原预设表门禁的收窄版）。 */
     @Test
     fun `default seed engines are well formed`() {

@@ -24,6 +24,7 @@ import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
 import hunoia.luno.quickaccess.panel.QuickLaunchBody
 import hunoia.luno.quickaccess.panel.QuickLaunchContentState
+import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.runtime.surface.SurfaceDispatch
 
 private const val TAG = "QuickLaunchWidget"
@@ -108,7 +109,7 @@ fun QuickLaunchPanelCell(
     }
 
     val localeTag = LocalConfiguration.current.locales[0].toLanguageTag()
-    LaunchedEffect(localeTag) { state.reloadAppsIfLocaleChanged() }
+    LaunchedEffect(localeTag) { AppListRepository.reloadIfLocaleChanged() }
 
     BoxWithConstraints(
         modifier = modifier

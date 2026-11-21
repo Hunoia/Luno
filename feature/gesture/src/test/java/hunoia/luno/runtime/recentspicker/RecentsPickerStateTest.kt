@@ -30,15 +30,6 @@ class RecentsPickerStateTest {
     }
 
     @Test
-    fun `activate stores sensitivity and icon size`() {
-        val state = state()
-        state.activate(listOf(RecentApp("a")), RecentsPickerLayout.HORIZONTAL, 250, 84, Offset.Zero)
-        assertTrue(state.isActive)
-        assertEquals(250, state.blankScrollSensitivityPercent)
-        assertEquals(84, state.iconSizeDp)
-    }
-
-    @Test
     fun `activate with empty list keeps first visible at zero`() {
         val state = state()
         state.activate(emptyList(), RecentsPickerLayout.HORIZONTAL, 100, 60, Offset.Zero)

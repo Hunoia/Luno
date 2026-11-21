@@ -46,7 +46,7 @@ class MiscActionExecutors : ActionExecutor {
      * 文本交结果页分词视图；图片经 SurfaceHost 检查模型、解码、懒加载识别。
      */
     private suspend fun executeClipboardRecognize(context: ExecutorContext): ActionResult {
-        val content = ClipboardCenter.readCurrent()
+        val content = ClipboardCenter.read()
         return when (content) {
             is ClipboardContent.Text -> {
                 if (content.text.isBlank()) {

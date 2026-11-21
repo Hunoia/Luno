@@ -42,10 +42,6 @@ object RecognitionLinks {
     /** 主机名（选择页标题用）；解析不到时退回整串。 */
     fun hostOf(url: String): String = LinkUrls.hostOf(url) ?: url
 
-    /** 该链接命中「链接类规则」的 id；没有命中返回 null。 */
-    fun matchedRuleId(url: String, settings: RecognitionSettings): String? =
-        LinkUrls.firstMatch(url, settings.rules)?.id
-
     private suspend fun currentSettings(): RecognitionSettings =
         runCatching { ConfigProvider.getActionSettings().recognition }
             .getOrDefault(RecognitionSettings())

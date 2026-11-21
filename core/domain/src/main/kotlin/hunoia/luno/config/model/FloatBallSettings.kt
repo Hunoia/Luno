@@ -26,6 +26,14 @@ data class FloatBallPosition(
     val rightAnchorY: Float? = null,
 )
 
+/** 落到新位置：只有 [left] 对应那一侧的高度锚点跟着更新，另一侧与未拖到侧的旧锚点保留。 */
+fun FloatBallPosition.withAnchorY(left: Boolean, x: Float, y: Float): FloatBallPosition = copy(
+    x = x,
+    y = y,
+    leftAnchorY = if (left) y else leftAnchorY,
+    rightAnchorY = if (!left) y else rightAnchorY,
+)
+
 @Serializable
 @Keep
 data class CapsuleBallPosition(

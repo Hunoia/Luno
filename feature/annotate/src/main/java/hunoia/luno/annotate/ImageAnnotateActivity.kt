@@ -21,7 +21,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -665,21 +664,5 @@ private fun PanelAction(
             textAlign = TextAlign.Start,
             color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified,
         )
-    }
-}
-
-/** 工具卡上方弹出的内联卡：无遮罩、无阴影，同层叠在工具条上方。 */
-@Composable
-private fun AnnotateInlineCard(
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Surface(
-        shape = LargeShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        // 无投影：弹出卡与工具卡同一视觉层次（全部去阴影计划）。
-        shadowElevation = 0.dp,
-    ) {
-        Column(content = content)
     }
 }

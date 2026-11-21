@@ -251,7 +251,7 @@ class QuickSearchSemanticsTest {
 
     private fun matchClips(pinned: List<String>, clips: List<String>, q: String): List<String> =
         matchClipPool(pinned, clips, charTokens(q), foldTokens(q))
-            .map { (it.result as QuickSearchResult.ClipEntry).text }
+            .map { it.result.title }
 
     @Test
     fun `clip matches query hit`() {

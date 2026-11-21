@@ -32,7 +32,7 @@ data class LinkTarget(
  * **规则判定不在这里**：谁命中哪条链接由 `:core:runtime` 的识别器决定，本对象只负责
  * 「按规则里声明的目标把链接送出去」。因此它不认识规则表顺序、不做正则匹配。
  */
-class LinkDispatcher(private val ports: LinkPorts) {
+class LinkDispatcher(private val ports: AppLinkPorts) {
 
     private companion object {
         /** 探测「通用浏览器」用的地址：只认能处理普通网页的应用，避免把 B 站 / 抖音当浏览器。 */

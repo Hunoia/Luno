@@ -21,10 +21,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import hunoia.luno.R
-import hunoia.luno.config.model.HiddenNotificationTarget
 import hunoia.luno.config.model.isTargetHidden
+import hunoia.luno.config.model.toTarget
+import hunoia.luno.config.model.withTargetHidden
 import hunoia.luno.core.LunoLog
-import hunoia.luno.core.domain.PersistentNotificationEntry
 import hunoia.luno.domain.system.PersistentNotificationHidingUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -199,15 +199,8 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
                             onCheckedChange = { hidden ->
                                 val target = notification.toTarget()
                                 update({ current ->
-                                    val targets = if (hidden) {
-                                        current.settings.hiddenTargets
-                                            .filterNot { it.sameNotificationAs(target) } + target
-                                    } else {
-                                        current.settings.hiddenTargets
-                                            .filterNot { it.sameNotificationAs(target) }
-                                    }
                                     current.copy(
-                                        settings = current.settings.copy(hiddenTargets = targets),
+                                        settings = current.settings.withTargetHidden(target, hidden),
                                     )
                                 }) {
                                     PersistentNotificationHidingUseCase.setTargetHidden(
@@ -230,16 +223,3 @@ private fun appLabel(context: Context, packageName: String): String = runCatchin
     val pm = context.packageManager
     pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
 }.getOrDefault(packageName)
-
-private fun PersistentNotificationEntry.toTarget(): HiddenNotificationTarget =
-    HiddenNotificationTarget(
-        packageName = packageName,
-        notificationId = notificationId,
-        tag = tag,
-        channelId = channelId,
-    )
-
-private fun HiddenNotificationTarget.sameNotificationAs(other: HiddenNotificationTarget): Boolean =
-    packageName == other.packageName &&
-        notificationId == other.notificationId &&
-        tag == other.tag

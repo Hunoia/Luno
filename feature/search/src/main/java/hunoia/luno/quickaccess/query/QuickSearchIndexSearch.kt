@@ -52,7 +52,7 @@ inline fun bestOfFirst(first: TieredMatch, second: () -> TieredMatch): TieredMat
     if (first.tier == 2 && first.offset == 0) first else bestOf(first, second())
 
     /** 空输入时的常用：按衰减使用分取前 N 个（禁用应用一并返回，由调用方标注）。 */
-fun QuickSearchIndex.topUsed(usageStats: AppUsageStats, limit: Int = 8): List<QuickSearchResult.App> {
+fun QuickSearchIndex.topUsed(usageStats: AppUsageStats, limit: Int = 8): List<SearchResult> {
         ensureLoaded()
         // 不再 refreshApps() 兜底：全量查包必须在 IO 线程由 Activity 预加载，
         // 这里只读已经发布的快照（未就绪时返回空，面板稍后由 appsTick 补搜）。
@@ -63,8 +63,8 @@ fun QuickSearchIndex.topUsed(usageStats: AppUsageStats, limit: Int = 8): List<Qu
             .filter { (_, score) -> score > 0 }
             .sortedByDescending { (_, score) -> score }
             .take(limit)
-            .map { (app, _) -> QuickSearchResult.App(app, app.packageName in data.disabledPkgs) }
-    }
+            .map { (app, _) -> app.toResult(app.packageName in data.disabledPkgs) }
+}
 
 fun QuickSearchIndex.search(
         query: String,
@@ -110,16 +110,16 @@ fun QuickSearchIndex.search(
             results.addAll(capHits(sourceHits, MAX_HITS_PER_SOURCE, pinnedKeys))
         }
 
-        val urlResult = urlResult(query)
-        if (urlResult != null) results.add(RankedHit(urlResult, 3, 0, 0, 0.0))
+        val urlHit = urlResult(query)?.let { RankedHit(it, 3, 0, 0, 0.0) }
+        if (urlHit != null) results.add(urlHit)
 
-        val sorted = sortTriples(capHits(results, MAX_TOTAL_RESULTS, pinnedKeys))
+        val sorted = sortHits(capHits(results, MAX_TOTAL_RESULTS, pinnedKeys))
 
         // 引擎兜底行不进 [capHits]：它恒为 tier -1，满榜时会被裁掉。固定垫底，
         // 保证任何查询都能回车直接搜。只有非 URL 关键词才有；标识直达优先选引擎，
         // 否则默认引擎；一个引擎都没有时不出引擎行（回车只剩内容源结果）。
-        val withEngine = if (urlResult == null) {
-            engineTriple(query.trim(), engines)?.let { sorted + it.result } ?: sorted
+        val withEngine = if (urlHit == null) {
+            engineTriple(query.trim(), engines)?.let { sorted + it } ?: sorted
         } else {
             sorted
         }
@@ -127,42 +127,48 @@ fun QuickSearchIndex.search(
         // 计算器排表头（精确意图，回车直达）；引擎行永远最后，不二次计算。
         val calc = calculatorResult(query.trim())
         val grouped = groupCloneApps(withEngine)
-        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + grouped else grouped
-        return SearchOutcome(finalResults, directive = false)
+        val finalResults = (calc?.let { listOf(RankedHit(it, -1, 0, 0, 0.0)) } ?: emptyList()) + grouped
+        return SearchOutcome(finalResults.map { it.result }, directive = false)
     }
 
     /** 分身与主应用标题相同：搜索结果里把副本拉回主应用后面，避免看起来像重复项。 */
-private fun groupCloneApps(results: List<QuickSearchResult>): List<QuickSearchResult> {
-    if (results.none { it is QuickSearchResult.App && it.appInfo.isClone }) return results
-    val clonesByPkg = results.filterIsInstance<QuickSearchResult.App>()
-        .filter { it.appInfo.isClone }
-        .groupBy { it.appInfo.packageName }
+private fun groupCloneApps(results: List<RankedHit>): List<RankedHit> {
+    if (results.none { it.groupKey != null && !it.groupLeader }) return results
+    val clonesByPkg = results.filter { it.groupKey != null && !it.groupLeader }.groupBy { it.groupKey!! }
     val emitted = HashSet<String>()
-    val grouped = ArrayList<QuickSearchResult>(results.size)
+    val grouped = ArrayList<RankedHit>(results.size)
     for (result in results) {
-        if (result is QuickSearchResult.App && result.appInfo.isClone) continue
+        if (result.groupKey != null && !result.groupLeader) continue
         grouped.add(result)
-        if (result is QuickSearchResult.App && emitted.add(result.appInfo.packageName)) {
-            clonesByPkg[result.appInfo.packageName]?.let(grouped::addAll)
+        val key = result.groupKey
+        if (key != null && emitted.add(key)) {
+            clonesByPkg[key]?.let(grouped::addAll)
         }
     }
     for (result in results) {
-        if (result is QuickSearchResult.App && result.appInfo.isClone && emitted.add(result.appInfo.packageName)) {
-            grouped.addAll(clonesByPkg[result.appInfo.packageName].orEmpty())
+        val key = result.groupKey
+        if (key != null && !result.groupLeader && emitted.add(key)) {
+            grouped.addAll(clonesByPkg[key].orEmpty())
         }
     }
     return grouped
 }
 
-/** 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。 */
+/**
+ * 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。
+ * [groupKey] / [groupLeader] 仅由应用匹配（matchApps）设置：分身与主应用共用包名键，
+ * 展示前由 [groupCloneApps] 把分身拉到主应用后面；其余来源恒为默认值。
+ */
 data class RankedHit(
-    val result: QuickSearchResult,
+    val result: SearchResult,
     override val tier: Int,
     val span: Int,
     override val offset: Int,
     override val usage: Double,
     override val sortTitle: String = result.title,
     override val sortTitleLen: Int = sortTitle.length,
+    val groupKey: String? = null,
+    val groupLeader: Boolean = false,
 ) : RankedResult
 
 /**
@@ -180,7 +186,7 @@ fun capHits(
     if (pinnedKeys.isEmpty() && hits.size <= limit) return hits
 
     fun isPinned(hit: RankedHit) =
-        hit.result.isResultPinAllowed() && hit.result.stableId() in pinnedKeys
+        hit.result.isResultOverrideAllowed() && hit.result.key in pinnedKeys
 
     val pinned = if (pinnedKeys.isEmpty()) emptyList() else hits.filter(::isPinned)
     val keepLimit = limit.coerceAtLeast(0)
@@ -202,20 +208,25 @@ fun capHits(
 
 /**
  * 全源/定向共用的同构匹配骨架：逐项算命中档位，tier>=0 才收录。
- * [score] 决定匹配字段（多个字段用 [bestOf]），[usage] 提供使用分（默认 0）。
+ * [score] 决定匹配字段（多个字段用 [bestOf]），[usage] 提供使用分（默认 0），
+ * [group] 给应用行的分身聚合键（其余来源用默认 null）。
  * plan 在调用方构造一次，任务内所有条目复用同一份 masks，不再逐条编译。
  */
 inline fun <T> matchEach(
     items: Iterable<T>,
     plan: SearchQueryPlan,
-    result: (T) -> QuickSearchResult,
+    result: (T) -> SearchResult,
     usage: (T) -> Double = { 0.0 },
+    group: (T) -> Pair<String, Boolean>? = { null },
     score: (T) -> TieredMatch,
 ): List<RankedHit> {
     val out = mutableListOf<RankedHit>()
     for (item in items) {
         val m = score(item)
-        if (m.tier >= 0) out.add(RankedHit(result(item), m.tier, m.span, m.offset, usage(item)))
+        if (m.tier >= 0) {
+            val (groupKey, groupLeader) = group(item) ?: (null to false)
+            out.add(RankedHit(result(item), m.tier, m.span, m.offset, usage(item), groupKey = groupKey, groupLeader = groupLeader))
+        }
     }
     return out
 }
@@ -223,7 +234,7 @@ inline fun <T> matchEach(
 fun QuickSearchIndex.matchActions(
     plan: SearchQueryPlan,
 ): List<RankedHit> {
-    return matchEach(actions, plan, result = { it }) { tierOf(it.title, plan) }
+    return matchEach(actions, plan, result = { it.toResult() }) { tierOf(it.label, plan) }
 }
 
 fun QuickSearchIndex.matchLibrary(
@@ -238,11 +249,7 @@ fun QuickSearchIndex.matchLibrary(
         if (m.tier >= 0) {
             out.add(
                 RankedHit(
-                    QuickSearchResult.LibraryEntry(
-                        entry,
-                        fallback,
-                        source.resolveLibraryEntry(entry)?.icon,
-                    ),
+                    libraryResult(entry, fallback, source.resolveLibraryEntry(entry)?.icon),
                     m.tier, m.span, m.offset, 0.0,
                 ),
             )
@@ -259,8 +266,11 @@ fun QuickSearchIndex.matchApps(
     val usageScores = UsageScores(usageStats.launchCount, usageStats.recentLaunchTime, now)
     val data = appData
     return matchEach(data.apps, plan, result = { app ->
-        QuickSearchResult.App(app, app.packageName in data.disabledPkgs)
-    }, usage = { usageScores.score(it.packageName) }) { app ->
+        app.toResult(app.packageName in data.disabledPkgs)
+    }, usage = { usageScores.score(it.packageName) }, group = { app ->
+        // 分身聚合：主应用与分身共用包名键，主应用是 leader（见 [groupCloneApps]）。
+        app.packageName to !app.isClone
+    }) { app ->
         // 包名也参与匹配：行副标题本来就显示包名，搜 com.tencent 应该有结果。
         bestOfFirst(tierOf(app.label, plan)) { tierOf(app.packageName, plan) }
     }
@@ -271,7 +281,7 @@ fun QuickSearchIndex.matchShortcuts(
     pkgScore: Map<String, Double>,
 ): List<RankedHit> {
     val data = appData
-    return matchEach(data.shortcuts, plan, result = { QuickSearchResult.Shortcut(it) }, usage = { pkgScore[it.packageName] ?: 0.0 }) { sc ->
+    return matchEach(data.shortcuts, plan, result = { it.toResult() }, usage = { pkgScore[it.packageName] ?: 0.0 }) { sc ->
         // 包名也参与匹配：与 matchApps 同构，行副标题显示包名，搜 com.tencent 应有结果。
         bestOfFirst(tierOf(sc.label, plan)) { tierOf(sc.packageName, plan) }
     }
@@ -282,7 +292,7 @@ fun QuickSearchIndex.matchContacts(
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
     if (!searchSettings.searchContacts || !contactsReady()) return emptyList()
-    return matchEach(contacts, plan, result = { it }) { c ->
+    return matchEach(contacts, plan, result = { it.toResult() }) { c ->
         bestOfFirst(tierOf(c.name, plan)) { tierOf(c.number, plan) }
     }
 }
@@ -296,7 +306,7 @@ fun QuickSearchIndex.matchTracks(
     ) {
         return emptyList()
     }
-    return matchEach(tracks, plan, result = { it }) { t ->
+    return matchEach(tracks, plan, result = { it.toResult() }) { t ->
         bestOfFirst(tierOf(t.title, plan)) { tierOf(t.artist, plan) }
     }
 }
@@ -309,7 +319,7 @@ fun QuickSearchIndex.matchGallery(
     val galleryOk = mediaPermissionCached(android.Manifest.permission.READ_MEDIA_IMAGES) ||
         mediaPermissionCached(android.Manifest.permission.READ_MEDIA_VIDEO)
     if (!galleryOk) return emptyList()
-    return matchEach(mediaFiles, plan, result = { it }) { tierOf(it.name, plan) }
+    return matchEach(mediaFiles, plan, result = { it.toResult() }) { tierOf(it.name, plan) }
 }
 
 fun QuickSearchIndex.matchDocs(
@@ -317,7 +327,7 @@ fun QuickSearchIndex.matchDocs(
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
     if (!searchSettings.searchFiles || !permSnapshot.allFiles) return emptyList()
-    return matchEach(docs, plan, result = { it }) { tierOf(it.name, plan) }
+    return matchEach(docs, plan, result = { it.toResult() }) { tierOf(it.name, plan) }
 }
 
 fun QuickSearchIndex.matchCalendar(
@@ -325,8 +335,8 @@ fun QuickSearchIndex.matchCalendar(
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
     if (!searchSettings.searchCalendar || !calendarReady()) return emptyList()
-    return matchEach(events, plan, result = { it }) { e ->
-        bestOfFirst(tierOf(e.title_, plan)) { tierOf(e.location, plan) }
+    return matchEach(events, plan, result = { it.toResult() }) { e ->
+        bestOfFirst(tierOf(e.title, plan)) { tierOf(e.location, plan) }
     }
 }
 
@@ -335,7 +345,7 @@ fun QuickSearchIndex.matchSms(
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
     if (!searchSettings.searchSms || !smsReady()) return emptyList()
-    return matchEach(smsList, plan, result = { it }) { m ->
+    return matchEach(smsList, plan, result = { it.toResult() }) { m ->
                 bestOfFirst(tierOf(m.address, plan)) { tierOf(m.body, plan) }
     }
 }
@@ -345,7 +355,7 @@ fun QuickSearchIndex.matchCalls(
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
     if (!searchSettings.searchCalls || !callsReady()) return emptyList()
-    return matchEach(callList, plan, result = { it }) { c ->
+    return matchEach(callList, plan, result = { it.toResult() }) { c ->
         bestOfFirst(tierOf(c.name, plan)) { tierOf(c.number, plan) }
     }
 }
@@ -374,10 +384,10 @@ fun matchClipPool(
 ): List<RankedHit> {
     if (pinned.isEmpty() && history.isEmpty()) return emptyList()
     // 固定源内置顶：usage=1.0 > 历史的 0.0，同 tier/offset 下固定排前。
-    val pinnedHits = matchEach(pinned, plan, result = { QuickSearchResult.ClipEntry(it) }, usage = { 1.0 }) { clip ->
+    val pinnedHits = matchEach(pinned, plan, result = { clipResult(it) }, usage = { 1.0 }) { clip ->
         tierOf(clip.take(64), plan)
     }
-    val historyHits = matchEach(history, plan, result = { QuickSearchResult.ClipEntry(it) }) { clip ->
+    val historyHits = matchEach(history, plan, result = { clipResult(it) }) { clip ->
         tierOf(clip.take(64), plan)
     }
     // 空白剪贴命不中（空文本 vs 非空 token 必 NO_MATCH），无需额外过滤。
@@ -388,8 +398,8 @@ fun matchClipPool(
 
 /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
  *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
-private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSearchResult> =
-    results.sortedWith(RANK_COMPARATOR).map { it.result }
+private fun QuickSearchIndex.sortHits(results: List<RankedHit>): List<RankedHit> =
+    results.sortedWith(RANK_COMPARATOR)
 
 /**
  * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。
@@ -404,7 +414,7 @@ private fun QuickSearchIndex.parseDirective(
         searchSettings: QuickSearchSettings,
         engines: List<SearchEngine>,
         clips: ClipPools,
-    ): List<QuickSearchResult>? {
+    ): List<SearchResult>? {
         if (trimmed.isEmpty()) return null
         val hasSpace = trimmed.contains(' ')
         val head = if (hasSpace) trimmed.substringBefore(' ') else trimmed
@@ -448,7 +458,7 @@ private fun QuickSearchIndex.searchInSource(
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         clips: ClipPools,
-    ): List<QuickSearchResult> {
+    ): List<SearchResult> {
         val tokens = tokenize(rest)
         if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(usageStats, searchSettings, clips = clips)) ?: emptyList()
         val context = contextOf(usageStats, searchSettings, raw = rest, clips = clips).copy(
@@ -456,7 +466,7 @@ private fun QuickSearchIndex.searchInSource(
         )
         // 开关关了但标识还在（极少）：注册表已 gate，空结果直接回（不回落全源，
         // 用户明确点了类，结果为空就是空）。定向搜索也套用与全源相同的单源上限。
-        return sortTriples(capHits(SearchSourceRegistry.match(source, context), MAX_HITS_PER_SOURCE, emptySet()))
+        return sortHits(capHits(SearchSourceRegistry.match(source, context), MAX_HITS_PER_SOURCE, emptySet())).map { it.result }
     }
 
     /** 裸标识：列出该类近项（cap 20，应用走常用 8）。无数据回 null → 全源。 */
@@ -465,14 +475,14 @@ fun QuickSearchIndex.bareSource(
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         clips: ClipPools,
-    ): List<QuickSearchResult>? {
-        val out: List<QuickSearchResult> = when (source) {
+    ): List<SearchResult>? {
+        val out: List<SearchResult> = when (source) {
             SRC_APP -> topUsed(usageStats)
-            SRC_SHORTCUT -> appData.shortcuts.map { QuickSearchResult.Shortcut(it) }.take(BARE_LIST_LIMIT)
-            SRC_ACTION -> actions.take(BARE_LIST_LIMIT)
-            SRC_CONTACT -> if (contactsReady()) contacts.take(BARE_LIST_LIMIT) else return null
+            SRC_SHORTCUT -> appData.shortcuts.map { it.toResult() }.take(BARE_LIST_LIMIT)
+            SRC_ACTION -> actions.take(BARE_LIST_LIMIT).map { it.toResult() }
+            SRC_CONTACT -> if (contactsReady()) contacts.take(BARE_LIST_LIMIT).map { it.toResult() } else return null
             SRC_MUSIC -> if (mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)) {
-                tracks.take(BARE_LIST_LIMIT)
+                tracks.take(BARE_LIST_LIMIT).map { it.toResult() }
             } else {
                 return null
             }
@@ -481,16 +491,16 @@ fun QuickSearchIndex.bareSource(
                 if (!calendarReady() || events.isEmpty()) return null
                 val now = System.currentTimeMillis()
                 val (upcoming, past) = events.partition { it.beginMillis >= now - 86400000L }
-                (upcoming + past).take(BARE_LIST_LIMIT)
+                (upcoming + past).take(BARE_LIST_LIMIT).map { it.toResult() }
             }
-            SRC_SMS -> if (smsReady() && smsList.isNotEmpty()) smsList.take(BARE_LIST_LIMIT) else return null
-            SRC_CALL -> if (callsReady() && callList.isNotEmpty()) callList.take(BARE_LIST_LIMIT) else return null
+            SRC_SMS -> if (smsReady() && smsList.isNotEmpty()) smsList.take(BARE_LIST_LIMIT).map { it.toResult() } else return null
+            SRC_CALL -> if (callsReady() && callList.isNotEmpty()) callList.take(BARE_LIST_LIMIT).map { it.toResult() } else return null
             SRC_CLIP -> {
                 // 标识页：固定全列打头，历史去重补到上限。
-                val pinned = clips.pinned.map { QuickSearchResult.ClipEntry(it) }
+                val pinned = clips.pinned.map { clipResult(it) }
                 val rest = clips.history.filter { it !in clips.pinned }
                     .take((BARE_LIST_LIMIT - pinned.size).coerceAtLeast(0))
-                    .map { QuickSearchResult.ClipEntry(it) }
+                    .map { clipResult(it) }
                 pinned + rest
             }
             else -> return null
@@ -520,10 +530,10 @@ private fun QuickSearchIndex.engineTriple(
         if (directed != null) return RankedHit(directed, -1, 0, 0, 0.0)
         val default = engines.firstOrNull() ?: return null
         return RankedHit(
-            QuickSearchResult.EngineSearch(
-                query,
-                context.getString(R.string.quick_search_engine_search, default.name),
-                default,
+            engineResultRow(
+                title = context.getString(R.string.quick_search_engine_search, default.name),
+                query = query,
+                engine = default,
             ),
             -1,
             0,
@@ -539,7 +549,7 @@ private fun QuickSearchIndex.engineTriple(
 private fun QuickSearchIndex.directedEngine(
         query: String,
         engines: List<SearchEngine>,
-    ): QuickSearchResult.EngineSearch? {
+    ): SearchResult? {
         val rest = query.substringAfter(' ', "")
         if (rest.isBlank()) return null
         val head = query.substringBefore(' ')
@@ -548,10 +558,10 @@ private fun QuickSearchIndex.directedEngine(
         val target = engines
             .lastOrNull { it.trigger.isNotBlank() && it.trigger.equals(head, ignoreCase = true) }
             ?: return null
-        return QuickSearchResult.EngineSearch(
-            rest.trim(),
-            context.getString(R.string.quick_search_engine_search, target.name),
-            target,
+        return engineResultRow(
+            title = context.getString(R.string.quick_search_engine_search, target.name),
+            query = rest.trim(),
+            engine = target,
         )
     }
 
@@ -563,7 +573,7 @@ private fun QuickSearchIndex.directedEngine(
 private val calcChars = Regex("^[0-9+\\-*/().%\\s]+$")
 private val DOMAIN_REGEX = Regex("^[^\\s]+\\.[^\\s]{2,}.*$")
 
-private fun QuickSearchIndex.calculatorResult(query: String): QuickSearchResult.Calc? {
+private fun QuickSearchIndex.calculatorResult(query: String): SearchResult? {
         if (query.length < 3 || !calcChars.matches(query)) return null
         if (!query.any { it.isDigit() } || !query.any { it in "+-*/%" }) return null
         val value = runCatching { evalExpr(query) }.getOrNull() ?: return null
@@ -573,7 +583,7 @@ private fun QuickSearchIndex.calculatorResult(query: String): QuickSearchResult.
         } else {
             value.toString()
         }
-        return QuickSearchResult.Calc(query, text)
+        return calcResultRow(query, text)
     }
 
     /** 递归下降四则运算：expr → term → factor（成员函数互递归，用小类装位置状态）。 */
@@ -637,11 +647,11 @@ private class ExprParser(val t: String) {
     }
 }
 
-private fun QuickSearchIndex.urlResult(query: String): QuickSearchResult.Url? {
+private fun QuickSearchIndex.urlResult(query: String): SearchResult? {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return null
         val hasScheme = trimmed.contains("://")
         val looksLikeDomain = trimmed.contains('.') && !trimmed.contains(' ')
             && DOMAIN_REGEX.matches(trimmed)
-        return if (hasScheme || looksLikeDomain) QuickSearchResult.Url(trimmed) else null
+        return if (hasScheme || looksLikeDomain) urlResultRow(trimmed) else null
     }

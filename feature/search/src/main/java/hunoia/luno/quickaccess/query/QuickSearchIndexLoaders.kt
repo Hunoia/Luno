@@ -14,7 +14,7 @@ fun QuickSearchIndex.ensureContacts() {
     if (contactsLoaded) return
     contactsLoaded = true
     if (!hasContactsPermission()) return
-    val list = mutableListOf<QuickSearchResult.Contact>()
+    val list = mutableListOf<ContactRow>()
     runCatching {
         val uri = android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI
         val projection = arrayOf(
@@ -38,7 +38,7 @@ fun QuickSearchIndex.ensureContacts() {
                 val name = cursor.getString(nameIdx)?.trim().orEmpty()
                 val number = cursor.getString(numIdx)?.trim().orEmpty()
                 if (name.isNotEmpty() && number.isNotEmpty()) {
-                    list.add(QuickSearchResult.Contact(name, number))
+                    list.add(ContactRow(name, number))
                 }
             }
         }
@@ -85,7 +85,7 @@ fun QuickSearchIndex.ensureMedia(
     val videoOk = loadGallery && hasMediaPermission(android.Manifest.permission.READ_MEDIA_VIDEO)
     if (audioOk && !audioTried) {
         audioTried = true
-        val list = mutableListOf<QuickSearchResult.AudioTrack>()
+        val list = mutableListOf<AudioTrackRow>()
         runCatching {
             val uri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
             val projection = arrayOf(
@@ -104,7 +104,7 @@ fun QuickSearchIndex.ensureMedia(
                     val id = c.getLong(idIdx)
                     val artist = c.getString(artistIdx)?.trim().orEmpty()
                     val contentUri = android.content.ContentUris.withAppendedId(uri, id).toString()
-                    list.add(QuickSearchResult.AudioTrack(title, artist, contentUri))
+                    list.add(AudioTrackRow(title, artist, contentUri))
                 }
             }
         }
@@ -116,7 +116,7 @@ fun QuickSearchIndex.ensureMedia(
     }
     if ((imageOk || videoOk) && !galleryTried) {
         galleryTried = true
-        val list = mutableListOf<QuickSearchResult.ImageVideo>()
+        val list = mutableListOf<MediaFileRow>()
         runCatching {
             val uri = android.provider.MediaStore.Files.getContentUri("external")
             val projection = arrayOf(
@@ -146,7 +146,7 @@ fun QuickSearchIndex.ensureMedia(
                     val mime = c.getString(mimeIdx).orEmpty()
                     val bucket = c.getString(bucketIdx)?.trim().orEmpty()
                     val contentUri = android.content.ContentUris.withAppendedId(uri, id).toString()
-                    list.add(QuickSearchResult.ImageVideo(name, bucket, contentUri, mime, c.getLong(modIdx)))
+                    list.add(MediaFileRow(name, bucket, contentUri, mime, c.getLong(modIdx)))
                 }
             }
         }
@@ -155,7 +155,7 @@ fun QuickSearchIndex.ensureMedia(
     }
     if (loadDocs && hasAllFilesAccess() && !docsTried) {
         docsTried = true
-        val list = mutableListOf<QuickSearchResult.DocFile>()
+        val list = mutableListOf<DocFileRow>()
         runCatching {
             val uri = android.provider.MediaStore.Files.getContentUri("external")
             val projection = arrayOf(
@@ -181,7 +181,7 @@ fun QuickSearchIndex.ensureMedia(
                     val mime = c.getString(mimeIdx).orEmpty()
                     val sizeText = formatSize(c.getLong(sizeIdx))
                     val contentUri = android.content.ContentUris.withAppendedId(uri, id).toString()
-                    list.add(QuickSearchResult.DocFile(name, sizeText, contentUri, mime, c.getLong(modIdx)))
+                    list.add(DocFileRow(name, sizeText, contentUri, mime, c.getLong(modIdx)))
                 }
             }
         }
@@ -238,7 +238,7 @@ fun QuickSearchIndex.ensureCalendar() {
     if (calendarTried) return
     calendarTried = true
     if (!hasMediaPermission(android.Manifest.permission.READ_CALENDAR)) return
-    val list = mutableListOf<QuickSearchResult.CalendarEvent>()
+    val list = mutableListOf<CalendarRow>()
     runCatching {
         val now = System.currentTimeMillis()
         val day = 86400000L
@@ -264,7 +264,7 @@ fun QuickSearchIndex.ensureCalendar() {
                 if (title.isEmpty()) continue
                 val begin = c.getLong(bIdx)
                 list.add(
-                    QuickSearchResult.CalendarEvent(
+                    CalendarRow(
                         title,
                         formatTime(begin),
                         c.getString(lIdx)?.trim().orEmpty(),
@@ -277,7 +277,7 @@ fun QuickSearchIndex.ensureCalendar() {
     }
     events = list.distinctBy { it.eventId to it.timeText }
     for (e in events) {
-        AppSearch.buildIndex(e.title_)
+        AppSearch.buildIndex(e.title)
         AppSearch.buildIndex(e.location)
     }
     }
@@ -287,7 +287,7 @@ fun QuickSearchIndex.ensureSms() {
     if (smsTried) return
     smsTried = true
     if (!hasMediaPermission(android.Manifest.permission.READ_SMS)) return
-    val list = mutableListOf<QuickSearchResult.SmsMsg>()
+    val list = mutableListOf<SmsRow>()
     runCatching {
         val uri = android.provider.Telephony.Sms.Inbox.CONTENT_URI
         val proj = arrayOf(
@@ -305,7 +305,7 @@ fun QuickSearchIndex.ensureSms() {
                 val body = c.getString(bIdx)?.trim().orEmpty()
                 if (body.isEmpty()) continue
                 list.add(
-                    QuickSearchResult.SmsMsg(
+                    SmsRow(
                         c.getString(aIdx)?.trim().orEmpty(),
                         body,
                         formatTime(c.getLong(dIdx)),
@@ -326,7 +326,7 @@ fun QuickSearchIndex.ensureCalls() {
     if (callsTried) return
     callsTried = true
     if (!hasMediaPermission(android.Manifest.permission.READ_CALL_LOG)) return
-    val list = mutableListOf<QuickSearchResult.CallLogEntry>()
+    val list = mutableListOf<CallRow>()
     runCatching {
         val uri = android.provider.CallLog.Calls.CONTENT_URI
         val proj = arrayOf(
@@ -353,7 +353,7 @@ fun QuickSearchIndex.ensureCalls() {
                     else -> ""
                 }
                 list.add(
-                    QuickSearchResult.CallLogEntry(
+                    CallRow(
                         c.getString(nIdx)?.trim().orEmpty(),
                         number,
                         typeText,
@@ -370,20 +370,22 @@ fun QuickSearchIndex.ensureCalls() {
     }
     }
 
+/** 通话/日历行的时间格式化：cursor 循环里逐条调，构造一次复用（SDF 内部要建 Calendar）。 */
+private val rowTimeFormat = java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.getDefault())
+
 private fun QuickSearchIndex.formatTime(millis: Long): String = runCatching {
-    java.text.SimpleDateFormat("M月d日 HH:mm", java.util.Locale.getDefault())
-        .format(java.util.Date(millis))
+    rowTimeFormat.format(java.util.Date(millis))
     }.getOrDefault("")
 
     /**
      * 最近文件（空态段）：图库 + 文档按修改时间倒序取前 N。只排序内存，不碰 MediaStore；
      * 权限走快照（每次 4 次 IPC → 0）。
      */
-fun QuickSearchIndex.recentFiles(limit: Int = 10): List<QuickSearchResult> {
-    val out = mutableListOf<Pair<Long, QuickSearchResult>>()
+fun QuickSearchIndex.recentFiles(limit: Int = 10): List<SearchResult> {
+    val out = mutableListOf<Pair<Long, SearchResult>>()
     val galleryOk = permSnapshot.mediaImage || permSnapshot.mediaVideo
-    if (galleryOk) for (f in mediaFiles) out.add(f.modified to f)
-    if (permSnapshot.allFiles) for (d in docs) out.add(d.modified to d)
+    if (galleryOk) for (f in mediaFiles) out.add(f.modified to f.toResult())
+    if (permSnapshot.allFiles) for (d in docs) out.add(d.modified to d.toResult())
     return out.sortedByDescending { it.first }.take(limit).map { it.second }
     }
 

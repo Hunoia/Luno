@@ -2,20 +2,16 @@ package hunoia.luno.runtime
 
 import android.app.Application
 import android.content.Context
-import android.content.Intent
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.dispatcher.ActionDispatcher
-import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
-import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.ActionDispatchPort
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.AwaitableActionDispatch
@@ -194,94 +190,26 @@ object SurfaceActionRuntime {
                 ?.takeIf { it.isNotBlank() }
     }
 
-    private fun surfaces(context: Context): SurfaceHost = object : SurfaceHost {
-        private val launcher by lazy { appLauncher(context) }
+    /**
+     * 直派发上下文的 Surface 端口：共享转发在 [SurfaceHostBridge]（launcher 在首次使用时才建）。
+     * 本上下文没有无障碍服务窗口：面板存在性恒真、显隐 / 触钮 / 指针 / 音量刮擦钩子一律静默不作用。
+     */
+    private fun surfaces(context: Context): SurfaceHost {
+        val launcher by lazy { appLauncher(context) }
+        return object : SurfaceHostBridge(context, { launcher }) {
+            // Surface 直派发的面板动作不在这里做存在性预检：真正的渲染入口会自行收口悬空 id。
+            override fun gridPanelExists(panelId: String): Boolean = true
 
-        override fun showQuickSearch() {
-            hunoia.luno.quickaccess.QuickSearchActivity.start(context)
+            override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = false
+            override fun showPointer(): Boolean = false
+            override fun hideGestureButton(buttonId: String, delayMs: Long) = Unit
+
+            override suspend fun previousApp() = Unit
+
+            override fun hideTriggerButton(buttonId: String) = Unit
+
+            override fun toggleFloatBallHide() = Unit
         }
-
-        override fun showSpeechRecognition(): Boolean {
-            hunoia.luno.quickaccess.SpeechRecognitionActivity.start(context)
-            return true
-        }
-
-        override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) {
-            hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
-        }
-
-        // Surface 直派发的面板动作不在这里做存在性预检：真正的渲染入口会自行收口悬空 id。
-        override fun gridPanelExists(panelId: String): Boolean = true
-
-        override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = false
-        override fun showPointer(): Boolean = false
-        override fun hideGestureButton(buttonId: String, delayMs: Long) = Unit
-
-        override suspend fun previousApp() = Unit
-
-        override suspend fun launchApp(spec: LaunchSpec): Boolean = launcher.launch(spec)
-
-        override suspend fun openUrl(
-            url: String,
-            miniWindow: Boolean,
-            queryParameters: List<QueryParam>,
-            anchor: Pair<Int, Int>?,
-        ): Boolean = launcher.openUrl(url, miniWindow, queryParameters, anchor)
-
-        override suspend fun launchShortcut(dataJson: String): Boolean =
-            launcher.launchShortcut(dataJson)
-
-        override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
-            launcher.openAppDetails(packageName, userId)
-
-        override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
-            launcher.launchInPopup(packageName, anchor)
-
-        override suspend fun launchMiniWindow(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
-            launcher.launchMiniWindow(packageName, anchor)
-
-        override fun shareFile(): ActionResult = runCatching {
-            context.startActivity(
-                Intent(context, hunoia.luno.ui.share.ShareFilePickActivity::class.java).apply {
-                    action = hunoia.luno.ui.share.ShareFilePickActivity.ACTION_SHARE
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-            )
-            ActionResult.Success()
-        }.getOrElse { e ->
-            ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
-        }
-
-        override fun showScreenPick(): Boolean =
-            hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
-
-        override fun showScreenPickPortal(x: Int, y: Int, sessionId: String?): Boolean =
-            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(x, y, sessionId) == true
-
-        override fun showScreenAnnotate(): Boolean =
-            hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
-
-        override fun openImageAnnotate(): Boolean =
-            hunoia.luno.annotate.ImageAnnotateActivity.startPicker(context)
-
-        override fun openPhotoRecognize(): Boolean =
-            hunoia.luno.ui.photo.PhotoRecognizeActivity.start(context)
-
-        override fun openGalleryRecognize(): Boolean =
-            hunoia.luno.ui.photo.PhotoRecognizeActivity.startGallery(context)
-
-        override fun showOcrSegmentText(text: String): Boolean =
-            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(context, text)
-
-        override suspend fun showClipboardOcr(
-            uri: android.net.Uri,
-            mimeType: String,
-        ): hunoia.luno.core.domain.ActionResult =
-            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchImage(context, uri, mimeType)
-
-        override fun hideTriggerButton(buttonId: String) = Unit
-
-        override fun toggleFloatBallHide() = Unit
     }
 
     private fun appLauncher(context: Context): DefaultAppLauncher = DefaultAppLauncher(

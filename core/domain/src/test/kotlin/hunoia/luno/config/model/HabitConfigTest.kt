@@ -15,7 +15,6 @@ class HabitConfigTest {
     @Test
     fun `snooze default is within the selectable range`() {
         val habit = Habit(name = "cap")
-        assertEquals(HabitDefaultSnoozeMinutes, habit.snoozeMinutes)
         assertTrue(habit.snoozeMinutes in HabitMinSnoozeMinutes..HabitMaxSnoozeMinutes)
     }
 

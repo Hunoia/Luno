@@ -349,6 +349,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /**
      * 悬浮球点按动作统一转发入口：动作分类在容器（见 GestureCoordinator.forwardBallTap）。
+     * 网格面板项的点按也走这里（GestureCommand.forwardPanelTap 安装为同一入口）：
+     * 与球点按同一条锚点链（BallTapActionEvent → 容器 runGestureActions 分类），
+     * 子手势/音量刮擦/嵌套弧形面板项因此自动获得正确语义。
+     * 面板浮窗自身没有手势会话（SAW 窗口，宿主是 a11y 服务），绝不能绕过容器直发。
      */
     fun forwardBallTap(
         action: StoredAction,
@@ -361,19 +365,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
         return true
     }
-
-    /**
-     * 网格面板项的点按转发：与球点按走同一条锚点链（BallTapActionEvent → 容器
-     * runGestureActions 分类），子手势/音量刮擦/嵌套弧形面板项因此自动获得正确语义。
-     * 面板浮窗自身没有手势会话（SAW 窗口，宿主是 a11y 服务），绝不能绕过容器直发。
-     */
-    fun forwardPanelTap(
-        action: StoredAction,
-        anchorX: Int,
-        anchorY: Int,
-        colorSpec: ColorSpec,
-        foregroundHint: String?,
-    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec, foregroundHint)
 
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
@@ -413,7 +404,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             forwardBallTap(action, anchorX, anchorY, colorSpec)
         }
         hunoia.luno.runtime.surface.GestureCommand.forwardPanelTap = { action, x, y, colorSpec, foregroundHint ->
-            forwardPanelTap(action, x, y, colorSpec, foregroundHint)
+            forwardBallTap(action, x, y, colorSpec, foregroundHint)
         }
         // 网格面板是全屏浮层，挂上之后无障碍 `windows` 会变空；面板 show() 时先快照一次。
         hunoia.luno.runtime.surface.GestureCommand.snapshotForegroundApp = { getCurrentAppForWindow() }

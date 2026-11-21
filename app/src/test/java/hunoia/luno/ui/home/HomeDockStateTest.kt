@@ -1,6 +1,5 @@
 package hunoia.luno.ui.home
 
-import hunoia.luno.ui.component.DefaultHomeDockSide
 import hunoia.luno.ui.component.HomeDockSide
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -11,11 +10,6 @@ import org.junit.Test
  * 收起球显示哪一页，点它就切到哪一页；左球在组外固定回主页，中球在组外回到上次记录页。
  */
 class HomeDockStateTest {
-
-    @Test
-    fun `首次进入默认展开主导航球`() {
-        assertEquals(HomeDockSide.NAV, DefaultHomeDockSide)
-    }
 
     @Test
     fun `六个页面分成两组`() {

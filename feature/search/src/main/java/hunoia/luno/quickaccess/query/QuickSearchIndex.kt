@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.quickaccess.QuickLaunchFacade
+import hunoia.luno.core.domain.ActionSearchEntry
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,20 +29,20 @@ data class AppIndexData(
  */
 class QuickSearchIndex(internal val context: Context) {
 
-    internal var actions: List<QuickSearchResult.ActionDef> = emptyList()
+    internal var actions: List<ActionSearchEntry> = emptyList()
     /** 应用/快捷方式/禁用包同代发布，避免读者拼出跨代数据。 */
     @Volatile internal var appData = AppIndexData()
     /** 联系人缓存：面板打开后在 IO 线程一次性加载，打字时只查内存。 */
-    internal var contacts: List<QuickSearchResult.Contact> = emptyList()
+    internal var contacts: List<ContactRow> = emptyList()
     @Volatile internal var defsLoaded = false
     @Volatile internal var appsLoaded = false
     @Volatile internal var contactsLoaded = false
 
     // ---- P3 媒体/文件：与联系人同一策略（面板打开 IO 一次加载，打字只查内存） ----
 
-    internal var tracks: List<QuickSearchResult.AudioTrack> = emptyList()
-    internal var mediaFiles: List<QuickSearchResult.ImageVideo> = emptyList()
-    internal var docs: List<QuickSearchResult.DocFile> = emptyList()
+    internal var tracks: List<AudioTrackRow> = emptyList()
+    internal var mediaFiles: List<MediaFileRow> = emptyList()
+    internal var docs: List<DocFileRow> = emptyList()
     // 分源 loaded：后授权回来要补装，没试过的源才试，已试过的不重复查库。
     @Volatile internal var audioTried = false
     @Volatile internal var galleryTried = false
@@ -49,9 +50,9 @@ class QuickSearchIndex(internal val context: Context) {
 
     // ---- 日历/短信/通话：与联系人同一策略（IO 一次加载，打字只查内存） ----
 
-    internal var events: List<QuickSearchResult.CalendarEvent> = emptyList()
-    internal var smsList: List<QuickSearchResult.SmsMsg> = emptyList()
-    internal var callList: List<QuickSearchResult.CallLogEntry> = emptyList()
+    internal var events: List<CalendarRow> = emptyList()
+    internal var smsList: List<SmsRow> = emptyList()
+    internal var callList: List<CallRow> = emptyList()
     @Volatile internal var calendarTried = false
     @Volatile internal var smsTried = false
     @Volatile internal var callsTried = false
@@ -123,9 +124,7 @@ class QuickSearchIndex(internal val context: Context) {
         // 先在局部变量里建好，再一次性发布：并发下不能出现「已加载但 actions 还是空」，
         // 否则搜应用名直接整表丢失。
         // 动作条目来自契约端口（architecture §9.4）：搜索不认识 ActionDefinitions。
-        val builtActions = hunoia.luno.search.SearchCapabilities.actionSearch.index().map { entry ->
-            QuickSearchResult.ActionDef(entry.action, entry.label, entry.icon)
-        }
+        val builtActions = hunoia.luno.search.SearchCapabilities.actionSearch.index()
         synchronized(loadLock) {
             if (defsLoaded) return
             actions = builtActions
