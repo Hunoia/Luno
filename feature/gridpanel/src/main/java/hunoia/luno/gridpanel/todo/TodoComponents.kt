@@ -5,14 +5,12 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,9 +38,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.feedback.LunoLinearProgress
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.MinInteractiveSize
+import hunoia.luno.ui.theme.ProgressBarHeight
 import hunoia.luno.ui.theme.MotionSubtle
 
 /*
@@ -162,24 +162,13 @@ fun TodoProgressHeader(
             }
         }
         Spacer(Modifier.height(6.dp))
-        // 进度线：轨道常驻；fillMaxWidth 不接受 0，未完成任何一项时不画填充。
-        Box(
-            Modifier
+        // 进度线：波浪确定进度（M3 1.5 expressive），轨道常驻；组件自带 0 进度态。
+        LunoLinearProgress(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(3.dp)
-                .clip(CircleShape)
-                .background(scheme.surfaceContainerHighest),
-        ) {
-            if (progress > 0f) {
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress.coerceAtMost(1f))
-                        .clip(CircleShape)
-                        .background(scheme.primary),
-                )
-            }
-        }
+                .height(ProgressBarHeight),
+        )
     }
 }
 

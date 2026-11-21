@@ -14,8 +14,6 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +55,6 @@ import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.gesture.settings.GestureActionTarget
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubGestureSettingsScreen(
     onBack: () -> Unit,
@@ -67,7 +64,6 @@ fun SubGestureSettingsScreen(
     var showGestureAngles by remember { mutableStateOf(false) }
     var showSubVibrationSettings by remember { mutableStateOf(false) }
     var showSubTriggerDistanceSettings by remember { mutableStateOf(false) }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
     UDFComponent<SubGestureSettingsUiState, SubGestureSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {

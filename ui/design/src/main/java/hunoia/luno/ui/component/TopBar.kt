@@ -12,7 +12,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +42,7 @@ fun TopBar(
     titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
     postfixTitle: (@Composable () -> Unit)? = null,
     titleContent: (@Composable () -> Unit)? = null,
-    scrollBehavior: TopAppBarScrollBehavior = exitUntilCollapsedScrollBehavior(),
+    scrollBehavior: TopAppBarScrollBehavior,
     hazeState: HazeState? = null,
 ) {
     val surfaceColor = hazeSurfaceColor()

@@ -4,6 +4,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -41,6 +42,9 @@ fun AppTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
+            // M3 1.5 Expressive 动效语义：sheet / menu / chip / switch / FAB 的内部 morph
+            // 统一走 expressive 曲线（ui-guidelines §5.1）。Luno 自己的 Motion* 档位不受影响。
+            motionScheme = MotionScheme.expressive(),
             // M3 Shapes 要求 CornerBasedShape，不能用 Shape 类型的 token；同一档位在此重建一次。
             shapes = Shapes(
                 extraSmall = SquircleShape(ShapeExtraSmall, ContainerSmoothing),

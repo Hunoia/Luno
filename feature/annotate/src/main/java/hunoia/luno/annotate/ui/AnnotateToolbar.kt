@@ -50,6 +50,7 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -272,14 +273,24 @@ fun StylePanel(
                             onClick = { document.setActiveShape(shape) },
                         )
                     }
-                    CompactIconButton(
-                        icon = Icons.Default.FormatColorFill,
-                        label = stringResource(R.string.annotate_shape_fill),
-                        selected = style.shapeFilled,
-                        onClick = {
-                            document.updateStyle(tool, style.copy(shapeFilled = !style.shapeFilled))
+                    ToggleButton(
+                        checked = style.shapeFilled,
+                        onCheckedChange = {
+                            document.updateStyle(tool, style.copy(shapeFilled = it))
                         },
-                    )
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.FormatColorFill,
+                                contentDescription = null,
+                                modifier = Modifier.size(CompactControlIconSize),
+                            )
+                        },
+                    ) {
+                        Text(
+                            text = stringResource(R.string.annotate_shape_fill),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
                 }
                 ColorPaletteRow(
                     style = style,

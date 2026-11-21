@@ -29,6 +29,8 @@ val BadgeIconSize = 16.dp
 val AppIconDecodeSize = 96.dp
 val TopBarPaddingExtra = 8.dp
 val TopBarTitlePadding = 12.dp
+/** 波浪进度条高度：小于此值波幅没有空间，只适合平条。 */
+val ProgressBarHeight = 12.dp
 
 // Layout spacing
 val PageGutter = 16.dp

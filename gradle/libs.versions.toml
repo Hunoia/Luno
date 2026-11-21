@@ -1,5 +1,5 @@
 [versions]
-agp = "9.5.1"
+agp = "9.5.2"
 kotlin = "2.4.21"
 coreKtx = "1.19.1"
 lifecycleRuntimeKtx = "2.11.1"
@@ -66,7 +66,7 @@ androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", ve
 androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", version.ref = "composeTrain" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "composeTrain" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version.ref = "composeTrain" }
-androidx-compose-material-ripple = { group = "androidx.compose.material", name = "material-ripple", version.ref = "composeTrain" }
+androidx-compose-material3-ripple = { group = "androidx.compose.material3", name = "material3-ripple", version.ref = "material3" }
 
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIcons" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }

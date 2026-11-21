@@ -26,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.LargeShape
 
 /**
  * M3 按钮族的统一包装：**保留 M3 视觉与语义，只把点击反馈换成按压缩放**。
@@ -40,24 +42,26 @@ fun PressButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = ButtonDefaults.shape,
+    // 按钮默认形状走 Luno 胶囊角色（§2.1.1）：M3 默认是半圆，和主题的 squircle 不一致。
+    shape: Shape = CapsuleShape,
     colors: ButtonColors = ButtonDefaults.buttonColors(),
     elevation: ButtonElevation? = ButtonDefaults.buttonElevation(),
     border: BorderStroke? = null,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    interactionSource: MutableInteractionSource? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
+    val source = interactionSource ?: remember { MutableInteractionSource() }
     Button(
         onClick = onClick,
-        modifier = modifier.pressScale(interactionSource),
+        modifier = modifier.pressScale(source),
         enabled = enabled,
         shape = shape,
         colors = colors,
         elevation = elevation,
         border = border,
         contentPadding = contentPadding,
-        interactionSource = interactionSource,
+        interactionSource = source,
         content = content,
     )
 }
@@ -67,7 +71,7 @@ fun PressFilledTonalButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = ButtonDefaults.shape,
+    shape: Shape = CapsuleShape,
     colors: ButtonColors = ButtonDefaults.filledTonalButtonColors(),
     elevation: ButtonElevation? = ButtonDefaults.buttonElevation(),
     border: BorderStroke? = null,
@@ -94,7 +98,7 @@ fun PressTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = ButtonDefaults.shape,
+    shape: Shape = CapsuleShape,
     colors: ButtonColors = ButtonDefaults.textButtonColors(),
     elevation: ButtonElevation? = null,
     border: BorderStroke? = null,
@@ -160,7 +164,7 @@ fun PressFilledIconButton(
 fun PressFloatingActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    shape: Shape = FloatingActionButtonDefaults.shape,
+    shape: Shape = LargeShape,
     containerColor: Color = FloatingActionButtonDefaults.containerColor,
     contentColor: Color = androidx.compose.material3.contentColorFor(containerColor),
     elevation: FloatingActionButtonElevation = FloatingActionButtonDefaults.elevation(),
@@ -188,7 +192,7 @@ fun PressFilterChip(
     enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
-    shape: Shape = FilterChipDefaults.shape,
+    shape: Shape = CapsuleShape,
     colors: SelectableChipColors = FilterChipDefaults.filterChipColors(),
     elevation: SelectableChipElevation? = FilterChipDefaults.filterChipElevation(),
     border: BorderStroke? = FilterChipDefaults.filterChipBorder(

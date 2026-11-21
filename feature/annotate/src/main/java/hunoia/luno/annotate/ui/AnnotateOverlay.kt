@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -57,6 +56,7 @@ import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
+import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.annotate.screenshot.AnnotateScreenshot
 import hunoia.luno.annotate.store.AnnotateSettingsStore
 import hunoia.luno.annotate.store.flushAnnotateSettings
@@ -295,7 +295,7 @@ class AnnotateOverlay(
                                         .background(Color.Black.copy(alpha = 0.25f)),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    CircularProgressIndicator()
+                                    LunoLoadingIndicator()
                                 }
                             }
                         }

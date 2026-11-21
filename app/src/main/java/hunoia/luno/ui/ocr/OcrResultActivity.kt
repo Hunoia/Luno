@@ -67,7 +67,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -127,6 +126,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.capability.ocr.OcrLine
 import hunoia.luno.capability.ocr.OcrTokenizer
 import hunoia.luno.quickaccess.QuickSearchActivity
+import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
 import hunoia.luno.ui.component.selection.resized
@@ -684,9 +684,8 @@ private fun OcrResultScreen(
                                             .heightIn(min = 80.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        CircularProgressIndicator(
+                                        LunoLoadingIndicator(
                                             modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp,
                                         )
                                     }
                                 } else if (
@@ -1424,9 +1423,8 @@ private fun EditAction(
         modifier = Modifier.size(SubMinInteractiveSize),
     ) {
         if (pending) {
-            CircularProgressIndicator(
+            LunoLoadingIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
             )
         } else {
             AnimatedContent(

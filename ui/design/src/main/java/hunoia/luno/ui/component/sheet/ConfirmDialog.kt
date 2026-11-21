@@ -12,7 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -208,13 +209,14 @@ fun TextInputDialog(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        OutlinedTextField(
+        TextField(
             value = textValue,
             onValueChange = { textValue = it },
             label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
             singleLine = true,
             isError = isError,
             shape = LargeShape,
+            colors = TextFieldDefaults.tonalColors(),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester),

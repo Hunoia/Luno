@@ -159,9 +159,9 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
-    // 显式声明防传递依赖把 material-ripple 钉在旧版本（M3 自己声明的是 1.12.0 基线，
-    // 而 fastcompose 一带进来的 M3 1.3.1 会拉到 1.7 线）；与 composeTrain 对齐。
-    implementation(libs.androidx.compose.material.ripple)
+    // 显式声明防传递依赖把 ripple 钉在旧版本；M3 1.5 起指示体系在 material3-ripple
+    // （inset focus ring 等），与 material3 同版本对齐。
+    implementation(libs.androidx.compose.material3.ripple)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -41,7 +40,6 @@ fun LunoFab(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(end = 16.dp, bottom = 16.dp)
                     .size(64.dp),
-                shape = FloatingActionButtonDefaults.shape,
                 containerColor = containerColor,
                 contentColor = contentColor ?: androidx.compose.material3.contentColorFor(containerColor),
             ) {

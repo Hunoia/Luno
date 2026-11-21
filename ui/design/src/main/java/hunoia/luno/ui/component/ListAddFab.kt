@@ -45,7 +45,6 @@ fun ListAddFab(
             PressFloatingActionButton(
                 onClick = onClick,
                 modifier = Modifier.size(FabSize),
-                shape = FloatingActionButtonDefaults.shape,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 0.dp,

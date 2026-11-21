@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,6 +28,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.gridpanel.R
@@ -153,9 +153,8 @@ fun WidgetStateOverlay(state: WidgetLoadState, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            CircularProgressIndicator(
+            LunoLoadingIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

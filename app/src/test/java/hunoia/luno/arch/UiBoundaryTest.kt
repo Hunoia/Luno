@@ -154,8 +154,33 @@ class UiBoundaryTest {
     }
 
     @Test
-    fun `滑杆手势只在 ui design 封装里实现`() {
-        // 所有滑杆必须走 LunoSlider：只认横向拖动、点按不跳值、纵向交给父级滚动
+    fun `加载与进度指示器只在 ui design 封装里实现`() {
+        // 所有加载 / 进度指示器走 LunoLoadingIndicator / LunoLinearProgress（ui-guidelines §4.5）：
+        // 页面 / feature 直接引 M3 指示器会又出现「一处圆环、一处波浪」。实验性的
+        // LoadingIndicator / MaterialShapes 也只允许在 ui design 出现（UiBoundaryTest 拦截泄漏）。
+        val designRoot = "ui/design/src/main/java/"
+        val forbidden = setOf(
+            "androidx.compose.material3.CircularProgressIndicator",
+            "androidx.compose.material3.LinearProgressIndicator",
+            "androidx.compose.material3.CircularWavyProgressIndicator",
+            "androidx.compose.material3.LinearWavyProgressIndicator",
+            "androidx.compose.material3.LoadingIndicator",
+            "androidx.compose.material3.ContainedLoadingIndicator",
+            "androidx.compose.material3.MaterialShapes",
+        )
+        val problems = productionFiles
+            .filterNot { it.repoPath().startsWith(designRoot) }
+            .flatMap { file ->
+                file.imports
+                    .map { it.name }
+                    .filter { it in forbidden }
+                    .map { "${file.repoPath()} 直接引用 M3 指示器 / 实验组件（走 LunoLoadingIndicator / LunoLinearProgress）" }
+            }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
+    fun `滑杆手势只在 ui design 封装里实现`() {        // 所有滑杆必须走 LunoSlider：只认横向拖动、点按不跳值、纵向交给父级滚动
         // （ui-guidelines §4.10）。页面直接引 M3 Slider 会绕过这层手势。
         // 设计系统内部可以组合 M3 Slider（如颜色滑块），页面 / feature 不得绕过封装。
         val designRoot = "ui/design/src/main/java/"

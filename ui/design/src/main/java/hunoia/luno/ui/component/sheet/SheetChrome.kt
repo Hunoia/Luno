@@ -1,14 +1,18 @@
 package hunoia.luno.ui.component.sheet
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -19,6 +23,7 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 
 /** 弹层标题行：左右边距由 [LunoSheet] 统一提供，这里只留纵向呼吸空间。 */
 @Composable
@@ -49,11 +54,13 @@ private fun SheetActionButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     PressButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = MinInteractiveSize),
         shape = LargeShape,
+        interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -74,12 +81,14 @@ fun SheetSingleActionButton(
     modifier: Modifier = Modifier,
     destructive: Boolean = false,
     enabled: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     PressButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = MinInteractiveSize),
         shape = LargeShape,
+        interactionSource = interactionSource,
         colors = if (destructive) {
             ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
@@ -107,17 +116,52 @@ fun SheetActionButtons(
     destructive: Boolean = false,
     confirmEnabled: Boolean = true,
 ) {
-    Row(
+    val dismissSource = remember { MutableInteractionSource() }
+    val confirmSource = remember { MutableInteractionSource() }
+    // M3 1.5 ButtonGroup：两枚按钮等宽连接，按下时被按的一枚变宽、另一枚压缩
+    // （ui-guidelines §4.4）。视觉仍用 Luno 的容器角色，不切到 M3 默认圆角。
+    ButtonGroup(
+        overflowIndicator = { ButtonGroupDefaults.OverflowIndicator(it) },
         modifier = modifier.fillMaxWidth(),
+        expandedRatio = 1f,
         horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {
-        SheetActionButton(text = dismissLabel, onClick = onDismiss, modifier = Modifier.weight(1f))
-        SheetSingleActionButton(
-            text = confirmLabel,
-            onClick = onConfirm,
-            modifier = Modifier.weight(1f),
-            destructive = destructive,
-            enabled = confirmEnabled,
+        customItem(
+            buttonGroupContent = {
+                SheetActionButton(
+                    text = dismissLabel,
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .animateWidth(dismissSource),
+                    interactionSource = dismissSource,
+                )
+            },
+            menuContent = {
+                LunoDropdownMenuItem(text = dismissLabel, onClick = onDismiss)
+            },
+        )
+        customItem(
+            buttonGroupContent = {
+                SheetSingleActionButton(
+                    text = confirmLabel,
+                    onClick = onConfirm,
+                    modifier = Modifier
+                        .weight(1f)
+                        .animateWidth(confirmSource),
+                    destructive = destructive,
+                    enabled = confirmEnabled,
+                    interactionSource = confirmSource,
+                )
+            },
+            menuContent = {
+                LunoDropdownMenuItem(
+                    text = confirmLabel,
+                    onClick = onConfirm,
+                    enabled = confirmEnabled,
+                    isError = destructive,
+                )
+            },
         )
     }
 }

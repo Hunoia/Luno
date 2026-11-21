@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -67,6 +66,7 @@ import hunoia.luno.annotate.R as AnnotateR
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
+import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.annotate.store.flushAnnotateSettings
 import hunoia.luno.annotate.store.observeAnnotateSettings
 import hunoia.luno.annotate.store.restoreAnnotateSettings
@@ -602,7 +602,7 @@ private fun ImageAnnotateScreen(
                     .background(Color.Black.copy(alpha = 0.25f)),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                LunoLoadingIndicator()
             }
         }
 

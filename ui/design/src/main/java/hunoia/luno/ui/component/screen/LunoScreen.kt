@@ -196,6 +196,7 @@ private fun LunoScreenScaffold(
         scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior,
     ) -> Unit,
 ) {
+    @Suppress("DEPRECATION")
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
     ClearFocusWhenImeHidden()
