@@ -308,6 +308,54 @@ def _test_class_names() -> set[str]:
     return names
 
 
+DOC_ALIASES = {
+    "architecture": "architecture",
+    "架构": "architecture",
+    "ui-guidelines": "ui-guidelines",
+    "archive": "archive",
+    "归档": "archive",
+}
+
+
+def _headings(path: Path) -> set[str]:
+    """章节号集合：`##` / `###` / `####` 的编号，支持多级（如 2.1.1）。"""
+    return set(re.findall(r"^#{2,4}\s+(\d+(?:\.\d+)*)", read(path), re.M))
+
+
+def check_spec_section_refs() -> list[str]:
+    """ui-guidelines / archive 的 `§N` 引用校验。
+
+    规则：同一行出现了文档名（architecture / ui-guidelines / archive）时，
+    该行的引用按**那些文档的并集**校验（跨文档引用）；否则只认本文档的章节。
+    这样既能抓住「§2.2 其实是 §1 第 1 条」这类错引，也不会误伤
+    「见 architecture §7.2」这种合法跨文档引用。
+    """
+    paths = [DOCS / "ui-guidelines.md", DOCS / "archive.md"]
+    heading_sets = {p.stem: _headings(p) for p in paths}
+    heading_sets.update({p.stem: _headings(p) for p in SPEC_FILES if p.is_file()})
+    errors: list[str] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        for lineno, line in enumerate(read(path).splitlines(), 1):
+            named = {stem for alias, stem in DOC_ALIASES.items() if alias in line}
+            allowed: set[str] = set()
+            if named:
+                for name in named:
+                    allowed |= heading_sets.get(name, set())
+            else:
+                allowed = heading_sets.get(path.stem, set())
+            if not allowed:
+                allowed = heading_sets.get(path.stem, set())
+            for ref in re.findall(r"§(\d+(?:\.\d+)*)", line):
+                if ref not in allowed:
+                    errors.append(
+                        f"{rel(path)}:{lineno}：引用了不存在的章节 §{ref}"
+                        + ("（跨文档）" if named else "")
+                    )
+    return errors
+
+
 def check_architecture_drift() -> list[str]:
     """规范正文漂移检查：实现路径、模块名、门禁类、章节引用。"""
     path = DOCS / "architecture.md"
@@ -390,6 +438,12 @@ def check() -> int:
     drift = check_architecture_drift()
     if drift:
         print("\n".join(drift))
+        print("\nspec docs check FAILED")
+        return 1
+
+    refs = check_spec_section_refs()
+    if refs:
+        print("\n".join(refs))
         print("\nspec docs check FAILED")
         return 1
     print("spec docs check OK")
