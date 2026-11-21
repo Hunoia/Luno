@@ -62,8 +62,8 @@
         errorLine1="        created.setOnTouchListener { v, event -> handleTouch(v, event) }"
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/hunoia/luno/runtime/floatball/SmartBubbleWindow.kt"
-            line="282"
+            file="src/main/java/hunoia/luno/runtime/floatball/BallCapsuleWindow.kt"
+            line="1221"
             column="9"/>
     </issue>
 
@@ -73,8 +73,8 @@
         errorLine1="        created.setOnTouchListener { v, event -> handleTouch(v, event) }"
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/hunoia/luno/runtime/floatball/SmartBubbleWindow.kt"
-            line="282"
+            file="src/main/java/hunoia/luno/runtime/floatball/BallCapsuleWindow.kt"
+            line="1221"
             column="36"/>
     </issue>
 

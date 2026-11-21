@@ -401,6 +401,7 @@ fun RecognitionSettingsScreen(
                 title = stringResource(R.string.recognition_read_group),
                 subtitle = stringResource(R.string.recognition_read_group_hint),
             ) {
+                // 读取来源与「命中后隐藏系统通知」两组开关在同一组里。
                 LunoSwitchRow(
                     title = stringResource(R.string.recognition_read_notification),
                     subtitle = stringResource(R.string.recognition_read_notification_hint),

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -579,8 +578,8 @@ private fun AnnotateOverlayChrome(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 8.dp)
-            // 长按工具条空白处拖动：贴边停靠由窗口坐标夹取保证。
+            // 长按工具条空白处拖动：位置按窗口坐标夹取不出屏，不持久化。
+            // 卡片贴屏边距由窗口宽（屏宽 − 2 × 16dp）提供，这里不再加横向 padding。
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragEnd = onDragEnd,

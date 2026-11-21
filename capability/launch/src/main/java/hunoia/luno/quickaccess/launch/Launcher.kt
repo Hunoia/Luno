@@ -60,6 +60,13 @@ object Launcher {
         extras: Map<String, String> = emptyMap(),
         userId: Int = 0,
         anchor: Pair<Int, Int>? = null,
+        /**
+         * 「单前台小窗」互换：小窗启动成功后把屏幕上已有的其他普通小窗恢复全屏。
+         *
+         * 只归「小窗当前应用」（app.popup，受「与已有小窗互换」开关控制）；
+         * 「小窗打开应用」（app.launch 的小窗）传 false，不动已有小窗。
+         */
+        swapExisting: Boolean = true,
     ): Boolean {
         val tLaunch = SystemClock.uptimeMillis()
         if (miniWindow) {
@@ -82,6 +89,7 @@ object Launcher {
                         miniWindowSettings = miniWindowSettings,
                         anchor = anchor,
                         tLaunch = tLaunch,
+                        swapExisting = swapExisting,
                     )) {
                         MiniReuseResult.Reused -> return@withContext true
                         MiniReuseResult.Toggled, MiniReuseResult.Switched -> {
@@ -144,9 +152,10 @@ object Launcher {
             }
             if (launched && miniWindow) {
                 scheduleScaleLearn(context, packageName)
-                // 切换/toggle 路径已自行处理旧小窗（切换恢复当前、toggle 关掉小窗），
-                // 不再 swap；复用/普通启动才把其他既有小窗恢复全屏（单前台小窗）。
-                if (!suppressSwap && miniWindowSettings.swapExisting) {
+                // 「小窗打开应用」不动已有小窗；「小窗当前应用」才按互换开关把
+                // 其他既有小窗恢复全屏（单前台小窗）。切换/toggle 路径已自行处理
+                // 旧小窗（切换恢复当前、toggle 关掉小窗），不再 swap。
+                if (!suppressSwap && swapExisting) {
                     scheduleSwapExistingWindows(context, packageName)
                 }
             }
@@ -493,6 +502,7 @@ object Launcher {
         miniWindowSettings: MiniWindowSettings,
         anchor: Pair<Int, Int>?,
         tLaunch: Long,
+        swapExisting: Boolean,
     ): MiniReuseResult {
         if (!ShizukuManager.currentStatus().isReady) {
             Log.i(LOG_TAG, "miniReuse skip shizuku-not-ready pkg=$packageName user=$userId")
@@ -517,7 +527,7 @@ object Launcher {
             tasks = tasks,
             packageName = packageName,
             userId = userId,
-            autoSwap = miniWindowSettings.swapExisting,
+            autoSwap = swapExisting,
             selfPackage = context.packageName,
         ) ?: return MiniReuseResult.NotHandled
         val target = plan.target
@@ -1004,6 +1014,9 @@ object Launcher {
     /**
      * 「小窗当前应用」：复用普通启动链路，主用户 / 分身 / 有分身的主应用都走同一套
      * ActivityOptions 与 XSpace 规避逻辑；userId 由 [currentUserIdForPackage] 判定。
+     *
+     * 与「小窗打开应用」分开：只有这条路径做「与已有小窗互换」（受
+     * [MiniWindowSettings.swapExisting] 控制），打开目标小窗时不动已有小窗。
      */
     suspend fun launchAppInPopup(
         context: Context,
@@ -1026,6 +1039,7 @@ object Launcher {
         extras = extras,
         userId = userId,
         anchor = anchor,
+        swapExisting = miniWindowSettings.swapExisting,
     )
 
     /**

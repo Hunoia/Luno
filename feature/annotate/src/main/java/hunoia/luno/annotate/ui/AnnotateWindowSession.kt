@@ -33,9 +33,14 @@ internal class AnnotateWindowSession(
     companion object {
         /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起），与其它无障碍 overlay 同源。 */
         private const val TRUSTED_OVERLAY_FLAG = 0x300000
-        private const val TOOLBAR_MARGIN_DP = 28
+        /**
+         * 工具卡默认贴屏边距（底边与左右各一个值），唯一事实源是主题层的
+         * `AnnotateCardEdgeMargin`；这里镜像数值只为做 px 换算（窗口会话拿不到 dp）。
+         */
+        private const val ANNOTATE_CARD_EDGE_MARGIN_DP = 16
         /** 面板窗口与工具条窗口的间距（与 Chrome 内 6dp 间距一致）。 */
         private const val PANEL_GAP_DP = 6
+
         /** 面板窗口固定高度：进出场只做原地淡入淡出，不随内容 resize / 遮挡工具条。 */
         const val PANEL_WINDOW_HEIGHT_DP = 160
     }
@@ -119,11 +124,12 @@ internal class AnnotateWindowSession(
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 TRUSTED_OVERLAY_FLAG
-            // 工具条宽度统一为屏幕约 80%，面板/样式卡开合只变高度，不撑宽窗口。
-            width = (screenWidthPx() * 0.8f).toInt().coerceAtLeast(1)
+            // 工具条宽 = 屏宽 − 两侧边距（默认贴屏边距见 [ANNOTATE_CARD_EDGE_MARGIN_DP]）。
+            // 面板/样式卡开合只变高度，不撑宽窗口。
+            width = toolbarWindowWidthPx()
             height = WindowManager.LayoutParams.WRAP_CONTENT
             x = 0
-            y = (TOOLBAR_MARGIN_DP * service.resources.displayMetrics.density).toInt()
+            y = (ANNOTATE_CARD_EDGE_MARGIN_DP * service.resources.displayMetrics.density).toInt()
             layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             @SuppressLint("RtlHardcoded")
@@ -175,7 +181,8 @@ internal class AnnotateWindowSession(
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 TRUSTED_OVERLAY_FLAG
-            width = WindowManager.LayoutParams.WRAP_CONTENT
+            // 与工具卡同宽：内容自身是自然宽，窗口按同宽给位让卡片居中（见 positionPanel）。
+            width = panelWindowWidthPx()
             // 固定高度：进出场只做原地淡入淡出，不随内容 resize / 遮挡工具条。
             height = (PANEL_WINDOW_HEIGHT_DP * density).toInt()
             x = 0
@@ -282,7 +289,7 @@ internal class AnnotateWindowSession(
     // ------------------------------------------------------------------
 
     /**
-     * 面板窗口定位：水平居中于工具条，底边 = 工具条顶边 - 间距。
+     * 面板窗口定位：与工具条同宽同左边，底边 = 工具条顶边 - 间距。
      * 面板内容高度变化由面板窗口自身承载（BOTTOM 锚定向上长），工具条不动。
      */
     private fun positionPanel() {
@@ -293,6 +300,9 @@ internal class AnnotateWindowSession(
         val toolbar = toolbarView ?: return
         val density = service.resources.displayMetrics.density
         val gap = (PANEL_GAP_DP * density).toInt()
+        // 宽度跟随工具卡：工具卡开合 / 旋转后宽度变化时同步，内容（fillMaxWidth）随之重排。
+        val width = panelWindowWidthPx()
+        if (lp.width != width) lp.width = width
         val left = toolbarX + (toolbar.width - view.width) / 2
         val bottomY = toolbarBottomY - toolbar.height - gap
         lp.gravity = Gravity.BOTTOM or Gravity.LEFT
@@ -310,7 +320,7 @@ internal class AnnotateWindowSession(
         lp.gravity = Gravity.BOTTOM or Gravity.LEFT
         // 工具条位置只在本次会话内有效，每次打开都从底部居中开始。
         toolbarX = ((screenWidthPx() - view.width) / 2).coerceAtLeast(0)
-        toolbarBottomY = screenHeightPx() - (TOOLBAR_MARGIN_DP * service.resources.displayMetrics.density).toInt()
+        toolbarBottomY = screenHeightPx() - (ANNOTATE_CARD_EDGE_MARGIN_DP * service.resources.displayMetrics.density).toInt()
         applyToolbarPosition(wm, view, lp)
         // 面板跟随工具条重定位（旋转/首次定位；面板未显示时 positionPanel 提前返回）。
         positionPanel()
@@ -360,6 +370,20 @@ internal class AnnotateWindowSession(
     /** 文字编辑中收起工具条（固定在屏幕底部，会压在键盘上挡住按键）。 */
     fun setToolbarVisible(visible: Boolean) {
         toolbarView?.visibility = if (visible) View.VISIBLE else View.INVISIBLE
+    }
+
+    /** 工具卡窗口宽（px）：屏宽减去左右两侧默认边距，二级卡与它同宽。 */
+    private fun toolbarWindowWidthPx(): Int =
+        (screenWidthPx() - 2 * ANNOTATE_CARD_EDGE_MARGIN_DP * service.resources.displayMetrics.density)
+            .toInt()
+            .coerceAtLeast(1)
+
+    /** 二级卡窗口宽（px）：与工具卡同宽；工具卡未布局时回退其窗口参数宽 / 公式宽。 */
+    private fun panelWindowWidthPx(): Int {
+        // `?.width` 在“视图存在但还没布局”时是 0，不能靠 `?:` 兜底。
+        val laidOut = toolbarView?.width?.takeIf { it > 0 }
+        val fromLp = toolbarLp?.width?.takeIf { it > 0 }
+        return (laidOut ?: fromLp ?: toolbarWindowWidthPx()).coerceAtLeast(1)
     }
 
     private fun screenWidthPx(): Int = service.resources.displayMetrics.widthPixels

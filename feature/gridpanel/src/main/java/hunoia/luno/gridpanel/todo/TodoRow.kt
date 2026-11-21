@@ -54,9 +54,11 @@ import hunoia.luno.config.model.TodoReminder
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoReminderFormat
 import hunoia.luno.ui.component.pressClickable
+import hunoia.luno.ui.component.row.SectionBadge
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionSubtle
+import hunoia.luno.ui.theme.PageGutter
 import java.time.ZoneId
 import kotlin.math.abs
 
@@ -366,7 +368,8 @@ private fun ReminderLine(
 }
 
 /**
- * 紧迫度 / 已完成分区头：标题 + 计数（>1 才显示）+ 可选展开箭头。
+ * 紧迫度 / 已完成分区头：标题 + 计数徽标（>1 才显示，与全局组头徽标 [SectionBadge] 一致）
+ * + 可选展开箭头。标题左缩进 [PageGutter]，与全局组标题（`LunoGroup`）对齐；
  * 可点击时整行只做展开 / 收起；吸顶背景用页面底色，滚动时内容从下面穿过。
  */
 @Composable
@@ -394,7 +397,7 @@ fun TodoSectionHeader(
             .fillMaxWidth()
             // 底色包住上留白：吸顶时是一整块实心，不会漏出下面滚过的行。
             .background(scheme.surfaceContainer)
-            .padding(top = 8.dp)
+            .padding(top = 8.dp, start = PageGutter, end = PageGutter)
             .heightIn(min = if (onClick != null) MinInteractiveSize else 32.dp)
             .then(if (onClick != null) Modifier.pressClickable(onClickLabel = toggleLabel, onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
@@ -408,11 +411,8 @@ fun TodoSectionHeader(
             overflow = TextOverflow.Ellipsis,
         )
         if (count > 1) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = scheme.onSurfaceVariant,
-            )
+            // 计数徽标与全局组头一致（PP-OCRv6「已就绪」同款：胶囊 + primaryContainer）。
+            SectionBadge(text = count.toString())
         }
         if (onClick != null) {
             Spacer(Modifier.width(4.dp))

@@ -71,6 +71,7 @@ import hunoia.luno.annotate.ui.AnnotatePanelContent
 import hunoia.luno.annotate.ui.AnnotatePanelKind
 import hunoia.luno.annotate.ui.AnnotateToolbar
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.ui.theme.AnnotateCardEdgeMargin
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -500,8 +501,13 @@ private fun ImageAnnotateScreen(
 
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(0.8f)
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(
+                    start = AnnotateCardEdgeMargin,
+                    end = AnnotateCardEdgeMargin,
+                    bottom = AnnotateCardEdgeMargin,
+                )
                 .windowInsetsPadding(
                     WindowInsets.navigationBars
                         .only(WindowInsetsSides.Bottom)
@@ -512,8 +518,9 @@ private fun ImageAnnotateScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                .onSizeChanged { toolbarSize = it }
+                    // 卡片贴屏边距由外层 Box 提供（与屏幕标注浮层同源）；这里不再加横向 padding。
+                    .padding(vertical = 6.dp)
+                    .onSizeChanged { toolbarSize = it }
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
                         onDragEnd = {},

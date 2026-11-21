@@ -192,6 +192,7 @@ fun LunoGroup(
                 modifier = Modifier
                     .padding(
                         start = PageGutter,
+                        end = PageGutter,
                         top = CardInnerSpacing,
                         bottom = titleBottomSpacing,
                     )

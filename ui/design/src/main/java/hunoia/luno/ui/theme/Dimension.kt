@@ -297,6 +297,10 @@ const val MotionConfirmCountdown = 1200
 // 编辑页底部保存 FAB 的边长（大字体下仍可点，命中区见 MinInteractiveSize）。
 val FabSize = 64.dp
 
+// 标注工具卡（主卡 + 二级卡）默认贴屏边距：底边与左右各一个值。
+// 两条宿主（屏幕标注浮层窗口 / 图片编辑页）共用，宽度按 屏宽 − 2 × 本值 推。
+val AnnotateCardEdgeMargin = 16.dp
+
 // 习惯日历点阵：编辑页近 30 天日历与网格面板部件共用语义（命中区 48dp 见 §1.6）。
 val HabitDayCellMinHeight = 48.dp
 

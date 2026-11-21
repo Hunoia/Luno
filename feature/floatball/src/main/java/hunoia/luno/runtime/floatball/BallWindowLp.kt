@@ -43,8 +43,8 @@ internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply 
     y = 0
 }
 
-/** 共享胶囊窗 LP：固定宽高（高 = 球尺寸），LEFT|TOP 手工按球的锚定边贴边。
- *  与球窗同样带 LAYOUT_IN_SCREEN，保证两窗 LP 原点一致。 */
+/** 共享胶囊窗 LP：宽高由调用方按「内容区 + 中侧/上下辉光余量」推出来，
+ *  LEFT|TOP 手工按球的锚定边贴边。与球窗同样带 LAYOUT_IN_SCREEN，保证 LP 原点一致。 */
 @SuppressLint("RtlHardcoded")
 internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.LayoutParams().apply {
     type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -59,6 +59,9 @@ internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.La
     gravity = Gravity.LEFT or Gravity.TOP
     x = 0
     y = 0
+    // 禁系统窗口过渡（厂商 ROM 默认「下落」会让胶囊首次展开从上滑下）；
+    // 展开/收起由 BallCapsuleWindow 自身水平 scaleX 控制，方向稳定。
+    windowAnimations = 0
 }
 
 /**

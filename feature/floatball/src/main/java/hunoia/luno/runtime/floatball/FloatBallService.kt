@@ -340,8 +340,8 @@ class FloatBallService : Service() {
                 clipboardPollJob = null
                 ballWindow.setHidden(true)
                 closeClipFloat()
-                notificationSlot.ball.setHidden(true)
-                resultSlot.ball.setHidden(true)
+                notificationSlot.window.setHidden(true)
+                resultSlot.window.setHidden(true)
                 notificationSlot.hideCapsule()
                 resultSlot.hideCapsule()
                 stopArrivalAlerts()
@@ -611,19 +611,19 @@ class FloatBallService : Service() {
                 slot.hideCapsule()
                 if (slot.visible) {
                     if (baseVisible) {
-                        slot.ball.setPanelHidden(true)
+                        slot.window.setPanelHidden(true)
                     } else {
                         slot.visible = false
-                        slot.ball.detach(animated = true)
+                        slot.window.detachNow()
                     }
                 }
                 continue
             }
             if (!slot.visible) {
-                slot.visible = slot.ball.attachAnimated()
-                if (slot.visible) slot.ball.setHidden(isScreenLocked())
+                slot.visible = slot.window.attachAnimated()
+                if (slot.visible) slot.window.setHidden(isScreenLocked())
             } else {
-                slot.ball.setPanelHidden(false)
+                slot.window.setPanelHidden(false)
             }
             slot.refreshBadge()
         }
@@ -715,7 +715,7 @@ class FloatBallService : Service() {
         when (plan.effect) {
             // 胶囊本体脉冲 / 边框流光画在胶囊窗自己的 Compose 层，不新增窗口。
             NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
-                slot.bubble.playArrivalAlert(plan)
+                slot.window.playArrivalAlert(plan)
 
             NotificationAlertEffect.EdgeGlow -> alertOverlay.show(
                 kind = AlertWindowKind.EdgeGlow,
@@ -734,7 +734,7 @@ class FloatBallService : Service() {
             )
 
             NotificationAlertEffect.BallRing -> {
-                val anchor = slot.bubbleAnchor()
+                val anchor = slot.window.visibleRectOnScreen() ?: return
                 alertOverlay.show(
                     kind = AlertWindowKind.BallRing,
                     plan = plan,
@@ -770,7 +770,7 @@ class FloatBallService : Service() {
     /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
     private fun stopArrivalAlerts() {
         if (this::notificationSlot.isInitialized) {
-            notificationSlot.bubble.cancelArrivalAlert()
+            notificationSlot.window.cancelArrivalAlert()
         }
         alertOverlay.cancel()
     }
@@ -828,7 +828,8 @@ class FloatBallService : Service() {
         if (!settings.notificationCapsule.enabled && !recognition.notificationReadEnabled) return
         // 黑名单同时屏蔽通知胶囊和该应用的规则结果。
         if (pulse.packageName in settings.notificationCapsule.blocklist) return
-        // 只弹「通知栏里真的能看到」的普通通知。
+        // 只弹「通知栏里真的能看到」的普通通知；实时通知（媒体 / 进度 / 常驻）不接管：
+        // 不进胶囊、也不隐藏，留在系统通知栏。这是固定口径，没有开关。
         val blockedFlags = Notification.FLAG_ONGOING_EVENT or
             Notification.FLAG_FOREGROUND_SERVICE or
             Notification.FLAG_GROUP_SUMMARY or
@@ -836,6 +837,7 @@ class FloatBallService : Service() {
         val shadeVisible = !pulse.ongoing &&
             pulse.clearable &&
             (pulse.flags and blockedFlags) == 0 &&
+            !pulse.isRealtimeNotification() &&
             pulse.importance != NotificationManager.IMPORTANCE_NONE
         if (!shadeVisible) {
             // 通知正文是隐私（验证码/私聊）：日志只留判定所需的元数据，不落 title/text。
@@ -868,6 +870,15 @@ class FloatBallService : Service() {
                 "imp=${latest.importance}")
             routePulse(latest, preHidden = hidden)
         }
+    }
+
+    /** 实时通知：常驻 / 媒体 / 进度。一律留在系统侧，不被接管（不进胶囊、不隐藏）。 */
+    private fun NotificationPulse.isRealtimeNotification(): Boolean {
+        if (ongoing) return true
+        val flagsMask = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE
+        if (flags and flagsMask != 0) return true
+        return category == Notification.CATEGORY_TRANSPORT ||
+            category == Notification.CATEGORY_PROGRESS
     }
 
     /**
@@ -1368,7 +1379,14 @@ class FloatBallService : Service() {
                 ?.getInsets(android.view.WindowInsets.Type.ime())
                 ?.bottom
         }.getOrNull() ?: 0
+        // 主球与内容球（通知/结果）共用同一避让口径：键盘弹起时三者同步上抬。
+        // 合并窗口的胶囊几何直接由自己的 imeLift 推导（updateCapsuleAnchor），
+        // 无跨窗锚点握手；内容球未挂载时 liftForIme 内部跳过（lateinit 安全）。
         ballWindow.updateIme(imeBottom)
+        notificationSlot.liftForIme(imeBottom)
+        resultSlot.liftForIme(imeBottom)
+        // 胶囊展示中：直接驱动胶囊跟随最新锚点（含抬升/回落），不依赖主球动画帧。
+        if (notificationSlot.showing || resultSlot.showing) updateBubbleAnchors()
         return imeBottom
     }
 
@@ -1545,8 +1563,8 @@ class FloatBallService : Service() {
     private fun applyLockState() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
-        notificationSlot.ball.setHidden(hidden)
-        resultSlot.ball.setHidden(hidden)
+        notificationSlot.window.setHidden(hidden)
+        resultSlot.window.setHidden(hidden)
         if (hidden) {
             closeClipFloat()
             // 不探头、不补播：队列与徽标保留（决策 9）。
@@ -1573,14 +1591,14 @@ class FloatBallService : Service() {
     private fun syncOrientation(): Boolean {
         val landscape = isLandscapeNow()
         var changed = ballWindow.setOrientation(landscape)
-        if (notificationSlot.ball.setOrientation(landscape)) changed = true
-        if (resultSlot.ball.setOrientation(landscape)) changed = true
+        if (notificationSlot.window.setOrientation(landscape)) changed = true
+        if (resultSlot.window.setOrientation(landscape)) changed = true
         return changed
     }
 
     private fun updateBubbleAnchors() {
         for (slot in contentSlots()) {
-            if (slot.showing) slot.bubble.updateAnchor(slot.bubbleAnchor())
+            if (slot.showing) slot.window.updateCapsuleAnchor()
         }
     }
 
@@ -1840,8 +1858,7 @@ class FloatBallService : Service() {
 
     private inner class CapsuleSlot(val source: BallSource) {
 
-        lateinit var ball: FloatBallWindow
-        lateinit var bubble: SmartBubbleWindow
+        lateinit var window: BallCapsuleWindow
 
         var state = BallInboxState()
         var config = BallInboxConfig()
@@ -1908,12 +1925,16 @@ class FloatBallService : Service() {
                 !softHidden &&
                 sceneAllows(visibilityTarget)
 
+        /** 键盘让位：合并窗口未挂载（view == null）时 updateIme 只记账，挂载后由几何推导生效。 */
+        fun liftForIme(imeBottom: Int) {
+            if (::window.isInitialized) window.updateIme(imeBottom)
+        }
+
         fun attachWindows() {
             val isNotification = source == BallSource.NOTIFICATION
-            ball = FloatBallWindow(
+            window = BallCapsuleWindow(
                 context = this@FloatBallService,
-                onImeLiftChanged = {},
-                onImeInsetsHint = {},
+                source = source,
                 fixedIcon = if (isNotification) Icons.Default.Notifications else Icons.Default.Lightbulb,
                 idleDescription = getString(
                     if (isNotification) R.string.notification_ball_content_desc
@@ -1927,12 +1948,6 @@ class FloatBallService : Service() {
                     )
                 },
             ).apply {
-                onTap = { onContentBallTapped() }
-                onLongPress = { onBallLongPressed() }
-                onDragStarted = { if (showing) hideCapsule() }
-                onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
-            }
-            bubble = SmartBubbleWindow(this@FloatBallService).apply {
                 // 两颗胶囊同构：多行栈；行数与手势行为按各自设置注入（见 updateSettings）。
                 visibleRowsSource = {
                     when (source) {
@@ -1958,7 +1973,7 @@ class FloatBallService : Service() {
                 }
                 onReady = {
                     if (showing) {
-                        ball.setCapsuleActive(true)
+                        setCapsuleActive(true)
                         refreshBadge()
                     }
                 }
@@ -1968,6 +1983,11 @@ class FloatBallService : Service() {
                         hideCapsule()
                     }
                 }
+                // 球态回调：与服务主球同构（点按 / 长按 / 拖动）。
+                onTap = { onContentBallTapped() }
+                onLongPress = { onBallLongPressed() }
+                onDragStarted = { if (showing) hideCapsule() }
+                onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
             updateSettings()
         }
@@ -2019,10 +2039,10 @@ class FloatBallService : Service() {
                 // 内容球不提供「静置暂停动图」开关；保持动画播放。
                 customIconPauseWhenIdle = false,
             ).withColorSpec(ballSpec)
-            ball.updateSettings(synthesized)
-            bubble.updateSettings(base.withColorSpec(backgroundSpec))
+            // 合并单窗：球侧 + 胶囊侧设置一次推入（球尺寸/静置/拖拽、胶囊行色/行数）。
+            window.updateSettings(synthesized, base.withColorSpec(backgroundSpec))
             // 行手势：读归一化后的行为（非法组合已在设置层收口为出厂默认）。
-            bubble.setRowGestures(
+            window.setRowGestures(
                 CapsuleRowGestures(
                     longPress = when (source) {
                         BallSource.NOTIFICATION -> base.notificationCapsule.rowLongPressBehavior
@@ -2070,7 +2090,7 @@ class FloatBallService : Service() {
             notificationIconJob?.cancel()
             notificationIconJob = null
             if (pkg == null) {
-                ball.setFixedIcon(Icons.Default.Notifications)
+                window.setFixedIcon(Icons.Default.Notifications)
                 return
             }
             val sizePx = notificationIconSizePx.takeIf { it > 0 }
@@ -2084,7 +2104,7 @@ class FloatBallService : Service() {
                 val bitmap = SearchIconCache.get(pkg, sizePx)
                 withContext(Dispatchers.Main.immediate) {
                     if (notificationIconPackage == pkg) {
-                        ball.setFixedIcon(bitmap ?: Icons.Default.Notifications)
+                        window.setFixedIcon(bitmap ?: Icons.Default.Notifications)
                     }
                 }
             }
@@ -2127,7 +2147,7 @@ class FloatBallService : Service() {
                 pendingFollowHandSide = null
                 return
             }
-            if (ball.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) {
+            if (window.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) {
                 followHandRetryJob?.cancel()
                 followHandRetryJob = null
             } else {
@@ -2157,7 +2177,7 @@ class FloatBallService : Service() {
                         pendingFollowHandSide = null
                         return@launch
                     }
-                    if (ball.repositionTo(side, followHandAnchorY(side)) {
+                    if (window.repositionTo(side, followHandAnchorY(side)) {
                             onFollowHandLanded(side)
                         }
                     ) {
@@ -2170,7 +2190,7 @@ class FloatBallService : Service() {
         }
 
         private fun currentSide(): Boolean {
-            if (visible) return ball.isOnLeft()
+            if (visible) return window.isOnLeft()
             return savedBallPosition().x < 0.5f
         }
 
@@ -2186,7 +2206,7 @@ class FloatBallService : Service() {
 
         private fun onFollowHandLanded(side: Boolean) {
             if (pendingFollowHandSide == side) pendingFollowHandSide = null
-            val (px, py) = ball.currentPosition()
+            val (px, py) = window.currentPosition()
             val width = DensityProvider.screenWidthPx
             val height = DensityProvider.screenHeightPx
             if (width <= 0 || height <= 0) return
@@ -2232,7 +2252,7 @@ class FloatBallService : Service() {
             )
             enqueue(demo, makeCurrent = true, show = false)
             showIfNeeded()
-            bubble.playArrivalAlert(plan)
+            window.playArrivalAlert(plan)
             // 播完（含一帧收尾余量）移除演示行；队列因此为空则随 removeById 收起。
             scope.launch {
                 delay(plan.totalMillis.toLong() + PreviewCleanupSlackMs)
@@ -2259,7 +2279,7 @@ class FloatBallService : Service() {
                 items = items,
                 currentId = if (state.currentId == old.id) replacement.id else state.currentId,
             )
-            if (showing) bubble.updateItems(state.items, state.currentIndex)
+            if (showing) window.updateItems(state.items, state.currentIndex)
             return true
         }
 
@@ -2310,7 +2330,7 @@ class FloatBallService : Service() {
                 refreshBadge()
                 scheduleTtl()
                 if (showing && state.currentId == item.id && !bubblePressed) scheduleAutoHide()
-                if (showing) bubble.updateItems(state.items, state.currentIndex)
+                if (showing) window.updateItems(state.items, state.currentIndex)
                 return change
             }
             if (change.added == null) {
@@ -2323,7 +2343,7 @@ class FloatBallService : Service() {
                 pendingSensitivePop = true
             }
             if (!allowed) {
-                if (showing) bubble.updateItems(state.items, state.currentIndex)
+                if (showing) window.updateItems(state.items, state.currentIndex)
                 refreshBadge()
                 scheduleTtl()
                 return change
@@ -2350,15 +2370,13 @@ class FloatBallService : Service() {
                 return
             }
             if (!visible) refreshWindows()
-            ball.setIdleSuppressed(true)
-            if (!bubble.show(
+            window.setIdleSuppressed(true)
+            if (!window.showCapsule(
                     items = state.items,
                     index = state.currentIndex.coerceAtLeast(0),
-                    anchor = bubbleAnchor(),
-                    originY = ball.lpOriginYPx(),
                 )
             ) {
-                ball.setIdleSuppressed(false)
+                window.setIdleSuppressed(false)
                 showing = false
                 refreshBadge()
                 return
@@ -2373,16 +2391,16 @@ class FloatBallService : Service() {
             timerJob?.cancel()
             timerJob = null
             if (!showing) {
-                ball.setCapsuleActive(false)
-                ball.setIdleSuppressed(false)
+                window.setCapsuleActive(false)
+                window.setIdleSuppressed(false)
                 refreshBadge()
                 tryFollowHandSwap()
                 return
             }
             showing = false
-            bubble.hide {
-                ball.setCapsuleActive(false)
-                ball.setIdleSuppressed(false)
+            window.hideCapsule {
+                window.setCapsuleActive(false)
+                window.setIdleSuppressed(false)
                 // 胶囊收起后清掉已过期项：验证码过期即失，不留在球徽标里。
                 prune()
                 refreshWindows()
@@ -2393,7 +2411,7 @@ class FloatBallService : Service() {
 
         fun refreshBadge() {
             val badge = state.badge
-            ball.setBadge(if (showing || !badge.visible) null else badge)
+            window.setBadge(if (showing || !badge.visible) null else badge)
             // 通知球球面跟队列最新一条：所有队列变更最终都会走到这里。
             refreshNotificationIcon()
         }
@@ -2478,7 +2496,7 @@ class FloatBallService : Service() {
                 state.items.isEmpty() -> hideCapsule()
                 // 通知是滚动栈：系统侧移除一条时保留滚动位置，别把正在看的列表拉回顶部。
                 showing && source == BallSource.NOTIFICATION ->
-                    bubble.updateItems(state.items, state.currentIndex)
+                    window.updateItems(state.items, state.currentIndex)
 
                 showing -> showCurrent()
             }
@@ -2497,7 +2515,7 @@ class FloatBallService : Service() {
             )
             state = change.state
             if (showing && state.items.isNotEmpty()) {
-                bubble.updateItems(state.items, state.currentIndex)
+                window.updateItems(state.items, state.currentIndex)
             }
             when {
                 state.items.isEmpty() -> {
@@ -2561,14 +2579,14 @@ class FloatBallService : Service() {
 
         fun onCopied(item: ResultItem) {
             if (state.items.none { it.id == item.id }) return
-            bubble.showCopied(item.id)
+            window.showCopied(item.id)
             scope.launch {
                 delay(COPIED_FEEDBACK_MS)
                 if (item.fromCapture) {
                     if (state.currentId == item.id) removeRow(item.id)
-                    else if (state.items.any { it.id == item.id }) bubble.clearCopied()
+                    else if (state.items.any { it.id == item.id }) window.clearCopied()
                 } else if (state.items.any { it.id == item.id }) {
-                    bubble.clearCopied()
+                    window.clearCopied()
                 }
             }
         }
@@ -2582,20 +2600,8 @@ class FloatBallService : Service() {
             val items = state.items.toMutableList().also { it[index] = updated }
             state = state.copy(items = items)
             if (showing && state.currentId == itemId) {
-                bubble.updateItems(state.items, state.currentIndex)
+                window.updateItems(state.items, state.currentIndex)
             }
-        }
-
-        fun bubbleAnchor(): BubbleAnchor {
-            ball.visibleRectOnScreen()?.let { return it }
-            val size = DensityProvider.dp2px(settings.sizeDp)
-            val position = when (source) {
-                BallSource.NOTIFICATION -> settings.notificationBall(isLandscapeNow())
-                BallSource.RESULT -> settings.resultBall(isLandscapeNow())
-            }
-            val left = (position.x * DensityProvider.screenWidthPx).roundToInt()
-            val top = (position.y * DensityProvider.screenHeightPx).roundToInt()
-            return BubbleAnchor(left, top, left + size, top + size)
         }
 
         /** 锁屏期间是否还有未过期的捕获值项：解锁后据此补播。 */
@@ -2637,20 +2643,16 @@ class FloatBallService : Service() {
             ttlJob?.cancel()
             settleJobs.values.forEach { it.cancel() }
             settleJobs.clear()
-            bubble.detachNow()
-            ball.detach()
+            window.detachNow()
         }
 
-        /** 长期摘窗（Surface 长态隐藏等）：球与胶囊全摘，队列保留。 */
+        /** 长期摘窗（Surface 长态隐藏等）：合并窗口全摘，队列保留。 */
         fun detachWindows() {
             showing = false
             visible = false
             timerJob?.cancel()
             timerJob = null
-            bubble.detachNow()
-            ball.setCapsuleActive(false)
-            ball.setIdleSuppressed(false)
-            ball.detach()
+            window.detachNow()
         }
     }
 

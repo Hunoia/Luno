@@ -119,7 +119,7 @@ fun AnnotatePanelContent(
 
 /**
  * 面板卡片容器：surfaceContainerHigh 底 + 容器角色形状，无阴影
- * （弹出卡与工具卡同一视觉层次，层次靠色差）。
+ * （弹出卡与工具卡同一视觉层次，层次靠色差）。宽度填满所在容器，与工具卡同宽。
  */
 @Composable
 fun AnnotatePanelCard(
@@ -127,7 +127,7 @@ fun AnnotatePanelCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = LargeShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 3.dp,

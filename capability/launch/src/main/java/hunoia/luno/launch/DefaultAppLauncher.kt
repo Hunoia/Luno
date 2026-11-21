@@ -50,6 +50,9 @@ class DefaultAppLauncher(
             extras = spec.extras,
             userId = spec.userId,
             anchor = spec.anchor,
+            // app.launch 的小窗 = 「小窗打开应用」：打开目标为小窗，不动已有小窗。
+            // 互换只归「小窗当前应用」（app.popup，见 launchInPopup）。
+            swapExisting = false,
         )
         if (launched) LaunchCapability.recordLaunch(spec.packageName)
         return launched

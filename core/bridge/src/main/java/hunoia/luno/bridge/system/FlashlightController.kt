@@ -92,6 +92,9 @@ object FlashlightController {
             PackageManager.PERMISSION_GRANTED
     }
 
+    /** 当前 torch 开关的真实状态（TorchCallback 持续校准；toggle 成功后同步更新）。 */
+    fun isOn(): Boolean = torchOn
+
     suspend fun toggle(context: Context): Boolean = withContext(Dispatchers.Default) {
         assertNotMainThread("flashlight.toggle")
         try {

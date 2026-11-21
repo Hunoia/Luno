@@ -60,9 +60,11 @@ data class MiniWindowSettings(
     val portraitPlacement: SurfacePlacement = SurfacePlacement(),
     val landscapePlacement: SurfacePlacement = SurfacePlacement(),
     /**
-     * 打开新小窗时，把屏幕上已有的其他小窗恢复为全屏。
+     * 小窗当前应用（app.popup）打开时，把屏幕上已有的其他小窗恢复为全屏。
      *
-     * 与 [MiniFreeformSettings.autoSwap] 相互独立：那个管迷你小窗动作，这个管普通小窗。
+     * 只影响「小窗当前应用」这条链路；「小窗打开应用」（app.launch 的小窗）不受
+     * 此开关影响，打开目标小窗时不动已有小窗。与 [MiniFreeformSettings.autoSwap]
+     * 相互独立：那个管迷你小窗动作，这个管「小窗当前应用」的普通小窗互换。
      */
     val swapExisting: Boolean = true,
     /** 迷你小窗动作的设置，与小窗本身互不影响。 */

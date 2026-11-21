@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
  * - 顶部一行进度摘要 + 进度线（无卡片）；
  * - 未完成按紧迫度分区（已过期 → 今天 → 即将 → 其他），只有一个分区时不画分区头；
  * - 每行一张独立卡，提醒在第二行；未完成行右滑完成 / 左滑删除，已完成行只左滑删除；
- * - 已完成组默认收起，展开后点行可原地展开全文（不改文案）。
+ * - 已完成组始终展开，点行可原地展开全文（不改文案）。
  *
  * 完成 / 撤销完成即时生效（不再弹确认层）——这是待办页与桌面部件 / 面板内置待办
  * 「先确认」口径的**有意分叉**，记录见 ui-guidelines §4.1 例外条目。
@@ -93,8 +93,6 @@ fun TodoListContent(
 
     var creating by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<String?>(null) }
-    // 已完成组默认收起（计划定稿）；会话内记忆，重进页保持。
-    var doneExpanded by rememberSaveable { mutableStateOf(false) }
     // 已完成行一次只展开一条，点行切换；展开后显示全文与完成时间。
     var expandedDoneId by rememberSaveable { mutableStateOf<String?>(null) }
     // 待撤销的动作：完成 / 删除即时生效后弹出撤销条，4s 自动消失；同一时刻一条。
@@ -211,24 +209,20 @@ fun TodoListContent(
                         TodoSectionHeader(
                             title = stringResource(R.string.todo_group_done_plain),
                             count = done.size,
-                            onClick = { doneExpanded = !doneExpanded },
-                            expanded = doneExpanded,
                         )
                     }
-                    if (doneExpanded) {
-                        items(done, key = { "done_${it.id}" }) { todo ->
-                            TodoCard(
-                                todo = todo,
-                                nowMillis = now,
-                                onToggle = { onToggle(todo) },
-                                onDelete = { delete(todo) },
-                                expanded = expandedDoneId == todo.id,
-                                onToggleExpanded = {
-                                    expandedDoneId = if (expandedDoneId == todo.id) null else todo.id
-                                },
-                                modifier = Modifier.animateItem(),
-                            )
-                        }
+                    items(done, key = { "done_${it.id}" }) { todo ->
+                        TodoCard(
+                            todo = todo,
+                            nowMillis = now,
+                            onToggle = { onToggle(todo) },
+                            onDelete = { delete(todo) },
+                            expanded = expandedDoneId == todo.id,
+                            onToggleExpanded = {
+                                expandedDoneId = if (expandedDoneId == todo.id) null else todo.id
+                            },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }

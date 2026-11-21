@@ -130,7 +130,7 @@
     <string name="mini_window_position_size">Position &amp; size</string>
     <string name="mini_window_position_size_hint">Adjust the fixed position for portrait and landscape</string>
     <string name="mini_window_swap_existing">Swap with existing window</string>
-    <string name="mini_window_swap_existing_hint">Restore other shown small windows to fullscreen when opening a new one</string>
+    <string name="mini_window_swap_existing_hint">Restore other shown small windows to fullscreen when opening the current app as a small window</string>
     <string name="mini_window_mini_group">Mini floating window</string>
     <string name="mini_window_mini_position">Position</string>
     <string name="mini_window_mini_position_hint">Auto picks the screen half of the touch point; or pin to the left or right</string>

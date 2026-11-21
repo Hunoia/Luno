@@ -9,6 +9,7 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.action.model.MediaCommand
+import hunoia.luno.action.model.label
 import hunoia.luno.bridge.system.FlashlightController
 import hunoia.luno.bridge.system.QuickToggleController
 import hunoia.luno.bridge.system.gotoAppDetailSettings
@@ -99,7 +100,9 @@ class SystemExecutors(
             )
         }
         return if (FlashlightController.toggle(appContext)) {
-            ActionResult.Success()
+            ActionResult.Success(
+                toggleStateText(appContext, FLASHLIGHT_LABEL, FlashlightController.isOn()),
+            )
         } else {
             ActionResult.Failed(
                 reason = ActionFailure.ExecutionFailed,
@@ -111,36 +114,39 @@ class SystemExecutors(
     /**
      * 快捷开关：能直切就切（读状态 → 取反 → 写入 → 读回），切不动就降级到系统面板/设置页。
      * 热点没有可靠的写入/读取通道，视为「打开设置页」型开关，不计失败。
+     *
+     * 直切成功弹「{名称}已开启/已关闭」状态 toast；降级打开设置页成功不弹（跳转设置页
+     * 不弹 toast），设置页也打不开才弹失败。
      */
     private suspend fun executeQuickToggle(
         context: ExecutorContext,
         kind: QuickToggleKind,
     ): ActionResult {
         if (!QuickToggleController.canToggle(kind)) {
-            return openToggleFallback(context, kind, silent = true)
+            return openToggleFallback(context, kind)
         }
-        val current = QuickToggleController.isOn(context.environment.appContext, kind)
-        if (current != null && QuickToggleController.setOn(context.environment.appContext, kind, !current)) {
-            return ActionResult.Success()
+        val appContext = context.environment.appContext
+        val current = QuickToggleController.isOn(appContext, kind)
+        if (current != null && QuickToggleController.setOn(appContext, kind, !current)) {
+            return ActionResult.Success(toggleStateText(appContext, kind.label, on = !current))
         }
-        return openToggleFallback(context, kind, silent = false)
+        return openToggleFallback(context, kind)
     }
 
     private fun openToggleFallback(
         context: ExecutorContext,
         kind: QuickToggleKind,
-        silent: Boolean,
     ): ActionResult {
         val appContext = context.environment.appContext
         val opened = runCatching {
             appContext.startActivity(QuickToggleController.fallbackIntent(kind))
         }.isSuccess
-        if (silent && opened) return ActionResult.Success()
+        // 打开系统面板/设置页成功即视为完成：不弹「无法直接切换」（跳转设置页不弹 toast）；
+        // 只有设置页也打不开才弹失败。
+        if (opened) return ActionResult.Success()
         return ActionResult.Failed(
             reason = ActionFailure.ExecutionFailed,
-            userMessage = appContext.getString(
-                if (opened) R.string.quick_toggle_fallback else R.string.quick_toggle_unavailable,
-            ),
+            userMessage = appContext.getString(R.string.quick_toggle_unavailable),
         )
     }
 
@@ -163,4 +169,16 @@ class SystemExecutors(
             false
         }
     }
+
+    private companion object {
+        /** 手电筒展示名（与 [QuickToggleKind.label] 同口径：中文常量，非资源）。 */
+        const val FLASHLIGHT_LABEL = "手电筒"
+    }
+
+    /** 开关类动作成功切换后的状态 toast：「{名称}已开启/已关闭」。 */
+    private fun toggleStateText(context: android.content.Context, name: String, on: Boolean): String =
+        context.getString(
+            if (on) R.string.quick_toggle_state_on else R.string.quick_toggle_state_off,
+            name,
+        )
 }

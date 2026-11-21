@@ -206,10 +206,15 @@
         <!-- 图片标注页：:service 透明 Activity（计划 2026-11-04-annotate）。
              picker 模式由 image.edit 动作进入；payload 模式由识屏/OCR 页进程内交接位图。
              不能加 noHistory：picker 模式下系统选择器一上屏，noHistory 会把本页直接结掉，
-             选择结果就回不来了；退出统一走工具条的关闭按钮。 -->
+             选择结果就回不来了；退出统一走工具条的关闭按钮。
+             excludeFromRecents：本页不进最近任务。它带独立 taskAffinity，一旦进 recents 就会
+             单独成一张卡，而滑掉卡片在 MIUI 上按「应用」粒度杀进程 —— :service 里的无障碍、
+             悬浮球、通知监听一起没，且 MIUI 不自动重绑无障碍，表现为「服务被关掉」。
+             按 Home 出去任务仍存活，重进走 singleTask 复用同一实例，正在编辑的内容不丢。 -->
         <activity
             android:name="hunoia.luno.annotate.ImageAnnotateActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:process=":service"

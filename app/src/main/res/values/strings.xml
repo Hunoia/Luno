@@ -139,7 +139,7 @@
     <string name="mini_window_position_size">位置与大小</string>
     <string name="mini_window_position_size_hint">分别调整竖屏与横屏的固定位置</string>
     <string name="mini_window_swap_existing">与已有小窗互换</string>
-    <string name="mini_window_swap_existing_hint">打开新小窗时，把屏幕上已有的其他小窗恢复为全屏</string>
+    <string name="mini_window_swap_existing_hint">小窗当前应用打开时，把屏幕上已有的其他小窗恢复为全屏</string>
     <string name="mini_window_mini_group">迷你小窗</string>
     <string name="mini_window_mini_position">位置</string>
     <string name="mini_window_mini_position_hint">自动按触发点所在半屏决定，也可固定贴左或贴右</string>

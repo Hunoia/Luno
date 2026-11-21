@@ -4,8 +4,9 @@
     <string name="grant_camera_permission">Please enable "Camera permission" to use the flashlight</string>
     <string name="flashlight_failed">Flashlight operation failed, please try again later</string>
     <string name="flashlight_unsupported">This device does not support a flashlight</string>
-    <string name="quick_toggle_fallback">Cannot toggle directly, opened settings</string>
     <string name="quick_toggle_unavailable">This device does not support toggling this switch</string>
+    <string name="quick_toggle_state_on">%1$s on</string>
+    <string name="quick_toggle_state_off">%1$s off</string>
     <string name="random_name_generate_failed">Generation failed</string>
     <string name="random_name_copy_failed">Copy failed</string>
     <string name="clipboard_no_text_or_image">Clipboard has no recognizable text or image</string>
