@@ -126,8 +126,8 @@ composeCompiler {
 
 dependencies {
     constraints {
-        // 传递依赖不得把 M3 抬到 alpha：1.5.0-alpha17 与 foundation 1.12.1 的 CustomStyle
-        // 二进制不兼容，OutlinedTextField 一渲染就 AbstractMethodError。
+        // 锁死 M3 的解析版本为 catalog 里那一个：传递依赖（fastcompose 声明 1.3.1、squircle 侧
+        // JetBrains 侧声明 alpha）不得改写它，避免 M3 与 foundation 的二进制签名错配。
         implementation("androidx.compose.material3:material3:${libs.versions.material3.get()}")
     }
     implementation(project(":core:common"))
@@ -159,7 +159,8 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
-    // 版本钉住：material3 1.4.0 会把 material-ripple 拖到 1.8.1，显式声明拉到 composeTrain。
+    // 显式声明防传递依赖把 material-ripple 钉在旧版本（M3 自己声明的是 1.12.0 基线，
+    // 而 fastcompose 一带进来的 M3 1.3.1 会拉到 1.7 线）；与 composeTrain 对齐。
     implementation(libs.androidx.compose.material.ripple)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

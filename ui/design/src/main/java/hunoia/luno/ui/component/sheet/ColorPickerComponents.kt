@@ -15,9 +15,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -163,6 +164,12 @@ internal fun ColorSlider(
     val thumbSize = CanvasThumbRadius * 2
     val interactionSource = remember { MutableInteractionSource() }
     val latestValue by rememberUpdatedState(value)
+    // M3 1.5.0 起，自定义 thumb/track 的 Slider 只接 SliderState（不再从参数透传值）。
+    // 外部改值（吸管取色、十六进制输入）在组合结束后同步回 state，避免拇指停在旧位置。
+    val sliderState = rememberSliderState(value = value, trackRange = 0f..1f)
+    SideEffect {
+        if (sliderState.value != value) sliderState.value = value
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -204,18 +211,12 @@ internal fun ColorSlider(
                     .background(brush),
             )
             Slider(
-                modifier = Modifier.fillMaxWidth(),
-                value = value,
+                state = sliderState,
                 onValueChange = onValueChange,
-                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth(),
                 interactionSource = interactionSource,
-                colors = SliderDefaults.colors(
-                    // 轨道全透明：渐变由底下两层画，M3 自绘轨会盖掉棋盘。
-                    activeTrackColor = Color.Transparent,
-                    inactiveTrackColor = Color.Transparent,
-                    activeTickColor = Color.Transparent,
-                    inactiveTickColor = Color.Transparent,
-                ),
+                // 轨道由底下两层画（渐变 + 棋盘），M3 自绘轨会盖掉它们，所以不画。
+                track = {},
                 // 白实心 + 深色细环：alpha 再低、底色再浅也不隐形。
                 thumb = {
                     Box(
@@ -244,7 +245,11 @@ internal fun ColorSlider(
                         steps = 0,
                         currentValue = { latestValue },
                         interactionSource = interactionSource,
-                        onValueChange = onValueChange,
+                        // 外部受控值可能松手才落盘：先写 state，拇指才跟手；外部回写由 SideEffect 对齐。
+                        onValueChange = { v ->
+                            sliderState.value = v
+                            onValueChange(v)
+                        },
                         onValueChangeFinished = {},
                     ),
             )

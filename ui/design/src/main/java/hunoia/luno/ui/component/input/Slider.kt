@@ -26,9 +26,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -164,7 +166,16 @@ fun LunoSlider(
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
     val interactionSource = remember { MutableInteractionSource() }
     val stepCount = steps ?: 0
-    var localValue by remember { mutableStateOf(coercedValue) }
+    // M3 1.5.0 起 stateless Slider 已弃用：拖动中的值由 SliderState 持有。外部 value 在
+    // onValueChangeFinished 之前不变（松手才落盘），两者靠下面的 LaunchedEffect 对齐。
+    // SliderState 只在首次组合时读 steps / trackRange，量程换了必须重建，否则拖动仍按旧范围约束。
+    val sliderState = key(valueRange, stepCount) {
+        rememberSliderState(
+            value = coercedValue,
+            steps = stepCount,
+            trackRange = valueRange,
+        )
+    }
     var isDragging by remember { mutableStateOf(false) }
     val safeOnValueChange by rememberUpdatedState(onValueChange)
     val safeOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
@@ -172,7 +183,7 @@ fun LunoSlider(
 
     LaunchedEffect(coercedValue) {
         if (!isDragging) {
-            localValue = coercedValue
+            sliderState.value = coercedValue
             safeOnLiveValueChange?.invoke(coercedValue)
         }
     }
@@ -189,9 +200,8 @@ fun LunoSlider(
 
     Box(modifier = modifier) {
         Slider(
-            value = localValue,
+            state = sliderState,
             onValueChange = { value ->
-                localValue = value
                 safeOnLiveValueChange?.invoke(value)
                 safeOnValueChange(value)
             },
@@ -199,8 +209,6 @@ fun LunoSlider(
             enabled = enabled,
             onValueChangeFinished = safeOnValueChangeFinished,
             interactionSource = interactionSource,
-            valueRange = valueRange,
-            steps = stepCount,
         )
         if (enabled) {
             // M3 Slider 自带「点轨道跳值」与按下即改值；这里用上层手势层接管：
@@ -212,10 +220,10 @@ fun LunoSlider(
                     .horizontalSliderDrag(
                         valueRange = valueRange,
                         steps = stepCount,
-                        currentValue = { localValue },
+                        currentValue = { sliderState.value },
                         interactionSource = interactionSource,
                         onValueChange = { value ->
-                            localValue = value
+                            sliderState.value = value
                             safeOnLiveValueChange?.invoke(value)
                             safeOnValueChange(value)
                         },

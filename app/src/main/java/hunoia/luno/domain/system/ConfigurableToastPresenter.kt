@@ -90,8 +90,8 @@ class ConfigurableToastPresenter(
     /** 标准通知路径（LIVE 时尝试升舱，Android 16+ promoted；不成功保持标准）。 */
     private fun postStandard(app: Context, text: String, wantLive: Boolean) {
         if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+        // minSdk 33 起 POST_NOTIFICATIONS 已存在，不需要再判平台版本。
+        if (app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             return

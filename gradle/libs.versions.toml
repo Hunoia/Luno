@@ -2,23 +2,25 @@
 agp = "9.5.1"
 kotlin = "2.4.21"
 coreKtx = "1.19.1"
-lifecycleRuntimeKtx = "2.11.0"
+lifecycleRuntimeKtx = "2.11.1"
 fastCompose = "4fbfa644df7ff67da3ddc9ec47726ddcf0142813"
-kotlinSerialization = "1.12.0"
+kotlinSerialization = "1.13.0"
 dataStore = "1.3.0"
-collection = "1.5.0"
-composeTrain = "1.12.1"
-material3 = "1.4.0"
+collection = "1.7.0"
+# 官方 Compose BOM 2026.11.01 就是 composeTrain 1.13.0 + material3 1.5.0 配对；
+# composeTrain 1.13.0 要求 compileSdk 37.1（build-logic 的 AndroidDefaults 已设 compileSdkMinor）。
+composeTrain = "1.13.0"
+material3 = "1.5.0"
 materialIcons = "1.7.8"
 haze = "2.1.0"
 squircleShape = "5.4.0"
 houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
-hiddenapibypass = "6.1"
+hiddenapibypass = "6.2"
 litert = "2.3.2"
-orgJson = "20240303"
-zxing = "3.5.3"
+orgJson = "20260814"
+zxing = "3.5.4"
 coil = "3.6.3"
 navigationCompose = "2.10.2"
 activityCompose = "1.13.0"
@@ -36,7 +38,7 @@ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecyc
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
-androidx-savedstate = { group = "androidx.savedstate", name = "savedstate", version = "1.3.1" }
+androidx-savedstate = { group = "androidx.savedstate", name = "savedstate", version = "1.5.0" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 coil = { group = "io.coil-kt.coil3", name = "coil", version.ref = "coil" }
@@ -55,17 +57,13 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "collection" }
 
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "composeTrain" }
-androidx-compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "composeTrain" }
 androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "composeTrain" }
-androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "composeTrain" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "composeTrain" }
-androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "composeTrain" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "composeTrain" }
 androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "composeTrain" }
 androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "composeTrain" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "composeTrain" }
 androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", version.ref = "composeTrain" }
-androidx-compose-ui-util = { group = "androidx.compose.ui", name = "ui-util", version.ref = "composeTrain" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "composeTrain" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version.ref = "composeTrain" }
 androidx-compose-material-ripple = { group = "androidx.compose.material", name = "material-ripple", version.ref = "composeTrain" }
