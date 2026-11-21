@@ -49,6 +49,12 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <!-- 快捷开关读状态用（普通权限，安装即有）：WiFi 状态 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 耗电统计降级路径：无 Shizuku 时用前台时长估算各应用耗电。
+         这是 appop（「使用情况访问」），声明不授予能力，需用户在系统设置里手动开启；
+         未授予时部件显示授权提示行，不显示数字。 -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- 第三方桌面小部件：BIND_APPWIDGET 为 signature 级，声明不授予能力，
          真正放行靠 ACTION_APPWIDGET_BIND 的逐 provider 授权。 -->

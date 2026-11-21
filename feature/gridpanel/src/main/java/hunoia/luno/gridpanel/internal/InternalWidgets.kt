@@ -45,6 +45,8 @@ object InternalWidgetIds {
     const val TREND = "internal.trend"
     /** 资源监控：系统内存/CPU + 各应用进程级占用列表（无 params）。 */
     const val SYS_MONITOR = "internal.sysMonitor"
+    /** 应用耗电统计：本次充电以来各应用耗电排行（params 存 PowerStatsWidgetParams）。 */
+    const val POWER_STATS = "internal.powerStats"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */

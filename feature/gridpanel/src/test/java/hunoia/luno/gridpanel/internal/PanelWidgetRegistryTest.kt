@@ -25,12 +25,13 @@ class PanelWidgetRegistryTest {
     }
 
     @Test
-    fun `single panel whitelist is clipboard app drawer and quick launch`() {
+    fun `single panel whitelist is clipboard app drawer quick launch and power stats`() {
         assertEquals(
             setOf(
                 InternalWidgetIds.CLIPBOARD,
                 InternalWidgetIds.APP_DRAWER,
                 InternalWidgetIds.QUICK_LAUNCH,
+                InternalWidgetIds.POWER_STATS,
             ),
             PanelWidgetRegistry.singlePanelWidgets.map { it.id }.toSet(),
         )

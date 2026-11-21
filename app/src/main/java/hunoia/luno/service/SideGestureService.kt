@@ -531,7 +531,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         gestureCoordinator.onConfigurationChanged(newConfig)
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        // 后台电量历史采集：与 DaemonService 共用引用计数，最后一个停止才注销。
+        BatteryHistoryRecorder.start(this)
+    }
+
     override fun onDestroy() {
+        BatteryHistoryRecorder.stop(this)
         if (speechReceiverRegistered) {
             unregisterReceiver(speechResultReceiver)
             speechReceiverRegistered = false

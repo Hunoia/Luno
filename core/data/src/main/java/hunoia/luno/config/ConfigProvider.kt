@@ -9,6 +9,9 @@ import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
+import hunoia.luno.config.model.BatteryHistory
+import hunoia.luno.config.model.BatterySample
+import hunoia.luno.config.model.appended
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.ClipboardEntry
@@ -61,6 +64,8 @@ object ConfigProvider {
     val globalGesture: Flow<GlobalGestureSettings> = stores.globalGesture
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val appUsageStats: Flow<AppUsageStats> = stores.appUsageStats
+    /** 电量 / 功率历史：7 天瞬态曲线数据，不进备份。 */
+    val batteryHistory: Flow<BatteryHistory> = stores.batteryHistory
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
@@ -194,6 +199,20 @@ object ConfigProvider {
 
     suspend fun clearClipboardHistory() {
         runCatching { stores._clipboardHistory.updateData { it.cleared() } }
+    }
+
+    // ---------- 电池历史域 ----------
+    // 电量 / 功率采样是设备本地派生数据，不进备份；写入不走 Dispatcher（§1.3）。
+
+    suspend fun getBatteryHistory(): BatteryHistory = stores._batteryHistory.data.first()
+
+    /** 追加一条采样：同值去抖、7 天窗口与条数上限都在 [BatteryHistory.appended] 里收口。 */
+    suspend fun appendBatterySample(sample: BatterySample) {
+        stores._batteryHistory.updateData { it.appended(sample) }
+    }
+
+    suspend fun clearBatteryHistory() {
+        runCatching { stores._batteryHistory.updateData { BatteryHistory() } }
     }
 
     // ---------- 习惯域 ----------

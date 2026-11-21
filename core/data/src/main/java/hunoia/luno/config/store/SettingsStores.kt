@@ -8,6 +8,7 @@ import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutoBackupSettings
+import hunoia.luno.config.model.BatteryHistory
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.GestureButton
@@ -41,6 +42,7 @@ class SettingsStores(
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
     internal val _appUsageStats: DataStore<AppUsageStats>,
+    internal val _batteryHistory: DataStore<BatteryHistory>,
     internal val _clipboardHistory: DataStore<ClipboardHistory>,
     internal val _clipboardSettings: DataStore<ClipboardSettings>,
     internal val _habitConfig: DataStore<HabitConfig>,
@@ -63,6 +65,8 @@ class SettingsStores(
     val quickSearchSettings: Flow<QuickSearchSettings> =
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
+    /** 电量 / 功率历史：7 天瞬态曲线数据，不进备份。 */
+    val batteryHistory: Flow<BatteryHistory> = _batteryHistory.data
     val clipboardHistory: Flow<ClipboardHistory> = _clipboardHistory.data
     val clipboardSettings: Flow<ClipboardSettings> = _clipboardSettings.data.map { it.coerced() }
     val habitConfig: Flow<HabitConfig> = _habitConfig.data
@@ -95,6 +99,7 @@ class SettingsStores(
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
                 _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),
+                _batteryHistory = ctx.dataStore(DataStoreFiles.BATTERY_HISTORY, BatteryHistory()),
                 _clipboardHistory = ctx.dataStore(DataStoreFiles.CLIPBOARD_HISTORY, ClipboardHistory()),
                 _clipboardSettings = ctx.dataStore(DataStoreFiles.CLIPBOARD_SETTINGS, ClipboardSettings()),
                 _habitConfig = ctx.dataStore(DataStoreFiles.HABITS, HabitConfig()),

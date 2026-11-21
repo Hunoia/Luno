@@ -20,6 +20,7 @@ class FeatureConfigBoundaryTest {
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/HabitCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TodoCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TrendCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/BatteryHistoryCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/ProgressNotificationDismisser.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/reminder/habit/HabitReminderNotifier.kt",

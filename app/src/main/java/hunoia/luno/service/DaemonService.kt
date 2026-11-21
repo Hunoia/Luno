@@ -61,6 +61,8 @@ class DaemonService : Service() {
     override fun onCreate() {
         super.onCreate()
         prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        // 后台电量历史采集：与 SideGestureService 共用引用计数，最后一个停止才注销。
+        BatteryHistoryRecorder.start(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -286,5 +288,6 @@ class DaemonService : Service() {
         scope.cancel()
         contentObserver?.let { contentResolver.unregisterContentObserver(it) }
         screenReceiver?.let { unregisterReceiver(it) }
+        BatteryHistoryRecorder.stop(this)
     }
 }

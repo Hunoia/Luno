@@ -8,6 +8,7 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppControlSettings
 import hunoia.luno.config.model.AppUsageStats
+import hunoia.luno.config.model.BatteryHistory
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.BackupVersions
@@ -159,6 +160,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._globalGesture.updateData { GlobalGestureSettings() } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
         launch { stores._appUsageStats.updateData { AppUsageStats() } }
+        launch { stores._batteryHistory.updateData { BatteryHistory() } }
         launch { stores._clipboardHistory.updateData { ClipboardHistory() } }
         launch { stores._clipboardSettings.updateData { ClipboardSettings() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }

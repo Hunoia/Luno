@@ -43,6 +43,8 @@ object DataStoreFiles {
     // 瞬态：不进备份
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"
+    /** 电量 / 功率历史：7 天瞬态曲线数据，可从系统重新采，刻意不进备份。 */
+    const val BATTERY_HISTORY = "battery_history"
     /** 剪贴板历史：设备本地派生数据；只有固定项随 `BackupDomain.CLIPBOARD` 导出。 */
     const val CLIPBOARD_HISTORY = "clipboard_history"
     /** 剪贴板设置（记录开关 / 未固定上限）：随 `BackupDomain.CLIPBOARD` 导出。 */

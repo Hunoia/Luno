@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AddChart
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentPaste
@@ -299,6 +300,26 @@ object PanelWidgetRegistry {
                     enabled = scope.enabled,
                     params = scope.params,
                     onUpdateParams = scope.onUpdateParams,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.POWER_STATS,
+                labelRes = R.string.grid_panel_internal_power_stats,
+                icon = Icons.Default.BatteryChargingFull,
+                defaultSpanX = 4,
+                defaultSpanY = 4,
+                minSpanX = 2,
+                minSpanY = 2,
+                supportsSinglePanel = true,
+            ) { scope ->
+                PowerStatsCell(
+                    modifier = scope.modifier,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                    onUpdateParams = scope.onUpdateParams,
+                    isGridItem = scope.isGridItem,
                 )
             },
         )

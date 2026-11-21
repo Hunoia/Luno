@@ -123,7 +123,8 @@ internal fun InternalWidgetCard(
                     hunoia.luno.gridpanel.internal.InternalWidgetIds.MEDIA -> Icons.Filled.MusicNote
                     hunoia.luno.gridpanel.internal.InternalWidgetIds.CLIPBOARD -> Icons.Filled.ContentPaste
                     hunoia.luno.gridpanel.internal.InternalWidgetIds.APP_DRAWER -> Icons.Filled.Apps
-                    else -> Icons.AutoMirrored.Filled.VolumeUp
+                    else -> hunoia.luno.gridpanel.internal.PanelWidgetRegistry.byId(def.id)?.icon
+                        ?: Icons.AutoMirrored.Filled.VolumeUp
                 },
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
