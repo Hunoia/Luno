@@ -42,6 +42,9 @@ import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quickaccess.query.SearchAction
+import hunoia.luno.quickaccess.query.enginePrimaryAction
+import hunoia.luno.quickaccess.query.engineRowIcon
+import hunoia.luno.quickaccess.query.imageTarget
 import hunoia.luno.quickaccess.query.toSearchAction
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -50,7 +53,8 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressFilterChip
 
 /**
- * 引擎条：有查询词时给快捷换引擎入口；存在图片引擎时空态也显示（图片引擎不依赖查询词）。
+ * 引擎条：有查询词时给快捷换引擎入口；存在可图片分享的引擎时空态也显示
+ * （图片引擎不依赖查询词）。
  * 默认引擎 selected 高亮，点即用该引擎执行当前查询。
  */
 @Composable
@@ -60,9 +64,12 @@ internal fun QuickSearchEngineBar(
     onEngineAction: (SearchAction, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val hasImageEngine = engines.any {
-        it.effectiveLaunch() is SearchLaunch.ShareImage
-    }
+    // 空查询时也能点的引擎：纯图片引擎 + 图文双模式（contentMode 非 Text）。
+    fun imageCapable(engine: SearchEngine): Boolean =
+        engine.imageTarget().isNotBlank() &&
+            (engine.effectiveLaunch() is SearchLaunch.ShareImage ||
+                engine.contentMode != hunoia.luno.config.model.EngineContentMode.Text)
+    val hasImageEngine = engines.any(::imageCapable)
     if ((queryText.isNotBlank() || hasImageEngine) && engines.size > 1) {
         val searchQuery = queryText.trim()
         LazyRow(
@@ -72,19 +79,15 @@ internal fun QuickSearchEngineBar(
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
             itemsIndexed(engines, key = { _, engine -> engine.id }) { index, engine ->
-                val launch = engine.effectiveLaunch()
-                val imageEngine = launch is SearchLaunch.ShareImage
+                val imageEngine = imageCapable(engine)
                 PressFilterChip(
                     // 主引擎 = 列表第一位，不再单独选默认。
                     selected = index == 0,
                     enabled = searchQuery.isNotBlank() || imageEngine,
-                    onClick = { onEngineAction(launch.toSearchAction(searchQuery), searchQuery) },
+                    onClick = { onEngineAction(enginePrimaryAction(engine, searchQuery), searchQuery) },
                     // 引擎徽标与半透明底色：与下方搜索框/结果行的玻璃质感同一套。
                     leadingIcon = {
-                        TextIconGlyph(
-                            text = engine.badgeText,
-                            size = 16.dp,
-                        )
+                        SearchIconView(icon = engineRowIcon(engine), size = 16.dp)
                     },
                     label = { Text(engine.name) },
                     colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(

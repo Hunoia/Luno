@@ -33,6 +33,7 @@ google-services.json
 # Docs & agent notes (local only)
 docs
 AGENTS.md
+.perch/
 
 # Python helper caches
 __pycache__/

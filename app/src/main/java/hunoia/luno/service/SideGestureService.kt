@@ -423,6 +423,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.runtime.surface.GestureCommand.insertTextFocused = { text ->
             TextInserter.insertFocused(this, text)
         }
+        hunoia.luno.runtime.surface.GestureCommand.submitFocused = {
+            TextInserter.submitFocused(this)
+        }
         hunoia.luno.runtime.surface.GestureCommand.pasteImageFocused = {
             ImageInserter.pasteFocused(this)
         }

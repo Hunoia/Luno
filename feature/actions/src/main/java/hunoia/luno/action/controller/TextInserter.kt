@@ -2,6 +2,7 @@ package hunoia.luno.action.controller
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
@@ -56,6 +57,26 @@ object TextInserter {
             if (attempt < FindAttempts - 1) SystemClock.sleep(FindRetryMs)
         }
         return Result.NoTarget
+    }
+
+    /**
+     * 在焦点输入框上按 IME 回车（提交/搜索）。API 30+ 用 `ACTION_IME_ENTER`；
+     * 无焦点输入框或版本低于 30 返回 false（调用方据此跳过）。
+     */
+    fun submitFocused(service: AccessibilityService): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+        repeat(FindAttempts) { attempt ->
+            val node = focusedInput(service)
+                ?: activeRootInput(service, 0, 0)
+                ?: singleInputInTopWindow(service)
+            if (node != null) {
+                return node.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id,
+                )
+            }
+            if (attempt < FindAttempts - 1) SystemClock.sleep(FindRetryMs)
+        }
+        return false
     }
 
     fun insertAt(service: AccessibilityService, text: String, x: Int, y: Int): Result {

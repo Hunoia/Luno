@@ -219,6 +219,10 @@ class QuickSearchActivity : ComponentActivity() {
                 if (!launchSearchUrl(this, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 requestClose()
             }
+            is SearchAction.InjectQuery -> {
+                if (!launchInjectQuery(this, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
+                requestClose()
+            }
             is SearchAction.PickImage -> {
                 pendingImagePackage = action.packageName
                 runCatching { imageSearchLauncher.launch("image/*") }.onFailure {
@@ -249,6 +253,8 @@ class QuickSearchActivity : ComponentActivity() {
             is SearchAction.Share -> shareUri(action.uri, action.mime).also { requestClose() }
             // 由 QuickSearchContent 直接回填；万一走到这里不处理。
             is SearchAction.SetQuery -> Unit
+            // 「每次询问」由面板层弹选择器，选完再回抛具体动作；走到这里说明选择器没接住。
+            is SearchAction.AskContent -> Unit
         }
     }
 

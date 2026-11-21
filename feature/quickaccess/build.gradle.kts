@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.browser)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.coil.compose)
     // coil3.imageLoader / Keyer / ImageLoader 在单例包（coil），coil-compose 不带

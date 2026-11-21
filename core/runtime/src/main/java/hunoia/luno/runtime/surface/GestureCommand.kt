@@ -47,6 +47,9 @@ object GestureCommand {
     /** 在无障碍焦点输入框里注入文本（悬浮窗「输入到输入框」）。 */
     var insertTextFocused: (suspend (text: String) -> TextInsertResult)? = null
 
+    /** 在无障碍焦点输入框上按 IME 回车（提交/搜索，API 30+）；无焦点/不支持返回 false。 */
+    var submitFocused: (suspend () -> Boolean)? = null
+
     /** 把剪贴板里已有的图片粘进焦点输入框（调用方先把图片写进剪贴板）。 */
     var pasteImageFocused: (suspend () -> ImageInsertResult)? = null
 

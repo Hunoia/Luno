@@ -106,7 +106,19 @@ fun SearchEngineEditScreen(
     val initialPackage = remember(engineId) {
         (snap.engine?.effectiveLaunch() as? SearchLaunch.Url)?.packageName.orEmpty()
     }
+    // 图片双模式目标应用（独立于主目标应用）：以编辑状态为唯一来源，选择器直接回写。
+    val imageTargetPackage = editState.imageTargetPackage
+    val imageAppLabel by produceState<String?>(null, imageTargetPackage) {
+        value = imageTargetPackage.takeIf { it.isNotBlank() }?.let { pkg ->
+            runCatching {
+                context.packageManager.getApplicationLabel(
+                    context.packageManager.getApplicationInfo(pkg, 0),
+                ).toString()
+            }.getOrNull()
+        }
+    }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showImageAppPicker by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val valid = editState.valid(targetPackage)
     val dirty = editState.isDirty() || targetPackage != initialPackage
@@ -124,6 +136,11 @@ fun SearchEngineEditScreen(
                                 trigger = result.trigger,
                                 launch = result.launch,
                                 iconText = result.iconText,
+                                iconType = result.iconType,
+                                icon = result.icon,
+                                imageShareEnabled = result.imageShareEnabled,
+                                imageTargetPackage = result.imageTargetPackage,
+                                contentMode = result.contentMode,
                             ),
                     )
                 } else {
@@ -136,6 +153,11 @@ fun SearchEngineEditScreen(
                                     trigger = result.trigger,
                                     launch = result.launch,
                                     iconText = result.iconText,
+                                    iconType = result.iconType,
+                                    icon = result.icon,
+                                    imageShareEnabled = result.imageShareEnabled,
+                                    imageTargetPackage = result.imageTargetPackage,
+                                    contentMode = result.contentMode,
                                 )
                             } else {
                                 it
@@ -210,6 +232,25 @@ fun SearchEngineEditScreen(
                     )
                 }
             }
+            if (showImageAppPicker) {
+                val picker = appPicker
+                if (picker == null) {
+                    showImageAppPicker = false
+                } else {
+                    picker(
+                        AppPickerRequest(
+                            selectedPackageNames = listOf(imageTargetPackage),
+                            selectedUserId = null,
+                            onDismiss = { showImageAppPicker = false },
+                            onConfirm = { packages ->
+                                editState.imageTargetPackage = packages.firstOrNull().orEmpty()
+                                showImageAppPicker = false
+                            },
+                            onSelect = null,
+                        ),
+                    )
+                }
+            }
         },
     ) {
         EngineEditFields(
@@ -217,6 +258,8 @@ fun SearchEngineEditScreen(
             targetPackage = targetPackage,
             appLabel = appLabel,
             onPickApp = { showAppPicker = true },
+            imageAppLabel = imageAppLabel,
+            onPickImageApp = { showImageAppPicker = true },
         )
     }
 }

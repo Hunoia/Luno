@@ -193,6 +193,8 @@ internal fun QuickSearchContent(
         if (initialQuery.isNotBlank()) query = TextFieldValue(initialQuery)
     }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
+    // 图文双模式「每次询问」的待选动作（引擎条点击时置位）。
+    var pendingAsk by remember { mutableStateOf<Pair<SearchAction.AskContent, String>?>(null) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
     val permCtx = LocalContext.current
@@ -331,6 +333,7 @@ internal fun QuickSearchContent(
         }
     }
     BackHandler(enabled = menuResult != null && !closing) { menuResult = null }
+    BackHandler(enabled = pendingAsk != null && !closing) { pendingAsk = null }
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
@@ -391,7 +394,12 @@ internal fun QuickSearchContent(
     val resultPinnedKeys = remember(searchSettings.pinnedResults, query.text) {
         searchSettings.pinnedResults[normalizePinQuery(query.text.trim())].orEmpty().toSet()
     }
-    val safeAction: (SearchAction, String) -> Unit = { a, q -> if (!closing) onAction(a, q) }
+    val safeAction: (SearchAction, String) -> Unit = { a, q ->
+        if (!closing) {
+            // 「每次询问」：先弹选择器，选完再走 onAction 执行真正的打开动作。
+            if (a is SearchAction.AskContent) pendingAsk = a to q else onAction(a, q)
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -520,6 +528,20 @@ internal fun QuickSearchContent(
                 keyboardActions = keyboardActions,
                 focusRequester = focusRequester,
                 asciiEnter = searchSettings.asciiEnterSearch,
+            )
+        }
+        // 图文双模式「每次询问」：选文字搜索还是分享图片。
+        pendingAsk?.let { (ask, q) ->
+            ContentModeDialog(
+                onDismiss = { pendingAsk = null },
+                onTextSearch = {
+                    pendingAsk = null
+                    onAction(ask.textAction, q)
+                },
+                onShareImage = {
+                    pendingAsk = null
+                    onAction(SearchAction.PickImage(ask.imagePackageName), q)
+                },
             )
         }
     }

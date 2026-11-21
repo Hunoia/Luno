@@ -360,6 +360,7 @@ fun SearchEngineSettingsScreen(
                             is SearchLaunch.Share -> launch.textTemplate
                             is SearchLaunch.Action -> launch.copyTemplate
                             is SearchLaunch.ShareImage -> ""
+                            is SearchLaunch.Activity -> ""
                         }
                         val launchLabel = when (launch) {
                             is SearchLaunch.Chooser -> stringResource(R.string.search_engine_open_chooser)
@@ -370,6 +371,7 @@ fun SearchEngineSettingsScreen(
                             }
                             is SearchLaunch.Share -> stringResource(R.string.search_engine_open_share)
                             is SearchLaunch.ShareImage -> stringResource(R.string.search_engine_open_share_image)
+                            is SearchLaunch.Activity -> stringResource(R.string.search_engine_open_activity)
                             is SearchLaunch.Action -> ""
                         }
                         LunoSettingsRow(

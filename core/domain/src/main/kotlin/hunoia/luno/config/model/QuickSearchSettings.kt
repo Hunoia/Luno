@@ -25,7 +25,26 @@ data class SearchEngine(
     val launch: SearchLaunch? = null,
     /** 引擎图标文字（1~2 字）；空 = 取名称首字。 */
     val iconText: String = "",
+    /** 图标类型：Text=文字徽标（[iconText]/名称首字）；App=应用图标；Image=图片 URI。 */
+    val iconType: EngineIconType = EngineIconType.Text,
+    /** 图标来源：App 类型 = 包名；Image 类型 = 可加载 URI/路径。Text 类型忽略。 */
+    val icon: String = "",
+    /**
+     * 图片双模式：文字引擎额外支持把图片分享给 [imageTargetPackage]
+     * （参考 GestureEVO 的 imageShareEnabled / imageTargetPackage）。
+     */
+    val imageShareEnabled: Boolean = false,
+    /** 图片分享目标包名（[imageShareEnabled] 时必填）。 */
+    val imageTargetPackage: String = "",
+    /** 图文都有时的内容模式：Text=只搜文本；Image=只分享图片；Ask=每次询问。 */
+    val contentMode: EngineContentMode = EngineContentMode.Text,
 )
+
+/** 引擎图标类型（参考 GestureEVO IconType：TEXT / URI / 应用图标）。 */
+enum class EngineIconType { Text, App, Image }
+
+/** 引擎图文双模式的内容取向（参考 GestureEVO SearchContentMode）。 */
+enum class EngineContentMode { Text, Image, Ask }
 
 /** 搜索结果列表样式：Flat=现行平铺缝合行；GroupedCards=按内容源分组的大卡片（卡内横向列表）。 */
 enum class QuickSearchListStyle { Flat, GroupedCards }

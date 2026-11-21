@@ -68,6 +68,21 @@ sealed interface SearchAction {
         val packageName: String = "",
         val forceChooser: Boolean = false,
         val fallbackUrl: String = "",
+        /** 用 Custom Tabs 打开（[packageName] 为空时生效）。 */
+        val useCustomTabs: Boolean = false,
+    ) : SearchAction
+
+    /**
+     * 跳转到目标并注入查询词（参考 GestureEVO 的 JUMP_TO_ACTIVITY / EXTERN_JUMP_LINK）：
+     * [targetActivity] 非空 → 打开该 Activity；否则打开 [externLink]（在 [targetPackage] 里）。
+     * 打开后把 [query] 注入焦点输入框，[autoInputEnter] 时再按一次 IME 回车。
+     */
+    data class InjectQuery(
+        val targetPackage: String,
+        val targetActivity: String = "",
+        val externLink: String = "",
+        val query: String = "",
+        val autoInputEnter: Boolean = false,
     ) : SearchAction
 
     data class Copy(val text: String) : SearchAction
@@ -76,6 +91,16 @@ sealed interface SearchAction {
 
     /** 回填搜索框，不关面板。 */
     data class SetQuery(val text: String) : SearchAction
+
+    /**
+     * 图文双模式「每次询问」：先让用户选走文字搜索还是分享图片，选完再转成
+     * [SearchAction.OpenUrl] / [SearchAction.PickImage] 执行。
+     * 面板层弹选择器，不直接执行任何打开动作。
+     */
+    data class AskContent(
+        val textAction: SearchAction,
+        val imagePackageName: String,
+    ) : SearchAction
 
     /** 图片搜索：先让用户选图，选完由 Activity 转成 [ShareImage]。 */
     data class PickImage(val packageName: String) : SearchAction

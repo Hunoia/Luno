@@ -30,6 +30,7 @@ import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.SearchLaunch.Action as SearchLaunchAction
+import hunoia.luno.config.model.SearchLaunch.Activity as SearchLaunchActivity
 import hunoia.luno.config.model.SearchLaunch.Chooser
 import hunoia.luno.config.model.SearchLaunch.Share as SearchLaunchShare
 import hunoia.luno.config.model.SearchLaunch.ShareImage as SearchLaunchShareImage
@@ -296,6 +297,7 @@ fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
         fallbackUrl = fallbackTemplate.takeIf { it.isNotBlank() }
             ?.fillSearchQuery(query)
             .orEmpty(),
+        useCustomTabs = useCustomTabs,
     )
 
     is Chooser -> SearchAction.OpenUrl(
@@ -312,6 +314,14 @@ fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
     )
 
     is SearchLaunchShareImage -> SearchAction.PickImage(packageName)
+
+    is SearchLaunchActivity -> SearchAction.InjectQuery(
+        targetPackage = targetPackage,
+        targetActivity = targetActivity,
+        externLink = externLink,
+        query = query,
+        autoInputEnter = autoInputEnter,
+    )
 
     is SearchLaunchAction -> SearchAction.Run(action.fillSearchQuery(query))
 }

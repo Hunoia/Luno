@@ -21,6 +21,8 @@ sealed interface SearchLaunch {
         val template: String,
         val packageName: String = "",
         val fallbackTemplate: String = "",
+        /** 用 Custom Tabs 打开（[packageName] 为空时生效），否则系统浏览器/ACTION_VIEW。 */
+        val useCustomTabs: Boolean = false,
     ) : SearchLaunch
 
     /** 每次弹出系统选择器。 */
@@ -44,6 +46,19 @@ sealed interface SearchLaunch {
         val action: StoredAction,
         val copyTemplate: String = "",
     ) : SearchLaunch
+
+    /**
+     * 跳转到目标并注入查询词（参考 GestureEVO 的 JUMP_TO_ACTIVITY / EXTERN_JUMP_LINK）：
+     * [targetActivity] 非空 → 打开该 Activity；否则打开 [externLink]（在 [targetPackage] 里）。
+     * 打开后把查询词注入焦点输入框，[autoInputEnter] 时再按一次 IME 回车。
+     */
+    @Serializable
+    data class Activity(
+        val targetPackage: String,
+        val targetActivity: String = "",
+        val externLink: String = "",
+        val autoInputEnter: Boolean = false,
+    ) : SearchLaunch
 }
 
 fun SearchEngine.effectiveLaunch(): SearchLaunch =
@@ -63,6 +78,7 @@ fun SearchLaunch.copyUrl(query: String): String? = when (this) {
     is SearchLaunch.Chooser -> template.fillSearchQuery(query)
     is SearchLaunch.Share -> null
     is SearchLaunch.ShareImage -> null
+    is SearchLaunch.Activity -> null
     is SearchLaunch.Action -> {
         val fromTemplate = copyTemplate.takeIf { it.isNotBlank() }?.fillSearchQuery(query)
         fromTemplate ?: (action.params["url"] as? JsonPrimitive)

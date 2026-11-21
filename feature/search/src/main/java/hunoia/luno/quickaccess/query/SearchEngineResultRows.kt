@@ -2,6 +2,8 @@ package hunoia.luno.quickaccess.query
 
 import android.content.Context
 import hunoia.luno.search.R
+import hunoia.luno.config.model.EngineContentMode
+import hunoia.luno.config.model.EngineIconType
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.badgeText
@@ -31,20 +33,22 @@ fun engineResultRow(
 ): SearchResult {
     val launch = engine.effectiveLaunch()
     val copy = launch.copyUrl(query)
+    val imageTarget = engine.imageTarget(launch)
     val actions = buildList {
+        // 长按动作里始终提供「分享图片」（选图/剪贴板，见 PickImage 执行）。
+        if (imageTarget.isNotBlank()) {
+            add(
+                SearchActionItem(
+                    SearchActionLabel.Res(R.string.search_action_share_image),
+                    SearchAction.PickImage(imageTarget),
+                ),
+            )
+        }
         copy?.let {
             add(
                 SearchActionItem(
                     SearchActionLabel.Res(R.string.search_action_copy_link),
                     SearchAction.Copy(it),
-                ),
-            )
-        }
-        if (launch is SearchLaunch.ShareImage) {
-            add(
-                SearchActionItem(
-                    SearchActionLabel.Res(R.string.search_action_share_image),
-                    SearchAction.PickImage(launch.packageName),
                 ),
             )
         }
@@ -54,8 +58,53 @@ fun engineResultRow(
         source = SOURCE_ENGINE,
         title = title,
         subtitle = "",
-        icon = SearchIcon.Text(engine.badgeText),
-        primary = launch.toSearchAction(query),
+        icon = engineRowIcon(engine),
+        primary = enginePrimaryAction(engine, query),
         actions = actions,
     )
+}
+
+/**
+ * 引擎的图片分享目标包名：纯图片引擎（[SearchLaunch.ShareImage]）用 launch 的包名；
+ * 图文双模式用 [SearchEngine.imageTargetPackage]。两者都没有返回空串。
+ */
+fun SearchEngine.imageTarget(launch: SearchLaunch = effectiveLaunch()): String = when {
+    launch is SearchLaunch.ShareImage -> launch.packageName
+    imageShareEnabled -> imageTargetPackage
+    else -> ""
+}
+
+/**
+ * 点击引擎的主动作：**唯一出口**，[EngineContentMode] 在这里生效。
+ *
+ * - [EngineContentMode.Image]：直接选图分享（要求双模式开启且有目标应用，否则回退文字搜索）
+ * - [EngineContentMode.Ask]：交给面板弹选择器（[SearchAction.AskContent]）
+ * - [EngineContentMode.Text] / 双模式未开启：常规文字搜索
+ *
+ * 纯图片引擎（ShareImage）不受 contentMode 影响，始终是选图。
+ */
+fun enginePrimaryAction(engine: SearchEngine, query: String): SearchAction {
+    val launch = engine.effectiveLaunch()
+    val textAction = launch.toSearchAction(query)
+    // 纯图片引擎：launch 本身就是选图，contentMode 不参与。
+    if (launch is SearchLaunch.ShareImage) return textAction
+    val imageTarget = engine.imageTarget(launch)
+    if (imageTarget.isBlank()) return textAction
+    return when (engine.contentMode) {
+        EngineContentMode.Image -> SearchAction.PickImage(imageTarget)
+        EngineContentMode.Ask -> SearchAction.AskContent(
+            textAction = textAction,
+            imagePackageName = imageTarget,
+        )
+        EngineContentMode.Text -> textAction
+    }
+}
+
+/** 引擎行图标：按 [EngineIconType] 给应用图标 / 图片 URI / 文字徽标；来源缺失回退文字。 */
+fun engineRowIcon(engine: SearchEngine): SearchIcon = when (engine.iconType) {
+    EngineIconType.App ->
+        if (engine.icon.isNotBlank()) SearchIcon.AppIcon(engine.icon) else SearchIcon.Text(engine.badgeText)
+    EngineIconType.Image ->
+        if (engine.icon.isNotBlank()) SearchIcon.Request(engine.icon) else SearchIcon.Text(engine.badgeText)
+    EngineIconType.Text -> SearchIcon.Text(engine.badgeText)
 }

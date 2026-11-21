@@ -474,8 +474,19 @@ private fun ResultIconView(
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.onSurface,
 ) {
+    SearchIconView(icon = result.icon, size = size, modifier = modifier, tint = tint)
+}
+
+/** [SearchIcon] 的渲染本体：行、卡片、引擎条共用，避免三处各写一套。 */
+@Composable
+internal fun SearchIconView(
+    icon: SearchIcon,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+) {
     val context = LocalContext.current
-    when (val icon = result.icon) {
+    when (icon) {
         is SearchIcon.Vector -> Icon(
             imageVector = icon.image,
             contentDescription = null,
