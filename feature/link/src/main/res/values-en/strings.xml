@@ -27,12 +27,6 @@
     <string name="recognition_rule_missing">This rule no longer exists</string>
     <string name="recognition_rule_summary">%1$s · %2$s → %3$s</string>
 
-    <string name="recognition_presets_hint">Tap one to add it; reorder or tweak it in the rule list afterwards</string>
-    <string name="recognition_presets_added_one">Added \"%1$s\"</string>
-    <string name="recognition_preset_text_summary">Grabs text → copies it</string>
-    <string name="recognition_preset_link_summary">Link → opens in %1$s</string>
-    <string name="recognition_preset_browser_summary">Link → opens in a browser</string>
-    <string name="recognition_presets_group">Presets</string>
 
     <string name="recognition_import">Import from clipboard</string>
     <string name="recognition_import_empty">Clipboard is empty</string>

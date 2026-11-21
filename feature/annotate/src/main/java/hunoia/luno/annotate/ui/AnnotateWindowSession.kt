@@ -107,6 +107,9 @@ internal class AnnotateWindowSession(
     }
 
     /** 工具条窗：首次挂窗就按底边距定位（BOTTOM 锚定），避免 onLayoutChange 后再跳一帧。 */
+    // WrongConstant：[TRUSTED_OVERLAY_FLAG] 是私有常量，lint 的 flag 白名单只认 SDK 常量
+    // （AnnotateOverlay 同款用法走的是 baseline；这里按调用点抑制，免受 SDK 更新漂移影响）。
+    @SuppressLint("WrongConstant")
     fun addToolbar(): Boolean {
         val wm = windowManager() ?: return false
         val lp = WindowManager.LayoutParams().apply {
@@ -160,6 +163,8 @@ internal class AnnotateWindowSession(
      * 面板独立窗：样式卡/导出/退出确认显示在工具条上方，工具条窗口高度恒定。
      * 初始 INVISIBLE；显示时机由 [showPanelWindow] 控制（不 add/remove，避免窗口动画）。
      */
+    // WrongConstant：同 [addToolbar]，私有 flag 常量不在 lint 白名单里。
+    @SuppressLint("WrongConstant")
     private fun addPanel(): Boolean {
         val wm = windowManager() ?: return false
         val density = service.resources.displayMetrics.density

@@ -160,6 +160,10 @@ fun ClipboardHistory.trimmed(maxEntries: Int = ClipboardHistoryMaxEntries): Clip
 fun ClipboardHistory.remove(id: String): ClipboardHistory =
     if (entries.none { it.id == id }) this else copy(entries = entries.filterNot { it.id == id })
 
+/** 清空全部历史（含固定项）；本来就空时原样返回（避免无意义写盘）。 */
+fun ClipboardHistory.cleared(): ClipboardHistory =
+    if (entries.isEmpty()) this else ClipboardHistory()
+
 /** 清空未固定项、保留固定项；没有未固定项时原样返回（避免无意义写盘）。 */
 fun ClipboardHistory.clearedKeepingPinned(): ClipboardHistory {
     val unpinned = entries.filterNot { it.pinned }

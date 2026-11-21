@@ -50,8 +50,12 @@
     <string name="float_ball_capsule_alert_effect_pulse">胶囊本体脉冲</string>
     <string name="float_ball_capsule_alert_effect_ring">球光环扩散</string>
     <string name="float_ball_capsule_alert_effect_shimmer">胶囊边框流光</string>
-    <string name="float_ball_capsule_alert_intensity">强度</string>
-    <string name="float_ball_capsule_alert_pace">节奏</string>
+    <string name="float_ball_capsule_alert_brightness">亮度</string>
+    <string name="float_ball_capsule_alert_cycles">次数</string>
+    <string name="float_ball_capsule_alert_band_width">光带宽度</string>
+    <string name="float_ball_capsule_alert_particle_count">粒子数量</string>
+    <string name="float_ball_capsule_alert_travel">扩散行程</string>
+    <string name="float_ball_capsule_alert_color">动效颜色</string>
     <string name="float_ball_capsule_alert_preview">试播一次</string>
     <string name="float_ball_capsule_alert_preview_subtitle">按当前配置立即播放；胶囊层效果会先弹出演示通知</string>
     <string name="float_ball_capsule_alert_preview_title">试播演示</string>
@@ -59,9 +63,9 @@
 
     <string name="float_ball_capsule_ball_color">球颜色</string>
     <string name="float_ball_capsule_background_color">胶囊背景色</string>
-    <string name="float_ball_capsule_color_follow_ball">跟随悬浮球</string>
+    <string name="float_ball_capsule_color_default">默认主色</string>
     <string name="float_ball_capsule_color_custom">自定义</string>
-    <string name="float_ball_capsule_color_reset">重置为跟随悬浮球</string>
+    <string name="float_ball_capsule_color_reset">重置为默认主色</string>
 
     <string name="float_ball_result_group">结果胶囊</string>
     <string name="float_ball_result_follow_hand">结果球跟手换边</string>

@@ -51,7 +51,7 @@ import hunoia.luno.config.model.searchPool
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.quickaccess.query.ClipPools
 import hunoia.luno.config.model.SRC_CLIP
-import hunoia.luno.config.model.effectiveEngines
+import hunoia.luno.config.model.allEngines
 import hunoia.luno.quickaccess.query.QuickSearchIndex
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchIcon
@@ -507,7 +507,7 @@ internal fun QuickSearchContent(
                 Spacer(Modifier.weight(1f))
             }
             QuickSearchEngineBar(
-                engines = searchSettings.effectiveEngines(),
+                engines = searchSettings.allEngines(),
                 queryText = query.text,
                 onEngineAction = safeAction,
             )

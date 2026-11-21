@@ -68,21 +68,17 @@ object LinkPresets {
     )
 
     /**
-     * 本机可用的预设：目标应用已安装，且同匹配串的规则尚不存在（按 pattern 判重）。
+     * 首装 seed 可用的链接规则：目标应用已安装的条目。
+     * （原「添加常用规则」的 `addable` 随预设区删除；这张表现在只作为 seed 定义，
+     * 与现有规则的判重在 [seedRecognitionRulesIfNeeded] 里统一做。）
      */
-    fun addable(context: Context, existing: List<RecognitionRule>): List<RecognitionRule> {
+    fun seedable(context: Context): List<RecognitionRule> {
         val pm = context.packageManager
-        val usedPatterns = existing
-            .map { it.match.pattern.trim().lowercase() }
-            .filter { it.isNotEmpty() }
-            .toMutableSet()
         val installed = mutableMapOf<String, Boolean>()
         fun isInstalled(pkg: String): Boolean = installed.getOrPut(pkg) {
             runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess
         }
         return all.mapNotNull { preset ->
-            val pattern = preset.pattern
-            if (!usedPatterns.add(pattern.lowercase())) return@mapNotNull null
             // 交给浏览器的规则没有固定目标包名：本机只要有浏览器就能用，不做安装校验。
             val pkg = if (preset.viaBrowser) {
                 preset.targetPackages.firstOrNull().orEmpty()
@@ -100,7 +96,7 @@ object LinkPresets {
                 ),
                 match = RecognitionMatch.Link(
                     matchType = LinkMatchType.CONTAINS,
-                    pattern = pattern,
+                    pattern = preset.pattern,
                     targetPackage = pkg,
                     viaBrowser = preset.viaBrowser,
                     resolveShortLink = preset.resolveShortLink,

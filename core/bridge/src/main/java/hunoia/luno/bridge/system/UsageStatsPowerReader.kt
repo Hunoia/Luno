@@ -1,5 +1,6 @@
 package hunoia.luno.bridge.system
 
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -53,6 +54,9 @@ class UsageStatsPowerReader(context: Context) {
         // 取最近 7 天做上界：`--charged` 的窗口在系统里没有直接对应 API，
         // 用「自上次充满」最接近的近似是查最近一段并过滤，这里取 7 天兜底，
         // 时长本身由系统累计，不会因窗口宽而虚高。
+        // MissingPermission 是库模块误报：权限在 :app 的 manifest 声明（appop），
+        // 上面 hasUsageAccess() 已把门，runCatching 兜住授权被中途撤掉的竞态。
+        @SuppressLint("MissingPermission")
         val stats = runCatching {
             manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - WINDOW_MS, now)
         }.onFailure {

@@ -60,8 +60,12 @@
     <string name="float_ball_capsule_alert_effect_pulse">Capsule pulse</string>
     <string name="float_ball_capsule_alert_effect_ring">Ball halo ring</string>
     <string name="float_ball_capsule_alert_effect_shimmer">Border shimmer</string>
-    <string name="float_ball_capsule_alert_intensity">Intensity</string>
-    <string name="float_ball_capsule_alert_pace">Pace</string>
+    <string name="float_ball_capsule_alert_brightness">Brightness</string>
+    <string name="float_ball_capsule_alert_cycles">Cycles</string>
+    <string name="float_ball_capsule_alert_band_width">Band width</string>
+    <string name="float_ball_capsule_alert_particle_count">Particle count</string>
+    <string name="float_ball_capsule_alert_travel">Travel</string>
+    <string name="float_ball_capsule_alert_color">Effect color</string>
     <string name="float_ball_capsule_alert_preview">Preview once</string>
     <string name="float_ball_capsule_alert_preview_subtitle">Plays the current setup right away; capsule effects show a demo notification first</string>
     <string name="float_ball_capsule_alert_preview_title">Preview demo</string>
@@ -69,9 +73,9 @@
 
     <string name="float_ball_capsule_ball_color">Ball color</string>
     <string name="float_ball_capsule_background_color">Capsule background</string>
-    <string name="float_ball_capsule_color_follow_ball">Follow floating ball</string>
+    <string name="float_ball_capsule_color_default">Default primary</string>
     <string name="float_ball_capsule_color_custom">Custom</string>
-    <string name="float_ball_capsule_color_reset">Reset to follow floating ball</string>
+    <string name="float_ball_capsule_color_reset">Reset to default primary</string>
 
     <string name="float_ball_result_group">Result capsule</string>
     <string name="float_ball_result_follow_hand">Follow hand to switch sides</string>

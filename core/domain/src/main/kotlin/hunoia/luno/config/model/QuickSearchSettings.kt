@@ -53,11 +53,10 @@ enum class QuickSearchListStyle { Flat, GroupedCards }
 @Keep
 data class QuickSearchSettings(
     /**
-     * 旧「默认引擎」遗留字段：主引擎已改为「列表第一位」（拖拽排序决定），
-     * 归一化时把旧默认引擎一次性挪到顺序首位后清空，仅为迁移保留，勿再读写。
+     * 全部引擎 = 用户自建列表（含首装 seed [DefaultSearchEngines]）。主引擎 = 排序第一位。
+     * 默认值只在首次解码生效：用户删空后持久化为空列表，不会被重新 seed。
      */
-    val defaultEngineId: String = "",
-    val customEngines: List<SearchEngine> = emptyList(),
+    val customEngines: List<SearchEngine> = DefaultSearchEngines,
     /** 最近确认的搜索词（去重 cap 50）：空输入时展示，点即回填。 */
     val recentQueries: List<String> = emptyList(),
     /** 剪贴板行：空输入时展示当前剪贴文本，点即回填。 */
@@ -159,13 +158,7 @@ private fun assignEngineIds(engines: List<SearchEngine>): List<SearchEngine> {
     }
 }
 
-/** 生效引擎：排序后的全部引擎，供结果行/标识/空态提示用。 */
-fun QuickSearchSettings.effectiveEngines(): List<SearchEngine> = allEngines()
-
-/**
- * 统一归一化：清洗标识、引擎顺序、Pin 容量与草稿。
- * 读 settings 与写入前都会调用，旧数据/导入数据无需迁移即可用。
- */
+/** 统一归一化：清洗标识、引擎顺序、Pin 容量与草稿。读 settings 与写入前都会调用。 */
 fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
     // 先补 id：后面的顺序按 id 索引，id 缺失时这些引用无处落地。
     val idFixed = assignEngineIds(customEngines)
@@ -193,24 +186,6 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
     val normalizedOrder = engineOrder.filter { it in knownIds }.distinct()
     if (normalizedOrder.size != engineOrder.size) changed = true
 
-    // 旧「默认引擎」一次性迁移：把默认引擎挪到顺序首位后清空字段，
-    // 此后主引擎 = 列表第一位（拖拽排序决定）。
-    val legacyDefault = defaultEngineId.takeIf { it.isNotBlank() && it in knownIds }
-    val orderWithLegacy = if (legacyDefault == null) {
-        normalizedOrder
-    } else {
-        val base = normalizedOrder.ifEmpty { idFixed.map { it.id } }
-        if (base.firstOrNull() == legacyDefault) {
-            base
-        } else {
-            base.toMutableList().apply {
-                remove(legacyDefault)
-                add(0, legacyDefault)
-            }
-        }
-    }
-    if (orderWithLegacy != engineOrder || defaultEngineId.isNotEmpty()) changed = true
-
     val normalizedPinOrder = run {
         val keys = pinnedResults.filterValues { it.isNotEmpty() }.keys
         // pinnedQueryOrder 是「新的在前」（写侧前插），所以淘汰丢尾部，
@@ -226,10 +201,9 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
 
     return if (!changed) this else copy(
         customEngines = normalizedCustom,
-        engineOrder = orderWithLegacy,
+        engineOrder = normalizedOrder,
         pinnedResults = normalizedPins,
         pinnedQueryOrder = normalizedPinOrder,
-        defaultEngineId = "",
     )
 }
 

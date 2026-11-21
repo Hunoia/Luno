@@ -91,7 +91,6 @@ import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
-import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.motionMillis
 import hunoia.luno.ui.theme.toAlertFamily
 import hunoia.luno.runtime.notification.NotificationPulseHub
@@ -702,12 +701,11 @@ class FloatBallService : Service() {
     /** 当前配置 → 播放计划：单循环时长按效果家族解析（各效果不共用基准，需求确认口径）。 */
     private fun buildAlertPlan(): AlertPlayPlan {
         val alert = settings.notificationCapsule.alert
-        return buildPlan(alert, motionMillis(alert.effect.toAlertFamily()))
+        return buildPlan(alert) { effect -> motionMillis(effect.toAlertFamily()) }
     }
 
-    /** 到达动效统一取通知球色：未设置时回退主球色（与球渲染的回退链一致）。 */
-    private fun alertColorSpec(): ColorSpec =
-        settings.notificationCapsule.ballColor.takeUnless { it.isUnset } ?: settings.colorSpec
+    /** 到达动效统一用动效独立颜色：未设置时渲染端回落主题主色（与胶囊 / 悬浮球解耦）。 */
+    private fun alertColorSpec(): ColorSpec = settings.notificationCapsule.alert.color
 
     /** 按计划分发效果：真到达与试播共用；胶囊层效果要求胶囊已可见，由调用方保证。 */
     private fun dispatchAlertPlan(slot: CapsuleSlot, plan: AlertPlayPlan) {
@@ -2013,7 +2011,8 @@ class FloatBallService : Service() {
                 BallSource.NOTIFICATION -> base.notificationCapsule.idleDimDelayMs
                 BallSource.RESULT -> base.resultCapsule.idleDimDelayMs
             }
-            // 球色 / 胶囊背景色都按胶囊各取各的；未设置（isUnset）时保持跟随主球色。
+            // 球色 / 胶囊背景色 / 动效色都按胶囊各取各的；未设置（isUnset）时渲染端
+            // toMarkColor 回落主题主色——胶囊与悬浮球色彻底解耦（需求确认口径）。
             val ballSpec = when (source) {
                 BallSource.NOTIFICATION -> base.notificationCapsule.ballColor
                 BallSource.RESULT -> base.resultCapsule.ballColor
@@ -2038,9 +2037,9 @@ class FloatBallService : Service() {
                 customIconAlpha = icon.alpha,
                 // 内容球不提供「静置暂停动图」开关；保持动画播放。
                 customIconPauseWhenIdle = false,
-            ).withColorSpec(ballSpec, fallback = base)
+            ).withColorSpec(ballSpec)
             ball.updateSettings(synthesized)
-            bubble.updateSettings(base.withColorSpec(backgroundSpec, fallback = base))
+            bubble.updateSettings(base.withColorSpec(backgroundSpec))
             // 行手势：读归一化后的行为（非法组合已在设置层收口为出厂默认）。
             bubble.setRowGestures(
                 CapsuleRowGestures(
@@ -2825,21 +2824,14 @@ class FloatBallService : Service() {
 }
 
 /**
- * 胶囊独立颜色合成：[spec] 已设置时覆写颜色三字段，未设置（isUnset）回落 [fallback]
- * ——即跟随主球色的历史行为。
+ * 胶囊独立颜色合成：无条件覆写颜色三字段——[spec] 未设置（isUnset）时渲染端
+ * `toMarkColor` 回落主题主色，即「默认主色，不随悬浮球」的确认口径。
  */
-private fun FloatBallSettings.withColorSpec(
-    spec: ColorSpec,
-    fallback: FloatBallSettings,
-): FloatBallSettings = if (spec.isUnset) {
-    fallback
-} else {
-    copy(
-        color = spec.customColor,
-        colorSource = spec.source,
-        colorThemeKey = spec.themeKey,
-    )
-}
+private fun FloatBallSettings.withColorSpec(spec: ColorSpec): FloatBallSettings = copy(
+    color = spec.customColor,
+    colorSource = spec.source,
+    colorThemeKey = spec.themeKey,
+)
 
 private data class FloatBallRuntimeConfig(
     val action: ActionSettings,

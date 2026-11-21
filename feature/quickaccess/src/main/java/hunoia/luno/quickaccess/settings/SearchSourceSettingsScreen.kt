@@ -29,6 +29,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.TextInputDialog
 import kotlinx.coroutines.launch
 
 /** 来源 key → 开关字段读取：全部来源都可开关（应用/动作等不再常开）。 */
@@ -122,3 +123,36 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
 @Composable
 internal fun sourceTitle(key: String): String =
     stringResource(SearchSourceRegistry.titleRes(key))
+
+/**
+ * 来源标识编辑：空 = 关闭该源；不能含空白，不能撞引擎或其他来源；不合法时确认键禁用。
+ * （原在 EngineEditDialog.kt，只被本页使用，随消费方落位。）
+ */
+@Composable
+private fun SourceTriggerDialog(
+    title: String,
+    current: String,
+    existingTriggers: List<String>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var trigger by remember(current) { mutableStateOf(current) }
+    val triggerClean = trigger.trim().lowercase()
+    val triggerError: Int? = when {
+        triggerClean.any { it.isWhitespace() } -> R.string.search_engine_trigger_space
+        triggerClean.isNotEmpty() && existingTriggers.any { it.equals(triggerClean, ignoreCase = true) } ->
+            R.string.search_engine_trigger_duplicate
+        else -> null
+    }
+    TextInputDialog(
+        title = title,
+        label = stringResource(R.string.search_engine_trigger),
+        initialValue = current,
+        isError = triggerError != null,
+        supportingText = triggerError?.let { stringResource(it) }
+            ?: stringResource(R.string.quick_search_trigger_off),
+        confirmEnabled = triggerError == null,
+        onDismissRequest = onDismissRequest,
+        onConfirm = { onConfirm(it.trim().lowercase()) },
+    )
+}

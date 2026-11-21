@@ -1,7 +1,6 @@
 package hunoia.luno.annotate.model
 
 import kotlin.math.abs
-import kotlin.math.min
 
 /**
  * 裁剪（CROP 工具）的纯几何：窗口手柄命中 / 调整 / 缩放 / 平移夹取 / 安全区域。

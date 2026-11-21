@@ -15,7 +15,7 @@ import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.effectiveEngines
+import hunoia.luno.config.model.allEngines
 import java.util.PriorityQueue
 import kotlinx.coroutines.CancellationException
 
@@ -78,7 +78,7 @@ fun QuickSearchIndex.search(
         // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在 Dispatchers.Default
         // 上。应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
         // 引擎列表一次解析：标识直达、默认兜底、引擎行都复用同一份顺序，避免每次现拼。
-        val engines = searchSettings.effectiveEngines()
+        val engines = searchSettings.allEngines()
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
         parseDirective(query.trim(), libraryEntries, usageStats, searchSettings, engines, clips)?.let {

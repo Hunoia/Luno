@@ -1,5 +1,7 @@
 package hunoia.luno.runtime.floatball.alert
 
+import android.graphics.Paint
+import android.graphics.RuntimeShader
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -11,12 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.ColorSpec
+import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.ui.theme.toMarkColor
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -28,17 +32,44 @@ import kotlin.random.Random
  *
  * 都是事件驱动的一次性时间线：进窗后由 [LaunchedEffect] 跑完 [AlertPlayPlan.totalMillis]，
  * 末帧之后回调 [onFinished]（拆窗等末帧，ui-guidelines §5.1），窗口随即被宿主摘除——
- * 不留任何常驻动画。各效果的观感参数在 [EdgeGlowTuning] / [ParticlesTuning] /
- * [RingTuning] 里独立调校（需求确认口径：参数不共用）；时长全部来自各自
- * `MotionFamily.Alert*` 家族（已含应用档位，系统动画缩放由 Compose 自动乘）。
+ * 不留任何常驻动画。量旋钮（[AlertPlayPlan.amount]）与亮度（[AlertPlayPlan.brightness]）
+ * 已按效果归一化，各效果按自己的语义映射到 [EdgeGlowTuning] / [ParticlesTuning] /
+ * [RingTuning] 的曲线常量；时长全部来自各自 `MotionFamily.Alert*` 家族（已含应用档位，
+ * 系统动画缩放由 Compose 自动乘）。
  */
 
 /**
- * 屏幕边缘呼吸光：四条边各一条向内衰减的**双层**光带（宽软带 + 窄亮核，三段软边衰减），
- * alpha 按 sin 包络呼吸一圈。
+ * 屏幕边缘呼吸光的 AGSL 距离场 shader：到圆角矩形屏缘的符号距离做指数衰减，
+ * 辉光连续贴合圆角（替代旧的四条矩形渐变带——角部拼接生硬、与真实边缘光差距大）。
  *
- * 左右带在上下方向内缩一个光带宽度：上下带与左右带不再在四角重叠叠加发亮。
- * 强度映射光带宽度与 alpha 峰值（[EdgeGlowTuning]）；节奏 = 呼吸圈数。
+ * - `falloff` = 光带衰减尺度（用户旋钮，px）
+ * - 包络强度（呼吸）由宿主每帧写 `intensity` uniform
+ * - 圆角外侧（屏幕物理圆角裁掉的区域）按 [EdgeGlowTuning.OuterFalloffDp] 快速收尾
+ */
+private const val EDGE_GLOW_SHADER = """
+    uniform float2 resolution;
+    uniform float cornerRadius;
+    uniform float falloff;
+    uniform float outerFalloff;
+    uniform float intensity;
+    layout(color) uniform half4 color;
+
+    half4 main(float2 fragCoord) {
+        float2 halfSize = resolution * 0.5;
+        float2 p = fragCoord - halfSize;
+        float2 q = abs(p) - (halfSize - float2(cornerRadius));
+        float dist = length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - cornerRadius;
+        float inward = max(-dist, 0.0) / falloff;
+        float outward = max(dist, 0.0) / outerFalloff;
+        float glow = exp(-inward) * exp(-outward);
+        half a = half(glow * intensity);
+        return half4(color.rgb * a, a);
+    }
+"""
+
+/**
+ * 屏幕边缘呼吸光：alpha 按 sin 包络呼吸一圈，强度映射 alpha 峰值，光带宽度是用户旋钮。
+ * 绘制走 [EDGE_GLOW_SHADER]，仅播放期每帧求值。
  */
 @Composable
 internal fun EdgeGlowEffect(
@@ -47,12 +78,9 @@ internal fun EdgeGlowEffect(
     onFinished: () -> Unit,
 ) {
     val accent = colorSpec.toMarkColor()
-    val bandDp = plan.intensity.lerpInRange(EdgeGlowTuning.BandMinDp, EdgeGlowTuning.BandMaxDp)
-    val coreFraction = EdgeGlowTuning.CoreBandFraction
-    val softBrightness = EdgeGlowTuning.SoftLayerBrightness
-    val peakAlpha = plan.intensity.lerpInRange(EdgeGlowTuning.PeakAlphaMin, EdgeGlowTuning.PeakAlphaMax)
-    val midStop = EdgeGlowTuning.FalloffMidStop
-    val midBrightness = EdgeGlowTuning.FalloffMidBrightness
+    val peakAlpha = plan.brightness.lerpInRange(EdgeGlowTuning.PeakAlphaMin, EdgeGlowTuning.PeakAlphaMax)
+    val shader = remember { RuntimeShader(EDGE_GLOW_SHADER) }
+    val paint = remember { Paint() }
     val elapsed = remember { Animatable(0f) }
     LaunchedEffect(plan) {
         repeat(plan.cycles) { index ->
@@ -67,45 +95,23 @@ internal fun EdgeGlowEffect(
     }
     Canvas(modifier = Modifier.fillMaxSize()) {
         val t = (elapsed.value / plan.cycleMillis) % 1f
-        val alpha = peakAlpha * sin(Math.PI.toFloat() * t)
-        if (alpha <= 0.005f) return@Canvas
-        val w = size.width
-        val h = size.height
-        val bandPx = bandDp.dp.toPx()
-        val corePx = bandPx * coreFraction
-        // 左右带的上下内缩：避开四角，防止与上下带重叠叠加。
-        val sideInset = bandPx
-        val sideHeight = (h - sideInset * 2f).coerceAtLeast(0f)
-        val transparent = accent.copy(alpha = 0f)
-        val softMid = accent.copy(alpha = midBrightness)
-        // 双层辉光：宽软带（低亮度，负责「晕」）+ 窄亮核（峰值亮度贴边，负责「锐」）。
-        // 三段衰减：边缘最亮 → 中途渐暗 → 内缘透明（软边，不再是硬截断）。
-        for (layer in listOf(bandPx to alpha * softBrightness, corePx to alpha)) {
-            val (thickness, layerAlpha) = layer
-            drawRect(
-                brush = Brush.verticalGradient(0f to accent, midStop to softMid, 1f to transparent),
-                topLeft = Offset.Zero,
-                size = Size(w, thickness),
-                alpha = layerAlpha,
-            )
-            drawRect(
-                brush = Brush.verticalGradient(0f to transparent, 1f - midStop to softMid, 1f to accent),
-                topLeft = Offset(0f, h - thickness),
-                size = Size(w, thickness),
-                alpha = layerAlpha,
-            )
-            drawRect(
-                brush = Brush.horizontalGradient(0f to accent, midStop to softMid, 1f to transparent),
-                topLeft = Offset(0f, sideInset),
-                size = Size(thickness, sideHeight),
-                alpha = layerAlpha,
-            )
-            drawRect(
-                brush = Brush.horizontalGradient(0f to transparent, 1f - midStop to softMid, 1f to accent),
-                topLeft = Offset(w - thickness, sideInset),
-                size = Size(thickness, sideHeight),
-                alpha = layerAlpha,
-            )
+        val intensity = peakAlpha * sin(Math.PI.toFloat() * t)
+        if (intensity <= 0.005f) return@Canvas
+        val falloffPx = (plan.amount
+            .lerpInRange(
+                FloatBallDefaults.AlertEdgeGlowBandWidthDpMin.toFloat(),
+                FloatBallDefaults.AlertEdgeGlowBandWidthDpMax.toFloat(),
+            ))
+            .dp.toPx()
+        shader.setFloatUniform("resolution", size.width, size.height)
+        shader.setFloatUniform("cornerRadius", EdgeGlowTuning.ScreenCornerRadiusDp.dp.toPx())
+        shader.setFloatUniform("falloff", falloffPx)
+        shader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
+        shader.setFloatUniform("intensity", intensity)
+        shader.setColorUniform("color", accent.copy(alpha = 1f).toArgb())
+        paint.shader = shader
+        drawIntoCanvas { canvas ->
+            canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
         }
     }
 }
@@ -123,7 +129,7 @@ private data class Particle(
  * 顶部粒子掉落：粒子从窗口顶缘错峰出发，重力加速下落（[ParticlesTuning.GravityExp]），
  * 下落途中横向正弦摆动；双层圆点辉光（实心核 + 低 alpha 光晕）；alpha 先驻留后衰减。
  *
- * 强度映射粒子数量与 alpha 峰值；节奏 = 波次（出发时刻摊开在波次区间内），
+ * 亮度映射 alpha 峰值，量旋钮映射粒子数量；节奏 = 波次（出发时刻摊开在波次区间内），
  * 每颗下落时长 = 单循环基准。
  */
 @Composable
@@ -133,9 +139,12 @@ internal fun TopParticlesEffect(
     onFinished: () -> Unit,
 ) {
     val accent = colorSpec.toMarkColor()
-    val peakAlpha = plan.intensity.lerpInRange(ParticlesTuning.PeakAlphaMin, ParticlesTuning.PeakAlphaMax)
-    val count = plan.intensity
-        .lerpInRange(ParticlesTuning.CountMin.toFloat(), ParticlesTuning.CountMax.toFloat())
+    val peakAlpha = plan.brightness.lerpInRange(ParticlesTuning.PeakAlphaMin, ParticlesTuning.PeakAlphaMax)
+    val count = plan.amount
+        .lerpInRange(
+            FloatBallDefaults.AlertParticlesCountMin.toFloat(),
+            FloatBallDefaults.AlertParticlesCountMax.toFloat(),
+        )
         .roundToInt()
     val particles = remember(plan) {
         val random = Random.Default
@@ -197,11 +206,12 @@ internal fun TopParticlesEffect(
     }
 }
 
-/** 球光环扩散（雷达 ping）：从球缘向外**减速扩张**并淡出的圆环；核环 + 宽光晕双描边；
+/**
+ * 球光环扩散（雷达 ping）：从球缘向外**减速扩张**并淡出的圆环；核环 + 宽光晕双描边；
  * 每循环发 [RingTuning.RingsPerCycle] 圈错峰重叠。
  *
- * 强度映射扩散行程（[ringTravelPx]）、描边宽度与 alpha 峰值；节奏 = 圈数。
- * 窗口由宿主按「球径 + 2×(行程 + 余量)」撑出，这里只画圆。
+ * 亮度映射描边宽度与 alpha 峰值；扩散行程由宿主按量旋钮经 [ringTravelPx] 算好传入，
+ * 窗口按「球径 + 2×(行程 + 余量)」撑出，这里只画圆。
  */
 @Composable
 internal fun BallRingEffect(
@@ -212,8 +222,8 @@ internal fun BallRingEffect(
     onFinished: () -> Unit,
 ) {
     val accent = colorSpec.toMarkColor()
-    val peakAlpha = plan.intensity.lerpInRange(RingTuning.PeakAlphaMin, RingTuning.PeakAlphaMax)
-    val strokeDp = plan.intensity.lerpInRange(RingTuning.StrokeMinDp, RingTuning.StrokeMaxDp)
+    val peakAlpha = plan.brightness.lerpInRange(RingTuning.PeakAlphaMin, RingTuning.PeakAlphaMax)
+    val strokeDp = plan.brightness.lerpInRange(RingTuning.StrokeMinDp, RingTuning.StrokeMaxDp)
     val haloScale = RingTuning.HaloStrokeScale
     val haloAlphaFraction = RingTuning.HaloAlphaFraction
     val easeExp = RingTuning.EaseExp

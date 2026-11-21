@@ -16,6 +16,7 @@ import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardSettings
+import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.record
 import hunoia.luno.core.domain.DynamicShortcutRefs
 import hunoia.luno.config.model.GestureButton

@@ -24,6 +24,7 @@ import hunoia.luno.ui.theme.toProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -110,6 +111,24 @@ class App : Application(), SingletonImageLoader.Factory {
         // 重启；用签名 / 时间窗跳过会把提醒静默弄丢。重排在 IO 线程且只碰十几个闹钟，
         // 实测冷启动 80ms（首帧不受影响），不值得为此引入丢失风险。
         if (isProviderProcess) {
+            // 分发规则首装 seed：把预设规则（文本 + 通知变体 + 按已装应用生成的链接规则）
+            // 一次性合并进规则表（rulesSeeded 标记保证只做一次；已有配置按判重合并，
+            // 用户已有的规则不动）。详见 feature/link 的 RecognitionRuleSeed。
+            appScope.launch(Dispatchers.IO) {
+                runCatching {
+                    hunoia.luno.link.seedRecognitionRulesIfNeeded(
+                        applicationContext,
+                        current = {
+                            hunoia.luno.domain.recognition.RecognitionSettingsActions
+                                .actionSettings.first().recognition
+                        },
+                        update = {
+                            hunoia.luno.domain.recognition.RecognitionSettingsActions
+                                .updateRecognition(it)
+                        },
+                    )
+                }
+            }
             hunoia.luno.gridpanel.reminder.habit.HabitReminderScheduler.startObserving(applicationContext)
             // 待办提醒同理：配置流一变更（设 / 改 / 删 / 完成 / 撤销）就重排，
             // 首次订阅同时负责「应用打开时补弹错过提醒」。

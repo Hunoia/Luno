@@ -23,14 +23,14 @@ import hunoia.luno.ui.theme.toMarkColor
  *
  * 行为对齐主球取色：色板行点击开取色板（sheet 由宿主挂在 `LunoScreenLazy` 的 sheets 槽，
  * 这里只回调 [onBallClick] / [onBackgroundClick]）；已自定义时各多一行重置行回退
- * 「跟随悬浮球」（ColorSpec.Unset），模式对齐同组的图标重置行。
- * 副标题实时显示来源；色板显示**当前生效色**（未设置时即 [followColor]，主球色）。
+ * 「默认主色」（ColorSpec.Unset，渲染端回落主题主色，与悬浮球解耦），模式对齐同组的
+ * 图标重置行。副标题实时显示来源；色板显示**当前生效色**（未设置时即 [defaultColor]）。
  */
 @Composable
 internal fun ColumnScope.CapsuleColorRows(
     ballSpec: ColorSpec,
     backgroundSpec: ColorSpec,
-    followColor: androidx.compose.ui.graphics.Color,
+    defaultColor: androidx.compose.ui.graphics.Color,
     startIndex: Int,
     rowCount: Int,
     onBallClick: () -> Unit,
@@ -44,13 +44,13 @@ internal fun ColumnScope.CapsuleColorRows(
         icon = Icons.Default.Palette,
         subtitle = stringResource(
             if (ballSpec.isUnset) {
-                R.string.float_ball_capsule_color_follow_ball
+                R.string.float_ball_capsule_color_default
             } else {
                 R.string.float_ball_capsule_color_custom
             },
         ),
         shape = segmentedShape(row++, rowCount),
-        leading = { ColorSwatch(color = ballSpec.effectiveColor(followColor)) },
+        leading = { ColorSwatch(color = ballSpec.effectiveColor(defaultColor)) },
         onClick = onBallClick,
     )
     if (!ballSpec.isUnset) {
@@ -66,13 +66,13 @@ internal fun ColumnScope.CapsuleColorRows(
         icon = Icons.Default.Palette,
         subtitle = stringResource(
             if (backgroundSpec.isUnset) {
-                R.string.float_ball_capsule_color_follow_ball
+                R.string.float_ball_capsule_color_default
             } else {
                 R.string.float_ball_capsule_color_custom
             },
         ),
         shape = segmentedShape(row++, rowCount),
-        leading = { ColorSwatch(color = backgroundSpec.effectiveColor(followColor)) },
+        leading = { ColorSwatch(color = backgroundSpec.effectiveColor(defaultColor)) },
         onClick = onBackgroundClick,
     )
     if (!backgroundSpec.isUnset) {
@@ -89,7 +89,7 @@ internal fun ColumnScope.CapsuleColorRows(
 internal fun capsuleColorRowCount(ballSpec: ColorSpec, backgroundSpec: ColorSpec): Int =
     2 + if (ballSpec.isUnset) 0 else 1 + if (backgroundSpec.isUnset) 0 else 1
 
-/** 行尾色板：圆形色块，跟随态显示主球色，自定义态显示所选色。 */
+/** 行尾色板：圆形色块，默认态显示 [defaultColor]（主题主色），自定义态显示所选色。 */
 @Composable
 private fun ColorSwatch(color: androidx.compose.ui.graphics.Color) {
     Box(
@@ -99,7 +99,7 @@ private fun ColorSwatch(color: androidx.compose.ui.graphics.Color) {
     )
 }
 
-/** 当前生效色：未设置（跟随悬浮球）→ [followColor]，否则自定义 / 主题色。 */
+/** 当前生效色：未设置（默认主色）→ [defaultColor]，否则自定义 / 主题色。 */
 @Composable
-private fun ColorSpec.effectiveColor(followColor: androidx.compose.ui.graphics.Color) =
-    if (isUnset) followColor else toMarkColor()
+private fun ColorSpec.effectiveColor(defaultColor: androidx.compose.ui.graphics.Color) =
+    if (isUnset) defaultColor else toMarkColor()

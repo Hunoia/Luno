@@ -39,14 +39,11 @@ import hunoia.luno.quickaccess.R
 import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
-import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.enginePrimaryAction
 import hunoia.luno.quickaccess.query.engineRowIcon
 import hunoia.luno.quickaccess.query.imageTarget
-import hunoia.luno.quickaccess.query.toSearchAction
-import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter

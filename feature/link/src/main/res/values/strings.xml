@@ -27,12 +27,6 @@
     <string name="recognition_rule_missing">规则不存在或已被删除</string>
     <string name="recognition_rule_summary">%1$s · %2$s → %3$s</string>
 
-    <string name="recognition_presets_hint">点一条即添加；之后可在规则表里调顺序与参数</string>
-    <string name="recognition_presets_added_one">已添加「%1$s」</string>
-    <string name="recognition_preset_text_summary">从文本里抓取 → 复制</string>
-    <string name="recognition_preset_link_summary">链接 → 发往 %1$s</string>
-    <string name="recognition_preset_browser_summary">链接 → 交给浏览器打开</string>
-    <string name="recognition_presets_group">常用规则</string>
 
     <string name="recognition_import">从剪贴板导入</string>
     <string name="recognition_import_empty">剪贴板没有内容</string>

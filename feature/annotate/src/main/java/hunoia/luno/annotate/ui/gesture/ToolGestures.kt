@@ -13,7 +13,6 @@ import hunoia.luno.annotate.model.AnnotationElement
 import hunoia.luno.annotate.model.BlurElement
 import hunoia.luno.annotate.model.ContainFit
 import hunoia.luno.annotate.model.ElementHandle
-import hunoia.luno.annotate.model.ElementKind
 import hunoia.luno.annotate.model.MosaicElement
 import hunoia.luno.annotate.model.NumberElement
 import hunoia.luno.annotate.model.Pt

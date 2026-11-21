@@ -139,7 +139,7 @@ internal class AlertOverlayWindow(private val context: Context) {
 
             AlertWindowKind.BallRing -> {
                 val ballPx = ring?.ballPx ?: DensityProvider.dp2px(RingFallbackBallDp)
-                val travel = ringTravelPx(ballPx, plan.intensity)
+                val travel = ringTravelPx(ballPx, plan.amount)
                 val size = ballPx + 2 * (travel + DensityProvider.dp2px(RingMarginDp))
                 width = size
                 height = size
@@ -194,7 +194,7 @@ private fun AlertContent(
                 AlertWindowKind.BallRing -> BallRingEffect(
                     plan = plan,
                     ballRadiusPx = (ring?.ballPx ?: 0) / 2f,
-                    travelPx = ringTravelPx(ring?.ballPx ?: 0, plan.intensity).toFloat(),
+                    travelPx = ringTravelPx(ring?.ballPx ?: 0, plan.amount).toFloat(),
                     colorSpec = colorSpec,
                     onFinished = onFinished,
                 )

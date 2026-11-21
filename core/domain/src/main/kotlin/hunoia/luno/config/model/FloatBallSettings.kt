@@ -226,9 +226,9 @@ data class NotificationCapsuleSettings(
     val followHand: Boolean = false,
     /** 通知球自定义图标；未设置时用通知应用图标 / 铃铛，不跟随主球。 */
     val customIcon: BallCustomIcon = BallCustomIcon(),
-    /** 通知球颜色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    /** 通知球颜色；[ColorSpec.isUnset] 时跟随主题主色（不随悬浮球）。 */
     val ballColor: ColorSpec = ColorSpec.Unset,
-    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随主题主色（不随悬浮球）。 */
     val backgroundColor: ColorSpec = ColorSpec.Unset,
     /** 通知球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
     val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
@@ -304,19 +304,66 @@ enum class NotificationAlertEffect {
  * 新通知到达提示动效配置。事件驱动、一次性播放：只在「通知到达把胶囊从隐藏拉起」的
  * 时机播放，播完自动停；熄屏 / 锁屏 / 勿扰 / 全屏沉浸 / 胶囊已可见时都不播。
  *
- * [intensity] 与 [pace] 是两个通用旋钮，含义随 [effect] 变化（设置页标签跟随）：
- * 强度 = 光晕 / 粒子量 / 亮度峰值的映射输入；节奏 = 播放次数（呼吸圈数 / 粒子波次 /
- * 光环圈数 / 扫光次数），总时长 = 节奏 × 单循环时长（按效果走各自的 `MotionFamily.Alert*`）。
+ * 参数按效果各存一组（[edgeGlow] / [particles] / [ring] / [pulse] / [shimmer]），
+ * 不共用旋钮（需求确认口径）；设置页只渲染所选效果自己的滑杆。
+ * [color] 是动效的独立颜色项，[ColorSpec.isUnset] 时跟随主题主色（与胶囊解耦悬浮球）。
  */
 @Serializable
 @Keep
 data class NotificationAlertSettings(
     val enabled: Boolean = FloatBallDefaults.AlertEnabled,
     val effect: NotificationAlertEffect = NotificationAlertEffect.EdgeGlow,
-    /** 强度（0–100，滑杆约束），按 [effect] 映射为透明度峰值或粒子数量。 */
-    val intensity: Int = FloatBallDefaults.AlertIntensity,
-    /** 节奏（1–4，滑杆约束）：播放循环次数，总时长随之倍增。 */
-    val pace: Int = FloatBallDefaults.AlertPace,
+    /** 动效颜色；[ColorSpec.isUnset] 时跟随主题主色。 */
+    val color: ColorSpec = ColorSpec.Unset,
+    val edgeGlow: EdgeGlowAlertSettings = EdgeGlowAlertSettings(),
+    val particles: ParticlesAlertSettings = ParticlesAlertSettings(),
+    val ring: RingAlertSettings = RingAlertSettings(),
+    val pulse: PulseAlertSettings = PulseAlertSettings(),
+    val shimmer: ShimmerAlertSettings = ShimmerAlertSettings(),
+)
+
+/** 屏幕边缘呼吸光的专属旋钮：光带宽度（dp）、亮度（%）、呼吸圈数。 */
+@Serializable
+@Keep
+data class EdgeGlowAlertSettings(
+    val bandWidthDp: Int = FloatBallDefaults.AlertEdgeGlowBandWidthDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+)
+
+/** 顶部粒子掉落的专属旋钮：粒子数量、亮度（%）、波次。 */
+@Serializable
+@Keep
+data class ParticlesAlertSettings(
+    val count: Int = FloatBallDefaults.AlertParticlesCount,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val waves: Int = FloatBallDefaults.AlertCycles,
+)
+
+/** 球光环扩散的专属旋钮：扩散行程（球径 %）、亮度（%）、光环圈数。 */
+@Serializable
+@Keep
+data class RingAlertSettings(
+    val travel: Int = FloatBallDefaults.AlertRingTravel,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+)
+
+/** 胶囊本体脉冲的专属旋钮：辉光峰值（%）、脉冲次数。 */
+@Serializable
+@Keep
+data class PulseAlertSettings(
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+)
+
+/** 胶囊边框流光的专属旋钮：主带宽度（%）、亮度（%）、扫过次数。 */
+@Serializable
+@Keep
+data class ShimmerAlertSettings(
+    val bandWidth: Int = FloatBallDefaults.AlertShimmerBandWidth,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
 )
 
 /**
@@ -334,9 +381,9 @@ data class ResultCapsuleSettings(
     val followHand: Boolean = false,
     /** 结果球自定义图标；未设置时用灯泡，不跟随主球。 */
     val customIcon: BallCustomIcon = BallCustomIcon(),
-    /** 结果球颜色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    /** 结果球颜色；[ColorSpec.isUnset] 时跟随主题主色（不随悬浮球）。 */
     val ballColor: ColorSpec = ColorSpec.Unset,
-    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随悬浮球色（历史行为）。 */
+    /** 胶囊背景色；[ColorSpec.isUnset] 时跟随主题主色（不随悬浮球）。 */
     val backgroundColor: ColorSpec = ColorSpec.Unset,
     /** 结果球静置多久后变暗并半出屏；0 = 关闭（默认，保持内容球常亮）。 */
     val idleDimDelayMs: Long = FloatBallDefaults.CapsuleIdleDimDelayMs,
@@ -478,12 +525,34 @@ object FloatBallDefaults {
 
     /** 到达提示动效：默认关（老用户升级零感知），开启后默认边缘呼吸光。 */
     const val AlertEnabled = false
-    const val AlertIntensity = 60
-    const val AlertIntensityMin = 0
-    const val AlertIntensityMax = 100
-    const val AlertPace = 2
-    const val AlertPaceMin = 1
-    const val AlertPaceMax = 4
+
+    /** 到达提示动效通用旋钮默认值与滑杆上下限：亮度（%）与播放次数。 */
+    const val AlertBrightness = 60
+    const val AlertBrightnessMin = 0
+    const val AlertBrightnessMax = 100
+    const val AlertCycles = 2
+    const val AlertCyclesMin = 1
+    const val AlertCyclesMax = 4
+
+    /** 到达提示·边缘呼吸光：光带宽度默认值与滑杆上下限（dp）。 */
+    const val AlertEdgeGlowBandWidthDp = 110
+    const val AlertEdgeGlowBandWidthDpMin = 48
+    const val AlertEdgeGlowBandWidthDpMax = 240
+
+    /** 到达提示·顶部粒子：粒子数量默认值与滑杆上下限。 */
+    const val AlertParticlesCount = 48
+    const val AlertParticlesCountMin = 12
+    const val AlertParticlesCountMax = 120
+
+    /** 到达提示·球光环：扩散行程默认值与滑杆上下限（球径 %）。 */
+    const val AlertRingTravel = 95
+    const val AlertRingTravelMin = 40
+    const val AlertRingTravelMax = 200
+
+    /** 到达提示·边框流光：主带宽度默认值与滑杆上下限（胶囊宽 %）。 */
+    const val AlertShimmerBandWidth = 25
+    const val AlertShimmerBandWidthMin = 10
+    const val AlertShimmerBandWidthMax = 60
 
     /** 内容胶囊（通知 / 结果）同屏可见行数默认值与滑杆上下限（行）。 */
     const val CapsuleVisibleRows = 3

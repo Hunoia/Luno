@@ -4,7 +4,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.text.input.TextFieldState
 import hunoia.luno.annotate.model.AnnotateOps
 import hunoia.luno.annotate.model.AnnotationElement
 import hunoia.luno.annotate.model.Pt

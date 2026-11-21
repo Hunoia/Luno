@@ -40,11 +40,9 @@ import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
-import hunoia.luno.config.model.SearchEnginePresets
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.badgeText
-import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
@@ -91,27 +89,9 @@ fun SearchEngineSettingsScreen(
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
     var showExportConfirm by remember { mutableStateOf(false) }
-    val configEngines = settings.effectiveEngines()
+    val configEngines = settings.allEngines()
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
-    }
-    /**
-     * 添加一条预设：撞了已有标识就清空标识（引擎照样可用，编辑页再改），
-     * 顺序追加到引擎列表末尾（顺序即主引擎优先级，不该抢用户的首位）。
-     */
-    fun addPreset(preset: SearchEngine) {
-        scope.launch {
-            SearchCenter.updateSearch { current ->
-                val used = current.allEngines()
-                    .mapNotNullTo(mutableSetOf()) { it.trigger.trim().lowercase().ifEmpty { null } }
-                current.copy(
-                    customEngines = current.customEngines + preset.copy(
-                        id = "",
-                        trigger = preset.trigger.takeIf { used.add(it.lowercase()) }.orEmpty(),
-                    ),
-                )
-            }
-        }
     }
     fun parseImport(raw: String): ImportPreview? {
         if (raw.isEmpty()) {
@@ -187,12 +167,13 @@ fun SearchEngineSettingsScreen(
         }
     }
     // 文件导出：CreateDocument 让用户选保存位置，直接写引擎 JSON。
+    // 导出的是排序后的生效列表（主引擎在首位）：导入到空配置时顺序原样回来，主引擎不漂移。
     val fileExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val json = JsonSerializer.encodeToString(settings.customEngines)
+            val json = JsonSerializer.encodeToString(settings.allEngines())
             withContext(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.openOutputStream(uri)?.use {
@@ -217,12 +198,8 @@ fun SearchEngineSettingsScreen(
     LaunchedEffect(configEngines) {
         reorder.syncWithCurrent()
     }
-    // 常用引擎：与识别器页「添加常用规则」同一交互（逐条添加，点一条加一条）。
-    // 纯静态表判重，不查 PM，直接在组合期算好（stringResource 也只能在组合期取）。
-    val presets = SearchEnginePresets.addable(settings.customEngines)
-    val presetMessages = presets.map { preset ->
-        stringResource(R.string.search_presets_added, preset.name)
-    }
+    // 常用引擎预设已删（首装由 DefaultSearchEngines seed）：引擎只有新建与导入两条路，
+    // 引擎列表本身就是唯一事实源。
     val addFab: @Composable () -> Unit = {
         LunoFab(
             onClick = { onNavToEdit("") },
@@ -332,12 +309,12 @@ fun SearchEngineSettingsScreen(
                     title = stringResource(R.string.search_export_confirm_title),
                     text = stringResource(
                         R.string.search_export_confirm_text,
-                        settings.customEngines.size,
+                        settings.allEngines().size,
                     ),
                     onDismissRequest = { showExportConfirm = false },
                     onConfirm = {
                         showExportConfirm = false
-                        val json = JsonSerializer.encodeToString(settings.customEngines)
+                        val json = JsonSerializer.encodeToString(settings.allEngines())
                         ClipboardCenter.writeTextImmediate(json, "luno-search-engines")
                         showToast(R.string.search_engine_export_done)
                     },
@@ -405,27 +382,6 @@ fun SearchEngineSettingsScreen(
                                 }
                             },
                             shape = segmentedShape(index, engines.size),
-                        )
-                    }
-                }
-            }
-        }
-        if (presets.isNotEmpty()) {
-            item(key = "presets") {
-                LunoGroup(
-                    title = stringResource(R.string.search_presets_group),
-                    subtitle = stringResource(R.string.search_presets_hint),
-                ) {
-                    presets.forEachIndexed { index, preset ->
-                        LunoSettingsRow(
-                            title = preset.name,
-                            textIcon = TextIcon(preset.badgeText),
-                            subtitle = preset.urlTemplate,
-                            shape = segmentedShape(index, presets.size),
-                            onClick = {
-                                addPreset(preset)
-                                showToast(presetMessages[index])
-                            },
                         )
                     }
                 }

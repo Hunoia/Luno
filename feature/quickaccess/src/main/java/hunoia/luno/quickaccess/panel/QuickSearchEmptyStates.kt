@@ -46,7 +46,7 @@ import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.effectiveEngines
+import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.ClipPools
 import hunoia.luno.quickaccess.query.QuickSearchResult
@@ -355,7 +355,7 @@ internal fun QuickSearchTriggerHints(
         }
     }
     val hintEngines = remember(settings) {
-        settings.effectiveEngines()
+        settings.allEngines()
             .filter { it.trigger.isNotBlank() }
             .map { it.name to it.trigger.trim() }
     }

@@ -387,6 +387,12 @@ data class RecognitionSettings(
      * （空 = 全部允许，两种模式同一口径）。不处理分身后缀。
      */
     val scenePackages: List<String> = emptyList(),
+    /**
+     * 首装规则 seed 标记：false = 还没把 seed 规则（[RecognitionDefaults.seedRules]
+     * + 按已装应用生成的链接规则）合并进规则表。纯序列化标记，UI 不读写——
+     * 没有它，「用户故意删光预设规则」和「从未 seed」无法区分，删掉的规则会被复活。
+     */
+    val rulesSeeded: Boolean = false,
 )
 
 /** 新增 / 更新 / 删除都走这里，保持 `ActionSettings` 的字段级合并语义。 */
@@ -413,10 +419,9 @@ enum class SceneListMode {
 }
 
 /**
- * 默认规则表：开箱即用的最常用几条（验证码中英文 + 内置链接识别）。
- *
- * 具体应用的分发规则（B 站 / 抖音 / 小红书…）不预置：目标包名因设备而异，
- * 由用户在识别器页从预设一键添加。
+ * 默认规则表与首装 seed：字段默认值 [rules] 只含验证码中英文 + 内置链接识别；
+ * 完整 seed（全部文本规则 + 通知变体 + 按已装应用生成的链接规则）由 feature:link 的
+ * seeder 按 `rulesSeeded` 标记一次性合并进规则表，落库后就是普通用户规则，可删可改。
  */
 object RecognitionDefaults {
 
@@ -508,10 +513,10 @@ object RecognitionDefaults {
         AllTextRules.filter { it.id in DefaultTextRuleIds } + LinkRule
 
     /**
-     * 「添加常用规则」里的文本类预设（链接类见 `LinkPresets`），整张常用表。
+     * seed 用的文本类规则（链接类见 feature:link 的 `LinkPresets`），整张表。
      *
-     * 与默认表同源，按 pattern 判重：用户删掉默认规则后也能从这里加回来，
-     * 不会出现「默认表里是 A 正则、预设里是改过的 B 正则」这种漂移。
+     * 与默认表同源：默认表 = [DefaultTextRuleIds] 命中的条目，seed = 整张表，
+     * 不会出现「默认表里是 A 正则、seed 里是改过的 B 正则」这种漂移。
      */
     val textPresets: List<RecognitionRule> get() = AllTextRules
 
@@ -551,4 +556,10 @@ object RecognitionDefaults {
             ),
         ),
     )
+
+    /**
+     * 首装 seed 的静态规则：全部文本规则 + 通知变体（链接规则按已装应用生成，
+     * 见 feature:link 的 `LinkPresets`，不在这份纯 Kotlin 表里）。
+     */
+    val seedRules: List<RecognitionRule> = AllTextRules + islandPresets
 }

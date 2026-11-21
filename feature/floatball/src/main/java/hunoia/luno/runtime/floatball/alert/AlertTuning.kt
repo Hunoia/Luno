@@ -1,40 +1,33 @@
 package hunoia.luno.runtime.floatball.alert
 
+import hunoia.luno.config.model.FloatBallDefaults
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
  * 到达提示动效的**每效果独立调校参数**（需求确认口径：参数不共用，按各效果实际观感定值）。
  *
- * 只放绘制曲线的形状常量与映射区间（强度旋钮 → 各自的观感量）；时长不在这里——
- * 单循环时长按效果走 `MotionFamily.Alert*` 家族（唯一事实源在 ui:design 的 Motion.kt）。
- * 所有 dp 值按 dp 语义命名，绘制处 `.dp.toPx()` 换算；改动任一值都应先试播确认观感。
+ * 这里只放「量的区间映射」之外的曲线形状常量（衰减 stop、层占比、缓动指数、辉光比例）；
+ * 用户可调的量旋钮区间（光带宽度 / 粒子数量 / 扩散行程 / 主带宽）在 `FloatBallDefaults`
+ * 里登记（滑杆约束与绘制映射同源），时长按效果走 `MotionFamily.Alert*` 家族（唯一事实源
+ * 在 ui:design 的 Motion.kt）。所有 dp 值按 dp 语义命名，绘制处 `.dp.toPx()` 换算；
+ * 改动任一值都应先试播确认观感。
  */
 
 /**
- * 屏幕边缘呼吸光：四条边各一条向内衰减的双层光带（宽软带 + 窄亮核）。
- * 强度映射光带宽度与 alpha 峰值；节奏 = 呼吸圈数。
+ * 屏幕边缘呼吸光（AGSL 距离场）：辉光沿圆角屏缘按距离指数衰减，alpha 按 sin 包络呼吸。
+ * 强度映射 alpha 峰值；光带宽度（衰减尺度）是用户旋钮。
  */
 internal object EdgeGlowTuning {
-    /** 光带总宽下/上限（dp）：强度 0 → 下限，强度 1 → 上限。 */
-    const val BandMinDp = 64f
-    const val BandMaxDp = 160f
-
-    /** 窄亮核占光带总宽的比例：贴边缘的高亮内层，负责「锐」；宽软带负责「晕」。 */
-    const val CoreBandFraction = 0.35f
-
-    /** 宽软带相对峰值 alpha 的亮度比例（<1：晕层让位给核层）。 */
-    const val SoftLayerBrightness = 0.55f
-
-    /** alpha 峰值下/上限：sin 包络的乘数。 */
+    /** alpha 峰值下/上限：亮度旋钮的映射区间（sin 包络的乘数）。 */
     const val PeakAlphaMin = 0.25f
     const val PeakAlphaMax = 0.8f
 
-    /** 衰减渐变的中途 stop（0..1）：>0.5 表示靠边处更亮、衰减更缓（软边）。 */
-    const val FalloffMidStop = 0.55f
+    /** 屏缘圆角半径（dp）：SDF 的圆角；设备真值拿不到可靠 API，按观感取常用档。 */
+    const val ScreenCornerRadiusDp = 28f
 
-    /** 衰减渐变中途 stop 的 alpha：边缘亮 → 中途已衰减 → 内缘透明。 */
-    const val FalloffMidBrightness = 0.45f
+    /** 外侧衰减（px）：圆角裁掉的区域外辉光快速收尾，避免角外残留硬边。 */
+    const val OuterFalloffDp = 12f
 }
 
 /**
@@ -42,15 +35,11 @@ internal object EdgeGlowTuning {
  * 双层圆点辉光（实心核 + 低 alpha 光晕），alpha 先驻留后衰减。
  */
 internal object ParticlesTuning {
-    /** 粒子数量下/上限：强度线性映射。 */
-    const val CountMin = 20
-    const val CountMax = 80
-
-    /** alpha 峰值下/上限：粒子本体亮度乘数。 */
+    /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.8f
 
-    /** 粒子核半径下/上限（dp）。 */
+    /** 粒子核半径下/上限（dp）：非用户旋钮，按观感定值。 */
     const val RadiusMinDp = 2f
     const val RadiusMaxDp = 4.5f
 
@@ -78,14 +67,10 @@ internal object ParticlesTuning {
 
 /**
  * 球光环扩散（雷达 ping）：圆环减速扩张 + alpha 衰减，核环 + 宽光晕双描边。
- * 强度映射扩散行程、描边宽度与 alpha 峰值；节奏 = 圈数（每循环可发多圈错峰）。
+ * 扩散行程（球径 %）是用户旋钮；强度映射描边宽度与 alpha 峰值；节奏 = 圈数。
  */
 internal object RingTuning {
-    /** 扩散行程（球径倍数）下/上限：强度线性映射；宿主按此撑窗口余量。 */
-    const val TravelMinFraction = 0.7f
-    const val TravelMaxFraction = 1.2f
-
-    /** 核描边宽度下/上限（dp）：强度线性映射。 */
+    /** 核描边宽度下/上限（dp）：亮度旋钮的映射区间。 */
     const val StrokeMinDp = 2.5f
     const val StrokeMaxDp = 3.5f
 
@@ -99,18 +84,17 @@ internal object RingTuning {
     /** 半径缓出指数：1 = 线性，>1 起步快、收尾减速（减速扩张观感）。 */
     const val EaseExp = 2.2f
 
-    /** alpha 衰减指数：>1 先驻留后衰减，环不至于一出生就明显变暗。 */
-    const val FadeExp = 1.3f
-
-    /** alpha 峰值下/上限。 */
+    /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.8f
+
+    /** alpha 衰减指数：>1 先驻留后衰减。 */
+    const val FadeExp = 1.3f
 }
 
 /**
- * 胶囊本体脉冲：沿胶囊轮廓（主题层的 CapsuleShape）叠 3 层嵌套描边辉光
- * （核心描边 + 两层逐级加宽减淡的光晕），亮度按 sin 包络呼吸。
- * 强度映射峰值增量（叠加在常驻描边 alpha 之上）。
+ * 胶囊本体脉冲：沿胶囊轮廓叠 3 层嵌套描边辉光（核心描边 + 两层逐级加宽减淡的光晕），
+ * 亮度按 sin 包络呼吸。亮度旋钮映射峰值增量（叠加在常驻描边 alpha 之上）。
  */
 internal object PulseTuning {
     /** 核心描边宽度（dp）：与常驻描边同量级；光晕层宽度 = 核心 × 各级倍数。 */
@@ -124,39 +108,38 @@ internal object PulseTuning {
     const val GlowAlphaFraction1 = 0.45f
     const val GlowAlphaFraction2 = 0.18f
 
-    /** 峰值增量下/上限：呼吸顶点的描边亮度增量。 */
+    /** 峰值增量下/上限：亮度旋钮的映射区间（呼吸顶点的描边亮度增量）。 */
     const val BoostMin = 0.3f
     const val BoostMax = 0.8f
 }
 
 /**
  * 胶囊边框流光：一道亮带沿边框自左向右扫过，主带后随一道更宽更暗的拖尾，
- * 扫动位置缓出（收尾减速）。强度映射 alpha 峰值。
+ * 扫动位置缓出（收尾减速）。主带宽度是用户旋钮；亮度映射 alpha 峰值。
  */
 internal object ShimmerTuning {
-    /** 主带宽度（占胶囊宽比例）。 */
-    const val BandWidth = 0.25f
-
-    /** 拖尾带：宽度（占胶囊宽比例）与 alpha 占主带峰值的比例。 */
-    const val TrailWidth = 0.5f
+    /** 拖尾带：宽度（占主带宽倍数）与 alpha 占主带峰值的比例。 */
+    const val TrailWidthScale = 2f
     const val TrailAlphaFraction = 0.4f
 
     /** 扫动位置缓出指数：1 = 匀速，>1 起步快、收尾减速。 */
     const val SweepEaseExp = 1.35f
 
-    /** 主带 alpha 峰值下/上限。 */
+    /** 主带 alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.9f
 }
 
-/** 球光环的扩散行程（px）：随强度拉远，宿主与效果共用同一份口径定窗口余量。 */
-internal fun ringTravelPx(ballPx: Int, intensity: Float): Int {
-    val fraction = intensity.lerpInRange(RingTuning.TravelMinFraction, RingTuning.TravelMaxFraction)
+/** 球光环的扩散行程（px）：随量旋钮拉远，宿主与效果共用同一份口径定窗口余量。 */
+internal fun ringTravelPx(ballPx: Int, amount: Float): Int {
+    val min = FloatBallDefaults.AlertRingTravelMin / 100f
+    val max = FloatBallDefaults.AlertRingTravelMax / 100f
+    val fraction = amount.lerpInRange(min, max)
     return (ballPx * fraction).roundToInt().coerceAtLeast(0)
 }
 
-/** 强度 0..1 → 区间 [min, max] 线性映射（各效果共用此小工具，不共用观感量本身）。 */
+/** 量 0..1 → 区间 [min, max] 线性映射（各效果共用此小工具，不共用观感量本身）。 */
 internal fun Float.lerpInRange(min: Float, max: Float): Float = min + (max - min) * this
 
-/** 强度 0..1 → 缓出曲线：k = 1 退化为线性，k > 1 起步快、收尾减速。 */
+/** 量 0..1 → 缓出曲线：k = 1 退化为线性，k > 1 起步快、收尾减速。 */
 internal fun Float.easedOut(exp: Float): Float = 1f - (1f - this).pow(exp)

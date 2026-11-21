@@ -22,7 +22,6 @@ import hunoia.luno.annotate.model.orientedGeometry
 import hunoia.luno.annotate.model.rotationRadOf
 import hunoia.luno.annotate.render.AnnotateVisuals
 import hunoia.luno.annotate.render.drawAnnotateSelection
-import hunoia.luno.annotate.ui.gesture.BrushCursor
 import hunoia.luno.annotate.ui.gesture.CanvasGestureState
 import hunoia.luno.annotate.ui.gesture.ROTATE_HANDLE_GAP_DP
 import kotlin.math.abs

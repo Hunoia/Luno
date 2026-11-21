@@ -6,11 +6,10 @@ import hunoia.luno.config.model.NotificationAlertSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 到达提示动效的决策口径：场景抑制全部通过才播；配置到播放计划的夹取与派生。
+ * 到达提示动效的决策口径：场景抑制全部通过才播；配置到播放计划的夹取与归一化。
  *
  * 触发语义（需求确认）：仅新通知到达时播一次；熄屏 / 锁屏 / 勿扰一律不播（全屏沉浸
  * 判定按用户决策不做），胶囊可见与播放中合并不在此判（分别由服务的转变判定与窗口侧
@@ -44,28 +43,53 @@ class AlertPolicyTest {
     }
 
     @Test
-    fun `plan derives normalized intensity and bounded cycles`() {
-        val plan = buildPlan(enabled.copy(intensity = 60, pace = 2), cycleMillis = 1000)
+    fun `plan resolves per effect knobs and normalizes ranges`() {
+        val plan = buildPlan(
+            enabled.copy(
+                effect = NotificationAlertEffect.EdgeGlow,
+                edgeGlow = enabled.edgeGlow.copy(bandWidthDp = 110, brightness = 60, cycles = 2),
+            ),
+            cycleMillis = { 1400 },
+        )
 
         assertEquals(NotificationAlertEffect.EdgeGlow, plan.effect)
-        assertEquals(0.6f, plan.intensity, 0.001f)
         assertEquals(2, plan.cycles)
-        assertEquals(1000, plan.cycleMillis)
-        assertEquals(2000, plan.totalMillis)
+        assertEquals(1400, plan.cycleMillis)
+        assertEquals(2800, plan.totalMillis)
+        // 亮度 60 → 0.6；量 110 在 48–240 区间的中点附近 → 归一化到 0..1。
+        assertEquals(0.6f, plan.brightness, 0.001f)
+        assertEquals((110f - 48f) / (240f - 48f), plan.amount, 0.001f)
     }
 
     @Test
-    fun `plan clamps sliders out of range`() {
-        val plan = buildPlan(enabled.copy(intensity = 500, pace = 99), cycleMillis = 0)
+    fun `plan clamps out of range knobs per effect`() {
+        val plan = buildPlan(
+            enabled.copy(
+                effect = NotificationAlertEffect.TopParticles,
+                particles = enabled.particles.copy(count = 999, brightness = -5, waves = 99),
+            ),
+            cycleMillis = { 0 },
+        )
 
-        assertEquals(FloatBallDefaults.AlertIntensityMax / 100f, plan.intensity, 0.001f)
-        assertEquals(FloatBallDefaults.AlertPaceMax, plan.cycles)
+        // 粒子数钳到上限后量旋钮归一化到 1；亮度负值钳到 0。
+        assertEquals(1f, plan.amount, 0.001f)
+        assertEquals(FloatBallDefaults.AlertBrightnessMin / 100f, plan.brightness, 0.001f)
+        assertEquals(FloatBallDefaults.AlertCyclesMax, plan.cycles)
         assertEquals(1, plan.cycleMillis)
-        assertEquals(FloatBallDefaults.AlertPaceMax, plan.totalMillis)
     }
 
     @Test
-    fun `tuning helpers map intensity into per effect ranges`() {
+    fun `pulse has no amount knob`() {
+        val plan = buildPlan(
+            enabled.copy(effect = NotificationAlertEffect.CapsulePulse),
+            cycleMillis = { 1000 },
+        )
+
+        assertEquals(0f, plan.amount, 0.001f)
+    }
+
+    @Test
+    fun `tuning helpers map amount into per effect ranges`() {
         // 区间映射：0 → 下限，1 → 上限，中点线性。
         assertEquals(0.5f, 0f.lerpInRange(0.5f, 1f), 0.001f)
         assertEquals(1f, 1f.lerpInRange(0.5f, 1f), 0.001f)
@@ -74,7 +98,7 @@ class AlertPolicyTest {
         assertEquals(0.5f, 0.5f.easedOut(1f), 0.001f)
         assertEquals(1f, 1f.easedOut(2.2f), 0.001f)
         assertTrue(0.5f.easedOut(2.2f) > 0.5f)
-        // 光环行程随强度单调不减，且始终为非负。
+        // 光环行程随量旋钮单调不减，且始终为非负。
         val ballPx = 96
         assertTrue(ringTravelPx(ballPx, 0f) <= ringTravelPx(ballPx, 0.5f))
         assertTrue(ringTravelPx(ballPx, 0.5f) <= ringTravelPx(ballPx, 1f))

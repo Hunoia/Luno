@@ -85,6 +85,8 @@
     <string name="search_engine_trigger">Trigger</string>
     <string name="search_engine_trigger_duplicate">Trigger already in use</string>
     <string name="search_engine_trigger_space">Trigger cannot contain spaces</string>
+    <string name="search_engine_trigger_conflict">Trigger conflicts with "%1$s"</string>
+    <string name="search_engine_template_duplicate">Template duplicates an existing engine</string>
     <string name="search_engine_url">URL template</string>
     <string name="search_engine_url_error">Template must contain %s</string>
     <string name="search_engine_url_options">URL open options</string>
@@ -137,7 +139,4 @@
     <string name="search_source_group_media">Media &amp; files</string>
     <string name="search_source_group_system">Schedule &amp; system</string>
     <string name="search_source_settings">Sources &amp; triggers</string>
-    <string name="search_presets_group">Popular engines</string>
-    <string name="search_presets_hint">Tap one to add it; you can edit the trigger later</string>
-    <string name="search_presets_added">Added "%1$s"</string>
 </resources>

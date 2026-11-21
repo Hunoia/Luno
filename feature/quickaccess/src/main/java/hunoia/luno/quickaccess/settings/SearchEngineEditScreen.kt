@@ -39,10 +39,12 @@ import kotlinx.coroutines.launch
 /** 测试按钮用固定词：能直观看出 %s / %q 是否被正确替换。 */
 private const val EDIT_TEST_QUERY = "Luno"
 
-/** 进页一次性快照：目标引擎 + 标识判重输入；之后配置流变化不重建草稿。 */
+/** 进页一次性快照：目标引擎 + 判重输入（其它引擎 + 来源标识）；之后配置流变化不重建草稿。 */
 private data class EngineEditSnapshot(
     val engine: SearchEngine?,
-    val existingTriggers: List<String>,
+    val existing: List<SearchEngine>,
+    /** 来源标识（lowercase 标识 → 来源 key），标识撞来源时报错指名道姓。 */
+    val sourceTriggers: Map<String, String>,
 )
 
 /**
@@ -67,10 +69,14 @@ fun SearchEngineEditScreen(
             if (snapshot == null) {
                 snapshot = EngineEditSnapshot(
                     engine = settings.allEngines().firstOrNull { it.id == engineId },
-                    existingTriggers = settings.allEngines()
-                        .filter { it.id != engineId }
-                        .map { it.trigger } +
-                        SearchSourceRegistry.all.map { settings.effectiveTrigger(it.key) },
+                    existing = settings.allEngines().filter { it.id != engineId },
+                    // 来源标识撞引擎标识会被引擎直达顶掉，这里一并交给编辑状态判重。
+                    sourceTriggers = SearchSourceRegistry.all
+                        .mapNotNull { source ->
+                            val trigger = settings.effectiveTrigger(source.key).trim().lowercase()
+                            if (trigger.isEmpty()) null else trigger to source.key
+                        }
+                        .toMap(),
                 )
             }
         }
@@ -86,7 +92,8 @@ fun SearchEngineEditScreen(
     }
     val editState = rememberEngineEditState(
         initial = snap.engine,
-        existingTriggers = snap.existingTriggers,
+        existing = snap.existing,
+        sourceTriggers = snap.sourceTriggers,
     )
     var targetPackage by remember(engineId) {
         mutableStateOf(

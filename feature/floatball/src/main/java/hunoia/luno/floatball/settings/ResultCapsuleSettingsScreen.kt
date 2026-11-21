@@ -38,7 +38,6 @@ import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
@@ -371,7 +370,7 @@ fun ResultCapsuleSettingsScreen(
                 CapsuleColorRows(
                     ballSpec = capsule.ballColor,
                     backgroundSpec = capsule.backgroundColor,
-                    followColor = floatBall.colorSpec.toMarkColor(),
+                    defaultColor = MaterialTheme.colorScheme.primary,
                     startIndex = iconRows,
                     rowCount = iconRows + colorRows,
                     onBallClick = { showBallColorPicker = true },

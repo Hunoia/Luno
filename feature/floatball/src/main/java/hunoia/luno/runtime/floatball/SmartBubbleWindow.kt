@@ -61,6 +61,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -202,6 +203,20 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private val windowHeightPx: Int
         get() = stackMetrics.viewportHeightPx
 
+    /**
+     * 辉光余量（dp）：脉冲 / 流光的描边辉光越出胶囊轮廓的空间，上下各留一份；
+     * 贴屏侧不留——「滑入屏缘」的裁剪是天然的正确观感。
+     */
+    private val glowMarginPx: Int
+        get() = DensityProvider.dp2px(GlowMarginDp)
+
+    /**
+     * 中侧余量（px）：横滑视觉上限 + 辉光余量。反向滑的行位移钳在 [DragRubberCapDp] 内，
+     * 行不再被窗口边缘硬裁；余量区没有可命中内容时触摸穿透到下层应用。
+     */
+    private val centerMarginPx: Int
+        get() = DensityProvider.dp2px(GlowMarginDp + DragRubberCapDp)
+
     /** 长按后当前页展开的动作行；null = 普通内容。 */
     private var menuItemId by mutableStateOf<String?>(null)
 
@@ -210,7 +225,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private var settings by mutableStateOf(FloatBallSettings())
     private var anchor = BubbleAnchor(0, 0, 0, 0)
-    private var sideRight = false
+
+    /** 球在哪一侧：true = 右侧（胶囊贴右屏缘、向左伸展）。Compose 读取以决定余量方向。 */
+    private var sideRight by mutableStateOf(false)
     private var lpOriginY = 0
     private var originReady = false
     private var entering = false
@@ -436,7 +453,11 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 startMorphIn(v)
             }
         }
-        if (!wm.safeAddView(created, capsuleLayoutParams(capsuleWidthPx, windowHeightPx))) {
+        if (!wm.safeAddView(
+                created,
+                capsuleLayoutParams(capsuleWidthPx + centerMarginPx, windowHeightPx + glowMarginPx * 2),
+            )
+        ) {
             Log.e(TAG, "capsule addView failed (overlay permission or window rejected)")
             this.items = emptyList()
             return false
@@ -950,11 +971,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
     private fun updateWindowLayout(v: View) {
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
-        val height = windowHeightPx
+        val height = windowHeightPx + glowMarginPx * 2
+        val width = capsuleWidthPx + centerMarginPx
         // 首帧前 rowHeight 还没测出来：别把窗口写成 0 高。
         if (capsuleWidthPx <= 0 || height <= 0) return
-        if (lp.width == capsuleWidthPx && lp.height == height) return
-        lp.width = capsuleWidthPx
+        if (lp.width == width && lp.height == height) return
+        lp.width = width
         lp.height = height
         wm.safeUpdateViewLayout(v, lp)
     }
@@ -963,15 +985,19 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val v = view ?: return
         if (!originReady || v.width <= 0 || v.height <= 0) return
         val screenW = DensityProvider.screenWidthPx
+        val windowWidth = capsuleWidthPx + centerMarginPx
+        // 内容区贴屏侧齐平：窗口把余量让在中侧（sideRight → 中侧在左）。
         val x = if (sideRight) {
-            (anchor.right - capsuleWidthPx).coerceIn(0, (screenW - capsuleWidthPx).coerceAtLeast(0))
+            (anchor.right - capsuleWidthPx - centerMarginPx)
+                .coerceIn(0, (screenW - windowWidth).coerceAtLeast(0))
         } else {
-            anchor.left.coerceIn(0, (screenW - capsuleWidthPx).coerceAtLeast(0))
+            anchor.left.coerceIn(0, (screenW - windowWidth).coerceAtLeast(0))
         }
         // 多行更高：球贴近底边时窗口会伸出屏外，把顶边夹回屏内（胶囊与球之间留出空隙）。
-        val height = if (v.height > 0) v.height else windowHeightPx
-        val top = min(anchor.top, (DensityProvider.screenHeightPx - height).coerceAtLeast(0))
-        writeBallPosition(v, wm, x.toFloat(), top.toFloat(), lpOriginY)
+        // 窗口上下各有辉光余量，顶边夹取按内容高算，余量向屏外溢出无害（透明穿透）。
+        val contentHeight = windowHeightPx
+        val top = min(anchor.top, (DensityProvider.screenHeightPx - contentHeight).coerceAtLeast(0))
+        writeBallPosition(v, wm, x.toFloat(), (top - glowMarginPx).toFloat(), lpOriginY)
     }
 
     private fun screenOriginY(v: View): Int {
@@ -1056,6 +1082,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
      * [sideRight] 决定对齐侧；实测行宽记进 [rowWidthsPx] 供命中与逐行描边收口。
      * 滚动位移直接作用在 Column 的 layout offset 上（[offsetPx] 在 lambda 里读），
      * 跟手与横滑都不触发重组。
+     *
+     * 窗口按非对称余量扩边（[GlowMarginDp] / [centerMarginPx]）：内容区 padding 让位并
+     * [clipToBounds] 裁住滚动溢出，到达动效覆盖层铺满全窗、辉光可越入余量不被裁。
      */
     @Composable
     private fun CapsuleStack(list: List<BallItem>, rowHeight: androidx.compose.ui.unit.Dp) {
@@ -1076,17 +1105,29 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         } else {
             0
         }
+        val centerMargin = with(density) { centerMarginPx.toDp() }
+        val glowMargin = with(density) { glowMarginPx.toDp() }
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Column(
+            // 内容区：贴屏侧齐平，中侧 + 上下让出余量；clip 住滚动溢出（行不越入余量）。
+            Box(
                 modifier = Modifier
-                    .offset { IntOffset(0, offsetPx.roundToInt()) },
-                horizontalAlignment = if (sideRight) Alignment.End else Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(RowGapDp.dp),
+                    .padding(
+                        start = if (sideRight) centerMargin else 0.dp,
+                        end = if (sideRight) 0.dp else centerMargin,
+                        top = glowMargin,
+                        bottom = glowMargin,
+                    )
+                    .clipToBounds()
+                    .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true },
             ) {
+                Column(
+                    modifier = Modifier
+                        .offset { IntOffset(0, offsetPx.roundToInt()) },
+                    horizontalAlignment = if (sideRight) Alignment.End else Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(RowGapDp.dp),
+                ) {
                 list.forEach { item ->
                     Row(
                         modifier = Modifier
@@ -1095,8 +1136,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                             .onSizeChanged { onRowMeasured(item.id, it.width) }
                             .graphicsLayer {
                                 // 横滑只让按下的那颗跟手；其余胶囊原地不动。
+                                // 视觉位移过阈值后橡皮筋递减并钳在余量内（判定用原始位移）。
                                 val dragging = item.id == rowDragId
-                                translationX = if (dragging) rowDragDx else 0f
+                                translationX = if (dragging) rubberBandedRowDx(rowDragDx) else 0f
                                 alpha = if (dragging) {
                                     1f - (abs(rowDragDx) / collapseThresholdPx).coerceIn(0f, 1f) * 0.5f
                                 } else {
@@ -1161,7 +1203,8 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         .background(contentColor.copy(alpha = ScrollThumbAlpha)),
                 )
             }
-            // 到达提示动效（本体脉冲 / 边框流光）：盖在所有胶囊之上描边，不挡触摸与内容。
+            }
+            // 到达提示动效（本体脉冲 / 边框流光）：铺满全窗、可越入余量，不挡触摸与内容。
             arrivalAlert?.let { plan ->
                 CapsuleArrivalOverlay(
                     plan = plan,
@@ -1228,10 +1271,16 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             val t = (elapsed.value / plan.cycleMillis) % 1f
             val gapPx = metrics.gapPx
             val rows = items.size
+            // 全窗坐标系：内容区在贴屏侧齐平、中侧与上下让出余量；行靠球侧对齐，
+            // 逐行按实测宽算 x（窄行不再画到窗缘）。
+            val rowLeft = { index: Int ->
+                if (sideRight) (capsuleWidthPx + centerMarginPx - (rowWidths[index])).toFloat() else 0f
+            }
+            val topOrigin = glowMarginPx.toFloat()
             when (plan.effect) {
                 // 本体脉冲：3 层嵌套描边辉光呼吸，外→内逐层加亮，核心最后画保证锐利。
                 NotificationAlertEffect.CapsulePulse -> {
-                    val boost = plan.intensity.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
+                    val boost = plan.brightness.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
                     val peak = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t)).coerceAtMost(1f)
                     val corePx = PulseTuning.CoreWidthDp.dp.toPx()
                     val layers = listOf(
@@ -1241,7 +1290,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     )
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
-                        translate(left = 0f, top = index * (rowHeightPx + gapPx).toFloat() + offsetPx) {
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
                             for ((width, alpha) in layers) {
                                 drawPath(
                                     path = path,
@@ -1256,10 +1308,13 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 // 边框流光：主亮带缓出扫过描边，后随更宽更暗的拖尾（先画拖尾再画主带）。
                 // 渐变 stop 必须严格递增：可见跨度不足时跳过该带，峰值点强制落在带内。
                 NotificationAlertEffect.CapsuleShimmer -> {
-                    val peak = plan.intensity.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
+                    val peak = plan.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
                     val pos = t.easedOut(ShimmerTuning.SweepEaseExp)
-                    val band = ShimmerTuning.BandWidth
-                    val trail = ShimmerTuning.TrailWidth
+                    val band = plan.amount.lerpInRange(
+                        FloatBallDefaults.AlertShimmerBandWidthMin / 100f,
+                        FloatBallDefaults.AlertShimmerBandWidthMax / 100f,
+                    )
+                    val trail = band * ShimmerTuning.TrailWidthScale
                     val mainStart = (pos - band / 2f).coerceIn(0f, 1f)
                     val mainEnd = (pos + band / 2f).coerceIn(0f, 1f)
                     val trailStart = (mainStart - trail).coerceIn(0f, 1f)
@@ -1285,7 +1340,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     val stroke = Stroke(width = 1.5.dp.toPx())
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
-                        translate(left = 0f, top = index * (rowHeightPx + gapPx).toFloat() + offsetPx) {
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
                             if (trailSpan > 0.01f) drawPath(path = path, brush = trailBrush, style = stroke)
                             if (mainSpan > 0.01f) drawPath(path = path, brush = mainBrush, style = stroke)
                         }
@@ -1596,6 +1654,29 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
 
         /** 常驻胶囊描边的基线透明度：本体脉冲在其上叠加呼吸增量。 */
         const val RowBorderAlpha = 0.22f
+
+        /** 辉光余量（dp）：脉冲 / 流光描边越出轮廓的空间，上下各留；贴屏侧不留。 */
+        const val GlowMarginDp = 12f
+
+        /** 反向横滑的视觉上限（dp）：行位移橡皮筋钳到这个值，窗口中侧余量按此 + 辉光留白。 */
+        const val DragRubberCapDp = 72f
+
+        /** 橡皮筋阻尼：超过收起阈值后的位移按此比例递减跟进。 */
+        const val DragRubberDamping = 0.35f
+    }
+
+    /**
+     * 反向横滑的视觉位移：阈值内 1:1 跟手，阈值后按 [DragRubberDamping] 递减，
+     * 钳在 [DragRubberCapDp] 内——窗口中侧余量按此留白，行不再被窗口边缘硬裁。
+     * 手势判定（收起 / 滑掉的阈值派发）仍用原始位移，不受钳制影响。
+     */
+    private fun rubberBandedRowDx(raw: Float): Float {
+        val distance = abs(raw)
+        val threshold = collapseThresholdPx
+        if (distance <= threshold) return raw
+        val cap = DensityProvider.dp2px(DragRubberCapDp).toFloat()
+        val excess = (distance - threshold) * DragRubberDamping
+        return Math.signum(raw) * min(threshold + excess, cap)
     }
 }
 

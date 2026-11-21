@@ -50,7 +50,6 @@ import hunoia.luno.config.model.RecognitionRule
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.config.model.ToastPresentation
 import hunoia.luno.core.domain.JsonSerializer
-import hunoia.luno.link.LinkPresets
 import hunoia.luno.link.LinkTarget
 import hunoia.luno.link.Links
 import hunoia.luno.link.R
@@ -527,41 +526,8 @@ fun RecognitionSettingsScreen(
             }
         }
         item {
-            // PM 查询很贵：只在规则表变化时重算，开关/滚动不重复扫包。
-            val addable = remember(settings.rules) { addablePresets(context, settings.rules) }
-            if (addable.isNotEmpty()) {
-                // 逐条添加的提示在组合期按行取好（配置变更能重建），点击回调里不读资源。
-                val addedMessages = addable.map { preset ->
-                    stringResource(
-                        R.string.recognition_presets_added_one,
-                        preset.name.ifBlank { preset.match.pattern },
-                    )
-                }
-                LunoGroup(
-                    title = stringResource(R.string.recognition_presets_group),
-                    subtitle = stringResource(R.string.recognition_presets_hint),
-                ) {
-                    addable.forEachIndexed { index, preset ->
-                        LunoSettingsRow(
-                            icon = if (preset.match is RecognitionMatch.Link) {
-                                Icons.Default.Link
-                            } else {
-                                Icons.Default.Lightbulb
-                            },
-                            title = preset.name.ifBlank { preset.match.pattern },
-                            subtitle = presetSummary(preset),
-                            shape = segmentedShape(index, addable.size),
-                            onClick = {
-                                // 逐条添加：一次点一条，比「全部添加」可控（用户往往只要其中一两条）。
-                                update { it.copy(rules = it.rules + preset) }
-                                showToast(addedMessages[index])
-                            },
-                        )
-                    }
-                }
-            }
-        }
-        item {
+            // 常用规则预设已删：seed（静态文本规则 + 按已装应用生成的链接规则）在进程启动时
+            // 一次性合并进规则表（见 LinkPresets / RecognitionRuleSeed），这里只剩规则表本身。
             val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
             LunoGroup(
                 title = stringResource(R.string.recognition_rules_group),
@@ -617,43 +583,6 @@ fun RecognitionSettingsScreen(
             }
         }
     }
-}
-
-/** 预设行的副标题：说清它会抓什么、送到哪，不用点进去才知道。 */
-@Composable
-private fun presetSummary(preset: RecognitionRule): String = when (val m = preset.match) {
-    is RecognitionMatch.Text -> stringResource(R.string.recognition_preset_text_summary)
-    is RecognitionMatch.Link -> if (m.viaBrowser) {
-        stringResource(R.string.recognition_preset_browser_summary)
-    } else {
-        stringResource(R.string.recognition_preset_link_summary, m.targetPackage)
-    }
-}
-
-/**
- * 可添加的预设：文本类（验证码 / 取件码 / 快递单号 / 订单号）+ 链接类（本机已安装应用）。
- *
- * 按匹配串判重，用户删掉的默认规则也能从这里加回来。文本预设与链接预设同一入口，
- * 否则「添加常用规则」只剩链接一项。
- */
-private fun addablePresets(
-    context: Context,
-    existing: List<RecognitionRule>,
-): List<RecognitionRule> {
-    val used = existing
-        .map { it.match.pattern.trim().lowercase() }
-        .filter { it.isNotEmpty() }
-        .toMutableSet()
-    val text = RecognitionDefaults.textPresets
-        .filter { used.add(it.match.pattern.trim().lowercase()) }
-        .map { it.copy(id = java.util.UUID.randomUUID().toString()) }
-    // 「通知」的变体不受 pattern 判重影响（它和普通预设同正则但输出不同），
-    // 按名字判重，避免重复添加。
-    val usedNames = existing.map { it.name }.toMutableSet()
-    val island = RecognitionDefaults.islandPresets
-        .filter { usedNames.add(it.name) }
-        .map { it.copy(id = java.util.UUID.randomUUID().toString()) }
-    return text + island + LinkPresets.addable(context, existing + text + island)
 }
 
 /** 无障碍服务类的简单类名（`SideGestureService`）；与 `:app` 里的声明保持同步。 */
