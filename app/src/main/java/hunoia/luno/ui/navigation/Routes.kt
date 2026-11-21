@@ -183,6 +183,14 @@ data class PointerAdjust(val follow: Boolean)
 @Serializable
 data object FloatBallEdit
 
+/**
+ * 悬浮球判定区（拖入彩蛋）位置/大小调整页：与 [MiniWindowAdjust] 同一套
+ * 全屏调整画布（ui/settings/action/DropZoneAdjustScreen.kt）。
+ */
+@Keep
+@Serializable
+data object FloatBallDropZoneAdjust
+
 /** 通知胶囊独立设置页（与悬浮球/建议胶囊并列）。 */
 @Keep
 @Serializable

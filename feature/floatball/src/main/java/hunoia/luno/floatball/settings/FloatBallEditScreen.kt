@@ -8,7 +8,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -52,9 +55,10 @@ import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
- * 悬浮球设置页：只负责主球自身外观与单击动作。
+ * 悬浮球设置页：只负责主球自身外观与触发动作（单击 / 长按 / 拖入判定区）。
  *
- * 通知胶囊与结果胶囊各自独立成页，从动作设置的「功能」组并列进入。
+ * 通知胶囊与结果胶囊各自独立成页，从动作设置的「功能」组并列进入；
+ * 三颗球的手势能力互不混合。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +66,12 @@ fun FloatBallEditScreen(
     onBack: () -> Unit,
     /** 去动作选择页配「单击」动作（导航意图由 :app 负责）。 */
     onEditTapAction: () -> Unit = {},
+    /** 去动作选择页配「长按」动作。 */
+    onEditLongPressAction: () -> Unit = {},
+    /** 去动作选择页配「拖入判定区松手」动作。 */
+    onEditDropAction: () -> Unit = {},
+    /** 去判定区调整页（位置/大小，横竖屏各一份）。 */
+    onAdjustDropZone: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -75,6 +85,9 @@ fun FloatBallEditScreen(
     var localSizeDp by remember(floatBall.sizeDp) { mutableFloatStateOf(floatBall.sizeDp) }
     var localIdleDelay by remember(floatBall.idleDimDelayMs) {
         mutableFloatStateOf(floatBall.idleDimDelayMs.toFloat())
+    }
+    var localLongPressMs by remember(floatBall.longPressMs) {
+        mutableFloatStateOf(floatBall.longPressMs.toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
@@ -198,13 +211,49 @@ fun FloatBallEditScreen(
 
         item(key = "trigger") {
             LunoGroup(title = stringResource(R.string.float_ball_trigger_actions)) {
+                val triggerRows = 5
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_tap_action),
                     subtitle = floatBall.tapAction?.actionTextCompose()
                         ?: stringResource(R.string.float_ball_tap_unset),
                     icon = Icons.Default.TouchApp,
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(0, triggerRows),
                     onClick = onEditTapAction,
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.float_ball_long_press_action),
+                    subtitle = floatBall.longPressAction?.actionTextCompose()
+                        ?: stringResource(R.string.float_ball_tap_unset),
+                    icon = Icons.Default.Timer,
+                    shape = segmentedShape(1, triggerRows),
+                    onClick = onEditLongPressAction,
+                )
+                LunoTextSlider(
+                    value = localLongPressMs,
+                    onValueChange = { value -> localLongPressMs = value },
+                    onValueChangeFinished = {
+                        update { it.copy(longPressMs = localLongPressMs.toLong()) }
+                    },
+                    text = stringResource(R.string.float_ball_long_press_ms),
+                    valueDisplay = { "${it.toInt()} ms" },
+                    valueRange = FloatBallDefaults.LongPressMsMin.toFloat()..
+                        FloatBallDefaults.LongPressMsMax.toFloat(),
+                    shape = segmentedShape(2, triggerRows),
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.float_ball_drop_action),
+                    subtitle = floatBall.dropAction?.actionTextCompose()
+                        ?: stringResource(R.string.float_ball_tap_unset),
+                    icon = Icons.Default.CenterFocusStrong,
+                    shape = segmentedShape(3, triggerRows),
+                    onClick = onEditDropAction,
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.float_ball_drop_zone_adjust),
+                    subtitle = stringResource(R.string.float_ball_drop_zone_adjust_subtitle),
+                    icon = Icons.Default.OpenWith,
+                    shape = segmentedShape(4, triggerRows),
+                    onClick = onAdjustDropZone,
                 )
             }
         }

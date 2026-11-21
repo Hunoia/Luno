@@ -81,6 +81,7 @@ class ActionExecutionTest {
         override suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult =
             ActionResult.Failed(ActionFailure.Unsupported)
         override fun hideTriggerButton(buttonId: String) = Unit
+        override fun toggleFloatBallHide() = Unit
     }
 
     private object FakeMessages : ExecuteMessages {

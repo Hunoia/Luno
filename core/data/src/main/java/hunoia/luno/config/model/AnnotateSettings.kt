@@ -39,4 +39,6 @@ data class AnnotateToolStyle(
     val mosaicCell: Float = 24f,
     /** 形状是否半透明填充（SHAPE 工具）：新画的形状带填充 + 描边；旧配置缺字段时默认 false。 */
     val shapeFilled: Boolean = false,
+    /** 模糊半径（BLUR 工具），图片像素；旧配置缺字段时默认 16。 */
+    val blurRadius: Float = 16f,
 )

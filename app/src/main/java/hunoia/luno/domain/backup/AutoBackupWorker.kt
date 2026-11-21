@@ -8,6 +8,7 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.backup.AutoBackupRepository
 import hunoia.luno.core.LunoLog
 import hunoia.luno.core.LOG_TAG
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * 一次自动备份：校验目录授权 → 打包写入 → 记结果。
@@ -36,6 +37,10 @@ class AutoBackupWorker(
                 it.copy(lastSuccessAtMs = System.currentTimeMillis(), lastError = "")
             }
             Result.success()
+        } catch (e: CancellationException) {
+            // WorkManager 停 worker（锁屏 / 约束变化 / 超时）是正常生命周期，不算备份失败：
+            // 不写 lastError、不发失败通知，原样上抛让协程按取消收尾。
+            throw e
         } catch (e: Exception) {
             val failure = (e as? AutoBackupRepository.AutoBackupException)?.failure
                 ?: if (AutoBackupRepository.hasPersistedTree(applicationContext, tree)) {

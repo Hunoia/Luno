@@ -21,4 +21,11 @@ object FloatBallCommand {
      * 动作照常执行，不受返回值影响。`false` = 三球都没接（跟手全关 / 全不可见）或命令未注册。
      */
     var requestFollowHandSwap: ((leftSide: Boolean) -> Boolean)? = null
+
+    /**
+     * 界面级临时隐藏悬浮球的 toggle（动作 `internal.hideFloatBall`）：可见 → 记录当前
+     * 界面进入隐藏；隐藏中 → 立即恢复。前台离开 / 锁屏的清槽由服务自己随运行态做。
+     * 球未运行时为 null，调用方静默跳过（动作照常返回成功）。
+     */
+    var toggleScreenHide: (() -> Unit)? = null
 }

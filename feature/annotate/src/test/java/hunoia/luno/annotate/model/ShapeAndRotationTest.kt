@@ -16,7 +16,7 @@ class ShapeAndRotationTest {
     fun `shape outlines stay inside defining box and are finite`() {
         val kinds = listOf(
             ElementKind.ELLIPSE, ElementKind.TRIANGLE, ElementKind.CHECK,
-            ElementKind.STAR, ElementKind.ROUND_RECT, ElementKind.HEART,
+            ElementKind.ROUND_RECT,
         )
         val box = PxRect.fromPoints(start, end)
         for (kind in kinds) {
@@ -47,9 +47,13 @@ class ShapeAndRotationTest {
         assertTrue(pointInPolygon(Pt(5f, 5f), square))
         assertTrue(pointInPolygon(Pt(0f, 0f), square))
         assertFalse(pointInPolygon(Pt(15f, 5f), square))
-        // 凹五角星：中心在内，星角间的凹陷在外。
-        val star = shapeOutlinePoints(ElementKind.STAR, Pt(0f, 0f), Pt(10f, 10f))
-        assertTrue(pointInPolygon(Pt(5f, 5f), star))
+        // 凹多边形（右侧 V 形缺口，缺口三角 = (10,0),(5,4),(10,10)）：
+        // 缺口深处的点在外，缺口左侧的本体在内。
+        val concave = listOf(
+            Pt(0f, 0f), Pt(10f, 0f), Pt(5f, 4f), Pt(10f, 10f), Pt(0f, 10f),
+        )
+        assertTrue(pointInPolygon(Pt(2f, 5f), concave))
+        assertFalse(pointInPolygon(Pt(9f, 2f), concave))
     }
 
     @Test

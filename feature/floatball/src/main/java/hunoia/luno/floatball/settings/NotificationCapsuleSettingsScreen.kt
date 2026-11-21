@@ -26,9 +26,11 @@ import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -73,6 +75,12 @@ fun NotificationCapsuleSettingsScreen(
     }
     var localVisibleRows by remember(capsule.visibleRows) {
         mutableFloatStateOf(capsule.visibleRows.toFloat())
+    }
+    var localAlertIntensity by remember(capsule.alert.intensity) {
+        mutableFloatStateOf(capsule.alert.intensity.toFloat())
+    }
+    var localAlertPace by remember(capsule.alert.pace) {
+        mutableFloatStateOf(capsule.alert.pace.toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
@@ -358,5 +366,97 @@ fun NotificationCapsuleSettingsScreen(
                 )
             }
         }
+
+        // 到达提示动效：只在胶囊开启时有意义；默认关（老用户升级零感知）。
+        if (capsule.enabled) {
+            item(key = "alert") {
+                val alert = capsule.alert
+                val alertRows = if (alert.enabled) 4 else 1
+                LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_enabled),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
+                        checked = alert.enabled,
+                        onCheckedChange = { checked ->
+                            update {
+                                it.copy(
+                                    notificationCapsule = it.notificationCapsule.copy(
+                                        alert = it.notificationCapsule.alert.copy(enabled = checked),
+                                    ),
+                                )
+                            }
+                        },
+                        shape = segmentedShape(0, alertRows),
+                    )
+                    if (alert.enabled) {
+                        val effects = NotificationAlertEffect.entries
+                        LunoDropdownRow(
+                            title = stringResource(R.string.float_ball_capsule_alert_effect),
+                            options = effects.map { stringResource(it.labelRes()) },
+                            selectedIndex = effects.indexOf(alert.effect).coerceAtLeast(0),
+                            onSelect = { index ->
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(effect = effects[index]),
+                                        ),
+                                    )
+                                }
+                            },
+                            shape = segmentedShape(1, alertRows),
+                        )
+                        LunoTextSlider(
+                            value = localAlertIntensity,
+                            onValueChange = { value -> localAlertIntensity = value },
+                            onValueChangeFinished = {
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(
+                                                intensity = localAlertIntensity.toInt(),
+                                            ),
+                                        ),
+                                    )
+                                }
+                            },
+                            text = stringResource(R.string.float_ball_capsule_alert_intensity),
+                            valueDisplay = { "${it.toInt()}%" },
+                            valueRange = FloatBallDefaults.AlertIntensityMin.toFloat()..
+                                FloatBallDefaults.AlertIntensityMax.toFloat(),
+                            shape = segmentedShape(2, alertRows),
+                        )
+                        LunoTextSlider(
+                            value = localAlertPace,
+                            onValueChange = { value -> localAlertPace = value },
+                            onValueChangeFinished = {
+                                update {
+                                    it.copy(
+                                        notificationCapsule = it.notificationCapsule.copy(
+                                            alert = it.notificationCapsule.alert.copy(
+                                                pace = localAlertPace.toInt(),
+                                            ),
+                                        ),
+                                    )
+                                }
+                            },
+                            text = stringResource(R.string.float_ball_capsule_alert_pace),
+                            valueDisplay = { "${it.toInt()} ×" },
+                            valueRange = FloatBallDefaults.AlertPaceMin.toFloat()..
+                                FloatBallDefaults.AlertPaceMax.toFloat(),
+                            shape = segmentedShape(3, alertRows),
+                        )
+                    }
+                }
+            }
+        }
     }
+}
+
+/** 提示动效各形态的展示名（单选下拉用，选项顺序 = 枚举声明顺序）。 */
+private fun NotificationAlertEffect.labelRes(): Int = when (this) {
+    NotificationAlertEffect.EdgeGlow -> R.string.float_ball_capsule_alert_effect_edge_glow
+    NotificationAlertEffect.TopParticles -> R.string.float_ball_capsule_alert_effect_particles
+    NotificationAlertEffect.CapsulePulse -> R.string.float_ball_capsule_alert_effect_pulse
+    NotificationAlertEffect.BallRing -> R.string.float_ball_capsule_alert_effect_ring
+    NotificationAlertEffect.CapsuleShimmer -> R.string.float_ball_capsule_alert_effect_shimmer
 }

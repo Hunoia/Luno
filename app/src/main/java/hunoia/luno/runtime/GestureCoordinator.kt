@@ -757,6 +757,11 @@ class GestureCoordinator(
                 runtimeSettingsStore.snapshot().actionSettings.gestureTools.triggerButtonHideMs,
             )
         }
+
+        override fun toggleFloatBallHide() {
+            // 球未运行（命令未注册）时静默：显隐动作对不可用的 Surface 无失败语义。
+            hunoia.luno.runtime.floatball.FloatBallCommand.toggleScreenHide?.invoke()
+        }
     }
 
     /**

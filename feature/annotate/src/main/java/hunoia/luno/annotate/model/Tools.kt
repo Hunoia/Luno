@@ -12,6 +12,10 @@ enum class ToolKind {
     SHAPE,
     CROP,
     NUMBER,
+    // 局部模糊（真模糊，非马赛克）。
+    BLUR,
+    // 图片贴纸。
+    STICKER,
 }
 
 /**
@@ -28,8 +32,6 @@ enum class ShapeKind {
     ARROW,
     CHECK,
     CROSS,
-    STAR,
-    HEART,
     ;
 
     val elementKind: ElementKind get() = when (this) {
@@ -42,7 +44,5 @@ enum class ShapeKind {
         ARROW -> ElementKind.ARROW
         CHECK -> ElementKind.CHECK
         CROSS -> ElementKind.CROSS
-        STAR -> ElementKind.STAR
-        HEART -> ElementKind.HEART
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.AnnotationElement
+import hunoia.luno.annotate.model.BlurElement
 import hunoia.luno.annotate.model.ContainFit
 import hunoia.luno.annotate.model.ElementKind
 import hunoia.luno.annotate.model.MosaicElement
@@ -30,9 +31,11 @@ import hunoia.luno.annotate.model.NumberElement
 import hunoia.luno.annotate.model.Pt
 import hunoia.luno.annotate.model.PxRect
 import hunoia.luno.annotate.model.ShapeElement
+import hunoia.luno.annotate.model.StickerElement
 import hunoia.luno.annotate.model.StrokeElement
 import hunoia.luno.annotate.model.TextElement
 import hunoia.luno.annotate.model.bounds
+import hunoia.luno.annotate.model.isClosedShape
 import hunoia.luno.annotate.model.shapeCrossSegments
 import hunoia.luno.annotate.model.shapeOutlinePoints
 import java.util.IdentityHashMap
@@ -61,8 +64,8 @@ object AnnotateVisuals {
     /** 图片四周的留白（预览特有，导出不会出现）。 */
     val CanvasGutter: Color = Color.Black
 
-    /** 选区外遮罩（只在预览出现，导出不含选区）。 */
-    val SelectionScrim: Color = Color.Black.copy(alpha = 0.35f)
+    /** 选区外遮罩（只在预览出现，导出不含选区）；与裁剪框外遮罩同一浓度。 */
+    val SelectionScrim: Color = Color.Black.copy(alpha = 0.4f)
     val SelectionStroke: Color = Color.White
     val SelectionShadow: Color = Color.Black.copy(alpha = 0.5f)
     val SelectionHandleFill: Color = Color.White
@@ -103,6 +106,7 @@ class AnnotateGeometryCache {
     private val strokes = IdentityHashMap<StrokeElement, StrokeEntry>()
     private val shapes = IdentityHashMap<ShapeElement, ShapeEntry>()
     private val mosaics = IdentityHashMap<MosaicElement, MosaicEntry>()
+    private val blurs = IdentityHashMap<BlurElement, MosaicEntry>()
 
     /** 元素列表引用不变时，图层标志位/包围盒可以复用（缩放时列表引用不变）。 */
     private var flagsElements: List<AnnotationElement>? = null
@@ -196,7 +200,7 @@ class AnnotateGeometryCache {
 
             // 闭合形状：轮廓顶点连成闭合路径。
             ElementKind.ELLIPSE, ElementKind.TRIANGLE,
-            ElementKind.STAR, ElementKind.ROUND_RECT, ElementKind.HEART,
+            ElementKind.ROUND_RECT,
             -> {
                 val pts = shapeOutlinePoints(element.kind, element.start, element.end)
                 if (pts.isNotEmpty()) {
@@ -212,39 +216,56 @@ class AnnotateGeometryCache {
         return path
     }
 
-    fun mosaicMask(element: MosaicElement, sanitized: MosaicElement): AndroidPath {
-        val pointsSize = sanitized.points.size
-        val rect = sanitized.rect?.normalized()
-        var existing = mosaics[element]
+    fun mosaicMask(element: MosaicElement, sanitized: MosaicElement): AndroidPath =
+        trailMask(mosaics, element, sanitized.points, sanitized.width, sanitized.rect)
+
+    /** 模糊与马赛克同一套轨迹 mask 几何（P2d），只是取样底图不同。 */
+    fun blurMask(element: BlurElement, sanitized: BlurElement): AndroidPath =
+        trailMask(blurs, element, sanitized.points, sanitized.width, sanitized.rect)
+
+    /**
+     * 轨迹 + 选区矩形的并集 mask，按元素对象引用缓存、增量追加轨迹点。
+     * [store] 是该元素类型的缓存表；矩形变了或点数回退时整体重建。
+     */
+    private fun <T : AnnotationElement> trailMask(
+        store: IdentityHashMap<T, MosaicEntry>,
+        element: T,
+        points: List<Pt>,
+        width: Float,
+        rect: PxRect?,
+    ): AndroidPath {
+        val pointsSize = points.size
+        val normalizedRect = rect?.normalized()
+        var existing = store[element]
         // 矩形变了或点数回退：无法增量修补，整体重建。
-        if (existing != null && (existing.builtRect != rect || pointsSize < existing.builtPoints)) {
+        if (existing != null &&
+            (existing.builtRect != normalizedRect || pointsSize < existing.builtPoints)
+        ) {
             existing = null
         }
         if (existing != null && existing.builtPoints == pointsSize) return existing.mask
-        ensureCapacity(mosaics)
+        ensureCapacity(store)
         if (existing == null) {
             val mask = AndroidPath()
-            appendMosaicPoints(mask, sanitized, from = 0)
-            rect?.let { r ->
+            appendTrailPoints(mask, points, width, from = 0)
+            normalizedRect?.let { r ->
                 val fill = AndroidPath().apply {
                     addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
                 }
                 mask.op(fill, AndroidPath.Op.UNION)
             }
-            mosaics[element] = MosaicEntry(mask, pointsSize, rect)
+            store[element] = MosaicEntry(mask, pointsSize, normalizedRect)
             return mask
         }
         // 同一矩形、只追加轨迹点：每段单独描边后并进 mask。
-        appendMosaicPoints(existing.mask, sanitized, from = existing.builtPoints)
+        appendTrailPoints(existing.mask, points, width, from = existing.builtPoints)
         existing.builtPoints = pointsSize
         return existing.mask
     }
 
     /** 把 [from] 之后的新轨迹段并进 [mask]；首点用圆点补 round cap。 */
-    private fun appendMosaicPoints(mask: AndroidPath, element: MosaicElement, from: Int) {
-        val points = element.points
+    private fun appendTrailPoints(mask: AndroidPath, points: List<Pt>, width: Float, from: Int) {
         if (points.isEmpty()) return
-        val width = element.width
         if (from == 0) {
             val first = points.first()
             mask.addCircle(first.x, first.y, width / 2f, AndroidPath.Direction.CW)
@@ -274,6 +295,7 @@ class AnnotateGeometryCache {
         strokes.clear()
         shapes.clear()
         mosaics.clear()
+        blurs.clear()
         flagsElements = null
         boundsElements = null
         bounds = null
@@ -408,17 +430,20 @@ private fun DrawScope.drawAnnotationLayer(
                             -1
                         }
                         try {
-                            when (element) {
-                                is StrokeElement -> drawStrokeNative(canvas, element, cache, paints.stroke)
-                                is ShapeElement ->
-                                    drawShapeNative(canvas, element, cache, paints.stroke, paints.fill)
-                                is MosaicElement ->
-                                    drawMosaicNative(canvas, element, base, cache, paints.mosaic)
-                                // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
-                                is NumberElement ->
-                                    drawNumberNative(canvas, element, numberCount + 1, paints.fill, paints.text)
-                                is TextElement -> Unit
-                            }
+                        when (element) {
+                            is StrokeElement -> drawStrokeNative(canvas, element, cache, paints.stroke)
+                            is ShapeElement ->
+                                drawShapeNative(canvas, element, cache, paints.stroke, paints.fill)
+                            is MosaicElement ->
+                                drawMosaicNative(canvas, element, base, cache, paints.mosaic)
+                            is BlurElement ->
+                                drawBlurNative(canvas, element, base, cache, paints.mosaic)
+                            is StickerElement -> drawStickerNative(canvas, element, paints.bitmap)
+                            // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
+                            is NumberElement ->
+                                drawNumberNative(canvas, element, numberCount + 1, paints.fill, paints.text)
+                            is TextElement -> Unit
+                        }
                         } finally {
                             if (checkpoint >= 0) canvas.restoreToCount(checkpoint)
                         }
@@ -438,6 +463,7 @@ private class RenderPaints {
     val fill = AndroidPaint()
     val text = AndroidPaint()
     val mosaic = AndroidPaint()
+    val bitmap = AndroidPaint()
 }
 
 /** 把所有元素包围盒合成一个视图坐标矩形，夹到可见区，作为 saveLayer 的边界。 */
@@ -655,12 +681,46 @@ private fun drawMosaicNative(
     canvas.drawBitmap(mosaic, null, AndroidRectF(0f, 0f, base.width.toFloat(), base.height.toFloat()), paint)
 }
 
-/** 闭合形状（可填充）：矩形/椭圆/圆角矩形/三角/星/心。 */
-private fun ElementKind.isClosedShape(): Boolean = when (this) {
-    ElementKind.RECT, ElementKind.ELLIPSE, ElementKind.ROUND_RECT,
-    ElementKind.TRIANGLE, ElementKind.STAR, ElementKind.HEART,
-    -> true
-    else -> false
+/** 局部模糊：轨迹 mask 内取样预模糊底图（P2d）。管线与马赛克同构。 */
+private fun drawBlurNative(
+    canvas: AndroidCanvas,
+    element: BlurElement,
+    base: BaseImage?,
+    cache: AnnotateGeometryCache,
+    paint: AndroidPaint,
+) {
+    if (base == null) return
+    val sanitized = element.sanitized()
+    val mask = cache.blurMask(element, sanitized)
+    if (mask.isEmpty) return
+    val blurred = base.blurImage(sanitized.radius)
+    paint.reset()
+    paint.isAntiAlias = false
+    paint.isFilterBitmap = false
+    paint.isDither = false
+    canvas.clipPath(mask)
+    canvas.drawBitmap(blurred, null, AndroidRectF(0f, 0f, base.width.toFloat(), base.height.toFloat()), paint)
+}
+
+/** 图片贴纸：位图缩放到目标矩形（保纵横比由元素变换保证）。 */
+private fun drawStickerNative(
+    canvas: AndroidCanvas,
+    element: StickerElement,
+    paint: AndroidPaint,
+) {
+    val bitmap = element.bitmap
+    if (bitmap.isRecycled) return
+    val rect = element.rect.normalized()
+    if (rect.width <= 0f || rect.height <= 0f) return
+    paint.reset()
+    paint.isAntiAlias = true
+    paint.isFilterBitmap = true
+    canvas.drawBitmap(
+        bitmap,
+        null,
+        AndroidRectF(rect.left, rect.top, rect.right, rect.bottom),
+        paint,
+    )
 }
 
 /** 箭头两翼（图片坐标）：长度随线宽收敛，终点方向为轴向。 */

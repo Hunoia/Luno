@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
  * 挂在 [ActionSettings.floatBall] 下才能顺着 ConfigProvider → SettingsStore →
  * SettingsState 到达 `:service` 进程的 `FloatBallService`；挂到别的域会静默失效。
  * 位置坐标归一化（0..1），横竖屏各存一份，转屏后各用各的落点。
- * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]。
+ * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]；
+ * 长按 = 按住不动到 [longPressMs] 执行 [longPressAction]，触发后本次手势不再跟手。
  */
 @Serializable
 @Keep
@@ -79,6 +80,22 @@ data class FloatBallSettings(
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
     /**
+     * 长按球执行的动作：按住不动到 [longPressMs] 触发（先动 = 拖；触发后本次手势
+     * 不再跟手，与触钮子手势同仲裁）。null = 长按无行为。
+     */
+    val longPressAction: StoredAction? = null,
+    /** 长按触发时长（ms），滑杆范围 [FloatBallDefaults.LongPressMsMin]..[FloatBallDefaults.LongPressMsMax]。 */
+    val longPressMs: Long = FloatBallDefaults.LongPressMs,
+    /**
+     * 拖入判定区松手执行的动作（彩蛋）：球心落进 [dropZone] 判定区时球面高亮，
+     * 松手执行动作后球仍按普通落位吸附边缘。null = 无彩蛋，判定区不参与。
+     */
+    val dropAction: StoredAction? = null,
+    /** 竖屏判定区（归一化矩形）；null = 未自定义，用默认居中 [FloatBallDefaults.defaultDropZone]。 */
+    val dropZonePortrait: WindowBounds? = null,
+    /** 横屏判定区；语义同 [dropZonePortrait]。 */
+    val dropZoneLandscape: WindowBounds? = null,
+    /**
      * 静置多久后变暗缩小。0 = 关闭。
      */
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
@@ -121,6 +138,11 @@ data class FloatBallSettings(
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait
 
+    /** 当前朝向的判定区；未自定义时用默认居中矩形（竖横同一组占比）。 */
+    fun dropZone(landscape: Boolean): WindowBounds =
+        (if (landscape) dropZoneLandscape else dropZonePortrait)
+            ?: FloatBallDefaults.defaultDropZone()
+
     val colorSpec: ColorSpec
         get() = ColorSpec(colorSource, colorThemeKey, color)
 
@@ -148,6 +170,10 @@ fun FloatBallSettings.withPosition(
 ): FloatBallSettings =
     if (landscape) copy(landscape = transform(this.landscape))
     else copy(portrait = transform(portrait))
+
+/** 只写当前朝向那份判定区（判定区调整页确认时用）。 */
+fun FloatBallSettings.withDropZone(landscape: Boolean, zone: WindowBounds): FloatBallSettings =
+    if (landscape) copy(dropZoneLandscape = zone) else copy(dropZonePortrait = zone)
 
 /**
  * 通知胶囊配置：普通通知到达时从通知球向左展开「图标 + 标题 + 正文」，
@@ -178,6 +204,52 @@ data class NotificationCapsuleSettings(
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
     val dismissSuppressMs: Long = FloatBallDefaults.CapsuleDismissSuppressMs,
+    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（默认关）。 */
+    val alert: NotificationAlertSettings = NotificationAlertSettings(),
+)
+
+/**
+ * 到达提示动效的形态（单选）。
+ *
+ * [EdgeGlow] / [TopParticles] / [BallRing] 是按需挂摘的独立 overlay 窗；
+ * [CapsulePulse] / [CapsuleShimmer] 画在胶囊窗口自己的 Compose 层，不动窗口几何。
+ */
+@Serializable
+@Keep
+enum class NotificationAlertEffect {
+    /** 屏幕边缘呼吸光。 */
+    EdgeGlow,
+
+    /** 顶部粒子掉落。 */
+    TopParticles,
+
+    /** 胶囊本体脉冲（描边亮度脉冲，不新增窗口）。 */
+    CapsulePulse,
+
+    /** 球光环扩散（雷达 ping，锚定通知球）。 */
+    BallRing,
+
+    /** 胶囊边框流光（光带沿边框扫过，不新增窗口）。 */
+    CapsuleShimmer,
+}
+
+/**
+ * 新通知到达提示动效配置。事件驱动、一次性播放：只在「通知到达把胶囊从隐藏拉起」的
+ * 时机播放，播完自动停；熄屏 / 锁屏 / 勿扰 / 全屏沉浸 / 胶囊已可见时都不播。
+ *
+ * [intensity] 与 [pace] 是两个通用旋钮，含义随 [effect] 变化（设置页标签跟随）：
+ * 强度 = 光晕 / 粒子量 / 亮度峰值的映射输入；节奏 = 播放次数（呼吸圈数 / 粒子波次 /
+ * 光环圈数 / 扫光次数），总时长 = 节奏 × 单循环时长（`MotionFamily.NotificationAlert`）。
+ */
+@Serializable
+@Keep
+data class NotificationAlertSettings(
+    val enabled: Boolean = FloatBallDefaults.AlertEnabled,
+    val effect: NotificationAlertEffect = NotificationAlertEffect.EdgeGlow,
+    /** 强度（0–100，滑杆约束），按 [effect] 映射为透明度峰值或粒子数量。 */
+    val intensity: Int = FloatBallDefaults.AlertIntensity,
+    /** 节奏（1–4，滑杆约束）：播放循环次数，总时长随之倍增。 */
+    val pace: Int = FloatBallDefaults.AlertPace,
 )
 
 /**
@@ -260,6 +332,23 @@ object FloatBallDefaults {
     /** touchSlop（dp），点按与拖动分界。 */
     const val TouchSlopDp = 12f
 
+    /** 长按动作触发时长（ms）默认值与滑杆上下限（与动作面板的长按口径同范围）。 */
+    const val LongPressMs = 500L
+    const val LongPressMsMin = 200L
+    const val LongPressMsMax = 1200L
+
+    /** 判定区默认占比：居中、宽 / 高约屏宽（高）的 1/3 × 1/4，竖横同一组。 */
+    const val DropZoneWidthFraction = 1f / 3f
+    const val DropZoneHeightFraction = 1f / 4f
+
+    /** 未自定义时的判定区：以屏幕中心为中心的 [DropZoneWidthFraction] × [DropZoneHeightFraction]。 */
+    fun defaultDropZone(): WindowBounds = WindowBounds(
+        x = (1f - DropZoneWidthFraction) / 2f,
+        y = (1f - DropZoneHeightFraction) / 2f,
+        width = DropZoneWidthFraction,
+        height = DropZoneHeightFraction,
+    )
+
     /** 键盘弹出时球与键盘顶边的间距（dp）。 */
     /** 键盘让位额外抬升：键盘顶上一般还有应用自己的输入栏/发送按钮，只留 ImeMargin 会挡住它。 */
     const val ImeExtraLiftDp = 48f
@@ -282,6 +371,15 @@ object FloatBallDefaults {
 
     /** 通知胶囊：「只显示胶囊」开关默认值（关：系统通知照常显示在通知栏）。 */
     const val CapsuleHideSystemNotification = false
+
+    /** 到达提示动效：默认关（老用户升级零感知），开启后默认边缘呼吸光。 */
+    const val AlertEnabled = false
+    const val AlertIntensity = 60
+    const val AlertIntensityMin = 0
+    const val AlertIntensityMax = 100
+    const val AlertPace = 2
+    const val AlertPaceMin = 1
+    const val AlertPaceMax = 4
 
     /** 通知胶囊：同屏可见行数默认值与滑杆上下限（行）。 */
     const val CapsuleVisibleRows = 3

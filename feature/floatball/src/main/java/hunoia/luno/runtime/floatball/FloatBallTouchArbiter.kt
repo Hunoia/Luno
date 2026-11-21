@@ -20,7 +20,8 @@ internal class FloatBallTouchArbiter(
     private val onPressChanged: (pressed: Boolean) -> Unit,
     private val onDragEnded: () -> Unit,
     private val onLongPress: (() -> Unit)? = null,
-    private val longPressMs: Long = 500L,
+    /** 长按触发时长（ms）由调用方提供：球面随设置滑杆实时变，不能在构造期定死。 */
+    private val longPressMs: () -> Long = { 500L },
     /**
      * 长按是否参与本次手势。通知的滚动栈没有长按语义：不关掉的话，按住超过阈值
      * 再拖会被 [longPressFired] 挡成「拖不动」，滚动列表看起来像卡住。
@@ -62,7 +63,7 @@ internal class FloatBallTouchArbiter(
                 canceled = false
                 onPressChanged(true)
                 if (longPressEnabled()) {
-                    handler.postDelayed(longPressRunnable, longPressMs)
+                    handler.postDelayed(longPressRunnable, longPressMs())
                 }
                 return true
             }

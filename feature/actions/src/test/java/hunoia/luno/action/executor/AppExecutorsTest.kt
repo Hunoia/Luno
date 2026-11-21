@@ -80,6 +80,7 @@ class AppExecutorsTest {
         override suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult =
             ActionResult.Success()
         override fun hideTriggerButton(buttonId: String) = Unit
+        override fun toggleFloatBallHide() = Unit
     }
 
     private object FakeMessages : ExecuteMessages {

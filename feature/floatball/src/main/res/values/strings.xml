@@ -42,6 +42,18 @@
     <string name="float_ball_capsule_suppress_dismiss">滑掉后暂停重弹</string>
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
 
+    <string name="float_ball_capsule_alert_group">到达提示动效</string>
+    <string name="float_ball_capsule_alert_enabled">新通知提示动效</string>
+    <string name="float_ball_capsule_alert_enabled_subtitle">新通知把胶囊拉起时播放一次</string>
+    <string name="float_ball_capsule_alert_effect">效果</string>
+    <string name="float_ball_capsule_alert_effect_edge_glow">屏幕边缘呼吸光</string>
+    <string name="float_ball_capsule_alert_effect_particles">顶部粒子掉落</string>
+    <string name="float_ball_capsule_alert_effect_pulse">胶囊本体脉冲</string>
+    <string name="float_ball_capsule_alert_effect_ring">球光环扩散</string>
+    <string name="float_ball_capsule_alert_effect_shimmer">胶囊边框流光</string>
+    <string name="float_ball_capsule_alert_intensity">强度</string>
+    <string name="float_ball_capsule_alert_pace">节奏</string>
+
     <string name="float_ball_result_group">结果胶囊</string>
     <string name="float_ball_result_follow_hand">结果球跟手换边</string>
     <string name="float_ball_result_follow_hand_subtitle">触钮碰哪侧，结果球就挪到哪侧</string>
@@ -72,6 +84,11 @@
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_size">球大小</string>
     <string name="float_ball_tap_action">悬浮球单击动作</string>
+    <string name="float_ball_long_press_action">悬浮球长按动作</string>
+    <string name="float_ball_drop_action">悬浮球拖入判定区动作</string>
+    <string name="float_ball_drop_zone_adjust">判定区调整</string>
+    <string name="float_ball_drop_zone_adjust_subtitle">拖入彩蛋的判定位置与大小（横竖屏各一份）</string>
+    <string name="float_ball_long_press_ms">长按触发时长</string>
     <string name="float_ball_tap_unset">未设置</string>
     <string name="float_ball_trigger_actions">触发动作</string>
     <string name="clip_float_image">图片</string>

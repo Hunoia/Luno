@@ -76,6 +76,28 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.removeSelected(state)
     }
 
+    /** 图层上移一层（选中元素），一步撤销。 */
+    fun raiseSelected() {
+        state.selectedElementId?.let { state = AnnotateOps.raiseElement(state, it, toTop = false) }
+    }
+
+    /** 图层置顶（选中元素），一步撤销。 */
+    fun raiseSelectedToTop() {
+        state.selectedElementId?.let { state = AnnotateOps.raiseElement(state, it, toTop = true) }
+    }
+
+    /**
+     * 复制选中的元素（P2c）：副本按图片短边 2% 平移（至少 8px），生成后选中副本，
+     * 一步撤销。没有选中元素时不动。
+     */
+    fun duplicateSelected() {
+        val id = state.selectedElementId ?: return
+        val newId = nextElementId()
+        val shift = (minOf(imageWidth, imageHeight).toFloat() * 0.02f).coerceAtLeast(8f)
+        state = AnnotateOps.duplicateElement(state, id, newId, Pt(shift, shift))
+        state = AnnotateOps.selectElement(state, newId)
+    }
+
     /** 选区填充马赛克（B6），一步撤销。 */
     fun fillSelectionMosaic(cellSize: Float) {
         state = AnnotateOps.fillSelectionMosaic(state, nextElementId(), cellSize)

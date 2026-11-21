@@ -12,6 +12,10 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,19 +47,29 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
@@ -64,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.bridge.ui.DensityProvider
@@ -71,8 +86,10 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
+import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
 import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.floatball.inbox.ResultItem
@@ -92,6 +109,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * 统一胶囊：从所属球的位置展开，收起时恢复该球。
@@ -120,6 +138,12 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var items by mutableStateOf<List<BallItem>>(emptyList())
     private var currentIndex by mutableIntStateOf(0)
     private var offsetPx by mutableFloatStateOf(0f)
+
+    /**
+     * 到达提示动效（胶囊本体脉冲 / 边框流光）：画在本窗口自己的 Compose 层，
+     * 不新增窗口、不动几何。播放中再次到达合并（不重启）；收起 / 清空即停。
+     */
+    private var arrivalAlert by mutableStateOf<AlertPlayPlan?>(null)
 
     /** 锚点球高度：普通模式的行高，也是 [collapsedScale] 的形变基准。 */
     private var pageHeightPx by mutableIntStateOf(0)
@@ -272,6 +296,21 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     fun showCopied(itemId: String) {
         menuItemId = null
         copiedItemId = itemId
+    }
+
+    /**
+     * 播放一次到达提示动效（仅胶囊本体脉冲 / 边框流光走这条；其他效果由独立 overlay 承载）。
+     * 播放中的请求合并丢弃；播完由效果自己清空 [arrivalAlert]，收起 / 摘窗时也会被清。
+     */
+    fun playArrivalAlert(plan: AlertPlayPlan) {
+        if (!stacked) return
+        if (arrivalAlert != null) return
+        arrivalAlert = plan
+    }
+
+    /** 立即停掉在播的到达提示动效（息屏 / 服务销毁）。 */
+    fun cancelArrivalAlert() {
+        arrivalAlert = null
     }
 
     /** 清除「已复制」反馈（链接复制等不自动翻页的场景）。 */
@@ -549,6 +588,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         entering = false
         enterPending = false
         pressed = false
+        arrivalAlert = null
         items = emptyList()
         tappedItemId = null
         pressedRowId = null
@@ -1180,7 +1220,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                             }
                             .clip(shape)
                             .background(accent.copy(alpha = BubbleBackgroundAlpha))
-                            .border(1.dp, contentColor.copy(alpha = 0.22f), shape)
+                            .border(1.dp, contentColor.copy(alpha = RowBorderAlpha), shape)
                             .padding(horizontal = RowHorizontalPadding),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1223,6 +1263,108 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         .background(contentColor.copy(alpha = ScrollThumbAlpha)),
                 )
             }
+            // 到达提示动效（本体脉冲 / 边框流光）：盖在所有胶囊之上描边，不挡触摸与内容。
+            arrivalAlert?.let { plan ->
+                CapsuleArrivalOverlay(
+                    plan = plan,
+                    rowHeightPx = rowHeightPx,
+                    metrics = metrics,
+                    contentColor = contentColor,
+                    accent = accent,
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
+        }
+    }
+
+    /**
+     * 胶囊本体的到达提示：逐行沿 [CapsuleShape] 描边。
+     *
+     * - 脉冲：描边亮度按 sin 包络呼吸（叠加在常驻 1dp 描边之上）。
+     * - 流光：一道亮带沿边框横扫（水平渐变 + 描边，亮带位置随循环推进）。
+     *
+     * 行路径按行高缓存一份（每行同尺寸），绘制阶段读 [Animatable] 只触发重绘不重组；
+     * 时间线播完等末帧再清状态（ui-guidelines §5.1），窗口复用不受影响。
+     */
+    @Composable
+    private fun CapsuleArrivalOverlay(
+        plan: AlertPlayPlan,
+        rowHeightPx: Int,
+        metrics: StackMetrics,
+        contentColor: Color,
+        accent: Color,
+        modifier: Modifier = Modifier,
+    ) {
+        val density = LocalDensity.current
+        val widthPx = capsuleWidthPx
+        val rowPath = remember(widthPx, rowHeightPx) {
+            if (widthPx <= 0 || rowHeightPx <= 0) {
+                null
+            } else {
+                val outline = CapsuleShape.createOutline(
+                    size = Size(widthPx.toFloat(), rowHeightPx.toFloat()),
+                    layoutDirection = LayoutDirection.Ltr,
+                    density = density,
+                )
+                when (outline) {
+                    is Outline.Generic -> outline.path
+                    is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+                    is Outline.Rectangle -> null
+                }
+            }
+        }
+        val elapsed = remember { Animatable(0f) }
+        LaunchedEffect(plan) {
+            elapsed.snapTo(0f)
+            elapsed.animateTo(
+                plan.totalMillis.toFloat(),
+                tween(durationMillis = plan.totalMillis, easing = LinearEasing),
+            )
+            withFrameNanos { }
+            arrivalAlert = null
+        }
+        Canvas(modifier = modifier) {
+            val path = rowPath ?: return@Canvas
+            if (elapsed.value >= plan.totalMillis) return@Canvas
+            val t = (elapsed.value / plan.cycleMillis) % 1f
+            val gapPx = metrics.gapPx
+            val stroke = Stroke(width = 1.5.dp.toPx())
+            val rows = items.size
+            when (plan.effect) {
+                // 本体脉冲：描边亮度呼吸，叠加常驻描边。
+                NotificationAlertEffect.CapsulePulse -> {
+                    val boost = 0.3f + 0.5f * plan.intensity
+                    val alpha = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t))
+                        .coerceAtMost(1f)
+                    for (index in 0 until rows) {
+                        translate(left = 0f, top = index * (rowHeightPx + gapPx).toFloat() + offsetPx) {
+                            drawPath(path = path, color = contentColor.copy(alpha = alpha), style = stroke)
+                        }
+                    }
+                }
+
+                // 边框流光：亮带自左向右扫过描边。
+                NotificationAlertEffect.CapsuleShimmer -> {
+                    val band = 0.25f
+                    val pos = t
+                    val start = (pos - band / 2f).coerceIn(0f, 1f)
+                    val mid = pos.coerceIn(0f, 1f)
+                    val end = (pos + band / 2f).coerceIn(0f, 1f)
+                    val peak = 0.35f + 0.55f * plan.intensity
+                    val brush = Brush.horizontalGradient(
+                        start to contentColor.copy(alpha = 0f),
+                        mid to contentColor.copy(alpha = peak),
+                        end to contentColor.copy(alpha = 0f),
+                    )
+                    for (index in 0 until rows) {
+                        translate(left = 0f, top = index * (rowHeightPx + gapPx).toFloat() + offsetPx) {
+                            drawPath(path = path, brush = brush, style = stroke)
+                        }
+                    }
+                }
+
+                else -> Unit
+            }
         }
     }
 
@@ -1252,7 +1394,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 .onSizeChanged { if (it.width > 0 && it.height > 0) contentReady = true }
                 .clip(shape)
                 .background(accent.copy(alpha = BubbleBackgroundAlpha))
-                .border(1.dp, contentColor.copy(alpha = 0.22f), shape)
+                .border(1.dp, contentColor.copy(alpha = RowBorderAlpha), shape)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1603,6 +1745,9 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val CollapseFollowRatio = 0.22f
         const val FlingVelocityPxPerSec = 900f
         const val BubbleBackgroundAlpha = 0.88f
+
+        /** 常驻胶囊描边的基线透明度：本体脉冲在其上叠加呼吸增量。 */
+        const val RowBorderAlpha = 0.22f
     }
 }
 

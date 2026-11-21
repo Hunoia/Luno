@@ -42,6 +42,8 @@ data class AnnotateState(
                 ToolKind.SHAPE -> AnnotateToolStyle(shapeFilled = false)
                 // 橡皮默认比画笔粗：擦除需要覆盖面积。
                 ToolKind.ERASER -> AnnotateToolStyle(strokeWidth = 12f)
+                // 模糊默认半径 16 图片像素（截图上肉眼可辨）。
+                ToolKind.BLUR -> AnnotateToolStyle(blurRadius = 16f)
                 else -> AnnotateToolStyle()
             }
         }
@@ -173,6 +175,34 @@ object AnnotateOps {
     /** 删除当前选中的元素（工具条删除按钮），一步撤销。 */
     fun removeSelected(state: AnnotateState): AnnotateState =
         state.selectedElementId?.let { removeElement(state, it) } ?: state
+
+    /**
+     * 图层调整（P2c）：把 [id] 元素上移一层；[toTop] 时直接置顶。
+     * 图层顺序 = 列表顺序（后画的在上）。已在顶层时原样返回，不产生空历史。
+     */
+    fun raiseElement(state: AnnotateState, id: Long, toTop: Boolean): AnnotateState {
+        val index = state.elements.indexOfFirst { it.id == id }
+        if (index < 0 || index == state.elements.lastIndex) return state
+        val remaining = state.elements.toMutableList()
+        val element = remaining.removeAt(index)
+        if (toTop) {
+            remaining.add(element)
+        } else {
+            remaining.add(index + 1, element)
+        }
+        val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
+        return state.copy(elements = remaining, undoStack = undo, redoStack = emptyList())
+    }
+
+    /**
+     * 复制元素（P2c）：副本平移 [offset]，平移后的副本成为新顶层并被选中
+     * （调用方接着调 [selectElement]）。没有 [id] 对应元素时原样返回。
+     */
+    fun duplicateElement(state: AnnotateState, id: Long, newId: Long, offset: Pt): AnnotateState {
+        val source = state.elements.firstOrNull { it.id == id } ?: return state
+        val copy = source.translated(offset.x, offset.y).withElementId(newId)
+        return addElement(state, copy)
+    }
 
     /**
      * 选区填充马赛克（B6）：把整个选区铺成马赛克块，作为普通元素参与撤销 /

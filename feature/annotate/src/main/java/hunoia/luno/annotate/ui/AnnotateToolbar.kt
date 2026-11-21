@@ -20,12 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowOutward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AutoFixOff
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChangeHistory
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Crop32
 import androidx.compose.material.icons.filled.CropFree
@@ -33,17 +35,18 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Filter9Plus
 import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.FlipToFront
 import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HorizontalRule
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LayersClear
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Rectangle
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -130,9 +133,15 @@ fun AnnotateToolbar(
                                     .background(MaterialTheme.colorScheme.outlineVariant),
                             )
                         }
+                        // SHAPE 按钮图标跟随当前子类型（P3 手感）：切了形状后按钮可预期。
                         ToolButton(
                             kind = kind,
                             selected = kind == tool,
+                            iconOverride = if (kind == ToolKind.SHAPE) {
+                                shapeIconFor(state.activeShape)
+                            } else {
+                                null
+                            },
                             onClick = {
                                 document.selectTool(kind)
                                 onToolClick(kind)
@@ -208,6 +217,8 @@ fun StylePanel(
     document: AnnotateDocument,
     modifier: Modifier = Modifier,
     onCropReset: (() -> Unit)? = null,
+    /** 形状子类型选中后回调（P3 手感）：宿主据此自动收起样式卡，省一次点击。 */
+    onShapeSelected: (() -> Unit)? = null,
 ) {
     val state = document.state
     val style = state.styleFor(tool)
@@ -270,7 +281,11 @@ fun StylePanel(
                             icon = shapeIconFor(shape),
                             label = stringResource(shapeLabelFor(shape)),
                             selected = state.activeShape == shape,
-                            onClick = { document.setActiveShape(shape) },
+                            onClick = {
+                                document.setActiveShape(shape)
+                                // 选完即收（P3 手感）：形状子类型是「选一个就用」的语义。
+                                onShapeSelected?.invoke()
+                            },
                         )
                     }
                     ToggleButton(
@@ -318,6 +333,28 @@ fun StylePanel(
                 )
             }
 
+            // 模糊只有半径，无颜色。
+            ToolKind.BLUR -> {
+                SizeSlider(
+                    label = stringResource(R.string.annotate_blur_radius),
+                    value = style.blurRadius,
+                    valueRange = tool.sizeRange(),
+                    onValueChange = {
+                        document.updateStyle(tool, style.copy(blurRadius = it))
+                    },
+                )
+            }
+
+            // 贴纸无样式可调：点画布落贴纸，选中后拖角柄缩放。
+            ToolKind.STICKER -> {
+                Text(
+                    text = stringResource(R.string.annotate_sticker_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+
             // 绘画类 + 文字：色板 + 尺寸滑杆。
             else -> {
                 ColorPaletteRow(
@@ -346,6 +383,29 @@ private fun SelectionPanelContent(
     state: AnnotateState,
     document: AnnotateDocument,
 ) {
+    // 元素编辑增强（P2c）：图层调整 + 复制，与删除同语义（一步撤销）。
+    if (state.selectedElementId != null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            CompactIconButton(
+                icon = Icons.Default.FlipToFront,
+                label = stringResource(R.string.annotate_layer_top),
+                onClick = { document.raiseSelectedToTop() },
+            )
+            CompactIconButton(
+                icon = Icons.Default.ArrowUpward,
+                label = stringResource(R.string.annotate_layer_up),
+                onClick = { document.raiseSelected() },
+            )
+            CompactIconButton(
+                icon = Icons.Default.ContentCopy,
+                label = stringResource(R.string.annotate_duplicate),
+                onClick = { document.duplicateSelected() },
+            )
+        }
+    }
     if (state.selection != null) {
         val px = state.exportPixelSize()
         Row(
@@ -375,7 +435,8 @@ private fun SelectionPanelContent(
                 onClick = { document.clearSelection() },
             )
         }
-    } else {
+    }
+    if (state.selection == null && state.selectedElementId == null) {
         Text(
             text = stringResource(R.string.annotate_select_empty_hint),
             style = MaterialTheme.typography.labelMedium,
@@ -428,8 +489,14 @@ private fun SizeSlider(
 }
 
 @Composable
-private fun ToolButton(kind: ToolKind, selected: Boolean, onClick: () -> Unit) {
-    val icon = iconFor(kind)
+private fun ToolButton(
+    kind: ToolKind,
+    selected: Boolean,
+    onClick: () -> Unit,
+    /** 图标覆盖（SHAPE 按钮跟随当前子类型）；null = 用 [iconFor] 的默认图标。 */
+    iconOverride: ImageVector? = null,
+) {
+    val icon = iconOverride ?: iconFor(kind)
     val label = stringResource(labelFor(kind))
     if (selected) {
         PressFilledIconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
@@ -493,7 +560,10 @@ private fun iconFor(kind: ToolKind): ImageVector = when (kind) {
     ToolKind.HIGHLIGHT -> Icons.Default.Highlight
     ToolKind.ERASER -> Icons.Default.AutoFixOff
     ToolKind.TEXT -> Icons.Default.TextFields
-    ToolKind.MOSAIC -> Icons.Default.BlurOn
+    // 马赛克（格子）与模糊（晕开）用不同图标区分。
+    ToolKind.MOSAIC -> Icons.Default.GridOn
+    ToolKind.BLUR -> Icons.Default.BlurOn
+    ToolKind.STICKER -> Icons.Default.Image
     ToolKind.SELECT -> Icons.Default.CropFree
     ToolKind.SHAPE -> Icons.Default.Category
     ToolKind.CROP -> Icons.Default.Crop
@@ -506,6 +576,8 @@ private fun labelFor(kind: ToolKind): Int = when (kind) {
     ToolKind.ERASER -> R.string.annotate_tool_eraser
     ToolKind.TEXT -> R.string.annotate_tool_text
     ToolKind.MOSAIC -> R.string.annotate_tool_mosaic
+    ToolKind.BLUR -> R.string.annotate_tool_blur
+    ToolKind.STICKER -> R.string.annotate_tool_sticker
     ToolKind.SELECT -> R.string.annotate_tool_select
     ToolKind.SHAPE -> R.string.annotate_tool_shape
     ToolKind.CROP -> R.string.annotate_tool_crop
@@ -523,8 +595,6 @@ private fun shapeIconFor(kind: ShapeKind): ImageVector = when (kind) {
     ShapeKind.ARROW -> Icons.Default.ArrowOutward
     ShapeKind.CHECK -> Icons.Default.Check
     ShapeKind.CROSS -> Icons.Default.Close
-    ShapeKind.STAR -> Icons.Default.StarBorder
-    ShapeKind.HEART -> Icons.Default.FavoriteBorder
 }
 
 /** SHAPE 面板的形状子类型标签。 */
@@ -538,12 +608,10 @@ private fun shapeLabelFor(kind: ShapeKind): Int = when (kind) {
     ShapeKind.ARROW -> R.string.annotate_tool_arrow
     ShapeKind.CHECK -> R.string.annotate_tool_check
     ShapeKind.CROSS -> R.string.annotate_tool_cross
-    ShapeKind.STAR -> R.string.annotate_tool_star
-    ShapeKind.HEART -> R.string.annotate_tool_heart
 }
 
 /**
- * 工具显示顺序：核心组（画笔/荧光笔/橡皮/文字/序号）+ 形状/裁剪/马赛克组 + 选择组。
+ * 工具显示顺序：核心组（画笔/荧光笔/橡皮/文字/序号）+ 形状/裁剪/马赛克/模糊/贴纸组 + 选择组。
  * 组间用分隔线（[GroupBoundaries]），窄屏可横向滚动。
  */
 private val ToolDisplayOrder: List<ToolKind> = listOf(
@@ -553,16 +621,18 @@ private val ToolDisplayOrder: List<ToolKind> = listOf(
     ToolKind.ERASER,
     ToolKind.TEXT,
     ToolKind.NUMBER,
-    // 形状 / 裁剪 / 马赛克
+    // 形状 / 裁剪 / 马赛克 / 模糊 / 贴纸
     ToolKind.SHAPE,
     ToolKind.CROP,
     ToolKind.MOSAIC,
+    ToolKind.BLUR,
+    ToolKind.STICKER,
     // 选择
     ToolKind.SELECT,
 )
 
 /** 每个分隔线前累计的工具数量（组尾）。 */
-private val GroupBoundaries: List<Int> = listOf(5, 8)
+private val GroupBoundaries: List<Int> = listOf(5, 10)
 
 /** 固定调色板：标注颜色属于“内容”，不跟主题动态取色。 */
 val AnnotatePalette: List<Long> = listOf(
@@ -579,6 +649,7 @@ private fun AnnotateToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     ToolKind.TEXT -> textSize
     ToolKind.NUMBER -> textSize
     ToolKind.MOSAIC -> mosaicCell
+    ToolKind.BLUR -> blurRadius
     ToolKind.ERASER -> strokeWidth
     else -> strokeWidth
 }
@@ -587,6 +658,7 @@ private fun AnnotateToolStyle.withPrimarySize(tool: ToolKind, value: Float): Ann
     ToolKind.TEXT -> copy(textSize = value)
     ToolKind.NUMBER -> copy(textSize = value)
     ToolKind.MOSAIC -> copy(mosaicCell = value)
+    ToolKind.BLUR -> copy(blurRadius = value)
     ToolKind.ERASER -> copy(strokeWidth = value)
     else -> copy(strokeWidth = value)
 }
@@ -596,6 +668,8 @@ private fun ToolKind.sizeRange(): ClosedFloatingPointRange<Float> = when (this) 
     // 序号圆底直径。
     ToolKind.NUMBER -> 20f..80f
     ToolKind.MOSAIC -> 8f..48f
+    // 模糊半径（图片像素）。
+    ToolKind.BLUR -> 4f..48f
     ToolKind.HIGHLIGHT -> 4f..24f
     // 橡皮默认更粗，允许覆盖更大面积。
     ToolKind.ERASER -> 4f..40f

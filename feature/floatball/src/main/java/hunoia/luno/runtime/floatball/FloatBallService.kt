@@ -42,10 +42,17 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
+import hunoia.luno.runtime.floatball.alert.AlertEnvironment
+import hunoia.luno.runtime.floatball.alert.AlertOverlayWindow
+import hunoia.luno.runtime.floatball.alert.AlertRingGeometry
+import hunoia.luno.runtime.floatball.alert.AlertWindowKind
+import hunoia.luno.runtime.floatball.alert.buildPlan
+import hunoia.luno.runtime.floatball.alert.shouldPlay
 import hunoia.luno.runtime.floatball.inbox.BallInboxAction
 import hunoia.luno.runtime.floatball.inbox.BallInboxChange
 import hunoia.luno.runtime.floatball.inbox.BallInboxConfig
@@ -81,6 +88,8 @@ import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
+import hunoia.luno.ui.theme.MotionFamily
+import hunoia.luno.ui.theme.motionMillis
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
@@ -222,6 +231,9 @@ class FloatBallService : Service() {
     }
 
     private fun onRuntimeStateChanged(state: GestureRuntimeState) {
+        // 界面级临时隐藏：前台离开（换应用 / 回桌面）或锁屏即清槽——槽在离开瞬间清掉，
+        // 返回同一界面不会重新隐藏；判定只读运行态快照，不新增平台监听（architecture §5.4）。
+        visibility.clearScreenHideIfLeft(state.currentPackageName, state.isNowInLockScreenPage)
         val keyboardActive = state.isKeyboardInputActive
         if (lastKeyboardInputActive != keyboardActive) {
             val firstSnapshot = lastKeyboardInputActive == null
@@ -263,6 +275,10 @@ class FloatBallService : Service() {
     private val powerManager by lazy { getSystemService<PowerManager>() }
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
+    private val notificationManager by lazy { getSystemService<NotificationManager>() }
+
+    /** 到达提示动效的独立 overlay 窗（呼吸光 / 粒子 / 光环）；脉冲 / 流光走胶囊窗内。 */
+    private val alertOverlay by lazy { AlertOverlayWindow(this) }
 
     // ---- 跟随持机手（三球各自独立） ----
 
@@ -301,7 +317,8 @@ class FloatBallService : Service() {
             idleDescription = getString(R.string.float_ball),
         ).apply {
             onTap = { onBallTapped() }
-            onLongPress = null
+            onLongPress = { onBallLongPressed() }
+            onDropZoneReleased = { cx, cy -> onBallDroppedInCenter(cx, cy) }
             onDragFinished = { x, y -> persistMainBallPosition(x, y) }
         }
         notificationSlot = CapsuleSlot(BallSource.NOTIFICATION).also { it.attachWindows() }
@@ -323,6 +340,7 @@ class FloatBallService : Service() {
                 resultSlot.ball.setHidden(true)
                 notificationSlot.hideCapsule()
                 resultSlot.hideCapsule()
+                stopArrivalAlerts()
                 // 息屏期间不读剪贴板：重置基线，解锁后由 seedClipboardBaseline 重新对齐。
                 lastSeenClip = null
             },
@@ -337,6 +355,7 @@ class FloatBallService : Service() {
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.subscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = followHandBroadcast
+        FloatBallCommand.toggleScreenHide = ::toggleScreenHide
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
         hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
@@ -392,6 +411,7 @@ class FloatBallService : Service() {
         currentRef = null
         clipFloat?.detach()
         clipFloat = null
+        stopArrivalAlerts()
         settingsJob?.cancel()
         imeJob?.cancel()
         imeHintJob?.cancel()
@@ -402,6 +422,7 @@ class FloatBallService : Service() {
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.unsubscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = null
+        FloatBallCommand.toggleScreenHide = null
         followHandRetryJob?.cancel()
         followHandRetryJob = null
         pendingFollowHandSide = null
@@ -433,7 +454,6 @@ class FloatBallService : Service() {
             }
                 .collect { config ->
                     val newSettings = config.action.floatBall
-                    if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
                     visibilitySettings = config.buttonVisibility
                     recognition = config.action.recognition
@@ -540,8 +560,8 @@ class FloatBallService : Service() {
         val sceneAllowsBall = canDrawOverlays() && sceneAllows(VisibilityTargets.FLOAT_BALL)
         val persistentVisible = gestureEnabledSnapshot && settings.enabled && sceneAllowsBall
         val panelHidden = visibility.isPanelHidden
-        val tempHidden = visibility.isTempHidden()
-        val shouldShow = persistentVisible && !panelHidden && !tempHidden && !softHidden
+        val screenHidden = visibility.isScreenHidden
+        val shouldShow = persistentVisible && !panelHidden && !screenHidden && !softHidden
         if (!shouldShow) {
             if (ballVisible) {
                 if (persistentVisible) {
@@ -562,7 +582,8 @@ class FloatBallService : Service() {
             ballWindow.setPanelHidden(false)
         }
 
-        refreshSlotWindows(panelHidden || tempHidden || softHidden)
+        // 界面级隐藏只作用于球本体：通知 / 结果胶囊不随它收起。
+        refreshSlotWindows(panelHidden || softHidden)
     }
 
     private fun refreshSlotWindows(globalHidden: Boolean) {
@@ -624,14 +645,99 @@ class FloatBallService : Service() {
 
     // ---- 临时隐藏 ----
 
-    /** 关球时同步撤销未到期的临时隐藏（生产方接回前 hasTempHide 恒 false）。 */
-    private fun cancelTempHide() {
-        if (!visibility.hasTempHide) return
-        visibility.cancelTempHide()
-        refreshWindows()
+    /** 动作触发的界面级临时隐藏：可见 → 记录当前界面进入隐藏；隐藏中 → 立即恢复。 */
+    private fun toggleScreenHide() {
+        // 还没有前台快照（服务刚起、无障碍事件未到）时无法界定「本界面」，静默跳过。
+        val state = RuntimeStateHub.current() ?: return
+        val changed = if (visibility.isScreenHidden) {
+            visibility.clearScreenHide()
+        } else {
+            visibility.enterScreenHide(state.currentPackageName)
+        }
+        if (changed) refreshWindows()
     }
 
     // ---- 通知 ----
+
+    /**
+     * 到达提示动效：通知把胶囊从隐藏拉起时按配置播放一次（需求确认口径）。
+     *
+     * 只认「hidden → shown」的转变：胶囊已可见时的后续到达（wasShowing）合并进当前展示
+     * 不播；用户手动展开、结果胶囊来源、转场途中被掐掉的（!slot.showing）也不播。
+     * 熄屏 / 锁屏 / 勿扰由 [AlertPolicy.shouldPlay] 判定——全部是到达时机的一次性读数，
+     * 不轮询、不新增监听（architecture §13「无事件不做功」）。全屏沉浸判定不做。
+     */
+    private fun onCapsuleArrivalShown(slot: CapsuleSlot, wasShowing: Boolean) {
+        if (slot.source != BallSource.NOTIFICATION) return
+        if (wasShowing || !slot.showing) return
+        val alert = settings.notificationCapsule.alert
+        if (!alert.enabled) return
+        val env = AlertEnvironment(
+            screenOn = powerManager?.isInteractive == true,
+            keyguardLocked = keyguardManager?.isKeyguardLocked == true,
+            dndActive = isDndActive(),
+        )
+        if (!shouldPlay(alert, env)) {
+            // 通知正文不落日志；只记判定所需的元数据（到达路径已有 pkg 日志可对上）。
+            Log.i(TAG, "capsule alert skip screenOn=${env.screenOn} locked=${env.keyguardLocked} " +
+                "dnd=${env.dndActive}")
+            return
+        }
+        val plan = buildPlan(alert, motionMillis(MotionFamily.NotificationAlert))
+        Log.i(TAG, "capsule alert play effect=${plan.effect} cycles=${plan.cycles} " +
+            "total=${plan.totalMillis}ms")
+        when (plan.effect) {
+            // 胶囊本体脉冲 / 边框流光画在胶囊窗自己的 Compose 层，不新增窗口。
+            NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
+                notificationSlot.bubble.playArrivalAlert(plan)
+
+            NotificationAlertEffect.EdgeGlow -> alertOverlay.show(
+                kind = AlertWindowKind.EdgeGlow,
+                plan = plan,
+                colorSpec = settings.colorSpec,
+                ring = null,
+                onFinished = {},
+            )
+
+            NotificationAlertEffect.TopParticles -> alertOverlay.show(
+                kind = AlertWindowKind.TopParticles,
+                plan = plan,
+                colorSpec = settings.colorSpec,
+                ring = null,
+                onFinished = {},
+            )
+
+            NotificationAlertEffect.BallRing -> {
+                val anchor = slot.bubbleAnchor()
+                alertOverlay.show(
+                    kind = AlertWindowKind.BallRing,
+                    plan = plan,
+                    colorSpec = settings.colorSpec,
+                    ring = AlertRingGeometry(
+                        centerX = anchor.centerX,
+                        centerY = anchor.centerY,
+                        ballPx = DensityProvider.dp2px(settings.sizeDp),
+                    ),
+                    onFinished = {},
+                )
+            }
+        }
+    }
+
+    /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
+    private fun stopArrivalAlerts() {
+        if (this::notificationSlot.isInitialized) {
+            notificationSlot.bubble.cancelArrivalAlert()
+        }
+        alertOverlay.cancel()
+    }
+
+    /** 勿扰判定：勿扰档位非「全部」即视为勿扰；未知档位按不开启处理。 */
+    private fun isDndActive(): Boolean {
+        val filter = notificationManager?.currentInterruptionFilter ?: return false
+        return filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+            filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+    }
 
     private val notificationObserver: (NotificationPulse) -> Unit = { pulse ->
         scope.launch { onNotificationArrived(pulse) }
@@ -1462,6 +1568,21 @@ class FloatBallService : Service() {
         dispatchTapAction(action, ballCenterX(), ballCenterY())
     }
 
+    /** 长按动作：按住不动到 `longPressMs` 触发（先动 = 拖）；未配置时长滑杆口径同点按。 */
+    private fun onBallLongPressed() {
+        val action = settings.longPressAction ?: return
+        dispatchTapAction(action, ballCenterX(), ballCenterY())
+    }
+
+    /**
+     * 判定区彩蛋：拖入判定区松手执行自定义动作，锚点用松手时的球心；
+     * 球仍按普通落位吸附边缘（窗口侧已先于贴边结算回调本函数）。
+     */
+    private fun onBallDroppedInCenter(centerX: Int, centerY: Int) {
+        val action = settings.dropAction ?: return
+        dispatchTapAction(action, centerX, centerY)
+    }
+
     private fun ballCenter(): Pair<Int, Int> {
         ballWindow.visibleRectOnScreen()?.let { return it.centerX to it.centerY }
         val half = DensityProvider.dp2px(settings.sizeDp) / 2
@@ -1762,7 +1883,6 @@ class FloatBallService : Service() {
         val allowed: Boolean
             get() = enabled &&
                 transientOverlayAllowed() &&
-                !visibility.isTempHidden() &&
                 !softHidden &&
                 sceneAllows(visibilityTarget)
 
@@ -2031,10 +2151,12 @@ class FloatBallService : Service() {
          */
         fun enqueueAll(items: List<BallItem>, makeCurrent: Boolean) {
             if (items.isEmpty()) return
+            val wasShowing = showing
             for (index in items.indices.reversed()) {
                 enqueue(items[index], makeCurrent = makeCurrent && index == 0, show = false)
             }
             showIfNeeded()
+            onCapsuleArrivalShown(this, wasShowing)
         }
 
         /** 当前收件箱里是否已经有这一屏的情景结果项。 */
@@ -2133,7 +2255,11 @@ class FloatBallService : Service() {
                 scheduleTtl()
                 return change
             }
-            if (show) showIfNeeded()
+            if (show) {
+                val wasShowing = showing
+                showIfNeeded()
+                onCapsuleArrivalShown(this, wasShowing)
+            }
             return change
         }
 

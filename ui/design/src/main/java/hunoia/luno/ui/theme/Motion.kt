@@ -36,6 +36,12 @@ enum class MotionFamily(val baseMillis: Int) {
 
     /** 浮窗气泡 snap（位置 + alpha）。 */
     FloatingSnap(170),
+
+    /**
+     * 通知胶囊到达提示动效的单循环基准（呼吸一圈 / 一波粒子 / 一圈光环 / 一次扫光）。
+     * 总时长 = 基准 × 节奏档（节奏是配置项，不是档位）；走浮窗档位。
+     */
+    NotificationAlert(1000),
 }
 
 /** 一次动效的完整 spec：时长 + 缓动。对称由调用点用同一 spec 正反播放保证。 */
@@ -54,6 +60,7 @@ data class MotionProfile(
         MotionFamily.PanelCard, MotionFamily.PanelFull -> panel
         MotionFamily.Overlay -> overlay
         MotionFamily.Floating, MotionFamily.FloatingMorph, MotionFamily.FloatingSnap -> floating
+        MotionFamily.NotificationAlert -> floating
     }
 
     fun millisOf(family: MotionFamily): Int =

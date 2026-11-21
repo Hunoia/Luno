@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,13 +37,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
@@ -64,7 +66,6 @@ import hunoia.luno.ui.theme.motionMillis
 import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.action.model.Action
 
 /**
  * 悬浮球窗口：按住即拖，松手吸附最近边缘且球完整在屏内；静置变暗并移出一半，触摸恢复。
@@ -127,6 +128,12 @@ class FloatBallWindow(
             view?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             onLongPress?.invoke()
         },
+        longPressMs = {
+            settings.longPressMs.coerceIn(
+                hunoia.luno.config.model.FloatBallDefaults.LongPressMsMin,
+                hunoia.luno.config.model.FloatBallDefaults.LongPressMsMax,
+            )
+        },
     )
 
     // ---- 定位 ----
@@ -176,6 +183,9 @@ class FloatBallWindow(
     // Compose 快照状态：球面里的静置暂停（动图切首帧）要跟着它重组。
     private var idled by mutableStateOf(false)
 
+    // Compose 快照状态：拖动中球心进入判定区（球面高亮提示），松手即清零。
+    private var dropHint by mutableStateOf(false)
+
     /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
     private var transferring = false
 
@@ -198,7 +208,7 @@ class FloatBallWindow(
     /** 抬手点按（未超 touchSlop）。Service 决定派发动作还是开动作面板。 */
     var onTap: (() -> Unit)? = null
 
-    /** 长按（≥500ms 且未移动）：打开 / 展开共享气泡。 */
+    /** 长按（按住不动到 `FloatBallSettings.longPressMs` 且未移动；先动 = 拖，触发后本次不拖）。 */
     var onLongPress: (() -> Unit)? = null
 
     /** 开始拖动：服务侧据此立即收起气泡，且本轮不再自动重开。 */
@@ -206,6 +216,12 @@ class FloatBallWindow(
 
     /** 拖动松手，带归一化 (-[(顶边 x)/W, (顶边 y)/H])。 */
     var onDragFinished: ((Float, Float) -> Unit)? = null
+
+    /**
+     * 拖动松手时球心落在判定区（仅配置了 `dropAction` 才可能为真；判定在贴边
+     * 结算前，坐标是松手时的球心）。服务侧执行判定区动作；球仍按普通落位吸附边缘。
+     */
+    var onDropZoneReleased: ((centerX: Int, centerY: Int) -> Unit)? = null
 
     private val screenWidthPx: Int get() = DensityProvider.screenWidthPx
     private val screenHeightPx: Int get() = DensityProvider.screenHeightPx
@@ -615,6 +631,7 @@ class FloatBallWindow(
         posX += dx
         posY += dy
         applyWindowBounds()
+        updateDropHint()
     }
 
     private fun onDragEnded() {
@@ -628,6 +645,15 @@ class FloatBallWindow(
         // 拖动中键盘可能起落过：结算一次让位，再夹取。
         imeLiftPx = computeImeLift(imeBottomPx).toFloat()
         applyWindowBounds()
+        // 判定区彩蛋：松手时球心在判定区 → 通知服务执行动作（坐标取贴边结算前的球心）；
+        // 球随后照常贴边落位，不停在屏幕中央。
+        if (dropHint) {
+            onDropZoneReleased?.invoke(
+                (posX + ballPx / 2f).roundToInt(),
+                (posY + ballPx / 2f).roundToInt(),
+            )
+        }
+        dropHint = false
         // 松手后球贴到最近边缘（完整球在屏内，不留缝）；用短程缓动而不是瞬移。落盘记终点。
         if (screenWidthPx > 0 && screenHeightPx > 0) {
             val targetX = BallPlacement.edgeX(isOnLeft(), screenWidthPx, ballPx)
@@ -635,6 +661,21 @@ class FloatBallWindow(
             onDragFinished?.invoke(targetX / screenWidthPx, posY / screenHeightPx)
         }
         scheduleIdle()
+    }
+
+    /**
+     * 判定区高亮：拖动中逐帧算球心是否入区（仅配置了 `dropAction` 才参与），
+     * 球面据此切换提示态；松手（[finishDrag]）与隐藏路径清零。
+     */
+    private fun updateDropHint() {
+        val inZone = settings.dropAction != null && isBallInDropZone(
+            centerX = (posX + ballPx / 2f).roundToInt(),
+            centerY = (posY + ballPx / 2f).roundToInt(),
+            screenWidth = screenWidthPx,
+            screenHeight = screenHeightPx,
+            zone = settings.dropZone(landscape),
+        )
+        if (dropHint != inZone) dropHint = inZone
     }
 
     // ---- 松手贴边（缓动） ----
@@ -969,15 +1010,27 @@ class FloatBallWindow(
             modifier = modifier.size(size),
             contentAlignment = Alignment.Center,
         ) {
+            // 判定区彩蛋提示：拖动中球心入判定区时描边转主色并轻微放大（与按压同一档语感）。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .graphicsLayer {
+                        val hintScale = if (dropHint) 1.12f else 1f
+                        scaleX = hintScale
+                        scaleY = hintScale
+                    }
                     .background(accent.copy(alpha = 0.92f), CircleShape)
-                    .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f), CircleShape),
+                    .border(
+                        2.dp,
+                        if (dropHint) accent
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f),
+                        CircleShape,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = fixedIconState
-                    ?: actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
+                    ?: settings.tapAction?.let { actionIcon(it) }
+                    ?: Icons.Default.TouchApp
                 when (icon) {
                     is ImageVector -> Image(
                         imageVector = icon,

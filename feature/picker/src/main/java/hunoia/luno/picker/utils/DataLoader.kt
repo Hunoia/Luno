@@ -574,14 +574,17 @@ internal suspend fun saveGridPanelInternalWidget(
     return result
 }
 
-/** 悬浮球槽位落盘。按槽名分发而非写死，后续开放长按/滑动槽只加 case。 */
+/** 悬浮球槽位落盘。按槽名分发而非写死；选「无」= 清空该槽（恢复无行为）。 */
 private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
     if (!FloatBallSlot.isValid(slot)) return
+    val action = picked?.takeIf { it.typeId != Action.NONE_TYPE_ID }
     TuneConfig.updateAction { settings ->
         settings.copy(
-            floatBall = settings.floatBall.copy(
-                tapAction = picked?.takeIf { it.typeId != Action.NONE_TYPE_ID },
-            ),
+            floatBall = when (slot) {
+                FloatBallSlot.TAP -> settings.floatBall.copy(tapAction = action)
+                FloatBallSlot.LONG_PRESS -> settings.floatBall.copy(longPressAction = action)
+                else -> settings.floatBall.copy(dropAction = action)
+            },
         )
     }
 }
@@ -729,7 +732,11 @@ internal suspend fun loadDataBody(
         // 网格面板只进不出：进选择页只会是加项，没有可预选的旧动作。
         actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
-        actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
+        actionSelect.floatBallSlot.isNotBlank() -> when (actionSelect.floatBallSlot) {
+            FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
+            FloatBallSlot.LONG_PRESS -> actionSettings.floatBall.longPressAction
+            else -> actionSettings.floatBall.dropAction
+        }
         // 识别区触发：先判 id，否则会掉进下面的 null 分支。
         actionSelect.globalGestureTriggerId.isNotBlank() -> {
             val trigger = GestureConfig.getGlobalGesture().zones

@@ -79,6 +79,7 @@ import hunoia.luno.ui.navigation.DynamicShortcutSettings
 import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
+import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
 import hunoia.luno.ui.navigation.FloatBallResultCapsule
 import hunoia.luno.ui.navigation.ButtonVisibility
@@ -111,6 +112,7 @@ import hunoia.luno.ui.settings.notification.NotificationSettingsScreen
 import hunoia.luno.ui.settings.statusbar.StatusBarIconSettingsScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.action.DropZoneAdjustScreen
 import hunoia.luno.ui.settings.action.PointerAdjustScreen
 import hunoia.luno.ui.settings.action.PointerSettingsScreen
 import hunoia.luno.ui.settings.action.AppearanceSettingsScreen
@@ -484,7 +486,19 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onEditTapAction = {
                             navController.navigate(ActionSelect(floatBallSlot = FloatBallSlot.TAP))
                         },
+                        onEditLongPressAction = {
+                            navController.navigate(ActionSelect(floatBallSlot = FloatBallSlot.LONG_PRESS))
+                        },
+                        onEditDropAction = {
+                            navController.navigate(ActionSelect(floatBallSlot = FloatBallSlot.DROP_CENTER))
+                        },
+                        onAdjustDropZone = {
+                            navController.navigate(FloatBallDropZoneAdjust)
+                        },
                     )
+                }
+                myComposable<FloatBallDropZoneAdjust> {
+                    DropZoneAdjustScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<FloatBallNotificationCapsule> {
                     NotificationCapsuleSettingsScreen(

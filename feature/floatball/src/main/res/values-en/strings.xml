@@ -42,6 +42,18 @@
     <string name="float_ball_capsule_suppress_dismiss">Pause re-peek after dismissing</string>
     <string name="float_ball_capsule_suppress_duration">Pause duration</string>
 
+    <string name="float_ball_capsule_alert_group">Arrival alert</string>
+    <string name="float_ball_capsule_alert_enabled">Alert on new notification</string>
+    <string name="float_ball_capsule_alert_enabled_subtitle">Plays once when a new notification raises the capsule</string>
+    <string name="float_ball_capsule_alert_effect">Effect</string>
+    <string name="float_ball_capsule_alert_effect_edge_glow">Edge breathing glow</string>
+    <string name="float_ball_capsule_alert_effect_particles">Top particle fall</string>
+    <string name="float_ball_capsule_alert_effect_pulse">Capsule pulse</string>
+    <string name="float_ball_capsule_alert_effect_ring">Ball halo ring</string>
+    <string name="float_ball_capsule_alert_effect_shimmer">Border shimmer</string>
+    <string name="float_ball_capsule_alert_intensity">Intensity</string>
+    <string name="float_ball_capsule_alert_pace">Pace</string>
+
     <string name="float_ball_result_group">Result capsule</string>
     <string name="float_ball_result_follow_hand">Follow hand to switch sides</string>
     <string name="float_ball_result_follow_hand_subtitle">Result ball moves to the side the gesture button touches</string>
