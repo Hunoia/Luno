@@ -181,7 +181,8 @@ internal fun QuickSearchGroupedCards(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        itemsIndexed(matches, key = { _, h -> h }) { _, h ->
+                        // 与平铺路径同口径带前缀：裸文本做 key 时，历史里出现重复条目会撞 key 崩面板。
+                        itemsIndexed(matches, key = { _, h -> "m#$h" }) { _, h ->
                             HistoryChip(
                                 text = h,
                                 onClick = {

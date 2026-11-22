@@ -60,4 +60,24 @@ class QuickSearchEngineIdTest {
         val normalized = QuickSearchSettings(customEngines = listOf(engine)).withUniqueEngineTriggers()
         assertEquals("keep-me", normalized.customEngines.first().id)
     }
+
+    @Test
+    fun `default settings yield unique non-blank ids after normalization`() {
+        // 面板首帧的兜底值必须先归一化：未归一化时 seed 引擎 id 全为空串，
+        // 引擎条按 id 做 LazyRow 的 item key 会撞成三个 ""，直接抛
+        // "Key \"\" was already used" 崩掉搜索面板。
+        val ids = QuickSearchSettings().withUniqueEngineTriggers().allEngines().map { it.id }
+        assertTrue(ids.size >= 2)
+        assertTrue(ids.none { it.isBlank() })
+        assertEquals(ids.size, ids.toSet().size)
+    }
+
+    @Test
+    fun `raw default settings are the historical crash shape`() {
+        // 留证：归一化前的默认设置正是当时的崩溃形态（多条空 id），
+        // 所以面板兜底值绝不能用裸 QuickSearchSettings()。
+        val raw = QuickSearchSettings().allEngines().map { it.id }
+        assertTrue(raw.size >= 2)
+        assertTrue(raw.all { it.isBlank() })
+    }
 }

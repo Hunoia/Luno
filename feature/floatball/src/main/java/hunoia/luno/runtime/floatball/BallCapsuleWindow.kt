@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -14,12 +15,6 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
-import android.view.ViewPropertyAnimator
-import android.view.WindowInsets
-import android.view.animation.OvershootInterpolator
-import android.widget.TextView
-import java.io.File
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
@@ -32,7 +27,6 @@ import hunoia.luno.runtime.floatball.inbox.BallSource
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
-import hunoia.luno.ui.theme.MotionPress
 import hunoia.luno.ui.theme.MotionSettle
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -57,6 +51,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -90,6 +85,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -99,6 +97,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -110,9 +109,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
@@ -151,20 +153,29 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+/** 胶囊行高 = 收起态直径（dp）：胶囊自己的几何常量，与悬浮球尺寸设置无关。 */
+internal const val CapsuleRowHeightDp = 56f
+
+/** 胶囊纵向落点（屏高归一）：胶囊自己的默认位置。 */
+internal const val CapsuleAnchorYRatio = 0.5f
+
 /**
- * 球 + 胶囊合并窗口：常态 = 内容球球面，展开 = 胶囊内容栈，同一个 overlay 窗口、
- * 同一份坐标（posX/posY/imeLift/lpOriginY/sideRight/barSafeArea）、同一个状态机
- * （[VisualState.BALL] ↔ [VisualState.CAPSULE]）。
+ * 胶囊窗口：一个「能长开的按钮」——收起 = 直径 = [CapsuleRowHeightDp] 的正圆，展开 = 内容栈。
  *
- * 合并根治两处「两窗口分离」的同步缺口：
- * - 展开动画方向（系统窗口过渡 vs 自身形变）：窗口常驻，展开只切内容/尺寸，不再 addView。
- * - 键盘避让（跨窗锚点/抬升不同步）：胶囊几何直接由本窗口自己的 posY/imeLift 推导。
+ * 它是独立对象，**不读悬浮球的任何状态**（尺寸 / 位置 / 静置 / 键盘让位 / 拖动 / 判定区）：
+ * 行高、侧别、纵向落点都是胶囊自己的（[CapsuleRowHeightDp] / [CapsuleAnchorYRatio]）。
+ *
+ * 同一个 overlay 窗口承担开合：窗口 = 画面 + 余量，尺寸与 x/y 一次写进
+ * [WindowManager.LayoutParams]，Compose 只按已提交的画面矩形画——不会出现「形变面按
+ * 目标几何算、却画在旧窗里」的第一帧偏移。
  *
  * 内容：
  * - 通知胶囊展示未命中的普通通知；结果胶囊展示分发规则的胶囊档结果。
- * - 每条一颗独立胶囊，同屏行数按各自设置，超出竖向滚动；行宽贴内容、靠球一侧齐平。
+ * - 每条一颗独立胶囊，同屏行数按各自设置，超出竖向滚动；行宽贴内容、靠屏缘一侧齐平。
  * - 横滑两方向与行长按执行可配的内置行为（[CapsuleRowGestures]，默认 = 出厂行为：
- *   朝球收起 / 反向忽略该行 / 结果行长按弹操作菜单），点按 = 执行主动作。
+ *   朝屏缘收起 / 反向忽略该行 / 结果行长按弹操作菜单），点按 = 执行主动作。
+ * - 收起态：点按 = 长开（[BallCapsuleWindow.onExpandRequested]），长按 = 胶囊自己的长按
+ *   行为（[BallCapsuleWindow.onCollapsedLongPress]）。
  */
 internal class BallCapsuleWindow(
     private val context: android.content.Context,
@@ -178,257 +189,459 @@ internal class BallCapsuleWindow(
     private val badgeDescription: ((Int) -> String)?,
 ) {
 
-    /** 视觉状态机：BALL = 内容球常态，CAPSULE = 胶囊展开。 */
-    internal enum class VisualState { BALL, CAPSULE }
+    /**
+     * 胶囊自己的几何与姿态：**不读悬浮球的任何状态**（尺寸 / 位置 / 静置 / 键盘让位 / 拖动）。
+     *
+     * 收起态 = 直径 [rowHeightPx] 的正圆，贴 [sideRight] 那一侧、纵向落在 [posYPx]；
+     * 展开 = 同一条相位把宽高长到内容尺寸。它就是一个「能长开的按钮」，与悬浮球无关。
+     */
 
-    /** 当前视觉状态。Compose 内容切换据此渲染；窗口尺寸/坐标随之切换。 */
-    private var state by mutableStateOf(VisualState.BALL)
+    /** 落点兜底（屏高归一）：[posYPx] 还没建立时用它（首帧位置）。拖动后不再读它。 */
+    private var anchorYRatio = CapsuleAnchorYRatio
 
-    /** 是否处于胶囊态（状态机镜像，供手势/定位分流）。 */
-    private val isCapsule: Boolean get() = state == VisualState.CAPSULE
+    /** 贴哪条屏缘：胶囊自己的侧别（默认右缘，可拖动换边 / 跟手换边）。
+     *  必须是快照状态：Compose 按它决定画面贴窗口哪一侧，普通字段改了不重组。 */
+    private var sideRight by mutableStateOf(true)
 
-    // ---- 统一坐标（两态共用，消除跨窗口锚点/抬升同步缺口） ----
+    /** 胶囊自己的落点：收起圆顶边的**屏幕绝对** y（px）。拖动只改它，< 0 = 尚未建立。 */
+    private var posYPx = -1f
 
-    /** 球顶屏幕坐标（px）。BALL 态窗口顶边；CAPSULE 态胶囊参考原点。 */
-    private var posX = 0f
-    private var posY = 0f
+    /** 贴边缓动中的横向外移（px，带符号）：0 = 已贴紧 [sideRight] 那一侧。 */
+    private var edgeOffsetPx = 0f
 
-    /** 键盘抬升量（px）。显示位置 = 基准位 − 抬升量。两态共用。 */
-    private var imeLiftPx = 0f
-
-    /** 抬升缓动动画：键盘起落平滑跟随，避免瞬跳。 */
-    private var imeAnimator: ValueAnimator? = null
-
-    /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
-    private var imeBottomPx = 0
-
-    /** 系统栏安全区（屏幕绝对坐标，只约束上下）。取不到时沿用上一次。 */
+    /** 系统栏安全区（屏幕绝对 px）：胶囊不该停到状态栏 / 导航栏底下。 */
     private var barSafeArea = SystemBarsSafeArea()
 
-    /**
-     * LP 坐标系原点在屏幕上的 y。带 LAYOUT_IN_SCREEN 后应为 0；个别 ROM 仍以
-     * 状态栏下沿为原点，保留实测兜底。两态共用同一份原点（单窗口，无跨窗偏差）。
-     */
-    private var lpOriginY = 0
+    /** 键盘底部高度（display 绝对 px，0 = 无键盘）与它推出的抬升量（只进显示值）。 */
+    private var imeBottomPx = 0
+    private var imeLiftPx = 0f
 
-    /** 当前朝向：决定读 portrait 还是 landscape 落点。快照状态：转屏要触发胶囊行宽按新屏宽重推。 */
-    private var landscape by mutableStateOf(false)
+    /** 收起圆正在被拖动：跟手位移直接写 LP（圆心由 [dragCenterX]/[dragCenterY] 接管）。 */
+    private var circleDragging = false
 
-    /** 球面尺寸（px）：BALL 态窗口边长，也是 [collapsedScale] 形变基准与胶囊行高的锚点。 */
-    private var ballPx = 0
+    /** 拖动中的圆心（屏幕绝对 px）；NaN = 没在拖。 */
+    private var dragCenterX = Float.NaN
+    private var dragCenterY = Float.NaN
 
-    // ---- 球态（从 FloatBallWindow 移植，与胶囊共用同一份窗口/坐标） ----
+    /** 上一帧已消费的累计位移：把 arbiter 的累计 dx/dy 换成单帧增量。 */
+    private var draggedDx = 0f
+    private var draggedDy = 0f
 
-    /** 球面固定图标：ImageVector / TextIcon / ImageBitmap（运行期可替换，见 [setFixedIcon]）。 */
+    /** 静置变暗 / 半出屏：胶囊自己的姿态（胶囊设置里的 `idleDimDelayMs`），展开态永不静置。 */
+    private var idled = false
+    private var idleRunnable: Runnable? = null
+
+    /** 松手贴边的缓动 / 换边淡出淡回的动画句柄。 */
+    private var snapAnimator: ValueAnimator? = null
+    private var sideFadeAnimator: ValueAnimator? = null
+    private var visualAnimator: ValueAnimator? = null
+    private var imeAnimator: ValueAnimator? = null
+
+    /** 胶囊侧设置（行色 / 行数 / 手势）：服务注入，与球侧互不影响。 */
+    private var capsuleSettings by mutableStateOf(FloatBallSettings())
+
+    /** 收起圆上的未读数：服务下发，画在圆面右下角。 */
+    private var collapsedBadgeState by mutableStateOf<BadgeState?>(null)
+
+    /** 圆面固定图标（通知 / 结果），运行期可替换。 */
     private var fixedIconState by mutableStateOf(fixedIcon)
 
-    /** 静置半出屏 / 变暗态。Compose 快照状态：球面里的静置暂停动图要跟着它重组。 */
-    private var idled by mutableStateOf(false)
-
-    /** 气泡（胶囊）在屏期间抑制静置变暗/半出屏，避免锚点与球之间留白。 */
-    private var idleSuppressed = false
-
-    /** 拖动中球心进入判定区（球面高亮提示），松手即清零。 */
-    private var dropHint by mutableStateOf(false)
-
-    private var dragging = false
-
-    /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
-    private var transferring = false
-
-    /** 在飞的换边传送目标与回调：淡出被隐藏/回场打断时改为立即结算，不再丢传送。 */
-    private var pendingTransferX = 0f
-    private var pendingTransferY = 0f
-    private var pendingTransferLanded: (() -> Unit)? = null
-
-    /** 隐藏路径置位：抑制 arbiter.cancel 经 onPressChanged 触发的 applyVisual。 */
-    private var visualSuppressed = false
-
-    /** 软隐藏 / 锁屏 / 胶囊态：整体不可见不可点。 */
+    /** 锁屏 / 息屏 / 面板软隐藏：整个窗口不可见也不可点（窗口保留）。 */
     private var visuallyHidden = false
     private var lockHidden = false
     private var panelHidden = false
 
-    /** 隐形结算后尚未落窗：回场动画置 alpha=0 后消费。 */
-    private var transferPendingLayout = false
+    /**
+     * LP 坐标系原点在屏幕上的 y。带 LAYOUT_IN_SCREEN 后应为 0；个别 ROM 仍以
+     * 状态栏下沿为原点，保留实测兜底。
+     */
+    private var lpOriginY = 0
 
-    private var idleRunnable: Runnable? = null
-    private var moveAnimator: ValueAnimator? = null
-
-    private val handler = Handler(Looper.getMainLooper())
+    /** 当前朝向：决定读横屏还是竖屏的落点。快照状态：转屏要重推落点与行宽。 */
+    private var landscape by mutableStateOf(false)
 
     private val screenWidthPx: Int get() = DensityProvider.screenWidthPx
     private val screenHeightPx: Int get() = DensityProvider.screenHeightPx
 
-    /** insets 变化后的合并复测：先测 LP 原点，再读安全区，最后只写一次窗口。 */
-    private val remeasureSystemInsets = Runnable {
-        postMeasureLpOriginY({ view }) { measured ->
-            lpOriginY = measured
-            applySystemInsets()
+    /** 胶囊面的存在性：窗口在 = 胶囊在（没有球态了）。 */
+    private val isCapsule: Boolean get() = view != null
+
+    /**
+     * 画面是否处于「展开 / 正在展开」：服务侧记账与画面不同步时用它自检。
+     * 收起圆（相位 0）不算展开。
+     */
+    val isExpandingOrOpen: Boolean
+        get() = view != null &&
+            (transition == Transition.EXPANDING || morphPhase > 0.001f)
+
+    /** 收起圆的屏幕矩形（到达动效锚点用）：窗口未挂时返回 null。 */
+    internal fun visibleRectOnScreen(): BubbleAnchor? =
+        if (view == null) null else frozenAnchor ?: capsuleAnchor()
+
+    // ---- 胶囊自己的锚点 ----
+
+    /**
+     * 收起态正圆的屏幕矩形：贴 [sideRight] 侧 + 自己的落点 [posYPx] + 键盘让位 + 贴边缓动。
+     *
+     * 拖动中由 [dragCenterX]/[dragCenterY] 接管（侧别跟着圆心实时翻转），松手才回到
+     * 「贴边 + 落点」的常态。这是胶囊几何的唯一来源：窗口 x/y、形变基准、到达动效锚点
+     * 都由它推，不存在第二份坐标。
+     */
+    private fun capsuleAnchor(): BubbleAnchor {
+        val size = rowHeightPx.coerceAtLeast(1)
+        if (!dragCenterX.isNaN()) {
+            val bounds = circleBounds(size)
+            val left = (dragCenterX - size / 2f).roundToInt()
+                .coerceIn(bounds.minX.roundToInt(), bounds.maxX.roundToInt())
+            // 纵向也按安全区夹：拖动中就不该钻到状态栏底下，否则松手会“跳”回安全区。
+            val top = (dragCenterY - size / 2f).roundToInt()
+                .coerceIn(bounds.minY.roundToInt(), bounds.maxY.roundToInt())
+            // 拖过中线就换边：内容区贴哪一侧当场跟着变，松手不用再“传送”。
+            sideRight = dragCenterX >= screenWidthPx / 2f
+            return BubbleAnchor(left, top, left + size, top + size)
+        }
+        val top = displayTopPx(size)
+        val travel = edgeOffsetPx.roundToInt()
+        val left = if (sideRight) screenWidthPx - size - travel else travel
+        return BubbleAnchor(left, top, left + size, top + size)
+    }
+
+    /** 收起圆显示的顶边（屏幕绝对 px）：落点 − 键盘抬升，再夹进安全区。 */
+    private fun displayTopPx(size: Int): Int {
+        val bounds = circleBounds(size)
+        val base = baseTopPx()
+        return (base - imeLiftPx).roundToInt()
+            .coerceIn(bounds.minY.roundToInt(), bounds.maxY.roundToInt())
+    }
+
+    /** 落点基准（屏幕绝对 px，未减键盘抬升）：首次用时由 [anchorYRatio] 建立。 */
+    private fun baseTopPx(): Float {
+        if (posYPx < 0f) posYPx = anchorYRatio * screenHeightPx
+        return posYPx
+    }
+
+    /** 收起圆可落范围：上下避让系统栏，水平贴物理屏边（与悬浮球同口径的纯几何）。 */
+    private fun circleBounds(size: Int): BallBounds =
+        BallPlacement.bounds(screenWidthPx, screenHeightPx, size, barSafeArea, lpOriginY)
+
+    // ---- 键盘让位 ----
+
+    /**
+     * 键盘起落：只改显示位置（抬升量），**不动基准 [posYPx]**。
+     *
+     * 胶囊自己让位，不依赖悬浮球：球关掉、只有胶囊时键盘也得把圆抬起来，
+     * 否则底部输入栏上的圆会被键盘盖住一半。
+     */
+    fun updateIme(imeBottomPx: Int) {
+        if (imeBottomPx == this.imeBottomPx) return
+        this.imeBottomPx = imeBottomPx
+        if (circleDragging) return
+        animateImeLift(resolveImeLift())
+    }
+
+    /** 键盘要把圆抬多高：圆底 + 边距越过键盘顶的部分，封顶在圆顶正好到安全区上界。 */
+    private fun resolveImeLift(): Float {
+        if (imeBottomPx <= 0) return 0f
+        val size = rowHeightPx.coerceAtLeast(1)
+        val marginPx = DensityProvider.dp2px(
+            FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp,
+        )
+        val base = baseTopPx()
+        val overflow = base + size + marginPx - (screenHeightPx - imeBottomPx)
+        val capPx = max(0f, base - circleBounds(size).minY)
+        return max(0f, overflow).coerceAtMost(capPx)
+    }
+
+    /** 抬升缓动：逐帧落窗口；目标差值极小直接落定。 */
+    private fun animateImeLift(target: Float) {
+        imeAnimator?.cancel()
+        imeAnimator = null
+        val v = view
+        if (v == null || abs(imeLiftPx - target) < 0.5f) {
+            imeLiftPx = target
+            v?.let { applyCapsuleGeometry(it) }
+            return
+        }
+        val from = imeLiftPx
+        imeAnimator = ValueAnimator.ofFloat(from, target).apply {
+            duration = IME_LIFT_ANIM_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (imeAnimator !== anim) return@addUpdateListener
+                imeLiftPx = anim.animatedValue as Float
+                view?.let { applyCapsuleGeometry(it) }
+            }
+        }.also { it.start() }
+    }
+
+    private fun cancelImeLift() {
+        imeAnimator?.cancel()
+        imeAnimator = null
+    }
+
+    // ---- 收起圆：拖动 / 贴边 / 静置 ----
+
+    /**
+     * 收起圆的跟手拖动：逐帧写 LP（与球的拖动同一套坐标）。
+     *
+     * 不用 View translation：松手要把圆写成新的落点 / 侧别，translation 与 LP 不可能在
+     * 同一帧同时生效，必有「先跳回贴边位再回来」的一帧。改这里之前先看球的拖动实现。
+     */
+    private fun onCircleDragged(v: View) {
+        if (!circleDragging) {
+            if (abs(dragDx) <= touchSlop && abs(dragDy) <= touchSlop) return
+            circleDragging = true
+            draggedDx = 0f
+            draggedDy = 0f
+            cancelIdle()
+            visualAnimator?.cancel()
+            visualAnimator = null
+            cancelSnap()
+            cancelSideFade()
+            applyPressScale(false)
+            val start = capsuleAnchor()
+            dragCenterX = start.centerX + dragDx
+            dragCenterY = start.centerY + dragDy
+        } else {
+            dragCenterX += dragDx - draggedDx
+            dragCenterY += dragDy - draggedDy
+        }
+        draggedDx = dragDx
+        draggedDy = dragDy
+        applyCapsuleGeometry(v)
+    }
+
+    /** 松手结算：写回落点（侧别已在拖动中跟手翻转），然后贴边缓动。 */
+    private fun commitCircleDrag(v: View?) {
+        circleDragging = false
+        if (v == null) {
+            dragCenterX = Float.NaN
+            dragCenterY = Float.NaN
+            return
+        }
+        val size = rowHeightPx.coerceAtLeast(1)
+        val released = capsuleAnchor()
+        dragCenterX = Float.NaN
+        dragCenterY = Float.NaN
+        draggedDx = 0f
+        draggedDy = 0f
+        val bounds = circleBounds(size)
+        // 落点存的是**基准**（未减键盘抬升）：显示位置 = 基准 − 抬升。
+        posYPx = (released.top + imeLiftPx).coerceIn(bounds.minY, bounds.maxY)
+        // 拖动中键盘可能起落过：松手结算一次让位。
+        imeLiftPx = resolveImeLift()
+        // 离目标屏缘还差多少（带符号）：贴边缓动从这里回 0。
+        edgeOffsetPx = if (sideRight) {
+            ((screenWidthPx - size) - released.left).toFloat()
+        } else {
+            released.left.toFloat()
+        }
+        applyCapsuleGeometry(v)
+        snapToEdge()
+        scheduleIdle()
+    }
+
+    /** 松手贴边缓动：[edgeOffsetPx] → 0，逐帧落窗口（与球松手贴边同一档时长 / 曲线）。 */
+    private fun snapToEdge() {
+        val v = view ?: return
+        val from = edgeOffsetPx
+        if (abs(from) < 0.5f) {
+            edgeOffsetPx = 0f
+            applyCapsuleGeometry(v)
+            return
+        }
+        cancelSnap()
+        snapAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = MotionSettle.toLong()
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (snapAnimator !== anim) return@addUpdateListener
+                edgeOffsetPx = from * (1f - (anim.animatedValue as Float))
+                view?.let { applyCapsuleGeometry(it) }
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (snapAnimator !== animation) return
+                    snapAnimator = null
+                    edgeOffsetPx = 0f
+                    view?.let { applyCapsuleGeometry(it) }
+                }
+            })
+        }.also { it.start() }
+    }
+
+    private fun cancelSnap() {
+        snapAnimator?.cancel()
+        snapAnimator = null
+    }
+
+    private fun cancelSideFade() {
+        sideFadeAnimator?.cancel()
+        sideFadeAnimator = null
+    }
+
+    /**
+     * 换边：淡出 → 落到 [left] 那一侧 → 淡回。
+     *
+     * alpha 用 [ValueAnimator] 而不是 `view.animate()`：后者是每个 View 唯一的实例，
+     * 和按压 / 静置共用时互相 cancel，`withEndAction` 就丢了（换边静默不生效）。
+     */
+    private fun fadeSwapSide(left: Boolean) {
+        val v = view ?: return
+        cancelSideFade()
+        cancelSnap()
+        visualAnimator?.cancel()
+        visualAnimator = null
+        val fadeMs = motionMillis(MotionFamily.Floating).toLong()
+        val from = v.alpha
+        sideFadeAnimator = ValueAnimator.ofFloat(from, 0f).apply {
+            duration = fadeMs
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (sideFadeAnimator === anim) v.alpha = anim.animatedValue as Float
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (sideFadeAnimator !== animation) return
+                    sideFadeAnimator = null
+                    if (view !== v) return
+                    // [left] = 贴左缘，与 sideRight 相反。
+                    sideRight = !left
+                    edgeOffsetPx = 0f
+                    applyCapsuleGeometry(v)
+                    applyVisual()
+                    scheduleIdle()
+                }
+            })
+        }.also { it.start() }
+    }
+
+    /**
+     * 跟手换边（胶囊自己的侧别）：手在哪侧，圆就搬到哪侧。
+     *
+     * [left] = 「贴到左缘」——与 `sideRight` **相反**（这里错过一次：触钮在左、圆跑到了右）。
+     * 窗口不在屏上时只改侧别（无对象可淡入淡出），下次上屏直接落在新侧；
+     * 正在拖动 / 按压 / 形变时返回 false，由服务短重试。
+     */
+    fun swapSide(left: Boolean): Boolean {
+        val targetRight = !left
+        val v = view
+        if (v == null) {
+            sideRight = targetRight
+            edgeOffsetPx = 0f
+            return true
+        }
+        if (targetRight == sideRight && abs(edgeOffsetPx) < 0.5f) return true
+        if (circleDragging || pressed || transition != Transition.NONE) return false
+        fadeSwapSide(left)
+        return true
+    }
+
+    /** 胶囊自己的静置时长（胶囊设置，与悬浮球无关）：0 = 不变暗。 */
+    private fun idleDelayMs(): Long = when (source) {
+        BallSource.NOTIFICATION -> capsuleSettings.notificationCapsule.idleDimDelayMs
+        BallSource.RESULT -> capsuleSettings.resultCapsule.idleDimDelayMs
+    }
+
+    /** 静置计时：到点后变暗 + 半出屏。只在**收起态**生效，展开 / 形变中直接跳过。 */
+    private fun scheduleIdle() {
+        idleRunnable?.let(mainHandler::removeCallbacks)
+        idleRunnable = null
+        val delay = idleDelayMs()
+        if (delay <= 0L || circleDragging) {
+            if (idled) {
+                idled = false
+                applyVisual()
+            }
+            return
+        }
+        val runnable = Runnable {
+            idleRunnable = null
+            if (!collapsedVisual || visuallyHidden) return@Runnable
+            idled = true
+            applyVisual()
+        }
+        idleRunnable = runnable
+        mainHandler.postDelayed(runnable, delay)
+    }
+
+    private fun cancelIdle() {
+        idleRunnable?.let(mainHandler::removeCallbacks)
+        idleRunnable = null
+        if (idled) {
+            idled = false
+            applyVisual()
         }
     }
 
-    // ---- 球态回调 ----
+    /**
+     * 胶囊的视觉姿态（alpha / 静置外移）：静置只作用于收起圆，展开态始终全亮且不偏移。
+     *
+     * 与按压一样走 View 层而不走 Compose：服务进程托管的 ComposeView 重组不上屏。
+     */
+    private fun applyVisual() {
+        val v = view ?: return
+        if (!v.isAttachedToWindow) return
+        val resting = idled && collapsedVisual
+        val alpha = when {
+            visuallyHidden -> 0f
+            resting -> FloatBallDefaults.IdleDimAlpha
+            else -> 1f
+        }
+        val shift = if (resting) {
+            BallPlacement.idleShiftPx(!sideRight, rowHeightPx, FloatBallDefaults.IdleOutRatio)
+        } else {
+            0f
+        }
+        visualAnimator?.cancel()
+        val fromAlpha = v.alpha
+        val fromShift = v.translationX
+        visualAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = MotionSettle.toLong()
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (visualAnimator !== anim) return@addUpdateListener
+                val t = anim.animatedValue as Float
+                v.alpha = fromAlpha + (alpha - fromAlpha) * t
+                v.translationX = fromShift + (shift - fromShift) * t
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (visualAnimator !== animation) return
+                    visualAnimator = null
+                    v.alpha = alpha
+                    v.translationX = shift
+                }
+            })
+        }.also { it.start() }
+    }
 
-    /** 抬手点按（未超 touchSlop）。 */
-    var onTap: (() -> Unit)? = null
+    // ---- 窗口生命周期 ----
 
-    /** 长按（按住不动到 `FloatBallSettings.longPressMs` 且未移动；先动 = 拖）。 */
-    var onLongPress: (() -> Unit)? = null
-
-    /** 开始拖动：服务侧据此立即收起气泡，且本轮不再自动重开。 */
-    var onDragStarted: (() -> Unit)? = null
-
-    /** 拖动松手，带归一化 (-[(顶边 x)/W, (顶边 y)/H])。 */
-    var onDragFinished: ((Float, Float) -> Unit)? = null
-
-    /** 拖动松手时球心落在判定区（仅配置了 `dropAction` 才可能为真）。 */
-    var onDropZoneReleased: ((centerX: Int, centerY: Int) -> Unit)? = null
-
-    /** 球触摸仲裁：BALL 态拖动 / 点按 / 长按。 */
-    private val ballArbiter = FloatBallTouchArbiter(
-        onSlideDragged = { dx, dy -> onBallDragged(dx, dy) },
-        onTapped = { onTap?.invoke() },
-        onPressChanged = { pressed ->
-            this.pressed = pressed
-            if (!pressed) scheduleIdle()
-            if (!visualSuppressed) applyVisual()
-        },
-        onDragEnded = { onBallDragEnded() },
-        onLongPress = {
-            view?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-            onLongPress?.invoke()
-        },
-        longPressMs = {
-            settings.longPressMs.coerceIn(
-                hunoia.luno.config.model.FloatBallDefaults.LongPressMsMin,
-                hunoia.luno.config.model.FloatBallDefaults.LongPressMsMax,
-            )
-        },
-    )
-
-    // ---- 球态行为（移植自 FloatBallWindow） ----
-
-    /** 运行期替换球面图标；通知球用来显示最新通知的应用图标。 */
+    /** 运行期替换圆面图标（通知 / 结果 / 最新通知应用图标）。 */
     fun setFixedIcon(icon: Any?) {
         if (fixedIconState === icon || fixedIconState == icon) return
         fixedIconState = icon
     }
 
-    /** 球在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
-    fun isOnLeft(): Boolean = BallPlacement.isOnLeft(posX, screenWidthPx, ballPx)
-
-    /** 该朝向落盘落点对应的贴边 x（侧别按目标朝向自己的归一值判）。 */
-    private fun savedEdgeX(landscape: Boolean): Float =
-        BallPlacement.edgeX(settings.position(landscape).x, screenWidthPx, ballPx)
-
-    /** 球顶屏幕坐标（px）：跟手挪球 / 胶囊锚点由同一份坐标推导。 */
-    fun currentPosition(): Pair<Float, Float> = posX to posY
-
-    /**
-     * 球当前可见矩形（屏幕坐标）。静置半出屏时用平移后的实际可见边，
-     * 胶囊据此贴边，不会飘到球和屏幕之间。
-     */
-    internal fun visibleRectOnScreen(): BubbleAnchor? {
-        if (view == null) return null
-        val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
-        val shift = if (idled) idleShiftPx() else 0f
-        val left = (posX + shift).roundToInt()
-        val top = displayY.roundToInt()
-        return BubbleAnchor(left, top, left + ballPx, top + ballPx)
-    }
-
-    /**
-     * 胶囊锚点由本窗口自己的球基准坐标推导（不再跨窗口握手）：
-     * 顶边 = posY − imeLift（含键盘让位），左右按贴边侧 + 静置外移。
-     */
-    private fun capsuleAnchor(): BubbleAnchor {
-        val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
-        val shift = if (idled) idleShiftPx() else 0f
-        val left = (posX + shift).roundToInt()
-        val top = displayY.roundToInt()
-        return BubbleAnchor(left, top, left + ballPx, top + ballPx)
-    }
-
-    // ---- 球态设置 / 朝向 ----
-
-    /** 合并窗口设置：ball = 球侧（尺寸/静置/拖拽/球面），capsule = 胶囊侧（行色/行数/手势）。 */
-    fun updateSettings(ball: FloatBallSettings, capsule: FloatBallSettings) {
-        updateBallSettings(ball)
-        updateCapsuleSettings(capsule)
-    }
-
-    private fun updateBallSettings(next: FloatBallSettings) {
-        val sizeChanged = next.sizeDp != settings.sizeDp
-        settings = next
-        if (!sizeChanged) return
-        val nextPx = sizePx(next)
-        if (nextPx == ballPx) return
-        if (view == null) {
-            ballPx = nextPx
-            return
-        }
-        // 胶囊展开中不拆窗（拆窗会把胶囊打断并静默切回球态）：只更新尺寸基准，
-        // 让锚点/行高按新球径重算；收起后下次挂窗自然按新尺寸重建。
-        if (isCapsule) {
-            ballPx = nextPx
-            updateCapsuleAnchor()
-            return
-        }
-        // 面球尺寸由 Compose 组合驱动，而服务进程托管的 ComposeView 重组不上屏：
-        // 改尺寸只能拆窗重挂（新窗首组合直接按新球径画）。落点由 attachBall 按
-        // 持久化坐标重摆，和窗口尺寸同一轮写入，不再“先挂旧位置再搬回去”。
-        detachNow()
-        ballPx = nextPx
-        attachAnimated()
-    }
-
-    /** 转屏：换用该朝向记忆的落点。返回是否真的换了朝向。 */
+    /** 转屏：换用该朝向自己的落点。返回是否真的换了朝向。 */
     fun setOrientation(landscape: Boolean): Boolean {
         if (this.landscape == landscape) return false
-        this.landscape = landscape
-        if (view == null) return true
-        DensityProvider.invalidateMetrics()
-        barSafeArea = readBarSafeArea() ?: barSafeArea
-        cancelSettle()
-        posX = savedEdgeX(landscape)
-        posY = settings.position(landscape).y * screenHeightPx
-        applyWindowBounds()
-        realignVisualAfterReposition()
-        view?.post { remeasureLpOriginY() }
-        return true
-    }
-
-    // ---- 球态窗口生命周期 ----
-
-    /** 球态挂窗（BALL 态）：建窗并按当前状态渲染。false = 没建起来（未授权 / 系统拒绝）。 */
-    fun attachBall(): Boolean {
-        if (view != null) {
-            // 已建（胶囊复用）：切回球态并重摆姿态。
-            enterBallState()
-            return true
+        // 落点存的是屏幕绝对 y：转屏先折回比例、再按新屏高重建，否则绝对像素会在新屏上偏。
+        if (posYPx >= 0f && screenHeightPx > 0) {
+            anchorYRatio = (posYPx / screenHeightPx).coerceIn(0f, 1f)
         }
-        if (ballPx <= 0) ballPx = sizePx(settings)
-        if (!ensureWindowRoot()) return false
-        // 落点先于任何定位写入：posX/posY 是两态共用坐标，默认 0 会把球放到左上角。
-        // 与主球窗（FloatBallWindow.attach）同口径，读当前朝向的持久化落点。
-        posX = savedEdgeX(landscape)
-        posY = settings.position(landscape).y * screenHeightPx
-        state = VisualState.BALL
-        visuallyHidden = false
-        applyBallTouchFlags(view!!, wm, hidden = false)
-        view!!.visibility = View.VISIBLE
-        view!!.alpha = 1f
-        view!!.scaleX = 1f
-        view!!.scaleY = 1f
-        applyWindowBounds()
-        return true
-    }
-
-    /** 球态挂窗并原地淡入弹回（面板期间被移除后的补回场）。 */
-    fun attachAnimated(): Boolean {
-        if (!attachBall()) return false
-        view?.let(::animateRestoreIn)
+        this.landscape = landscape
+        posYPx = -1f
+        refreshBarSafeArea()
+        cancelSnap()
+        cancelImeLift()
+        imeLiftPx = resolveImeLift()
+        // 朝向换了，行宽与贴边位置都要按新屏宽重推。
+        frozenAnchor = null
+        edgeOffsetPx = 0f
+        capsuleWidthPx = 0
+        view?.let { applyCapsuleGeometry(it) }
         return true
     }
 
@@ -438,446 +651,58 @@ internal class BallCapsuleWindow(
         applyHiddenFlags()
     }
 
-    /** 面板/临时隐藏：软隐藏 —— 窗口保留，只置不可见不可点。 */
+    /** 面板 / 临时隐藏：软隐藏——窗口保留，只置不可见不可点。 */
     fun setPanelHidden(hidden: Boolean) {
         panelHidden = hidden
         applyHiddenFlags()
     }
 
-    /** 徽标：只在球态（胶囊收起）时显示；[badge] 为 null / 不可见时清空。 */
-    internal fun setBadge(badge: BadgeState?) {
-        lastBadge = badge
-        renderBadge()
+    /** 收起圆上的未读数：null / 不可见 = 不画。 */
+    fun setCollapsedBadge(badge: BadgeState?) {
+        collapsedBadgeState = badge
+        updateContentDescription()
     }
 
-    private fun renderBadge() {
-        val tv = badgeView ?: return
-        // 胶囊态（含收起动画中）不画徽标：它是球面部件，露在胶囊上会压住行。
-        val badge = lastBadge.takeUnless { isCapsule }
-        if (badge == null || !badge.visible) {
-            tv.visibility = View.GONE
-            view?.contentDescription =
-                idleDescription ?: context.getString(R.string.smart_ball_content_desc)
-            return
+    private fun updateContentDescription() {
+        val badge = collapsedBadgeState
+        view?.contentDescription = when {
+            badge != null && badge.visible && badgeDescription != null ->
+                badgeDescription.invoke(badge.unpinnedCount + badge.pinnedCount)
+            else -> idleDescription ?: context.getString(R.string.smart_ball_content_desc)
         }
-        val label = when {
-            badge.showPinOnly -> "📌"
-            else -> badge.countLabel?.let { if (it.length > 2) "99+" else it } ?: "📌"
-        }
-        tv.text = label
-        tv.visibility = View.VISIBLE
-        val total = badge.unpinnedCount + badge.pinnedCount
-        val description = when {
-            badgeDescription != null -> badgeDescription.invoke(total)
-            badge.showPinOnly -> context.getString(R.string.smart_ball_pinned_only)
-            else -> context.getString(R.string.smart_ball_unread, total)
-        }
-        view?.contentDescription = description
-        updateBadgeGravity()
-    }
-
-    // ---- 球态键盘让位 ----
-
-    /** 键盘弹出时上抬，保证「球底 + 边距 + 额外抬升」不压输入栏；拖动期间只记账。 */
-    fun updateIme(newImeBottomPx: Int) {
-        if (newImeBottomPx == imeBottomPx) return
-        this.imeBottomPx = newImeBottomPx
-        if (dragging) return
-        animateImeLift(computeImeLift(newImeBottomPx).toFloat())
-    }
-
-    /** 抬升缓动：从当前值到目标值，逐帧落窗口（两态几何都跟随同一份 imeLift）。 */
-    private fun animateImeLift(target: Float) {
-        imeAnimator?.cancel()
-        imeAnimator = null
-        if (kotlin.math.abs(imeLiftPx - target) < 0.5f) {
-            imeLiftPx = target
-            applyWindowBounds()
-            return
-        }
-        imeAnimator = ValueAnimator.ofFloat(imeLiftPx, target).apply {
-            duration = IME_LIFT_ANIM_MS
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                if (imeAnimator !== anim) return@addUpdateListener
-                imeLiftPx = anim.animatedValue as Float
-                // 胶囊态的锚点由 imeLiftPx 现推（applyCapsuleGeometry），逐帧跟随键盘。
-                applyWindowBounds()
-            }
-            addListener(object : android.animation.Animator.AnimatorListener {
-                override fun onAnimationEnd(a: android.animation.Animator) {
-                    if (imeAnimator === a) imeAnimator = null
-                }
-                override fun onAnimationStart(a: android.animation.Animator) {}
-                override fun onAnimationCancel(a: android.animation.Animator) {
-                    if (imeAnimator === a) imeAnimator = null
-                }
-                override fun onAnimationRepeat(a: android.animation.Animator) {}
-            })
-            start()
-        }
-    }
-
-    private fun cancelImeAnim() {
-        imeAnimator?.cancel()
-        imeAnimator = null
-    }
-
-    private fun computeImeLift(imeBottomPx: Int): Int {
-        if (imeBottomPx <= 0) return 0
-        val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp)
-        // 胶囊态要让**整个胶囊**的底边都在键盘之上（多行时比球高得多）；
-        // 球态按球底算。两态共用一个 imeLift，几何在同一份坐标里推。
-        val contentBottom = posY + (if (isCapsule) windowHeightPx else ballPx)
-        val overflow = contentBottom.roundToInt() + marginPx - (screenHeightPx - imeBottomPx)
-        val minY = BallPlacement.bounds(
-            screenWidthPx,
-            screenHeightPx,
-            ballPx,
-            barSafeArea,
-            lpOriginY,
-        ).minY.roundToInt()
-        return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - minY))
-    }
-
-    // ---- 球态触摸 → 定位 ----
-
-    private fun onBallDragged(dx: Float, dy: Float) {
-        if (!dragging) {
-            dragging = true
-            onDragStarted?.invoke()
-            cancelSettle()
-            cancelImeAnim()
-            cancelIdle()
-        }
-        posX += dx
-        posY += dy
-        applyWindowBounds()
-        updateDropHint()
-    }
-
-    private fun onBallDragEnded() {
-        if (!dragging) return
-        dragging = false
-        finishBallDrag()
-    }
-
-    private fun finishBallDrag() {
-        imeLiftPx = computeImeLift(imeBottomPx).toFloat()
-        applyWindowBounds()
-        if (dropHint) {
-            onDropZoneReleased?.invoke(
-                (posX + ballPx / 2f).roundToInt(),
-                (posY + ballPx / 2f).roundToInt(),
-            )
-        }
-        dropHint = false
-        if (screenWidthPx > 0 && screenHeightPx > 0) {
-            val targetX = BallPlacement.edgeX(isOnLeft(), screenWidthPx, ballPx)
-            settleToEdge(targetX)
-            onDragFinished?.invoke(targetX / screenWidthPx, posY / screenHeightPx)
-        }
-        scheduleIdle()
-    }
-
-    private fun updateDropHint() {
-        val inZone = settings.dropAction != null && isBallInDropZone(
-            centerX = (posX + ballPx / 2f).roundToInt(),
-            centerY = (posY + ballPx / 2f).roundToInt(),
-            screenWidth = screenWidthPx,
-            screenHeight = screenHeightPx,
-            zone = settings.dropZone(landscape),
-        )
-        if (dropHint != inZone) dropHint = inZone
-    }
-
-    // ---- 球态松手贴边（缓动） ----
-
-    private fun cancelSettle() {
-        settleAnimator?.cancel()
-        settleAnimator = null
-    }
-
-    private fun settleToEdge(targetX: Float) {
-        val fromX = posX
-        if (kotlin.math.abs(targetX - fromX) < 0.5f) return
-        cancelSettle()
-        settleAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = MotionSettle.toLong()
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { animator ->
-                val t = animator.animatedValue as Float
-                posX = fromX + (targetX - fromX) * t
-                applyWindowBounds()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    if (settleAnimator === animation) settleAnimator = null
-                    posX = targetX
-                    applyWindowBounds()
-                }
-            })
-            start()
-        }
-    }
-
-    // ---- 球态自动挪球 ----
-
-    fun repositionTo(leftEdge: Boolean, yRatio: Float, onLanded: (() -> Unit)? = null): Boolean {
-        if (dragging || transferring || pressed) return false
-        val target = view ?: return false
-        val bounds = BallPlacement.bounds(screenWidthPx, screenHeightPx, ballPx, barSafeArea, lpOriginY)
-        val targetX = BallPlacement.edgeX(leftEdge, screenWidthPx, ballPx)
-        val targetY = (yRatio * screenHeightPx).coerceIn(bounds.minY, bounds.maxY)
-        if (kotlin.math.abs(targetX - posX) < 0.5f && kotlin.math.abs(targetY - posY) < 0.5f) {
-            scheduleIdle()
-            onLanded?.invoke()
-            return true
-        }
-        cancelSettle()
-        cancelIdleTimer()
-        moveAnimator?.cancel()
-        transferring = true
-        pendingTransferX = targetX
-        pendingTransferY = targetY
-        pendingTransferLanded = onLanded
-        visualAnimator?.cancel()
-        target.animate()
-            .alpha(0f)
-            .setDuration(motionMillis(MotionFamily.Floating).toLong())
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                transferring = false
-                pendingTransferLanded = null
-                if (dragging) {
-                    applyVisual()
-                    return@withEndAction
-                }
-                settleTransfer()
-            }
-            .start()
-        return true
-    }
-
-    private fun settleTransfer() {
-        posX = pendingTransferX
-        posY = pendingTransferY
-        view?.translationX = 0f
-        applyWindowBounds()
-        applyVisual()
-        scheduleIdle()
-        pendingTransferLanded?.invoke()
-        pendingTransferLanded = null
-    }
-
-    private fun settlePendingTransferNow() {
-        if (pendingTransferLanded == null) return
-        visualAnimator?.cancel()
-        transferring = false
-        posX = pendingTransferX
-        posY = pendingTransferY
-        val landed = pendingTransferLanded
-        pendingTransferLanded = null
-        transferPendingLayout = true
-        landed?.invoke()
-    }
-
-    // ---- 球态静置 ----
-
-    private fun scheduleIdle() {
-        idleRunnable?.let(handler::removeCallbacks)
-        idleRunnable = null
-        if (idleSuppressed || isCapsule) {
-            // 胶囊态球面不画：只清标志，不动窗口姿态（否则会打断展开/收起形变）。
-            if (idled) idled = false
-            return
-        }
-        val delay = settings.idleDimDelayMs
-        if (delay <= 0L) {
-            if (idled) {
-                idled = false
-                applyVisual()
-            }
-            return
-        }
-        val runnable = Runnable {
-            idled = true
-            applyVisual()
-        }
-        idleRunnable = runnable
-        handler.postDelayed(runnable, delay)
-    }
-
-    private fun cancelIdleTimer() {
-        idleRunnable?.let(handler::removeCallbacks)
-        idleRunnable = null
-    }
-
-    private fun cancelIdle() {
-        cancelIdleTimer()
-        if (!idled) return
-        idled = false
-        // 胶囊态的窗口姿态属于展开/收起动效，这里只清静置标志。
-        if (!isCapsule) applyVisual()
-    }
-
-    /** 气泡在屏期间保持球的完整姿态（不采用半出屏）。 */
-    fun setIdleSuppressed(suppressed: Boolean) {
-        if (idleSuppressed == suppressed) return
-        idleSuppressed = suppressed
-        if (suppressed) cancelIdle() else scheduleIdle()
-    }
-
-    /** 胶囊展开/收起：只控球态静置计时（状态切换由 [showCapsule]/[hideCapsule] 驱动）。 */
-    fun setCapsuleActive(active: Boolean) {
-        if (active) cancelIdle() else scheduleIdle()
-    }
-
-    // ---- 球态外观（View 层） ----
-
-    private fun idleShiftPx(): Float =
-        BallPlacement.idleShiftPx(isOnLeft(), ballPx, FloatBallDefaults.IdleOutRatio)
-
-    private fun visualAlpha(): Float = when {
-        // 胶囊态不画球面（WindowContent 只画胶囊栈），窗口 alpha 由展开/收起动效控制，
-        // 不能在这里归 0——否则一次球态刷新会把整颗胶囊一起淡掉。
-        visuallyHidden -> 0f
-        idled -> FloatBallDefaults.IdleDimAlpha
-        else -> 1f
-    }
-
-    private var visualAnimator: ViewPropertyAnimator? = null
-
-    private fun applyVisual() {
-        val target = view ?: return
-        transferring = false
-        val scale = if (pressed) FloatBallDefaults.PressScale else 1f
-        val alpha = visualAlpha()
-        val shiftPx = if (idled) idleShiftPx() else 0f
-        visualAnimator?.cancel()
-        visualAnimator = target.animate()
-            .scaleX(scale)
-            .scaleY(scale)
-            .alpha(alpha)
-            .translationX(shiftPx)
-            .setDuration(if (pressed) MotionPress.toLong() else MotionSettle.toLong())
-            .setInterpolator(DecelerateInterpolator())
-    }
-
-    private fun realignVisualAfterReposition() {
-        if (transferring || visualSuppressed) return
-        val target = view ?: return
-        visualAnimator?.cancel()
-        visualAnimator = null
-        val scale = if (pressed) FloatBallDefaults.PressScale else 1f
-        target.scaleX = scale
-        target.scaleY = scale
-        target.alpha = visualAlpha()
-        target.translationX = if (idled) idleShiftPx() else 0f
     }
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        // 只认锁屏 / 面板这两个显式隐藏源。胶囊态本身不是“窗口隐藏”——球面在胶囊态
-        // 不画即可；把它算进来会让 refreshWindows 的 setPanelHidden(false) 把展开的胶囊按掉。
         val hidden = lockHidden || panelHidden
         if (hidden == visuallyHidden) return
         visuallyHidden = hidden
         if (hidden) {
-            visualSuppressed = true
-            ballArbiter.cancel()
-            cancelIdleTimer()
-            visualSuppressed = false
-            settlePendingTransferNow()
-            applyBallTouchFlags(current, wm, hidden = true)
-            current.animate()
-                .alpha(0f)
-                .setDuration(motionMillis(MotionFamily.Floating).toLong())
-                .setInterpolator(DecelerateInterpolator())
-                .withEndAction { settleBallWindowAlpha(current, wm) }
-                .start()
-        } else {
+            bodyArbiter.cancel()
+            // 在途的拖动 / 贴边 / 静置计时全部收掉：软隐藏期间的迟到任务会把窗口重新按亮。
+            circleDragging = false
+            dragCenterX = Float.NaN
+            dragCenterY = Float.NaN
+            cancelIdle()
+            cancelSnap()
+            cancelSideFade()
+            // 待跑的贴边缓动作废：直接把圆归位到屏缘（窗口也一起写，否则 LP 还停在半路）。
+            if (abs(edgeOffsetPx) > 0.5f) {
+                edgeOffsetPx = 0f
+                applyCapsuleGeometry(current)
+            }
+            cancelImeLift()
+            visualAnimator?.cancel()
+            visualAnimator = null
             current.animate().cancel()
-            applyBallTouchFlags(current, wm, hidden = false)
-            animateRestoreIn(current)
-            scheduleIdle()
-        }
-    }
-
-    private fun animateRestoreIn(target: View) {
-        visualAnimator?.cancel()
-        settlePendingTransferNow()
-        target.alpha = 0f
-        target.scaleX = 0.85f
-        target.scaleY = 0.85f
-        if (transferPendingLayout) {
-            transferPendingLayout = false
-            target.translationX = if (idled) idleShiftPx() else 0f
-            applyWindowBounds()
-        }
-        visualAnimator = target.animate()
-            .alpha(if (idled) FloatBallDefaults.IdleDimAlpha else 1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(motionMillis(MotionFamily.Floating).toLong())
-            .setInterpolator(OvershootInterpolator(1.2f))
-    }
-
-    // ---- 球态窗口定位 ----
-
-    /** 实测 LP 原点（布局原点随状态栏显隐 / 转屏变化），测完回写并重夹一次。 */
-    private fun remeasureLpOriginY() {
-        postMeasureLpOriginY({ view }) { measured ->
-            lpOriginY = measured
-            applyWindowBounds()
-        }
-    }
-
-    /** 安全区复测：`currentWindowMetrics` 的 display 绝对坐标。 */
-    private fun applySystemInsets() {
-        updateBarSafeArea(readBarSafeArea() ?: return)
-    }
-
-    private fun readBarSafeArea(): SystemBarsSafeArea? {
-        val next = wm.systemBarsSafeAreaOrNull()
-        if (next == null) Log.w(TAG, "system bar insets unavailable")
-        return next
-    }
-
-    private fun updateBarSafeArea(next: SystemBarsSafeArea) {
-        if (next == barSafeArea) return
-        barSafeArea = next
-        applyWindowBounds()
-    }
-
-    /** 统一夹取 + 写 LP：按状态路由（BALL = 球方窗，CAPSULE = 胶囊窗）。 */
-    private fun applyWindowBounds() {
-        val current = view ?: return
-        if (isCapsule) {
-            applyCapsuleGeometry(current)
+            current.alpha = 0f
+            applyBallTouchFlags(current, wm, hidden = true)
+            settleBallWindowAlpha(current, wm)
         } else {
-            applyBallBounds(current)
-        }
-    }
-
-    /** BALL 态：球方窗，屏幕位置 = posX / (posY − imeLift)，LP y = 屏幕值 − lpOriginY。 */
-    private fun applyBallBounds(current: View) {
-        if (ballPx <= 0) return
-        val bounds = BallPlacement.bounds(screenWidthPx, screenHeightPx, ballPx, barSafeArea, lpOriginY)
-        posX = posX.coerceIn(bounds.minX, bounds.maxX)
-        posY = posY.coerceIn(bounds.minY, bounds.maxY)
-        val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
-        writeBallPosition(current, wm, posX, displayY, lpOriginY)
-        updateBadgeGravity()
-    }
-
-    private fun updateBadgeGravity() {
-        val tv = badgeView ?: return
-        val lp = tv.layoutParams as? FrameLayout.LayoutParams ?: return
-        val gravity = Gravity.TOP or if (isOnLeft()) Gravity.END else Gravity.START
-        if (lp.gravity != gravity) {
-            lp.gravity = gravity
-            tv.layoutParams = lp
+            applyBallTouchFlags(current, wm, hidden = false)
+            // 恢复原地亮回；静置姿态由计时重新建立（隐藏前变暗的那份不继承）。
+            applyVisual()
+            scheduleIdle()
         }
     }
 
@@ -894,20 +719,39 @@ internal class BallCapsuleWindow(
     private var view: View? = null
     private var composeView: ComposeView? = null
 
-    /** 徽标（球态未读角标）：并入单窗根，BALL 态才显示。 */
-    private var badgeView: TextView? = null
-
-    /** 服务最近一次下发的徽标：收起动画期间先记账，切回球态再画（[renderBadge]）。 */
-    private var lastBadge: BadgeState? = null
-
     /** hide() 的兜底任务：show() 复用时必须撤销，否则会把刚亮起的胶囊重新按下去。 */
     private var hideFallback: Runnable? = null
 
-    /** 收起形变进行中：内容保留，播完才切回球态（重展开会打断）。 */
-    private var collapsing = false
+    /**
+     * 展开 / 收起的唯一进行态：同一时刻只允许一条转换在跑。
+     *
+     * 以前 `entering` / `enterPending` / `collapsing` 三个布尔各自为政，置位散在
+     * show / hide / 布局回调 / 兜底任务里，漏一个就停在「半个球态」（不贴边、不静置、
+     * 徽标不回来）。现在收敛成这一份状态 + [enterPending]（展开已请求、形变未起手）。
+     */
+    private enum class Transition { NONE, EXPANDING, COLLAPSING }
 
-    /** 收起形变播完后的服务回调（prune / refresh / 换边记账）。重展开直接丢弃。 */
-    private var pendingHideCallback: (() -> Unit)? = null
+    private var transition = Transition.NONE
+
+    /** 展开已请求、形变还没起手：等窗口落到胶囊矩形 + 内容宽收敛（[startMorphIfPending]）。 */
+    private var enterPending = false
+
+    /**
+     * 转换起手的球锚点（屏幕坐标）：形变期间冻结。
+     *
+     * 在途的贴边缓动 / 换边淡出会逐帧改写 `posX`，形变基准若实时读它，展开时胶囊会停在
+     * 离屏缘十几像素处（那条缝），收起时球会从半路的位置往边缘滑。两端都以「球的最终
+     * 位置」为准，只在启动那一刻算一次。
+     */
+    private var frozenAnchor: BubbleAnchor? = null
+
+    /**
+     * 收起形变播完后的服务回调（prune / refresh / 换边记账 / 摘窗）。
+     *
+     * **保证恰好交付一次**：[deliverCollapse] 是唯一出口——正常收尾、中途被展开打断、
+     * hide 幂等重入都要交付。丢了它服务侧会永远以为胶囊还没收完，徽标 / 静置 / 贴边全卡住。
+     */
+    private var collapseCallback: (() -> Unit)? = null
 
     /** Compose 是否真正跑过一帧；用于兜底重挂内容（窗口 View 偶发不组合）。 */
     @Volatile
@@ -929,10 +773,13 @@ internal class BallCapsuleWindow(
      */
     private var arrivalAlert by mutableStateOf<AlertPlayPlan?>(null)
 
-    /** 锚点球高度：普通模式的行高，也是 [collapsedScale] 的形变基准。 */
-    private var pageHeightPx by mutableIntStateOf(0)
-
-    /** 堆叠模式单行高：跟着球高走但夹在 [RowHeightMinDp]–[RowHeightMaxDp]，不随大球膨胀。 */
+    /**
+     * 单行高 = 收起态圆直径 = 形变基准（[CapsuleRowHeightDp]）。
+     *
+     * 以前这是「锚点球高度」，从一个不存在的球态读，首展开永远是 0：内容判定成空、
+     * CapsuleStack 不组合、行宽不收敛，结果就是「一出现只是个圆」。现在行高就是胶囊
+     * 自己的常量，不依赖任何外部状态。
+     */
     private var rowHeightPx by mutableIntStateOf(0)
     private var capsuleWidthPx by mutableIntStateOf(0)
 
@@ -987,11 +834,25 @@ internal class BallCapsuleWindow(
 
     /**
      * 中侧余量（px）：横滑视觉上限 + 辉光余量。反向滑的行位移钳在 [DragRubberCapDp] 内，
-     * 行不再被窗口边缘硬裁。窗口的触摸区是矩形：这条余量会吞掉落在其上的触摸
-     * （系统的窗口触摸区无法挖洞），命中判定仍按行宽收口，行外点按不触发动作。
+     * 行不再被窗口边缘硬裁。**按相位缩放**：[innerMarginPx] 在收起态是 0，否则窗口比圆宽出
+     * 一大截——圆不贴边、空白处还吃触摸。
+     *
+     * 系统没有可用的「窗口内局部可触摸区」（`TOUCHABLE_INSETS_REGION` 已从公开 API 移除），
+     * 所以做法是让窗口本身在收起态等于圆：多出来的那些像素根本不存在。
      */
     private val centerMarginPx: Int
         get() = DensityProvider.dp2px(GlowMarginDp + DragRubberCapDp)
+
+    /**
+     * 当前相位下真正的中侧余量：0（收起圆窗口 == 圆）→ [centerMarginPx]（展开，给横滑余量）。
+     *
+     * 窗口宽度、画面左边、命中口径三处必须读同一份；相位的进度在 [applyCapsuleGeometry]
+     * 里冻结成 [drawnInnerMarginPx] 给 Compose 用。
+     */
+    private fun innerMarginPx(): Int = (centerMarginPx * morphPhase).roundToInt()
+
+    /** 当前相位下的上下辉光余量：同样从 0 长出来（收起态窗口 == 正圆）。 */
+    private fun outerGlowPx(): Int = (glowMarginPx * morphPhase).roundToInt()
 
     /** 长按后当前页展开的动作行；null = 普通内容。 */
     private var menuItemId by mutableStateOf<String?>(null)
@@ -999,16 +860,37 @@ internal class BallCapsuleWindow(
     /** 复制成功后短暂显示「已复制」的条目。 */
     private var copiedItemId by mutableStateOf<String?>(null)
 
-    private var settings by mutableStateOf(FloatBallSettings())
-
-    /** 胶囊侧设置（行色 / 行数 / 手势），与球侧 [settings] 分离：两态各读各的。 */
-    private var capsuleSettings by mutableStateOf(FloatBallSettings())
-
-    /** 球在哪一侧：true = 右侧（胶囊贴右屏缘、向左伸展）。Compose 读取以决定余量方向。 */
-    private var sideRight by mutableStateOf(false)
     private var originReady = false
-    private var entering = false
-    private var enterPending = false
+
+    /**
+     * 球 ↔ 胶囊统一形变的相位：0 = 球矩形，1 = 内容矩形。
+     *
+     * 由 View 侧 [morphAnimator] 写，Compose 侧**只在 draw / layer 阶段读**（Canvas 的
+     * draw lambda / `graphicsLayer` block）：每帧只失效绘制，180ms 里一次树都不重组。
+     * 窗口几何在整个形变期间钉在胶囊矩形，形变全在窗口内画出来——不再用 View
+     * 的 scaleX / pivot / translationY 去凑，那会把球面一起横向压扁，看起来是
+     * 「球消失、胶囊出现」两个东西。
+     */
+    private var morphPhase by mutableFloatStateOf(1f)
+    private var morphAnimator: ValueAnimator? = null
+
+    /**
+     * 最近一次真正写进 LP 的画面尺寸（px）：Compose 只按它画。
+     *
+     * 相位是「想要多大」，它才是「窗口现在多大」。两者差一帧时以窗口为准——画的内容
+     * 因此永远不会比窗口大，也就不会被窗口的直边切出一条硬边。
+     */
+    private var drawnSurfaceW by mutableFloatStateOf(0f)
+    private var drawnSurfaceH by mutableFloatStateOf(0f)
+
+    /** 最近一次写进 LP 的中侧余量（px）：与 [drawnSurfaceW] 同一次提交，画面对齐用。 */
+    private var drawnInnerMarginPx by mutableFloatStateOf(0f)
+
+    /** 最近一次写进 LP 的上下辉光余量（px）：同上（收起态是 0，窗口 == 正圆）。 */
+    private var drawnOuterGlowPx by mutableFloatStateOf(0f)
+
+    /** 内容宽是否已由 [CapsuleStack] 量完（窗口宽收敛）：没收敛就起形变 = 形变面横向跳一段。 */
+    private var widthSettled = false
     private var pressed = false
 
     private var hitTarget: HitTarget = HitTarget.Body
@@ -1019,17 +901,22 @@ internal class BallCapsuleWindow(
     private var velocityTracker: VelocityTracker? = null
     private var settleAnimator: ValueAnimator? = null
 
+
     private val bodyArbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onBodyDragged(dx, dy) },
         onTapped = { handleTap() },
-        onPressChanged = { pressed ->
-            this.pressed = pressed
-            onPressStateChanged?.invoke(pressed)
+        onPressChanged = { nowPressed ->
+            this.pressed = nowPressed
+            onPressStateChanged?.invoke(nowPressed)
+            // 在 [cancelEnterFeedback] 之前求值：它会把展开态直接抬到相位 1。
+            val onCircle = collapsedVisual
             cancelEnterFeedback()
-            // 只缩按下的那一颗；整窗缩放会让整串一起抖。
-            pressedRowId = if (pressed) tappedItemId else null
-            applyPressScale(false)
-            if (pressed) {
+            // 上手先把静置姿态唤醒（变暗 / 半出屏 → 全亮贴边）。
+            if (nowPressed) cancelIdle()
+            // 只缩按下的那一颗；整窗缩放会让整串一起抖。收起圆是按钮，只有它整窗缩。
+            pressedRowId = if (nowPressed && !onCircle) tappedItemId else null
+            applyPressScale(nowPressed && onCircle)
+            if (nowPressed) {
                 dragDx = 0f
                 dragDy = 0f
                 dragAxis = DragAxis.NONE
@@ -1043,10 +930,16 @@ internal class BallCapsuleWindow(
     /** 正文点按（通知直达 / 结果项主动作）。[String] 是点中的条目 id（路由到具体行）。 */
     var onBodyTapped: ((String) -> Unit)? = null
 
+    /** 收起圆被点：胶囊自己要长开（不再经过悬浮球）。 */
+    var onExpandRequested: (() -> Unit)? = null
+
+    /** 收起圆被长按：按胶囊设置的长按行为处理（清空队列 / 无）。 */
+    var onCollapsedLongPress: (() -> Unit)? = null
+
     /** 结果项动作行 / 主动作回调。 */
     var onResultAction: ((String, ResultAction) -> Unit)? = null
 
-    /** 朝球所在侧横滑：只收起，保留队列项、不标记 dismissed。 */
+    /** 朝屏缘侧横滑：只收起，保留队列项、不标记 dismissed。 */
     var onCollapsed: (() -> Unit)? = null
 
     /** 反向横滑：移除按下那一行并翻下一条（多条）/ 收起（末条/单条）。参数是条目 id。 */
@@ -1055,14 +948,16 @@ internal class BallCapsuleWindow(
     /** 按住状态：暂停 / 恢复自动收起。 */
     var onPressStateChanged: ((Boolean) -> Unit)? = null
 
-    /** 胶囊首帧真正画出来：服务这时才隐藏球窗。 */
+    /** 胶囊首帧真正画出来（行宽已收敛）：服务这时才结算徽标。 */
     var onReady: (() -> Unit)? = null
 
-    /** 组合失败/窗口不可用：服务收起胶囊、恢复球，避免“球隐藏 + 空白窗”。 */
+    /** 组合失败 / 窗口不可用：服务收起胶囊，避免「空白窗 + 徽标挂不上」。 */
     var onUnavailable: (() -> Unit)? = null
 
     fun updateCapsuleSettings(next: FloatBallSettings) {
         capsuleSettings = next
+        // 静置时长可能刚被改掉：收起态要按新值重新起算（展开态本来就不静置）。
+        if (collapsedVisual) scheduleIdle()
         // 同屏行数变了必须立即改窗口高：否则新视口会被旧窗口裁掉 / 留白。
         // 旧守卫比较两次 effectiveVisibleRows()（都读服务侧已更新的值）永远相等，
         // 这里改成记「上次落窗的行数」。
@@ -1072,8 +967,6 @@ internal class BallCapsuleWindow(
         offsetPx = stackMetrics.clamp(offsetPx)
         if (isCapsule) view?.let { applyCapsuleGeometry(it) }
     }
-
-    fun isPinned(): Boolean = items.getOrNull(currentIndex)?.pinned == true
 
     /** 复制成功的短暂反馈：显示「已复制」。 */
     fun showCopied(itemId: String) {
@@ -1120,41 +1013,25 @@ internal class BallCapsuleWindow(
     }
 
     /**
-     * 展开胶囊（切到 [VisualState.CAPSULE]）。已展开时更新列表与当前项，不重播展开动画。
-     * 锚点由本窗口自己的球基准坐标推导（[capsuleAnchor]），不再跨窗握手。
+     * 展开胶囊（必要时建窗）。已展开时只换内容与几何，不重播展开形变。
+     *
+     * 锚点、行高、侧别全部取自胶囊**自己**（屏缘 + 纵向落点 + 行高常量），不读悬浮球的
+     * 位置 / 尺寸 / 静置 / 键盘让位——两边任何一边动，另一边都不该跟着抖。
      */
-    fun showCapsule(
-        items: List<BallItem>,
-        index: Int,
-    ): Boolean {
+    fun showCapsule(items: List<BallItem>, index: Int): Boolean {
         if (items.isEmpty()) return false
-        // BALL → CAPSULE 才播展开形变；已展开的刷新（新通知 / 换当前项）只换内容与几何，
-        // 不能重播——否则每来一条通知胶囊都会缩一下再弹开。
-        val wasCapsule = isCapsule
-        state = VisualState.CAPSULE
-        // 徽标是球面部件：切胶囊先收掉，收起动画期间也不会压在行上。
-        renderBadge()
+        val resuming = transition == Transition.COLLAPSING
+        val fresh = view == null
+        // 「已展开」按**画面**判（相位 1），不按窗口在不在：窗口在、相位 0 的是收起圆，
+        // 它必须重新长开（否则就是「点了不展开」）。新建窗不算已展开（相位初值就是 1）。
+        val wasOpen = !fresh && !resuming && transition == Transition.NONE && morphPhase >= 1f
+        // 收起态直径 = 行高：胶囊自己的常量。
+        val rowHeight = DensityProvider.dp2px(CapsuleRowHeightDp)
+        if (rowHeightPx != rowHeight) rowHeightPx = rowHeight
         // 与 [updateItems] 同一条纪律：内容没变就不通知快照，避免无谓的整树重组。
         if (!sameItems(items, this.items)) this.items = items
         pruneRowTransient(this.items)
-        val anchor = capsuleAnchor()
-        sideRight = anchor.centerX >= DensityProvider.screenWidthPx / 2
-        val newHeight = (anchor.bottom - anchor.top).coerceAtLeast(1)
-        if (newHeight != pageHeightPx) pageHeightPx = newHeight
-        val newRowHeight = rowHeightFor(pageHeightPx)
-        if (newRowHeight != rowHeightPx) rowHeightPx = newRowHeight
-        // 有通知行时保留内容驱动宽（LaunchedEffect 收敛；键盘让位/球移动不撑宽），
-        // 首帧或结果胶囊（无通知行）用固定公式兜底。
-        val newWidth = if (items.any { it is NotificationItem } && capsuleWidthPx > 0) {
-            capsuleWidthPx
-        } else {
-            fixedCapsuleWidth()
-        }
-        if (newWidth != capsuleWidthPx) capsuleWidthPx = newWidth
-        // 用户正在拖动时不要抢当前页。
         if (!pressed) {
-            // 新内容接管当前页：先摘掉 settle 回调，否则旧动画结束后会把滚动拉回旧目标。
-            // 多条同时到达时，它还可能把 currentIndex 改到已被重建的列表之外。
             val settling = settleAnimator
             settleAnimator = null
             settling?.cancel()
@@ -1166,147 +1043,142 @@ internal class BallCapsuleWindow(
         }
         if (menuItemId != null && items.getOrNull(currentIndex)?.id != menuItemId) menuItemId = null
         if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
+        // 目标宽：通知行按内容（Compose 侧量出的终值），结果胶囊用固定公式。
+        val newWidth = if (items.any { it is NotificationItem } && capsuleWidthPx > 0) {
+            capsuleWidthPx
+        } else {
+            fixedCapsuleWidth()
+        }
+        if (newWidth != capsuleWidthPx) capsuleWidthPx = newWidth
 
-        // 常驻单窗：建一次，两态复用（不 addView，无系统窗口过渡动画）。
         if (!ensureWindowRoot()) {
-            Log.e(TAG, "ball/capsule window unavailable")
+            Log.e(TAG, "capsule window unavailable")
             return false
         }
         val existing = view ?: return false
+        // 展开 = 贴紧屏缘的全亮姿态：静置外移 / 换边淡出必须先收掉，否则形变基准会落在半路。
+        cancelIdle()
+        cancelSnap()
+        cancelSideFade()
+        edgeOffsetPx = 0f
+        visualAnimator?.cancel()
+        frozenAnchor = capsuleAnchor()
+        probe("showCapsule resuming=$resuming wasOpen=$wasOpen")
         if (!contentReady) composeView?.setContent { WindowContent() }
-        // 尺寸与位置必须一次写完：只改尺寸会让贴屏侧那条边（x 由宽推）漂移。
-        applyCapsuleGeometry(existing)
-        visuallyHidden = false
         applyBallTouchFlags(existing, wm, hidden = false)
         hideFallback?.let(mainHandler::removeCallbacks)
         hideFallback = null
-        // 收起形变/旧进场动画可能还在跑：先停掉，否则它们的 endAction 会把姿态写回去。
         existing.animate().cancel()
-        collapsing = false
-        pendingHideCallback = null
         existing.visibility = View.VISIBLE
-        if (!wasCapsule) {
-            if (originReady) {
-                // 起点姿态同步落好再进入这一帧：几何已写、pivot 用目标宽，形变方向稳定。
-                startMorphIn(existing)
-            } else {
-                // 新窗首帧：LP 原点还没实测，位置写不进窗口。先保持隐形，
-                // 由布局回调测完原点后再起形变（[startMorphIfPending]）——
-                // 否则第一帧会画在 addView 的 (0,0)，下一帧再跳过去。
-                entering = false
-                enterPending = true
-                existing.alpha = 0f
-                existing.scaleX = 1f
-                existing.scaleY = 1f
+        existing.alpha = if (visuallyHidden) 0f else 1f
+        updateContentDescription()
+        when {
+            resuming -> {
+                // 收起播到一半又被叫回：从当前相位接着展开，不重播（硬归位会跳一帧）。
+                transition = Transition.EXPANDING
+                enterPending = false
+                animateMorphTo(1f) {
+                    if (view === existing) {
+                        transition = Transition.NONE
+                        frozenAnchor = null
+                    }
+                }
+                existing.post { deliverCollapse() }
             }
-        } else {
-            // 已展开刷新：姿态归一位，不重播展开动画。
-            existing.alpha = 1f
-            existing.scaleX = 1f
-            existing.scaleY = 1f
-            entering = false
-            enterPending = false
+
+            wasOpen -> {
+                // 已展开的刷新：相位归 1，不重播。
+                transition = Transition.NONE
+                enterPending = false
+                morphPhase = 1f
+                frozenAnchor = null
+                applyCapsuleGeometry(existing)
+            }
+
+            // 展开已经起手（内容追加 / 重入）：只刷内容与几何，不把相位拉回 0 重播。
+            !fresh && transition == Transition.EXPANDING -> {
+                applyCapsuleGeometry(existing)
+            }
+
+            else -> startEntering(existing)
         }
         existing.postDelayed({
             if (view === existing) {
                 if (contentReady) onReady?.invoke() else onUnavailable?.invoke()
             }
         }, 600L)
-        // 胶囊比球高：键盘已在屏上时按胶囊底边重算抬升（球态那份抬升不够，胶囊会压在键盘上）。
-        if (imeBottomPx > 0) animateImeLift(computeImeLift(imeBottomPx).toFloat())
         return true
     }
 
-    /** 常驻单窗：首次按当前状态建，之后两态复用（6A）。false = 未授权 / 系统拒绝。 */
+    /**
+     * 起展开：相位先钉在 0（收起圆），窗口落到「圆 + 余量」，等布局与内容宽都就绪再长开。
+     *
+     * 新建窗时原点未实测，y 还写不进 LP：保持隐形，等布局回调测完原点、形变真正起手
+     * （[startMorphIn]）再亮，否则第一帧会画在屏幕顶部闪一下。
+     */
+    private fun startEntering(v: View) {
+        transition = Transition.EXPANDING
+        enterPending = true
+        morphPhase = 0f
+        // 内容已经量过一轮（行宽缓存非空）就不必再等一次收敛门。
+        widthSettled = rowWidthsPx.isNotEmpty() && capsuleWidthPx > 0
+        applyCapsuleGeometry(v)
+        v.alpha = if (originReady && !visuallyHidden) 1f else 0f
+        v.post { if (view === v) startMorphIfPending(v) }
+        v.postDelayed({ if (view === v) startMorphIfPending(v, force = true) }, EnterFallbackMs)
+    }
+
+    /** 建窗（幂等）：一次展开一个窗口实例，队列清空 / 功能关闭时摘掉。 */
     private fun ensureWindowRoot(): Boolean {
         if (view != null) return true
         contentReady = false
-        // 新窗口实例：原点等首次布局回调重新实测（旧实例的原点可能来自别的方向/窗口）。
         originReady = false
-        // 与球窗同构：FrameLayout 做根、ComposeView 做子级。真机上直接拿 ComposeView 当窗口根
-        // 时偶发不组合（胶囊空白），所以一律套一层；lifecycle owner 在骨架里只挂根一处。
+        // 几何要落在一个真实的屏幕范围里：建窗前先量一次安全区（胶囊自己的那份）。
+        refreshBarSafeArea()
         val (compose, created) = FloatBallLifecycleOwner.createWindowRoot(context) { WindowContent() }
-        // 徽标（球态未读角标）：叠在 Compose 之上，只在 BALL 态显示。
-        val badge = TextView(context).apply {
-            setTextColor(AndroidColor.WHITE)
-            textSize = 9f
-            gravity = Gravity.CENTER
-            setPadding(dp(4), 0, dp(4), 0)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(0xFFE53935.toInt())
-            }
-            visibility = View.GONE
-            isClickable = false
-            isFocusable = false
-        }
-        created.addView(
-            badge,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                dp(17),
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                topMargin = dp(1)
-            },
-        )
-        badgeView = badge
         created.alpha = 0f
         created.setOnTouchListener { v, event -> handleTouch(v, event) }
-        // 展开动画的一次性触发：enterPending 守卫保证 morph 只启动一次，
-        // 四个时机（布局、post、420ms 兜底、EnterFallbackMs）谁先就绪谁触发。
-        fun startMorphIfPending(v: View) {
-            // 球态挂窗不做胶囊形变（球直接全尺寸出现）。
-            if (!isCapsule) return
-            if (enterPending) {
-                enterPending = false
-                startMorphIn(v)
-            }
-        }
-        created.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+        // 布局回调是唯一「几何真的落地」的信号：测原点、补写几何、按需起形变。
+        created.addOnLayoutChangeListener { v, _, _, _, _, oldLeft, oldTop, oldRight, oldBottom ->
             if (v.width <= 0 || v.height <= 0) return@addOnLayoutChangeListener
+            val oldW = oldRight - oldLeft
+            val oldH = oldBottom - oldTop
+            if (v.width != oldW || v.height != oldH) {
+                Log.d(LOG_TAG, "PROBE layout ${oldW}x${oldH} -> ${v.width}x${v.height} | ${snapshot()}")
+            }
             if (!originReady) {
                 lpOriginY = screenOriginY(v)
                 originReady = true
+                applyCapsuleGeometry(v)
             }
-            applyWindowBounds()
             startMorphIfPending(v)
         }
         if (!wm.safeAddView(created, currentLayoutParams())) {
-            Log.e(TAG, "ball/capsule addView failed (overlay permission or window rejected)")
+            Log.e(TAG, "capsule addView failed (overlay permission or window rejected)")
             return false
         }
         view = created
         composeView = compose
-        entering = isCapsule
-        enterPending = isCapsule
-        // addView 有时会同步跑完布局，post 一次保证展开动画一定启动（不依赖 origin 测量）。
+        transition = Transition.EXPANDING
+        enterPending = true
         created.post {
             val v = view
             if (v === created) {
-                applyWindowBounds()
+                applyCapsuleGeometry(v)
                 startMorphIfPending(v)
             }
         }
-        // 安全网：极端时序下动画/定位未跑，也保证窗口可见且尺寸正确。
+        // 安全网：极端时序下（组合失败 / 拿不到布局回调）也保证几何与可见性收敛。
         mainHandler.postDelayed({
             val v = view
             if (v === created) {
-                applyWindowBounds()
+                applyCapsuleGeometry(v)
                 if (!contentReady) composeView?.setContent { WindowContent() }
-                if (v.alpha < 0.99f) {
-                    v.animate().cancel()
-                    v.alpha = 1f
-                    v.scaleX = 1f
-                    v.scaleY = 1f
-                }
-                entering = false
-                // onReady/onUnavailable 是胶囊态语义：球态（BALL）不触发。
+                if (transition != Transition.EXPANDING && v.alpha < 0.99f) v.alpha = 1f
                 if (isCapsule) {
                     if (contentReady) {
                         onReady?.invoke()
                     } else {
-                        // 再给一次重组机会；仍失败就让服务收起胶囊、恢复球。
                         mainHandler.postDelayed({
                             if (view === created) {
                                 if (contentReady) onReady?.invoke() else onUnavailable?.invoke()
@@ -1314,131 +1186,109 @@ internal class BallCapsuleWindow(
                         }, 500L)
                     }
                 }
+                startMorphIfPending(v, force = true)
             }
         }, 420L)
-        mainHandler.postDelayed({
-            val v = view
-            if (v === created && !originReady) {
-                lpOriginY = screenOriginY(v)
-                originReady = true
-                applyWindowBounds()
-            }
-            if (v === created) startMorphIfPending(v)
-        }, EnterFallbackMs)
         return true
     }
 
-    /** 当前状态的窗口 LP：BALL = 球方窗，CAPSULE = 胶囊窗（含余量）。 */
-    private fun currentLayoutParams(): WindowManager.LayoutParams =
-        if (isCapsule) {
-            capsuleLayoutParams(capsuleWidthPx + centerMarginPx, windowHeightPx + glowMarginPx * 2)
-        } else {
-            ballLayoutParams(ballPx.coerceAtLeast(1))
-        }
-
-    /** 切回球态：尺寸换回球方窗、定位到 posX/posY、恢复球面姿态。 */
-    private fun enterBallState() {
-        val v = view ?: return
-        state = VisualState.BALL
-        renderBadge()
-        val target = ballPx.coerceAtLeast(1)
-        val lp = v.layoutParams as? WindowManager.LayoutParams
-        if (lp != null && (lp.width != target || lp.height != target)) {
-            lp.width = target
-            lp.height = target
-            wm.safeUpdateViewLayout(v, lp)
-        }
-        // 球态缩放一律绕球心：胶囊态残留的贴边 pivot 会让按压时球朝屏边缩。
-        v.pivotX = target / 2f
-        v.pivotY = target / 2f
-        applyWindowBounds()
+    /** 窗口 LP：按当前相位与胶囊自己的锚点算（尺寸含余量）。 */
+    private fun currentLayoutParams(): WindowManager.LayoutParams {
+        val rowHeight = rowHeightPx.coerceAtLeast(DensityProvider.dp2px(CapsuleRowHeightDp))
+        // 建窗时照当前相位算：相位 0 时窗口就是圆本身，没有任何透明余量。
+        return capsuleLayoutParams(
+            rowHeight + innerMarginPx(),
+            rowHeight + outerGlowPx() * 2,
+        )
     }
 
     /**
-     * 收起胶囊：先播横向收窄 + 淡出，播完再切回球态/球方窗（单窗常驻，不 addView）。
-     * 内容保留到动画结束——否则窗口先变空白再播退场，等于没有动画。
+     * 收起胶囊：相位 1 → 0，收尾停在收起圆上（不换窗、不写球方窗）。
+     *
+     * [onHidden] 是「胶囊已经不在屏上」的记账回调，**保证恰好交付一次**（[deliverCollapse]）：
+     * 正常收尾、中途被展开打断、hide 幂等重入都算。
      */
     fun hideCapsule(onHidden: (() -> Unit)? = null) {
+        if (onHidden != null) collapseCallback = onHidden
         bodyArbiter.cancel()
         hitTarget = HitTarget.Body
         val v = view
-        if (v == null || !isCapsule) {
-            // 未挂窗 / 已经是球态：幂等收尾（重复 hide、服务重入）。
-            resetTransientState()
-            onHidden?.invoke()
+        if (v == null) {
+            transition = Transition.NONE
+            enterPending = false
+            deliverCollapse()
             return
         }
-        // 收起中再次收起：只替换回调，不叠加第二个动画/兜底。
-        if (onHidden != null) pendingHideCallback = onHidden
-        if (collapsing) return
-        // 已经不可见（锁屏 / 面板占用）：没必要播收起动画，直接收尾并保持隐藏。
-        if (lockHidden || panelHidden) {
-            collapsing = true
-            completeCollapse(v)
+        // 收起中再次收起：只登记回调，不叠加第二条动画 / 兜底。
+        if (transition == Transition.COLLAPSING) return
+        // 已经是收起圆（相位 0）：没有可播的形变，直接结账。这条路径是账号同步
+        // （service 侧 showing 与画面不一致）的兜底，不能把圆停在「自以为在收」。
+        if (transition == Transition.NONE && morphPhase <= 0.001f) {
+            finishCollapse(v)
             return
         }
-        collapsing = true
-        // 进场形变先收束，避免和收起的 scale/alpha 抢同一组属性。
-        cancelEnterFeedback()
+        cancelIdle()
+        cancelSnap()
+        cancelSideFade()
+        // 收起从贴边的圆起手：松手贴边还没跑完就先归位，否则形变基准会落在屏中间。
+        edgeOffsetPx = 0f
+        frozenAnchor = frozenAnchor ?: capsuleAnchor()
+        transition = Transition.COLLAPSING
+        enterPending = false
         v.animate().cancel()
-        // 贴球侧那条边是形变支点：向球收，不向屏心缩。
-        v.pivotX = if (sideRight) v.width.toFloat() else 0f
-        v.pivotY = v.height / 2f
-        v.animate()
-            .scaleX(collapsedScale())
-            .alpha(0f)
-            .setDuration(collapseAnimMs)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction { completeCollapse(v) }
-            .start()
-        // 兜底：锁屏/面板路径会把这条动画 cancel 掉，状态机也必须收回球态。
-        val fallback = Runnable { completeCollapse(v) }
+        probe("hideCapsule")
+        animateMorphTo(0f) { finishCollapse(v) }
+        val fallback = Runnable { finishCollapse(v) }
         hideFallback = fallback
-        mainHandler.postDelayed(fallback, collapseAnimMs + 120L)
+        mainHandler.postDelayed(fallback, morphAnimMs + 120L)
     }
 
-    /** 收起收尾：切回球态。锁屏 / 面板占用时保持不可见不可点，不把球重新点亮。 */
-    private fun completeCollapse(v: View) {
-        if (!collapsing) return
-        collapsing = false
-        hideFallback?.let(mainHandler::removeCallbacks)
-        hideFallback = null
-        val callback = pendingHideCallback
-        pendingHideCallback = null
-        if (view !== v) {
-            callback?.invoke()
+    /** 收起收尾：停在收起圆上（相位 0 的几何就是圆 + 余量），交付回调。 */
+    private fun finishCollapse(v: View) {
+        if (transition != Transition.COLLAPSING) {
+            deliverCollapse()
             return
         }
-        enterBallState()
-        // 收起后抬升量回到「球底」口径：胶囊态那份抬升会把球顶得过高。
-        if (imeBottomPx > 0) animateImeLift(computeImeLift(imeBottomPx).toFloat())
-        if (lockHidden || panelHidden) {
-            // 隐藏态（锁屏 / 面板）：切回球态也不亮起，保持不可见不可点。
-            visuallyHidden = true
-            applyBallTouchFlags(v, wm, hidden = true)
-            v.visibility = View.VISIBLE
-            v.alpha = 0f
-            settleBallWindowAlpha(v, wm)
-        } else {
-            applyBallTouchFlags(v, wm, hidden = false)
-            v.visibility = View.VISIBLE
-            // 球从收缩态回弹，与展开形变同一档语感（不再硬切出现）。
-            animateRestoreIn(v)
+        transition = Transition.NONE
+        hideFallback?.let(mainHandler::removeCallbacks)
+        hideFallback = null
+        frozenAnchor = null
+        if (view === v) {
+            morphPhase = 0f
+            applyCapsuleGeometry(v)
+            menuItemId = null
+            offsetPx = 0f
+            resetRowDrag()
+            if (lockHidden || panelHidden) {
+                v.alpha = 0f
+                applyBallTouchFlags(v, wm, hidden = true)
+            } else {
+                applyBallTouchFlags(v, wm, hidden = false)
+                // 收起圆的常态：贴紧屏缘的全亮圆，静置计时重新起算。
+                applyVisual()
+                scheduleIdle()
+            }
+            updateContentDescription()
         }
-        resetTransientState()
-        scheduleIdle()
-        callback?.invoke()
+        deliverCollapse()
+    }
+
+    /** 交付「胶囊已不在屏上」的记账回调（全局只交付一次）。 */
+    private fun deliverCollapse() {
+        val callback = collapseCallback ?: return
+        collapseCallback = null
+        callback.invoke()
     }
 
     fun detachNow() {
+        Log.d(LOG_TAG, "PROBE detachNow | ${snapshot()}")
         bodyArbiter.cancel()
-        ballArbiter.cancel()
-        collapsing = false
+        transition = Transition.NONE
         hideFallback?.let(mainHandler::removeCallbacks)
         hideFallback = null
         // 摘窗不再回放服务侧的收起记账（prune / refresh / 换边）：窗口都拆了，那些都由服务侧
         // 的显隐流程接手，迟到的回调只会在拆窗后反手再拉一次窗口。
-        pendingHideCallback = null
+        collapseCallback = null
         val v = view
         view = null
         resetTransientState()
@@ -1448,7 +1298,6 @@ internal class BallCapsuleWindow(
         }
         // 摘窗后不再保留 ComposeView / lifecycle owner：常驻复用只在“收起”期间。
         composeView = null
-        badgeView = null
         contentReady = false
         // 显隐位与原点属于「窗口实例」：重建后由服务重新下发 setHidden/setPanelHidden，
         // 原点等首次布局回调重测。留着旧值会让重建窗停在“自以为已隐藏”的状态。
@@ -1464,10 +1313,13 @@ internal class BallCapsuleWindow(
      * [hideCapsule] 与 [detachNow] 共用这一份：两条路径以前各写一遍，增删一条就会各走各的。
      */
     private fun resetTransientState() {
-        entering = false
+        morphAnimator?.let { morphAnimator = null; it.cancel() }
+        morphPhase = 1f
+        widthSettled = false
+        transition = Transition.NONE
         enterPending = false
+        frozenAnchor = null
         pressed = false
-        dragging = false
         arrivalAlert = null
         items = emptyList()
         tappedItemId = null
@@ -1482,6 +1334,18 @@ internal class BallCapsuleWindow(
         dragDx = 0f
         dragDy = 0f
         dragAxis = DragAxis.NONE
+        circleDragging = false
+        dragCenterX = Float.NaN
+        dragCenterY = Float.NaN
+        draggedDx = 0f
+        draggedDy = 0f
+        // 拖动 / 贴边 / 静置 / 键盘的动画与计时全部收掉；**落点与侧别不归零**（位置要跨摘窗保留）。
+        cancelSnap()
+        cancelSideFade()
+        cancelImeLift()
+        cancelIdle()
+        visualAnimator?.cancel()
+        visualAnimator = null
         settleAnimator?.cancel()
         settleAnimator = null
         velocityTracker?.recycle()
@@ -1491,21 +1355,31 @@ internal class BallCapsuleWindow(
         hideFallback = null
     }
 
-    /** 球移动 / 键盘让位 / 转屏后重新贴边：由本窗口自己的统一坐标重推锚点与几何。 */
+    /**
+     * 转屏 / 屏宽变化 / 系统栏变化后重推几何：由胶囊自己的锚点算（不读悬浮球的位置）。
+     *
+     * 侧别（[sideRight]）不在这里推导 —— 它是用户拖出来的状态，从锚点反推会在
+     * 贴边缓动途中把自己翻回去。
+     */
     fun updateCapsuleAnchor() {
         if (!isCapsule) return
+        // 现推锚点接管：冻结值只服务一次形变。
+        frozenAnchor = null
+        refreshBarSafeArea()
         val anchor = capsuleAnchor()
-        val newHeight = (anchor.bottom - anchor.top).coerceAtLeast(1)
-        if (newHeight != pageHeightPx) pageHeightPx = newHeight
-        val newRowHeight = rowHeightFor(pageHeightPx)
+        val newRowHeight = rowHeightFor(anchor.bottom - anchor.top)
         if (newRowHeight != rowHeightPx) rowHeightPx = newRowHeight
-        sideRight = anchor.centerX >= DensityProvider.screenWidthPx / 2
         // 有通知行时保留内容驱动宽（LaunchedEffect 收敛），键盘让位/转屏不撑宽；
         // 结果胶囊（无通知行）用固定公式。
         if (items.none { it is NotificationItem } || capsuleWidthPx <= 0) {
             capsuleWidthPx = fixedCapsuleWidth()
         }
         view?.let { applyCapsuleGeometry(it) }
+    }
+
+    /** 安全区复测：display 绝对坐标（与键盘让位同源）；拿不到就沿用上一次的值。 */
+    private fun refreshBarSafeArea() {
+        barSafeArea = wm.systemBarsSafeAreaOrNull() ?: return
     }
 
     // ---- 多胶囊行状态 ----
@@ -1542,15 +1416,23 @@ internal class BallCapsuleWindow(
 
     // ---- 手势 ----
 
+    /**
+     * 当前画的是收起圆（没有展开完的内容）。
+     *
+     * 收起圆的命中区只有圆本身，此时点按 / 长按属于「按钮」语义（长开 / 清空），
+     * **不能**落到不可见的行上——否则点一下收起圆就直接打开了那条通知。
+     */
+    private val collapsedVisual: Boolean
+        get() = transition == Transition.NONE && morphPhase <= 0.001f
+
     private fun handleTouch(v: View, event: MotionEvent): Boolean {
-        // 按状态分流：BALL = 球拖动/点按/长按；CAPSULE = 行命中/滚动/横滑。
-        if (!isCapsule) return ballArbiter.onTouch(event)
+        // 展开/收起由窗口自己播形变：收起 = 可点的圆，展开 = 行命中/滚动/横滑。
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             settleAnimator?.cancel()
             settleAnimator = null
             hitTarget = resolveHitTarget(v, event.x, event.y)
-            // 点按 / 横滑都路由到按下所在的那一行。
-            tappedItemId = rowItem(event.y)?.id
+            // 点按 / 横滑都路由到按下所在的那一行（收起态没有可见行）。
+            tappedItemId = if (collapsedVisual) null else rowItem(event.y)?.id
             velocityTracker?.recycle()
             velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
         } else {
@@ -1575,6 +1457,12 @@ internal class BallCapsuleWindow(
     }
 
     private fun handleTap() {
+        // 收起圆 = 自己的按钮：点一下长开成胶囊。
+        if (collapsedVisual) {
+            hitTarget = HitTarget.Body
+            onExpandRequested?.invoke()
+            return
+        }
         when (val target = hitTarget) {
             is HitTarget.Menu -> {
                 hitTarget = HitTarget.Body
@@ -1623,6 +1511,13 @@ internal class BallCapsuleWindow(
      * 通知行默认无行为；菜单只在结果项上有意义。
      */
     private fun handleLongPress() {
+        // 与主球同档的触觉反馈：长按是动作，不只是一种手势。
+        view?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        // 收起圆的长按属于胶囊设置（清空队列 / 无），不是行手势。
+        if (collapsedVisual) {
+            onCollapsedLongPress?.invoke()
+            return
+        }
         val id = tappedItemId ?: items.getOrNull(currentIndex)?.id ?: return
         val item = items.firstOrNull { it.id == id } ?: return
         when (rowGesturesState.longPress) {
@@ -1656,6 +1551,8 @@ internal class BallCapsuleWindow(
      * 拖动（滚动 / 横滑）仍整窗有效。
      */
     private fun resolveHitTarget(v: View, x: Float, y: Float): HitTarget {
+        // 收起态：行都不可见，整圆都是「长开」按钮。
+        if (collapsedVisual) return HitTarget.Body
         val row = rowItem(y) ?: return HitTarget.None
         val rowWidth = (rowWidthsPx[row.id] ?: capsuleWidthPx).coerceAtLeast(1)
         val range = rowXRange(v, rowWidth)
@@ -1674,6 +1571,12 @@ internal class BallCapsuleWindow(
     private fun onBodyDragged(dx: Float, dy: Float) {
         dragDx += dx
         dragDy += dy
+        val v = view ?: return
+        // 收起圆 = 可拖的按钮：跟手挪位置，松手才贴边（不滚动、不横滑收起）。
+        if (collapsedVisual) {
+            onCircleDragged(v)
+            return
+        }
         if (dragAxis == DragAxis.NONE &&
             (abs(dragDx) > touchSlop || abs(dragDy) > touchSlop)
         ) {
@@ -1685,7 +1588,6 @@ internal class BallCapsuleWindow(
             if (dragAxis == DragAxis.HORIZONTAL) resetRowDrag()
             if (dragAxis == DragAxis.VERTICAL) showScrollThumb()
         }
-        val v = view ?: return
         when (dragAxis) {
             DragAxis.VERTICAL -> {
                 // 滚动栈：内容跟随手指，两端直接停住，不露出空白槽位。
@@ -1700,7 +1602,7 @@ internal class BallCapsuleWindow(
     }
 
     /**
-     * 多胶囊横滑：朝球侧整串收起（窗口整体位移），反向只动按下那颗胶囊。
+     * 多胶囊横滑：朝屏缘那侧整串收起（窗口整体位移），反向只动按下那颗胶囊。
      *
      * 反向用 1:1 跟手，像滑掉一条通知；阈值过半即删除，其余胶囊原地重排。
      */
@@ -1721,6 +1623,15 @@ internal class BallCapsuleWindow(
 
     private fun finishBodyDrag() {
         val v = view
+        // 收起圆拖动松手：落点 / 侧别结算 + 贴边缓动（不走行的滚动 / 横滑语义）。
+        if (circleDragging) {
+            dragDx = 0f
+            dragDy = 0f
+            dragAxis = DragAxis.NONE
+            resetRowDrag()
+            commitCircleDrag(v)
+            return
+        }
         val dx = dragDx
         val axis = dragAxis
         val vy = flingVelocityY()
@@ -1730,12 +1641,9 @@ internal class BallCapsuleWindow(
         dragDy = 0f
         dragAxis = DragAxis.NONE
         resetRowDrag()
-        if (v != null) {
-            v.alpha = 1f
-            v.translationX = 0f
-        }
         when (axis) {
             DragAxis.VERTICAL -> {
+                resetDragVisual(v)
                 menuItemId = null
                 settleScroll(vy)
             }
@@ -1744,14 +1652,26 @@ internal class BallCapsuleWindow(
                 menuItemId = null
                 val towardEdge = if (sideRight) dx >= collapseThresholdPx else dx <= -collapseThresholdPx
                 val awayFromEdge = if (sideRight) dx <= -collapseThresholdPx else dx >= collapseThresholdPx
-                when {
-                    towardEdge -> dispatchRowGesture(rowGesturesState.swipeToward, swipedId)
-                    awayFromEdge -> dispatchRowGesture(rowGesturesState.swipeAway, swipedId)
+                val behavior = when {
+                    towardEdge -> rowGesturesState.swipeToward
+                    awayFromEdge -> rowGesturesState.swipeAway
+                    else -> CapsuleGestureBehavior.NONE
                 }
+                // 收起从当前拖拽姿态接着播：先写回 alpha=1 / translationX=0 会
+                // 「亮一下、跳回原位」再收。其余行为才需要硬回弹。
+                if (behavior != CapsuleGestureBehavior.COLLAPSE) resetDragVisual(v)
+                if (behavior != CapsuleGestureBehavior.NONE) dispatchRowGesture(behavior, swipedId)
             }
 
-            DragAxis.NONE -> Unit
+            DragAxis.NONE -> resetDragVisual(v)
         }
+    }
+
+    /** 横滑跟手的整窗位移 / 淡出回弹到常态（收起路径不调用，交给 [hideCapsule] 接管）。 */
+    private fun resetDragVisual(v: View?) {
+        if (v == null) return
+        v.alpha = 1f
+        v.translationX = 0f
     }
 
     /**
@@ -1827,24 +1747,27 @@ internal class BallCapsuleWindow(
     private val collapseThresholdPx: Float
         get() = DensityProvider.dp2px(CollapseThresholdDp).toFloat()
 
-    /** 收起形变时长：与浮球家族退场同档。 */
-    private val collapseAnimMs: Long
-        get() = motionMillis(MotionFamily.Floating).toLong()
+    /**
+     * 展开 / 收起形变时长：同一家族、同长同曲线（ui-guidelines §5.1）。
+     * 气泡 morph 走 [MotionFamily.FloatingMorph]（标准档 180ms）。
+     */
+    private val morphAnimMs: Long
+        get() = motionMillis(MotionFamily.FloatingMorph).toLong()
 
     // ---- 定位 ----
 
     private fun fixedCapsuleWidth(): Int {
         val screenW = DensityProvider.screenWidthPx
         val cap = min(DensityProvider.dp2px(MaxWidthDp), (screenW * WidthRatio).roundToInt())
-        return max(pageHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f)))
+        return max(rowHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f)))
     }
 
-    /** 堆叠单行高：跟着球高走，但不让大球把多行胶囊撑成整屏。 */
-    private fun rowHeightFor(anchorHeightPx: Int): Int =
-        anchorHeightPx.coerceIn(
-            DensityProvider.dp2px(RowHeightMinDp),
-            DensityProvider.dp2px(RowHeightMaxDp),
-        )
+    /**
+     * 单行高 = 收起态圆直径（[CapsuleRowHeightDp]，与主页底栏同构）。
+     *
+     * 不再单独夹取行高：夹了就会出现「收起宽度 ≠ 圆直径」，开 / 收交界处会跳一条边。
+     */
+    private fun rowHeightFor(anchorHeightPx: Int): Int = anchorHeightPx.coerceAtLeast(1)
 
     /**
      * 胶囊态几何：窗口尺寸 + 位置**一次写完**（[WindowManager.LayoutParams] 同一份）。
@@ -1853,44 +1776,74 @@ internal class BallCapsuleWindow(
      * 内容就会离屏缘一段再被下一次定位拉回去——真机表现就是「展开/切换跳一下」。
      * 锚点每次现算（[capsuleAnchor]），键盘抬升/球移动的逐帧写窗直接跟随，不用快照。
      */
+    /** 当前相位下的画面宽度（px）：0 = 收起圆，1 = 内容。 */
+    private fun phaseSurfaceW(): Float =
+        (rowHeightPx + (capsuleWidthPx - rowHeightPx) * morphPhase).coerceAtLeast(1f)
+
+    /** 当前相位下的画面高度（px）：收起圆 = 行高，多行随行数长高。 */
+    private fun phaseSurfaceH(): Float =
+        (rowHeightPx + (windowHeightPx - rowHeightPx) * morphPhase).coerceAtLeast(1f)
+
+    /**
+     * 胶囊窗几何：**画面尺寸由相位推，窗口 = 画面 + 余量**，宽高与 xy 一次写完。
+     *
+     * 展开 / 收起由窗口自己承担（不再是「窗口钉在胶囊矩形、形变在窗内画」）：画面矩形与
+     * 窗口内容区是同一个矩形，所以几何与绘制不可能错位。Compose 只按 [drawnSurfaceW] /
+     * [drawnSurfaceH]（最近一次真正写进 LP 的值）画，永远不超过窗口——反过来窗口提交慢
+     * 一帧也只是整条动画慢一帧，不会出现「形变面按目标几何算、却画在旧窗里」的第一帧偏移。
+     */
     private fun applyCapsuleGeometry(v: View) {
-        // 球态窗口尺寸只有球方窗一种：胶囊几何只能在胶囊态落窗。
+        // 窗口未挂 / 行高未就绪：几何无从落窗。
         if (!isCapsule) return
         if (capsuleWidthPx <= 0) return
-        val contentHeight = windowHeightPx
+        val targetH = windowHeightPx
         // 首帧前 rowHeight 还没测出来：别把窗口写成 0 高。
-        if (contentHeight <= 0) return
+        if (targetH <= 0) return
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
         val screenW = DensityProvider.screenWidthPx
-        val windowWidth = capsuleWidthPx + centerMarginPx
-        val windowHeight = contentHeight + glowMarginPx * 2
-        val live = capsuleAnchor()
-        // 侧别跟着锚点走（转屏/换边后镜像一次），内容区始终贴屏侧。
-        sideRight = live.centerX >= screenW / 2
-        val x = if (sideRight) {
-            (live.right - capsuleWidthPx - centerMarginPx)
-                .coerceIn(0, (screenW - windowWidth).coerceAtLeast(0))
+        val surfaceW = phaseSurfaceW()
+        val surfaceH = phaseSurfaceH()
+        val windowWidth = surfaceW.roundToInt() + innerMarginPx()
+        val windowHeight = surfaceH.roundToInt() + outerGlowPx() * 2
+        // 形变期间用冻结锚点：在途位移不能把胶囊基准挪走。
+        val live = currentAnchor()
+        // 侧别是胶囊自己的状态（拖动 / 换边 / 跟手），**不从锚点反推**：贴边缓动途中
+        // 锚点还在屏中间，反推会把侧别翻掉、圆心当场跳一下。
+        // 贴屏侧那条边钉在锚点上：x 由窗口宽反推，宽和 x 必须是同一次写。
+        val nextX = if (sideRight) {
+            (live.right - windowWidth).coerceIn(0, (screenW - windowWidth).coerceAtLeast(0))
         } else {
             live.left.coerceIn(0, (screenW - windowWidth).coerceAtLeast(0))
         }
-        // 多行更高：球贴近底边时窗口会伸出屏外，把顶边夹回屏内（胶囊与球之间留出空隙）。
-        // 窗口上下各有辉光余量，顶边夹取按内容高算，余量向屏外溢出无害（透明穿透）。
-        val top = min(live.top, (DensityProvider.screenHeightPx - contentHeight).coerceAtLeast(0))
-        val nextX = x
-        val nextY = ((top - glowMarginPx) - lpOriginY).coerceAtLeast(0)
-        // 原点未实测前先落尺寸；位置等布局回调测完原点再写，避免按 0 原点写错一帧。
-        val writePosition = originReady
-        if (lp.width == windowWidth && lp.height == windowHeight &&
-            (!writePosition || (lp.x == nextX && lp.y == nextY))
+        // 顶边跟着球的最终位置走；长高时按**当前**高度夹回屏内（球贴近底边时胶囊往上长）。
+        val top = min(live.top.toFloat(), (screenHeightPx - surfaceH).coerceAtLeast(0f)).roundToInt()
+        val nextY = ((top - outerGlowPx()) - lpOriginY).coerceAtLeast(0)
+        // 原点未实测前先落尺寸与 x；y 依赖原点，等布局回调测完再写。
+        val writeY = originReady
+        if (lp.width == windowWidth && lp.height == windowHeight && lp.x == nextX &&
+            (!writeY || lp.y == nextY)
         ) {
+            // 尺寸没变也可能换了目标（转屏 / 行宽收敛）：已提交画面跟着刷一次。
+            drawnSurfaceW = surfaceW
+            drawnSurfaceH = surfaceH
+            drawnInnerMarginPx = innerMarginPx().toFloat()
+            drawnOuterGlowPx = outerGlowPx().toFloat()
             return
         }
         lp.width = windowWidth
         lp.height = windowHeight
-        if (writePosition) {
-            lp.x = nextX
-            lp.y = nextY
-        }
+        lp.x = nextX
+        if (writeY) lp.y = nextY
+        drawnSurfaceW = surfaceW
+        drawnSurfaceH = surfaceH
+        drawnInnerMarginPx = innerMarginPx().toFloat()
+        drawnOuterGlowPx = outerGlowPx().toFloat()
+        Log.d(
+            LOG_TAG,
+            "PROBE writeSurface ${lp.width}x${lp.height}@(${lp.x},${lp.y})" +
+                " surface=${surfaceW.roundToInt()}x${surfaceH.roundToInt()}" +
+                " phase=$morphPhase writeY=$writeY | ${snapshot()}",
+        )
         wm.safeUpdateViewLayout(v, lp)
     }
 
@@ -1901,50 +1854,175 @@ internal class BallCapsuleWindow(
             .coerceIn(0, DensityProvider.dp2px(MaxOriginDp))
     }
 
-    private fun collapsedScale(): Float {
-        if (capsuleWidthPx <= 0) return 0.3f
-        return (pageHeightPx.toFloat() / capsuleWidthPx).coerceIn(0.15f, 1f)
+    /**
+     * 形变基准锚点：转换期间用冻结值，稳态用现推的球位。
+     *
+     * 冻结是「同一颗球」的硬条件：形变期间 `posX` 被在途动画逐帧改写，实时读它会让
+     * 形变面与真实球位错开（展开时胶囊离屏缘一条缝，收起时球往边缘滑）。
+     */
+    private fun currentAnchor(): BubbleAnchor = frozenAnchor ?: capsuleAnchor()
+
+    /**
+     * 画面矩形（**目标窗口坐标**）：贴屏侧齐平，上下各留辉光余量。
+     *
+     * 尺寸取 [drawnSurfaceW] / [drawnSurfaceH]（最近一次真正写进 LP 的值）：Compose 只画
+     * 窗口里真实存在的那些像素。窗口变窄时它也跟着变窄，于是“揭示 / 收回”就是窗口自己
+     * 的裁剪，不再需要一套独立的形变面几何。
+     */
+    private fun surfaceRectInWindow(): Rect {
+        val w = drawnSurfaceW.coerceAtLeast(1f)
+        val h = drawnSurfaceH.coerceAtLeast(1f)
+        val left = if (sideRight) drawnInnerMarginPx else 0f
+        val top = drawnOuterGlowPx
+        return Rect(left, top, left + w, top + h)
+    }
+
+    /** 收起圆矩形（目标窗口坐标）：与画面矩形共用贴屏侧与顶边，相位 0 时两者完全重合。 */
+    private fun ballRectInWindow(): Rect {
+        val rect = surfaceRectInWindow()
+        val size = rowHeightPx.coerceAtLeast(1).toFloat()
+        val left = if (sideRight) rect.right - size else rect.left
+        return Rect(left, rect.top, left + size, rect.top + size)
     }
 
     /**
-     * 展开形变：绕贴球侧那条边把整窗从球宽拉到内容宽。
+     * 胶囊轮廓路径（窗口坐标）：形变面的底色 / 描边与内容裁剪共用一份口径。
      *
-     * pivot 必须用**目标**窗口宽：`updateViewLayout` 只是请求布局，此刻 `v.width` 还是
-     * 球方窗宽度，拿它当 pivot 会让胶囊在缩放途中横向滑一段。
+     * 半径随尺寸自适应（[CapsuleShape] 是百分比连续曲率胶囊）：画面等于球矩形时就是一个
+     * 连续曲率的圆面，等于内容矩形时就是胶囊。**不要**在这里换成 `CircleShape` /
+     * `addOval`：收起态与展开态必须是同一条曲线，混用会在 1:1 时露出双重边缘。
      */
+    private fun capsulePath(rect: Rect, density: Density): Path? {
+        if (rect.width <= 1f || rect.height <= 1f) return null
+        val path = when (val outline = CapsuleShape.createOutline(rect.size, LayoutDirection.Ltr, density)) {
+            is Outline.Generic -> outline.path
+            is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+            is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
+        }
+        // 轮廓以左上角为原点生成：平移到窗口坐标（Path.translate 是原位变换）。
+        return path.apply { translate(Offset(rect.left, rect.top)) }
+    }
+
+    /**
+     * 胶囊形变支点：贴球侧那条边 + 内容竖直中心。
+     *
+     * 横向用**目标**窗口宽：`updateViewLayout` 只是请求布局，此刻 `v.width` 可能还是
+     * 球宽（刚展开 / 行宽刚变），拿它当支点会让形变朝离屏缘很远的点收放。
+     */
+    private fun applyCapsulePivot(v: View) {
+        v.pivotX = if (sideRight) {
+            (capsuleWidthPx + centerMarginPx).coerceAtLeast(1).toFloat()
+        } else {
+            0f
+        }
+        v.pivotY = if (windowHeightPx > 0) glowMarginPx + windowHeightPx / 2f else v.height / 2f
+    }
+
+    /**
+     * 展开形变的一次性触发：`enterPending` 守卫保证只启动一次。
+     *
+     * 默认等两个条件：窗口真的按目标宽高布局完（[capsuleGeometryApplied]）——否则形变面
+     * 按目标几何算、却画在旧球窗里，第一帧就偏；内容宽已收敛（[widthSettled]）——否则形变
+     * 途中窗口变宽，形变面横向跳一段（就是原来的「侧滑」）。
+     * [force] 只在兜底超时时用——宁可起始帧略偏，也不能让胶囊停在隐形。
+     */
+    private fun startMorphIfPending(v: View, force: Boolean = false) {
+        if (!isCapsule) return
+        if (transition != Transition.EXPANDING) return
+        if (!enterPending) return
+        if (!force && !(widthSettled && capsuleGeometryApplied(v))) return
+        startMorphIn(v)
+    }
+
+    /**
+     * 窗口是否已经按**当前相位的**画面尺寸完成布局（允许 1px 取整误差）。
+     *
+     * 必须按相位算：窗口现在跟随画面，展开前窗口是「球 + 余量」而不是胶囊矩形，
+     * 拿目标胶囊尺寸去比会永远不等——形变只能靠兜底超时起手，看起来就是「延迟 200ms 才动」。
+     */
+    private fun capsuleGeometryApplied(v: View): Boolean {
+        val targetW = phaseSurfaceW().roundToInt() + innerMarginPx()
+        val targetH = phaseSurfaceH().roundToInt() + outerGlowPx() * 2
+        if (targetW <= 0 || targetH <= 0) return false
+        return abs(v.width - targetW) <= 1 && abs(v.height - targetH) <= 1
+    }
+
+    /** 展开形变：相位当前值 → 1（球矩形 → 内容矩形），时长 / 曲线与其他浮窗家族一致。 */
     private fun startMorphIn(v: View) {
-        entering = true
         enterPending = false
-        val targetW = (capsuleWidthPx + centerMarginPx).coerceAtLeast(1).toFloat()
-        val targetH = (windowHeightPx + glowMarginPx * 2).coerceAtLeast(1).toFloat()
-        v.pivotX = if (sideRight) targetW else 0f
-        v.pivotY = targetH / 2f
-        v.scaleX = collapsedScale()
-        v.scaleY = 1f
-        v.alpha = 0.25f
-        v.animate()
-            .scaleX(1f)
-            .alpha(1f)
-            .setDuration(motionMillis(MotionFamily.FloatingMorph).toLong())
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction { if (view === v) entering = false }
-            .start()
+        // 相位不硬归 0：收起被打断时就是从半路接着长（硬归位会跳一帧）。
+        // 位置已由 [startMorphIfPending] 的门控确保落好（新建窗之前是隐形的），可以亮出来。
+        if (!visuallyHidden) v.alpha = 1f
+        cancelIdle()
+        Log.d(LOG_TAG, "PROBE startMorphIn pose | ${snapshot()}")
+        animateMorphTo(1f) {
+            if (view === v) {
+                transition = Transition.NONE
+                frozenAnchor = null
+            }
+        }
         mainHandler.postDelayed(
-            { if (view === v) entering = false },
-            motionMillis(MotionFamily.FloatingMorph) + 80L,
+            {
+                if (view === v && transition == Transition.EXPANDING) {
+                    transition = Transition.NONE
+                    frozenAnchor = null
+                }
+            },
+            morphAnimMs + 80L,
         )
     }
 
+    /**
+     * 相位动画：只改 [morphPhase]（Compose 侧 draw / layer 阶段读），不动 View 变换。
+     * [durationMs] = 0 表示瞬时归位（起手姿态 / 收尾），不播缓动。
+     */
+    private fun animateMorphTo(
+        target: Float,
+        durationMs: Long = morphAnimMs,
+        onEnd: () -> Unit = {},
+    ) {
+        // 先摘引用再 cancel：cancel 会同步回调 onAnimationEnd，摘掉旧动画后它的收尾会被忽略。
+        val previous = morphAnimator
+        morphAnimator = null
+        previous?.cancel()
+        val from = morphPhase
+        if (durationMs <= 0L || abs(target - from) < 0.001f) {
+            morphPhase = target
+            view?.let(::applyCapsuleGeometry)
+            onEnd()
+            return
+        }
+        val animator = ValueAnimator.ofFloat(from, target)
+        animator.duration = durationMs
+        animator.interpolator = DecelerateInterpolator()
+        animator.addUpdateListener {
+            morphPhase = it.animatedValue as Float
+            // 窗口跟随画面：每帧一次 updateViewLayout，宽 + 高 + x + y 同一次写。
+            view?.let(::applyCapsuleGeometry)
+        }
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (morphAnimator !== animation) return
+                morphAnimator = null
+                onEnd()
+            }
+        })
+        morphAnimator = animator
+        animator.start()
+    }
+
     private fun cancelEnterFeedback() {
-        // 展开动画在按下时立即收束，避免点击/拖动时还在缩放。
-        if (!entering && !enterPending) return
+        // 展开形变在按下时直接落到终点：相位停在中途会让行内容半隐、点按落穿。
+        if (transition != Transition.EXPANDING) return
         enterPending = false
+        transition = Transition.NONE
+        frozenAnchor = null
+        animateMorphTo(1f, durationMs = 0L)
         val v = view ?: return
-        v.animate().cancel()
         v.scaleX = 1f
         v.scaleY = 1f
+        v.translationY = 0f
         v.alpha = 1f
-        entering = false
     }
 
     /**
@@ -1952,86 +2030,56 @@ internal class BallCapsuleWindow(
      *
      * pivot 落在展开侧：收起方向与进场形变一致，不朝锚点球的方向缩。
      * 行的按压缩放画在行自己的 `graphicsLayer` 上；这里只负责把根视图复位，
-     * 复位时的 pivot 用当前窗口宽（胶囊态），球态 pivot 由 [enterBallState] 收回球心。
+     * 复位时的 pivot 用当前窗口宽（胶囊态），球态 pivot 由 [applyBallMode] 收回球心。
      */
     private fun applyPressScale(pressed: Boolean) {
         val v = view ?: return
         if (!v.isAttachedToWindow) return
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
-        v.pivotX = if (sideRight) v.width.toFloat() else 0f
+        // pivot 用目标宽（v.width 可能还没跟上 relayout）。
+        applyCapsulePivot(v)
         v.scaleX = scale
         v.scaleY = scale
     }
 
     // ---- Compose ----
 
-    /** 单窗内容根：按状态切换 BALL 球面 / CAPSULE 胶囊栈。 */
+    /** 单窗内容根：一条相位画完「收起圆 ↔ 胶囊内容」。 */
     @Composable
     private fun WindowContent() {
-        when (state) {
-            VisualState.BALL -> BallContent()
-            VisualState.CAPSULE -> CapsuleContent()
-        }
+        CapsuleMorph()
     }
 
+    /**
+     * 收起态圆面：胶囊自己的「按钮」形态——底色圆 + 图标 + 未读数。
+     *
+     * 不读悬浮球的设置（自定义图标 / 判定区 / 静置），那是另一个对象。
+     */
     @Composable
-    private fun BallContent() {
-        BallWindowContent(ballPx) { size -> BallFace(modifier = Modifier.size(size)) }
-    }
-
-    @Composable
-    private fun BallFace(modifier: Modifier = Modifier) {
-        val densityContext = LocalContext.current
-        val size = with(LocalDensity.current) { ballPx.toDp() }
-        // 自定义球面图标：非空且文件存在时全球面（去掉圆底/描边），否则回退默认圆底+动作图标。
-        val customIconPath = settings.customIconPath
-        if (customIconPath != null && File(customIconPath).exists()) {
-            CustomBallIcon(
-                context = densityContext,
-                model = File(customIconPath),
-                scale = settings.customIconScale,
-                offsetX = settings.customIconOffsetX,
-                offsetY = settings.customIconOffsetY,
-                alpha = settings.customIconAlpha,
-                // 不可见（面板/胶囊打开、锁屏、软隐藏）时一律暂停动图：此时没人看得到球，
-                // 但窗口仍挂着 —— 不暂停就是 121fps 的空转重绘。可见时再按静置开关决定。
-                paused = visuallyHidden || (idled && settings.customIconPauseWhenIdle),
-                modifier = modifier.size(size),
-            )
-            return
-        }
-        val accent = settings.colorSpec.toMarkColor()
-        Box(
-            modifier = modifier.size(size),
-            contentAlignment = Alignment.Center,
-        ) {
-            // 判定区彩蛋提示：拖动中球心入判定区时描边转主色并轻微放大（与按压同一档语感）。
+    private fun CollapsedCircle(sizeDp: Dp, modifier: Modifier = Modifier) {
+        val accent = capsuleSettings.colorSpec.toMarkColor()
+        val badge = collapsedBadgeState
+        Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        val hintScale = if (dropHint) 1.12f else 1f
-                        scaleX = hintScale
-                        scaleY = hintScale
-                    }
-                    .background(accent.copy(alpha = 0.92f), CircleShape)
+                    // 圆面的形与**内容**（图标 / 描边）都用胶囊角色：1:1 时它是连续曲率的圆面，
+                    // 与形变面的 [CapsuleShape] 同一条曲线。混用 `CircleShape` 会让里面的
+                    // 正圆比外面方一点，收起态看着就是“壳是 squircle、心是圆”。
+                    .background(accent.copy(alpha = 0.92f), CapsuleShape)
                     .border(
                         2.dp,
-                        if (dropHint) accent
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f),
-                        CircleShape,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f),
+                        CapsuleShape,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = fixedIconState
-                    ?: settings.tapAction?.let { actionIcon(it) }
-                    ?: Icons.Default.TouchApp
-                when (icon) {
+                when (val icon = fixedIconState) {
                     is ImageVector -> Image(
                         imageVector = icon,
                         contentDescription = null,
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
-                        modifier = Modifier.size(size / 2),
+                        modifier = Modifier.size(sizeDp / 2),
                     )
 
                     is ImageBitmap -> Image(
@@ -2040,30 +2088,143 @@ internal class BallCapsuleWindow(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(CircleShape),
+                            .clip(CapsuleShape),
                     )
 
                     is TextIcon -> TextIconGlyph(
                         text = icon.text,
-                        size = size / 2,
+                        size = sizeDp / 2,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
 
                     else -> Unit
                 }
             }
+            if (badge != null && badge.visible) {
+                // 圆形角标在**远离屏缘**那一侧的上角：右贴边 → 圆的左上，左贴边 → 右上。
+                // 横向不越出窗口（收起态窗口 == 圆），所以贴在内侧弧上而不是往外挂。
+                CountBadge(
+                    label = badgeLabel(badge),
+                    modifier = Modifier
+                        .align(if (sideRight) Alignment.TopStart else Alignment.TopEnd)
+                        .offset(x = if (sideRight) 2.dp else (-2).dp, y = 2.dp),
+                )
+            }
         }
     }
 
+    /** 收起圆角标的文案：1–9 显数字，>9 只显一个圆点；固定项用图钉。 */
+    private fun badgeLabel(badge: BadgeState): String {
+        if (badge.showPinOnly) return "📌"
+        val count = badge.unpinnedCount + badge.pinnedCount
+        return if (count in 1..9) count.toString() else ""
+    }
+
+    /** 未读数角标：正圆（直径固定，数字只占一位），无数字时就是一个红点。 */
     @Composable
-    private fun CapsuleContent() {
+    private fun CountBadge(label: String, modifier: Modifier = Modifier) {
+        Box(
+            modifier = modifier
+                .size(BadgeDiameter)
+                .clip(CircleShape)
+                .background(Color(0xFFE53935)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (label.isNotEmpty()) {
+                Text(
+                    text = label,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    style = TextStyle(lineHeight = 9.sp),
+                )
+            }
+        }
+    }
+
+    /**
+     * 胶囊态内容：一个对象从球矩形长成内容矩形（[morphPhase] 0 → 1）。
+     *
+     * 三层共用窗口坐标里的同一份几何：
+     * - 形变面：轮廓矩形按相位从球矩形插值到内容矩形（[CapsuleShape] 是百分比圆角，
+     *   球矩形时就画成圆），尾段淡出、把画面交给实胶囊的行；
+     * - 行内容：保持最终尺寸，只被形变面裁住逐帧「露出」并在尾段淡入（不缩放文本）；
+     * - 球面：头段淡出（图标没有同步形变对象，先隐；形状由形变面接住）。
+     *
+     * 相位只在 draw / layer 阶段读：180ms 里一次重组也不触发，只失效绘制。
+     */
+    @Composable
+    private fun CapsuleMorph() {
         SideGestureTheme {
             val list = items
-            if (list.isEmpty() || pageHeightPx <= 0) return@SideGestureTheme
             val density = LocalDensity.current
-            if (rowHeightPx <= 0) return@SideGestureTheme
+            // 列表空了（收起途中被清队列）也不要整窗变空：至少把球面继续画在球矩形上。
+            val hasContent = list.isNotEmpty() && rowHeightPx > 0
             val rowHeight = with(density) { rowHeightPx.toDp() }
-            CapsuleStack(list = list, rowHeight = rowHeight)
+            val accent = capsuleSettings.colorSpec.toMarkColor()
+            val contentColor = if (accent.luminance() > 0.5f) Color.Black else Color.White
+            val surfaceColor = accent.copy(alpha = accent.alpha * BubbleBackgroundAlpha)
+            val borderColor = contentColor.copy(alpha = RowBorderAlpha)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                if (hasContent) {
+                    // 形变面：球面与胶囊行的底色 / 描边同源，淡出后由行自己接管（单行时两者重合）。
+                    // 矩形取**已提交**的画面矩形：它永远落在窗口里。
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        val phase = morphPhase
+                        val fade = 1f - ((phase - SurfaceFadeStart) / (1f - SurfaceFadeStart))
+                            .coerceIn(0f, 1f)
+                        if (fade <= 0f) return@Canvas
+                        val path = capsulePath(surfaceRectInWindow(), this) ?: return@Canvas
+                        drawPath(path, surfaceColor.copy(alpha = surfaceColor.alpha * fade))
+                        drawPath(
+                            path = path,
+                            color = borderColor.copy(alpha = borderColor.alpha * fade),
+                            style = Stroke(1.dp.toPx()),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            // 内容按**最终**窗口尺寸布局（requiredSize 不被窗口约束压缩）：动画期间
+                            // 不重排、不重组，窗口变窄后只是把它裁出来。
+                            .requiredSize(
+                                width = with(density) { (capsuleWidthPx + centerMarginPx).toDp() },
+                                height = with(density) { (windowHeightPx + glowMarginPx * 2).toDp() },
+                            )
+                            .align(if (sideRight) Alignment.TopEnd else Alignment.TopStart)
+                            .graphicsLayer {
+                                alpha = ((morphPhase - ContentFadeStart) / (1f - ContentFadeStart))
+                                    .coerceIn(0f, 1f)
+                            }
+                            .drawWithContent {
+                                // 相位到 1（稳态）后不再裁剪：到达提示的辉光要能越入窗口余量。
+                                val phase = morphPhase
+                                if (phase >= 1f) {
+                                    this@drawWithContent.drawContent()
+                                    return@drawWithContent
+                                }
+                                val path = capsulePath(surfaceRectInWindow(), this)
+                                if (path == null) return@drawWithContent
+                                clipPath(path) { this@drawWithContent.drawContent() }
+                            },
+                    ) {
+                        CapsuleStack(list = list, rowHeight = rowHeight)
+                    }
+                }
+                // 收起圆层：贴屏侧齐平、与胶囊锚点同一份坐标（窗口变窄时它不会飘）。
+                CollapsedCircle(
+                    sizeDp = with(density) { rowHeightPx.toDp() },
+                    modifier = Modifier
+                        .offset {
+                            val rect = ballRectInWindow()
+                            IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
+                        }
+                        .graphicsLayer {
+                            alpha = (1f - morphPhase / BallFadeEnd).coerceIn(0f, 1f)
+                        },
+                )
+            }
         }
     }
 
@@ -2130,7 +2291,7 @@ internal class BallCapsuleWindow(
             // 内容驱动宽不能比球窄：短文案的胶囊比球还小会像“缩了一下”，
             // 也让展开形变的起点（球宽）失去参照。
             val desired = if (list.any { it is NotificationItem }) {
-                notifMax.coerceAtLeast(pageHeightPx)
+                notifMax.coerceAtLeast(rowHeightPx)
             } else {
                 fixedCapsuleWidth()
             }
@@ -2139,6 +2300,9 @@ internal class BallCapsuleWindow(
                 // 宽变了必须连 x 一起重写（贴屏侧那条边由宽反推）。
                 view?.let { applyCapsuleGeometry(it) }
             }
+            // 内容宽收敛：展开形变可以从球矩形起了（窗口是否已落几何由 startMorphIfPending 判）。
+            widthSettled = true
+            view?.let { startMorphIfPending(it) }
         }
         val metrics = stackMetrics
         val thumbHeightPx = if (metrics.maxScrollPx > 0) {
@@ -2581,7 +2745,7 @@ internal class BallCapsuleWindow(
                 color = contentColor.copy(alpha = 0.95f),
                 maxLines = 1,
                 modifier = Modifier
-                    .clip(CircleShape)
+                    .clip(CapsuleShape)
                     .background(contentColor.copy(alpha = 0.16f))
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             )
@@ -2770,8 +2934,66 @@ internal class BallCapsuleWindow(
 
     private enum class DragAxis { NONE, VERTICAL, HORIZONTAL }
 
+    // ---- TEMP probe：展开 / 收起位移排查（定位后整块删除）----
+
+    private var probeSerial = 0
+
+    /** 逐帧采样视图变换 + 窗口 rect，覆盖一次 morph（默认 60 帧 ≈ 1s）。 */
+    /**
+     * 逐帧探针：**有意抽稀**。日志落盘是单线程有界队列（2048 条，满了丢最旧），
+     * 每帧一行会把同期的 `PROBE slot=` 业务日志挤掉 —— 之前排查时那句“谁把胶囊收起了”
+     * 就是这样消失的。现在只在前几帧与关键节点打点。
+     */
+    private fun probe(label: String, frames: Int = 60) {
+        val start = view ?: return
+        val id = ++probeSerial
+        val startedAt = SystemClock.uptimeMillis()
+        Log.d(LOG_TAG, "PROBE#$id $label start | ${snapshot()}")
+        var index = 0
+        val step = object : Runnable {
+            override fun run() {
+                val live = view
+                if (live == null || index > frames) {
+                    Log.d(LOG_TAG, "PROBE#$id $label stop | ${snapshot()}")
+                    return
+                }
+                val interesting = index <= 2 || index % 10 == 0
+                if (interesting) {
+                    Log.d(
+                        LOG_TAG,
+                        "PROBE#$id $label f=$index t=${SystemClock.uptimeMillis() - startedAt}" +
+                            " | ${snapshot()}",
+                    )
+                }
+                index++
+                live.postOnAnimation(this)
+            }
+        }
+        start.postOnAnimation(step)
+    }
+
+    private fun snapshot(): String {
+        val v = view ?: return "view=null"
+        val loc = IntArray(2)
+        v.getLocationOnScreen(loc)
+        val lp = v.layoutParams as? WindowManager.LayoutParams
+        return "vis=${v.visibility}" +
+            " v=${v.width}x${v.height}@(${loc[0]},${loc[1]})" +
+            " lp=${lp?.width}x${lp?.height}@(${lp?.x},${lp?.y})" +
+            " alpha=${v.alpha}" +
+            " row=$rowHeightPx capW=$capsuleWidthPx capH=$windowHeightPx" +
+            " glow=$glowMarginPx center=$centerMarginPx sideRight=$sideRight" +
+            " origin=$lpOriginY phase=$morphPhase settled=$widthSettled" +
+            " transition=$transition enterPending=$enterPending frozen=${frozenAnchor != null}" +
+            " items=${items.size}"
+    }
+
     private companion object {
         const val TAG = LOG_TAG
+
+
+        /** 收起圆角标：正圆直径（固定，不随数字变宽——数字只显示 1–9）。 */
+        val BadgeDiameter = 16.dp
 
         /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
         const val IME_LIFT_ANIM_MS = 220L
@@ -2779,9 +3001,19 @@ internal class BallCapsuleWindow(
         const val EnterFallbackMs = 260L
         const val MaxOriginDp = 200f
 
-        /** 堆叠模式单行高：跟随球高，但夹在 48–56dp，大球不会把多行胶囊撑成整屏。 */
-        const val RowHeightMinDp = 48f
-        const val RowHeightMaxDp = 56f
+        /**
+         * 形变面的淡出区间起点（相位）：之后由行自身的底色 / 描边接管。
+         * 单行时两者矩形重合、看不出交接；多行时残影在本区间内澄出。
+         */
+        const val SurfaceFadeStart = 0.55f
+
+        /** 行内容的淡入区间起点（相位）：前面的相位里只有形变面在长。 */
+        const val ContentFadeStart = 0.3f
+
+        /** 球面淡出结束相位：图标没有同步形变对象，头段先隐，形状交给形变面。 */
+        const val BallFadeEnd = 0.35f
+
+        /** 堆叠模式单行高上限的历史常量已废除：行高就是收起圆直径，不再夹取。 */
 
         /** 滚动松手后的惯性投影时长（秒）：速度 × 时长 ≈ 还会滑多远。 */
         const val FlingProjectionSec = 0.12f

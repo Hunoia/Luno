@@ -75,7 +75,8 @@ internal fun QuickSearchEngineBar(
                 .padding(horizontal = PageGutter, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
-            itemsIndexed(engines, key = { _, engine -> engine.id }) { index, engine ->
+            // id 可能为空（未归一化的引擎 / 旧数据）：空串直接当 key 会让多条引擎撞成同一个 ""。
+            itemsIndexed(engines, key = { idx, engine -> engine.id.ifBlank { "e$idx" } }) { index, engine ->
                 val imageEngine = imageCapable(engine)
                 PressFilterChip(
                     // 主引擎 = 列表第一位，不再单独选默认。

@@ -52,6 +52,7 @@ import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.quickaccess.query.ClipPools
 import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.allEngines
+import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.quickaccess.query.QuickSearchIndex
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchIcon
@@ -179,7 +180,11 @@ internal fun QuickSearchContent(
     val usageFlow = remember { hunoia.luno.domain.search.SearchCenter.appUsage }
     val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
     val searchSettingsFlow = remember { hunoia.luno.domain.search.SearchCenter.search }
-    val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
+    // initial 必须是归一化后的：未归一化的 seed 引擎 id 全为空串，首帧那几帧里引擎条按 id 做
+    // LazyRow 的 item key 会撞成三个 ""（Key "" was already used 直接崩面板）。
+    val searchSettings by searchSettingsFlow.collectAsState(
+        initial = QuickSearchSettings().withUniqueEngineTriggers(),
+    )
     // 剪贴板池：唯一来源是 ClipboardCenter 历史流；搜索层只吃投影，不再自己存一份。
     val clipHistoryState by ClipboardCenter.history.collectAsState(initial = ClipboardHistory())
     val clips = remember(clipHistoryState) {

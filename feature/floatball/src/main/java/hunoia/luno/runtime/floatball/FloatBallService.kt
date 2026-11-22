@@ -649,34 +649,15 @@ class FloatBallService : Service() {
         refreshSlotWindows(panelHidden || softHidden)
     }
 
+    /**
+     * 内容胶囊窗的显隐：**从当前状态重算「该是什么样」**，而不是每次拼一串 if。
+     *
+     * 口径来自架构 §7「隐藏三态」：自动收起只是切回球态（窗口与 ComposeView 全留，
+     * 下次弹卡原地复用）；面板占用 / 界面级隐藏走软隐藏；只有功能关闭 / 权限或场景不允许
+     * 才摘窗，而且必须等收起形变播完（[CapsuleSlot.reconcile] → [CapsuleSlot.detachAfterCollapse]）。
+     */
     private fun refreshSlotWindows(globalHidden: Boolean) {
-        for (slot in contentSlots()) {
-            val baseVisible = gestureEnabledSnapshot &&
-                canDrawOverlays() &&
-                slot.enabled &&
-                sceneAllows(slot.visibilityTarget) &&
-                slot.state.items.isNotEmpty()
-            val shouldShow = baseVisible && !globalHidden
-            if (!shouldShow) {
-                slot.hideCapsule()
-                if (slot.visible) {
-                    if (baseVisible) {
-                        slot.window.setPanelHidden(true)
-                    } else {
-                        slot.visible = false
-                        slot.window.detachNow()
-                    }
-                }
-                continue
-            }
-            if (!slot.visible) {
-                slot.visible = slot.window.attachAnimated()
-                if (slot.visible) slot.window.setHidden(isScreenLocked())
-            } else {
-                slot.window.setPanelHidden(false)
-            }
-            slot.refreshBadge()
-        }
+        for (slot in contentSlots()) slot.reconcile(globalHidden)
     }
 
     private fun contentSlots(): List<CapsuleSlot> = listOf(notificationSlot, resultSlot)
@@ -1426,7 +1407,7 @@ class FloatBallService : Service() {
         imeJob = scope.launch {
             while (isActive) {
                 delay(IME_POLL_FALLBACK_MS)
-                if (!ballVisible || visibility.isHidden || softHidden) continue
+                if (!imeWatchNeeded() || visibility.isHidden || softHidden) continue
                 // 兜底只复测，不参与「事件路径可靠」的确认 —— 确认后要停的就是本轮询，
                 // 若自己给自己确认，事件不可靠的 ROM 会把唯一兜底也停掉，球再抬不起。
                 sampleImeOnce()
@@ -1438,14 +1419,22 @@ class FloatBallService : Service() {
         if (imeHintJob?.isActive == true) return
         imeHintJob = scope.launch {
             delay(32)
-            if (!ballVisible || visibility.isHidden || softHidden) return@launch
+            if (!imeWatchNeeded() || visibility.isHidden || softHidden) return@launch
             if (sampleImeOnce() > 0) confirmImePush()
         }
     }
 
+    /**
+     * 有浮层需要键盘让位：主球可见，或任一胶囊在屏上。
+     *
+     * 胶囊是独立对象，只开胶囊（关掉主球）时键盘也得把圆抬起来。
+     */
+    private fun imeWatchNeeded(): Boolean =
+        ballVisible || contentSlots().any { it.visible }
+
     /** 事件驱动路径（运行态翻转 / insets 提示）与兜底轮询共用的让位采样，主线程。 */
     private fun sampleImeOnce(): Int {
-        if (!ballVisible || visibility.isHidden || softHidden) return 0
+        if (!imeWatchNeeded() || visibility.isHidden || softHidden) return 0
         return pollImeOnce()
     }
 
@@ -1467,21 +1456,16 @@ class FloatBallService : Service() {
                 ?.getInsets(android.view.WindowInsets.Type.ime())
                 ?.bottom
         }.getOrNull() ?: 0
-        // 主球与内容球（通知/结果）共用同一避让口径：键盘弹起时三者同步上抬。
-        // 合并窗口的胶囊几何直接由自己的 imeLift 推导（updateCapsuleAnchor），
-        // 无跨窗锚点握手；内容球未挂载时 liftForIme 内部跳过（lateinit 安全）。
+        // 主球与每个胶囊各自让位：胶囊有自己的低位，不跟着球的位置抬。
         ballWindow.updateIme(imeBottom)
-        notificationSlot.liftForIme(imeBottom)
-        resultSlot.liftForIme(imeBottom)
-        // 胶囊展示中：直接驱动胶囊跟随最新锚点（含抬升/回落），不依赖主球动画帧。
-        if (notificationSlot.showing || resultSlot.showing) updateBubbleAnchors()
+        for (slot in contentSlots()) slot.window.updateIme(imeBottom)
         return imeBottom
     }
 
     private fun ensureImeObserver() {
         if (imePushConfirmed) return
         if (imeJob?.isActive == true) return
-        if (!ballVisible) return
+        if (!imeWatchNeeded()) return
         observeIme()
     }
 
@@ -2086,6 +2070,9 @@ class FloatBallService : Service() {
         var timerJob: Job? = null
         var ttlJob: Job? = null
 
+        /** 跟手换边的短重试（形变 / 拖动期间被拒时用）。 */
+        var followHandJob: Job? = null
+
         /** 通知的 300ms settle 任务（规则结果不走 settle）。 */
         val settleJobs = LinkedHashMap<String, Job>()
 
@@ -2143,11 +2130,6 @@ class FloatBallService : Service() {
                 !softHidden &&
                 sceneAllows(visibilityTarget)
 
-        /** 键盘让位：合并窗口未挂载（view == null）时 updateIme 只记账，挂载后由几何推导生效。 */
-        fun liftForIme(imeBottom: Int) {
-            if (::window.isInitialized) window.updateIme(imeBottom)
-        }
-
         fun attachWindows() {
             val isNotification = source == BallSource.NOTIFICATION
             window = BallCapsuleWindow(
@@ -2174,6 +2156,10 @@ class FloatBallService : Service() {
                     }
                 }
                 onBodyTapped = { id -> onCapsuleTapped(id) }
+                // 收起圆点按 = 长开。**不读 showing**：服务侧记账一旦与画面不同步，
+                // 这个门禁就把圆钉死在收起态（“点了不展开”）。showCurrent 本身幂等。
+                onExpandRequested = { showCurrent() }
+                onCollapsedLongPress = { onBallLongPressed() }
                 onResultAction = { id, action -> onResultAction(id, action) }
                 onCollapsed = {
                     hideCapsule()
@@ -2190,10 +2176,7 @@ class FloatBallService : Service() {
                     }
                 }
                 onReady = {
-                    if (showing) {
-                        setCapsuleActive(true)
-                        refreshBadge()
-                    }
+                    if (showing) refreshBadge()
                 }
                 onUnavailable = {
                     if (showing) {
@@ -2201,11 +2184,6 @@ class FloatBallService : Service() {
                         hideCapsule()
                     }
                 }
-                // 球态回调：与服务主球同构（点按 / 长按 / 拖动）。
-                onTap = { onContentBallTapped() }
-                onLongPress = { onBallLongPressed() }
-                onDragStarted = { if (showing) hideCapsule() }
-                onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
             }
             updateSettings()
         }
@@ -2213,52 +2191,13 @@ class FloatBallService : Service() {
         /** 合成内容球设置：固定图标、无单击动作；跟手 / 图标 / 静置按各自配置。 */
         fun updateSettings() {
             val base = settings
-            val portrait = when (source) {
-                BallSource.NOTIFICATION -> base.notificationBall(landscape = false)
-                BallSource.RESULT -> base.resultBall(landscape = false)
-            }
-            val landscapePosition = when (source) {
-                BallSource.NOTIFICATION -> base.notificationBall(landscape = true)
-                BallSource.RESULT -> base.resultBall(landscape = true)
-            }
-            // 图标与静置都按球各取各的：内容球不继承主球配置。
-            val icon = when (source) {
-                BallSource.NOTIFICATION -> base.notificationCapsule.customIcon
-                BallSource.RESULT -> base.resultCapsule.customIcon
-            }
-            val idleDimMs = when (source) {
-                BallSource.NOTIFICATION -> base.notificationCapsule.idleDimDelayMs
-                BallSource.RESULT -> base.resultCapsule.idleDimDelayMs
-            }
-            // 球色 / 胶囊背景色 / 动效色都按胶囊各取各的；未设置（isUnset）时渲染端
-            // toMarkColor 回落主题主色——胶囊与悬浮球色彻底解耦（需求确认口径）。
-            val ballSpec = when (source) {
-                BallSource.NOTIFICATION -> base.notificationCapsule.ballColor
-                BallSource.RESULT -> base.resultCapsule.ballColor
-            }
             val backgroundSpec = when (source) {
                 BallSource.NOTIFICATION -> base.notificationCapsule.backgroundColor
                 BallSource.RESULT -> base.resultCapsule.backgroundColor
             }
-            val synthesized = base.copy(
-                enabled = true,
-                tapAction = null,
-                // 长按触发时长沿用主球滑杆：一个旋钮管三颗球。
-                longPressMs = base.longPressMs,
-                idleDimDelayMs = idleDimMs,
-                followHand = followHandEnabled,
-                portrait = portrait,
-                landscape = landscapePosition,
-                customIconPath = icon.path,
-                customIconScale = icon.scale,
-                customIconOffsetX = icon.offsetX,
-                customIconOffsetY = icon.offsetY,
-                customIconAlpha = icon.alpha,
-                // 内容球不提供「静置暂停动图」开关；保持动画播放。
-                customIconPauseWhenIdle = false,
-            ).withColorSpec(ballSpec)
-            // 合并单窗：球侧 + 胶囊侧设置一次推入（球尺寸/静置/拖拽、胶囊行色/行数）。
-            window.updateSettings(synthesized, base.withColorSpec(backgroundSpec))
+            // 胶囊只吃**自己**的设置（行色 / 行数 / 手势）：尺寸、落点、静置、键盘让位
+            // 都是它自己的几何常量，与悬浮球的设置无关。
+            window.updateCapsuleSettings(base.withColorSpec(backgroundSpec))
             // 行手势：读归一化后的行为（非法组合已在设置层收口为出厂默认）。
             window.setRowGestures(
                 CapsuleRowGestures(
@@ -2276,9 +2215,9 @@ class FloatBallService : Service() {
                     },
                 ),
             )
-            val iconSize = DensityProvider.dp2px(base.sizeDp)
-            if (source == BallSource.NOTIFICATION && iconSize != notificationIconSizePx) {
-                notificationIconSizePx = iconSize
+            val rowHeight = DensityProvider.dp2px(CapsuleRowHeightDp)
+            if (source == BallSource.NOTIFICATION && rowHeight != notificationIconSizePx) {
+                notificationIconSizePx = rowHeight
                 refreshNotificationIcon(force = true)
             }
         }
@@ -2329,116 +2268,23 @@ class FloatBallService : Service() {
         }
 
         // ---- 跟手换边（每个内容球独立） ----
-        // 与服务层主球的跟手换位（requestFollowHandSwap 系列）平行：骨架相同，
-        // 但门禁、判侧来源（活窗口 vs 落盘）、showing 挂起与不可见直接落盘是内容球特有。改时对照。
+        // 与主球的跟手换位同构，但门禁是胶囊自己的：
+        // - 关闭跟手 / 不在屏上 → 不搬；
+        // - 正在拖动 / 按压 / 形变中 → 拒绝，由调用方下一次再试（[BallCapsuleWindow.swapSide]）；
+        // - 已经在那一侧 → 直接算成功。
 
-        /**
-         * 请求换到 [leftSide] 侧。[showing] 期间只挂起，收胶囊时结算；
-         * 球未显示时直接改落盘侧别。返回是否接收（跟手关闭 / 来源禁用 = false）。
-         */
+        /** 请求把收起圆换到 [leftSide] 侧。返回是否接收（跟手关闭 = false）。 */
         fun requestFollowHandSwap(leftSide: Boolean): Boolean {
-            if (!followHandEnabled || !enabled) return false
-            if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
-                scope.launch { requestFollowHandSwap(leftSide) }
-                return true
-            }
-            pendingFollowHandSide = leftSide
-            tryFollowHandSwap()
-            return true
-        }
-
-        private fun tryFollowHandSwap() {
-            val side = pendingFollowHandSide ?: return
-            if (!followHandEnabled || !enabled) {
-                pendingFollowHandSide = null
-                return
-            }
-            // 胶囊展开时先别把球从手指下挪走；收起时再结算。
-            if (showing) return
-            if (side == currentSide()) {
-                pendingFollowHandSide = null
-                return
-            }
-            // 锁屏/未挂窗时不做传送动画：直接改落盘侧别，下一次出现就在手势侧。
-            if (!visible || isScreenLocked()) {
-                persistContentBallSide(side)
-                pendingFollowHandSide = null
-                return
-            }
-            if (window.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) {
-                followHandRetryJob?.cancel()
-                followHandRetryJob = null
-            } else {
-                scheduleFollowHandRetry()
-            }
-        }
-
-        private fun scheduleFollowHandRetry() {
-            if (followHandRetryJob?.isActive == true) return
-            followHandRetryJob = scope.launch {
-                var attempts = 0
-                while (attempts < FOLLOW_HAND_RETRY_MAX) {
+            if (!followHandEnabled) return false
+            // 形变 / 拖动 / 按压期间换边会把基准搬离屏缘：短重试几次，不把请求吞掉。
+            followHandJob?.cancel()
+            followHandJob = scope.launch {
+                repeat(FOLLOW_HAND_RETRY_MAX) {
+                    if (window.swapSide(leftSide)) return@launch
                     delay(FOLLOW_HAND_RETRY_MS)
-                    if (pendingFollowHandSide == null) return@launch
-                    if (!followHandEnabled || !enabled) {
-                        pendingFollowHandSide = null
-                        return@launch
-                    }
-                    if (showing) return@launch
-                    val side = pendingFollowHandSide ?: return@launch
-                    if (side == currentSide()) {
-                        pendingFollowHandSide = null
-                        return@launch
-                    }
-                    if (!visible || isScreenLocked()) {
-                        persistContentBallSide(side)
-                        pendingFollowHandSide = null
-                        return@launch
-                    }
-                    if (window.repositionTo(side, followHandAnchorY(side)) {
-                            onFollowHandLanded(side)
-                        }
-                    ) {
-                        return@launch
-                    }
-                    attempts++
                 }
-                pendingFollowHandSide = null
             }
-        }
-
-        private fun currentSide(): Boolean {
-            if (visible) return window.isOnLeft()
-            return savedBallPosition().x < 0.5f
-        }
-
-        private fun savedBallPosition() = when (source) {
-            BallSource.NOTIFICATION -> settings.notificationBall(isLandscapeNow())
-            BallSource.RESULT -> settings.resultBall(isLandscapeNow())
-        }
-
-        private fun followHandAnchorY(side: Boolean): Float {
-            val position = savedBallPosition()
-            return (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
-        }
-
-        private fun onFollowHandLanded(side: Boolean) {
-            if (pendingFollowHandSide == side) pendingFollowHandSide = null
-            val (px, py) = window.currentPosition()
-            val width = DensityProvider.screenWidthPx
-            val height = DensityProvider.screenHeightPx
-            if (width <= 0 || height <= 0) return
-            persistContentBallPosition(source, px / width, py / height, side)
-        }
-
-        /** 球未显示时直接改落盘侧别：下一次出现就在手势侧。 */
-        private fun persistContentBallSide(side: Boolean) {
-            val width = DensityProvider.screenWidthPx
-            val height = DensityProvider.screenHeightPx
-            if (width <= 0 || height <= 0) return
-            val ballPx = DensityProvider.dp2px(settings.sizeDp)
-            val x = BallPlacement.edgeX(side, width, ballPx) / width
-            persistContentBallPosition(source, x, followHandAnchorY(side), side)
+            return true
         }
 
         /**
@@ -2582,54 +2428,129 @@ class FloatBallService : Service() {
 
         fun showCurrent() {
             val item = state.current
+            Log.d(
+                TAG,
+                "PROBE slot=$source showCurrent item=${item?.id} visible=$visible showing=$showing",
+            )
             if (item == null || !allowed) {
                 hideCapsule()
                 refreshBadge()
                 return
             }
-            if (!visible) refreshWindows()
-            window.setIdleSuppressed(true)
+            detachAfterCollapse = false
             if (!window.showCapsule(
                     items = state.items,
                     index = state.currentIndex.coerceAtLeast(0),
                 )
             ) {
-                window.setIdleSuppressed(false)
                 showing = false
                 refreshBadge()
                 return
             }
             showing = true
+            visible = true
+            // 有浮层上屏了：键盘让位观察器可能因为“屏幕上什么都没有”一直没启动（只开胶囊、关球）。
+            ensureImeObserver()
+            // 自检：服务侧记了 showing，画面却没在展开（停在收起圆）= “点了不展开”的前兆。
+            if (!window.isExpandingOrOpen) {
+                Log.w(TAG, "PROBE slot=$source show did not expand item=${item.id}")
+            }
             refreshBadge()
             scheduleAutoHide()
             scheduleTtl()
         }
 
-        fun hideCapsule() {
-            timerJob?.cancel()
-            timerJob = null
-            if (!showing) {
-                window.setCapsuleActive(false)
-                window.setIdleSuppressed(false)
-                refreshBadge()
-                tryFollowHandSwap()
+        /** 收起后的摘窗意图：功能关闭 / 场景不允许时才置位，由收起完成回调整体执行。 */
+        var detachAfterCollapse = false
+
+        /**
+         * 把窗口 / 胶囊对齐到「现在该是什么样」。
+         *
+         * 三层判断顺序固定：窗口该不该在（开关 / 权限 / 场景）→ 是不是软隐藏（面板）→
+         * 是不是该展开（有内容）。内容清空只切回球态，窗口留着承载徽标。
+         */
+        fun reconcile(globalHidden: Boolean) {
+            val allowed = gestureEnabledSnapshot &&
+                canDrawOverlays() &&
+                enabled &&
+                sceneAllows(visibilityTarget)
+            if (!allowed) {
+                // 窗口不该在：先收起，形变播完再摘窗（立即 detach 会把收起动画掐掉）。
+                detachAfterCollapse = true
+                hideCapsule()
                 return
             }
-            showing = false
-            window.hideCapsule {
-                window.setCapsuleActive(false)
-                window.setIdleSuppressed(false)
-                // 胶囊收起后清掉已过期项：验证码过期即失，不留在球徽标里。
-                prune()
-                refreshWindows()
-                // 收起后才能安全换边；挂起的手势侧别在这里结算。
-                tryFollowHandSwap()
+            detachAfterCollapse = false
+            if (globalHidden) {
+                // 面板 / 界面级隐藏：收起胶囊 + 软隐藏，关面板原地恢复。
+                hideCapsule()
+                window.setPanelHidden(true)
+                return
+            }
+            window.setPanelHidden(false)
+            if (!visible) {
+                // 没有窗口：有内容就让 showCapsule 建窗并展开，没内容就什么都不做。
+                if (state.items.isNotEmpty()) showCurrent()
+                return
+            }
+            // 内容空了：**没有球可留**。先播收起形变，形变播完再摘窗——常显一颗铃铛球
+            // 是上一版读错了「自动收起只是切回球态」（那句话说的是队列还有内容、被自动收起）。
+            if (state.items.isEmpty()) {
+                detachAfterCollapse = true
+                hideCapsule()
+            } else {
+                refreshBadge()
             }
         }
 
+        /** 收起收尾重入闩：prune() 在队列清空时会再调 hideCapsule()，没有它就会自递归。 */
+        private var settlingCollapse = false
+
+        fun hideCapsule() {
+            timerJob?.cancel()
+            timerJob = null
+            Log.d(TAG, "PROBE slot=$source hideCapsule showing=$showing visible=$visible")
+            if (!showing) {
+                // 已是球态：窗口.hideCapsule 无事可做，直接结账（摘窗意图也在这里兑现）。
+                onCapsuleCollapsed()
+                return
+            }
+            showing = false
+            window.hideCapsule { onCapsuleCollapsed() }
+        }
+
+        /**
+         * 收起收尾（形变播完 / 本就不在胶囊态）：把胶囊态的守卫一次结清。
+         *
+         * 这里以前是回调里的五条语句：漏一条就停在「半个球态」——球不能拖、不贴边、
+         * 徽标不回来，点一下（重新走一遍 push）才好。所以只留这一个出口，并且
+         * **不再从这里调 refreshWindows**：它会反过来再调 reconcile/hideCapsule，无限递归。
+         */
+        private fun onCapsuleCollapsed() {
+            if (settlingCollapse) return
+            settlingCollapse = true
+            try {
+                // 胶囊收起后清掉已过期项：验证码过期即失，不留在圆面角标里。
+                prune()
+                refreshBadge()
+                if (detachAfterCollapse) {
+                    detachAfterCollapse = false
+                    detachWindows()
+                    return
+                }
+            } finally {
+                settlingCollapse = false
+            }
+        }
+
+        /**
+         * 徽标：**始终下发**，由窗口自己决定看不看得到。
+         *
+         * 以前按 `showing` 屏蔽，一旦服务侧与画面不同步（服务以为展开、实际停在收起圆），
+         * 圆就既不能展开也看不到未读数。现在收起圆只在相位 0 可见，展开态它自己就隐了。
+         */
         fun refreshBadge() {
-            val badge = state.badge
-            window.setBadge(if (showing || !badge.visible) null else badge)
+            window.setCollapsedBadge(state.badge.takeIf { it.visible })
             // 通知球球面跟队列最新一条：所有队列变更最终都会走到这里。
             refreshNotificationIcon()
         }
@@ -2754,14 +2675,9 @@ class FloatBallService : Service() {
             }
         }
 
-        /** 内容球点按：展开 / 收起自己的胶囊。 */
-        fun onContentBallTapped() {
-            if (showing) hideCapsule() else showCurrent()
-        }
-
         /**
-         * 内容球长按（可配，默认无行为）：清空队列后球随可见性刷新自然消失。
-         * 触觉反馈由 FloatBallWindow 的长按接线统一给出（与主球同档）。
+         * 收起圆长按（可配，默认无行为）：清空队列后圆随可见性刷新自然消失。
+         * 触觉反馈由 [BallCapsuleWindow] 的长按接线统一给出（与主球同档）。
          */
         fun onBallLongPressed() {
             val behavior = when (source) {
@@ -2868,6 +2784,7 @@ class FloatBallService : Service() {
         fun detachWindows() {
             showing = false
             visible = false
+            detachAfterCollapse = false
             timerJob?.cancel()
             timerJob = null
             window.detachNow()

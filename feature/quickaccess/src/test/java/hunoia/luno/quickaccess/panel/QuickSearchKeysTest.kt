@@ -32,4 +32,10 @@ class QuickSearchKeysTest {
     fun `empty list returns empty`() {
         assertEquals(emptyList<String>(), stableKeys(emptyList()))
     }
+
+    @Test
+    fun `blank keys do not collapse`() {
+        // 撞 key 事故的形态：多条 key 都是空串时也必须各自唯一（"" 与 "~1"）。
+        assertEquals(listOf("", "~1"), stableKeys(listOf("", "")))
+    }
 }

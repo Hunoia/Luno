@@ -19,49 +19,51 @@ import kotlin.math.roundToInt
 
 /** 球窗 / 胶囊窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
 
-/** 球窗 LP：TYPE_APPLICATION_OVERLAY、ballPx 见方、LEFT|TOP。不加 LAYOUT_NO_LIMITS ——
- *  球必须完整在屏内，靠正常窗口边界 + 夹取就够。
+/**
+ * 球 / 胶囊共用的 overlay 基础 LP。
  *
- *  带 LAYOUT_IN_SCREEN：LP 坐标固定以物理屏左上角为原点，不随状态栏显隐在
- *  「状态栏下沿 / 屏幕顶」之间切换 —— 否则状态栏一隐，系统把窗口整体上移，
- *  下一帧复测原点再写回 LP，表现为球上下跳一下再回原位。 */
+ * `windowAnimations = 0` 是硬要求：合并窗口（球 + 胶囊同一个 overlay 窗口）在球态与
+ * 胶囊态之间改宽高 / xy，厂商 ROM 的默认窗口过渡会把这次 relayout 播成「从旧 frame
+ * 滑到新 frame」——收起时表现为球从远离屏缘的位置侧滑到边缘，展开时反过来。两态
+ * 必须共用同一份基础 LP，不能只在胶囊 LP 上关：合并窗口实际总是先以球 LP 创建
+ * （`refreshSlotWindows` → `attachAnimated`），之后胶囊几何只是改同一个 LP。
+ *
+ * 带 LAYOUT_IN_SCREEN：LP 坐标固定以物理屏左上角为原点，不随状态栏显隐在
+ * 「状态栏下沿 / 屏幕顶」之间切换 —— 否则状态栏一隐，系统把窗口整体上移，
+ * 下一帧复测原点再写回 LP，表现为球上下跳一下再回原位。
+ *
+ * 贴物理屏边：默认 cutout 模式会把越入挖孔的窗口整体挪进安全区，
+ * 横屏挖孔在左侧时表现为球 / 胶囊离左边空一段（面板窗已显式 ALWAYS，所以它正常）。
+ */
 @SuppressLint("RtlHardcoded")
-internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply {
+private fun overlayBaseLayoutParams() = WindowManager.LayoutParams().apply {
     type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-    // 贴物理屏边：默认 cutout 模式会把越入挖孔的窗口整体挪进安全区，
-    // 横屏挖孔在左侧时表现为球 / 胶囊离左边空一段（面板窗已显式 ALWAYS，所以它正常）。
     layoutInDisplayCutoutMode =
         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-    width = ballPx
-    height = ballPx
     gravity = Gravity.LEFT or Gravity.TOP
     x = 0
     y = 0
+    windowAnimations = 0
+}
+
+/** 球窗 LP：ballPx 见方、LEFT|TOP。不加 LAYOUT_NO_LIMITS —— 球必须完整在屏内，
+ *  靠正常窗口边界 + 夹取就够。 */
+@SuppressLint("RtlHardcoded")
+internal fun ballLayoutParams(ballPx: Int) = overlayBaseLayoutParams().apply {
+    width = ballPx
+    height = ballPx
 }
 
 /** 共享胶囊窗 LP：宽高由调用方按「内容区 + 中侧/上下辉光余量」推出来，
- *  LEFT|TOP 手工按球的锚定边贴边。与球窗同样带 LAYOUT_IN_SCREEN，保证 LP 原点一致。 */
+ *  LEFT|TOP 手工按球的锚定边贴边。与球窗共用基础 LP，保证 LP 原点与过渡策略一致。 */
 @SuppressLint("RtlHardcoded")
-internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.LayoutParams().apply {
-    type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    format = PixelFormat.TRANSLUCENT
-    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-    layoutInDisplayCutoutMode =
-        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = overlayBaseLayoutParams().apply {
     width = widthPx
     height = heightPx
-    gravity = Gravity.LEFT or Gravity.TOP
-    x = 0
-    y = 0
-    // 禁系统窗口过渡（厂商 ROM 默认「下落」会让胶囊首次展开从上滑下）；
-    // 展开/收起由 BallCapsuleWindow 自身水平 scaleX 控制，方向稳定。
-    windowAnimations = 0
 }
 
 /**
@@ -110,8 +112,37 @@ internal fun postMeasureLpOriginY(
 }
 
 /**
- * 球窗坐标落 LP：`screenX` / `screenDisplayY` 是屏幕空间的球顶位置（显示 y 已含
- * 键盘让位），LP y = 屏幕值 − [lpOriginY]，不越 LP 原点；不变更不写窗。
+ * 球态几何一次写完：宽高 + 屏幕坐标同一次 `updateViewLayout`。
+ *
+ * 拆成两次（先尺寸、后位置）时，只要有一次 relayout 落到别的帧，球就会带着旧 frame
+ * 露一帧——收起 / 展开切态时的「位置跳动」就是这条。胶囊几何早就是一次写完
+ * （`BallCapsuleWindow.applyCapsuleGeometry`），球态不能例外。
+ */
+internal fun writeBallRect(
+    view: View,
+    wm: WindowManager,
+    screenX: Float,
+    screenDisplayY: Float,
+    lpOriginY: Int,
+    ballPx: Int,
+) {
+    val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+    val nextX = screenX.roundToInt()
+    val nextY = (screenDisplayY - lpOriginY).roundToInt().coerceAtLeast(0)
+    val size = ballPx.coerceAtLeast(1)
+    if (lp.width == size && lp.height == size && lp.x == nextX && lp.y == nextY) return
+    lp.width = size
+    lp.height = size
+    lp.x = nextX
+    lp.y = nextY
+    wm.safeUpdateViewLayout(view, lp)
+}
+
+/**
+ * 球窗坐标落 LP（只写位置，尺寸不动）：`screenX` / `screenDisplayY` 是屏幕空间的球顶
+ * 位置（显示 y 已含键盘让位），LP y = 屏幕值 − [lpOriginY]，不越 LP 原点；不变更不写窗。
+ *
+ * 拖动跟手每帧只改位置，尺寸在挂窗时已经落好，不需要付整份 rect 的比较。
  */
 internal fun writeBallPosition(
     view: View,
