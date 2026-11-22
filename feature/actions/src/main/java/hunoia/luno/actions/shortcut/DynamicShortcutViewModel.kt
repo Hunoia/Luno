@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import hunoia.luno.actions.R
+import hunoia.luno.core.domain.DynamicShortcutRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -20,11 +21,15 @@ data class DynamicShortcutUiState(
     val shizukuReady: Boolean = false,
     /** 自动切换会话进行中（已切为临时桌面且未恢复）→ 显示「恢复原桌面」行。 */
     val sessionActive: Boolean = false,
+    /** 已导入的 pin 拦截入口（管理列表）：采集进来的不在此列。 */
+    val imported: List<DynamicShortcutRef> = emptyList(),
 )
 
 data class DynamicShortcutMessage(
     val resId: Int,
     val count: Int? = null,
+    /** 直接给完整文案的旁路（带动态参数的 toast，如删除的入口名）。 */
+    val text: String? = null,
 )
 
 class DynamicShortcutViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,10 +54,14 @@ class DynamicShortcutViewModel(application: Application) : AndroidViewModel(appl
             val sessionActive = withContext(Dispatchers.IO) {
                 runCatching { DynamicShortcutCenter.activeSession(app) }.getOrDefault(false)
             }
+            val imported = withContext(Dispatchers.IO) {
+                runCatching { DynamicShortcutCenter.importedPins() }.getOrDefault(emptyList())
+            }
             _uiState.value = _uiState.value.copy(
                 hasPermission = allowed,
                 shizukuReady = shizukuReady,
                 sessionActive = sessionActive,
+                imported = imported,
             )
         }
     }
@@ -61,6 +70,20 @@ class DynamicShortcutViewModel(application: Application) : AndroidViewModel(appl
     fun collectAll() = runOperation {
         val count = DynamicShortcutCenter.collectAll(getApplication())
         _messages.send(DynamicShortcutMessage(R.string.dynamic_shortcuts_collected_n, count))
+    }
+
+    /** 点行启动：与选择页 / 搜索同一 `app.launchShortcut` 分发。 */
+    fun launchImported(ref: DynamicShortcutRef) {
+        DynamicShortcutCenter.launch(ref) { settled ->
+            if (!settled) _messages.trySend(DynamicShortcutMessage(R.string.dynamic_shortcuts_failed))
+        }
+    }
+
+    /** 行尾删除：只移除 Luno 的记录与本地图标，不影响系统 pin 与桌面图标。 */
+    fun removeImported(ref: DynamicShortcutRef) = runOperation {
+        DynamicShortcutCenter.removeImported(getApplication(), ref)
+        _messages.send(DynamicShortcutMessage(R.string.dynamic_shortcuts_removed, text = ref.label))
+        refreshPermission()
     }
 
     /**

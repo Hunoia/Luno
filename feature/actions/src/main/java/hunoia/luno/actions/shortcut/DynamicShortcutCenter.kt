@@ -11,6 +11,7 @@ import hunoia.luno.config.HomeSwitchSnapshotStore
 import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.DynamicShortcutRef
 import hunoia.luno.core.domain.HomeSwitchSnapshot
+import hunoia.luno.core.domain.SHORTCUT_SOURCE_PIN
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.runtime.surface.SurfaceDispatch
@@ -110,6 +111,7 @@ object DynamicShortcutCenter {
             appLabel = DynamicShortcuts.appLabelOf(context, info.`package`, info.userHandle),
             imported = true,
             iconPath = saved,
+            source = SHORTCUT_SOURCE_PIN,
         )
         DynamicShortcutRefsStore.update { it.upsertImported(ref) }
         DynamicShortcuts.notifyChanged(context)
@@ -161,6 +163,20 @@ object DynamicShortcutCenter {
         snapshot.navigationMode?.let { HomeRoleController.setNavigationMode(it) }
         if (restored) HomeSwitchSnapshotStore.clear()
         return restored
+    }
+
+    /** 已导入的 pin 拦截入口（管理列表用）：采集进来的不在此列。 */
+    suspend fun importedPins(): List<DynamicShortcutRef> =
+        DynamicShortcutRefsStore.imported().filter { it.source == SHORTCUT_SOURCE_PIN }
+
+    /**
+     * 删除一条导入记录：只移除引用与本地图标文件，不动系统 pin（无公开 unpin API）。
+     * 误删可重新添加 / 采集找回。
+     */
+    suspend fun removeImported(context: Context, ref: DynamicShortcutRef) {
+        DynamicShortcutRefsStore.update { it.remove(ref.identity) }
+        ref.iconPath?.let { ShortcutIconFiles.delete(it) }
+        DynamicShortcuts.notifyChanged(context)
     }
 
     /**

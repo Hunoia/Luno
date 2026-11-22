@@ -78,6 +78,10 @@ internal class EngineEditState(
     var useCustomTabs by mutableStateOf(
         (initial?.effectiveLaunch() as? SearchLaunch.Url)?.useCustomTabs ?: false,
     )
+    // URL 打开方式：Luno 小窗卡片（优先级高于 Custom Tabs）。
+    var useSmallWindow by mutableStateOf(
+        (initial?.effectiveLaunch() as? SearchLaunch.Url)?.useSmallWindow ?: false,
+    )
     // 跳转并注入查询词（参考 GestureEVO JUMP_TO_ACTIVITY / EXTERN_JUMP_LINK + autoInputEnter）。
     var targetActivity by mutableStateOf(
         (initial?.effectiveLaunch() as? SearchLaunch.Activity)?.targetActivity.orEmpty(),
@@ -103,6 +107,7 @@ internal class EngineEditState(
         val imageTargetPackage: String,
         val contentMode: EngineContentMode,
         val useCustomTabs: Boolean,
+        val useSmallWindow: Boolean,
         val targetActivity: String,
         val externLink: String,
         val autoInputEnter: Boolean,
@@ -121,6 +126,7 @@ internal class EngineEditState(
         imageTargetPackage = imageTargetPackage,
         contentMode = contentMode,
         useCustomTabs = useCustomTabs,
+        useSmallWindow = useSmallWindow,
         targetActivity = targetActivity,
         externLink = externLink,
         autoInputEnter = autoInputEnter,
@@ -138,6 +144,7 @@ internal class EngineEditState(
         imageTargetPackage != initialSnapshot.imageTargetPackage ||
         contentMode != initialSnapshot.contentMode ||
         useCustomTabs != initialSnapshot.useCustomTabs ||
+        useSmallWindow != initialSnapshot.useSmallWindow ||
         targetActivity != initialSnapshot.targetActivity ||
         externLink != initialSnapshot.externLink ||
         autoInputEnter != initialSnapshot.autoInputEnter
@@ -192,12 +199,17 @@ internal class EngineEditState(
             !targetMissing(targetPackage) && !imageTargetMissing
 
     fun buildLaunch(targetPackage: String): SearchLaunch = when (mode) {
-        EngineOpenMode.Default -> SearchLaunch.Url(template.trim(), useCustomTabs = useCustomTabs)
+        EngineOpenMode.Default -> SearchLaunch.Url(
+            template = template.trim(),
+            useCustomTabs = useCustomTabs,
+            useSmallWindow = useSmallWindow,
+        )
         EngineOpenMode.App -> SearchLaunch.Url(
             template = template.trim(),
             packageName = targetPackage,
             fallbackTemplate = fallback.trim(),
             useCustomTabs = useCustomTabs,
+            useSmallWindow = useSmallWindow,
         )
         EngineOpenMode.Chooser -> SearchLaunch.Chooser(template.trim())
         EngineOpenMode.Share -> SearchLaunch.Share(

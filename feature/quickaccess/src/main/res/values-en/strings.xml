@@ -90,6 +90,8 @@
     <string name="search_engine_url">URL template</string>
     <string name="search_engine_url_error">Template must contain %s</string>
     <string name="search_engine_url_options">URL open options</string>
+    <string name="search_engine_small_window">Open in small window</string>
+    <string name="search_engine_small_window_desc">Open the result page in a Luno small-window card; long-press images to save. Takes precedence over Custom Tabs</string>
     <string name="search_engine_custom_tabs">Open with Custom Tabs</string>
     <string name="search_engine_custom_tabs_desc">Open in an in-app browser tab for a faster experience; falls back to the system browser if the service is unavailable</string>
     <string name="search_engine_open_activity">Jump &amp; inject</string>

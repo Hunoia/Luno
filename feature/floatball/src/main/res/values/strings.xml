@@ -152,4 +152,16 @@
     <string name="activity_float_copied">已复制当前界面</string>
     <string name="activity_float_copy_failed">复制失败</string>
     <string name="result_direct_toast">已执行：%1$s</string>
+    <string name="web_card_forward">前进</string>
+    <string name="web_card_refresh">刷新</string>
+    <string name="web_card_save_image">保存到相册</string>
+    <string name="web_card_copy_link">复制链接</string>
+    <string name="web_card_saved">已保存到相册</string>
+    <string name="web_card_save_failed">保存失败</string>
+    <string name="web_card_retry">重试</string>
+    <string name="web_card_error">网页加载失败</string>
+    <string name="web_card_more">更多</string>
+    <string name="web_card_open_in_browser">在浏览器中打开</string>
+    <string name="web_card_copy_page_link">复制页面链接</string>
+    <string name="web_card_share_page">分享页面</string>
 </resources>

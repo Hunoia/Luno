@@ -87,4 +87,29 @@ class DynamicShortcutRefsTest {
         assertEquals("label-new", item.label)
         assertEquals("/new.png", item.iconPath)
     }
+
+    @Test
+    fun `upsert imported keeps pin source and collect keeps snapshot source`() {
+        val pin = ref("a").copy(source = SHORTCUT_SOURCE_PIN)
+        val updated = DynamicShortcutRefs(listOf(pin))
+            .upsertImported(ref("b").copy(source = SHORTCUT_SOURCE_COLLECT))
+        val collected = updated.collectAll(
+            listOf(ref("a", iconPath = "/refreshed.png"), ref("b", iconPath = "/b.png")),
+        )
+
+        val byId = collected.items.associateBy { it.shortcutId }
+        // 重新采集不降级来源：pin 拦截进来的仍归 pin。
+        assertEquals(SHORTCUT_SOURCE_PIN, byId.getValue("a").source)
+        assertEquals(SHORTCUT_SOURCE_COLLECT, byId.getValue("b").source)
+    }
+
+    @Test
+    fun `remove deletes only the matching identity`() {
+        val refs = DynamicShortcutRefs(listOf(ref("a", imported = true), ref("b", imported = true)))
+        val removed = refs.remove(DynamicShortcutIdentity("com.example", "a", 0))
+
+        val byId = removed.items.associateBy { it.shortcutId }
+        assertFalse(byId.containsKey("a"))
+        assertTrue(byId.containsKey("b"))
+    }
 }

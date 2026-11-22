@@ -2,6 +2,10 @@ package hunoia.luno.core.domain
 
 import kotlinx.serialization.Serializable
 
+/** 导入来源：pin = pin 拦截（应用内「添加到桌面」受理）；collect = 全量采集。 */
+const val SHORTCUT_SOURCE_PIN: String = "pin"
+const val SHORTCUT_SOURCE_COLLECT: String = "collect"
+
 /**
  * 已读取到本机的动态快捷方式引用。
  *
@@ -24,6 +28,8 @@ data class DynamicShortcutRef(
     val imported: Boolean = false,
     /** 本地图标文件。系统入口更新后图标不跟随，重读时按最新定义覆盖。 */
     val iconPath: String? = null,
+    /** 导入来源（[SHORTCUT_SOURCE_PIN] / [SHORTCUT_SOURCE_COLLECT]）；旧记录回 collect。 */
+    val source: String = SHORTCUT_SOURCE_COLLECT,
 ) {
     val identity: DynamicShortcutIdentity
         get() = DynamicShortcutIdentity(packageName, shortcutId, userSerial)
@@ -51,11 +57,15 @@ data class DynamicShortcutRefs(
      *
      * 采集把系统快照里的每个入口都标为已导入、可启动。已导入但系统已消失的记录保留
      * （用户可重新采集时移除），不静默丢数据。一次采集后无需再持默认桌面权限。
+     * 已存在的记录保留原来源（pin 拦截进来的不因重新采集降级为 collect）。
      */
     fun collectAll(snapshot: List<DynamicShortcutRef>): DynamicShortcutRefs {
         if (snapshot.isEmpty()) return this
         val incoming = snapshot.associateBy { it.identity }
-        val refreshed = snapshot.map { it.copy(imported = true) }
+        val existing = items.associateBy { it.identity }
+        val refreshed = snapshot.map {
+            it.copy(imported = true, source = existing[it.identity]?.source ?: SHORTCUT_SOURCE_COLLECT)
+        }
         val orphanImported = items.filter { it.imported && incoming[it.identity] == null }
         return copy(items = refreshed + orphanImported)
     }
@@ -76,6 +86,10 @@ data class DynamicShortcutRefs(
         }
         return copy(items = refreshed)
     }
+
+    /** 移除一条记录（已导入管理里的删除）：只删引用，不动系统 pin。 */
+    fun remove(identity: DynamicShortcutIdentity): DynamicShortcutRefs =
+        copy(items = items.filterNot { it.identity == identity })
 }
 
 /**

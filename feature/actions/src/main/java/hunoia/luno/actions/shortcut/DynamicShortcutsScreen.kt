@@ -1,6 +1,8 @@
 package hunoia.luno.actions.shortcut
 
+import android.graphics.BitmapFactory
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.AppShortcut
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -8,6 +10,8 @@ import androidx.compose.material.icons.filled.Undo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -16,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -50,9 +55,11 @@ fun DynamicShortcutsScreen(
 
     LaunchedEffect(vm) {
         vm.messages.collect { message ->
-            val text = message.count?.let { count ->
-                resources.getString(message.resId, count)
-            } ?: resources.getString(message.resId)
+            val text = when {
+                message.text != null -> message.text
+                message.count != null -> resources.getString(message.resId, message.count)
+                else -> resources.getString(message.resId)
+            }
             showToast(text)
         }
     }
@@ -100,6 +107,46 @@ fun DynamicShortcutsScreen(
                     enabled = !state.busy,
                     onClick = vm::toggleDefaultHome,
                 )
+            }
+        }
+
+        if (state.imported.isNotEmpty()) {
+            item(key = "imported") {
+                // 组首说明行 + 每条导入：点行启动，行尾直接删（只移除 Luno 的记录）。
+                val rows = state.imported.size + 1
+                LunoGroup {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.dynamic_shortcuts_imported_title),
+                        subtitle = stringResource(R.string.dynamic_shortcuts_imported_hint),
+                        shape = segmentedShape(0, rows),
+                    )
+                    state.imported.forEachIndexed { index, ref ->
+                        val iconBitmap = remember(ref.iconPath) {
+                            ref.iconPath?.let { path ->
+                                runCatching {
+                                    BitmapFactory.decodeFile(path)?.asImageBitmap()
+                                }.getOrNull()
+                            }
+                        }
+                        LunoSettingsRow(
+                            title = ref.label,
+                            subtitle = ref.appLabel,
+                            icon = if (iconBitmap == null) Icons.Default.AppShortcut else null,
+                            iconBitmap = iconBitmap,
+                            shape = segmentedShape(index + 1, rows),
+                            enabled = !state.busy,
+                            onClick = { vm.launchImported(ref) },
+                            trailing = {
+                                LunoIconButton(
+                                    icon = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.dynamic_shortcuts_remove),
+                                    onClick = { vm.removeImported(ref) },
+                                    enabled = !state.busy,
+                                )
+                            },
+                        )
+                    }
+                }
             }
         }
     }

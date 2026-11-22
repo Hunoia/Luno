@@ -97,6 +97,8 @@ data class QuickSearchSettings(
     val asciiEnterSearch: Boolean = true,
     /** 结果列表样式；纯展示字段，不入归一化（改样式不该触发重搜）。 */
     val listStyle: QuickSearchListStyle = QuickSearchListStyle.Flat,
+    /** 勾了「小窗打开」的引擎用的小窗卡片尺寸（横竖屏各一份）。 */
+    val webCard: WebCardSettings = WebCardSettings(),
 )
 
 /** 历史缓存上限；空输入只展最近 [BLANK_RECENT_LIMIT] 条，搜索时匹配的全部参展。 */

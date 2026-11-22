@@ -6,7 +6,9 @@ import hunoia.luno.config.model.ActivityFloatSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ClipFloatSettings
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.WebCardSettings
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /** 悬浮球配置门面（Surface 唯一配置入口）。 */
 object FloatBallSettingsCenter {
@@ -37,5 +39,13 @@ object FloatBallSettingsCenter {
         ConfigProvider.updateActionSettings {
             it.copy(floatBall = it.floatBall.copy(activityFloat = settings))
         }
+    }
+
+    /** 搜索小窗尺寸（横竖屏各一份，存在 `QuickSearchSettings.webCard`）。 */
+    suspend fun getWebCardSettings(): WebCardSettings =
+        ConfigProvider.quickSearchSettings.first().webCard
+
+    suspend fun updateWebCardSettings(settings: WebCardSettings) {
+        ConfigProvider.updateQuickSearchSettings { it.copy(webCard = settings) }
     }
 }

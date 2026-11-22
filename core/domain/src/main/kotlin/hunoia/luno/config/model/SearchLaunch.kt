@@ -23,6 +23,11 @@ sealed interface SearchLaunch {
         val fallbackTemplate: String = "",
         /** 用 Custom Tabs 打开（[packageName] 为空时生效），否则系统浏览器/ACTION_VIEW。 */
         val useCustomTabs: Boolean = false,
+        /**
+         * 用 Luno 小窗卡片（WebView）打开，优先级高于 [useCustomTabs] 与指定应用：
+         * 卡片即用即关，长按页面图片可保存。设置页只在默认浏览器模式展示该开关。
+         */
+        val useSmallWindow: Boolean = false,
     ) : SearchLaunch
 
     /** 每次弹出系统选择器。 */

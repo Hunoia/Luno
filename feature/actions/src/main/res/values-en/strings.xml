@@ -86,5 +86,9 @@
     <string name="dynamic_shortcuts_restore_hint">Switch back to the previous home, collecting once more before restoring navigation</string>
     <string name="dynamic_shortcuts_switched">Temp home active. Use "Add to home screen" in apps, then come back to restore</string>
     <string name="dynamic_shortcuts_restored">Previous home restored</string>
+    <string name="dynamic_shortcuts_imported_title">Imported</string>
+    <string name="dynamic_shortcuts_imported_hint">Pin-intercepted entries (in-app Add to home screen): tap to launch; trailing button removes the Luno record only</string>
+    <string name="dynamic_shortcuts_remove">Remove</string>
+    <string name="dynamic_shortcuts_removed">Removed: %1$s</string>
 <string name="dynamic_shortcuts_failed">Something went wrong, try again</string>
 </resources>

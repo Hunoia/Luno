@@ -70,6 +70,8 @@ sealed interface SearchAction {
         val fallbackUrl: String = "",
         /** 用 Custom Tabs 打开（[packageName] 为空时生效）。 */
         val useCustomTabs: Boolean = false,
+        /** 用 Luno 小窗卡片（WebView）打开，优先级最高。 */
+        val useSmallWindow: Boolean = false,
     ) : SearchAction
 
     /**

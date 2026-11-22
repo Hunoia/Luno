@@ -2,6 +2,7 @@ package hunoia.luno.bridge.ui
 
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.widget.Toast
 import androidx.annotation.StringRes
 import hunoia.luno.config.model.ToastPresentation
@@ -44,10 +45,19 @@ fun showSystemToastCompat(text: String, long: Boolean = false) {
 /**
  * 统一走系统 Toast：悬浮窗 / 无障碍 overlay 收起时也能显示。
  * 调用方可能来自任意线程，这里统一切到主线程再弹。
+ *
+ * **熄屏丢弃**：系统 Toast 的时长计时跑在 `uptimeMillis` 上，深度睡眠期间不走表——
+ * 熄屏瞬间弹的 toast 会挂住串行队列（后续 toast 全排在后面）直到亮屏才显示、
+ * 语义早已过期。所以非交互态（熄屏 / AOD）直接丢弃，不进队列。
+ * 岛 / 胶囊 / 通知呈现不走这里，不受影响。
  */
 private fun showSystemToast(text: String, long: Boolean) {
     handler.post {
         val context = runCatching { AppContext.get() }.getOrNull() ?: return@post
+        val interactive = runCatching {
+            context.getSystemService(PowerManager::class.java)?.isInteractive
+        }.getOrNull() ?: true
+        if (!interactive) return@post
         runCatching {
             Toast.makeText(
                 context,

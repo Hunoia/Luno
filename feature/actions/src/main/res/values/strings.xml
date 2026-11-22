@@ -86,5 +86,9 @@
     <string name="dynamic_shortcuts_restore_hint">切回切换前的桌面，先采集一遍再还原导航方式</string>
     <string name="dynamic_shortcuts_switched">已切换为临时桌面，去应用里「添加到桌面」，完成后回本页恢复</string>
     <string name="dynamic_shortcuts_restored">已恢复原桌面</string>
+    <string name="dynamic_shortcuts_imported_title">已导入</string>
+    <string name="dynamic_shortcuts_imported_hint">应用内「添加到桌面」进来的入口：点按启动，行尾删除只移除 Luno 的记录</string>
+    <string name="dynamic_shortcuts_remove">删除</string>
+    <string name="dynamic_shortcuts_removed">已删除「%1$s」</string>
 <string name="dynamic_shortcuts_failed">操作失败，请重试</string>
 </resources>

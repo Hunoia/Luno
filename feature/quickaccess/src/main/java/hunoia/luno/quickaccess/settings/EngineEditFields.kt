@@ -129,11 +129,26 @@ internal fun EngineEditFields(
         if (state.mode == EngineOpenMode.Default) {
             LunoGroup(title = stringResource(R.string.search_engine_url_options)) {
                 LunoSwitchRow(
+                    title = stringResource(R.string.search_engine_small_window),
+                    subtitle = stringResource(R.string.search_engine_small_window_desc),
+                    checked = state.useSmallWindow,
+                    onCheckedChange = {
+                        state.useSmallWindow = it
+                        // 两个打开方式互斥：分发里小窗优先级更高，同时开着只会造成
+                        // 「以为走 Custom Tabs 实际进小窗」的困惑，联动互关。
+                        if (it) state.useCustomTabs = false
+                    },
+                    shape = segmentedShape(0, 2),
+                )
+                LunoSwitchRow(
                     title = stringResource(R.string.search_engine_custom_tabs),
                     subtitle = stringResource(R.string.search_engine_custom_tabs_desc),
                     checked = state.useCustomTabs,
-                    onCheckedChange = { state.useCustomTabs = it },
-                    shape = segmentedShape(0, 1),
+                    onCheckedChange = {
+                        state.useCustomTabs = it
+                        if (it) state.useSmallWindow = false
+                    },
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

@@ -25,6 +25,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.runtime.surface.GestureCommand
+import hunoia.luno.runtime.surface.WebCardDispatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -61,6 +62,9 @@ internal fun launchSearchUrl(context: Context, action: SearchAction.OpenUrl): Bo
         }
         return runCatching { context.startActivity(launch) }.isSuccess
     }
+    // 小窗卡片：引擎勾了「小窗打开」优先级最高（忽略指定包与 Custom Tabs）。
+    // 拉不起小窗（罕见，服务不可用等）回退普通打开，保证链接一定到达。
+    if (action.useSmallWindow && WebCardDispatch.show?.invoke(context, action.url) == true) return true
     // 自定义标签页：仅无指定包、非选择器时尝试；失败回退普通打开。
     // 指定包（App 模式）不能走 Custom Tabs：Custom Tabs 只会拉起默认浏览器的标签页，
     // 与「在指定应用里打开」互斥，所以设置页在 App 模式下不展示该开关。

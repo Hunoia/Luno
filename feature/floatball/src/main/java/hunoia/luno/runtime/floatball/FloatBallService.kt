@@ -33,6 +33,7 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActivityFloatSettings
+import hunoia.luno.config.model.WebCardSettings
 import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.ClipFloatSettings
@@ -164,6 +165,12 @@ class FloatBallService : Service() {
 
     /** 当前界面悬浮窗挂窗请求在途；与 [clipFloatPending] 同口径，期间服务不得自停。 */
     private var activityFloatPending = false
+
+    /** 搜索小窗：引擎「小窗打开」拉起的 WebView 悬浮窗；关闭后置空。 */
+    private var webCard: WebCardWindow? = null
+
+    /** 搜索小窗挂窗请求在途；与 [clipFloatPending] 同口径，期间服务不得自停。 */
+    private var webCardPending = false
 
     /**
      * 已收到首个 [onStartCommand]（intent 已处理）。此前（onCreate 首帧）禁止自停判定：
@@ -350,6 +357,7 @@ class FloatBallService : Service() {
                 ballWindow.setHidden(true)
                 closeClipFloat()
                 closeActivityFloat()
+                closeWebCard()
                 notificationSlot.window.setHidden(true)
                 resultSlot.window.setHidden(true)
                 notificationSlot.hideCapsule()
@@ -401,6 +409,16 @@ class FloatBallService : Service() {
             }
             return START_STICKY
         }
+        if (intent?.action == ACTION_SHOW_WEB_CARD) {
+            val url = intent.getStringExtra(EXTRA_WEB_CARD_URL).orEmpty()
+            if (url.isNotBlank()) showWebCardWindow(url)
+            refreshWindows()
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            return START_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             // 总闸关恒停；否则只要还有任一想用的功能（球 / 通知胶囊 / 直执行规则 /
             // 在途悬浮窗）就保留宿主。规则要有东西读，才值得留一个前台服务。
@@ -408,7 +426,7 @@ class FloatBallService : Service() {
                 (settings.enabled || settings.notificationCapsule.enabled ||
                     needsHostForRecognition || clipFloat?.isShowing() == true ||
                     clipFloatPending || activityFloat?.isShowing() == true ||
-                    activityFloatPending)
+                    activityFloatPending || webCard?.isShowing() == true || webCardPending)
             ) {
                 refreshWindows()
                 return START_STICKY
@@ -446,6 +464,8 @@ class FloatBallService : Service() {
         clipFloat = null
         activityFloat?.detach()
         activityFloat = null
+        webCard?.detach()
+        webCard = null
         stopArrivalAlerts()
         settingsJob?.cancel()
         imeJob?.cancel()
@@ -525,7 +545,8 @@ class FloatBallService : Service() {
             (!settings.enabled && !settings.notificationCapsule.enabled &&
                 !needsHostForRecognition)) &&
             clipFloat?.isShowing() != true && !clipFloatPending &&
-            activityFloat?.isShowing() != true && !activityFloatPending
+            activityFloat?.isShowing() != true && !activityFloatPending &&
+            webCard?.isShowing() != true && !webCardPending
 
     /** 是否有「必须由本服务执行」的规则：直执行档且至少有一个来源在读。 */
     private val needsHostForRecognition: Boolean
@@ -595,6 +616,7 @@ class FloatBallService : Service() {
             // 转屏后按新朝向的持久化落点重摆两个临时悬浮窗（软隐藏中 alpha=0，重摆无害）。
             clipFloat?.onConfigurationChanged()
             activityFloat?.onConfigurationChanged()
+            webCard?.onConfigurationChanged()
         }
         ensureClipboardPoller()
 
@@ -671,6 +693,7 @@ class FloatBallService : Service() {
         // 悬浮窗和球一样给面板让位：面板是当前操作面，贴着它的小卡会挡手。
         clipFloat?.softHide()
         activityFloat?.softHide()
+        webCard?.softHide()
         refreshWindows()
     }
 
@@ -678,6 +701,7 @@ class FloatBallService : Service() {
         visibility.onPanelDismissed()
         clipFloat?.restore()
         activityFloat?.restore()
+        webCard?.restore()
         refreshWindows()
     }
 
@@ -1632,6 +1656,7 @@ class FloatBallService : Service() {
         if (hidden) {
             closeClipFloat()
             closeActivityFloat()
+            closeWebCard()
             // 不探头、不补播：队列与徽标保留（决策 9）。
             notificationSlot.hideCapsule()
             resultSlot.hideCapsule()
@@ -1852,6 +1877,7 @@ class FloatBallService : Service() {
             delay(CLIP_FLOAT_IDLE_STOP_MS)
             if (clipFloat?.isShowing() == true || clipFloatPending) return@launch
             if (activityFloat?.isShowing() == true || activityFloatPending) return@launch
+            if (webCard?.isShowing() == true || webCardPending) return@launch
             if (!settings.enabled && !settings.notificationCapsule.enabled &&
                 !needsHostForRecognition
             ) {
@@ -1985,6 +2011,62 @@ class FloatBallService : Service() {
                 runCatching {
                     hunoia.luno.domain.floatball.FloatBallSettingsCenter
                         .updateActivityFloatSettings(settings)
+                }
+            }
+        }
+    }
+
+    // ---- 搜索小窗 ----
+
+    /** 引擎「小窗打开」：单窗 WebView 卡，重复触发只换导航目标。 */
+    private fun showWebCardWindow(url: String) {
+        webCardPending = true
+        scope.launch {
+            try {
+                attachWebCard(url)
+            } finally {
+                webCardPending = false
+            }
+        }
+    }
+
+    private suspend fun attachWebCard(url: String) {
+        val settings = runCatching {
+            hunoia.luno.domain.floatball.FloatBallSettingsCenter.getWebCardSettings()
+        }.getOrNull() ?: WebCardSettings()
+        val window = webCard ?: WebCardWindow(this@FloatBallService, webCardHost).also {
+            webCard = it
+            SurfaceController.register(it)
+        }
+        window.show(url, settings)
+        if (!window.isShowing()) {
+            SurfaceController.unregister(window.surfaceId)
+            webCard = null
+        }
+    }
+
+    private fun closeWebCard() {
+        val window = webCard ?: return
+        window.close()
+        if (webCard === window) {
+            SurfaceController.unregister(window.surfaceId)
+            webCard = null
+        }
+    }
+
+    private val webCardHost = object : WebCardWindow.Host {
+        override fun onClose() {
+            webCard?.let { SurfaceController.unregister(it.surfaceId) }
+            webCard = null
+            maybeStopIfIdle()
+        }
+
+        override fun onSettingsChanged(settings: WebCardSettings) {
+            if (destroying) return
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    hunoia.luno.domain.floatball.FloatBallSettingsCenter
+                        .updateWebCardSettings(settings)
                 }
             }
         }
@@ -2803,6 +2885,10 @@ class FloatBallService : Service() {
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
         private const val EXTRA_CLIP_ID = "clip_float_id"
 
+        /** 搜索小窗（引擎「小窗打开」）：开窗命令 + 导航目标。 */
+        const val ACTION_SHOW_WEB_CARD = "hunoia.luno.action.SHOW_WEB_CARD"
+        private const val EXTRA_WEB_CARD_URL = "web_card_url"
+
         const val ACTION_SHOW_ACTIVITY_FLOAT = "hunoia.luno.action.SHOW_ACTIVITY_FLOAT"
 
         /**
@@ -2881,6 +2967,24 @@ class FloatBallService : Service() {
                         .setAction(ACTION_SHOW_ACTIVITY_FLOAT),
                 )
             }.onFailure { Log.e(TAG, "show activity float FAILED", it) }
+        }
+
+        /**
+         * 搜索小窗「小窗打开」：开窗 + 导航目标一条命令带走；宿主已在跑时直接进程内调用。
+         * @return 是否成功发起；false 时调用方回退普通打开。
+         */
+        fun showWebCard(context: Context, url: String): Boolean {
+            currentRef?.get()?.let { running ->
+                running.showWebCardWindow(url)
+                return true
+            }
+            return runCatching {
+                context.startForegroundService(
+                    Intent(context, FloatBallService::class.java)
+                        .setAction(ACTION_SHOW_WEB_CARD)
+                        .putExtra(EXTRA_WEB_CARD_URL, url),
+                )
+            }.isSuccess
         }
 
         /** IME 兜底轮询固定周期：非退避（退避会把键盘避让延迟到 30s，等于没有）。 */

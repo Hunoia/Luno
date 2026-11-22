@@ -30,6 +30,7 @@ fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
             ?.fillSearchQuery(query)
             .orEmpty(),
         useCustomTabs = useCustomTabs,
+        useSmallWindow = useSmallWindow,
     )
 
     is Chooser -> SearchAction.OpenUrl(

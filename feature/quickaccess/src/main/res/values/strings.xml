@@ -90,6 +90,8 @@
     <string name="search_engine_url">网址模板</string>
     <string name="search_engine_url_error">模板必须包含 %s</string>
     <string name="search_engine_url_options">URL 打开选项</string>
+    <string name="search_engine_small_window">小窗打开</string>
+    <string name="search_engine_small_window_desc">在 Luno 小窗卡片内打开结果页，长按图片可保存；优先于 Custom Tabs</string>
     <string name="search_engine_custom_tabs">Custom Tabs 打开</string>
     <string name="search_engine_custom_tabs_desc">用应用内浏览器标签页打开，体验更快；服务不可用时回退系统浏览器</string>
     <string name="search_engine_open_activity">跳转并注入</string>

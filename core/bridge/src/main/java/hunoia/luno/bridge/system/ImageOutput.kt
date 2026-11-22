@@ -67,6 +67,66 @@ object ImageOutput {
             Log.e(Tag, "save image failed: ${it.message}")
         }.getOrNull()
 
+    /** MIME → 图库文件扩展名；识别不了的落 `.img`（媒体扫描仍按 MIME 入库）。 */
+    private fun mimeToExtension(mime: String): String = when (mime.substringBefore('/').lowercase()) {
+        "image" -> when (mime.substringAfter('/').lowercase()) {
+            "jpeg", "jpg" -> "jpg"
+            "png" -> "png"
+            "webp" -> "webp"
+            "gif" -> "gif"
+            "bmp" -> "bmp"
+            "heic", "heif" -> "heif"
+            else -> "img"
+        }
+        else -> "img"
+    }
+
+    /**
+     * 已编码的图片字节写入图库（Pictures/Luno），返回 content URI。
+     * WebView 长按存图等「拿到的就是原始字节」的路径共用：不再要求先解码成 Bitmap
+     * （动图/大图重编码既慢又损质量）。
+     */
+    fun saveToGallery(
+        context: Context,
+        bytes: ByteArray,
+        mime: String,
+        prefix: String = "luno",
+    ): Uri? = runCatching {
+        val safeMime = mime.takeIf { it.isNotBlank() } ?: "image/*"
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(
+                MediaStore.Images.Media.DISPLAY_NAME,
+                "${prefix}_${System.currentTimeMillis()}.${mimeToExtension(safeMime)}",
+            )
+            put(MediaStore.Images.Media.MIME_TYPE, safeMime)
+            put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                "${Environment.DIRECTORY_PICTURES}/Luno",
+            )
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri == null) {
+            Log.w(Tag, "save image bytes: MediaStore insert failed")
+            return@runCatching null
+        }
+        val written = runCatching {
+            resolver.openOutputStream(uri)?.use { it.write(bytes) } != null
+        }.getOrDefault(false)
+        if (!written) {
+            Log.w(Tag, "save image bytes: write failed")
+            runCatching { resolver.delete(uri, null, null) }
+            return@runCatching null
+        }
+        values.clear()
+        values.put(MediaStore.Images.Media.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+        uri
+    }.onFailure {
+        Log.e(Tag, "save image bytes failed: ${it.message}")
+    }.getOrNull()
+
     /** 写入缓存目录，经 FileProvider 供分享；顺手清理旧文件，不污染图库。 */
     fun saveToCache(
         context: Context,

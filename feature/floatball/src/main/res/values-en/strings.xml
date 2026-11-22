@@ -117,4 +117,16 @@
     <string name="clip_float_copy_failed">Copy failed</string>
     <string name="clip_float_text">Text</string>
     <string name="result_direct_toast">Ran: %1$s</string>
+    <string name="web_card_forward">Forward</string>
+    <string name="web_card_refresh">Refresh</string>
+    <string name="web_card_save_image">Save to gallery</string>
+    <string name="web_card_copy_link">Copy link</string>
+    <string name="web_card_saved">Saved to gallery</string>
+    <string name="web_card_save_failed">Save failed</string>
+    <string name="web_card_retry">Retry</string>
+    <string name="web_card_error">Failed to load page</string>
+    <string name="web_card_more">More</string>
+    <string name="web_card_open_in_browser">Open in browser</string>
+    <string name="web_card_copy_page_link">Copy page link</string>
+    <string name="web_card_share_page">Share page</string>
 </resources>
