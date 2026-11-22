@@ -122,6 +122,11 @@
     <string name="grid_panel_clipboard_pasted_via_clipboard">该输入框只支持粘贴，已使用剪贴板</string>
     <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
     <string name="grid_panel_recents_empty">暂无最近应用记录</string>
+    <string name="grid_panel_internal_current_activity">当前界面</string>
+    <string name="grid_panel_activity_empty">暂未检测到界面</string>
+    <string name="grid_panel_activity_copy">复制</string>
+    <string name="grid_panel_activity_pin_float">钉悬浮</string>
+    <string name="grid_panel_activity_copy_failed">复制失败</string>
     <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
     <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
     <string name="grid_panel_media_previous">上一曲</string>

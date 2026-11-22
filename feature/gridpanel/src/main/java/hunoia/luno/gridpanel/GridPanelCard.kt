@@ -79,6 +79,7 @@ import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.PanelBlurHost
+import hunoia.luno.gridpanel.ui.BlurFallbackAlpha
 import hunoia.luno.gridpanel.ui.BlurState
 import hunoia.luno.gridpanel.ui.PanelDockAnchor
 import hunoia.luno.gridpanel.ui.PageDotSlot
@@ -267,6 +268,8 @@ fun GridPanelCard(
             dockAnchor.cardHeightPx = metrics.cardH
             dockAnchor.progress = appearance
             dockAnchor.appearSlide = appearDir * appearSlidePx
+            // 缩放原点随卡一并下发：底栏才能绕同一屏幕触发点缩放，与卡严格同步。
+            dockAnchor.appearOrigin = appearOrigin
         }
     }
     LaunchedEffect(targetPosX, targetPosY) {
@@ -357,7 +360,7 @@ fun GridPanelCard(
     val cardColor = gridPanelCardColor
     val cardBackgroundAlpha = when {
         blurRadiusPx <= 0 -> cardAlpha
-        blurState.value == BlurState.Unavailable -> maxOf(cardAlpha, 0.92f)
+        blurState.value == BlurState.Unavailable -> maxOf(cardAlpha, BlurFallbackAlpha)
         else -> cardAlpha
     }
 

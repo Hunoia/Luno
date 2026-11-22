@@ -80,5 +80,11 @@
     <string name="dynamic_shortcuts_collect">Collect all dynamic shortcuts</string>
     <string name="dynamic_shortcuts_collect_hint">Tap once while set as the default home to collect every dynamic and pinned entry</string>
     <string name="dynamic_shortcuts_collected_n">Collected %1$d</string>
-    <string name="dynamic_shortcuts_failed">Something went wrong, try again</string>
+        <string name="dynamic_shortcuts_auto_switch">Auto-switch collect</string>
+    <string name="dynamic_shortcuts_auto_switch_hint">Switch to the temp home in one tap; come back to restore the original home and navigation</string>
+    <string name="dynamic_shortcuts_restore">Restore previous home</string>
+    <string name="dynamic_shortcuts_restore_hint">Switch back to the previous home, collecting once more before restoring navigation</string>
+    <string name="dynamic_shortcuts_switched">Temp home active. Use "Add to home screen" in apps, then come back to restore</string>
+    <string name="dynamic_shortcuts_restored">Previous home restored</string>
+<string name="dynamic_shortcuts_failed">Something went wrong, try again</string>
 </resources>

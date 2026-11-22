@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.core.content.getSystemService
 import hunoia.luno.floatball.R
 import hunoia.luno.core.domain.AppLaunchAction
+import hunoia.luno.core.domain.ForegroundActivity
 import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
@@ -31,6 +32,7 @@ import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.ActivityFloatSettings
 import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.ClipFloatSettings
@@ -55,6 +57,7 @@ import hunoia.luno.runtime.floatball.alert.AlertEnvironment
 import hunoia.luno.runtime.floatball.alert.AlertOverlayWindow
 import hunoia.luno.runtime.floatball.alert.AlertRingGeometry
 import hunoia.luno.runtime.floatball.alert.AlertWindowKind
+import hunoia.luno.runtime.floatball.alert.RippleSpec
 import hunoia.luno.runtime.floatball.alert.buildPlan
 import hunoia.luno.runtime.floatball.alert.shouldPlay
 import hunoia.luno.runtime.floatball.inbox.BallInboxAction
@@ -155,6 +158,12 @@ class FloatBallService : Service() {
 
     /** 悬浮窗显示请求在途（异步解析 + 挂窗）；为真时服务不得自停，否则窗口挂一半被拆。 */
     private var clipFloatPending = false
+
+    /** 当前界面悬浮窗：单窗，内容实时读 ForegroundActivityHub；关闭后置空。 */
+    private var activityFloat: ActivityFloatWindow? = null
+
+    /** 当前界面悬浮窗挂窗请求在途；与 [clipFloatPending] 同口径，期间服务不得自停。 */
+    private var activityFloatPending = false
 
     /**
      * 已收到首个 [onStartCommand]（intent 已处理）。此前（onCreate 首帧）禁止自停判定：
@@ -340,6 +349,7 @@ class FloatBallService : Service() {
                 clipboardPollJob = null
                 ballWindow.setHidden(true)
                 closeClipFloat()
+                closeActivityFloat()
                 notificationSlot.window.setHidden(true)
                 resultSlot.window.setHidden(true)
                 notificationSlot.hideCapsule()
@@ -382,13 +392,23 @@ class FloatBallService : Service() {
             }
             return START_STICKY
         }
+        if (intent?.action == ACTION_SHOW_ACTIVITY_FLOAT) {
+            showActivityFloatWindow()
+            refreshWindows()
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            return START_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             // 总闸关恒停；否则只要还有任一想用的功能（球 / 通知胶囊 / 直执行规则 /
             // 在途悬浮窗）就保留宿主。规则要有东西读，才值得留一个前台服务。
             if (gestureEnabledSnapshot &&
                 (settings.enabled || settings.notificationCapsule.enabled ||
                     needsHostForRecognition || clipFloat?.isShowing() == true ||
-                    clipFloatPending)
+                    clipFloatPending || activityFloat?.isShowing() == true ||
+                    activityFloatPending)
             ) {
                 refreshWindows()
                 return START_STICKY
@@ -424,6 +444,8 @@ class FloatBallService : Service() {
         currentRef = null
         clipFloat?.detach()
         clipFloat = null
+        activityFloat?.detach()
+        activityFloat = null
         stopArrivalAlerts()
         settingsJob?.cancel()
         imeJob?.cancel()
@@ -502,7 +524,8 @@ class FloatBallService : Service() {
         (!gestureEnabledSnapshot ||
             (!settings.enabled && !settings.notificationCapsule.enabled &&
                 !needsHostForRecognition)) &&
-            clipFloat?.isShowing() != true && !clipFloatPending
+            clipFloat?.isShowing() != true && !clipFloatPending &&
+            activityFloat?.isShowing() != true && !activityFloatPending
 
     /** 是否有「必须由本服务执行」的规则：直执行档且至少有一个来源在读。 */
     private val needsHostForRecognition: Boolean
@@ -567,7 +590,12 @@ class FloatBallService : Service() {
     }
 
     private fun refreshWindowsLocked() {
-        if (syncOrientation()) updateBubbleAnchors()
+        if (syncOrientation()) {
+            updateBubbleAnchors()
+            // 转屏后按新朝向的持久化落点重摆两个临时悬浮窗（软隐藏中 alpha=0，重摆无害）。
+            clipFloat?.onConfigurationChanged()
+            activityFloat?.onConfigurationChanged()
+        }
         ensureClipboardPoller()
 
         val sceneAllowsBall = canDrawOverlays() && sceneAllows(VisibilityTargets.FLOAT_BALL)
@@ -642,12 +670,14 @@ class FloatBallService : Service() {
         visibility.onPanelShown()
         // 悬浮窗和球一样给面板让位：面板是当前操作面，贴着它的小卡会挡手。
         clipFloat?.softHide()
+        activityFloat?.softHide()
         refreshWindows()
     }
 
     private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
         visibility.onPanelDismissed()
         clipFloat?.restore()
+        activityFloat?.restore()
         refreshWindows()
     }
 
@@ -725,6 +755,15 @@ class FloatBallService : Service() {
                 onFinished = {},
             )
 
+            NotificationAlertEffect.EdgeFlow -> alertOverlay.show(
+                kind = AlertWindowKind.EdgeFlow,
+                plan = plan,
+                colorSpec = alertColorSpec(),
+                ring = null,
+                onFinished = {},
+                secondColor = settings.notificationCapsule.alert.edgeFlow.secondColor,
+            )
+
             NotificationAlertEffect.TopParticles -> alertOverlay.show(
                 kind = AlertWindowKind.TopParticles,
                 plan = plan,
@@ -744,6 +783,31 @@ class FloatBallService : Service() {
                         centerY = anchor.centerY,
                         ballPx = DensityProvider.dp2px(settings.sizeDp),
                     ),
+                    onFinished = {},
+                )
+            }
+
+            NotificationAlertEffect.FullRipple -> {
+                // 锚点：通知球心（球不可见则本次不播）或屏幕中心（ballPx = 0，从屏心起波）。
+                val geometry = if ((plan.spec as RippleSpec).centerAtBall) {
+                    val anchor = slot.window.visibleRectOnScreen() ?: return
+                    AlertRingGeometry(
+                        centerX = anchor.centerX,
+                        centerY = anchor.centerY,
+                        ballPx = DensityProvider.dp2px(settings.sizeDp),
+                    )
+                } else {
+                    AlertRingGeometry(
+                        centerX = DensityProvider.screenWidthPx / 2,
+                        centerY = DensityProvider.screenHeightPx / 2,
+                        ballPx = 0,
+                    )
+                }
+                alertOverlay.show(
+                    kind = AlertWindowKind.FullRipple,
+                    plan = plan,
+                    colorSpec = alertColorSpec(),
+                    ring = geometry,
                     onFinished = {},
                 )
             }
@@ -1567,6 +1631,7 @@ class FloatBallService : Service() {
         resultSlot.window.setHidden(hidden)
         if (hidden) {
             closeClipFloat()
+            closeActivityFloat()
             // 不探头、不补播：队列与徽标保留（决策 9）。
             notificationSlot.hideCapsule()
             resultSlot.hideCapsule()
@@ -1786,6 +1851,7 @@ class FloatBallService : Service() {
         scope.launch {
             delay(CLIP_FLOAT_IDLE_STOP_MS)
             if (clipFloat?.isShowing() == true || clipFloatPending) return@launch
+            if (activityFloat?.isShowing() == true || activityFloatPending) return@launch
             if (!settings.enabled && !settings.notificationCapsule.enabled &&
                 !needsHostForRecognition
             ) {
@@ -1849,6 +1915,76 @@ class FloatBallService : Service() {
                 runCatching {
                     hunoia.luno.domain.floatball.FloatBallSettingsCenter
                         .updateClipFloatSettings(settings)
+                }
+            }
+        }
+    }
+
+    // ---- 当前界面悬浮窗 ----
+
+    /** 部件「钉悬浮」：单窗实时卡，内容读 [ForegroundActivityHub]，无需传内容。 */
+    private fun showActivityFloatWindow() {
+        activityFloatPending = true
+        scope.launch {
+            try {
+                attachActivityFloat()
+            } finally {
+                activityFloatPending = false
+            }
+        }
+    }
+
+    private suspend fun attachActivityFloat() {
+        val settings = runCatching {
+            hunoia.luno.domain.floatball.FloatBallSettingsCenter.getActivityFloatSettings()
+        }.getOrNull() ?: ActivityFloatSettings()
+        val window = activityFloat ?: ActivityFloatWindow(this@FloatBallService, activityFloatHost).also {
+            activityFloat = it
+            SurfaceController.register(it)
+        }
+        window.show(settings)
+        if (!window.isShowing()) {
+            SurfaceController.unregister(window.surfaceId)
+            activityFloat = null
+        }
+    }
+
+    private fun closeActivityFloat() {
+        val window = activityFloat ?: return
+        window.close()
+        if (activityFloat === window) {
+            SurfaceController.unregister(window.surfaceId)
+            activityFloat = null
+        }
+    }
+
+    private val activityFloatHost = object : ActivityFloatWindow.Host {
+        override fun onCopy(activity: ForegroundActivity?) {
+            if (activity == null) return
+            scope.launch(Dispatchers.IO) {
+                val ok = ClipboardCenter.copy(activity.componentName)
+                showToast(
+                    if (ok) {
+                        hunoia.luno.floatball.R.string.activity_float_copied
+                    } else {
+                        hunoia.luno.floatball.R.string.activity_float_copy_failed
+                    },
+                )
+            }
+        }
+
+        override fun onClose() {
+            activityFloat?.let { SurfaceController.unregister(it.surfaceId) }
+            activityFloat = null
+            maybeStopIfIdle()
+        }
+
+        override fun onSettingsChanged(settings: ActivityFloatSettings) {
+            if (destroying) return
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    hunoia.luno.domain.floatball.FloatBallSettingsCenter
+                        .updateActivityFloatSettings(settings)
                 }
             }
         }
@@ -2667,6 +2803,8 @@ class FloatBallService : Service() {
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
         private const val EXTRA_CLIP_ID = "clip_float_id"
 
+        const val ACTION_SHOW_ACTIVITY_FLOAT = "hunoia.luno.action.SHOW_ACTIVITY_FLOAT"
+
         /**
          * 识屏工具条「悬浮显示」：跨进程钉一段临时文本 / 临时图片。
          *
@@ -2726,6 +2864,23 @@ class FloatBallService : Service() {
                         .putExtra(EXTRA_CLIP_ID, entryId),
                 )
             }.onFailure { Log.e(TAG, "show clip float FAILED", it) }
+        }
+
+        /**
+         * 当前界面部件「钉悬浮」：无需传内容（卡片实时读 ForegroundActivityHub），
+         * 跨进程只是一条「开窗」命令；宿主已在跑时直接进程内调用（同 showClipFloat 口径）。
+         */
+        fun showActivityFloat(context: Context) {
+            currentRef?.get()?.let { running ->
+                running.showActivityFloatWindow()
+                return
+            }
+            runCatching {
+                context.startForegroundService(
+                    Intent(context, FloatBallService::class.java)
+                        .setAction(ACTION_SHOW_ACTIVITY_FLOAT),
+                )
+            }.onFailure { Log.e(TAG, "show activity float FAILED", it) }
         }
 
         /** IME 兜底轮询固定周期：非退避（退避会把键盘避让延迟到 30s，等于没有）。 */

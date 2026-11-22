@@ -37,5 +37,7 @@ enum class DispatchOrigin {
     QUICK_SEARCH,
     LINK,
     EXTERNAL_INTENT,
+    /** 显隐场景的进入/退出边缘触发（architecture §5.3）。 */
+    SCENE,
     UNKNOWN,
 }

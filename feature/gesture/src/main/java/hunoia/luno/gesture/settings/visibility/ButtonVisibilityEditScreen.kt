@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.twotone.Visibility
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,9 +35,14 @@ import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.config.model.VisibilityTargets
+import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibrarySettings
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.settings.global.globalZoneLabel
+import hunoia.luno.ui.component.actionText
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
@@ -62,36 +69,51 @@ fun ButtonVisibilityEditScreen(
     onBack: () -> Unit,
     /** 应用选择器由 `:app` 注入（与动作库 / 链接设置同一插槽）。 */
     appPicker: AppPickerSlot? = null,
+    /** 挑选触发动作：先落盘草稿再导航，调用方起动作选择页（visibilityProfile 槽）。 */
+    onPickTriggerAction: (profileId: String, enter: Boolean) -> Unit = { _, _ -> },
 ) {
     val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
     val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
         initialValue = GlobalGestureSettings(),
     )
+    val librarySettings by ActionLibrary.settings.collectAsStateWithLifecycle(
+        initialValue = ActionLibrarySettings(),
+    )
     val scope = rememberCoroutineScope()
     val isNew = profileId == NEW_VISIBILITY_PROFILE_ID
+    // 新建流程：添加触发动作前会把草稿落盘，返回后按这个真实 id 找回配置；
+    // 路由参数仍是 "new"，不能拿它当查找键。
+    // activeId / persisted 必须 saveable：跳动作选择页会销毁本页组合，返回时
+    // remember 会重新生成 uuid、persisted 归零 → 起一份空白新草稿，保存后与
+    // 先前落盘的那条并存（列表里多出重复场景）。saveable 后按原 uuid 从配置
+    // 流找回草稿，写回与保存都落在同一条上。draft 不 saveable：落盘过的场景
+    // 由下方 LaunchedEffect 按 activeId 从配置恢复，未落盘的编辑丢弃可接受。
+    val activeId = rememberSaveable { if (isNew) UUID.randomUUID().toString() else profileId }
+    var persisted by rememberSaveable { mutableStateOf(!isNew) }
     var draft by remember { mutableStateOf<VisibilityProfile?>(null) }
     var loaded by remember(profileId) { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
     var showScreenPicker by remember { mutableStateOf(false) }
+    var showEffectPicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
+    var showCooldownPicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    LaunchedEffect(profileId, initial.buttonVisibility.profiles, isNew) {
-        if (!loaded) {
-            val existing = initial.buttonVisibility.profiles.find { it.id == profileId }
-            when {
-                isNew -> {
-                    draft = VisibilityProfile(id = UUID.randomUUID().toString())
-                    loaded = true
-                }
-                existing != null -> {
-                    draft = existing
-                    loaded = true
-                }
-                // 配置还没加载完：继续等，别先用随机 id 建草稿（否则保存会新增副本、删除匹配不到）。
-            }
+    LaunchedEffect(activeId, initial.buttonVisibility.profiles, persisted) {
+        if (loaded) return@LaunchedEffect
+        if (!persisted) {
+            // 未落盘的新草稿：直接以空场景起稿，保存 / 添加动作时才写配置。
+            draft = VisibilityProfile(id = activeId)
+            loaded = true
+            return@LaunchedEffect
         }
+        val existing = initial.buttonVisibility.profiles.find { it.id == activeId }
+        if (existing != null) {
+            draft = existing
+            loaded = true
+        }
+        // persisted 且还没在配置里出现：配置流尚未就绪，继续等下一帧。
     }
 
     val current = draft
@@ -114,7 +136,8 @@ fun ButtonVisibilityEditScreen(
         return
     }
 
-    fun save() {
+    /** 落盘当前草稿后执行 [onDone]；添加触发动作前也走这里，保证选择页写回能找到场景。 */
+    fun persistDraft(onDone: () -> Unit) {
         val profile = current
         scope.launch {
             GestureConfig.updateInitial { settings ->
@@ -127,8 +150,13 @@ fun ButtonVisibilityEditScreen(
                 }
                 settings.copy(buttonVisibility = settings.buttonVisibility.copy(profiles = next))
             }
-            onBack()
+            persisted = true
+            onDone()
         }
+    }
+
+    fun save() {
+        persistDraft { onBack() }
     }
 
     fun delete() {
@@ -165,7 +193,7 @@ fun ButtonVisibilityEditScreen(
         onBack = onBack,
         state = rememberLazyListState(),
         actions = {
-            if (!isNew) {
+            if (!isNew || persisted) {
                 LunoIconButton(
                     icon = Icons.Default.Delete,
                     contentDescription = stringResource(hunoia.luno.design.R.string.delete),
@@ -232,6 +260,41 @@ fun ButtonVisibilityEditScreen(
                     }
                 }
             }
+            if (showEffectPicker) {
+                LunoSheet(onDismissRequest = { showEffectPicker = false }) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.button_visibility_visible),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(vertical = PageGutter),
+                        )
+                        // 三态：null = 本场景不改显隐（纯动作场景），true/false = 显示 / 隐藏。
+                        val effects = listOf(
+                            null to stringResource(R.string.button_visibility_effect_none),
+                            true to stringResource(R.string.button_visibility_summary_show),
+                            false to stringResource(R.string.button_visibility_summary_hide),
+                        )
+                        LazyColumn(
+                            contentPadding = PaddingValues(bottom = ContentBottom),
+                            verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                        ) {
+                            items(effects) { (effect, label) ->
+                                val index = effects.indexOfFirst { it.first == effect }
+                                LunoSelectableRow(
+                                    title = label,
+                                    selected = current.visible == effect,
+                                    singleSelect = true,
+                                    shape = segmentedShape(index, effects.size),
+                                    onSelectedChange = {
+                                        draft = current.copy(visible = effect)
+                                        showEffectPicker = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (showTargetPicker) {
                 TargetPickerSheet(
                     current = current,
@@ -246,6 +309,36 @@ fun ButtonVisibilityEditScreen(
                         )
                     },
                 )
+            }
+            if (showCooldownPicker) {
+                LunoSheet(onDismissRequest = { showCooldownPicker = false }) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.button_visibility_trigger_cooldown),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(vertical = PageGutter),
+                        )
+                        val options = listOf(0, 1, 3, 10, 30)
+                        LazyColumn(
+                            contentPadding = PaddingValues(bottom = ContentBottom),
+                            verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                        ) {
+                            items(options) { seconds ->
+                                val index = options.indexOf(seconds)
+                                LunoSelectableRow(
+                                    title = cooldownLabel(seconds),
+                                    selected = current.cooldownSeconds == seconds,
+                                    singleSelect = true,
+                                    shape = segmentedShape(index, options.size),
+                                    onSelectedChange = {
+                                        draft = current.copy(cooldownSeconds = seconds)
+                                        showCooldownPicker = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
     ) {
@@ -286,12 +379,11 @@ fun ButtonVisibilityEditScreen(
         }
         item(key = "effect") {
             LunoGroup(title = stringResource(R.string.button_visibility_target)) {
-                LunoSwitchRow(
+                LunoSettingsRow(
                     title = stringResource(R.string.button_visibility_visible),
-                    subtitle = stringResource(R.string.button_visibility_visible_desc),
-                    checked = current.visible,
+                    subtitle = current.visible.label(),
                     shape = segmentedShape(0, 2),
-                    onCheckedChange = { draft = current.copy(visible = it) },
+                    onClick = { showEffectPicker = true },
                 )
                 LunoSettingsRow(
                     title = stringResource(R.string.button_visibility_target),
@@ -301,7 +393,82 @@ fun ButtonVisibilityEditScreen(
                 )
             }
         }
+        item(key = "trigger_enter") {
+            TriggerActionsGroup(
+                title = stringResource(R.string.button_visibility_trigger_enter),
+                actions = current.enterActions,
+                libraryEntries = librarySettings.entries,
+                onAdd = { persistDraft { onPickTriggerAction(current.id, true) } },
+                onDelete = { index ->
+                    draft = current.copy(
+                        enterActions = current.enterActions.filterIndexed { i, _ -> i != index },
+                    )
+                },
+            )
+        }
+        item(key = "trigger_exit") {
+            TriggerActionsGroup(
+                title = stringResource(R.string.button_visibility_trigger_exit),
+                actions = current.exitActions,
+                libraryEntries = librarySettings.entries,
+                onAdd = { persistDraft { onPickTriggerAction(current.id, false) } },
+                onDelete = { index ->
+                    draft = current.copy(
+                        exitActions = current.exitActions.filterIndexed { i, _ -> i != index },
+                    )
+                },
+            )
+        }
+        item(key = "trigger_cooldown") {
+            LunoGroup(title = stringResource(R.string.button_visibility_trigger)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.button_visibility_trigger_cooldown),
+                    subtitle = cooldownLabel(current.cooldownSeconds),
+                    shape = segmentedShape(0, 1),
+                    onClick = { showCooldownPicker = true },
+                )
+            }
+        }
     }
+}
+
+/** 触发动作组：已配动作行（行尾删除）+ 添加动作行；列表只进不出换动作 = 删了重加。 */
+@Composable
+private fun TriggerActionsGroup(
+    title: String,
+    actions: List<StoredAction>,
+    libraryEntries: List<ActionLibraryEntry>,
+    onAdd: () -> Unit,
+    onDelete: (Int) -> Unit,
+) {
+    LunoGroup(title = title) {
+        actions.forEachIndexed { index, action ->
+            LunoSettingsRow(
+                title = actionText(action, emptyIfNone = false, actionLibraryEntries = libraryEntries),
+                trailing = {
+                    LunoIconButton(
+                        icon = Icons.Default.Delete,
+                        contentDescription = stringResource(hunoia.luno.design.R.string.delete),
+                        tint = MaterialTheme.colorScheme.error,
+                        onClick = { onDelete(index) },
+                    )
+                },
+                shape = segmentedShape(index, actions.size + 1),
+            )
+        }
+        LunoSettingsRow(
+            icon = Icons.Default.Add,
+            title = stringResource(R.string.button_visibility_trigger_add),
+            shape = segmentedShape(actions.size, actions.size + 1),
+            onClick = onAdd,
+        )
+    }
+}
+
+@Composable
+private fun cooldownLabel(seconds: Int): String = when (seconds) {
+    0 -> stringResource(R.string.button_visibility_trigger_cooldown_off)
+    else -> stringResource(R.string.button_visibility_trigger_cooldown_seconds, seconds)
 }
 
 @Composable

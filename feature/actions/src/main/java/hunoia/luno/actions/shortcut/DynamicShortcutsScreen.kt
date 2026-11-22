@@ -3,6 +3,8 @@ package hunoia.luno.actions.shortcut
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.AppShortcut
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +28,10 @@ import hunoia.luno.ui.theme.ListSpacing
  * 系统只把动态快捷方式暴露给默认桌面，所以「采集全部」需要 Luno 临时持默认桌面权限；
  * 采集后全部入口标为已导入、可启动，并进动作选择页与快速搜索。启动复用
  * `app.launchShortcut` 分发，不依赖后续切桌面。
+ *
+ * Shizuku 就绪时「自动切换采集」一键完成切换/切回与导航还原；会话期间应用内
+ * 「添加到桌面」由 pin 宿主静默入库（含别人桌面已固定的入口——本机 ShortcutService
+ * 按 launcher 隔离 pinned 集合，accept 是把它们收进视野的唯一合规通道）。
  */
 @Composable
 fun DynamicShortcutsScreen(
@@ -37,7 +43,7 @@ fun DynamicShortcutsScreen(
     // 禁止用 LocalContext.current.getString——配置变化会读到过期值）。
     val resources = LocalResources.current
 
-    // 从系统「默认桌面」页返回：权限可能变了，重新读一遍。
+    // 从系统「默认桌面」页 / HOME 回跳返回：权限与会话态可能都变了，重新读一遍。
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         vm.refreshPermission()
     }
@@ -57,22 +63,42 @@ fun DynamicShortcutsScreen(
         contentSpacing = ListSpacing,
     ) {
         item(key = "home") {
+            // 会话进行中多一行「恢复原桌面」，分段圆角按实际行数走。
+            val rowCount = if (state.sessionActive) 4 else 3
             LunoGroup {
+                if (state.sessionActive) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Undo,
+                        title = stringResource(R.string.dynamic_shortcuts_restore),
+                        subtitle = stringResource(R.string.dynamic_shortcuts_restore_hint),
+                        shape = segmentedShape(0, rowCount),
+                        enabled = !state.busy,
+                        onClick = vm::endAutoSession,
+                    )
+                }
                 LunoSettingsRow(
-                    icon = Icons.Default.Home,
-                    title = stringResource(R.string.dynamic_shortcuts_change_home),
-                    subtitle = stringResource(R.string.dynamic_shortcuts_set_default_home_hint),
-                    shape = segmentedShape(0, 2),
-                    enabled = !state.busy,
-                    onClick = vm::toggleDefaultHome,
+                    icon = Icons.Default.SwapHoriz,
+                    title = stringResource(R.string.dynamic_shortcuts_auto_switch),
+                    subtitle = stringResource(R.string.dynamic_shortcuts_auto_switch_hint),
+                    shape = segmentedShape(if (state.sessionActive) 1 else 0, rowCount),
+                    enabled = !state.busy && state.shizukuReady && !state.sessionActive,
+                    onClick = vm::beginAutoSession,
                 )
                 LunoSettingsRow(
                     icon = Icons.Default.AppShortcut,
                     title = stringResource(R.string.dynamic_shortcuts_collect),
                     subtitle = stringResource(R.string.dynamic_shortcuts_collect_hint),
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(if (state.sessionActive) 2 else 1, rowCount),
                     enabled = !state.busy && state.hasPermission,
                     onClick = vm::collectAll,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Home,
+                    title = stringResource(R.string.dynamic_shortcuts_change_home),
+                    subtitle = stringResource(R.string.dynamic_shortcuts_set_default_home_hint),
+                    shape = segmentedShape(if (state.sessionActive) 3 else 2, rowCount),
+                    enabled = !state.busy,
+                    onClick = vm::toggleDefaultHome,
                 )
             }
         }

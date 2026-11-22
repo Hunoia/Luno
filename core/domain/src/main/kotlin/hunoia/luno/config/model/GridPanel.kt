@@ -27,7 +27,7 @@ data class GridPanel(
      */
     val icon: String? = null,
     val portrait: GridPanelOrientation = GridPanelOrientation(),
-    val landscape: GridPanelOrientation = GridPanelOrientation(),
+    val landscape: GridPanelOrientation = GridPanelOrientation(geometry = GridPanelGeometry.default(landscape = true)),
     /** 面板外观覆盖；`null` = 跟随 [ActionSettings.panelAppearance] 的全局默认。 */
     val appearance: PanelAppearance? = null,
 ) {
@@ -73,7 +73,24 @@ data class GridPanelGeometry(
     val columnCount: Int = GridPanelDefaults.ColumnCount,
     val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
     val cardHeightFraction: Float = GridPanelDefaults.CardHeightFraction,
-)
+) {
+    companion object {
+        /**
+         * 朝向默认值：横屏走 [GridPanelDefaults] 的横屏档，竖屏维持竖屏档。
+         * 配置侧（[GridPanel] / [SinglePanel]）的 `landscape` 属性默认值必须走这里，
+         * 不再各自 `GridPanelGeometry()`，否则横竖屏默认值漂移成两处事实源。
+         */
+        fun default(landscape: Boolean): GridPanelGeometry =
+            if (landscape) {
+                GridPanelGeometry(
+                    cardWidthFraction = GridPanelDefaults.LandscapeCardWidthFraction,
+                    cardHeightFraction = GridPanelDefaults.LandscapeCardHeightFraction,
+                )
+            } else {
+                GridPanelGeometry()
+            }
+    }
+}
 
 /** 行数不设限：实际行数 = max(显示行数，占用行数) + [extraRows]（编辑态 [EditRowExtra]）。 */
 const val DynamicRowExtra = 0

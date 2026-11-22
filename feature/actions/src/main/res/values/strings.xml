@@ -80,5 +80,11 @@
     <string name="dynamic_shortcuts_collect">采集全部动态快捷方式</string>
     <string name="dynamic_shortcuts_collect_hint">设为默认桌面后点一次，采集系统全部动态与已固定入口</string>
     <string name="dynamic_shortcuts_collected_n">已采集 %1$d 条</string>
-    <string name="dynamic_shortcuts_failed">操作失败，请重试</string>
+        <string name="dynamic_shortcuts_auto_switch">自动切换采集</string>
+    <string name="dynamic_shortcuts_auto_switch_hint">一键切换为临时桌面；添加完成后回到本页恢复，顺带采集并还原导航</string>
+    <string name="dynamic_shortcuts_restore">恢复原桌面</string>
+    <string name="dynamic_shortcuts_restore_hint">切回切换前的桌面，先采集一遍再还原导航方式</string>
+    <string name="dynamic_shortcuts_switched">已切换为临时桌面，去应用里「添加到桌面」，完成后回本页恢复</string>
+    <string name="dynamic_shortcuts_restored">已恢复原桌面</string>
+<string name="dynamic_shortcuts_failed">操作失败，请重试</string>
 </resources>

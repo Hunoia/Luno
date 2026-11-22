@@ -11,10 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.ContainerSmoothing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
-import sv.lib.squircleshape.SquircleShape
+import hunoia.luno.ui.theme.ShapeSmall
+import hunoia.luno.ui.theme.SmallShape
 
 /**
  * [LunoDropdownMenu] 的菜单项：文案、前 / 后图标、选中态、禁用与破坏性色在此统一。
@@ -24,7 +24,7 @@ import sv.lib.squircleshape.SquircleShape
  * - 边距与圆角（参考 FlClash `listItemRadiusOf` 的同心规则）：M3 把色块画成带硬编码
  *   4dp 水平内距的 Surface，容器列又固定 8dp 垂直外距。这里给项加 `padding(horizontal = 4.dp)`，
  *   使色块四边距容器 = 左右 4+4=8dp / 上下 0+8=8dp，**对称 8dp**；色块圆角 =
- *   容器圆角(16dp) − 边距(8dp) = 8dp，与容器同心（`SquircleShape(8dp)`）。`contentPadding`
+ *   容器圆角(16dp) − 边距(8dp) = 8dp，与容器同心（容器角色小档 [ShapeSmall]）。`contentPadding`
  *   只内衬文字（8dp 水平呼吸，文字仍距容器边 16dp，与改前一致），不决定色块位置。
  * - 去掉原 12/12 内距后，M3 项无强制最小高，用 `heightIn(min = MinInteractiveSize)` 保住
  *   48dp 点按区与色块高。
@@ -81,4 +81,5 @@ fun LunoDropdownMenuItem(
 private val ItemContentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
 
 /** 选中块圆角 = 容器圆角(16dp) − 边距(8dp) = 8dp，与容器同心（参考 FlClash 同心规则）。 */
-private val SelectedItemShape = SquircleShape(8.dp, ContainerSmoothing)
+/** 选中高亮块：容器角色小档（[ShapeSmall]），主题同源几何，不在组件层拼形状（§2.1.1）。 */
+private val SelectedItemShape = SmallShape

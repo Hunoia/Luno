@@ -34,9 +34,11 @@ class MotionProfileTest {
 
         // 到达提示家族：各效果独立基准（1.0× 浮窗档）。
         assertEquals(1400, profile().millisOf(MotionFamily.AlertEdgeGlow))
+        assertEquals(1600, profile().millisOf(MotionFamily.AlertEdgeFlow))
         assertEquals(1000, profile().millisOf(MotionFamily.AlertParticles))
         assertEquals(1000, profile().millisOf(MotionFamily.AlertRing))
         assertEquals(1000, profile().millisOf(MotionFamily.AlertPulse))
+        assertEquals(1100, profile().millisOf(MotionFamily.AlertFullRipple))
         assertEquals(1150, profile().millisOf(MotionFamily.AlertShimmer))
     }
 
@@ -53,20 +55,24 @@ class MotionProfileTest {
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.Floating))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingMorph))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingSnap))
-        // 到达提示五家族全部走浮窗档位。
+        // 到达提示七家族全部走浮窗档位。
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdgeGlow))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdgeFlow))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertParticles))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertRing))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertPulse))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertFullRipple))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertShimmer))
     }
 
     @Test
     fun `到达提示效果与家族一一映射`() {
         assertEquals(MotionFamily.AlertEdgeGlow, NotificationAlertEffect.EdgeGlow.toAlertFamily())
+        assertEquals(MotionFamily.AlertEdgeFlow, NotificationAlertEffect.EdgeFlow.toAlertFamily())
         assertEquals(MotionFamily.AlertParticles, NotificationAlertEffect.TopParticles.toAlertFamily())
         assertEquals(MotionFamily.AlertRing, NotificationAlertEffect.BallRing.toAlertFamily())
         assertEquals(MotionFamily.AlertPulse, NotificationAlertEffect.CapsulePulse.toAlertFamily())
+        assertEquals(MotionFamily.AlertFullRipple, NotificationAlertEffect.FullRipple.toAlertFamily())
         assertEquals(MotionFamily.AlertShimmer, NotificationAlertEffect.CapsuleShimmer.toAlertFamily())
     }
 

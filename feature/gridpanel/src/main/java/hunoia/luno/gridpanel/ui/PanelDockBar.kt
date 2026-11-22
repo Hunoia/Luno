@@ -31,7 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -52,7 +52,7 @@ import hunoia.luno.gridpanel.geometry.needsScroll
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.component.FloatingTabRow
 import hunoia.luno.ui.component.TextIconGlyph
-import hunoia.luno.ui.theme.PanelFadeTailFraction
+import hunoia.luno.ui.component.panel.panelAppear
 import hunoia.luno.ui.theme.containerShape
 import kotlin.math.roundToInt
 
@@ -96,6 +96,9 @@ class PanelDockAnchor {
 
     /** 卡片出现时的完整位移（进度 0，向触发点方向）；底栏跟随同一条位移。 */
     var appearSlide: Offset by mutableStateOf(Offset.Zero)
+
+    /** 卡片缩放原点（触发点在卡内的归一化位置）：底栏绕同一屏幕触发点缩放，与卡同步。 */
+    var appearOrigin: TransformOrigin by mutableStateOf(TransformOrigin.Center)
 }
 
 /**
@@ -179,18 +182,25 @@ fun PanelDockLayer(
             }
             .width(widthDp)
             .height(PanelDockHeight)
-            .graphicsLayer {
-                if (hiddenForDrag) {
-                    alpha = 0f
-                } else {
-                    val p = anchor.progress.coerceIn(0f, 1f)
-                    alpha = (p / PanelFadeTailFraction).coerceIn(0f, 1f)
-                    // 与卡片同一条出现位移，但不做缩放：底栏被缩放会变成一条线。
-                    val remaining = 1f - p
-                    translationX = anchor.appearSlide.x * remaining
-                    translationY = anchor.appearSlide.y * remaining
-                }
-            }
+            // 与卡片同一条出现曲线：同一进度、同一缩放（绕同一屏幕触发点）、同一位移、同一
+            // alpha。panelAppear 把缩放/位移/alpha 一并做掉，保证底栏与卡严格同步（含退场）。
+            .panelAppear(
+                progress = { anchor.progress },
+                originForSize = { barSize ->
+                    // 屏幕空间触发点 = 卡左上 + 卡内归一化原点 × 卡尺寸；换算到底栏局部坐标，
+                    // 使底栏与卡绕同一点缩放（触发点通常落在卡内、底栏上方，缩放向该点收拢）。
+                    val pivotX = anchor.position.x + anchor.appearOrigin.pivotFractionX * anchor.cardWidthPx
+                    val pivotY = anchor.position.y + anchor.appearOrigin.pivotFractionY * anchor.cardHeightPx
+                    val left = placement.centerX - placement.widthPx / 2f
+                    val top = placement.topY
+                    TransformOrigin(
+                        pivotFractionX = if (barSize.width > 0) (pivotX - left) / barSize.width else 0.5f,
+                        pivotFractionY = if (barSize.height > 0) (pivotY - top) / barSize.height else 0.5f,
+                    )
+                },
+                slideForSize = { anchor.appearSlide },
+                hidden = hiddenForDrag,
+            )
             .zIndex(2f)
             .onGloballyPositioned {
                 windowBounds = it.boundsInWindow()
@@ -201,18 +211,26 @@ fun PanelDockLayer(
         LaunchedEffect(hiddenForDrag, windowBounds) {
             onBounds(if (hiddenForDrag) null else windowBounds)
         }
-        // 面板同款：真实背景模糊垫底，上面才是「卡色」与描边。
+        // 面板同款：真实背景模糊垫底，上面才是「卡色」与描边。隐藏 API 不可用时与卡片
+        // 同口径提高不透明度兜底，避免「卡面变实底、底栏仍半透明」的两层观感拉开。
+        val blurState = remember { mutableStateOf(BlurState.Pending) }
+        val bgAlpha = when {
+            session.blurRadiusPx <= 0 -> session.cardAlpha
+            blurState.value == BlurState.Unavailable -> maxOf(session.cardAlpha, BlurFallbackAlpha)
+            else -> session.cardAlpha
+        }
         PanelBlurHost(
             enabled = session.blurRadiusPx > 0 && !hiddenForDrag && anchor.progress > 0.01f,
             radiusPx = session.blurRadiusPx,
             cornerRadiusPx = cornerPx,
             modifier = Modifier.matchParentSize(),
+            onStateChanged = { blurState.value = it },
         )
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .clip(shape)
-                .background(gridPanelCardColor.copy(alpha = session.cardAlpha)),
+                .background(gridPanelCardColor.copy(alpha = bgAlpha)),
             // 入口少时整条居中聚拢；多到放不下时 LazyRow 自己滚动。
             contentAlignment = Alignment.Center,
         ) {

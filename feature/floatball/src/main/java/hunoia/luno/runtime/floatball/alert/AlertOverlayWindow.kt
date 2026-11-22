@@ -21,15 +21,16 @@ import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
 
 /**
- * 到达提示动效的按需 overlay 窗宿主：三种效果各一种窗口规格，播完即摘，绝不驻留。
+ * 到达提示动效的按需 overlay 窗宿主：各效果一种窗口规格，播完即摘，绝不驻留。
  *
- * - [AlertWindowKind.EdgeGlow]：全屏穿透窗（纯绘制，不挡触摸）。
- * - [AlertWindowKind.TopParticles]：顶部条窗。
+ * - [AlertWindowKind.EdgeGlow] / [AlertWindowKind.EdgeFlow] / [AlertWindowKind.FullRipple]：
+ *   全屏穿透窗（纯绘制，不挡触摸）。
+ * - [AlertWindowKind.TopParticles]：顶部条窗（高度 = 下落行程旋钮）。
  * - [AlertWindowKind.BallRing]：锚定球中心的小方窗（球径 + 光环行程余量）。
  *
  * LP 走 PointerOverlay 同款（`FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS` + cutout
  * ALWAYS，`START|TOP`）：坐标即屏幕绝对坐标，不卷入「LP 原点 = 状态栏下沿」的 ROM 差异。
- * 窗口尺寸 > 内容绘制边界时才有光效溢出的空间（ui-guidelines §4.6），三种规格天然满足。
+ * 窗口尺寸 > 内容绘制边界时才有光效溢出的空间（ui-guidelines §4.6），各规格天然满足。
  *
  * 生命周期归本类：效果末帧回调后先摘窗再触发 [show] 的 [onFinished]（有且仅有一次）；
  * 末帧回调因任何原因没来时由熔断兜底摘窗。
@@ -48,7 +49,8 @@ internal class AlertOverlayWindow(private val context: Context) {
 
     /**
      * 挂窗并播放一次，播完自行摘窗。[onFinished] 在窗口拆除后调用（主线程，有且仅有一次）。
-     * 已在播放时返回 false（合并语义由 [isShowing] 判定）。
+     * 已在播放时返回 false（合并语义由 [isShowing] 判定）。[secondColor] 只被
+     * [AlertWindowKind.EdgeFlow] 的双色模式消费。
      */
     fun show(
         kind: AlertWindowKind,
@@ -56,6 +58,7 @@ internal class AlertOverlayWindow(private val context: Context) {
         colorSpec: ColorSpec,
         ring: AlertRingGeometry?,
         onFinished: () -> Unit,
+        secondColor: ColorSpec = ColorSpec.Unset,
     ): Boolean {
         if (root != null) return false
         var finished = false
@@ -72,6 +75,7 @@ internal class AlertOverlayWindow(private val context: Context) {
                 kind = kind,
                 plan = plan,
                 colorSpec = colorSpec,
+                secondColor = secondColor,
                 ring = ring,
                 onFinished = { mainHandler.post { finish() } },
             )
@@ -123,7 +127,7 @@ internal class AlertOverlayWindow(private val context: Context) {
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         gravity = Gravity.START or Gravity.TOP
         when (kind) {
-            AlertWindowKind.EdgeGlow -> {
+            AlertWindowKind.EdgeGlow, AlertWindowKind.EdgeFlow, AlertWindowKind.FullRipple -> {
                 width = DensityProvider.screenWidthPx
                 height = DensityProvider.screenHeightPx
                 x = 0
@@ -131,8 +135,9 @@ internal class AlertOverlayWindow(private val context: Context) {
             }
 
             AlertWindowKind.TopParticles -> {
+                val travelDp = (plan.spec as? ParticlesSpec)?.travelDp ?: TopStripHeightDp
                 width = DensityProvider.screenWidthPx
-                height = DensityProvider.dp2px(TopStripHeightDp)
+                height = DensityProvider.dp2px(travelDp.toFloat())
                 x = 0
                 y = 0
             }
@@ -150,7 +155,7 @@ internal class AlertOverlayWindow(private val context: Context) {
     }
 
     private companion object {
-        /** 顶部条窗高度（dp）：粒子下落行程。 */
+        /** 顶部条窗高度的回退值（dp）：spec 缺失时兜底，正常路径走行程旋钮。 */
         const val TopStripHeightDp = 200f
 
         /** 光环窗口在行程之外的余量（dp）：描边宽度 + 抗锯齿边。 */
@@ -164,14 +169,16 @@ internal class AlertOverlayWindow(private val context: Context) {
     }
 }
 
-/** 三种独立 overlay 窗的规格。 */
+/** 各独立 overlay 窗的规格。 */
 internal enum class AlertWindowKind {
     EdgeGlow,
+    EdgeFlow,
     TopParticles,
     BallRing,
+    FullRipple,
 }
 
-/** BallRing 的锚定几何：屏幕绝对坐标的球心与球径。 */
+/** BallRing / FullRipple 的锚定几何：屏幕绝对坐标的球心与球径（全屏涟漪屏幕中心时 ballPx = 0）。 */
 internal data class AlertRingGeometry(
     val centerX: Int,
     val centerY: Int,
@@ -183,6 +190,7 @@ private fun AlertContent(
     kind: AlertWindowKind,
     plan: AlertPlayPlan,
     colorSpec: ColorSpec,
+    secondColor: ColorSpec,
     ring: AlertRingGeometry?,
     onFinished: () -> Unit,
 ) {
@@ -190,11 +198,23 @@ private fun AlertContent(
         Box(modifier = Modifier.fillMaxSize()) {
             when (kind) {
                 AlertWindowKind.EdgeGlow -> EdgeGlowEffect(plan, colorSpec, onFinished)
+                AlertWindowKind.EdgeFlow -> EdgeFlowEffect(
+                    plan = plan,
+                    colorSpec = colorSpec,
+                    secondColorSpec = secondColor,
+                    onFinished = onFinished,
+                )
                 AlertWindowKind.TopParticles -> TopParticlesEffect(plan, colorSpec, onFinished)
                 AlertWindowKind.BallRing -> BallRingEffect(
                     plan = plan,
                     ballRadiusPx = (ring?.ballPx ?: 0) / 2f,
                     travelPx = ringTravelPx(ring?.ballPx ?: 0, plan.amount).toFloat(),
+                    colorSpec = colorSpec,
+                    onFinished = onFinished,
+                )
+                AlertWindowKind.FullRipple -> FullRippleEffect(
+                    plan = plan,
+                    ring = ring,
                     colorSpec = colorSpec,
                     onFinished = onFinished,
                 )

@@ -94,6 +94,9 @@ class App : Application(), SingletonImageLoader.Factory {
         hunoia.luno.runtime.surface.ClipFloatDispatch.show = { context, id ->
             hunoia.luno.runtime.floatball.FloatBallService.showClipFloat(context, id)
         }
+        hunoia.luno.runtime.surface.ActivityFloatDispatch.show = { context ->
+            hunoia.luno.runtime.floatball.FloatBallService.showActivityFloat(context)
+        }
         // 系统 Toast 可配置呈现：全局开关（Toast / 标准 / 实时 / 岛 / 胶囊）注入；
         // 未注入（或配置为 Toast）时保持系统 Toast。
         hunoia.luno.bridge.ui.setToastPresenter(

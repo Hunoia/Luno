@@ -156,12 +156,15 @@ internal object ButtonVisibilityText {
             profile.screens.isEmpty() -> stringResource(R.string.button_visibility_summary_all_screens)
             else -> profile.screens.map { it.label() }.joinToString(" / ")
         }
-        val action = stringResource(
-            if (profile.visible) R.string.button_visibility_summary_show
-            else R.string.button_visibility_summary_hide,
-        )
+        val action = profile.visible.label()
         val target = ButtonVisibilityText.targetSummary(profile)
-        return "$apps · $screens · $action · $target"
+        val triggerCount = profile.enterActions.size + profile.exitActions.size
+        val trigger = if (triggerCount > 0) {
+            " · " + stringResource(R.string.button_visibility_trigger_count, triggerCount)
+        } else {
+            ""
+        }
+        return "$apps · $screens · $action · $target$trigger"
     }
 
     /** 作用对象摘要：设置列表与编辑页共用，避免两处拼装分叉。 */
@@ -176,6 +179,14 @@ internal object ButtonVisibilityText {
         ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
     }
 
+    /** 显隐效果三态文案：null = 不改显隐（纯动作场景）。 */
+    @Composable
+    fun Boolean?.label(): String = when (this) {
+        null -> stringResource(R.string.button_visibility_effect_none)
+        true -> stringResource(R.string.button_visibility_summary_show)
+        else -> stringResource(R.string.button_visibility_summary_hide)
+    }
+
     @Composable
     fun VisibilityScreen.label(): String = when (this) {
         VisibilityScreen.LOCK_SCREEN -> stringResource(R.string.button_visibility_screen_lock)
@@ -183,6 +194,7 @@ internal object ButtonVisibilityText {
         VisibilityScreen.LANDSCAPE -> stringResource(R.string.button_visibility_screen_landscape)
         VisibilityScreen.PORTRAIT -> stringResource(R.string.button_visibility_screen_portrait)
         VisibilityScreen.KEYBOARD_INPUT -> stringResource(R.string.button_visibility_screen_keyboard)
+        VisibilityScreen.SCREEN_OFF -> stringResource(R.string.button_visibility_screen_screen_off)
     }
 }
 

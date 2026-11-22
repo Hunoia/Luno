@@ -23,6 +23,7 @@ class ButtonVisibilityPolicyTest {
         launcher: Boolean = false,
         landscape: Boolean = false,
         keyboard: Boolean = false,
+        screenOff: Boolean = false,
         hidden: Map<String, Long> = emptyMap(),
         nowMs: Long = 1_000L,
     ) = GestureRuntimeState(
@@ -31,6 +32,7 @@ class ButtonVisibilityPolicyTest {
         isLandscape = landscape,
         isInLauncher = launcher,
         isKeyboardInputActive = keyboard,
+        isScreenOff = screenOff,
         hiddenGestureButtons = hidden,
         nowMs = nowMs,
     )
@@ -144,6 +146,26 @@ class ButtonVisibilityPolicyTest {
         assertFalse(policy(listOf(profile), state(launcher = true)).shouldShow(button1))
         assertFalse(policy(listOf(profile), state(keyboard = true)).shouldShow(button1))
         assertTrue(policy(listOf(profile), state()).shouldShow(button1))
+    }
+
+    @Test
+    fun screenDimensions_coverScreenOff() {
+        val profile = VisibilityProfile(
+            id = "dims",
+            screens = setOf(VisibilityScreen.SCREEN_OFF),
+            visible = false,
+        )
+        assertFalse(policy(listOf(profile), state(screenOff = true)).shouldShow(button1))
+        assertTrue(policy(listOf(profile), state()).shouldShow(button1))
+    }
+
+    @Test
+    fun nullVisible_profileDoesNotTouchVisibility() {
+        // 纯动作场景（visible=null）：不改显隐，也不打断前面场景已生效的隐藏。
+        val hide = VisibilityProfile(id = "hide", visible = false)
+        val pureAction = VisibilityProfile(id = "action", visible = null)
+        assertFalse(policy(listOf(hide, pureAction)).shouldShow(button1))
+        assertTrue(policy(listOf(pureAction)).shouldShow(button1))
     }
 
     @Test

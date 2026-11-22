@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -338,6 +339,24 @@ object PanelWidgetRegistry {
                     enabled = scope.enabled,
                     params = scope.params,
                     onReconfigure = scope.onReconfigure,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.CURRENT_ACTIVITY,
+                labelRes = R.string.grid_panel_internal_current_activity,
+                icon = Icons.Default.Smartphone,
+                defaultSpanX = 2,
+                defaultSpanY = 1,
+                minSpanX = 2,
+                minSpanY = 1,
+            ) { scope ->
+                CurrentActivityCell(
+                    modifier = scope.modifier,
+                    spanX = scope.spanX,
+                    spanY = scope.spanY,
+                    enabled = scope.enabled,
                 )
             },
         )

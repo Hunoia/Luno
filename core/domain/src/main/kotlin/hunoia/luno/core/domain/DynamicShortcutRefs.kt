@@ -59,4 +59,36 @@ data class DynamicShortcutRefs(
         val orphanImported = items.filter { it.imported && incoming[it.identity] == null }
         return copy(items = refreshed + orphanImported)
     }
+
+    /**
+     * 单条导入：pin 拦截（应用内「添加到桌面」）把一条入口记为已导入。
+     *
+     * 同身份已有记录被整体替换（标签/图标随系统最新定义走），其余条目原样保留——
+     * 与 [collectAll] 不同，这里不做孤儿清理：单条导入不持有全量快照，不能判定谁已消失。
+     */
+    fun upsertImported(ref: DynamicShortcutRef): DynamicShortcutRefs {
+        val incoming = ref.copy(imported = true)
+        val index = items.indexOfFirst { it.identity == incoming.identity }
+        val refreshed = if (index >= 0) {
+            items.toMutableList().also { it[index] = incoming }
+        } else {
+            items + incoming
+        }
+        return copy(items = refreshed)
+    }
 }
+
+/**
+ * 临时桌面的环境快照：自动切换前记下原桌面持有者与导航方式，恢复时按此还原。
+ *
+ * 纯设备瞬态，不进备份；进程被杀后靠它找回「当前处于临时桌面」的事实。
+ */
+@Serializable
+data class HomeSwitchSnapshot(
+    val homePackage: String,
+    /** 切换前的 HOME 角色持有者（按系统返回顺序），恢复时逐个补齐。 */
+    val holders: List<String> = emptyList(),
+    /** 切换前的导航方式（`settings get secure navigation_mode`）；读不到为 null，不恢复。 */
+    val navigationMode: String? = null,
+    val createdAtMs: Long = 0L,
+)

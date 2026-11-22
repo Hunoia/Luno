@@ -56,5 +56,7 @@ object DataStoreFiles {
      * 恢复到另一台设备后必须重新导入；系统 pin 关系也不随应用数据迁移。
      */
     const val DYNAMIC_SHORTCUTS = "dynamic_shortcuts"
+    /** 临时桌面（自动切换采集）的环境快照：原桌面持有者 + 导航方式，纯设备瞬态。 */
+    const val HOME_SWITCH_SNAPSHOT = "home_switch_snapshot"
 }
 

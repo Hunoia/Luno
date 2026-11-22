@@ -70,6 +70,9 @@ internal suspend fun saveSettingsAction(
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
         return SaveOutcome.Saved
     }
+    if (actionSelect.visibilityProfileId.isNotBlank()) {
+        return saveVisibilityTriggerAction(actionSelect, picked)
+    }
     if (actionSelect.globalGestureTriggerId.isNotBlank()) {
         var found = false
         GestureConfig.updateGlobalGesture { settings ->
@@ -589,6 +592,38 @@ private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
     }
 }
 
+/**
+ * 显隐场景触发动作落盘：追加语义（想换动作就删了重加），选「无」= 放弃本次添加。
+ * 返回 TargetMissing = 场景在选择期间被删（数据未写入），不算失败。
+ */
+private suspend fun saveVisibilityTriggerAction(
+    actionSelect: ActionSelect,
+    picked: StoredAction?,
+): SaveOutcome {
+    if (picked == null) return SaveOutcome.Saved
+    var outcome = SaveOutcome.Saved
+    GestureConfig.updateInitial { settings ->
+        val profiles = settings.buttonVisibility.profiles
+        val index = profiles.indexOfFirst { it.id == actionSelect.visibilityProfileId }
+        if (index < 0) {
+            outcome = SaveOutcome.TargetMissing
+            return@updateInitial settings
+        }
+        val profile = profiles[index]
+        val updated = if (actionSelect.visibilityEnter) {
+            profile.copy(enterActions = profile.enterActions + picked)
+        } else {
+            profile.copy(exitActions = profile.exitActions + picked)
+        }
+        settings.copy(
+            buttonVisibility = settings.buttonVisibility.copy(
+                profiles = profiles.toMutableList().also { it[index] = updated },
+            ),
+        )
+    }
+    return outcome
+}
+
 internal suspend fun updateShortcutInfosBody(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit,
@@ -731,6 +766,8 @@ internal suspend fun loadDataBody(
         }
         // 网格面板只进不出：进选择页只会是加项，没有可预选的旧动作。
         actionSelect.gridPanelId.isNotBlank() -> null
+        // 显隐场景触发动作：同款追加语义，无可预选的旧动作。
+        actionSelect.visibilityProfileId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot.isNotBlank() -> when (actionSelect.floatBallSlot) {
             FloatBallSlot.TAP -> actionSettings.floatBall.tapAction

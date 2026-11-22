@@ -43,7 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.picker.R
-import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitWidgetParams
 import hunoia.luno.config.model.TrendConfig
@@ -266,13 +266,15 @@ fun ActionSelectContent(
                     val landscape = LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
                     val gridGeo = gridPanel?.orientation(landscape)?.geometry
-                    val gridColumns = gridGeo?.columnCount ?: GridPanelDefaults.ColumnCount
+                    // 面板还没回流时用朝向默认几何兜底（别处不再直接引用 GridPanelDefaults 的比例档）。
+                    val fallbackGeo = GridPanelGeometry.default(landscape)
+                    val gridColumns = gridGeo?.columnCount ?: fallbackGeo.columnCount
                     val gridVisibleRows = gridPanelVisibleRows(
                         screenWdp = LocalConfiguration.current.screenWidthDp.toFloat(),
                         screenHdp = LocalConfiguration.current.screenHeightDp.toFloat(),
                         columns = gridColumns,
-                        cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
-                        cardHeightFraction = gridGeo?.cardHeightFraction ?: GridPanelDefaults.CardHeightFraction,
+                        cardWidthFraction = gridGeo?.cardWidthFraction ?: fallbackGeo.cardWidthFraction,
+                        cardHeightFraction = gridGeo?.cardHeightFraction ?: fallbackGeo.cardHeightFraction,
                     )
                     val gridRows = gridPanel?.orientation(landscape)?.effectiveGridRows(
                         actionSelect.gridPanelPageIndex,

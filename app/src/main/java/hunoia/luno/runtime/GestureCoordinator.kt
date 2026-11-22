@@ -41,6 +41,7 @@ import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.environment.EnvironmentTracker
+import hunoia.luno.runtime.environment.ForegroundActivityHub
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.overlay.MainOverlayController
@@ -575,6 +576,7 @@ class GestureCoordinator(
         onScreenOff = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen off")
             environmentTracker.isNowInLockScreenPage = true
+            environmentTracker.isScreenOff = true
             // 锁屏收口：无障碍 overlay 会盖在 keyguard 上。动作面板的内容画在主 a11y overlay
             // （MainOverlayController）里，只 closeImmediately 面板窗不够 —— 必须同时取消会话
             // 并把主窗收回 1x1。解锁不自动恢复，需用户重新触发。
@@ -588,6 +590,7 @@ class GestureCoordinator(
         },
         onScreenOn = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen on")
+            environmentTracker.isScreenOff = false
             touchInputSuspendedByScreenOff = false
             syncTouchInputSources()
             refreshGestureButtons()
@@ -737,6 +740,9 @@ class GestureCoordinator(
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
         runtimeSettingsStore = runtimeSettingsStore,
         buttonWindowController = buttonWindowController,
+        onVisibilityTrigger = { profile, enter, action ->
+            dispatchVisibilityTrigger(profile, enter, action)
+        },
     )
 
     /** 触钮 Surface：软隐藏只改输入位，恢复按真实显隐策略重算，长态统一 release。 */
@@ -1406,6 +1412,12 @@ class GestureCoordinator(
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "window changed: pkg=${event.packageName}")
             val afterPackage = environmentTracker.currentPackageName
             val eventClass = event.className?.toString()
+            // 当前界面部件 / 悬浮窗的数据源：包名 + 类名直出。自家窗口事件不入——
+            // 面板 / 悬浮球自己弹窗时不更新，state 保持为面板背后的真实应用（sticky）。
+            val eventPackage = event.packageName?.toString() ?: ""
+            if (eventPackage.isNotEmpty() && eventPackage != host.context.packageName && eventClass != null) {
+                ForegroundActivityHub.update(eventPackage, eventClass)
+            }
             val samePackageNewActivity =
                 eventClass != null && lastWindowClassName != null && eventClass != lastWindowClassName
             lastWindowClassName = eventClass ?: lastWindowClassName
@@ -1505,6 +1517,28 @@ class GestureCoordinator(
         environmentTracker.buildRuntimeState(
             hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
         )
+
+    /**
+     * 显隐场景触发：进入/退出边缘的动作统一走执行口（architecture §5.3/§5.4）。
+     * 幂等键按「场景 + 方向 + 触发时刻」生成：同一边缘只投递一次，重放窗口内的重复提交
+     * 由执行口去重；边缘本身由 [ButtonRefreshCoordinator] 的差分保证不重复。
+     */
+    private fun dispatchVisibilityTrigger(
+        profile: hunoia.luno.config.model.VisibilityProfile,
+        enter: Boolean,
+        action: StoredAction,
+    ) {
+        val fireMs = SystemClock.uptimeMillis()
+        actionDispatcher.submit(
+            hunoia.luno.execute.ExecuteCall(
+                request = hunoia.luno.core.domain.ActionRequest(
+                    stored = action,
+                    origin = hunoia.luno.core.domain.DispatchOrigin.SCENE,
+                    idempotencyKey = "scene:${profile.id}:${if (enter) "enter" else "exit"}:$fireMs",
+                ),
+            ),
+        )
+    }
 
     private fun refreshGestureButtons(delayMs: Long = 100L) {
         refreshJob?.cancel()

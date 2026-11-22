@@ -124,7 +124,9 @@ import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
+import hunoia.luno.runtime.floatball.alert.PulseSpec
 import hunoia.luno.runtime.floatball.alert.PulseTuning
+import hunoia.luno.runtime.floatball.alert.ShimmerSpec
 import hunoia.luno.runtime.floatball.alert.ShimmerTuning
 import hunoia.luno.runtime.floatball.alert.easedOut
 import hunoia.luno.runtime.floatball.alert.lerpInRange
@@ -209,8 +211,8 @@ internal class BallCapsuleWindow(
      */
     private var lpOriginY = 0
 
-    /** 当前朝向：决定读 portrait 还是 landscape 落点。 */
-    private var landscape = false
+    /** 当前朝向：决定读 portrait 还是 landscape 落点。快照状态：转屏要触发胶囊行宽按新屏宽重推。 */
+    private var landscape by mutableStateOf(false)
 
     /** 球面尺寸（px）：BALL 态窗口边长，也是 [collapsedScale] 形变基准与胶囊行高的锚点。 */
     private var ballPx = 0
@@ -2107,17 +2109,21 @@ internal class BallCapsuleWindow(
             val contentW = max(titleW, bodyW)
             val screenW = DensityProvider.screenWidthPx
             // 行宽上限按**整行**（文本列+图标+间距+内距）计：文本列上限再扣掉装饰宽，
-            // 避免「文本列 + 图标/内距」实际超过屏宽×MaxWidthRatio。
+            // 避免「文本列 + 图标/内距」实际超过行宽上限（dp 封顶，窄屏按比例兜底）。
             val rowDecoration = iconPx + rowGapPx + rowPadPx * 2
-            val maxContentPx = (screenW * MaxWidthRatio).roundToInt() - rowDecoration
+            val maxRowPx = min(
+                screenW * NarrowWidthRatio,
+                DensityProvider.dp2px(MaxWidthCapDp).toFloat(),
+            ).roundToInt()
+            val maxContentPx = maxRowPx - rowDecoration
             // 按实际内容宽：内容宽 ≤ 上限 → 全显贴内容（正文不滚）；
             // 内容宽 > 上限 → 文本列封顶上限，正文由 MarqueeText 自动滚动看全文。
             return contentW.coerceAtMost(maxContentPx)
         }
         // 首帧窗口宽按公式兜底，Compose 测量出通知行目标宽后再收窄/加宽（一次收敛）。
         // 有通知行时只按内容驱动（不叠加 fixedCapsuleWidth 兜底下限，否则短内容被撑到 ~48% 屏宽）；
-        // 无通知行（结果胶囊）保持固定公式。
-        LaunchedEffect(list) {
+        // 无通知行（结果胶囊）保持固定公式。key 带朝向：转屏后按新屏宽立即重推行宽，不等下一条通知。
+        LaunchedEffect(list, landscape) {
             val notifMax = list.filterIsInstance<NotificationItem>()
                 .maxOfOrNull { notificationContentWidthPx(it) + iconPx + rowGapPx + rowPadPx * 2 }
                 ?: 0
@@ -2334,15 +2340,23 @@ internal class BallCapsuleWindow(
             val topOrigin = glowMarginPx.toFloat()
             when (plan.effect) {
                 // 本体脉冲：3 层嵌套描边辉光呼吸，外→内逐层加亮，核心最后画保证锐利。
+                // 辉光宽度与光晕强度是用户旋钮（光晕 0 = 只剩核心描边）。
                 NotificationAlertEffect.CapsulePulse -> {
+                    val spec = plan.spec as PulseSpec
                     val boost = plan.brightness.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
                     val peak = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t)).coerceAtMost(1f)
-                    val corePx = PulseTuning.CoreWidthDp.dp.toPx()
-                    val layers = listOf(
-                        corePx * PulseTuning.GlowWidthScale2 to peak * PulseTuning.GlowAlphaFraction2,
-                        corePx * PulseTuning.GlowWidthScale1 to peak * PulseTuning.GlowAlphaFraction1,
-                        corePx to peak,
-                    )
+                    val corePx = spec.glowWidthDp.dp.toPx()
+                    val layers = buildList {
+                        listOf(
+                            PulseTuning.GlowWidthScale2 to PulseTuning.GlowAlphaFraction2,
+                            PulseTuning.GlowWidthScale1 to PulseTuning.GlowAlphaFraction1,
+                        ).forEach { (widthScale, alphaFraction) ->
+                            val width = corePx * widthScale * spec.haloScale
+                            val alpha = peak * alphaFraction * spec.haloScale
+                            if (width > 0f && alpha > 0f) add(width to alpha)
+                        }
+                        add(corePx to peak)
+                    }
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
                         translate(
@@ -2361,20 +2375,21 @@ internal class BallCapsuleWindow(
                 }
 
                 // 边框流光：主亮带缓出扫过描边，后随更宽更暗的拖尾（先画拖尾再画主带）。
+                // 拖尾在行进方向后方（反向扫动时在主带右侧）；拖尾 0 = 无拖尾。
                 // 渐变 stop 必须严格递增：可见跨度不足时跳过该带，峰值点强制落在带内。
                 NotificationAlertEffect.CapsuleShimmer -> {
+                    val spec = plan.spec as ShimmerSpec
                     val peak = plan.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
-                    val pos = t.easedOut(ShimmerTuning.SweepEaseExp)
+                    val eased = t.easedOut(ShimmerTuning.SweepEaseExp)
+                    val pos = if (spec.reverse) 1f - eased else eased
                     val band = plan.amount.lerpInRange(
                         FloatBallDefaults.AlertShimmerBandWidthMin / 100f,
                         FloatBallDefaults.AlertShimmerBandWidthMax / 100f,
                     )
-                    val trail = band * ShimmerTuning.TrailWidthScale
+                    val trailSpan = band * spec.trailScale
                     val mainStart = (pos - band / 2f).coerceIn(0f, 1f)
                     val mainEnd = (pos + band / 2f).coerceIn(0f, 1f)
-                    val trailStart = (mainStart - trail).coerceIn(0f, 1f)
                     val mainSpan = mainEnd - mainStart
-                    val trailSpan = mainStart - trailStart
                     val peakPos = if (mainSpan > 0f) {
                         mainStart + mainSpan * ((pos - mainStart) / mainSpan).coerceIn(0.15f, 0.85f)
                     } else {
@@ -2385,13 +2400,35 @@ internal class BallCapsuleWindow(
                         peakPos to contentColor.copy(alpha = peak),
                         mainEnd to contentColor.copy(alpha = 0f),
                     )
-                    val trailBrush = Brush.horizontalGradient(
-                        trailStart to contentColor.copy(alpha = 0f),
-                        trailStart + trailSpan / 2f to contentColor.copy(
-                            alpha = peak * ShimmerTuning.TrailAlphaFraction,
-                        ),
-                        mainStart to contentColor.copy(alpha = 0f),
-                    )
+                    val trailBrush = if (spec.reverse) {
+                        val trailEnd = (mainEnd + trailSpan).coerceIn(0f, 1f)
+                        val span = trailEnd - mainEnd
+                        if (span > 0.01f) {
+                            Brush.horizontalGradient(
+                                mainEnd to contentColor.copy(alpha = 0f),
+                                mainEnd + span / 2f to contentColor.copy(
+                                    alpha = peak * ShimmerTuning.TrailAlphaFraction,
+                                ),
+                                trailEnd to contentColor.copy(alpha = 0f),
+                            )
+                        } else {
+                            null
+                        }
+                    } else {
+                        val trailStart = (mainStart - trailSpan).coerceIn(0f, 1f)
+                        val span = mainStart - trailStart
+                        if (span > 0.01f) {
+                            Brush.horizontalGradient(
+                                trailStart to contentColor.copy(alpha = 0f),
+                                trailStart + span / 2f to contentColor.copy(
+                                    alpha = peak * ShimmerTuning.TrailAlphaFraction,
+                                ),
+                                mainStart to contentColor.copy(alpha = 0f),
+                            )
+                        } else {
+                            null
+                        }
+                    }
                     val stroke = Stroke(width = 1.5.dp.toPx())
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
@@ -2399,7 +2436,7 @@ internal class BallCapsuleWindow(
                             left = rowLeft(index),
                             top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
                         ) {
-                            if (trailSpan > 0.01f) drawPath(path = path, brush = trailBrush, style = stroke)
+                            trailBrush?.let { drawPath(path = path, brush = it, style = stroke) }
                             if (mainSpan > 0.01f) drawPath(path = path, brush = mainBrush, style = stroke)
                         }
                     }
@@ -2761,8 +2798,14 @@ internal class BallCapsuleWindow(
         const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f
 
-        /** 通知行宽上限 = 屏宽 × 该比例（整行含图标/内距；内容宽超上限时文本列封顶、正文自动滚动）。 */
-        const val MaxWidthRatio = 0.6f
+        /**
+         * 通知行宽上限（整行含图标/内距；内容宽超上限时文本列封顶、正文自动滚动）。
+         * dp 主导：横竖屏 / 平板都封在同一条绝对宽度上，比例只作窄屏（< 屏宽/比例处）兜底防溢出。
+         */
+        const val MaxWidthCapDp = 250f
+
+        /** 窄屏兜底比例：屏宽 × 该值小于 [MaxWidthCapDp] 时（小屏竖屏）按它封顶。 */
+        const val NarrowWidthRatio = 0.6f
 
         /** 正文 marquee 滚动速度（px/s）：位移 = 距离/速度 得动画时长。 */
         const val MarqueePxPerSec = 40f

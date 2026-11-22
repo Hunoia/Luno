@@ -545,6 +545,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         profileId = it.toRoute<ButtonVisibilityEdit>().profileId,
                         onBack = { navController.popBackStack() },
                         appPicker = { request -> LunoAppPicker(request) },
+                        onPickTriggerAction = { profileId, enter ->
+                            navController.navigate(
+                                ActionSelect(
+                                    visibilityProfileId = profileId,
+                                    visibilityEnter = enter,
+                                ),
+                            )
+                        },
                     )
                 }
                 myComposable<NotificationBlocklist> {

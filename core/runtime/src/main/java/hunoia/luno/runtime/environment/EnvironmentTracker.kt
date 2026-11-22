@@ -25,6 +25,8 @@ class EnvironmentTracker(
     var orientation = Configuration.ORIENTATION_PORTRAIT
         private set
     var isNowInLockScreenPage = false
+    /** 熄屏中（亮屏不含）；由宿主既有的息屏/亮屏回调写入，不新增平台监听。 */
+    var isScreenOff = false
     var isKeyboardInputActive = false
     var currentPackageName: String = ""
         private set
@@ -76,6 +78,7 @@ class EnvironmentTracker(
         isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE,
         isInLauncher = nowInLauncher(),
         isKeyboardInputActive = isKeyboardInputActive,
+        isScreenOff = isScreenOff,
         hiddenGestureButtons = hiddenGestureButtons,
     )
 

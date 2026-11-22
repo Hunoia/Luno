@@ -47,6 +47,8 @@ object InternalWidgetIds {
     const val SYS_MONITOR = "internal.sysMonitor"
     /** 应用耗电统计：本次充电以来各应用耗电排行（params 存 PowerStatsWidgetParams）。 */
     const val POWER_STATS = "internal.powerStats"
+    /** 当前界面：前台 Activity 两行信息，点按复制 / 长按菜单钉悬浮（无 params）。 */
+    const val CURRENT_ACTIVITY = "internal.currentActivity"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */

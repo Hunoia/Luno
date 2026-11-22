@@ -46,6 +46,9 @@ enum class MotionFamily(val baseMillis: Int) {
      */
     AlertEdgeGlow(1400),
 
+    /** 屏幕边缘流光的单循环（亮带沿屏缘绕行一圈）。 */
+    AlertEdgeFlow(1600),
+
     /** 顶部粒子掉落的单循环（一波粒子从顶缘落到淡出）。 */
     AlertParticles(1000),
 
@@ -54,6 +57,9 @@ enum class MotionFamily(val baseMillis: Int) {
 
     /** 胶囊本体脉冲的单循环（描边辉光呼吸一次）。 */
     AlertPulse(1000),
+
+    /** 全屏涟漪的单循环（一圈水波从锚点扩到屏缘并淡出）。 */
+    AlertFullRipple(1100),
 
     /** 胶囊边框流光的单循环（亮带沿边框扫过一次）。 */
     AlertShimmer(1150),
@@ -75,8 +81,9 @@ data class MotionProfile(
         MotionFamily.PanelCard, MotionFamily.PanelFull -> panel
         MotionFamily.Overlay -> overlay
         MotionFamily.Floating, MotionFamily.FloatingMorph, MotionFamily.FloatingSnap -> floating
-        MotionFamily.AlertEdgeGlow, MotionFamily.AlertParticles, MotionFamily.AlertRing,
-        MotionFamily.AlertPulse, MotionFamily.AlertShimmer,
+        MotionFamily.AlertEdgeGlow, MotionFamily.AlertEdgeFlow, MotionFamily.AlertParticles,
+        MotionFamily.AlertRing, MotionFamily.AlertPulse, MotionFamily.AlertFullRipple,
+        MotionFamily.AlertShimmer,
         -> floating
     }
 
@@ -144,8 +151,10 @@ fun <T> MotionSpec.tween(): TweenSpec<T> = tween(durationMillis, easing = easing
  */
 fun NotificationAlertEffect.toAlertFamily(): MotionFamily = when (this) {
     NotificationAlertEffect.EdgeGlow -> MotionFamily.AlertEdgeGlow
+    NotificationAlertEffect.EdgeFlow -> MotionFamily.AlertEdgeFlow
     NotificationAlertEffect.TopParticles -> MotionFamily.AlertParticles
     NotificationAlertEffect.BallRing -> MotionFamily.AlertRing
     NotificationAlertEffect.CapsulePulse -> MotionFamily.AlertPulse
+    NotificationAlertEffect.FullRipple -> MotionFamily.AlertFullRipple
     NotificationAlertEffect.CapsuleShimmer -> MotionFamily.AlertShimmer
 }

@@ -24,6 +24,7 @@ import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.core.domain.DynamicShortcutRefs
+import hunoia.luno.core.domain.HomeSwitchSnapshot
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -52,6 +53,7 @@ class SettingsStores(
     internal val _autoBackup: DataStore<AutoBackupSettings>,
     internal val _appControlSettings: DataStore<AppControlSettings>,
     internal val _dynamicShortcutRefs: DataStore<DynamicShortcutRefs>,
+    internal val _homeSwitchSnapshot: DataStore<HomeSwitchSnapshot>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -79,6 +81,8 @@ class SettingsStores(
     val appControlSettings: Flow<AppControlSettings> = _appControlSettings.data
     /** 动态快捷方式导入记录：设备本地引用，不进备份、不被 resetAll 清掉。 */
     val dynamicShortcutRefs: Flow<DynamicShortcutRefs> = _dynamicShortcutRefs.data
+    /** 临时桌面环境快照：设备瞬态，不进备份。 */
+    val homeSwitchSnapshot: Flow<HomeSwitchSnapshot> = _homeSwitchSnapshot.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -109,6 +113,7 @@ class SettingsStores(
                 _autoBackup = ctx.dataStore(DataStoreFiles.AUTO_BACKUP, AutoBackupSettings()),
                 _appControlSettings = ctx.dataStore(DataStoreFiles.APP_CONTROL_SETTINGS, AppControlSettings()),
                 _dynamicShortcutRefs = ctx.dataStore(DataStoreFiles.DYNAMIC_SHORTCUTS, DynamicShortcutRefs()),
+                _homeSwitchSnapshot = ctx.dataStore(DataStoreFiles.HOME_SWITCH_SNAPSHOT, HomeSwitchSnapshot(homePackage = "")),
             )
         }
     }

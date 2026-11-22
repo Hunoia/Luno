@@ -37,8 +37,8 @@ fun singlePanelWidgetId(panelId: String): String? =
 data class SinglePanel(
     /** 固定功能 id（见 [SinglePanelIds]）；一功能一块，全局唯一。 */
     val widgetId: String,
-    val portrait: GridPanelGeometry = GridPanelGeometry(),
-    val landscape: GridPanelGeometry = GridPanelGeometry(),
+    val portrait: GridPanelGeometry = GridPanelGeometry.default(landscape = false),
+    val landscape: GridPanelGeometry = GridPanelGeometry.default(landscape = true),
     /** 面板外观覆盖；`null` = 跟随 [ActionSettings.panelAppearance] 的全局默认。 */
     val appearance: PanelAppearance? = null,
     /** 功能自己的参数（JSON 串，口径同 `GridPanelItem.Kind.Internal.params`）。 */

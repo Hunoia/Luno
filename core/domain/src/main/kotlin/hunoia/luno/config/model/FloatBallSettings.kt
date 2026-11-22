@@ -121,6 +121,8 @@ data class FloatBallSettings(
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
     /** 结果胶囊：分发规则的胶囊档结果从这里展开。**没有开关**——有结果就会显示。 */
     val resultCapsule: ResultCapsuleSettings = ResultCapsuleSettings(),
+    /** 当前界面悬浮窗（部件「钉悬浮」拉起，内容实时读 ForegroundActivityHub）：位置 / 尺寸 / 停靠侧。 */
+    val activityFloat: ActivityFloatSettings = ActivityFloatSettings(),
     /** 两条队列的 TTL 与容量。 */
     val inbox: BallInboxSettings = BallInboxSettings(),
     /**
@@ -286,14 +288,18 @@ data class NotificationCapsuleSettings(
 /**
  * 到达提示动效的形态（单选）。
  *
- * [EdgeGlow] / [TopParticles] / [BallRing] 是按需挂摘的独立 overlay 窗；
- * [CapsulePulse] / [CapsuleShimmer] 画在胶囊窗口自己的 Compose 层，不动窗口几何。
+ * [EdgeGlow] / [EdgeFlow] / [TopParticles] / [BallRing] / [FullRipple] 是按需挂摘的
+ * 独立 overlay 窗；[CapsulePulse] / [CapsuleShimmer] 画在胶囊窗口自己的 Compose 层，
+ * 不动窗口几何。
  */
 @Serializable
 @Keep
 enum class NotificationAlertEffect {
     /** 屏幕边缘呼吸光。 */
     EdgeGlow,
+
+    /** 屏幕边缘流光：亮带沿屏缘环绕（单/双带 + 拖尾 + 双色可设）。 */
+    EdgeFlow,
 
     /** 顶部粒子掉落。 */
     TopParticles,
@@ -303,6 +309,9 @@ enum class NotificationAlertEffect {
 
     /** 球光环扩散（雷达 ping，锚定通知球）。 */
     BallRing,
+
+    /** 全屏涟漪：从锚点（通知球心 / 屏幕中心）扩散一圈抵达屏缘的水波纹。 */
+    FullRipple,
 
     /** 胶囊边框流光（光带沿边框扫过，不新增窗口）。 */
     CapsuleShimmer,
@@ -324,54 +333,120 @@ data class NotificationAlertSettings(
     /** 动效颜色；[ColorSpec.isUnset] 时跟随主题主色。 */
     val color: ColorSpec = ColorSpec.Unset,
     val edgeGlow: EdgeGlowAlertSettings = EdgeGlowAlertSettings(),
+    val edgeFlow: EdgeFlowAlertSettings = EdgeFlowAlertSettings(),
     val particles: ParticlesAlertSettings = ParticlesAlertSettings(),
     val ring: RingAlertSettings = RingAlertSettings(),
     val pulse: PulseAlertSettings = PulseAlertSettings(),
+    val fullRipple: FullRippleAlertSettings = FullRippleAlertSettings(),
     val shimmer: ShimmerAlertSettings = ShimmerAlertSettings(),
 )
 
-/** 屏幕边缘呼吸光的专属旋钮：光带宽度（dp）、亮度（%）、呼吸圈数。 */
+/** 屏幕边缘呼吸光的专属旋钮：光带宽度、亮度、呼吸圈数、速度、屏缘圆角、衰减硬度。 */
 @Serializable
 @Keep
 data class EdgeGlowAlertSettings(
     val bandWidthDp: Int = FloatBallDefaults.AlertEdgeGlowBandWidthDp,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
+    /** 播放速度（%）：100 = 家族基准时长，200 = 两倍速（时长减半）。 */
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 屏缘圆角半径（dp）：SDF 的圆角，按设备观感调。 */
+    val cornerRadiusDp: Int = FloatBallDefaults.AlertEdgeGlowCornerDp,
+    /** 衰减硬度（指数）：1 = 现行指数衰减，>1 光带主体更实、外缘收得更干脆。 */
+    val hardness: Int = FloatBallDefaults.AlertEdgeGlowHardness,
 )
 
-/** 顶部粒子掉落的专属旋钮：粒子数量、亮度（%）、波次。 */
+/**
+ * 屏幕边缘流光的专属旋钮：光带宽度、亮度、圈数（绕屏缘圈数）、速度、
+ * 带数（单/双）、拖尾宽度、双色开关与第二颜色。
+ */
+@Serializable
+@Keep
+data class EdgeFlowAlertSettings(
+    val bandWidthDp: Int = FloatBallDefaults.AlertFlowBandWidthDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 双带追逐：两道亮带相向而行（相隔半圈）。 */
+    val dualBand: Boolean = false,
+    /** 拖尾宽度（主带宽倍数 ×100）：0 = 无拖尾。 */
+    val trailScale: Int = FloatBallDefaults.AlertFlowTrailScale,
+    /** 双色模式：双带时第二带用第二颜色（[secondColor] 未设置时跟随主题次色）。 */
+    val dualColor: Boolean = false,
+    val secondColor: ColorSpec = ColorSpec.Unset,
+)
+
+/** 顶部粒子掉落的专属旋钮：粒子数量、亮度、波次、速度、大小、摆幅、重力、下落行程。 */
 @Serializable
 @Keep
 data class ParticlesAlertSettings(
     val count: Int = FloatBallDefaults.AlertParticlesCount,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val waves: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 粒子大小（%）：缩放基准粒径。 */
+    val sizeScale: Int = FloatBallDefaults.AlertParticlesSizeScale,
+    /** 摆动幅度（%）：缩放基准横摆幅。 */
+    val swayScale: Int = FloatBallDefaults.AlertParticlesSwayScale,
+    /** 重力强度（指数）：1 = 匀速，2 = 真重力，3 = 更强的加速。 */
+    val gravity: Int = FloatBallDefaults.AlertParticlesGravity,
+    /** 下落行程（dp）：顶部条窗高度与粒子下落距离同源。 */
+    val travelDp: Int = FloatBallDefaults.AlertParticlesTravelDp,
 )
 
-/** 球光环扩散的专属旋钮：扩散行程（球径 %）、亮度（%）、光环圈数。 */
+/** 球光环扩散的专属旋钮：扩散行程（球径 %）、亮度、圈数、速度、描边宽度、每波环数、光晕强度。 */
 @Serializable
 @Keep
 data class RingAlertSettings(
     val travel: Int = FloatBallDefaults.AlertRingTravel,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 核描边宽度（dp）：亮度只管 alpha，宽度由此独立控制。 */
+    val strokeWidthDp: Int = FloatBallDefaults.AlertRingStrokeWidthDp,
+    /** 每循环发出的环数。 */
+    val ringsPerCycle: Int = FloatBallDefaults.AlertRingRingsPerCycle,
+    /** 光晕强度（%）：缩放光晕环宽度与 alpha 占比，0 = 无光晕。 */
+    val haloScale: Int = FloatBallDefaults.AlertHaloScale,
 )
 
-/** 胶囊本体脉冲的专属旋钮：辉光峰值（%）、脉冲次数。 */
+/** 胶囊本体脉冲的专属旋钮：亮度、脉冲次数、速度、辉光宽度（0.1dp 粒度）、光晕强度。 */
 @Serializable
 @Keep
 data class PulseAlertSettings(
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 核心描边宽度（0.1dp 存储：15 = 1.5dp）。 */
+    val glowWidthDpTenths: Int = FloatBallDefaults.AlertPulseGlowWidthTenths,
+    /** 光晕强度（%）：缩放光晕层宽度与 alpha 占比，0 = 只剩核心描边。 */
+    val haloScale: Int = FloatBallDefaults.AlertHaloScale,
 )
 
-/** 胶囊边框流光的专属旋钮：主带宽度（%）、亮度（%）、扫过次数。 */
+/** 全屏涟漪的专属旋钮：亮度、圈数、速度、描边宽度、锚点（通知球心 / 屏幕中心）。 */
+@Serializable
+@Keep
+data class FullRippleAlertSettings(
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    val strokeWidthDp: Int = FloatBallDefaults.AlertRippleStrokeWidthDp,
+    /** true = 从通知球心扩散；false = 从屏幕中心扩散。 */
+    val centerAtBall: Boolean = true,
+)
+
+/** 胶囊边框流光的专属旋钮：主带宽度（%）、亮度、扫过次数、速度、拖尾宽度、反向扫动。 */
 @Serializable
 @Keep
 data class ShimmerAlertSettings(
     val bandWidth: Int = FloatBallDefaults.AlertShimmerBandWidth,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 拖尾宽度（主带宽倍数 ×100）：0 = 无拖尾。 */
+    val trailScale: Int = FloatBallDefaults.AlertShimmerTrailScale,
+    /** true = 自右向左扫（默认自左向右）。 */
+    val reverse: Boolean = false,
 )
 
 /**
@@ -534,33 +609,94 @@ object FloatBallDefaults {
     /** 到达提示动效：默认关（老用户升级零感知），开启后默认边缘呼吸光。 */
     const val AlertEnabled = false
 
-    /** 到达提示动效通用旋钮默认值与滑杆上下限：亮度（%）与播放次数。 */
+    /** 到达提示动效通用旋钮默认值与滑杆上下限：亮度（%）、播放次数、播放速度（%）。 */
     const val AlertBrightness = 60
     const val AlertBrightnessMin = 0
     const val AlertBrightnessMax = 100
     const val AlertCycles = 2
     const val AlertCyclesMin = 1
     const val AlertCyclesMax = 4
+    const val AlertSpeedPercent = 100
+    const val AlertSpeedPercentMin = 50
+    const val AlertSpeedPercentMax = 200
 
-    /** 到达提示·边缘呼吸光：光带宽度默认值与滑杆上下限（dp）。 */
-    const val AlertEdgeGlowBandWidthDp = 110
-    const val AlertEdgeGlowBandWidthDpMin = 48
-    const val AlertEdgeGlowBandWidthDpMax = 240
+    /** 到达提示·边缘呼吸光：光带宽度默认值与滑杆上下限（dp，衰减尺度，可见晕约 3×）。 */
+    const val AlertEdgeGlowBandWidthDp = 24
+    const val AlertEdgeGlowBandWidthDpMin = 1
+    const val AlertEdgeGlowBandWidthDpMax = 96
+
+    /** 到达提示·边缘呼吸光：屏缘圆角半径与衰减硬度（指数）默认值与滑杆上下限。 */
+    const val AlertEdgeGlowCornerDp = 28
+    const val AlertEdgeGlowCornerDpMin = 8
+    const val AlertEdgeGlowCornerDpMax = 48
+    const val AlertEdgeGlowHardness = 1
+    const val AlertEdgeGlowHardnessMin = 1
+    const val AlertEdgeGlowHardnessMax = 4
+
+    /** 到达提示·边缘流光：光带宽度默认值与滑杆上下限（dp，同呼吸光口径）。 */
+    const val AlertFlowBandWidthDp = 24
+    const val AlertFlowBandWidthDpMin = 1
+    const val AlertFlowBandWidthDpMax = 96
+
+    /** 到达提示·边缘流光：拖尾宽度（主带宽倍数 ×100）默认值与滑杆上下限，0 = 无拖尾。 */
+    const val AlertFlowTrailScale = 200
+    const val AlertFlowTrailScaleMin = 0
+    const val AlertFlowTrailScaleMax = 300
 
     /** 到达提示·顶部粒子：粒子数量默认值与滑杆上下限。 */
     const val AlertParticlesCount = 48
     const val AlertParticlesCountMin = 12
     const val AlertParticlesCountMax = 120
 
+    /** 到达提示·顶部粒子：粒子大小 / 摆动幅度缩放（%）、重力强度（指数）、下落行程（dp）。 */
+    const val AlertParticlesSizeScale = 100
+    const val AlertParticlesSizeScaleMin = 50
+    const val AlertParticlesSizeScaleMax = 300
+    const val AlertParticlesSwayScale = 100
+    const val AlertParticlesSwayScaleMin = 0
+    const val AlertParticlesSwayScaleMax = 200
+    const val AlertParticlesGravity = 2
+    const val AlertParticlesGravityMin = 1
+    const val AlertParticlesGravityMax = 3
+    const val AlertParticlesTravelDp = 200
+    const val AlertParticlesTravelDpMin = 100
+    const val AlertParticlesTravelDpMax = 800
+
     /** 到达提示·球光环：扩散行程默认值与滑杆上下限（球径 %）。 */
     const val AlertRingTravel = 95
     const val AlertRingTravelMin = 40
     const val AlertRingTravelMax = 200
 
-    /** 到达提示·边框流光：主带宽度默认值与滑杆上下限（胶囊宽 %）。 */
+    /** 到达提示·球光环：描边宽度（dp）、每循环环数默认值与滑杆上下限。 */
+    const val AlertRingStrokeWidthDp = 3
+    const val AlertRingStrokeWidthDpMin = 1
+    const val AlertRingStrokeWidthDpMax = 8
+    const val AlertRingRingsPerCycle = 2
+    const val AlertRingRingsPerCycleMin = 1
+    const val AlertRingRingsPerCycleMax = 4
+
+    /** 到达提示·全屏涟漪：描边宽度（dp）默认值与滑杆上下限。 */
+    const val AlertRippleStrokeWidthDp = 3
+    const val AlertRippleStrokeWidthDpMin = 1
+    const val AlertRippleStrokeWidthDpMax = 8
+
+    /** 到达提示通用：光晕强度缩放（%）默认值与滑杆上下限（光环 / 脉冲各存一份）。 */
+    const val AlertHaloScale = 100
+    const val AlertHaloScaleMin = 0
+    const val AlertHaloScaleMax = 200
+
+    /** 到达提示·胶囊脉冲：辉光宽度（0.1dp 存储）默认值与滑杆上下限。 */
+    const val AlertPulseGlowWidthTenths = 15
+    const val AlertPulseGlowWidthTenthsMin = 5
+    const val AlertPulseGlowWidthTenthsMax = 40
+
+    /** 到达提示·边框流光：主带宽度默认值与滑杆上下限（胶囊宽 %）、拖尾宽度（倍数 ×100）。 */
     const val AlertShimmerBandWidth = 25
     const val AlertShimmerBandWidthMin = 10
     const val AlertShimmerBandWidthMax = 60
+    const val AlertShimmerTrailScale = 200
+    const val AlertShimmerTrailScaleMin = 0
+    const val AlertShimmerTrailScaleMax = 300
 
     /** 内容胶囊（通知 / 结果）同屏可见行数默认值与滑杆上下限（行）。 */
     const val CapsuleVisibleRows = 3

@@ -1,8 +1,10 @@
 package hunoia.luno.bridge.launcher
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Process
@@ -17,6 +19,8 @@ import hunoia.luno.core.LunoLog as Log
  * `pinShortcuts` / `getShortcuts` 只对持有 `ROLE_HOME` 的默认桌面开放；读取与固定都放在
  * 设置页的显式操作里，不做后台轮询。切回原桌面后，此前已 pin 的入口仍可经
  * `startShortcut` 启动（系统没有公开的 unpin API）。
+ *
+ * pin 拦截（受理应用的「添加到桌面」请求）与图标读取同样只在持默认桌面的窗口期发生。
  *
  * minSdk = 33：`profiles` / `getApplicationInfo(pkg, 0, user)` / `RoleManager` 全可用，
  * 不需要版本分支。
@@ -184,4 +188,63 @@ object DynamicShortcuts {
                 LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED,
         )
     }
+
+    // —— pin 拦截（仅限持有默认桌面的窗口期调用，非 HOME 时这些 API 会抛权限异常）——
+
+    /**
+     * 受理应用的 pin 请求（系统把「添加到桌面」发给当前默认桌面）：校验有效性，
+     * accept 把 pin 记到本应用名下，返回该入口的 [ShortcutInfo] 供落库。
+     * 非快捷方式请求（小部件）或无效请求回 null，调用方静默收场。
+     */
+    fun acceptPinRequest(request: LauncherApps.PinItemRequest): ShortcutInfo? = runCatching {
+        if (!request.isValid || request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+            return null
+        }
+        val info = request.shortcutInfo ?: return null
+        request.accept()
+        info
+    }.getOrElse {
+        Log.w(TAG, "accept pin request failed", it)
+        null
+    }
+
+    /** 本包的 HOME 入口组件（`cmd package set-home-activity` 兜底用）；解析不到为 null。 */
+    fun homeEntryComponent(context: Context): String? = runCatching {
+        val intent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
+            .setPackage(context.packageName)
+        context.packageManager.queryIntentActivities(intent, 0).firstOrNull()?.activityInfo
+            ?.let { ComponentName(it.packageName, it.name).flattenToString() }
+    }.getOrNull()
+
+    /**
+     * 从系统 [ShortcutInfo] 直接读图标：pin 拦截时手里就有 info，不必再按 (包名, id) 回查。
+     * 读取失败回 null，由调用方落库时保留空图标（下游回退应用图标）。
+     */
+    fun iconBitmapFromInfo(
+        context: Context,
+        info: ShortcutInfo,
+        densityDpi: Int = context.resources.displayMetrics.densityDpi,
+    ): Bitmap? = runCatching {
+        val drawable = launcher(context).getShortcutIconDrawable(info, densityDpi) ?: return null
+        val side = 192.coerceAtLeast(1)
+        Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also { bitmap ->
+            drawable.setBounds(0, 0, side, side)
+            drawable.draw(Canvas(bitmap))
+        }
+    }.getOrElse {
+        Log.w(TAG, "icon from info failed pkg=${info.`package`} id=${info.id}", it)
+        null
+    }
+
+    /** 目标应用在 [userHandle] 资料空间的展示名；读不到回退包名。 */
+    fun appLabelOf(context: Context, packageName: String, userHandle: UserHandle): String = runCatching {
+        val appInfo = launcher(context).getApplicationInfo(packageName, 0, userHandle)
+        context.packageManager.getApplicationLabel(appInfo).toString()
+    }.getOrDefault(packageName)
+
+    /** 资料空间 → 用户序列号；读不到回 -1（调用方落库后由既有的 userId 补齐迁移兜底）。 */
+    fun serialNumberForUser(context: Context, userHandle: UserHandle): Long = runCatching {
+        context.getSystemService(UserManager::class.java).getSerialNumberForUser(userHandle)
+    }.getOrDefault(-1L)
 }

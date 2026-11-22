@@ -11,6 +11,14 @@ object GridPanelDefaults {
     const val CardWidthFraction = 0.72f
     const val MinCardWidthFraction = 0.20f
     const val MaxCardWidthFraction = 0.90f
+
+    /**
+     * 横屏默认（竖屏用上面两档）：横屏屏宽是长边、屏高是短边，照搬竖屏比例会撑出
+     * 巨宽扁卡（0.72 × 长边），格子被放大到只剩 1–2 行。宽按长边收紧、高按短边放宽。
+     */
+    const val LandscapeCardWidthFraction = 0.30f
+    const val LandscapeCardHeightFraction = 0.80f
+
     const val CardAlpha = 0.75f
     const val MinCardAlpha = 0f
     const val MaxCardAlpha = 1f

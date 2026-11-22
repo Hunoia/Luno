@@ -99,6 +99,22 @@
             </intent-filter>
         </activity>
 
+        <!-- 「添加到桌面」拦截宿主：Luno 临时持默认桌面期间，系统把应用的 pin 请求发到这里。
+             静默受理（accept + 入库 + toast），无界面；非快捷方式请求直接 finish。 -->
+        <activity
+            android:name=".ui.shortcut.ShortcutPinConfirmActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.SideGesture.Transparent">
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- 动作库条目外部调用：luno://action/{entryId} -->
         <activity
             android:name=".ui.ActionDeepLinkActivity"

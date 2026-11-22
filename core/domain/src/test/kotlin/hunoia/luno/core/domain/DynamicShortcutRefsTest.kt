@@ -53,4 +53,38 @@ class DynamicShortcutRefsTest {
         // 未导入且不在快照里的记录被清掉；孤立已导入保留。
         assertFalse(byId.containsKey("b"))
     }
+
+    @Test
+    fun `upsert imported adds new entry as imported`() {
+        val updated = DynamicShortcutRefs(listOf(ref("a", imported = true)))
+            .upsertImported(ref("b", iconPath = "/icon.png"))
+
+        val byId = updated.items.associateBy { it.shortcutId }
+        assertTrue(byId.getValue("b").imported)
+        assertEquals("/icon.png", byId.getValue("b").iconPath)
+        // 既有条目原样保留：单条导入没有全量快照，不做孤儿清理。
+        assertTrue(byId.getValue("a").imported)
+        assertEquals(2, updated.items.size)
+    }
+
+    @Test
+    fun `upsert imported replaces same identity entirely`() {
+        val existing = DynamicShortcutRefs(listOf(ref("a", imported = true, iconPath = "/old.png")))
+        val replaced = existing.upsertImported(
+            DynamicShortcutRef(
+                packageName = "com.example",
+                shortcutId = "a",
+                userSerial = 0,
+                label = "label-new",
+                appLabel = "Example",
+                iconPath = "/new.png",
+            ),
+        )
+
+        assertEquals(1, replaced.items.size)
+        val item = replaced.items.single()
+        assertTrue(item.imported)
+        assertEquals("label-new", item.label)
+        assertEquals("/new.png", item.iconPath)
+    }
 }

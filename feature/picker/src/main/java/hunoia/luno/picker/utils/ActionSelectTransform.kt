@@ -94,6 +94,15 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         // 面板项只进不出（想换动作就删了重加），进这页只会是加项。
         return context.getString(hunoia.luno.gridpanel.R.string.grid_panel_add_item)
     }
+    if (actionSelect.visibilityProfileId.isNotBlank()) {
+        return context.getString(
+            if (actionSelect.visibilityEnter) {
+                hunoia.luno.gesture.R.string.button_visibility_trigger_enter
+            } else {
+                hunoia.luno.gesture.R.string.button_visibility_trigger_exit
+            },
+        )
+    }
     when (actionSelect.triggerType) {
         GestureTriggerType.Tap -> return context.getString(hunoia.luno.gesture.R.string.tap_action)
         GestureTriggerType.DoubleTap -> return context.getString(hunoia.luno.gesture.R.string.double_tap_action)

@@ -19,6 +19,7 @@ import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.record
 import hunoia.luno.core.domain.DynamicShortcutRefs
+import hunoia.luno.core.domain.HomeSwitchSnapshot
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GlobalGestureSettings
@@ -110,6 +111,15 @@ object ConfigProvider {
         transform: suspend (DynamicShortcutRefs) -> DynamicShortcutRefs,
     ) {
         stores._dynamicShortcutRefs.updateData(transform)
+    }
+
+    suspend fun getHomeSwitchSnapshot(): HomeSwitchSnapshot =
+        stores._homeSwitchSnapshot.data.first()
+
+    suspend fun updateHomeSwitchSnapshot(
+        transform: suspend (HomeSwitchSnapshot) -> HomeSwitchSnapshot,
+    ) {
+        stores._homeSwitchSnapshot.updateData(transform)
     }
 
     suspend fun updateAutoBackup(transform: suspend (AutoBackupSettings) -> AutoBackupSettings) {

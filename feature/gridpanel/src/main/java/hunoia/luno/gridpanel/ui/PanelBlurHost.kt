@@ -17,6 +17,9 @@ import hunoia.luno.bridge.ui.BackgroundBlurHandle
  */
 enum class BlurState { Pending, Attached, Unavailable }
 
+/** 区域模糊不可用时提高不透明度的兜底值：卡片与底栏共用同一口径，避免两处漂移。 */
+internal const val BlurFallbackAlpha = 0.92f
+
 /**
  * 区域模糊宿主：一块不可点击的 View，背景是 [BackgroundBlur] 的 drawable。
  *

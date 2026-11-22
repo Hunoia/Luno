@@ -9,6 +9,8 @@ data class GestureRuntimeState(
     val isLandscape: Boolean,
     val isInLauncher: Boolean,
     val isKeyboardInputActive: Boolean,
+    /** 熄屏中（亮屏不含）。由宿主既有的息屏/亮屏回调写入 [EnvironmentTracker]，不新增平台监听。 */
+    val isScreenOff: Boolean = false,
     val hiddenGestureButtons: Map<String, Long>,
     /**
      * 生成这份快照时的单调时钟。只用于「临时隐藏是否到期」这一瞬间判断；

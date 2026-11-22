@@ -8,38 +8,53 @@ import kotlin.math.roundToInt
  * 到达提示动效的**每效果独立调校参数**（需求确认口径：参数不共用，按各效果实际观感定值）。
  *
  * 这里只放「量的区间映射」之外的曲线形状常量（衰减 stop、层占比、缓动指数、辉光比例）；
- * 用户可调的量旋钮区间（光带宽度 / 粒子数量 / 扩散行程 / 主带宽）在 `FloatBallDefaults`
- * 里登记（滑杆约束与绘制映射同源），时长按效果走 `MotionFamily.Alert*` 家族（唯一事实源
- * 在 ui:design 的 Motion.kt）。所有 dp 值按 dp 语义命名，绘制处 `.dp.toPx()` 换算；
- * 改动任一值都应先试播确认观感。
+ * 用户可调的旋钮区间（光带宽度 / 粒子数量与形状 / 描边宽度 / 光晕缩放 / 主带宽 / 速度）
+ * 在 `FloatBallDefaults` 里登记（滑杆约束与绘制映射同源），随 `AlertPlayPlan` /
+ * `AlertEffectSpec` 下发；时长按效果走 `MotionFamily.Alert*` 家族（唯一事实源在
+ * ui:design 的 Motion.kt），速度倍率在 buildPlan 统一折算。所有 dp 值按 dp 语义命名，
+ * 绘制处 `.dp.toPx()` 换算；改动任一值都应先试播确认观感。
  */
 
 /**
  * 屏幕边缘呼吸光（AGSL 距离场）：辉光沿圆角屏缘按距离指数衰减，alpha 按 sin 包络呼吸。
- * 强度映射 alpha 峰值；光带宽度（衰减尺度）是用户旋钮。
+ * 强度映射 alpha 峰值；光带宽度（衰减尺度）、屏缘圆角、衰减硬度是用户旋钮。
  */
 internal object EdgeGlowTuning {
     /** alpha 峰值下/上限：亮度旋钮的映射区间（sin 包络的乘数）。 */
     const val PeakAlphaMin = 0.25f
     const val PeakAlphaMax = 0.8f
 
-    /** 屏缘圆角半径（dp）：SDF 的圆角；设备真值拿不到可靠 API，按观感取常用档。 */
-    const val ScreenCornerRadiusDp = 28f
-
     /** 外侧衰减（px）：圆角裁掉的区域外辉光快速收尾，避免角外残留硬边。 */
     const val OuterFalloffDp = 12f
 }
 
 /**
+ * 屏幕边缘流光（AGSL 距离场 + 周长参数化）：亮带沿屏缘环绕，主带后随更宽更暗的拖尾。
+ * 深度衰减同呼吸光口径（光带宽度 = 衰减尺度，用户旋钮）；沿周长的带形是固定占比的高斯。
+ */
+internal object FlowTuning {
+    /** 主带高斯 σ（周长占比）：可见带 ≈ ±2σ。 */
+    const val CoreBandFraction = 0.03f
+
+    /** 拖尾带 alpha 占主带峰值的比例（拖尾宽度 = 主带 σ × 拖尾旋钮）。 */
+    const val TrailAlphaFraction = 0.4f
+
+    /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
+    const val PeakAlphaMin = 0.35f
+    const val PeakAlphaMax = 0.9f
+}
+
+/**
  * 顶部粒子掉落：粒子从顶缘错峰出发，重力加速下落 + 横向正弦摆动，
  * 双层圆点辉光（实心核 + 低 alpha 光晕），alpha 先驻留后衰减。
+ * 粒子大小 / 摆幅 / 重力 / 行程是用户旋钮（[ParticlesSpec]），这里只留形状常量。
  */
 internal object ParticlesTuning {
     /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.8f
 
-    /** 粒子核半径下/上限（dp）：非用户旋钮，按观感定值。 */
+    /** 粒子核基准半径下/上限（dp）：大小旋钮的缩放基准。 */
     const val RadiusMinDp = 2f
     const val RadiusMaxDp = 4.5f
 
@@ -51,13 +66,10 @@ internal object ParticlesTuning {
     const val HaloScale = 2.6f
     const val HaloAlphaFraction = 0.35f
 
-    /** 下落重力指数：1 = 匀速，2 = 真重力；>1 起步慢、越落越快。 */
-    const val GravityExp = 2f
-
     /** alpha 衰减指数：>1 先驻留后衰减，避免一出发就明显变暗。 */
     const val FadeExp = 1.6f
 
-    /** 横摆：摆幅（宽度占比）与单次下落内的正弦周期数。 */
+    /** 横摆：基准摆幅（宽度占比，摆幅旋钮的缩放基准）与单次下落内的正弦周期数。 */
     const val SwayAmpNorm = 0.02f
     const val SwayCycles = 1.5f
 
@@ -67,19 +79,12 @@ internal object ParticlesTuning {
 
 /**
  * 球光环扩散（雷达 ping）：圆环减速扩张 + alpha 衰减，核环 + 宽光晕双描边。
- * 扩散行程（球径 %）是用户旋钮；强度映射描边宽度与 alpha 峰值；节奏 = 圈数。
+ * 扩散行程（球径 %）是用户旋钮；描边宽度 / 每循环环数 / 光晕缩放是用户旋钮（[RingSpec]）。
  */
 internal object RingTuning {
-    /** 核描边宽度下/上限（dp）：亮度旋钮的映射区间。 */
-    const val StrokeMinDp = 2.5f
-    const val StrokeMaxDp = 3.5f
-
-    /** 光晕环：宽度倍数与 alpha 占比。 */
+    /** 光晕环：宽度倍数与 alpha 占比（光晕缩放旋钮的基准）。 */
     const val HaloStrokeScale = 2.2f
     const val HaloAlphaFraction = 0.3f
-
-    /** 每循环发出的环数：环间错峰 = 单循环时长 ÷ 环数。 */
-    const val RingsPerCycle = 2
 
     /** 半径缓出指数：1 = 线性，>1 起步快、收尾减速（减速扩张观感）。 */
     const val EaseExp = 2.2f
@@ -93,13 +98,30 @@ internal object RingTuning {
 }
 
 /**
+ * 全屏涟漪：从锚点向外减速扩张抵达屏缘并淡出的水波纹，核环 + 宽光晕双描边。
+ * 每循环一道波（圈数 = 波数）；描边宽度 / 锚点是用户旋钮（[RippleSpec]）。
+ */
+internal object RippleTuning {
+    /** 光晕环：宽度倍数与 alpha 占比。 */
+    const val HaloStrokeScale = 2.2f
+    const val HaloAlphaFraction = 0.3f
+
+    /** 半径缓出指数：减速扩张观感，与光环同族。 */
+    const val EaseExp = 2.2f
+
+    /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
+    const val PeakAlphaMin = 0.35f
+    const val PeakAlphaMax = 0.8f
+
+    /** alpha 衰减指数：>1 先驻留后衰减。 */
+    const val FadeExp = 1.3f
+}
+
+/**
  * 胶囊本体脉冲：沿胶囊轮廓叠 3 层嵌套描边辉光（核心描边 + 两层逐级加宽减淡的光晕），
- * 亮度按 sin 包络呼吸。亮度旋钮映射峰值增量（叠加在常驻描边 alpha 之上）。
+ * 亮度按 sin 包络呼吸。辉光宽度 / 光晕强度是用户旋钮（[PulseSpec]）。
  */
 internal object PulseTuning {
-    /** 核心描边宽度（dp）：与常驻描边同量级；光晕层宽度 = 核心 × 各级倍数。 */
-    const val CoreWidthDp = 1.5f
-
     /** 光晕层宽度倍数（由内到外）。 */
     const val GlowWidthScale1 = 2.4f
     const val GlowWidthScale2 = 4f
@@ -115,11 +137,10 @@ internal object PulseTuning {
 
 /**
  * 胶囊边框流光：一道亮带沿边框自左向右扫过，主带后随一道更宽更暗的拖尾，
- * 扫动位置缓出（收尾减速）。主带宽度是用户旋钮；亮度映射 alpha 峰值。
+ * 扫动位置缓出（收尾减速）。主带宽度 / 拖尾宽度 / 方向是用户旋钮（[ShimmerSpec]）。
  */
 internal object ShimmerTuning {
-    /** 拖尾带：宽度（占主带宽倍数）与 alpha 占主带峰值的比例。 */
-    const val TrailWidthScale = 2f
+    /** 拖尾带 alpha 占主带峰值的比例。 */
     const val TrailAlphaFraction = 0.4f
 
     /** 扫动位置缓出指数：1 = 匀速，>1 起步快、收尾减速。 */

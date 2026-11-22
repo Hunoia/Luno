@@ -2,6 +2,7 @@ package hunoia.luno.domain.floatball
 
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.ActivityFloatSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ClipFloatSettings
 import hunoia.luno.config.model.InitialSettings
@@ -26,5 +27,15 @@ object FloatBallSettingsCenter {
 
     suspend fun updateClipFloatSettings(settings: ClipFloatSettings) {
         ConfigProvider.updateClipboardSettings { it.copy(clipFloat = settings) }
+    }
+
+    /** 当前界面悬浮窗配置随悬浮球设置（`ActionSettings.floatBall.activityFloat`）同域存取。 */
+    suspend fun getActivityFloatSettings(): ActivityFloatSettings =
+        ConfigProvider.getActionSettings().floatBall.activityFloat
+
+    suspend fun updateActivityFloatSettings(settings: ActivityFloatSettings) {
+        ConfigProvider.updateActionSettings {
+            it.copy(floatBall = it.floatBall.copy(activityFloat = settings))
+        }
     }
 }

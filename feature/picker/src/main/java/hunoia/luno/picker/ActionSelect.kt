@@ -38,6 +38,14 @@ data class ActionSelect(
     /** 非空 = 在配悬浮球的这个槽（见 [FloatBallSlot]），与上面各 id 字段互斥。 */
     val floatBallSlot: String = "",
     /**
+     * 非空 = 在配这条显隐场景的触发动作：所选动作**追加**进该场景的
+     * [visibilityEnter] 对应方向列表（进入/退出），与上面各 id 字段互斥。
+     * 想换动作就删了重加，与网格面板同款只进不出语义。
+     */
+    val visibilityProfileId: String = "",
+    /** [visibilityProfileId] 非空时的触发方向：true = 进入场景，false = 退出场景。 */
+    val visibilityEnter: Boolean = true,
+    /**
      * 非空 = 只挑一个动作交回调用方，不写入任何配置（识别器「执行动作」输出用）。
      *
      * 选中后发 [hunoia.luno.core.ActionPickedEvent]（带同一个 token）并收页，
@@ -47,7 +55,8 @@ data class ActionSelect(
 ) {
     /**
      * 本调用方是否支持多选：只对「加项」开放（动作面板新增、网格面板新增）。
-     * 长按变体编辑、网格原位替换、手势槽、悬浮球、复制链接、pick token 均不支持。
+     * 长按变体编辑、网格原位替换、手势槽、悬浮球、显隐场景触发动作、复制链接、
+     * pick token 均不支持。
      */
     val supportsMultiSelect: Boolean
         get() = (actionPanelId.isNotBlank() && actionPanelItemIndex < 0) ||
