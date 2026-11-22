@@ -2,7 +2,6 @@ package hunoia.luno.runtime
 
 import android.app.KeyguardManager
 import android.app.WallpaperManager
-import android.content.Intent
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper

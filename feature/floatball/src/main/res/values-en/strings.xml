@@ -26,6 +26,7 @@
     <string name="float_ball">Float ball</string>
     <string name="float_ball_appearance">Appearance</string>
     <string name="float_ball_behavior">Behavior</string>
+    <string name="float_ball_drop_zone_vibrate">Vibrate on drop-zone entry</string>
 
     <string name="float_ball_notification_group">Notification capsule</string>
     <string name="float_ball_notification_enabled">Show notification ball</string>
@@ -34,6 +35,7 @@
     <string name="float_ball_notification_capacity">Notification queue capacity</string>
     <string name="float_ball_capsule_auto_hide">Capsule hold duration</string>
     <string name="float_ball_capsule_visible_rows">Rows shown at once</string>
+    <string name="float_ball_capsule_row_height">Capsule size</string>
     <string name="float_ball_capsule_gestures">Gestures</string>
     <string name="float_ball_ball_long_press">Ball long-press action</string>
     <string name="float_ball_row_long_press">Row long-press action</string>

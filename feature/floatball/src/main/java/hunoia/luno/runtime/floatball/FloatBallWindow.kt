@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
@@ -45,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.bridge.ui.hapticTick
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.bridge.ui.SystemBarsSafeArea
@@ -675,7 +675,11 @@ class FloatBallWindow(
             screenHeight = screenHeightPx,
             zone = settings.dropZone(landscape),
         )
-        if (dropHint != inZone) dropHint = inZone
+        if (dropHint != inZone) {
+            dropHint = inZone
+            // 进区边沿（false→true）触发一次可选振动提示；离开不震。
+            if (inZone && settings.dropZoneVibrate) view?.hapticTick()
+        }
     }
 
     // ---- 松手贴边（缓动） ----
@@ -1010,15 +1014,11 @@ class FloatBallWindow(
             modifier = modifier.size(size),
             contentAlignment = Alignment.Center,
         ) {
-            // 判定区彩蛋提示：拖动中球心入判定区时描边转主色并轻微放大（与按压同一档语感）。
+            // 判定区彩蛋提示：拖动中球心入判定区时描边转主色（不放大——放大超出
+            // ballPx 窗口会被窗口直角边裁出平边，看起来变形；画的内容必须 ≤ 窗口）。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        val hintScale = if (dropHint) 1.12f else 1f
-                        scaleX = hintScale
-                        scaleY = hintScale
-                    }
                     .background(accent.copy(alpha = 0.92f), CircleShape)
                     .border(
                         2.dp,

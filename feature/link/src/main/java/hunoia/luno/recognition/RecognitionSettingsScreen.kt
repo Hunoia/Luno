@@ -98,8 +98,11 @@ fun RecognitionSettingsScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val facade = LocalFacades.current.recognitionSettings
-    val actionSettings by facade.actionSettings
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val actionSettingsState = facade.actionSettings
+        .collectAsStateWithLifecycle(initialValue = null as ActionSettings?)
+    // 首帧（真实设置未到）不渲染列表：rememberLazyListState 的滚动恢复若对「默认初值的
+    // 短规则表」执行，深 offset 会被夹到规则组标题；等真实规则就绪再组合，恢复才有完整内容。
+    val actionSettings = actionSettingsState.value ?: return
     val settings = actionSettings.recognition
     // 情景识别靠无障碍服务读界面文本；没就绪时在组内提示一行。
     val shizukuStatus by ShizukuManager.statusFlow.collectAsStateWithLifecycle()

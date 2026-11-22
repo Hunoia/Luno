@@ -34,6 +34,7 @@
     <string name="float_ball_notification_capacity">通知队列容量</string>
     <string name="float_ball_capsule_auto_hide">胶囊停留时长</string>
     <string name="float_ball_capsule_visible_rows">同屏条数</string>
+    <string name="float_ball_capsule_row_height">胶囊大小</string>
     <string name="float_ball_capsule_blocklist">通知黑名单</string>
     <string name="float_ball_capsule_blocklist_count">%1$d 个应用</string>
     <string name="float_ball_capsule_need_permission">需要通知使用权</string>
@@ -136,6 +137,7 @@
     <string name="float_ball_drop_action">悬浮球拖入判定区动作</string>
     <string name="float_ball_drop_zone_adjust">判定区调整</string>
     <string name="float_ball_drop_zone_adjust_subtitle">拖入彩蛋的判定位置与大小（横竖屏各一份）</string>
+    <string name="float_ball_drop_zone_vibrate">拖入判定区时振动</string>
     <string name="float_ball_long_press_ms">长按触发时长</string>
     <string name="float_ball_tap_unset">未设置</string>
     <string name="float_ball_trigger_actions">触发动作</string>

@@ -22,9 +22,8 @@ import hunoia.luno.ui.theme.SmallShape
  * - [selected]：走 M3 `CheckableDropdownMenuItem`，选中用 M3 selectable 高亮
  *   （`selectedContainerColor`）表达——不画行尾对勾，对勾语义由高亮块替代（ui-guidelines §4.4.1）。
  * - 边距与圆角（参考 FlClash `listItemRadiusOf` 的同心规则）：M3 把色块画成带硬编码
- *   4dp 水平内距的 Surface，容器列又固定 8dp 垂直外距。这里给项加 `padding(horizontal = 4.dp)`，
- *   使色块四边距容器 = 左右 4+4=8dp / 上下 0+8=8dp，**对称 8dp**；色块圆角 =
- *   容器圆角(16dp) − 边距(8dp) = 8dp，与容器同心（容器角色小档 [ShapeSmall]）。`contentPadding`
+ *   4dp 水平内距的 Surface，容器列又固定 8dp 垂直外距。这里项不再加水平 padding，
+ *   使色块左右距容器 = 0+4=4dp / 上下 = 0+8=8dp（左右贴得比上下近）。`contentPadding`
  *   只内衬文字（8dp 水平呼吸，文字仍距容器边 16dp，与改前一致），不决定色块位置。
  * - 去掉原 12/12 内距后，M3 项无强制最小高，用 `heightIn(min = MinInteractiveSize)` 保住
  *   48dp 点按区与色块高。
@@ -59,11 +58,11 @@ fun LunoDropdownMenuItem(
             shape = LargeShape,
             selectedShape = SelectedItemShape,
         ),
-        // 色块四边对称 8dp：此 4dp + M3 色块硬编码 4dp = 左右 8dp；容器 8dp 垂直外距 + 0 内距 = 上下 8dp。
+        // 色块左右边距 4dp：项不再加水平 padding，M3 色块硬编码 4dp 即成；上下仍 8dp（容器 8dp 垂直外距）。
         // heightIn 在最外层保住 48dp 点按区与色块高（M3 项无强制最小高）。
         modifier = modifier
             .heightIn(min = MinInteractiveSize)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 0.dp),
         leadingIcon = leadingIcon,
         trailingContent = trailingIcon,
         enabled = enabled,

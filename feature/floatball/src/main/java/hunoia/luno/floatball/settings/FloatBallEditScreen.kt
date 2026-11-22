@@ -211,7 +211,8 @@ fun FloatBallEditScreen(
 
         item(key = "trigger") {
             LunoGroup(title = stringResource(R.string.float_ball_trigger_actions)) {
-                val triggerRows = 5
+                // 判定区振动提示行只在配了拖入动作时出现：无彩蛋时该开关无意义。
+                val triggerRows = 5 + if (floatBall.dropAction != null) 1 else 0
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_tap_action),
                     subtitle = floatBall.tapAction?.actionTextCompose()
@@ -255,6 +256,16 @@ fun FloatBallEditScreen(
                     shape = segmentedShape(4, triggerRows),
                     onClick = onAdjustDropZone,
                 )
+                if (floatBall.dropAction != null) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_drop_zone_vibrate),
+                        checked = floatBall.dropZoneVibrate,
+                        onCheckedChange = { enabled ->
+                            update { it.copy(dropZoneVibrate = enabled) }
+                        },
+                        shape = segmentedShape(5, triggerRows),
+                    )
+                }
             }
         }
 

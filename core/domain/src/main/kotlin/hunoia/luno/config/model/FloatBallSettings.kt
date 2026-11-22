@@ -103,6 +103,8 @@ data class FloatBallSettings(
     val dropZonePortrait: WindowBounds? = null,
     /** 横屏判定区；语义同 [dropZonePortrait]。 */
     val dropZoneLandscape: WindowBounds? = null,
+    /** 拖入判定区（彩蛋）瞬间触发一次振动提示（进区边沿震一次，离开不震）。 */
+    val dropZoneVibrate: Boolean = true,
     /**
      * 静置多久后变暗缩小。0 = 关闭。
      */
@@ -253,6 +255,8 @@ data class NotificationCapsuleSettings(
      * 只影响展示，不改变队列容量（[BallInboxSettings.notificationCapacity]）。
      */
     val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
+    /** 收起态行高设置（dp）：胶囊自己的大小，48–72；读请走 [capsuleRowHeightDp]。 */
+    val rowHeightDp: Int = 56,
     /** 用户滑掉后，同 key 的通知在 [dismissSuppressMs] 内再次更新也不再弹。 */
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
@@ -268,6 +272,11 @@ data class NotificationCapsuleSettings(
     /** 存储原值，读请走 [rowSwipeTowardBehavior]。 */
     val rowSwipeToward: CapsuleGestureBehavior = CapsuleGestureBehavior.COLLAPSE,
 ) {
+
+    /** 生效行高（dp）：夹在 48–72。 */
+    val capsuleRowHeightDp: Int
+        get() = rowHeightDp.coerceIn(48, 72)
+
     /** 通知球长按行为：仅允许 无 / 清空队列，其余归 无。 */
     val ballLongPressBehavior: CapsuleGestureBehavior
         get() = ballLongPress.coerceTo(BallLongPressAllowed, CapsuleGestureBehavior.NONE)
@@ -479,6 +488,8 @@ data class ResultCapsuleSettings(
      * 只影响展示，不改变队列容量（[BallInboxSettings.resultCapacity]）。
      */
     val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
+    /** 收起态行高设置（dp）：胶囊自己的大小，48–72；读请走 [capsuleRowHeightDp]。 */
+    val rowHeightDp: Int = 56,
     /** 存储原值，读请走 [ballLongPressBehavior]。 */
     val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
     /** 存储原值，读请走 [rowLongPressBehavior]。 */
@@ -494,6 +505,11 @@ data class ResultCapsuleSettings(
     val x: Float? = null,
     val y: Float? = null,
 ) {
+
+    /** 生效行高（dp）：夹在 48–72。 */
+    val capsuleRowHeightDp: Int
+        get() = rowHeightDp.coerceIn(48, 72)
+
     /** 结果球长按行为：仅允许 无 / 清空队列，其余归 无。 */
     val ballLongPressBehavior: CapsuleGestureBehavior
         get() = ballLongPress.coerceTo(BallLongPressAllowed, CapsuleGestureBehavior.NONE)

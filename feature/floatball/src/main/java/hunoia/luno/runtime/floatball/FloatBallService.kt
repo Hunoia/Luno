@@ -2215,7 +2215,12 @@ class FloatBallService : Service() {
                     },
                 ),
             )
-            val rowHeight = DensityProvider.dp2px(CapsuleRowHeightDp)
+            val rowHeight = DensityProvider.dp2px(
+                when (source) {
+                    BallSource.NOTIFICATION -> base.notificationCapsule.capsuleRowHeightDp
+                    BallSource.RESULT -> base.resultCapsule.capsuleRowHeightDp
+                }.toFloat(),
+            )
             if (source == BallSource.NOTIFICATION && rowHeight != notificationIconSizePx) {
                 notificationIconSizePx = rowHeight
                 refreshNotificationIcon(force = true)

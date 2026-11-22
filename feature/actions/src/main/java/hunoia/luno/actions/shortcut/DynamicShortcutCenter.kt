@@ -15,7 +15,6 @@ import hunoia.luno.core.domain.SHORTCUT_SOURCE_PIN
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.runtime.surface.SurfaceDispatch
-import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
