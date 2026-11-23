@@ -12,11 +12,13 @@ import hunoia.luno.config.model.AlertStyleId
 import hunoia.luno.config.model.AnchorAlertStyle
 import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.EdgeAlertStyle
+import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.SegmentedGroupScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -49,11 +51,28 @@ internal fun AlertCategory.subtitleRes(): Int = when (this) {
 internal fun AlertStyleId.labelRes(): Int = when (this) {
     EdgeAlertStyle.EdgeGlow -> R.string.float_ball_capsule_alert_effect_edge_glow
     EdgeAlertStyle.EdgeFlow -> R.string.float_ball_capsule_alert_effect_edge_flow
+    EdgeAlertStyle.EdgeRipple -> R.string.float_ball_capsule_alert_effect_edge_ripple
+    EdgeAlertStyle.EdgeBlink -> R.string.float_ball_capsule_alert_effect_edge_blink
+    EdgeAlertStyle.EdgeFireworks -> R.string.float_ball_capsule_alert_effect_edge_fireworks
+    EdgeAlertStyle.EdgeSwirl -> R.string.float_ball_capsule_alert_effect_edge_swirl
+    EdgeAlertStyle.EdgeBladeRise -> R.string.float_ball_capsule_alert_effect_edge_blade_rise
     ParticleAlertStyle.TopRain -> R.string.float_ball_capsule_alert_effect_particles
+    ParticleAlertStyle.BottomFountain -> R.string.float_ball_capsule_alert_effect_particle_fountain
+    ParticleAlertStyle.Meteor -> R.string.float_ball_capsule_alert_effect_particle_meteor
+    ParticleAlertStyle.Confetti -> R.string.float_ball_capsule_alert_effect_particle_confetti
+    ParticleAlertStyle.Snowflake -> R.string.float_ball_capsule_alert_effect_particle_snowflake
+    ParticleAlertStyle.Petal -> R.string.float_ball_capsule_alert_effect_particle_petal
+    ParticleAlertStyle.Bubble -> R.string.float_ball_capsule_alert_effect_particle_bubble
+    ParticleAlertStyle.Spark -> R.string.float_ball_capsule_alert_effect_particle_spark
+    ParticleAlertStyle.Firefly -> R.string.float_ball_capsule_alert_effect_particle_firefly
     CapsuleAlertStyle.Pulse -> R.string.float_ball_capsule_alert_effect_pulse
     CapsuleAlertStyle.Shimmer -> R.string.float_ball_capsule_alert_effect_shimmer
+    CapsuleAlertStyle.BreathOutline -> R.string.float_ball_capsule_alert_effect_breath_outline
+    CapsuleAlertStyle.InnerSweep -> R.string.float_ball_capsule_alert_effect_inner_sweep
     AnchorAlertStyle.Ring -> R.string.float_ball_capsule_alert_effect_ring
     AnchorAlertStyle.Ripple -> R.string.float_ball_capsule_alert_effect_full_ripple
+    AnchorAlertStyle.BallBurst -> R.string.float_ball_capsule_alert_effect_ball_burst
+    AnchorAlertStyle.BallHalo -> R.string.float_ball_capsule_alert_effect_ball_halo
 }
 
 /** 该分类是否开启（主页面入口行的副标题要显示「已关闭」）。 */
@@ -125,3 +144,48 @@ internal fun AlertKnobSlider(
 @Composable
 internal fun styleLabels(styles: List<AlertStyleId>): List<String> =
     styles.map { stringResource(it.labelRes()) }
+
+/**
+ * 新样式共用的「速度 / 亮度 / 次数」三滑杆：多数新样式沿用同一组通用旋钮，
+ * 各自只加差异项。回调由各页写到自己的样式设置块。
+ */
+@Composable
+internal fun SegmentedGroupScope.AlertSpeedBrightnessCycles(
+    speed: Int,
+    brightness: Int,
+    cycles: Int,
+    onSpeed: (Int) -> Unit,
+    onBrightness: (Int) -> Unit,
+    onCycles: (Int) -> Unit,
+) {
+    item { shape ->
+        AlertKnobSlider(
+            label = stringResource(R.string.float_ball_capsule_alert_speed),
+            value = speed,
+            range = FloatBallDefaults.AlertSpeedPercentMin..FloatBallDefaults.AlertSpeedPercentMax,
+            display = { "${it.toInt()}%" },
+            shape = shape,
+            onCommit = onSpeed,
+        )
+    }
+    item { shape ->
+        AlertKnobSlider(
+            label = stringResource(R.string.float_ball_capsule_alert_brightness),
+            value = brightness,
+            range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
+            display = { "${it.toInt()}%" },
+            shape = shape,
+            onCommit = onBrightness,
+        )
+    }
+    item { shape ->
+        AlertKnobSlider(
+            label = stringResource(R.string.float_ball_capsule_alert_cycles),
+            value = cycles,
+            range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
+            display = { "${it.toInt()} ×" },
+            shape = shape,
+            onCommit = onCycles,
+        )
+    }
+}

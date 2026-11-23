@@ -10,6 +10,7 @@ import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -342,5 +343,42 @@ class AlertPolicyTest {
         assertTrue(ringTravelPx(ballPx, 0f) <= ringTravelPx(ballPx, 0.5f))
         assertTrue(ringTravelPx(ballPx, 0.5f) <= ringTravelPx(ballPx, 1f))
         assertEquals(0, ringTravelPx(0, 1f))
+    }
+
+    @Test
+    fun `plan carries each category palette spec`() {
+        val custom = hunoia.luno.config.model.AlertPalette(
+            id = "custom_test",
+            name = "Test",
+            colors = listOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt(), 0xFF0000FF.toInt()),
+        )
+        val rainbow = hunoia.luno.config.model.AlertPalette(
+            id = "builtin_rainbow",
+            name = "彩虹",
+            rainbow = true,
+        )
+        val settings = enabled.copy(
+            customPalettes = listOf(custom),
+            edge = enabled.edge.copy(paletteId = custom.id),
+            particle = enabled.particle.copy(paletteId = rainbow.id),
+            capsule = enabled.capsule.copy(paletteId = custom.id),
+            anchor = enabled.anchor.copy(paletteId = null),
+        )
+        val plan = buildPlan(settings, standard)
+        assertEquals(4, plan.layers.size)
+        val byStyle = plan.layers.associateBy { it.style }
+        // 自定义：3 色原样透传，非彩虹。
+        val edgeSpec = byStyle[EdgeAlertStyle.EdgeGlow]!!.palette!!
+        assertFalse(edgeSpec.rainbow)
+        assertEquals(listOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt(), 0xFF0000FF.toInt()), edgeSpec.colors)
+        // 内置彩虹：透传 rainbow 标志。
+        val particleSpec = byStyle[ParticleAlertStyle.TopRain]!!.palette!!
+        assertTrue(particleSpec.rainbow)
+        assertTrue(particleSpec.colors.isEmpty())
+        // 胶囊类同 paletteId 也解析为同一份 spec。
+        val capsuleSpec = byStyle[CapsuleAlertStyle.Pulse]!!.palette!!
+        assertEquals(edgeSpec, capsuleSpec)
+        // 未选（null）→ 该层不携带调色板（渲染端回退单色）。
+        assertNull(byStyle[AnchorAlertStyle.Ring]!!.palette)
     }
 }

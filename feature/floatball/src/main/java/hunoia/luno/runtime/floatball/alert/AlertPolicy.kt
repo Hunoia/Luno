@@ -8,6 +8,7 @@ import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
+import hunoia.luno.config.model.paletteFor
 import kotlin.math.roundToInt
 
 /**
@@ -62,12 +63,14 @@ data class EdgeFlowSpec(
     val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
-/** 顶部粒子：大小缩放、摆幅缩放、重力指数、下落行程（dp，绘制带高与下落距离同源）。 */
+/** 顶部粒子：大小缩放、摆幅缩放、重力指数、下落行程（dp，绘制带高与下落距离同源）+ 形状。 */
 data class ParticlesSpec(
     val sizeScale: Float,
     val swayScale: Float,
     val gravityExp: Float,
     val travelDp: Int,
+    val shape: hunoia.luno.config.model.ParticleShape = hunoia.luno.config.model.ParticleShape.Dot,
+    val customImage: String = "",
 ) : AlertEffectSpec
 
 /** 球光环：核描边宽度（dp）、每循环环数、光晕缩放（0 = 无光晕）。 */
@@ -95,6 +98,57 @@ data class ShimmerSpec(
     val reverse: Boolean,
 ) : AlertEffectSpec
 
+/** 边缘波纹：波峰数（沿屏缘的峰个数）；大小是主量旋钮（amount 映射）。 */
+data class EdgeRippleSpec(
+    val crestCount: Int,
+) : AlertEffectSpec
+
+/** 边缘闪点：定点闪烁的亮点数（种子固定）；大小是主量旋钮（amount 映射）。 */
+data class EdgeBlinkSpec(
+    val pointCount: Int,
+) : AlertEffectSpec
+
+/** 屏缘烟花：随机锚点爆点数 + 粒径（dp，次级）；行程是主量旋钮（amount 映射）。 */
+data class EdgeFireworksSpec(
+    val burstCount: Int,
+    val particleSizeDp: Int,
+) : AlertEffectSpec
+
+/** 边缘回旋：光点数（同簇绕缘）；径向半径是主量旋钮（amount 映射）。 */
+data class EdgeSwirlSpec(
+    val pointCount: Int,
+) : AlertEffectSpec
+
+/** 双刃上升：刃宽是主量旋钮（amount 映射）+ 刃高（dp，竖直亮刃的纵向长度）。 */
+data class EdgeBladeRiseSpec(
+    val bladeHeightDp: Int,
+) : AlertEffectSpec
+
+/** 胶囊呼吸描边：描边宽度（dp）与呼吸缩放（‰，1.0 = 0）。 */
+data class BreathOutlineSpec(
+    val strokeWidthDp: Float,
+    val breatheScale: Float,
+) : AlertEffectSpec
+
+/** 胶囊内部扫光：主带宽度（胶囊宽占比）与反向扫动。 */
+data class InnerSweepSpec(
+    val bandWidth: Float,
+    val reverse: Boolean,
+) : AlertEffectSpec
+
+/** 球心爆发：粒子数、粒径（dp）、迸射行程（dp）。 */
+data class BallBurstSpec(
+    val count: Int,
+    val particleSizeDp: Int,
+    val spreadDp: Int,
+) : AlertEffectSpec
+
+/** 球心光晕：半径（球径 %）与光晕强度缩放。 */
+data class BallHaloSpec(
+    val radiusPercent: Int,
+    val haloScale: Float,
+) : AlertEffectSpec
+
 /**
  * 一层的播放计划：样式、循环数与单循环时长（已含应用档位与速度倍率），加两个
  * **按样式归一化**的旋钮与该样式的专属绘制参数（[spec]）。
@@ -112,6 +166,10 @@ data class AlertLayerPlan(
     val brightness: Float,
     val amount: Float,
     val spec: AlertEffectSpec,
+    /** 该类目的调色板（null = 跟随 [hunoia.luno.config.model.NotificationAlertSettings.color] 纯色）。 */
+    val palette: AlertPaletteSpec? = null,
+    /** 触发到达的通知来源包（粒子 App 图标形状用；真到达有值，试播无）。 */
+    val appPackage: String? = null,
 ) {
     /** 总时长（ms）：各层取最大值后作为舞台窗的生命周期基准。 */
     val totalMillis: Int get() = cycleMillis * cycles
@@ -168,7 +226,10 @@ fun needsCapsule(plan: AlertPlayPlan): Boolean = plan.layers.any { layer ->
     when (layer.style) {
         is CapsuleAlertStyle -> true
         is AnchorAlertStyle ->
-            layer.style == AnchorAlertStyle.Ring || (layer.spec as RippleSpec).centerAtBall
+            layer.style == AnchorAlertStyle.Ring ||
+                layer.style == AnchorAlertStyle.BallBurst ||
+                layer.style == AnchorAlertStyle.BallHalo ||
+                (layer.spec as RippleSpec).centerAtBall
         is EdgeAlertStyle, is ParticleAlertStyle -> false
     }
 }
@@ -182,6 +243,8 @@ private data class LayerInputs(
     val amountMax: Int,
     val speed: Int,
     val spec: AlertEffectSpec,
+    val palette: AlertPaletteSpec? = null,
+    val appPackage: String? = null,
 )
 
 /** 所选样式的专属参数 → 归一化层计划：滑杆值夹进 [FloatBallDefaults] 约束。 */
@@ -203,6 +266,8 @@ private fun LayerInputs.toLayer(
         brightness = brightness.coerceIn(d.AlertBrightnessMin, d.AlertBrightnessMax) / 100f,
         amount = (amount.coerceIn(amountMin, amountMax) - rawMin) / (rawMax - rawMin),
         spec = spec,
+        palette = palette,
+        appPackage = appPackage,
     )
 }
 
@@ -213,12 +278,13 @@ private fun LayerInputs.toLayer(
 fun buildPlan(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
+    appPackage: String? = null,
 ): AlertPlayPlan {
     val layers = buildList {
-        if (alert.edge.enabled) add(buildEdgeLayer(alert, tierFactor))
-        if (alert.particle.enabled) add(buildParticleLayer(alert, tierFactor))
-        if (alert.capsule.enabled) add(buildCapsuleLayer(alert, tierFactor))
-        if (alert.anchor.enabled) add(buildAnchorLayer(alert, tierFactor))
+        if (alert.edge.enabled) add(buildEdgeLayer(alert, tierFactor, appPackage))
+        if (alert.particle.enabled) add(buildParticleLayer(alert, tierFactor, appPackage))
+        if (alert.capsule.enabled) add(buildCapsuleLayer(alert, tierFactor, appPackage))
+        if (alert.anchor.enabled) add(buildAnchorLayer(alert, tierFactor, appPackage))
     }
     return AlertPlayPlan(layers)
 }
@@ -226,6 +292,7 @@ fun buildPlan(
 private fun buildEdgeLayer(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
+    appPackage: String? = null,
 ): AlertLayerPlan {
     val settings = alert.edge
     val d = FloatBallDefaults
@@ -245,7 +312,7 @@ private fun buildEdgeLayer(
                     hardness = s.hardness
                         .coerceIn(d.AlertEdgeGlowHardnessMin, d.AlertEdgeGlowHardnessMax).toFloat(),
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
         }
 
         EdgeAlertStyle.EdgeFlow -> {
@@ -272,7 +339,89 @@ private fun buildEdgeLayer(
                     cornerRadiusDp = s.cornerRadiusDp
                         .coerceIn(d.AlertEdgeGlowCornerDpMin, d.AlertEdgeGlowCornerDpMax),
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
+        }
+
+        EdgeAlertStyle.EdgeRipple -> {
+            val s = settings.edgeRipple
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.sizeDp,
+                amountMin = d.AlertEdgeRippleSizeDpMin,
+                amountMax = d.AlertEdgeRippleSizeDpMax,
+                speed = s.speed,
+                spec = EdgeRippleSpec(
+                    crestCount = s.crests
+                        .coerceIn(d.AlertEdgeRippleCrestsMin, d.AlertEdgeRippleCrestsMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
+        }
+
+        EdgeAlertStyle.EdgeBlink -> {
+            val s = settings.edgeBlink
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.sizeDp,
+                amountMin = d.AlertEdgeBlinkSizeDpMin,
+                amountMax = d.AlertEdgeBlinkSizeDpMax,
+                speed = s.speed,
+                spec = EdgeBlinkSpec(
+                    pointCount = s.points
+                        .coerceIn(d.AlertEdgeBlinkPointsMin, d.AlertEdgeBlinkPointsMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
+        }
+
+        EdgeAlertStyle.EdgeFireworks -> {
+            val s = settings.edgeFireworks
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.spreadDp,
+                amountMin = d.AlertEdgeFireworksSpreadDpMin,
+                amountMax = d.AlertEdgeFireworksSpreadDpMax,
+                speed = s.speed,
+                spec = EdgeFireworksSpec(
+                    burstCount = s.bursts
+                        .coerceIn(d.AlertEdgeFireworksBurstsMin, d.AlertEdgeFireworksBurstsMax),
+                    particleSizeDp = s.sizeDp
+                        .coerceIn(d.AlertEdgeFireworksSizeDpMin, d.AlertEdgeFireworksSizeDpMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
+        }
+
+        EdgeAlertStyle.EdgeSwirl -> {
+            val s = settings.edgeSwirl
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.radiusDp,
+                amountMin = d.AlertEdgeSwirlRadiusDpMin,
+                amountMax = d.AlertEdgeSwirlRadiusDpMax,
+                speed = s.speed,
+                spec = EdgeSwirlSpec(
+                    pointCount = s.points
+                        .coerceIn(d.AlertEdgeSwirlPointsMin, d.AlertEdgeSwirlPointsMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
+        }
+
+        EdgeAlertStyle.EdgeBladeRise -> {
+            val s = settings.edgeBladeRise
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.bladeWidthDp,
+                amountMin = d.AlertEdgeBladeWidthDpMin,
+                amountMax = d.AlertEdgeBladeWidthDpMax,
+                speed = s.speed,
+                spec = EdgeBladeRiseSpec(
+                    bladeHeightDp = s.bladeHeightDp
+                        .coerceIn(d.AlertEdgeBladeHeightDpMin, d.AlertEdgeBladeHeightDpMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
         }
     }
 }
@@ -280,37 +429,52 @@ private fun buildEdgeLayer(
 private fun buildParticleLayer(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
+    appPackage: String? = null,
 ): AlertLayerPlan {
     val settings = alert.particle
     val d = FloatBallDefaults
-    return when (val style = settings.style) {
-        ParticleAlertStyle.TopRain -> {
-            val s = settings.particles
-            LayerInputs(
-                cycles = s.waves,
-                brightness = s.brightness,
-                amount = s.count,
-                amountMin = d.AlertParticlesCountMin,
-                amountMax = d.AlertParticlesCountMax,
-                speed = s.speed,
-                spec = ParticlesSpec(
-                    sizeScale = s.sizeScale
-                        .coerceIn(d.AlertParticlesSizeScaleMin, d.AlertParticlesSizeScaleMax) / 100f,
-                    swayScale = s.swayScale
-                        .coerceIn(d.AlertParticlesSwayScaleMin, d.AlertParticlesSwayScaleMax) / 100f,
-                    gravityExp = s.gravity
-                        .coerceIn(d.AlertParticlesGravityMin, d.AlertParticlesGravityMax).toFloat(),
-                    travelDp = s.travelDp
-                        .coerceIn(d.AlertParticlesTravelDpMin, d.AlertParticlesTravelDpMax),
-                ),
-            ).toLayer(style, tierFactor)
-        }
+    // 粒子类旋钮按类目共享（数量 / 大小 / 摆幅 / 重力 / 行程 / 速度 / 亮度 / 波次），
+    // 所有运动复用同一份 ParticlesSpec；差异只在渲染层（Tuning 常量）。
+    val s = settings.particles
+    val inputs = LayerInputs(
+        cycles = s.waves,
+        brightness = s.brightness,
+        amount = s.count,
+        amountMin = d.AlertParticlesCountMin,
+        amountMax = d.AlertParticlesCountMax,
+        speed = s.speed,
+        spec = ParticlesSpec(
+            sizeScale = s.sizeScale
+                .coerceIn(d.AlertParticlesSizeScaleMin, d.AlertParticlesSizeScaleMax) / 100f,
+            swayScale = s.swayScale
+                .coerceIn(d.AlertParticlesSwayScaleMin, d.AlertParticlesSwayScaleMax) / 100f,
+            gravityExp = s.gravity
+                .coerceIn(d.AlertParticlesGravityMin, d.AlertParticlesGravityMax).toFloat(),
+            travelDp = s.travelDp
+                .coerceIn(d.AlertParticlesTravelDpMin, d.AlertParticlesTravelDpMax),
+            shape = settings.shape.shape,
+            customImage = settings.shape.customImage,
+        ),
+    )
+    return when (settings.style) {
+        ParticleAlertStyle.TopRain,
+        ParticleAlertStyle.BottomFountain,
+        ParticleAlertStyle.Meteor,
+        ParticleAlertStyle.Confetti,
+        ParticleAlertStyle.Snowflake,
+        ParticleAlertStyle.Petal,
+        ParticleAlertStyle.Bubble,
+        ParticleAlertStyle.Spark,
+        ParticleAlertStyle.Firefly,
+        -> inputs.toLayer(settings.style, tierFactor)
+            .copy(palette = alert.paletteFor(AlertCategory.Particle)?.toSpec(), appPackage = appPackage)
     }
 }
 
 private fun buildCapsuleLayer(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
+    appPackage: String? = null,
 ): AlertLayerPlan {
     val settings = alert.capsule
     val d = FloatBallDefaults
@@ -330,7 +494,7 @@ private fun buildCapsuleLayer(
                     haloScale = s.haloScale
                         .coerceIn(d.AlertHaloScaleMin, d.AlertHaloScaleMax) / 100f,
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Capsule)?.toSpec(), appPackage = appPackage)
         }
 
         CapsuleAlertStyle.Shimmer -> {
@@ -347,7 +511,42 @@ private fun buildCapsuleLayer(
                         .coerceIn(d.AlertShimmerTrailScaleMin, d.AlertShimmerTrailScaleMax) / 100f,
                     reverse = s.reverse,
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Capsule)?.toSpec(), appPackage = appPackage)
+        }
+
+        CapsuleAlertStyle.BreathOutline -> {
+            val s = settings.breathOutline
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.breatheScale,
+                amountMin = d.AlertBreathScaleMin,
+                amountMax = d.AlertBreathScaleMax,
+                speed = s.speed,
+                spec = BreathOutlineSpec(
+                    strokeWidthDp = s.strokeWidthDpTenths
+                        .coerceIn(d.AlertBreathStrokeWidthTenthsMin, d.AlertBreathStrokeWidthTenthsMax) / 10f,
+                    breatheScale = s.breatheScale
+                        .coerceIn(d.AlertBreathScaleMin, d.AlertBreathScaleMax) / 1000f,
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Capsule)?.toSpec(), appPackage = appPackage)
+        }
+
+        CapsuleAlertStyle.InnerSweep -> {
+            val s = settings.innerSweep
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.bandWidth,
+                amountMin = d.AlertInnerSweepBandWidthMin,
+                amountMax = d.AlertInnerSweepBandWidthMax,
+                speed = s.speed,
+                spec = InnerSweepSpec(
+                    bandWidth = s.bandWidth
+                        .coerceIn(d.AlertInnerSweepBandWidthMin, d.AlertInnerSweepBandWidthMax) / 100f,
+                    reverse = s.reverse,
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Capsule)?.toSpec(), appPackage = appPackage)
         }
     }
 }
@@ -355,6 +554,7 @@ private fun buildCapsuleLayer(
 private fun buildAnchorLayer(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
+    appPackage: String? = null,
 ): AlertLayerPlan {
     val settings = alert.anchor
     val d = FloatBallDefaults
@@ -376,7 +576,7 @@ private fun buildAnchorLayer(
                     haloScale = s.haloScale
                         .coerceIn(d.AlertHaloScaleMin, d.AlertHaloScaleMax) / 100f,
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Anchor)?.toSpec(), appPackage = appPackage)
         }
 
         AnchorAlertStyle.Ripple -> {
@@ -393,7 +593,45 @@ private fun buildAnchorLayer(
                         .coerceIn(d.AlertRippleStrokeWidthDpMin, d.AlertRippleStrokeWidthDpMax),
                     centerAtBall = s.centerAtBall,
                 ),
-            ).toLayer(style, tierFactor)
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Anchor)?.toSpec(), appPackage = appPackage)
+        }
+
+        AnchorAlertStyle.BallBurst -> {
+            val s = settings.ballBurst
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.spreadDp,
+                amountMin = d.AlertBallBurstSpreadDpMin,
+                amountMax = d.AlertBallBurstSpreadDpMax,
+                speed = s.speed,
+                spec = BallBurstSpec(
+                    count = s.count
+                        .coerceIn(d.AlertBallBurstCountMin, d.AlertBallBurstCountMax),
+                    particleSizeDp = s.particleSizeDp
+                        .coerceIn(d.AlertBallBurstSizeDpMin, d.AlertBallBurstSizeDpMax),
+                    spreadDp = s.spreadDp
+                        .coerceIn(d.AlertBallBurstSpreadDpMin, d.AlertBallBurstSpreadDpMax),
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Anchor)?.toSpec(), appPackage = appPackage)
+        }
+
+        AnchorAlertStyle.BallHalo -> {
+            val s = settings.ballHalo
+            LayerInputs(
+                cycles = s.cycles,
+                brightness = s.brightness,
+                amount = s.radiusPercent,
+                amountMin = d.AlertBallHaloRadiusMin,
+                amountMax = d.AlertBallHaloRadiusMax,
+                speed = s.speed,
+                spec = BallHaloSpec(
+                    radiusPercent = s.radiusPercent
+                        .coerceIn(d.AlertBallHaloRadiusMin, d.AlertBallHaloRadiusMax),
+                    haloScale = s.haloScale
+                        .coerceIn(d.AlertHaloScaleMin, d.AlertHaloScaleMax) / 100f,
+                ),
+            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Anchor)?.toSpec(), appPackage = appPackage)
         }
     }
 }

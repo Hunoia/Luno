@@ -23,6 +23,7 @@ import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.paletteFor
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -45,7 +46,7 @@ import hunoia.luno.ui.theme.toMarkColor
  * 「试播该分类」只播这一类，失败原因由服务侧 Toast 反馈。
  */
 @Composable
-fun AlertEdgeSettingsScreen(onBack: () -> Unit) {
+fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {}) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -115,6 +116,14 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit) {
                                 }
                             },
                             shape = shape,
+                        )
+                    }
+                    item { shape ->
+                        AlertPaletteSettingsRow(
+                            palette = alert.paletteFor(AlertCategory.Edge),
+                            fallbackColor = alert.color.toMarkColor(),
+                            shape = shape,
+                            onClick = onNavToPalette,
                         )
                     }
                     when (settings.style) {
@@ -445,6 +454,189 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         }
+                    EdgeAlertStyle.EdgeRipple -> {
+                        val s = settings.edgeRipple
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_ripple_crests),
+                                value = s.crests,
+                                range = FloatBallDefaults.AlertEdgeRippleCrestsMin..
+                                    FloatBallDefaults.AlertEdgeRippleCrestsMax,
+                                display = { "${it.toInt()}" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(crests = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_size),
+                                value = s.sizeDp,
+                                range = FloatBallDefaults.AlertEdgeRippleSizeDpMin..
+                                    FloatBallDefaults.AlertEdgeRippleSizeDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(sizeDp = v))) }
+                                },
+                            )
+                        }
+                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                            onSpeed = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(speed = v))) } },
+                            onBrightness = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(brightness = v))) } },
+                            onCycles = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(cycles = v))) } },
+                        )
+                    }
+                    EdgeAlertStyle.EdgeBlink -> {
+                        val s = settings.edgeBlink
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_blink_points),
+                                value = s.points,
+                                range = FloatBallDefaults.AlertEdgeBlinkPointsMin..
+                                    FloatBallDefaults.AlertEdgeBlinkPointsMax,
+                                display = { "${it.toInt()}" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(points = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_size),
+                                value = s.sizeDp,
+                                range = FloatBallDefaults.AlertEdgeBlinkSizeDpMin..
+                                    FloatBallDefaults.AlertEdgeBlinkSizeDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(sizeDp = v))) }
+                                },
+                            )
+                        }
+                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                            onSpeed = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(speed = v))) } },
+                            onBrightness = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(brightness = v))) } },
+                            onCycles = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(cycles = v))) } },
+                        )
+                    }
+                    EdgeAlertStyle.EdgeFireworks -> {
+                        val s = settings.edgeFireworks
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_fireworks_bursts),
+                                value = s.bursts,
+                                range = FloatBallDefaults.AlertEdgeFireworksBurstsMin..
+                                    FloatBallDefaults.AlertEdgeFireworksBurstsMax,
+                                display = { "${it.toInt()}" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(bursts = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_size),
+                                value = s.sizeDp,
+                                range = FloatBallDefaults.AlertEdgeFireworksSizeDpMin..
+                                    FloatBallDefaults.AlertEdgeFireworksSizeDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(sizeDp = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_fireworks_spread),
+                                value = s.spreadDp,
+                                range = FloatBallDefaults.AlertEdgeFireworksSpreadDpMin..
+                                    FloatBallDefaults.AlertEdgeFireworksSpreadDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(spreadDp = v))) }
+                                },
+                            )
+                        }
+                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                            onSpeed = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(speed = v))) } },
+                            onBrightness = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(brightness = v))) } },
+                            onCycles = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(cycles = v))) } },
+                        )
+                    }
+                    EdgeAlertStyle.EdgeSwirl -> {
+                        val s = settings.edgeSwirl
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_swirl_points),
+                                value = s.points,
+                                range = FloatBallDefaults.AlertEdgeSwirlPointsMin..
+                                    FloatBallDefaults.AlertEdgeSwirlPointsMax,
+                                display = { "${it.toInt()}" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(points = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_swirl_radius),
+                                value = s.radiusDp,
+                                range = FloatBallDefaults.AlertEdgeSwirlRadiusDpMin..
+                                    FloatBallDefaults.AlertEdgeSwirlRadiusDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(radiusDp = v))) }
+                                },
+                            )
+                        }
+                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                            onSpeed = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(speed = v))) } },
+                            onBrightness = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(brightness = v))) } },
+                            onCycles = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(cycles = v))) } },
+                        )
+                    }
+                    EdgeAlertStyle.EdgeBladeRise -> {
+                        val s = settings.edgeBladeRise
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_blade_width),
+                                value = s.bladeWidthDp,
+                                range = FloatBallDefaults.AlertEdgeBladeWidthDpMin..
+                                    FloatBallDefaults.AlertEdgeBladeWidthDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(bladeWidthDp = v))) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_edge_blade_height),
+                                value = s.bladeHeightDp,
+                                range = FloatBallDefaults.AlertEdgeBladeHeightDpMin..
+                                    FloatBallDefaults.AlertEdgeBladeHeightDpMax,
+                                display = { "${it.toInt()} dp" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(bladeHeightDp = v))) }
+                                },
+                            )
+                        }
+                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                            onSpeed = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(speed = v))) } },
+                            onBrightness = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(brightness = v))) } },
+                            onCycles = { v -> updateAlert(scope) { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(cycles = v))) } },
+                        )
+                    }
                     }
                     item { shape ->
                         LunoSettingsRow(

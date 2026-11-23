@@ -226,6 +226,20 @@ data object FloatBallAlertAnchor
 @Serializable
 data object FloatBallAlertBlocklist
 
+/** 到达提示·调色板选择页：[category] 是 [hunoia.luno.config.model.AlertCategory] 的枚举名。 */
+@Keep
+@Serializable
+data class FloatBallAlertPalettePicker(val category: String)
+
+/** 到达提示·调色板管理页（内置只读 / 自定义可编辑）。 */
+@Keep
+@Serializable
+data object FloatBallAlertPaletteManager
+
+/** 到达提示·调色板编辑页（自定义）：按 [paletteId] 编辑。 */
+@Keep
+@Serializable
+data class FloatBallAlertPaletteEdit(val paletteId: String)
 
 /** 运行日志：开关、最近日志预览、清空与导出。 */
 @Keep

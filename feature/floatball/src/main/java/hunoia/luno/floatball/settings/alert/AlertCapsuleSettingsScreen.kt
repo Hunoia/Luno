@@ -12,6 +12,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.paletteFor
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -21,6 +22,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.toMarkColor
 
 /**
  * 到达提示·胶囊本体类设置页：类目开关、类内单选样式（描边脉冲 / 边框流光）与旋钮。
@@ -29,12 +31,13 @@ import hunoia.luno.ui.facade.LocalFacades
  * 试播时胶囊没显示会先弹一条演示胶囊。
  */
 @Composable
-fun AlertCapsuleSettingsScreen(onBack: () -> Unit) {
+fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {}) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val actionSettings by TuneConfig.action
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val alert = actionSettings.floatBall.notificationCapsule.alert
     val settings = actionSettings.floatBall.notificationCapsule.alert.capsule
 
     LunoScreenLazy(
@@ -70,6 +73,14 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit) {
                                 }
                             },
                             shape = shape,
+                        )
+                    }
+                    item { shape ->
+                        AlertPaletteSettingsRow(
+                            palette = alert.paletteFor(AlertCategory.Capsule),
+                            fallbackColor = alert.color.toMarkColor(),
+                            shape = shape,
+                            onClick = onNavToPalette,
                         )
                     }
                     when (settings.style) {
@@ -264,6 +275,88 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit) {
                                     },
                                 )
                             }
+                        }
+                        CapsuleAlertStyle.BreathOutline -> {
+                            val s = settings.breathOutline
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_breath_stroke_width),
+                                    value = s.strokeWidthDpTenths,
+                                    range = FloatBallDefaults.AlertBreathStrokeWidthTenthsMin..
+                                        FloatBallDefaults.AlertBreathStrokeWidthTenthsMax,
+                                    display = { "${it / 10f} dp" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(capsule = it.capsule.copy(
+                                                breathOutline = it.capsule.breathOutline.copy(strokeWidthDpTenths = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_breath_scale),
+                                    value = s.breatheScale,
+                                    range = FloatBallDefaults.AlertBreathScaleMin..
+                                        FloatBallDefaults.AlertBreathScaleMax,
+                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "×${it / 1000f}" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(capsule = it.capsule.copy(
+                                                breathOutline = it.capsule.breathOutline.copy(breatheScale = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                                onSpeed = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(cycles = v))) } },
+                            )
+                        }
+                        CapsuleAlertStyle.InnerSweep -> {
+                            val s = settings.innerSweep
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_inner_sweep_band),
+                                    value = s.bandWidth,
+                                    range = FloatBallDefaults.AlertInnerSweepBandWidthMin..
+                                        FloatBallDefaults.AlertInnerSweepBandWidthMax,
+                                    display = { "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(capsule = it.capsule.copy(
+                                                innerSweep = it.capsule.innerSweep.copy(bandWidth = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                LunoSwitchRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_reverse),
+                                    subtitle = stringResource(R.string.float_ball_capsule_alert_reverse_subtitle),
+                                    checked = s.reverse,
+                                    onCheckedChange = { checked ->
+                                        updateAlert(scope) {
+                                            it.copy(capsule = it.capsule.copy(
+                                                innerSweep = it.capsule.innerSweep.copy(reverse = checked),
+                                            ))
+                                        }
+                                    },
+                                    shape = shape,
+                                )
+                            }
+                            AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                                onSpeed = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(cycles = v))) } },
+                            )
                         }
                     }
                     item { shape ->

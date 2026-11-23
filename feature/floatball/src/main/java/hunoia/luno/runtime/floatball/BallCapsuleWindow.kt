@@ -95,6 +95,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -121,15 +122,20 @@ import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallPosition
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.CapsuleAlertStyle
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
+import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
+import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
+import hunoia.luno.runtime.floatball.alert.InnerSweepSpec
 import hunoia.luno.runtime.floatball.alert.PulseSpec
 import hunoia.luno.runtime.floatball.alert.PulseTuning
 import hunoia.luno.runtime.floatball.alert.ShimmerSpec
 import hunoia.luno.runtime.floatball.alert.ShimmerTuning
 import hunoia.luno.runtime.floatball.alert.easedOut
 import hunoia.luno.runtime.floatball.alert.lerpInRange
+import hunoia.luno.runtime.floatball.alert.toColors
 import hunoia.luno.runtime.floatball.inbox.BallItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.floatball.inbox.ResultItem
@@ -820,6 +826,9 @@ internal class BallCapsuleWindow(
      */
     private var arrivalAlert by mutableStateOf<AlertLayerPlan?>(null)
 
+    /** 到达提示的动效颜色来源（调色板回退的单色；随 [arrivalAlert] 一起下发）。 */
+    private var arrivalColorSpec by mutableStateOf(ColorSpec.Unset)
+
     /**
      * 单行高 = 收起态圆直径 = 形变基准（胶囊自己的 `rowHeightDp` 设置）。
      *
@@ -1070,9 +1079,10 @@ internal class BallCapsuleWindow(
      * 播放一次到达提示动效（仅胶囊本体脉冲 / 边框流光走这条；其他效果由独立 overlay 承载）。
      * 播放中的请求合并丢弃；播完由效果自己清空 [arrivalAlert]，收起 / 摘窗时也会被清。
      */
-    fun playArrivalAlert(plan: AlertLayerPlan) {
+    fun playArrivalAlert(plan: AlertLayerPlan, colorSpec: ColorSpec) {
         if (arrivalAlert != null) return
         arrivalAlert = plan
+        arrivalColorSpec = colorSpec
     }
 
     /** 胶囊层动效是否在播：服务侧「在播不播」判定的一部分。 */
@@ -1081,6 +1091,7 @@ internal class BallCapsuleWindow(
     /** 立即停掉在播的到达提示动效（息屏 / 服务销毁）。 */
     fun cancelArrivalAlert() {
         arrivalAlert = null
+        arrivalColorSpec = ColorSpec.Unset
     }
 
     /** 清除「已复制」反馈（链接复制等不自动翻页的场景）。 */
@@ -2725,6 +2736,7 @@ internal class BallCapsuleWindow(
             arrivalAlert?.let { layer ->
                 CapsuleArrivalOverlay(
                     layer = layer,
+                    colorSpec = arrivalColorSpec,
                     rowHeightPx = rowHeightPx,
                     metrics = metrics,
                     contentColor = contentColor,
@@ -2747,12 +2759,16 @@ internal class BallCapsuleWindow(
     @Composable
     private fun CapsuleArrivalOverlay(
         layer: AlertLayerPlan,
+        colorSpec: ColorSpec,
         rowHeightPx: Int,
         metrics: StackMetrics,
         contentColor: Color,
         modifier: Modifier = Modifier,
     ) {
         val density = LocalDensity.current
+        // 动效颜色：选调色板用 [layer.palette] 解析，否则单色回退 [colorSpec]（未设跟随主题主色）。
+        val palette = layer.palette?.toColors(colorSpec.toMarkColor())
+            ?: AlertPaletteColors(listOf(colorSpec.toMarkColor()), rainbow = false)
         // 行宽贴内容后各行实测宽度不同：逐行按自己的宽度生成描边路径。
         val rowWidths = items.map { rowWidthsPx[it.id] ?: capsuleWidthPx }
         val rowPaths = remember(rowWidths, rowHeightPx) {
@@ -2819,10 +2835,11 @@ internal class BallCapsuleWindow(
                             left = rowLeft(index),
                             top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
                         ) {
+                            val rowColor = palette.at(index)
                             for ((width, alpha) in layers) {
                                 drawPath(
                                     path = path,
-                                    color = contentColor.copy(alpha = alpha),
+                                    color = rowColor.copy(alpha = alpha),
                                     style = Stroke(width = width),
                                 )
                             }
@@ -2851,21 +2868,24 @@ internal class BallCapsuleWindow(
                     } else {
                         mainStart
                     }
+                    // 主带颜色按进度采样（多色 = 扫过的颜色会变）；拖尾用行进方向后方的颜色。
+                    val bandColor = palette.sample(pos)
                     val mainBrush = Brush.horizontalGradient(
-                        mainStart to contentColor.copy(alpha = 0f),
-                        peakPos to contentColor.copy(alpha = peak),
-                        mainEnd to contentColor.copy(alpha = 0f),
+                        mainStart to bandColor.copy(alpha = 0f),
+                        peakPos to bandColor.copy(alpha = peak),
+                        mainEnd to bandColor.copy(alpha = 0f),
                     )
                     val trailBrush = if (spec.reverse) {
                         val trailEnd = (mainEnd + trailSpan).coerceIn(0f, 1f)
                         val span = trailEnd - mainEnd
                         if (span > 0.01f) {
+                            val trailColor = palette.sample((mainEnd + trailEnd) / 2f)
                             Brush.horizontalGradient(
-                                mainEnd to contentColor.copy(alpha = 0f),
-                                mainEnd + span / 2f to contentColor.copy(
+                                mainEnd to trailColor.copy(alpha = 0f),
+                                mainEnd + span / 2f to trailColor.copy(
                                     alpha = peak * ShimmerTuning.TrailAlphaFraction,
                                 ),
-                                trailEnd to contentColor.copy(alpha = 0f),
+                                trailEnd to trailColor.copy(alpha = 0f),
                             )
                         } else {
                             null
@@ -2874,12 +2894,13 @@ internal class BallCapsuleWindow(
                         val trailStart = (mainStart - trailSpan).coerceIn(0f, 1f)
                         val span = mainStart - trailStart
                         if (span > 0.01f) {
+                            val trailColor = palette.sample((trailStart + mainStart) / 2f)
                             Brush.horizontalGradient(
-                                trailStart to contentColor.copy(alpha = 0f),
-                                trailStart + span / 2f to contentColor.copy(
+                                trailStart to trailColor.copy(alpha = 0f),
+                                trailStart + span / 2f to trailColor.copy(
                                     alpha = peak * ShimmerTuning.TrailAlphaFraction,
                                 ),
-                                mainStart to contentColor.copy(alpha = 0f),
+                                mainStart to trailColor.copy(alpha = 0f),
                             )
                         } else {
                             null
@@ -2894,6 +2915,63 @@ internal class BallCapsuleWindow(
                         ) {
                             trailBrush?.let { drawPath(path = path, brush = it, style = stroke) }
                             if (mainSpan > 0.01f) drawPath(path = path, brush = mainBrush, style = stroke)
+                        }
+                    }
+                }
+
+                // 呼吸描边：整圈轮廓轻微缩放 + 透明度呼吸（无辉光层），缩放绕行中心。
+                // 描边宽度随呼吸略胀，与 [PulseTuning] 的多层辉光拉开观感差异。
+                CapsuleAlertStyle.BreathOutline -> {
+                    val spec = layer.spec as BreathOutlineSpec
+                    val boost = layer.brightness.lerpInRange(0.3f, 0.9f)
+                    val breathe = sin(Math.PI.toFloat() * t)
+                    val scaleFactor = 1f + spec.breatheScale * breathe
+                    val strokeW = spec.strokeWidthDp.dp.toPx() * (1f + 0.4f * breathe)
+                    val alpha = (RowBorderAlpha + boost * breathe).coerceAtMost(1f)
+                    for (index in 0 until rows) {
+                        val path = rowPaths.getOrNull(index) ?: continue
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
+                            scale(
+                                scale = scaleFactor,
+                                pivot = Offset(rowWidths[index].toFloat() / 2f, rowHeightPx / 2f),
+                            ) {
+                                drawPath(
+                                    path = path,
+                                    color = palette.at(index).copy(alpha = alpha),
+                                    style = Stroke(width = strokeW),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 内部扫光：一道亮带在行内部横向扫过（填充行轮廓内部，不描边）。
+                // 主带宽度与方向是用户旋钮；用调色板逐行取色。
+                CapsuleAlertStyle.InnerSweep -> {
+                    val spec = layer.spec as InnerSweepSpec
+                    val peak = layer.brightness.lerpInRange(0.25f, 0.7f)
+                    val eased = t.easedOut(1.2f)
+                    val pos = if (spec.reverse) 1f - eased else eased
+                    val band = spec.bandWidth.coerceIn(0.05f, 0.9f)
+                    val start = (pos - band / 2f).coerceIn(0f, 1f)
+                    val end = (pos + band / 2f).coerceIn(0f, 1f)
+                    val span = end - start
+                    for (index in 0 until rows) {
+                        val path = rowPaths.getOrNull(index) ?: continue
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
+                            val rowW = rowWidths[index].toFloat()
+                            val brush = Brush.horizontalGradient(
+                                start * rowW to Color.Transparent,
+                                (start + span / 2f) * rowW to palette.at(index).copy(alpha = peak),
+                                end * rowW to Color.Transparent,
+                            )
+                            drawPath(path = path, brush = brush)
                         }
                     }
                 }

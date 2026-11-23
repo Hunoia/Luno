@@ -336,6 +336,21 @@ enum class EdgeAlertStyle : AlertStyleId {
 
     /** 屏幕边缘流光：亮带沿屏缘环绕（单/双带 + 拖尾 + 刃感 + 双色可设）。 */
     EdgeFlow,
+
+    /** 波纹：多道波峰沿屏缘匀速环行（波峰数可调，柔和扩散）。 */
+    EdgeRipple,
+
+    /** 闪点：沿屏缘随机位置定点闪烁的亮点。 */
+    EdgeBlink,
+
+    /** 屏缘烟花：在屏缘随机锚点向内迸发的小型粒子烟花。 */
+    EdgeFireworks,
+
+    /** 回旋：一簇光点绕屏缘环行并同步内外漂移，形成回旋纹理。 */
+    EdgeSwirl,
+
+    /** 双刃上升：左右两缘各一道竖直亮刃自下而上反复扫过。 */
+    EdgeBladeRise,
     ;
 
     override val category: AlertCategory get() = AlertCategory.Edge
@@ -347,6 +362,30 @@ enum class EdgeAlertStyle : AlertStyleId {
 enum class ParticleAlertStyle : AlertStyleId {
     /** 顶部雨：从上往下错峰掉落。 */
     TopRain,
+
+    /** 底部喷泉：从底缘向上喷出，重力回落。 */
+    BottomFountain,
+
+    /** 流星：带拖尾的亮点斜向下划过。 */
+    Meteor,
+
+    /** 彩带：彩色小片翻转飘落。 */
+    Confetti,
+
+    /** 雪花：小而慢的六向漂移下落。 */
+    Snowflake,
+
+    /** 花瓣：带自转的宽片缓落。 */
+    Petal,
+
+    /** 气泡：从底缘上浮并左右摇摆。 */
+    Bubble,
+
+    /** 星火迸发：从屏幕下部随机锚点斜向迸射的星火。 */
+    Spark,
+
+    /** 萤火：散布全屏、随机漂移与明灭的萤光点。 */
+    Firefly,
     ;
 
     override val category: AlertCategory get() = AlertCategory.Particle
@@ -361,6 +400,12 @@ enum class CapsuleAlertStyle : AlertStyleId {
 
     /** 边框流光：亮带沿边框扫过。 */
     Shimmer,
+
+    /** 呼吸描边：整圈轮廓轻微缩放 + 透明度呼吸（无辉光层）。 */
+    BreathOutline,
+
+    /** 内部扫光：一道亮带在行内部横向扫过。 */
+    InnerSweep,
     ;
 
     override val category: AlertCategory get() = AlertCategory.Capsule
@@ -375,6 +420,12 @@ enum class AnchorAlertStyle : AlertStyleId {
 
     /** 全屏涟漪：从锚点（通知球心 / 屏幕中心）扩散一圈抵达屏缘的水波纹。 */
     Ripple,
+
+    /** 球心爆发：从球心向外径向迸发的粒子爆。 */
+    BallBurst,
+
+    /** 球心光晕：球心处柔和的径向辉光，随呼吸明灭。 */
+    BallHalo,
     ;
 
     override val category: AlertCategory get() = AlertCategory.Anchor
@@ -406,45 +457,69 @@ data class NotificationAlertSettings(
     val particle: ParticleAlertSettings = ParticleAlertSettings(),
     val capsule: CapsuleAlertSettings = CapsuleAlertSettings(),
     val anchor: AnchorAlertSettings = AnchorAlertSettings(),
+    /**
+     * 用户自定义调色板（内置 8 套 + 彩虹在 [BuiltinAlertPalettes]，不落盘）。
+     * 各类目用 [EdgeAlertSettings.paletteId] 等选择（null = 跟随 [color]）。
+     */
+    val customPalettes: List<AlertPalette> = emptyList(),
 )
 
-/** 边缘类：开关 + 单选样式 + 该类各样式的旋钮。 */
+/** 边缘类：开关 + 单选样式 + 调色板选择 + 该类各样式的旋钮。 */
 @Serializable
 @Keep
 data class EdgeAlertSettings(
     val enabled: Boolean = true,
     val style: EdgeAlertStyle = EdgeAlertStyle.EdgeGlow,
+    /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
+    val paletteId: String? = null,
     val edgeGlow: EdgeGlowAlertSettings = EdgeGlowAlertSettings(),
     val edgeFlow: EdgeFlowAlertSettings = EdgeFlowAlertSettings(),
+    val edgeRipple: EdgeRippleAlertSettings = EdgeRippleAlertSettings(),
+    val edgeBlink: EdgeBlinkAlertSettings = EdgeBlinkAlertSettings(),
+    val edgeFireworks: EdgeFireworksAlertSettings = EdgeFireworksAlertSettings(),
+    val edgeSwirl: EdgeSwirlAlertSettings = EdgeSwirlAlertSettings(),
+    val edgeBladeRise: EdgeBladeRiseAlertSettings = EdgeBladeRiseAlertSettings(),
 )
 
-/** 粒子类：开关 + 单选运动 + 旋钮（① 只有顶部雨）。 */
+/** 粒子类：开关 + 单选运动 + 调色板 + 共享旋钮 + 形状（④ 起有多运动）。 */
 @Serializable
 @Keep
 data class ParticleAlertSettings(
     val enabled: Boolean = true,
     val style: ParticleAlertStyle = ParticleAlertStyle.TopRain,
+    /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
+    val paletteId: String? = null,
     val particles: ParticlesAlertSettings = ParticlesAlertSettings(),
+    /** 粒子形状：圆点 / 自定义图片 / 通知应用图标。 */
+    val shape: ParticleShapeSettings = ParticleShapeSettings(),
 )
 
-/** 胶囊本体类：开关 + 单选样式 + 旋钮。 */
+/** 胶囊本体类：开关 + 单选样式 + 调色板 + 旋钮。 */
 @Serializable
 @Keep
 data class CapsuleAlertSettings(
     val enabled: Boolean = true,
     val style: CapsuleAlertStyle = CapsuleAlertStyle.Pulse,
+    /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
+    val paletteId: String? = null,
     val pulse: PulseAlertSettings = PulseAlertSettings(),
     val shimmer: ShimmerAlertSettings = ShimmerAlertSettings(),
+    val breathOutline: BreathOutlineAlertSettings = BreathOutlineAlertSettings(),
+    val innerSweep: InnerSweepAlertSettings = InnerSweepAlertSettings(),
 )
 
-/** 球心·全屏类：开关 + 单选样式 + 旋钮。 */
+/** 球心·全屏类：开关 + 单选样式 + 调色板 + 旋钮。 */
 @Serializable
 @Keep
 data class AnchorAlertSettings(
     val enabled: Boolean = true,
     val style: AnchorAlertStyle = AnchorAlertStyle.Ring,
+    /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
+    val paletteId: String? = null,
     val ring: RingAlertSettings = RingAlertSettings(),
     val fullRipple: FullRippleAlertSettings = FullRippleAlertSettings(),
+    val ballBurst: BallBurstAlertSettings = BallBurstAlertSettings(),
+    val ballHalo: BallHaloAlertSettings = BallHaloAlertSettings(),
 )
 
 /** 屏幕边缘呼吸光的专属旋钮：光带宽度、亮度、呼吸圈数、速度、屏缘圆角、衰减硬度。 */
@@ -562,6 +637,121 @@ data class ShimmerAlertSettings(
     val trailScale: Int = FloatBallDefaults.AlertShimmerTrailScale,
     /** true = 自右向左扫（默认自左向右）。 */
     val reverse: Boolean = false,
+)
+
+/** 边缘波纹的专属旋钮：波峰数、波峰大小、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class EdgeRippleAlertSettings(
+    val crests: Int = FloatBallDefaults.AlertEdgeRippleCrests,
+    val sizeDp: Int = FloatBallDefaults.AlertEdgeRippleSizeDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 边缘闪点的专属旋钮：亮点数、大小、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class EdgeBlinkAlertSettings(
+    val points: Int = FloatBallDefaults.AlertEdgeBlinkPoints,
+    val sizeDp: Int = FloatBallDefaults.AlertEdgeBlinkSizeDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 屏缘烟花的专属旋钮：爆点数、大小、迸射行程、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class EdgeFireworksAlertSettings(
+    val bursts: Int = FloatBallDefaults.AlertEdgeFireworksBursts,
+    val sizeDp: Int = FloatBallDefaults.AlertEdgeFireworksSizeDp,
+    val spreadDp: Int = FloatBallDefaults.AlertEdgeFireworksSpreadDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 边缘回旋的专属旋钮：光点数、径向半径、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class EdgeSwirlAlertSettings(
+    val points: Int = FloatBallDefaults.AlertEdgeSwirlPoints,
+    val radiusDp: Int = FloatBallDefaults.AlertEdgeSwirlRadiusDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 双刃上升的专属旋钮：刃宽、刃高、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class EdgeBladeRiseAlertSettings(
+    val bladeWidthDp: Int = FloatBallDefaults.AlertEdgeBladeWidthDp,
+    val bladeHeightDp: Int = FloatBallDefaults.AlertEdgeBladeHeightDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 胶囊呼吸描边的专属旋钮：描边宽度（0.1dp）、呼吸缩放、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class BreathOutlineAlertSettings(
+    val strokeWidthDpTenths: Int = FloatBallDefaults.AlertBreathStrokeWidthTenths,
+    val breatheScale: Int = FloatBallDefaults.AlertBreathScale,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 胶囊内部扫光的专属旋钮：主带宽度（%）、反向、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class InnerSweepAlertSettings(
+    val bandWidth: Int = FloatBallDefaults.AlertInnerSweepBandWidth,
+    val reverse: Boolean = false,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 球心爆发的专属旋钮：粒子数、粒径、迸射行程、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class BallBurstAlertSettings(
+    val count: Int = FloatBallDefaults.AlertBallBurstCount,
+    val particleSizeDp: Int = FloatBallDefaults.AlertBallBurstSizeDp,
+    val spreadDp: Int = FloatBallDefaults.AlertBallBurstSpreadDp,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 球心光晕的专属旋钮：半径（球径 %）、光晕强度、亮度、圈数、速度。 */
+@Serializable
+@Keep
+data class BallHaloAlertSettings(
+    val radiusPercent: Int = FloatBallDefaults.AlertBallHaloRadius,
+    val haloScale: Int = FloatBallDefaults.AlertHaloScale,
+    val brightness: Int = FloatBallDefaults.AlertBrightness,
+    val cycles: Int = FloatBallDefaults.AlertCycles,
+    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+)
+
+/** 粒子形状：圆点 / 自定义图片 / 通知应用图标。 */
+@Serializable
+@Keep
+enum class ParticleShape { Dot, CustomImage, AppIcon }
+
+/** 粒子形状设置：形状 + 自定义图片路径（[ParticleShape.CustomImage] 时用）。 */
+@Serializable
+@Keep
+data class ParticleShapeSettings(
+    val shape: ParticleShape = ParticleShape.Dot,
+    /** 自定义图片的 content Uri 字符串；空 = 回落圆点。 */
+    val customImage: String = "",
 )
 
 /**
@@ -839,6 +1029,78 @@ object FloatBallDefaults {
     const val AlertShimmerTrailScale = 200
     const val AlertShimmerTrailScaleMin = 0
     const val AlertShimmerTrailScaleMax = 300
+
+    /** 到达提示·边缘波纹：波峰数默认值与滑杆上下限、波峰大小（dp）。 */
+    const val AlertEdgeRippleCrests = 3
+    const val AlertEdgeRippleCrestsMin = 2
+    const val AlertEdgeRippleCrestsMax = 6
+    const val AlertEdgeRippleSizeDp = 6
+    const val AlertEdgeRippleSizeDpMin = 2
+    const val AlertEdgeRippleSizeDpMax = 20
+
+    /** 到达提示·边缘闪点：亮点数默认值与滑杆上下限、大小（dp）。 */
+    const val AlertEdgeBlinkPoints = 8
+    const val AlertEdgeBlinkPointsMin = 4
+    const val AlertEdgeBlinkPointsMax = 20
+    const val AlertEdgeBlinkSizeDp = 4
+    const val AlertEdgeBlinkSizeDpMin = 2
+    const val AlertEdgeBlinkSizeDpMax = 12
+
+    /** 到达提示·屏缘烟花：爆点数默认值与滑杆上下限、粒径（dp）、迸射行程（dp）。 */
+    const val AlertEdgeFireworksBursts = 3
+    const val AlertEdgeFireworksBurstsMin = 1
+    const val AlertEdgeFireworksBurstsMax = 6
+    const val AlertEdgeFireworksSizeDp = 4
+    const val AlertEdgeFireworksSizeDpMin = 2
+    const val AlertEdgeFireworksSizeDpMax = 10
+    const val AlertEdgeFireworksSpreadDp = 140
+    const val AlertEdgeFireworksSpreadDpMin = 60
+    const val AlertEdgeFireworksSpreadDpMax = 320
+
+    /** 到达提示·边缘回旋：光点数默认值与滑杆上下限、径向半径（dp）。 */
+    const val AlertEdgeSwirlPoints = 6
+    const val AlertEdgeSwirlPointsMin = 3
+    const val AlertEdgeSwirlPointsMax = 12
+    const val AlertEdgeSwirlRadiusDp = 6
+    const val AlertEdgeSwirlRadiusDpMin = 2
+    const val AlertEdgeSwirlRadiusDpMax = 24
+
+    /** 到达提示·双刃上升：刃宽（dp）与刃高（dp）默认值与滑杆上下限。 */
+    const val AlertEdgeBladeWidthDp = 4
+    const val AlertEdgeBladeWidthDpMin = 2
+    const val AlertEdgeBladeWidthDpMax = 16
+    const val AlertEdgeBladeHeightDp = 120
+    const val AlertEdgeBladeHeightDpMin = 60
+    const val AlertEdgeBladeHeightDpMax = 360
+
+    /** 到达提示·胶囊呼吸描边：描边宽度（0.1dp）与呼吸缩放（‰）默认值与滑杆上下限。 */
+    const val AlertBreathStrokeWidthTenths = 16
+    const val AlertBreathStrokeWidthTenthsMin = 8
+    const val AlertBreathStrokeWidthTenthsMax = 36
+    const val AlertBreathScale = 60
+    const val AlertBreathScaleMin = 0
+    const val AlertBreathScaleMax = 120
+
+    /** 到达提示·胶囊内部扫光：主带宽度默认值与滑杆上下限（胶囊宽 %）。 */
+    const val AlertInnerSweepBandWidth = 30
+    const val AlertInnerSweepBandWidthMin = 10
+    const val AlertInnerSweepBandWidthMax = 80
+
+    /** 到达提示·球心爆发：粒子数、粒径（dp）、迸射行程（dp）默认值与滑杆上下限。 */
+    const val AlertBallBurstCount = 36
+    const val AlertBallBurstCountMin = 12
+    const val AlertBallBurstCountMax = 80
+    const val AlertBallBurstSizeDp = 3
+    const val AlertBallBurstSizeDpMin = 1
+    const val AlertBallBurstSizeDpMax = 8
+    const val AlertBallBurstSpreadDp = 160
+    const val AlertBallBurstSpreadDpMin = 60
+    const val AlertBallBurstSpreadDpMax = 360
+
+    /** 到达提示·球心光晕：半径（球径 %）默认值与滑杆上下限。 */
+    const val AlertBallHaloRadius = 160
+    const val AlertBallHaloRadiusMin = 60
+    const val AlertBallHaloRadiusMax = 300
 
     /** 内容胶囊（通知 / 结果）同屏可见行数默认值与滑杆上下限（行）。 */
     const val CapsuleVisibleRows = 3

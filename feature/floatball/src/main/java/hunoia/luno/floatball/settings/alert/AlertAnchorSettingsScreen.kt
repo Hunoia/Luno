@@ -12,6 +12,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AnchorAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.paletteFor
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -21,6 +22,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.toMarkColor
 
 /**
  * 到达提示·球心·全屏类设置页：类目开关、类内单选样式（球光环 / 全屏涟漪）与旋钮。
@@ -29,12 +31,13 @@ import hunoia.luno.ui.facade.LocalFacades
  * 试播时胶囊没显示会先弹一条演示胶囊（球心锚点需要真实胶囊矩形）。
  */
 @Composable
-fun AlertAnchorSettingsScreen(onBack: () -> Unit) {
+fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {}) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val actionSettings by TuneConfig.action
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val alert = actionSettings.floatBall.notificationCapsule.alert
     val settings = actionSettings.floatBall.notificationCapsule.alert.anchor
 
     LunoScreenLazy(
@@ -70,6 +73,14 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit) {
                                 }
                             },
                             shape = shape,
+                        )
+                    }
+                    item { shape ->
+                        AlertPaletteSettingsRow(
+                            palette = alert.paletteFor(AlertCategory.Anchor),
+                            fallbackColor = alert.color.toMarkColor(),
+                            shape = shape,
+                            onClick = onNavToPalette,
                         )
                     }
                     when (settings.style) {
@@ -281,6 +292,107 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit) {
                                     },
                                 )
                             }
+                        }
+                        AnchorAlertStyle.BallBurst -> {
+                            val s = settings.ballBurst
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_particle_count),
+                                    value = s.count,
+                                    range = FloatBallDefaults.AlertBallBurstCountMin..
+                                        FloatBallDefaults.AlertBallBurstCountMax,
+                                    display = { "${it.toInt()}" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(anchor = it.anchor.copy(
+                                                ballBurst = it.anchor.ballBurst.copy(count = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_particle_size),
+                                    value = s.particleSizeDp,
+                                    range = FloatBallDefaults.AlertBallBurstSizeDpMin..
+                                        FloatBallDefaults.AlertBallBurstSizeDpMax,
+                                    display = { "${it.toInt()} dp" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(anchor = it.anchor.copy(
+                                                ballBurst = it.anchor.ballBurst.copy(particleSizeDp = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_ball_burst_spread),
+                                    value = s.spreadDp,
+                                    range = FloatBallDefaults.AlertBallBurstSpreadDpMin..
+                                        FloatBallDefaults.AlertBallBurstSpreadDpMax,
+                                    display = { "${it.toInt()} dp" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(anchor = it.anchor.copy(
+                                                ballBurst = it.anchor.ballBurst.copy(spreadDp = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                                onSpeed = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(cycles = v))) } },
+                            )
+                        }
+                        AnchorAlertStyle.BallHalo -> {
+                            val s = settings.ballHalo
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_ball_halo_radius),
+                                    value = s.radiusPercent,
+                                    range = FloatBallDefaults.AlertBallHaloRadiusMin..
+                                        FloatBallDefaults.AlertBallHaloRadiusMax,
+                                    display = { "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(anchor = it.anchor.copy(
+                                                ballHalo = it.anchor.ballHalo.copy(radiusPercent = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_ball_halo_intensity),
+                                    value = s.haloScale,
+                                    range = FloatBallDefaults.AlertHaloScaleMin..
+                                        FloatBallDefaults.AlertHaloScaleMax,
+                                    display = { "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert(scope) {
+                                            it.copy(anchor = it.anchor.copy(
+                                                ballHalo = it.anchor.ballHalo.copy(haloScale = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
+                                onSpeed = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(cycles = v))) } },
+                            )
                         }
                     }
                     item { shape ->

@@ -740,7 +740,7 @@ class FloatBallService : Service() {
                 "dnd=${env.dndActive} blocked=${pkg != null && pkg in alert.appBlocklist}")
             return
         }
-        dispatchAlertPlan(slot, buildAlertPlan())
+        dispatchAlertPlan(slot, buildAlertPlan(pkg))
     }
 
     /** 任一到达动效在播：舞台窗或胶囊窗自己那层。 */
@@ -749,10 +749,10 @@ class FloatBallService : Service() {
             (this::notificationSlot.isInitialized && notificationSlot.window.isAlertPlaying())
 
     /** 当前配置 → 分层播放计划：各层单循环 = 样式基准 × 档位 ÷ 速度（由 buildPlan 折算）。 */
-    private fun buildAlertPlan(): AlertPlayPlan {
+    private fun buildAlertPlan(appPackage: String? = null): AlertPlayPlan {
         val alert = settings.notificationCapsule.alert
         val profile = MotionTuning.profile
-        return buildPlan(alert) { style -> profile.speedOf(style.category.toAlertFamily()).factor }
+        return buildPlan(alert, { style -> profile.speedOf(style.category.toAlertFamily()).factor }, appPackage)
     }
 
     /** 到达动效统一用动效独立颜色：未设置时渲染端回落主题主色（与胶囊 / 悬浮球解耦）。 */
@@ -787,7 +787,9 @@ class FloatBallService : Service() {
                 plan.layers.joinToString { "${it.style}x${it.cycles}/${it.cycleMillis}ms" } +
                 " total=${plan.durationMillis}ms",
         )
-        plan.capsuleLayers.firstOrNull()?.let(slot.window::playArrivalAlert)
+        plan.capsuleLayers.firstOrNull()?.let { layer ->
+            slot.window.playArrivalAlert(layer, alertColorSpec())
+        }
         if (plan.stageLayers.isEmpty()) return true
         // 锚点缺失（胶囊未挂窗）时回落屏幕中心：舞台层里只有球心锚定的层会读它，
         // 那种情况由 [needsCapsule] 在试播路径上先拉起胶囊。

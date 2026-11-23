@@ -182,12 +182,29 @@ internal fun alertStyleBaseMillis(style: AlertStyleId): Int = when (style) {
     // 边缘类
     EdgeAlertStyle.EdgeGlow -> 1400
     EdgeAlertStyle.EdgeFlow -> 1600
+    EdgeAlertStyle.EdgeRipple -> 1300
+    EdgeAlertStyle.EdgeBlink -> 1200
+    EdgeAlertStyle.EdgeFireworks -> 1400
+    EdgeAlertStyle.EdgeSwirl -> 1300
+    EdgeAlertStyle.EdgeBladeRise -> 1100
     // 粒子类（一波粒子从顶缘落到淡出）
     ParticleAlertStyle.TopRain -> 1000
+    ParticleAlertStyle.BottomFountain -> 1100
+    ParticleAlertStyle.Meteor -> 900
+    ParticleAlertStyle.Confetti -> 1200
+    ParticleAlertStyle.Snowflake -> 1400
+    ParticleAlertStyle.Petal -> 1300
+    ParticleAlertStyle.Bubble -> 1200
+    ParticleAlertStyle.Spark -> 800
+    ParticleAlertStyle.Firefly -> 1500
     // 胶囊本体类
     CapsuleAlertStyle.Pulse -> 1000
     CapsuleAlertStyle.Shimmer -> 1150
+    CapsuleAlertStyle.BreathOutline -> 1100
+    CapsuleAlertStyle.InnerSweep -> 1150
     // 球心·全屏类
     AnchorAlertStyle.Ring -> 1000
     AnchorAlertStyle.Ripple -> 1100
+    AnchorAlertStyle.BallBurst -> 900
+    AnchorAlertStyle.BallHalo -> 1200
 }
