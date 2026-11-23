@@ -28,15 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.GlobalGestureZone
-import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
@@ -71,13 +68,13 @@ fun ButtonVisibilityEditScreen(
     /** 挑选触发动作：先落盘草稿再导航，调用方起动作选择页（visibilityProfile 槽）。 */
     onPickTriggerAction: (profileId: String, enter: Boolean) -> Unit = { _, _ -> },
 ) {
-    val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
-    val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
+    val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = GestureConfig.latestInitial())
+    val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = GestureConfig.latestButtons())
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
-        initialValue = GlobalGestureSettings(),
+        initialValue = GestureConfig.latestGlobalGesture(),
     )
     val librarySettings by ActionLibrary.settings.collectAsStateWithLifecycle(
-        initialValue = ActionLibrarySettings(),
+        initialValue = ActionLibrary.latestSettings(),
     )
     val scope = rememberCoroutineScope()
     val isNew = profileId == NEW_VISIBILITY_PROFILE_ID

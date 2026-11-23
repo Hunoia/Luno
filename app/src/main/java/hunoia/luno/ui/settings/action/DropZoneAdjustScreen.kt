@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.WindowBounds
@@ -56,7 +55,7 @@ fun DropZoneAdjustScreen(
 ) {
     val scope = rememberCoroutineScope()
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     DropZoneAdjustContent(
         initial = actionSettings.floatBall,
         onCommit = { landscape, zone ->

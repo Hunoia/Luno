@@ -6,7 +6,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ListStyle
 import hunoia.luno.config.model.MotionSpeed
 import hunoia.luno.config.model.MotionTuningSettings
@@ -30,7 +29,7 @@ import kotlinx.coroutines.launch
 fun AppearanceSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val advanced by TuneConfig.advanced
-        .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
 
     fun updateMotion(transform: (MotionTuningSettings) -> MotionTuningSettings) {
         scope.launch {

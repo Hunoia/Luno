@@ -23,7 +23,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.NotificationDisplaySettings
 import hunoia.luno.config.model.NotificationKind
@@ -77,7 +76,7 @@ private const val TEST_ROWS = 3
 fun NotificationSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+    val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
     val display = advanced.notificationDisplay
     var resumeTick by remember { mutableIntStateOf(0) }
 

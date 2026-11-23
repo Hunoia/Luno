@@ -13,7 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
@@ -38,7 +37,7 @@ import kotlinx.coroutines.launch
 fun TodoSettingsScreen(
     onBack: () -> Unit,
 ) {
-    val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoConfig())
+    val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoCenter.latestTodoConfig())
     val scope = rememberCoroutineScope()
 
     var showSnooze by remember { mutableStateOf(false) }

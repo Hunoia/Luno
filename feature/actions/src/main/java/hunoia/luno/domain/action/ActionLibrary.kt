@@ -10,6 +10,9 @@ object ActionLibrary {
 
     val settings: Flow<ActionLibrarySettings> = ConfigProvider.actionLibrarySettings
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `ActionLibrarySettings()` 空默认。 */
+    fun latestSettings(): ActionLibrarySettings = ConfigProvider.latestActionLibrarySettings()
+
     suspend fun getSettings(): ActionLibrarySettings = ConfigProvider.getActionLibrarySettings()
 
     suspend fun updateSettings(transform: suspend (ActionLibrarySettings) -> ActionLibrarySettings) =

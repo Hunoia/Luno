@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.MiniFreeformPosition
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
@@ -32,7 +31,7 @@ fun MiniWindowSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(
-        initialValue = AdvancedSettings()
+        initialValue = TuneConfig.latestAdvanced()
     )
     val settings = advanced.miniWindowSettings()
     // 三个边距横竖屏各一份：这里编辑当前朝向那份（与网格面板编辑页同口径）。

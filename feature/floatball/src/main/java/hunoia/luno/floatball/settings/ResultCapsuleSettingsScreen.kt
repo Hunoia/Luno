@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
@@ -54,7 +53,7 @@ fun ResultCapsuleSettingsScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val floatBall = actionSettings.floatBall
     val capsule = floatBall.resultCapsule
 

@@ -15,6 +15,9 @@ object HabitCenter {
 
     val habitConfig: Flow<HabitConfig> = ConfigProvider.habitConfig
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `HabitConfig()` 空默认。 */
+    fun latestHabitConfig(): HabitConfig = ConfigProvider.latestHabitConfig()
+
     suspend fun getHabitConfig(): HabitConfig = ConfigProvider.getHabitConfig()
 
     /** 打卡 +1：未达标累加次数，达标移入完成集合；已完成再调是幂等。 */

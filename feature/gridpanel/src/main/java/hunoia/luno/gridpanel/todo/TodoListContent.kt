@@ -32,7 +32,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
@@ -75,7 +74,7 @@ fun TodoListContent(
     bottomContentPadding: Dp = FloatingContentBottom,
     undoBarBottomInset: Dp = 12.dp,
 ) {
-    val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoConfig())
+    val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoCenter.latestTodoConfig())
     val scope = rememberCoroutineScope()
     // 分钟级时钟：跨天 / 提醒到点后紧迫度与提醒文案要自己刷新，不能等下一次无关重组。
     val now = rememberNow()

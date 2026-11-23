@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AlertPalette
 import hunoia.luno.config.model.allPalettes
@@ -35,7 +34,7 @@ fun AlertPalettePickerScreen(
 ) {
     val scope = rememberCoroutineScope()
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val alert = actionSettings.floatBall.notificationCapsule.alert
     val palettes = alert.allPalettes()
     val currentId = alert.paletteIdOf(category)

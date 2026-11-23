@@ -33,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import hunoia.luno.R
+import hunoia.luno.ui.component.sheet.LunoAppPicker
 import hunoia.luno.ui.theme.MotionNavTransition
 import kotlinx.coroutines.launch
 
@@ -151,7 +152,6 @@ import hunoia.luno.gesture.settings.button.GestureButtonSettingsScreen
 
 import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsScreen
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
@@ -168,13 +168,8 @@ import hunoia.luno.ui.home.MainTab
 import hunoia.luno.ui.navigation.PendingHomeTab
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.config.model.ActionSettings as ActionTuning
 import kotlin.reflect.KType
-import hunoia.luno.ui.component.sheet.LunoAppPicker
 import hunoia.luno.ui.component.row.LocalListStyle
-import hunoia.luno.config.model.AdvancedSettings
-
 
 
 @Composable
@@ -183,14 +178,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
         val context = LocalContext.current
         val durationMs = ANIMATION_DURATION_MS
         val actionLibrarySettings by ActionLibrary.settings
-            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+            .collectAsStateWithLifecycle(initialValue = ActionLibrary.latestSettings())
         val actionSettings by TuneConfig.action
-            .collectAsStateWithLifecycle(initialValue = ActionTuning())
+            .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
         val subGestureSettings by GestureConfig.subGestures
-            .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+            .collectAsStateWithLifecycle(initialValue = GestureConfig.latestSubGestures())
         // 设置列表视觉风格：全局开关，LunoGroup 读取后决定分段式 / 大卡分割线。
         val advancedSettings by TuneConfig.advanced
-            .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+            .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
         // 习惯部件 / 提醒通知「打开详情页」：跨进程 Intent → [PendingHabitDetail]，消费一次就跳详情页。
         val pendingHabitDetailId by PendingHabitDetail.habitId.collectAsStateWithLifecycle()
         LaunchedEffect(pendingHabitDetailId) {
@@ -431,7 +426,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<RecentAppsBlocklist> {
                     val scope = rememberCoroutineScope()
                     val actionSettings by TuneConfig.action
-                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
                         current = actionSettings.recentAppsBlocklist,
@@ -587,7 +582,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<FloatBallAlertBlocklist> {
                     val scope = rememberCoroutineScope()
                     val actionSettings by TuneConfig.action
-                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
                         title = stringResource(
@@ -619,7 +614,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<SceneRecognizeList> {
                     val scope = rememberCoroutineScope()
                     val actionSettings by TuneConfig.action
-                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
                         title = stringResource(hunoia.luno.link.R.string.recognition_scene_list),
@@ -663,7 +658,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<NotificationBlocklist> {
                     val scope = rememberCoroutineScope()
                     val actionSettings by TuneConfig.action
-                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
                         title = stringResource(R.string.notification_blocklist),

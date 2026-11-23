@@ -26,7 +26,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.config.model.TrendEntry
 import hunoia.luno.config.model.TrendGoalDirection
 import hunoia.luno.config.model.TrendMetric
@@ -62,7 +61,7 @@ fun TrendListContent(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
 ) {
-    val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendConfig())
+    val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         state = state,

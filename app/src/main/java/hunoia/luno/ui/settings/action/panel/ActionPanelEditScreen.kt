@@ -62,8 +62,8 @@ fun ActionPanelEditScreen(
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    // 这里**不能**用 collectAsStateWithLifecycle(initialValue = ActionSettings())：
-    // 首帧拿到的是那份空配置，panelById 必然 miss。早先的实现在这里 early-return +
+    // 这里**不**用 collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())：
+    // 兜底帧里 panelById 可能 miss（冷启动还没拿到真值），早先的实现在这里 early-return +
     // popBackStack，于是「点面板行 → 进编辑页 → 首帧判定面板不存在 → 立刻退回列表」，
     // 表现成点了完全没反应。现在显式收集，拿到 DataStore 真实值后才判断面板在不在。
     var loaded by remember { mutableStateOf(false) }

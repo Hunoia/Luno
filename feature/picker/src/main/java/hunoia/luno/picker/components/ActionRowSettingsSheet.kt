@@ -62,7 +62,7 @@ fun ActionRowSettingsSheet(
     val descriptor = ActionRowSettingsRegistry.byTypeId(action.typeId) ?: return
     val context = LocalContext.current
     var draft by remember(action) { mutableStateOf(action.params) }
-    val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
+    val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = GestureConfig.latestButtons())
     val scrollState = rememberScrollState()
 
     val scope = RowSettingsEditorScope(

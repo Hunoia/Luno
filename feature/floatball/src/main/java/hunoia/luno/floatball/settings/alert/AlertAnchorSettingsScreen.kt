@@ -8,7 +8,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AnchorAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
@@ -36,7 +35,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val alert = actionSettings.floatBall.notificationCapsule.alert
     val settings = actionSettings.floatBall.notificationCapsule.alert.anchor
 

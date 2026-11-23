@@ -58,7 +58,7 @@ import hunoia.luno.ui.component.panel.panelFadeIn
 import hunoia.luno.ui.component.panel.panelFadeOut
 import hunoia.luno.ui.theme.PanelAppearSlide
 import hunoia.luno.core.domain.launchMiniWindow
-import hunoia.luno.core.domain.ActionLibrarySettings
+import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.ColorSpec
@@ -119,7 +119,7 @@ fun ActionPanelMenu(
             }
         }
         val actionLibrarySettings by hunoia.luno.domain.action.ActionLibrary.settings
-            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+            .collectAsStateWithLifecycle(initialValue = ActionLibrary.latestSettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }

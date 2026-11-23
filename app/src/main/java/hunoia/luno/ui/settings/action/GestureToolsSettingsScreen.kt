@@ -1,14 +1,13 @@
 package hunoia.luno.ui.settings.action
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
@@ -29,7 +28,7 @@ fun RecentsGestureSettingsScreen(
     onNavToBlocklist: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val tools = actionSettings.gestureTools
 
     fun update(transform: (hunoia.luno.config.model.GestureToolsSettings) -> hunoia.luno.config.model.GestureToolsSettings) {
@@ -39,7 +38,7 @@ fun RecentsGestureSettingsScreen(
     LunoScreen(title = stringResource(R.string.recents_gesture_settings_title), onBack = onBack) {
         LunoGroup(title = stringResource(R.string.recents_settings_motion_group)) {
             LunoSettingsRow(
-                icon = Icons.Default.FormatListBulleted,
+                icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                 title = stringResource(R.string.recent_apps_blocklist),
                 subtitle = stringResource(
                     R.string.recents_settings_blocklist_count,

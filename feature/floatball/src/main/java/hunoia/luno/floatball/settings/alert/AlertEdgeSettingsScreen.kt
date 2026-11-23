@@ -20,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AlertCategory
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.paletteFor
@@ -51,7 +50,7 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val alert = actionSettings.floatBall.notificationCapsule.alert
     val settings = alert.edge
     var showSecondColorPicker by remember { mutableStateOf(false) }

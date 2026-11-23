@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.view.View
 import hunoia.luno.bridge.ui.hapticTick
-import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.config.model.HabitDot
 import hunoia.luno.domain.gridpanel.HabitCenter
@@ -86,7 +85,7 @@ fun HabitListContent(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
 ) {
-    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitConfig())
+    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitCenter.latestHabitConfig())
     val today = rememberTodayEpochDay()
     val scope = rememberCoroutineScope()
     // 打卡（target=1）不需要确认：直接写回，靠振动反馈防误触；只有撤销（清 streak，破坏性）

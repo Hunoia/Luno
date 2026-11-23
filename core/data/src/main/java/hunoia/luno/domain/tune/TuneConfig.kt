@@ -14,6 +14,11 @@ object TuneConfig {
     val gesture: Flow<GestureSettings> = ConfigProvider.gestureSettings
     val action: Flow<ActionSettings> = ConfigProvider.actionSettings
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `XxxSettings()` 空默认。 */
+    fun latestAdvanced(): AdvancedSettings = ConfigProvider.latestAdvancedSettings()
+    fun latestGesture(): GestureSettings = ConfigProvider.latestGestureSettings()
+    fun latestAction(): ActionSettings = ConfigProvider.latestActionSettings()
+
     suspend fun getGesture(): GestureSettings = ConfigProvider.getGestureSettings()
     suspend fun getAction(): ActionSettings = ConfigProvider.getActionSettings()
 

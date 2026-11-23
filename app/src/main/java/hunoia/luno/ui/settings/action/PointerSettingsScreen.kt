@@ -33,7 +33,7 @@ fun PointerSettingsScreen(
     onAdjustPosition: (follow: Boolean) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val gesture by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
+    val gesture by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = TuneConfig.latestGesture())
     val pointer = gesture.pointer
     var draft by remember(pointer) { mutableStateOf(pointer) }
 

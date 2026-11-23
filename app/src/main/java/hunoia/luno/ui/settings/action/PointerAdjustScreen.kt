@@ -57,7 +57,7 @@ fun PointerAdjustScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val gesture by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
+    val gesture by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = TuneConfig.latestGesture())
     PointerAdjustContent(
         follow = follow,
         initial = gesture.pointer,

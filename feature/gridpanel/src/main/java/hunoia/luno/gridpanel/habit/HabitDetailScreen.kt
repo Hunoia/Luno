@@ -83,13 +83,13 @@ fun HabitDetailScreen(
     onBack: () -> Unit,
     onEdit: (habitId: String) -> Unit,
 ) {
-    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitConfig())
+    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitCenter.latestHabitConfig())
     val today = rememberTodayEpochDay()
     val habit = config.habitById(habitId)
     val scope = rememberCoroutineScope()
     // 补卡 / 改历史确认：同一时刻最多一个弹层（ui-guidelines §3.2-5）。
     var pendingDay by remember { mutableStateOf<Pair<Long, Boolean>?>(null) }
-    // 首帧 config 尚未加载（initialValue 为空）→ habit=null，不能据此退页。
+    // 首帧 config 可能还没真值（冷启动兜底帧）→ habit=null，不能据此退页。
     // 单通道判定：先从持久层读一次确认「这条存在过」，之后跟着配置流走 ——
     // 流里出现过这条就 found；一旦消失（打开期间被删）且 found 就退页。
     var found by remember { mutableStateOf<Boolean?>(null) }

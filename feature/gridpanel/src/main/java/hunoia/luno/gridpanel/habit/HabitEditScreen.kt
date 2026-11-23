@@ -36,7 +36,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.ColorSource
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.Habit
-import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitDefaultSnoozeMinutes
 import hunoia.luno.config.model.HabitMaxDailyTarget
 import hunoia.luno.config.model.HabitMaxReminders
@@ -87,7 +86,8 @@ import hunoia.luno.ui.component.PressTextButton
  * 自动保存，避免删除后又被 onStop 写回来。
  *
  * 一屏一个状态类型 [HabitEditState]（architecture §8.4）：字段草稿优先，缺省回退到
- * 已加载的 [Habit]——配置流首帧为空（`initialValue`），否则会被空值初始化导致重进丢内容。
+ * 已加载的 [Habit]——配置流兜底帧可能还没有真值，否则会被空值初始化导致重进丢内容
+ * （ui-guidelines §3.2 第 6 条）。
  * 增删改与打卡写入走 [HabitCenter] 门面（配置写入，不走 Action / Dispatcher）。
  */
 @Composable
@@ -95,7 +95,7 @@ fun HabitEditScreen(
     habitId: String?,
     onBack: () -> Unit,
 ) {
-    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitConfig())
+    val config by HabitCenter.habitConfig.collectAsStateWithLifecycle(initialValue = HabitCenter.latestHabitConfig())
     val scope = rememberCoroutineScope()
     val writeMutex = remember { Mutex() }
     val flushHolder = remember { FlushJobHolder() }

@@ -86,7 +86,7 @@ fun SearchEngineSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
+    val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = SearchCenter.latestSearch())
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
     var showExportConfirm by remember { mutableStateOf(false) }

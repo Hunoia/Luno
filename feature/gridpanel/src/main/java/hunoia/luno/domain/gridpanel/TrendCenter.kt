@@ -16,6 +16,9 @@ object TrendCenter {
 
     val trendConfig: Flow<TrendConfig> = ConfigProvider.trendConfig
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `TrendConfig()` 空默认。 */
+    fun latestTrendConfig(): TrendConfig = ConfigProvider.latestTrendConfig()
+
     suspend fun getTrendConfig(): TrendConfig = ConfigProvider.getTrendConfig()
 
     /** 追加一条记录；指标不存在或达到单指标上限时返回 false。 */

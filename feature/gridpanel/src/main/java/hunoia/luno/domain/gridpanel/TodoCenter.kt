@@ -15,6 +15,9 @@ object TodoCenter {
 
     val todoConfig: Flow<TodoConfig> = ConfigProvider.todoConfig
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `TodoConfig()` 空默认。 */
+    fun latestTodoConfig(): TodoConfig = ConfigProvider.latestTodoConfig()
+
     suspend fun getTodoConfig(): TodoConfig = ConfigProvider.getTodoConfig()
 
     /** 部件 / 管理页切换完成态（done=true 记完成时刻，写后按保留天数惰性裁剪）。 */

@@ -14,16 +14,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
-import hunoia.luno.core.domain.ActionLibrarySettings
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.ui.component.row.LocalListStyle
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
@@ -58,13 +54,13 @@ class ActionSelectHostActivity : ComponentActivity() {
                 // navigateUp）；本宿主自己接了 Finish→finish()，默认分支不可达但不给会崩。
                 val navController = rememberNavController()
                 val actionSettings by TuneConfig.action
-                    .collectAsStateWithLifecycle(initialValue = ActionSettings())
+                    .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
                 val actionLibrarySettings by ActionLibrary.settings
-                    .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+                    .collectAsStateWithLifecycle(initialValue = ActionLibrary.latestSettings())
                 val subGestureSettings by GestureConfig.subGestures
-                    .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+                    .collectAsStateWithLifecycle(initialValue = GestureConfig.latestSubGestures())
                 val advancedSettings by TuneConfig.advanced
-                    .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+                    .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
                 val select = actionSelect
                 CompositionLocalProvider(
                     LocalNavController provides navController,

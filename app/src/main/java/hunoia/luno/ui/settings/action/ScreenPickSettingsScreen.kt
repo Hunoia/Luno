@@ -21,7 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.PortalReleaseMode
@@ -63,18 +62,18 @@ fun ScreenPickSettingsScreen(
     val ocrModels by facades.ocrModels.state.collectAsStateWithLifecycle()
     // 识屏取字参数（二维码 / 松手去向）在识别器门面：模型在 :core:domain 的 ScreenPickSettings。
     val screenPick by facades.recognitionSettings.screenPickSettings
-        .collectAsStateWithLifecycle(initialValue = ScreenPickSettings())
+        .collectAsStateWithLifecycle(initialValue = GestureConfig.latestInitial().screenPick)
     fun updateScreenPick(transform: (ScreenPickSettings) -> ScreenPickSettings) {
         scope.launch { facades.recognitionSettings.updateScreenPick(transform) }
     }
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(
-        initialValue = InitialSettings(),
+        initialValue = GestureConfig.latestInitial(),
     )
     val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(
-        initialValue = AdvancedSettings(),
+        initialValue = TuneConfig.latestAdvanced(),
     )
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
-        initialValue = GlobalGestureSettings(),
+        initialValue = GestureConfig.latestGlobalGesture(),
     )
     var confirmDelete by remember { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(

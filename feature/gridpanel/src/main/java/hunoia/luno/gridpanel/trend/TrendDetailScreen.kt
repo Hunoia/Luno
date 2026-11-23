@@ -40,7 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.TrendConfig
 import hunoia.luno.config.model.TrendEntry
 import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.config.model.TrendStats
@@ -96,7 +95,7 @@ fun TrendDetailScreen(
     onBack: () -> Unit,
     onEditMetric: (metricId: String) -> Unit,
 ) {
-    val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendConfig())
+    val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
     val metric = config.metricById(metricId)
     if (metric == null) {
         LunoScreenLazy(title = stringResource(R.string.trend_list_title), onBack = onBack) {

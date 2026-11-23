@@ -6,6 +6,7 @@ import android.content.Intent.ShortcutIconResource
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
+import hunoia.luno.config.model.TrendWidgetParams
 import hunoia.luno.core.LunoLog as Log
 import java.io.File
 import androidx.activity.compose.BackHandler
@@ -45,10 +46,7 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.picker.R
 import hunoia.luno.config.model.GridPanelGeometry
-import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitWidgetParams
-import hunoia.luno.config.model.TrendConfig
-import hunoia.luno.config.model.TrendWidgetParams
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.Paths
 import hunoia.luno.domain.gridpanel.HabitCenter
@@ -117,11 +115,11 @@ fun ActionSelectContent(
         // 习惯部件（历史 / 热力图）选择：指定目标习惯后落盘（params 见 architecture §9.2）。
         var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
         val habitConfig by HabitCenter.habitConfig
-            .collectAsStateWithLifecycle(initialValue = HabitConfig())
+            .collectAsStateWithLifecycle(initialValue = HabitCenter.latestHabitConfig())
         // 趋势部件选择：指定目标指标后落盘（params 同上）。
         var pendingTrendWidgetId by remember { mutableStateOf<String?>(null) }
         val trendConfig by TrendCenter.trendConfig
-            .collectAsStateWithLifecycle(initialValue = TrendConfig())
+            .collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
         // 当前 chip 提升到宿主：顶栏才能按「应用tab」显示系统应用开关。
         var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
         val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType

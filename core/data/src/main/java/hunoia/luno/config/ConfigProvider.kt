@@ -40,6 +40,7 @@ import hunoia.luno.config.model.withResolvedName
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.AppUsageRepository
 import hunoia.luno.config.repository.QuickLauncherRepository
+import hunoia.luno.config.store.SettingsFlowCache
 import hunoia.luno.config.store.SettingsStores
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
@@ -53,21 +54,51 @@ object ConfigProvider {
     private val appUsageRepository by lazy { AppUsageRepository(stores) }
     private val configBackupRepository by lazy { ConfigBackupRepository(stores) }
 
-    val initialSettings: Flow<InitialSettings> = stores.initialSettings
-    val advancedSettings: Flow<AdvancedSettings> = stores.advancedSettings
-    val gestureSettings: Flow<GestureSettings> = stores.gestureSettings
-    val actionSettings: Flow<ActionSettings> = stores.actionSettings
+    // settings 页的同步兜底源：兜底值必须是**真实值**，不能用空默认（见 SettingsFlowCache 注释）。
+    private val initialCache = SettingsFlowCache { InitialSettings() }
+    private val advancedCache = SettingsFlowCache { AdvancedSettings() }
+    private val gestureCache = SettingsFlowCache { GestureSettings() }
+    private val actionCache = SettingsFlowCache { ActionSettings() }
+    private val buttonCache = SettingsFlowCache { emptyList<GestureButton>() }
+    private val subGestureCache = SettingsFlowCache { SubGestureSettings() }
+    private val actionLibraryCache = SettingsFlowCache { ActionLibrarySettings() }
+    private val quickSearchCache = SettingsFlowCache { QuickSearchSettings() }
+    private val globalGestureCache = SettingsFlowCache { GlobalGestureSettings() }
+    private val habitCache = SettingsFlowCache { HabitConfig() }
+    private val todoCache = SettingsFlowCache { TodoConfig() }
+    private val trendCache = SettingsFlowCache { TrendConfig() }
+
+    fun latestInitialSettings(): InitialSettings = initialCache.latest()
+    fun latestAdvancedSettings(): AdvancedSettings = advancedCache.latest()
+    fun latestGestureSettings(): GestureSettings = gestureCache.latest()
+    fun latestActionSettings(): ActionSettings = actionCache.latest()
+    fun latestGestureButtons(): List<GestureButton> = buttonCache.latest()
+    fun latestSubGestureSettings(): SubGestureSettings = subGestureCache.latest()
+    fun latestActionLibrarySettings(): ActionLibrarySettings = actionLibraryCache.latest()
+    fun latestQuickSearchSettings(): QuickSearchSettings = quickSearchCache.latest()
+    fun latestGlobalGestureSettings(): GlobalGestureSettings = globalGestureCache.latest()
+    fun latestHabitConfig(): HabitConfig = habitCache.latest()
+    fun latestTodoConfig(): TodoConfig = todoCache.latest()
+    fun latestTrendConfig(): TrendConfig = trendCache.latest()
+
+    val initialSettings: Flow<InitialSettings> = initialCache.observe(stores.initialSettings)
+    val advancedSettings: Flow<AdvancedSettings> = advancedCache.observe(stores.advancedSettings)
+    val gestureSettings: Flow<GestureSettings> = gestureCache.observe(stores.gestureSettings)
+    val actionSettings: Flow<ActionSettings> = actionCache.observe(stores.actionSettings)
     val gestureButtons: Flow<List<GestureButton>> =
-        stores.gestureButtons.map { buttons -> buttons.map { it.withResolvedName() } }
+        buttonCache.observe(stores.gestureButtons.map { buttons -> buttons.map { it.withResolvedName() } })
     /** 识别区（全屏手势）：总开关 + 区列表。 */
-    val globalGesture: Flow<GlobalGestureSettings> = stores.globalGesture
+    val globalGesture: Flow<GlobalGestureSettings> =
+        globalGestureCache.observe(stores.globalGesture)
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val appUsageStats: Flow<AppUsageStats> = stores.appUsageStats
     /** 电量 / 功率历史：7 天瞬态曲线数据，不进备份。 */
     val batteryHistory: Flow<BatteryHistory> = stores.batteryHistory
-    val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
-    val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
-    val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
+    val subGestureSettings: Flow<SubGestureSettings> = subGestureCache.observe(stores.subGestureSettings)
+    val actionLibrarySettings: Flow<ActionLibrarySettings> =
+        actionLibraryCache.observe(stores.actionLibrarySettings)
+    val quickSearchSettings: Flow<QuickSearchSettings> =
+        quickSearchCache.observe(stores.quickSearchSettings)
     /** 标注偏好（每工具风格 + 工具条位置）：两宿主共用，笔迹不落盘。 */
     val annotateSettings: Flow<AnnotateSettings> = stores.annotateSettings
     /** 剪贴板历史：设备本地派生数据；固定项随备份导出，普通历史不导出。 */
@@ -81,13 +112,13 @@ object ConfigProvider {
     val dynamicShortcutRefs: Flow<DynamicShortcutRefs> = stores.dynamicShortcutRefs
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
-    val habitConfig: Flow<HabitConfig> = stores.habitConfig
+    val habitConfig: Flow<HabitConfig> = habitCache.observe(stores.habitConfig)
 
     /** 代办配置：代办列表（一次性任务）。部件与管理页都订阅它。 */
-    val todoConfig: Flow<TodoConfig> = stores.todoConfig
+    val todoConfig: Flow<TodoConfig> = todoCache.observe(stores.todoConfig)
 
     /** 趋势配置：指标定义 + 按指标分组的数值记录。部件与管理页都订阅它。 */
-    val trendConfig: Flow<TrendConfig> = stores.trendConfig
+    val trendConfig: Flow<TrendConfig> = trendCache.observe(stores.trendConfig)
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()

@@ -20,6 +20,12 @@ object GestureConfig {
     /** 识别区（全屏手势）：UI 只经本门面读写。 */
     val globalGesture: Flow<GlobalGestureSettings> = ConfigProvider.globalGesture
 
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `XxxSettings()` 空默认。 */
+    fun latestInitial(): InitialSettings = ConfigProvider.latestInitialSettings()
+    fun latestButtons(): List<GestureButton> = ConfigProvider.latestGestureButtons()
+    fun latestSubGestures(): SubGestureSettings = ConfigProvider.latestSubGestureSettings()
+    fun latestGlobalGesture(): GlobalGestureSettings = ConfigProvider.latestGlobalGestureSettings()
+
     suspend fun getButtons(): List<GestureButton> = ConfigProvider.getGestureButtons()
     suspend fun getSubGestures(): SubGestureSettings = ConfigProvider.getSubGestureSettings()
     suspend fun getGlobalGesture(): GlobalGestureSettings = ConfigProvider.getGlobalGesture()

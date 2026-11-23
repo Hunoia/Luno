@@ -21,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.PanelDockCatalog
@@ -58,9 +57,9 @@ fun ActionPanelListScreen(
 ) {
     val scope = rememberCoroutineScope()
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val gestureSettings by TuneConfig.gesture
-        .collectAsStateWithLifecycle(initialValue = GestureSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestGesture())
     val panels = actionSettings.actionPanels.panels
     val singleWidgets = SinglePanelCatalog.widgets()
     val gridPanels = actionSettings.actionGridPanels.panels

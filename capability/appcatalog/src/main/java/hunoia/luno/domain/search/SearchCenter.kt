@@ -17,6 +17,9 @@ object SearchCenter {
     val launcher: Flow<QuickAppLauncherSettings> = ConfigProvider.quickAppLauncherSettings
     val appUsage: Flow<AppUsageStats> = ConfigProvider.appUsageStats
     val search: Flow<QuickSearchSettings> = ConfigProvider.quickSearchSettings
+
+    /** 返回导航页那一帧的配置兜底：必须是真实值，不能用 `QuickSearchSettings()` 空默认。 */
+    fun latestSearch(): QuickSearchSettings = ConfigProvider.latestQuickSearchSettings()
     /** 启动器/搜索面（快速启动面板 / 应用抽屉 / 快速搜索）两类系统包开关；全局开关。 */
     val showSystemApps: Flow<SystemAppsVisibility> =
         ConfigProvider.actionSettings.map {

@@ -7,7 +7,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
@@ -48,7 +47,7 @@ fun MiniWindowAdjustScreen(
 ) {
     val scope = rememberCoroutineScope()
     val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(
-        initialValue = AdvancedSettings()
+        initialValue = TuneConfig.latestAdvanced()
     )
     MiniWindowAdjustContent(
         initial = advanced.miniWindowSettings(),

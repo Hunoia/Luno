@@ -32,8 +32,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.component.row.LocalListStyle
@@ -76,7 +74,7 @@ class LinkSelectionActivity : ComponentActivity() {
                 // 列表风格（分段 / 大卡）由用户设置决定，LunoGroup 靠 LocalListStyle 分风格；
                 // 本宿主是独立 Activity，须像应用根一样提供该 local，否则永远走默认分段。
                 val advancedSettings by TuneConfig.advanced
-                    .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+                    .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
                 CompositionLocalProvider(LocalListStyle provides advancedSettings.listStyle) {
                     when {
                         pickUrl != null -> AppPickerContent(url = pickUrl, onDone = { finish() })
@@ -140,7 +138,7 @@ private fun LinkSelectionContent(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by TuneConfig.action.collectAsStateWithLifecycle(
-        initialValue = ActionSettings(),
+        initialValue = TuneConfig.latestAction(),
     )
     val recognition = settings.recognition
     var handled by remember { mutableStateOf(false) }

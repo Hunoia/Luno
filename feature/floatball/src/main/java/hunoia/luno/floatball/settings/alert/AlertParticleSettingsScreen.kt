@@ -12,7 +12,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.ParticleAlertStyle
@@ -45,7 +44,7 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
+        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val alert = actionSettings.floatBall.notificationCapsule.alert
     val settings = actionSettings.floatBall.notificationCapsule.alert.particle
 
@@ -153,7 +152,7 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                     }
                     // 粒子类旋钮按类目共享（数量 / 大小 / 摆幅 / 重力 / 行程 / 速度 / 亮度 / 波次）：
                     // 所有运动共用同一组旋钮，差异只在渲染层（ui-guidelines §2.4 例外）。
-                    {
+                    run {
                         val s = settings.particles
                             item { shape ->
                                 AlertKnobSlider(

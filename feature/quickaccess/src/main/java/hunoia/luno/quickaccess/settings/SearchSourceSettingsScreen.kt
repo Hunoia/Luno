@@ -51,7 +51,7 @@ private val SourceSwitches: Map<String, (QuickSearchSettings) -> Boolean> = mapO
 @Composable
 fun SearchSourceSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
+    val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = SearchCenter.latestSearch())
     // 来源标识编辑目标（源 key）：点行开 dialog，开关仍可独立切换。
     var triggerTarget by remember { mutableStateOf<String?>(null) }
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {

@@ -2,7 +2,6 @@ package hunoia.luno.gridpanel
 
 import android.os.Looper
 import android.os.SystemClock
-import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.foundation.layout.Box
@@ -18,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
@@ -25,6 +25,8 @@ import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.singlePanelWidgetId
+import hunoia.luno.domain.action.ActionLibrary
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.bridge.ui.showToastLong
@@ -322,7 +324,8 @@ object GridPanelOverlay : OverlayPanelHost(
         SideGestureTheme {
             // 配置直读 TuneConfig（跨进程 DataStore 门面），不依赖 a11y 运行态快照。
             // ---- 无障碍没开时面板照常渲染，这是无 a11y 可用的另一半。 ----
-            // initialValue 必须是 null：空 ActionSettings 会让首帧 panelById 落空，
+            // 这里兜底必须是 null 而不是 `TuneConfig.latestAction()`：本处拿配置就是为了门控渲染
+            // （settings / library 为 null 就不画）。空默认会让首帧 panelById 落空，
             // GridPanelRoot 走「面板已删除」分支且不吃 appearance 动画，会糊一帧
             // 32% 黑遮罩；null 表示还没读到，此刻不渲染，出场交给 0→1 淡入。
             val actionSettings by hunoia.luno.domain.gridpanel.GridPanelCenter.actionSettings
@@ -330,7 +333,7 @@ object GridPanelOverlay : OverlayPanelHost(
             val librarySettings by hunoia.luno.domain.action.ActionLibrary.settings
                 .collectAsStateWithLifecycle(initialValue = null)
             val subGestureSettings by hunoia.luno.domain.gesture.GestureConfig.subGestures
-                .collectAsStateWithLifecycle(initialValue = hunoia.luno.config.model.SubGestureSettings())
+                .collectAsStateWithLifecycle(initialValue = GestureConfig.latestSubGestures())
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
             val landscape = LocalConfiguration.current.orientation ==

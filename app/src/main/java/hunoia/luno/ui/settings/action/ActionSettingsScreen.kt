@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -45,9 +45,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.GlobalGestureSettings
-import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.facade.PrivilegedPermission
@@ -93,10 +90,10 @@ fun ActionSettingsTab(
     }
     var fontScalePermissionPending by remember { mutableStateOf(false) }
     var resumeTick by remember { mutableIntStateOf(0) }
-    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
+    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
+    val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = GestureConfig.latestInitial())
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
-        initialValue = GlobalGestureSettings(),
+        initialValue = GestureConfig.latestGlobalGesture(),
     )
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -220,7 +217,7 @@ fun ActionSettingsTab(
                         onClick = onNavToPointerSettings,
                     )
                     LunoSettingsRow(
-                        icon = Icons.Default.FormatListBulleted,
+                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                         title = stringResource(R.string.recents_gesture_settings_title),
                         shape = segmentedShape(1, 6),
                         onClick = onNavToRecentsGestureSettings,

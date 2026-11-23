@@ -12,12 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.gesture.R
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
+import hunoia.luno.gesture.R
+import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
@@ -39,9 +36,9 @@ fun ButtonVisibilityScreen(
     onEdit: (String) -> Unit,
     onNavToRecentAppsBlocklist: () -> Unit = {},
 ) {
-    val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
-    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+    val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = GestureConfig.latestInitial())
+    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
+    val advanced by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = TuneConfig.latestAdvanced())
     val scope = rememberCoroutineScope()
     val profiles = initial.buttonVisibility.profiles
 

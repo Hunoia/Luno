@@ -39,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.GlobalGestureKind
-import hunoia.luno.config.model.GlobalGestureSettings
 import hunoia.luno.config.model.GlobalGestureTrigger
 import hunoia.luno.config.model.GlobalGestureZone
 import hunoia.luno.config.model.ZoneBounds
@@ -107,7 +106,7 @@ fun GlobalGestureZoneEditorScreen(
     onNavToTriggerEditor: (String) -> Unit = {},
 ) {
     val settings by GestureConfig.globalGesture.collectAsStateWithLifecycle(
-        initialValue = GlobalGestureSettings(),
+        initialValue = GestureConfig.latestGlobalGesture(),
     )
     val scope = rememberCoroutineScope()
     val zoneIndex = settings.zones.indexOfFirst { it.id == zoneId }
@@ -291,7 +290,7 @@ fun GlobalGestureTriggerEditorScreen(
     onNavToActionSelect: (GestureActionTarget) -> Unit = {},
 ) {
     val settings by GestureConfig.globalGesture.collectAsStateWithLifecycle(
-        initialValue = GlobalGestureSettings(),
+        initialValue = GestureConfig.latestGlobalGesture(),
     )
     val scope = rememberCoroutineScope()
     val zone = settings.zones.firstOrNull { it.id == zoneId }

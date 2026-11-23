@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.AlertPalette
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.theme.CapsuleShape
 
 /** 色点直径（设置页调色板预览 / 逐色编辑共用）。 */
 internal val PaletteDotSize = 18.dp
@@ -38,7 +38,7 @@ internal fun PalettePreview(
             modifier = modifier
                 .fillMaxWidth()
                 .height(24.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .clip(CapsuleShape),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(

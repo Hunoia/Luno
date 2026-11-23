@@ -1,8 +1,8 @@
 package hunoia.luno.action.definitions
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -70,7 +70,7 @@ internal object InternalActionGroup : ActionGroup {
             icon = Icons.Default.TouchApp),
         // 最近应用滚动选择器：横向/竖向拆成两条单动作，布局不再走行尾设置。
         ActionDefinition("internal.recentsPicker", "最近应用", ActionCategory.GESTURE_TOOL, Capability.None,
-            icon = Icons.Default.FormatListBulleted,
+            icon = Icons.AutoMirrored.Filled.FormatListBulleted,
             variants = listOf(
                 ActionVariant("vertical", "最近应用（竖向）", mapOf("layout" to "VERTICAL")),
                 ActionVariant("horizontal", "最近应用（横向）", mapOf("layout" to "HORIZONTAL")),
