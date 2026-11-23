@@ -2,6 +2,7 @@ package hunoia.luno.domain.system
 
 import android.content.Context
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.runtime.floatball.FloatBallService
 
 /** 悬浮球服务启停门面：UI 不直接依赖 runtime 的服务实现。 */
@@ -18,8 +19,8 @@ object FloatBallUseCase {
     }
 
     /** 试播一次通知胶囊的到达提示动效（设置页入口，见 [FloatBallService.previewAlert]）。 */
-    fun previewAlert(context: Context) {
-        FloatBallService.previewAlert(context.applicationContext)
+    fun previewAlert(context: Context, category: AlertCategory? = null) {
+        FloatBallService.previewAlert(context.applicationContext, category)
     }
 
     /**

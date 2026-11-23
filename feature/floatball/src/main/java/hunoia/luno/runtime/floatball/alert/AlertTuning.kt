@@ -1,18 +1,22 @@
 package hunoia.luno.runtime.floatball.alert
 
+import hunoia.luno.config.model.AlertStyleId
+import hunoia.luno.config.model.AnchorAlertStyle
+import hunoia.luno.config.model.CapsuleAlertStyle
+import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.ParticleAlertStyle
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * 到达提示动效的**每效果独立调校参数**（需求确认口径：参数不共用，按各效果实际观感定值）。
+ * 到达提示动效的**调校参数**（需求确认口径：每类目一个家族，类内各样式的单循环基准
+ * 与曲线常量各按观感定值；类内通用旋钮见各类的设置块）。
  *
- * 这里只放「量的区间映射」之外的曲线形状常量（衰减 stop、层占比、缓动指数、辉光比例）；
- * 用户可调的旋钮区间（光带宽度 / 粒子数量与形状 / 描边宽度 / 光晕缩放 / 主带宽 / 速度）
- * 在 `FloatBallDefaults` 里登记（滑杆约束与绘制映射同源），随 `AlertPlayPlan` /
- * `AlertEffectSpec` 下发；时长按效果走 `MotionFamily.Alert*` 家族（唯一事实源在
- * ui:design 的 Motion.kt），速度倍率在 buildPlan 统一折算。所有 dp 值按 dp 语义命名，
- * 绘制处 `.dp.toPx()` 换算；改动任一值都应先试播确认观感。
+ * 这里只放「量的区间映射」之外的曲线形状常量（衰减 stop、层占比、缓动指数、辉光比例）
+ * 与每样式的单循环基准；用户可调的旋钮区间在 `FloatBallDefaults` 里登记（滑杆约束与
+ * 绘制映射同源），随 `AlertPlayPlan` / `AlertLayerPlan` / `AlertEffectSpec` 下发。
+ * 所有 dp 值按 dp 语义命名，绘制处 `.dp.toPx()` 换算；改动任一值都应先试播确认观感。
  */
 
 /**
@@ -30,18 +34,15 @@ internal object EdgeGlowTuning {
 
 /**
  * 屏幕边缘流光（AGSL 距离场 + 周长参数化）：亮带沿屏缘环绕，主带后随更宽更暗的拖尾。
- * 深度衰减同呼吸光口径（光带宽度 = 衰减尺度，用户旋钮）；沿周长的带形是固定占比的高斯。
+ * 深度衰减同呼吸光口径；主带宽 / 硬度 / 拖尾浓度 / 贴边深度都是用户旋钮（刃感）。
  */
 internal object FlowTuning {
-    /** 主带高斯 σ（周长占比）：可见带 ≈ ±2σ。 */
-    const val CoreBandFraction = 0.03f
-
-    /** 拖尾带 alpha 占主带峰值的比例（拖尾宽度 = 主带 σ × 拖尾旋钮）。 */
-    const val TrailAlphaFraction = 0.4f
-
     /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.9f
+
+    /** 首尾包络占比：整段时长的这个比例内淡入 / 淡出，避免亮带凭空出现又凭空消失。 */
+    const val EnvelopeShare = 0.08f
 }
 
 /**
@@ -68,6 +69,12 @@ internal object ParticlesTuning {
 
     /** alpha 衰减指数：>1 先驻留后衰减，避免一出发就明显变暗。 */
     const val FadeExp = 1.6f
+
+    /**
+     * 单颗粒子的寿命占单循环时长的比例；剩余时长用来摊开出发时刻。
+     * 这一项保证 `cycles = 1` 时也是一场雨（错峰出发），而不是所有粒子同刻落下。
+     */
+    const val LifeShare = 0.65f
 
     /** 横摆：基准摆幅（宽度占比，摆幅旋钮的缩放基准）与单次下落内的正弦周期数。 */
     const val SwayAmpNorm = 0.02f
@@ -164,3 +171,23 @@ internal fun Float.lerpInRange(min: Float, max: Float): Float = min + (max - min
 
 /** 量 0..1 → 缓出曲线：k = 1 退化为线性，k > 1 起步快、收尾减速。 */
 internal fun Float.easedOut(exp: Float): Float = 1f - (1f - this).pow(exp)
+
+/**
+ * 每个样式的**单循环基准时长**（ms，标准档 1.0×）：类内各按观感定值，不共用。
+ *
+ * 这是「每类一个 `MotionFamily`」之后的唯一时长来源——家族只承载档位倍率，基准在这里。
+ * `when` 必须穷尽 [AlertStyleId]：新增样式不登记就编译不过（这是门禁，不是风格）。
+ */
+internal fun alertStyleBaseMillis(style: AlertStyleId): Int = when (style) {
+    // 边缘类
+    EdgeAlertStyle.EdgeGlow -> 1400
+    EdgeAlertStyle.EdgeFlow -> 1600
+    // 粒子类（一波粒子从顶缘落到淡出）
+    ParticleAlertStyle.TopRain -> 1000
+    // 胶囊本体类
+    CapsuleAlertStyle.Pulse -> 1000
+    CapsuleAlertStyle.Shimmer -> 1150
+    // 球心·全屏类
+    AnchorAlertStyle.Ring -> 1000
+    AnchorAlertStyle.Ripple -> 1100
+}

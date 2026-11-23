@@ -80,12 +80,21 @@ import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
+import hunoia.luno.ui.navigation.FloatBallAlertAnchor
+import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
+import hunoia.luno.ui.navigation.FloatBallAlertCapsule
+import hunoia.luno.ui.navigation.FloatBallAlertEdge
+import hunoia.luno.ui.navigation.FloatBallAlertParticle
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
 import hunoia.luno.ui.navigation.FloatBallResultCapsule
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertAnchorSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertCapsuleSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertEdgeSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertParticleSettingsScreen
 import hunoia.luno.floatball.settings.ResultCapsuleSettingsScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
@@ -504,6 +513,50 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     NotificationCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
+                        onNavToAlertEdge = { navController.navigate(FloatBallAlertEdge) },
+                        onNavToAlertParticle = { navController.navigate(FloatBallAlertParticle) },
+                        onNavToAlertCapsule = { navController.navigate(FloatBallAlertCapsule) },
+                        onNavToAlertAnchor = { navController.navigate(FloatBallAlertAnchor) },
+                        onNavToAlertBlocklist = { navController.navigate(FloatBallAlertBlocklist) },
+                    )
+                }
+                myComposable<FloatBallAlertEdge> {
+                    AlertEdgeSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<FloatBallAlertParticle> {
+                    AlertParticleSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<FloatBallAlertCapsule> {
+                    AlertCapsuleSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<FloatBallAlertAnchor> {
+                    AlertAnchorSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<FloatBallAlertBlocklist> {
+                    val scope = rememberCoroutineScope()
+                    val actionSettings by TuneConfig.action
+                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                    RecentAppsBlocklistScreen(
+                        onBack = { navController.popBackStack() },
+                        title = stringResource(
+                            hunoia.luno.floatball.R.string.float_ball_capsule_alert_blocklist,
+                        ),
+                        current = actionSettings.floatBall.notificationCapsule.alert.appBlocklist,
+                        onSave = { ordered ->
+                            scope.launch {
+                                TuneConfig.updateAction {
+                                    val alert = it.floatBall.notificationCapsule.alert
+                                    it.copy(
+                                        floatBall = it.floatBall.copy(
+                                            notificationCapsule = it.floatBall.notificationCapsule.copy(
+                                                alert = alert.copy(appBlocklist = ordered),
+                                            ),
+                                        ),
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
                 myComposable<FloatBallResultCapsule> {

@@ -120,10 +120,10 @@ import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallPosition
 import hunoia.luno.config.model.FloatBallSettings
-import hunoia.luno.config.model.NotificationAlertEffect
+import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
-import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
+import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.PulseSpec
 import hunoia.luno.runtime.floatball.alert.PulseTuning
 import hunoia.luno.runtime.floatball.alert.ShimmerSpec
@@ -818,7 +818,7 @@ internal class BallCapsuleWindow(
      * 到达提示动效（胶囊本体脉冲 / 边框流光）：画在本窗口自己的 Compose 层，
      * 不新增窗口、不动几何。播放中再次到达合并（不重启）；收起 / 清空即停。
      */
-    private var arrivalAlert by mutableStateOf<AlertPlayPlan?>(null)
+    private var arrivalAlert by mutableStateOf<AlertLayerPlan?>(null)
 
     /**
      * 单行高 = 收起态圆直径 = 形变基准（胶囊自己的 `rowHeightDp` 设置）。
@@ -1070,10 +1070,13 @@ internal class BallCapsuleWindow(
      * 播放一次到达提示动效（仅胶囊本体脉冲 / 边框流光走这条；其他效果由独立 overlay 承载）。
      * 播放中的请求合并丢弃；播完由效果自己清空 [arrivalAlert]，收起 / 摘窗时也会被清。
      */
-    fun playArrivalAlert(plan: AlertPlayPlan) {
+    fun playArrivalAlert(plan: AlertLayerPlan) {
         if (arrivalAlert != null) return
         arrivalAlert = plan
     }
+
+    /** 胶囊层动效是否在播：服务侧「在播不播」判定的一部分。 */
+    fun isAlertPlaying(): Boolean = arrivalAlert != null
 
     /** 立即停掉在播的到达提示动效（息屏 / 服务销毁）。 */
     fun cancelArrivalAlert() {
@@ -2719,9 +2722,9 @@ internal class BallCapsuleWindow(
             }
             }
             // 到达提示动效（本体脉冲 / 边框流光）：铺满全窗、可越入余量，不挡触摸与内容。
-            arrivalAlert?.let { plan ->
+            arrivalAlert?.let { layer ->
                 CapsuleArrivalOverlay(
-                    plan = plan,
+                    layer = layer,
                     rowHeightPx = rowHeightPx,
                     metrics = metrics,
                     contentColor = contentColor,
@@ -2743,7 +2746,7 @@ internal class BallCapsuleWindow(
      */
     @Composable
     private fun CapsuleArrivalOverlay(
-        plan: AlertPlayPlan,
+        layer: AlertLayerPlan,
         rowHeightPx: Int,
         metrics: StackMetrics,
         contentColor: Color,
@@ -2771,18 +2774,18 @@ internal class BallCapsuleWindow(
             }
         }
         val elapsed = remember { Animatable(0f) }
-        LaunchedEffect(plan) {
+        LaunchedEffect(layer) {
             elapsed.snapTo(0f)
             elapsed.animateTo(
-                plan.totalMillis.toFloat(),
-                tween(durationMillis = plan.totalMillis, easing = LinearEasing),
+                layer.totalMillis.toFloat(),
+                tween(durationMillis = layer.totalMillis, easing = LinearEasing),
             )
             withFrameNanos { }
             arrivalAlert = null
         }
         Canvas(modifier = modifier) {
-            if (elapsed.value >= plan.totalMillis) return@Canvas
-            val t = (elapsed.value / plan.cycleMillis) % 1f
+            if (elapsed.value >= layer.totalMillis) return@Canvas
+            val t = (elapsed.value / layer.cycleMillis) % 1f
             val gapPx = metrics.gapPx
             val rows = items.size
             // 全窗坐标系：内容区在贴屏侧齐平、中侧与上下让出余量；行靠球侧对齐，
@@ -2791,12 +2794,12 @@ internal class BallCapsuleWindow(
                 if (sideRight) (capsuleWidthPx + centerMarginPx - (rowWidths[index])).toFloat() else 0f
             }
             val topOrigin = glowMarginPx.toFloat()
-            when (plan.effect) {
+            when (layer.style) {
                 // 本体脉冲：3 层嵌套描边辉光呼吸，外→内逐层加亮，核心最后画保证锐利。
                 // 辉光宽度与光晕强度是用户旋钮（光晕 0 = 只剩核心描边）。
-                NotificationAlertEffect.CapsulePulse -> {
-                    val spec = plan.spec as PulseSpec
-                    val boost = plan.brightness.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
+                CapsuleAlertStyle.Pulse -> {
+                    val spec = layer.spec as PulseSpec
+                    val boost = layer.brightness.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
                     val peak = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t)).coerceAtMost(1f)
                     val corePx = spec.glowWidthDp.dp.toPx()
                     val layers = buildList {
@@ -2830,12 +2833,12 @@ internal class BallCapsuleWindow(
                 // 边框流光：主亮带缓出扫过描边，后随更宽更暗的拖尾（先画拖尾再画主带）。
                 // 拖尾在行进方向后方（反向扫动时在主带右侧）；拖尾 0 = 无拖尾。
                 // 渐变 stop 必须严格递增：可见跨度不足时跳过该带，峰值点强制落在带内。
-                NotificationAlertEffect.CapsuleShimmer -> {
-                    val spec = plan.spec as ShimmerSpec
-                    val peak = plan.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
+                CapsuleAlertStyle.Shimmer -> {
+                    val spec = layer.spec as ShimmerSpec
+                    val peak = layer.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
                     val eased = t.easedOut(ShimmerTuning.SweepEaseExp)
                     val pos = if (spec.reverse) 1f - eased else eased
-                    val band = plan.amount.lerpInRange(
+                    val band = layer.amount.lerpInRange(
                         FloatBallDefaults.AlertShimmerBandWidthMin / 100f,
                         FloatBallDefaults.AlertShimmerBandWidthMax / 100f,
                     )

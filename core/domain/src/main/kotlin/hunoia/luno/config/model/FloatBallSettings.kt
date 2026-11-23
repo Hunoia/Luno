@@ -298,59 +298,153 @@ data class NotificationCapsuleSettings(
 }
 
 /**
- * 到达提示动效的形态（单选）。
+ * 到达提示动效的四个类目（需求确认口径：分类开关，跨类可同时播放）。
  *
- * [EdgeGlow] / [EdgeFlow] / [TopParticles] / [BallRing] / [FullRipple] 是按需挂摘的
- * 独立 overlay 窗；[CapsulePulse] / [CapsuleShimmer] 画在胶囊窗口自己的 Compose 层，
- * 不动窗口几何。
+ * 类目内**单选一个样式**，类目间可叠加；四类全关 = 不播（总开关只是总闸）。
+ * [Capsule] 画在胶囊窗自己的 Compose 层，其余三类画在全屏舞台窗。
  */
-@Serializable
-@Keep
-enum class NotificationAlertEffect {
-    /** 屏幕边缘呼吸光。 */
-    EdgeGlow,
+enum class AlertCategory {
+    /** 屏幕边缘类：呼吸光 / 流光（后续波纹 / 闪点 / 烟花 / 回旋 / 双刃）。 */
+    Edge,
 
-    /** 屏幕边缘流光：亮带沿屏缘环绕（单/双带 + 拖尾 + 双色可设）。 */
-    EdgeFlow,
+    /** 粒子类：顶部雨（后续喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火）。 */
+    Particle,
 
-    /** 顶部粒子掉落。 */
-    TopParticles,
+    /** 胶囊本体类：脉冲 / 边框流光。 */
+    Capsule,
 
-    /** 胶囊本体脉冲（描边亮度脉冲，不新增窗口）。 */
-    CapsulePulse,
-
-    /** 球光环扩散（雷达 ping，锚定通知球）。 */
-    BallRing,
-
-    /** 全屏涟漪：从锚点（通知球心 / 屏幕中心）扩散一圈抵达屏缘的水波纹。 */
-    FullRipple,
-
-    /** 胶囊边框流光（光带沿边框扫过，不新增窗口）。 */
-    CapsuleShimmer,
+    /** 球心·全屏类：球光环 / 全屏涟漪。 */
+    Anchor,
 }
 
 /**
- * 新通知到达提示动效配置。事件驱动、一次性播放：只在「通知到达把胶囊从隐藏拉起」的
- * 时机播放，播完自动停；熄屏 / 锁屏 / 勿扰 / 全屏沉浸 / 胶囊已可见时都不播。
+ * 样式标识：每个类目一个枚举，类目内单选。
  *
- * 参数按效果各存一组（[edgeGlow] / [particles] / [ring] / [pulse] / [shimmer]），
- * 不共用旋钮（需求确认口径）；设置页只渲染所选效果自己的滑杆。
+ * 渲染分派按它穷尽 `when`（新增样式不登记就编译不过），动效家族映射也用
+ * [category] 取（每类一个家族）。
+ */
+sealed interface AlertStyleId {
+    val category: AlertCategory
+}
+
+/** 边缘类样式。 */
+@Serializable
+@Keep
+enum class EdgeAlertStyle : AlertStyleId {
+    /** 屏幕边缘呼吸光。 */
+    EdgeGlow,
+
+    /** 屏幕边缘流光：亮带沿屏缘环绕（单/双带 + 拖尾 + 刃感 + 双色可设）。 */
+    EdgeFlow,
+    ;
+
+    override val category: AlertCategory get() = AlertCategory.Edge
+}
+
+/** 粒子类样式（运动形式单选）。 */
+@Serializable
+@Keep
+enum class ParticleAlertStyle : AlertStyleId {
+    /** 顶部雨：从上往下错峰掉落。 */
+    TopRain,
+    ;
+
+    override val category: AlertCategory get() = AlertCategory.Particle
+}
+
+/** 胶囊本体类样式（画在胶囊窗自己的 Compose 层）。 */
+@Serializable
+@Keep
+enum class CapsuleAlertStyle : AlertStyleId {
+    /** 描边辉光脉冲。 */
+    Pulse,
+
+    /** 边框流光：亮带沿边框扫过。 */
+    Shimmer,
+    ;
+
+    override val category: AlertCategory get() = AlertCategory.Capsule
+}
+
+/** 球心·全屏类样式。 */
+@Serializable
+@Keep
+enum class AnchorAlertStyle : AlertStyleId {
+    /** 球光环扩散（雷达 ping，锚定通知球）。 */
+    Ring,
+
+    /** 全屏涟漪：从锚点（通知球心 / 屏幕中心）扩散一圈抵达屏缘的水波纹。 */
+    Ripple,
+    ;
+
+    override val category: AlertCategory get() = AlertCategory.Anchor
+}
+
+/**
+ * 新通知到达提示动效配置。事件驱动、一次性播放：默认只在「通知到达把胶囊从隐藏拉起」
+ * 的时机播放，播完自动停；熄屏 / 锁屏 / 勿扰不播。[playOnEveryNotification] 打开后
+ * 胶囊已可见的新通知也播（在播时跳过：不排队、不打断）。
+ *
+ * 参数按**类目**分块（[edge] / [particle] / [capsule] / [anchor]），类目内各样式的旋钮
+ * 各自存一份（粒子类另有共享的通用旋钮，见 ui-guidelines §2.4 例外）。
  * [color] 是动效的独立颜色项，[ColorSpec.isUnset] 时跟随主题主色（与胶囊解耦悬浮球）。
  */
 @Serializable
 @Keep
 data class NotificationAlertSettings(
     val enabled: Boolean = FloatBallDefaults.AlertEnabled,
-    val effect: NotificationAlertEffect = NotificationAlertEffect.EdgeGlow,
+    /** 胶囊已可见时的新通知也播；有动画在播就不播（不排队、不打断）。 */
+    val playOnEveryNotification: Boolean = false,
+    /**
+     * 动效独立黑名单（不复用通知胶囊黑名单）：这些包的通知到达不播动效，
+     * 但胶囊照常显示。
+     */
+    val appBlocklist: List<String> = emptyList(),
     /** 动效颜色；[ColorSpec.isUnset] 时跟随主题主色。 */
     val color: ColorSpec = ColorSpec.Unset,
+    val edge: EdgeAlertSettings = EdgeAlertSettings(),
+    val particle: ParticleAlertSettings = ParticleAlertSettings(),
+    val capsule: CapsuleAlertSettings = CapsuleAlertSettings(),
+    val anchor: AnchorAlertSettings = AnchorAlertSettings(),
+)
+
+/** 边缘类：开关 + 单选样式 + 该类各样式的旋钮。 */
+@Serializable
+@Keep
+data class EdgeAlertSettings(
+    val enabled: Boolean = true,
+    val style: EdgeAlertStyle = EdgeAlertStyle.EdgeGlow,
     val edgeGlow: EdgeGlowAlertSettings = EdgeGlowAlertSettings(),
     val edgeFlow: EdgeFlowAlertSettings = EdgeFlowAlertSettings(),
+)
+
+/** 粒子类：开关 + 单选运动 + 旋钮（① 只有顶部雨）。 */
+@Serializable
+@Keep
+data class ParticleAlertSettings(
+    val enabled: Boolean = true,
+    val style: ParticleAlertStyle = ParticleAlertStyle.TopRain,
     val particles: ParticlesAlertSettings = ParticlesAlertSettings(),
-    val ring: RingAlertSettings = RingAlertSettings(),
+)
+
+/** 胶囊本体类：开关 + 单选样式 + 旋钮。 */
+@Serializable
+@Keep
+data class CapsuleAlertSettings(
+    val enabled: Boolean = true,
+    val style: CapsuleAlertStyle = CapsuleAlertStyle.Pulse,
     val pulse: PulseAlertSettings = PulseAlertSettings(),
-    val fullRipple: FullRippleAlertSettings = FullRippleAlertSettings(),
     val shimmer: ShimmerAlertSettings = ShimmerAlertSettings(),
+)
+
+/** 球心·全屏类：开关 + 单选样式 + 旋钮。 */
+@Serializable
+@Keep
+data class AnchorAlertSettings(
+    val enabled: Boolean = true,
+    val style: AnchorAlertStyle = AnchorAlertStyle.Ring,
+    val ring: RingAlertSettings = RingAlertSettings(),
+    val fullRipple: FullRippleAlertSettings = FullRippleAlertSettings(),
 )
 
 /** 屏幕边缘呼吸光的专属旋钮：光带宽度、亮度、呼吸圈数、速度、屏缘圆角、衰减硬度。 */
@@ -369,16 +463,25 @@ data class EdgeGlowAlertSettings(
 )
 
 /**
- * 屏幕边缘流光的专属旋钮：光带宽度、亮度、圈数（绕屏缘圈数）、速度、
- * 带数（单/双）、拖尾宽度、双色开关与第二颜色。
+ * 屏幕边缘流光的专属旋钮：贴边深度、亮度、圈数（绕屏缘圈数）、速度、
+ * 刃感（主带宽 / 硬度 / 拖尾浓度）、屏缘圆角、带数（单/双）、拖尾宽度、双色开关与第二颜色。
  */
 @Serializable
 @Keep
 data class EdgeFlowAlertSettings(
+    /** 贴边深度（dp）：光带向屏内衰减的距离尺度。 */
     val bandWidthDp: Int = FloatBallDefaults.AlertFlowBandWidthDp,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
+    /** 主带宽度（周长千分比）：越小越像一道利刃，越大越像一段弥散光。 */
+    val coreBandPermille: Int = FloatBallDefaults.AlertFlowCoreBandPermille,
+    /** 深度衰减硬度（指数）：1 = 柔光弥散，越大主体越实、外缘收得越干脆。 */
+    val hardness: Int = FloatBallDefaults.AlertFlowHardness,
+    /** 拖尾浓度（%）：主带后那道更宽光带的 alpha 峰值。 */
+    val trailAlpha: Int = FloatBallDefaults.AlertFlowTrailAlpha,
+    /** 屏缘圆角半径（dp）：与呼吸光同口径，默认跟随设备观感。 */
+    val cornerRadiusDp: Int = FloatBallDefaults.AlertEdgeGlowCornerDp,
     /** 双带追逐：两道亮带相向而行（相隔半圈）。 */
     val dualBand: Boolean = false,
     /** 拖尾宽度（主带宽倍数 ×100）：0 = 无拖尾。 */
@@ -655,7 +758,7 @@ object FloatBallDefaults {
     const val AlertEdgeGlowHardnessMin = 1
     const val AlertEdgeGlowHardnessMax = 4
 
-    /** 到达提示·边缘流光：光带宽度默认值与滑杆上下限（dp，同呼吸光口径）。 */
+    /** 到达提示·边缘流光：贴边深度默认值与滑杆上下限（dp，同呼吸光口径）。 */
     const val AlertFlowBandWidthDp = 24
     const val AlertFlowBandWidthDpMin = 1
     const val AlertFlowBandWidthDpMax = 96
@@ -664,6 +767,23 @@ object FloatBallDefaults {
     const val AlertFlowTrailScale = 200
     const val AlertFlowTrailScaleMin = 0
     const val AlertFlowTrailScaleMax = 300
+
+    /**
+     * 到达提示·边缘流光的刃感：主带宽（周长千分比）、深度衰减硬度（指数）、
+     * 拖尾浓度（%）默认值与滑杆上下限。
+     *
+     * 这三项是「太柔和、光在扩散」的解法：主带越窄 + 硬度越高，光带主体越像一道刃，
+     * 而不是一团弥散晕。
+     */
+    const val AlertFlowCoreBandPermille = 30
+    const val AlertFlowCoreBandPermilleMin = 10
+    const val AlertFlowCoreBandPermilleMax = 80
+    const val AlertFlowHardness = 2
+    const val AlertFlowHardnessMin = 1
+    const val AlertFlowHardnessMax = 6
+    const val AlertFlowTrailAlpha = 40
+    const val AlertFlowTrailAlphaMin = 0
+    const val AlertFlowTrailAlphaMax = 100
 
     /** 到达提示·顶部粒子：粒子数量默认值与滑杆上下限。 */
     const val AlertParticlesCount = 48

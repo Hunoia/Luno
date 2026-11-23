@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.MaterialTheme
@@ -32,16 +33,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
-import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.floatball.settings.alert.categoryEnabled
+import hunoia.luno.floatball.settings.alert.labelRes
+import hunoia.luno.floatball.settings.alert.styleOf
+import hunoia.luno.floatball.settings.alert.titleRes
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -53,7 +58,6 @@ import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /**
  * 通知胶囊设置页：显示/跟手/停留时长/队列/同屏条数/行高与黑名单。
@@ -64,6 +68,11 @@ import kotlin.math.roundToInt
 fun NotificationCapsuleSettingsScreen(
     onBack: () -> Unit,
     onNavToNotificationBlocklist: () -> Unit = {},
+    onNavToAlertEdge: () -> Unit = {},
+    onNavToAlertParticle: () -> Unit = {},
+    onNavToAlertCapsule: () -> Unit = {},
+    onNavToAlertAnchor: () -> Unit = {},
+    onNavToAlertBlocklist: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
@@ -102,7 +111,6 @@ fun NotificationCapsuleSettingsScreen(
     var showBallColorPicker by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
     var showAlertColorPicker by remember { mutableStateOf(false) }
-    var showAlertSecondColorPicker by remember { mutableStateOf(false) }
     var notifAccessGranted by remember {
         mutableStateOf(facades.system.isNotificationAccessGranted(context))
     }
@@ -214,33 +222,6 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                         showAlertColorPicker = false
-                    },
-                )
-            }
-            if (showAlertSecondColorPicker) {
-                val scheme = MaterialTheme.colorScheme
-                ColorPickerBottomSheet(
-                    onDismissRequest = { showAlertSecondColorPicker = false },
-                    onCopyColor = { hex ->
-                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
-                    },
-                    initialSelection = capsule.alert.edgeFlow.secondColor.toInitialSelection(
-                        scheme = scheme,
-                        primaryFallback = true,
-                    ),
-                    onColorSelected = { selection ->
-                        update {
-                            it.copy(
-                                notificationCapsule = it.notificationCapsule.copy(
-                                    alert = it.notificationCapsule.alert.copy(
-                                        edgeFlow = it.notificationCapsule.alert.edgeFlow.copy(
-                                            secondColor = selection.toColorSpec(scheme),
-                                        ),
-                                    ),
-                                ),
-                            )
-                        }
-                        showAlertSecondColorPicker = false
                     },
                 )
             }
@@ -607,593 +588,111 @@ fun NotificationCapsuleSettingsScreen(
                         )
                     }
                 }
-                // 行数动态：开关 1 +（开启时：效果 1 + 所选效果旋钮行 + 动效色行 + 试播 1）。
-                // 旋钮行含所选效果的滑杆与开关（开关也是行），流光第二颜色行随双色模式出现。
-                val colorRows = 1
-                val knobRows = when (alert.effect) {
-                    NotificationAlertEffect.EdgeGlow -> 6
-                    NotificationAlertEffect.EdgeFlow ->
-                        6 + if (alert.edgeFlow.dualBand) {
-                            1 + if (alert.edgeFlow.dualColor) 1 else 0
-                        } else 0
-                    NotificationAlertEffect.TopParticles -> 8
-                    NotificationAlertEffect.CapsulePulse -> 5
-                    NotificationAlertEffect.BallRing -> 7
-                    NotificationAlertEffect.FullRipple -> 5
-                    NotificationAlertEffect.CapsuleShimmer -> 6
-                }
-                val alertRows = 1 + if (alert.enabled) 1 + knobRows + colorRows + 1 else 0
                 LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
-                    var row = 0
-                    LunoSwitchRow(
-                        title = stringResource(R.string.float_ball_capsule_alert_enabled),
-                        subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
-                        checked = alert.enabled,
-                        onCheckedChange = { checked ->
-                            updateAlert { it.copy(enabled = checked) }
-                        },
-                        shape = segmentedShape(row++, alertRows),
-                    )
-                    if (alert.enabled) {
-                        val effects = NotificationAlertEffect.entries
-                        LunoDropdownRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_effect),
-                            options = effects.map { stringResource(it.labelRes()) },
-                            selectedIndex = effects.indexOf(alert.effect).coerceAtLeast(0),
-                            onSelect = { index ->
-                                updateAlert { it.copy(effect = effects[index]) }
-                            },
-                            shape = segmentedShape(row++, alertRows),
-                        )
-                        // 专属旋钮按所选效果渲染，不共用（需求确认口径）；顺序 = 宽度/量 → 形状 → 亮度 → 次数/速度。
-                        when (alert.effect) {
-                            NotificationAlertEffect.EdgeGlow -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_band_width),
-                                    value = alert.edgeGlow.bandWidthDp,
-                                    range = FloatBallDefaults.AlertEdgeGlowBandWidthDpMin..
-                                        FloatBallDefaults.AlertEdgeGlowBandWidthDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(bandWidthDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.edgeGlow.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_corner_radius),
-                                    value = alert.edgeGlow.cornerRadiusDp,
-                                    range = FloatBallDefaults.AlertEdgeGlowCornerDpMin..
-                                        FloatBallDefaults.AlertEdgeGlowCornerDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(cornerRadiusDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_hardness),
-                                    value = alert.edgeGlow.hardness,
-                                    range = FloatBallDefaults.AlertEdgeGlowHardnessMin..
-                                        FloatBallDefaults.AlertEdgeGlowHardnessMax,
-                                    display = { "${it.toInt()}" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(hardness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.edgeGlow.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.edgeGlow.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeGlow = it.edgeGlow.copy(cycles = v)) } },
+                    LunoSegmentedGroup {
+                        item { shape ->
+                            LunoSwitchRow(
+                                title = stringResource(R.string.float_ball_capsule_alert_enabled),
+                                subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
+                                checked = alert.enabled,
+                                onCheckedChange = { checked ->
+                                    updateAlert { it.copy(enabled = checked) }
+                                },
+                                shape = shape,
+                            )
+                        }
+                        if (alert.enabled) {
+                            // 「每次新通知都播」+ 在播不播：总开关之外唯一的行为开关。
+                            item { shape ->
+                                LunoSwitchRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_play_every),
+                                    subtitle = stringResource(R.string.float_ball_capsule_alert_play_every_subtitle),
+                                    checked = alert.playOnEveryNotification,
+                                    onCheckedChange = { checked ->
+                                        updateAlert { it.copy(playOnEveryNotification = checked) }
+                                    },
+                                    shape = shape,
                                 )
                             }
-
-                            NotificationAlertEffect.EdgeFlow -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_band_width),
-                                    value = alert.edgeFlow.bandWidthDp,
-                                    range = FloatBallDefaults.AlertFlowBandWidthDpMin..
-                                        FloatBallDefaults.AlertFlowBandWidthDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(bandWidthDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.edgeFlow.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(speed = v)) } },
-                                )
-                                LunoSwitchRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_dual_band),
-                                    subtitle = stringResource(R.string.float_ball_capsule_alert_dual_band_subtitle),
-                                    checked = alert.edgeFlow.dualBand,
-                                    onCheckedChange = { checked ->
-                                        updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(dualBand = checked)) }
-                                    },
-                                    shape = segmentedShape(row++, alertRows),
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_trail_width),
-                                    value = alert.edgeFlow.trailScale,
-                                    range = FloatBallDefaults.AlertFlowTrailScaleMin..
-                                        FloatBallDefaults.AlertFlowTrailScaleMax,
-                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "×${it / 100f}" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(trailScale = v)) } },
-                                )
-                                if (alert.edgeFlow.dualBand) {
-                                    LunoSwitchRow(
-                                        title = stringResource(R.string.float_ball_capsule_alert_dual_color),
-                                        subtitle = stringResource(R.string.float_ball_capsule_alert_dual_color_subtitle),
-                                        checked = alert.edgeFlow.dualColor,
-                                        onCheckedChange = { checked ->
-                                            updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(dualColor = checked)) }
+                            // 动效独立颜色（与胶囊 / 悬浮球解耦；未设置时跟随主题主色）。
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_color),
+                                    icon = Icons.Default.Palette,
+                                    subtitle = stringResource(
+                                        if (alert.color.isUnset) {
+                                            R.string.float_ball_capsule_color_default
+                                        } else {
+                                            R.string.float_ball_capsule_color_custom
                                         },
-                                        shape = segmentedShape(row++, alertRows),
-                                    )
-                                }
-                                if (alert.edgeFlow.dualBand && alert.edgeFlow.dualColor) {
+                                    ),
+                                    shape = shape,
+                                    leading = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(MarkColorSize)
+                                                .background(
+                                                    color = if (alert.color.isUnset) {
+                                                        scheme.primary
+                                                    } else {
+                                                        alert.color.toMarkColor()
+                                                    },
+                                                    shape = CircleShape,
+                                                ),
+                                        )
+                                    },
+                                    onClick = { showAlertColorPicker = true },
+                                )
+                            }
+                            // 四类目入口：每类独立二级页（类内单选样式，跨类可叠加）。
+                            AlertCategory.entries.forEach { category ->
+                                item { shape ->
                                     LunoSettingsRow(
-                                        title = stringResource(R.string.float_ball_capsule_alert_second_color),
-                                        icon = Icons.Default.Palette,
+                                        title = stringResource(category.titleRes()),
                                         subtitle = stringResource(
-                                            if (alert.edgeFlow.secondColor.isUnset) {
-                                                R.string.float_ball_capsule_second_color_default
+                                            if (alert.categoryEnabled(category)) {
+                                                alert.styleOf(category).labelRes()
                                             } else {
-                                                R.string.float_ball_capsule_color_custom
+                                                R.string.float_ball_capsule_alert_category_disabled
                                             },
                                         ),
-                                        shape = segmentedShape(row++, alertRows),
-                                        leading = {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(MarkColorSize)
-                                                    .background(
-                                                        color = if (alert.edgeFlow.secondColor.isUnset) {
-                                                            MaterialTheme.colorScheme.secondary
-                                                        } else {
-                                                            alert.edgeFlow.secondColor.toMarkColor()
-                                                        },
-                                                        shape = CircleShape,
-                                                    ),
-                                            )
+                                        shape = shape,
+                                        onClick = when (category) {
+                                            AlertCategory.Edge -> onNavToAlertEdge
+                                            AlertCategory.Particle -> onNavToAlertParticle
+                                            AlertCategory.Capsule -> onNavToAlertCapsule
+                                            AlertCategory.Anchor -> onNavToAlertAnchor
                                         },
-                                        onClick = { showAlertSecondColorPicker = true },
                                     )
                                 }
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.edgeFlow.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.edgeFlow.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(edgeFlow = it.edgeFlow.copy(cycles = v)) } },
+                            }
+                            // 动效黑名单：不复用通知胶囊黑名单（这些通知照常显示，只是不播动效）。
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_blocklist),
+                                    icon = Icons.Default.Block,
+                                    subtitle = stringResource(
+                                        R.string.float_ball_capsule_alert_blocklist_count,
+                                        alert.appBlocklist.size,
+                                    ),
+                                    shape = shape,
+                                    onClick = onNavToAlertBlocklist,
                                 )
                             }
-
-                            NotificationAlertEffect.TopParticles -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_particle_count),
-                                    value = alert.particles.count,
-                                    range = FloatBallDefaults.AlertParticlesCountMin..
-                                        FloatBallDefaults.AlertParticlesCountMax,
-                                    display = { it.toInt().toString() },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(count = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_particle_size),
-                                    value = alert.particles.sizeScale,
-                                    range = FloatBallDefaults.AlertParticlesSizeScaleMin..
-                                        FloatBallDefaults.AlertParticlesSizeScaleMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(sizeScale = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_particle_sway),
-                                    value = alert.particles.swayScale,
-                                    range = FloatBallDefaults.AlertParticlesSwayScaleMin..
-                                        FloatBallDefaults.AlertParticlesSwayScaleMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(swayScale = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_particle_gravity),
-                                    value = alert.particles.gravity,
-                                    range = FloatBallDefaults.AlertParticlesGravityMin..
-                                        FloatBallDefaults.AlertParticlesGravityMax,
-                                    display = { "${it.toInt()}" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(gravity = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_particle_travel),
-                                    value = alert.particles.travelDp,
-                                    range = FloatBallDefaults.AlertParticlesTravelDpMin..
-                                        FloatBallDefaults.AlertParticlesTravelDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(travelDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.particles.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.particles.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.particles.waves,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(particles = it.particles.copy(waves = v)) } },
-                                )
-                            }
-
-                            NotificationAlertEffect.BallRing -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_travel),
-                                    value = alert.ring.travel,
-                                    range = FloatBallDefaults.AlertRingTravelMin..FloatBallDefaults.AlertRingTravelMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(travel = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_stroke_width),
-                                    value = alert.ring.strokeWidthDp,
-                                    range = FloatBallDefaults.AlertRingStrokeWidthDpMin..
-                                        FloatBallDefaults.AlertRingStrokeWidthDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(strokeWidthDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_rings_per_cycle),
-                                    value = alert.ring.ringsPerCycle,
-                                    range = FloatBallDefaults.AlertRingRingsPerCycleMin..
-                                        FloatBallDefaults.AlertRingRingsPerCycleMax,
-                                    display = { "${it.toInt()}" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(ringsPerCycle = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_halo),
-                                    value = alert.ring.haloScale,
-                                    range = FloatBallDefaults.AlertHaloScaleMin..FloatBallDefaults.AlertHaloScaleMax,
-                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(haloScale = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.ring.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.ring.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.ring.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(ring = it.ring.copy(cycles = v)) } },
-                                )
-                            }
-
-                            NotificationAlertEffect.FullRipple -> {
-                                LunoSwitchRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_center_at_ball),
-                                    subtitle = stringResource(R.string.float_ball_capsule_alert_center_at_ball_subtitle),
-                                    checked = alert.fullRipple.centerAtBall,
-                                    onCheckedChange = { checked ->
-                                        updateAlert { it.copy(fullRipple = it.fullRipple.copy(centerAtBall = checked)) }
-                                    },
-                                    shape = segmentedShape(row++, alertRows),
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_stroke_width),
-                                    value = alert.fullRipple.strokeWidthDp,
-                                    range = FloatBallDefaults.AlertRippleStrokeWidthDpMin..
-                                        FloatBallDefaults.AlertRippleStrokeWidthDpMax,
-                                    display = { "${it.toInt()} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(fullRipple = it.fullRipple.copy(strokeWidthDp = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.fullRipple.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(fullRipple = it.fullRipple.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.fullRipple.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(fullRipple = it.fullRipple.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.fullRipple.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(fullRipple = it.fullRipple.copy(cycles = v)) } },
-                                )
-                            }
-
-                            NotificationAlertEffect.CapsulePulse -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_glow_width),
-                                    value = alert.pulse.glowWidthDpTenths,
-                                    range = FloatBallDefaults.AlertPulseGlowWidthTenthsMin..
-                                        FloatBallDefaults.AlertPulseGlowWidthTenthsMax,
-                                    display = { "${it / 10f} dp" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(pulse = it.pulse.copy(glowWidthDpTenths = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_halo),
-                                    value = alert.pulse.haloScale,
-                                    range = FloatBallDefaults.AlertHaloScaleMin..FloatBallDefaults.AlertHaloScaleMax,
-                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(pulse = it.pulse.copy(haloScale = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.pulse.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(pulse = it.pulse.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.pulse.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(pulse = it.pulse.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.pulse.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(pulse = it.pulse.copy(cycles = v)) } },
-                                )
-                            }
-
-                            NotificationAlertEffect.CapsuleShimmer -> {
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_band_width),
-                                    value = alert.shimmer.bandWidth,
-                                    range = FloatBallDefaults.AlertShimmerBandWidthMin..
-                                        FloatBallDefaults.AlertShimmerBandWidthMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(shimmer = it.shimmer.copy(bandWidth = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_trail_width),
-                                    value = alert.shimmer.trailScale,
-                                    range = FloatBallDefaults.AlertShimmerTrailScaleMin..
-                                        FloatBallDefaults.AlertShimmerTrailScaleMax,
-                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "×${it / 100f}" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(shimmer = it.shimmer.copy(trailScale = v)) } },
-                                )
-                                LunoSwitchRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_reverse),
-                                    subtitle = stringResource(R.string.float_ball_capsule_alert_reverse_subtitle),
-                                    checked = alert.shimmer.reverse,
-                                    onCheckedChange = { checked ->
-                                        updateAlert { it.copy(shimmer = it.shimmer.copy(reverse = checked)) }
-                                    },
-                                    shape = segmentedShape(row++, alertRows),
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_speed),
-                                    value = alert.shimmer.speed,
-                                    range = FloatBallDefaults.AlertSpeedPercentMin..
-                                        FloatBallDefaults.AlertSpeedPercentMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(shimmer = it.shimmer.copy(speed = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_brightness),
-                                    value = alert.shimmer.brightness,
-                                    range = FloatBallDefaults.AlertBrightnessMin..FloatBallDefaults.AlertBrightnessMax,
-                                    display = { "${it.toInt()}%" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(shimmer = it.shimmer.copy(brightness = v)) } },
-                                )
-                                AlertKnobSlider(
-                                    label = stringResource(R.string.float_ball_capsule_alert_cycles),
-                                    value = alert.shimmer.cycles,
-                                    range = FloatBallDefaults.AlertCyclesMin..FloatBallDefaults.AlertCyclesMax,
-                                    display = { "${it.toInt()} ×" },
-                                    index = row++,
-                                    rowCount = alertRows,
-                                    onCommit = { v -> updateAlert { it.copy(shimmer = it.shimmer.copy(cycles = v)) } },
+                            // 全部试播：按当前四类配置一起播一次（失败原因由服务侧 Toast 反馈）。
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_preview_all),
+                                    subtitle = stringResource(R.string.float_ball_capsule_alert_preview_all_subtitle),
+                                    icon = Icons.Default.PlayArrow,
+                                    shape = shape,
+                                    onClick = { facades.system.previewFloatBallAlert(context) },
                                 )
                             }
                         }
-                        // 动效独立颜色：默认主色（与胶囊 / 悬浮球解耦）。
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_color),
-                            icon = Icons.Default.Palette,
-                            subtitle = stringResource(
-                                if (alert.color.isUnset) {
-                                    R.string.float_ball_capsule_color_default
-                                } else {
-                                    R.string.float_ball_capsule_color_custom
-                                },
-                            ),
-                            shape = segmentedShape(row++, alertRows),
-                            leading = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(MarkColorSize)
-                                        .background(
-                                            color = if (alert.color.isUnset) {
-                                                scheme.primary
-                                            } else {
-                                                alert.color.toMarkColor()
-                                            },
-                                            shape = CircleShape,
-                                        ),
-                                )
-                            },
-                            onClick = { showAlertColorPicker = true },
-                        )
-                        // 试播：按当前配置立即播一次，不等真通知（用户显式点击即授权）。
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_preview),
-                            subtitle = stringResource(R.string.float_ball_capsule_alert_preview_subtitle),
-                            icon = Icons.Default.PlayArrow,
-                            shape = segmentedShape(row, alertRows),
-                            onClick = { facades.system.previewFloatBallAlert(context) },
-                        )
                     }
                 }
             }
         }
     }
-}
-
-/**
- * 提示动效的专属旋钮滑杆：拖动只改本地预览，松手一次性落盘（滑杆交互口径）。
- * [range] 来自 FloatBallDefaults 的滑杆约束常量。
- */
-@Composable
-private fun AlertKnobSlider(
-    label: String,
-    value: Int,
-    range: IntRange,
-    display: @Composable (Float) -> String,
-    index: Int,
-    rowCount: Int,
-    onCommit: (Int) -> Unit,
-) {
-    var local by remember(value) { mutableFloatStateOf(value.toFloat()) }
-    LunoTextSlider(
-        value = local,
-        onValueChange = { local = it },
-        onValueChangeFinished = { onCommit(local.roundToInt()) },
-        text = label,
-        valueDisplay = display,
-        valueRange = range.first.toFloat()..range.last.toFloat(),
-        shape = segmentedShape(index, rowCount),
-    )
-}
-
-/** 提示动效各形态的展示名（单选下拉用，选项顺序 = 枚举声明顺序）。 */
-private fun NotificationAlertEffect.labelRes(): Int = when (this) {
-    NotificationAlertEffect.EdgeGlow -> R.string.float_ball_capsule_alert_effect_edge_glow
-    NotificationAlertEffect.EdgeFlow -> R.string.float_ball_capsule_alert_effect_edge_flow
-    NotificationAlertEffect.TopParticles -> R.string.float_ball_capsule_alert_effect_particles
-    NotificationAlertEffect.CapsulePulse -> R.string.float_ball_capsule_alert_effect_pulse
-    NotificationAlertEffect.BallRing -> R.string.float_ball_capsule_alert_effect_ring
-    NotificationAlertEffect.FullRipple -> R.string.float_ball_capsule_alert_effect_full_ripple
-    NotificationAlertEffect.CapsuleShimmer -> R.string.float_ball_capsule_alert_effect_shimmer
 }

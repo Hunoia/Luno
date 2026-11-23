@@ -1,24 +1,30 @@
 package hunoia.luno.runtime.floatball.alert
 
+import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertStyleId
+import hunoia.luno.config.model.AnchorAlertStyle
+import hunoia.luno.config.model.CapsuleAlertStyle
+import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
-import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.ParticleAlertStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 到达提示动效的决策口径：场景抑制全部通过才播；配置到播放计划的夹取与归一化
- * （含速度倍率对家族基准时长的折算与各效果专属 spec 的透传）。
+ * 到达提示动效的决策口径：场景抑制全部通过才播；配置到分层播放计划的夹取与归一化
+ * （含速度倍率对样式基准时长的折算、每类一个家族、各样式专属 spec 的透传）。
  *
- * 触发语义（需求确认）：仅新通知到达时播一次；熄屏 / 锁屏 / 勿扰一律不播（全屏沉浸
- * 判定按用户决策不做），胶囊可见与播放中合并不在此判（分别由服务的转变判定与窗口侧
- * isShowing 承担）。
+ * 触发语义（需求确认）：仅新通知到达时播一次；熄屏 / 锁屏 / 勿扰 / 动效黑名单命中一律不播。
+ * 胶囊可见与播放中合并不在此判（分别由服务的转变判定与窗口侧 isShowing 承担）。
  */
 class AlertPolicyTest {
 
     private val enabled = NotificationAlertSettings(enabled = true)
+
+    private val standard: (AlertStyleId) -> Float = { 1f }
 
     private fun env(
         screenOn: Boolean = true,
@@ -41,27 +47,74 @@ class AlertPolicyTest {
         assertFalse(shouldPlay(enabled, env(screenOn = false)))
         assertFalse(shouldPlay(enabled, env(locked = true)))
         assertFalse(shouldPlay(enabled, env(dnd = true)))
+        // 黑名单只按来源包命中：未配置时同一包照播。
+        assertTrue(shouldPlay(enabled, env(), packageName = "com.blocked"))
+        val blocked = enabled.copy(appBlocklist = listOf("com.blocked"))
+        assertFalse(shouldPlay(blocked, env(), packageName = "com.blocked"))
+        assertTrue(shouldPlay(blocked, env(), packageName = "com.ok"))
     }
 
     @Test
-    fun `plan resolves per effect knobs and normalizes ranges`() {
+    fun `plan collects only enabled categories`() {
         val plan = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.EdgeGlow,
-                edgeGlow = enabled.edgeGlow.copy(bandWidthDp = 48, brightness = 60, cycles = 2),
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
             ),
-            cycleMillis = { 1400 },
+            standard,
         )
+        assertEquals(1, plan.layers.size)
+        assertEquals(AnchorAlertStyle.Ring, plan.layers.single().style)
+        assertTrue(plan.capsuleLayers.isEmpty())
+        assertEquals(1, plan.stageLayers.size)
+    }
 
-        assertEquals(NotificationAlertEffect.EdgeGlow, plan.effect)
-        assertEquals(2, plan.cycles)
-        assertEquals(1400, plan.cycleMillis)
-        assertEquals(2800, plan.totalMillis)
+    @Test
+    fun `all categories produce four layers and duration is the longest`() {
+        val plan = buildPlan(
+            enabled.copy(
+                edge = enabled.edge.copy(edgeGlow = enabled.edge.edgeGlow.copy(cycles = 4)),
+                particle = enabled.particle.copy(particles = enabled.particle.particles.copy(waves = 1)),
+                capsule = enabled.capsule.copy(pulse = enabled.capsule.pulse.copy(cycles = 2)),
+                anchor = enabled.anchor.copy(ring = enabled.anchor.ring.copy(cycles = 3)),
+            ),
+            standard,
+        )
+        assertEquals(4, plan.layers.size)
+        assertEquals(4 * 1400, plan.durationMillis)
+        assertEquals(1, plan.capsuleLayers.size)
+        assertEquals(3, plan.stageLayers.size)
+    }
+
+    @Test
+    fun `plan resolves per style knobs and normalizes ranges`() {
+        val plan = buildPlan(
+            enabled.copy(
+                edge = enabled.edge.copy(
+                    edgeGlow = enabled.edge.edgeGlow.copy(
+                        bandWidthDp = 48,
+                        brightness = 60,
+                        cycles = 2,
+                        speed = 100,
+                    ),
+                ),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
+            ),
+            standard,
+        )
+        val layer = plan.layers.single()
+        assertEquals(EdgeAlertStyle.EdgeGlow, layer.style)
+        assertEquals(2, layer.cycles)
+        assertEquals(1400, layer.cycleMillis)
+        assertEquals(2800, layer.totalMillis)
         // 亮度 60 → 0.6；带宽 48 在 1–96 区间内线性归一化。
-        assertEquals(0.6f, plan.brightness, 0.001f)
-        assertEquals((48f - 1f) / (96f - 1f), plan.amount, 0.001f)
+        assertEquals(0.6f, layer.brightness, 0.001f)
+        assertEquals((48f - 1f) / (96f - 1f), layer.amount, 0.001f)
         // 专属 spec：默认圆角与硬度原样透传。
-        val spec = plan.spec as EdgeGlowSpec
+        val spec = layer.spec as EdgeGlowSpec
         assertEquals(FloatBallDefaults.AlertEdgeGlowCornerDp, spec.cornerRadiusDp)
         assertEquals(1f, spec.hardness, 0.001f)
     }
@@ -71,50 +124,64 @@ class AlertPolicyTest {
         // 旧存量 110–240 超出新区间上限：夹到 96，量归一化到 1。
         val plan = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.EdgeGlow,
-                edgeGlow = enabled.edgeGlow.copy(bandWidthDp = 110),
+                edge = enabled.edge.copy(edgeGlow = enabled.edge.edgeGlow.copy(bandWidthDp = 110)),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
             ),
-            cycleMillis = { 1400 },
+            standard,
         )
-        assertEquals(1f, plan.amount, 0.001f)
+        assertEquals(1f, plan.layers.single().amount, 0.001f)
     }
 
     @Test
-    fun `speed knob scales cycle duration against family base`() {
-        fun planWithSpeed(speed: Int, base: Int = 1400) = buildPlan(
+    fun `speed knob and tier factor scale style base duration`() {
+        fun planWith(speed: Int, tier: Float = 1f) = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.EdgeGlow,
-                edgeGlow = enabled.edgeGlow.copy(speed = speed),
+                edge = enabled.edge.copy(edgeGlow = enabled.edge.edgeGlow.copy(speed = speed)),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
             ),
-            cycleMillis = { base },
-        )
+            { tier },
+        ).layers.single().cycleMillis
 
         // 200% = 两倍速（时长减半），50% = 半速（时长翻倍）。
-        assertEquals(700, planWithSpeed(200).cycleMillis)
-        assertEquals(2800, planWithSpeed(50).cycleMillis)
-        assertEquals(1400, planWithSpeed(100).cycleMillis)
+        assertEquals(700, planWith(speed = 200))
+        assertEquals(2800, planWith(speed = 50))
+        assertEquals(1400, planWith(speed = 100))
         // 越界夹取：0 → 50%（最慢），999 → 200%（最快）。
-        assertEquals(2000, planWithSpeed(0, base = 1000).cycleMillis)
-        assertEquals(500, planWithSpeed(999, base = 1000).cycleMillis)
+        assertEquals(2800, planWith(speed = 0))
+        assertEquals(700, planWith(speed = 999))
+        // 档位倍率只乘一次（1.5× 慢档 → 基准 × 1.5）。
+        assertEquals(2100, planWith(speed = 100, tier = 1.5f))
     }
 
     @Test
-    fun `plan clamps out of range knobs per effect`() {
+    fun `plan clamps out of range knobs per style`() {
         val plan = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.TopParticles,
-                particles = enabled.particles.copy(count = 999, brightness = -5, waves = 99),
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(
+                    particles = enabled.particle.particles.copy(
+                        count = 999,
+                        brightness = -5,
+                        waves = 99,
+                    ),
+                ),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
             ),
-            cycleMillis = { 0 },
+            standard,
         )
-
+        val layer = plan.layers.single()
         // 粒子数钳到上限后量旋钮归一化到 1；亮度负值钳到 0。
-        assertEquals(1f, plan.amount, 0.001f)
-        assertEquals(FloatBallDefaults.AlertBrightnessMin / 100f, plan.brightness, 0.001f)
-        assertEquals(FloatBallDefaults.AlertCyclesMax, plan.cycles)
-        assertEquals(1, plan.cycleMillis)
+        assertEquals(1f, layer.amount, 0.001f)
+        assertEquals(FloatBallDefaults.AlertBrightnessMin / 100f, layer.brightness, 0.001f)
+        assertEquals(FloatBallDefaults.AlertCyclesMax, layer.cycles)
+        assertEquals(alertStyleBaseMillis(ParticleAlertStyle.TopRain), layer.cycleMillis)
         // 专属 spec：默认形状参数（大小 / 摆幅缩放 100%，真重力，行程 200dp）。
-        val spec = plan.spec as ParticlesSpec
+        val spec = layer.spec as ParticlesSpec
         assertEquals(1f, spec.sizeScale, 0.001f)
         assertEquals(1f, spec.swayScale, 0.001f)
         assertEquals(2f, spec.gravityExp, 0.001f)
@@ -122,56 +189,142 @@ class AlertPolicyTest {
     }
 
     @Test
-    fun `edge flow plan carries band mode knobs`() {
+    fun `edge flow plan carries the blade knobs`() {
         val plan = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.EdgeFlow,
-                edgeFlow = enabled.edgeFlow.copy(
-                    bandWidthDp = 24,
-                    dualBand = true,
-                    trailScale = 150,
-                    dualColor = true,
+                edge = enabled.edge.copy(
+                    style = EdgeAlertStyle.EdgeFlow,
+                    edgeFlow = enabled.edge.edgeFlow.copy(
+                        bandWidthDp = 24,
+                        dualBand = true,
+                        trailScale = 150,
+                        dualColor = true,
+                        coreBandPermille = 40,
+                        hardness = 3,
+                        trailAlpha = 55,
+                        cornerRadiusDp = 32,
+                    ),
                 ),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
             ),
-            cycleMillis = { 1600 },
+            standard,
         )
-
-        assertEquals((24f - 1f) / (96f - 1f), plan.amount, 0.001f)
-        val spec = plan.spec as EdgeFlowSpec
+        val layer = plan.layers.single()
+        assertEquals((24f - 1f) / (96f - 1f), layer.amount, 0.001f)
+        assertEquals(alertStyleBaseMillis(EdgeAlertStyle.EdgeFlow), layer.cycleMillis)
+        val spec = layer.spec as EdgeFlowSpec
         assertTrue(spec.dualBand)
         assertEquals(1.5f, spec.trailScale, 0.001f)
         assertTrue(spec.dualColor)
+        assertEquals(0.04f, spec.coreBand, 0.0001f)
+        assertEquals(3f, spec.hardness, 0.001f)
+        assertEquals(0.55f, spec.trailAlpha, 0.001f)
+        assertEquals(32, spec.cornerRadiusDp)
     }
 
     @Test
     fun `full ripple plan carries anchor and stroke knobs`() {
         val plan = buildPlan(
             enabled.copy(
-                effect = NotificationAlertEffect.FullRipple,
-                fullRipple = enabled.fullRipple.copy(strokeWidthDp = 5, centerAtBall = false),
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(
+                    style = AnchorAlertStyle.Ripple,
+                    fullRipple = enabled.anchor.fullRipple.copy(strokeWidthDp = 5, centerAtBall = false),
+                ),
             ),
-            cycleMillis = { 1100 },
+            standard,
         )
-
+        val layer = plan.layers.single()
         // 涟漪无量旋钮。
-        assertEquals(0f, plan.amount, 0.001f)
-        val spec = plan.spec as RippleSpec
+        assertEquals(0f, layer.amount, 0.001f)
+        val spec = layer.spec as RippleSpec
         assertEquals(5, spec.strokeWidthDp)
         assertFalse(spec.centerAtBall)
+        assertEquals(alertStyleBaseMillis(AnchorAlertStyle.Ripple), layer.cycleMillis)
     }
 
     @Test
     fun `pulse has no amount knob`() {
         val plan = buildPlan(
-            enabled.copy(effect = NotificationAlertEffect.CapsulePulse),
-            cycleMillis = { 1000 },
+            enabled.copy(
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(style = CapsuleAlertStyle.Pulse),
+                anchor = enabled.anchor.copy(enabled = false),
+            ),
+            standard,
         )
-
-        assertEquals(0f, plan.amount, 0.001f)
+        val layer = plan.layers.single()
+        assertEquals(0f, layer.amount, 0.001f)
         // 专属 spec：默认辉光宽度 1.5dp、光晕不缩放。
-        val spec = plan.spec as PulseSpec
+        val spec = layer.spec as PulseSpec
         assertEquals(1.5f, spec.glowWidthDp, 0.001f)
         assertEquals(1f, spec.haloScale, 0.001f)
+        assertEquals(alertStyleBaseMillis(CapsuleAlertStyle.Pulse), layer.cycleMillis)
+    }
+
+    @Test
+    fun `onlyCategory filters to a single category`() {
+        val plan = buildPlan(enabled, standard)
+        assertEquals(4, plan.layers.size)
+        val edge = plan.onlyCategory(AlertCategory.Edge)
+        assertEquals(1, edge.layers.size)
+        assertEquals(EdgeAlertStyle.EdgeGlow, edge.layers.single().style)
+        assertEquals(4, plan.onlyCategory(null).layers.size)
+    }
+
+    @Test
+    fun `needsCapsule only for capsule layers and ball anchored anchor layers`() {
+        fun planOf(anchorStyle: AnchorAlertStyle, centerAtBall: Boolean = true) = buildPlan(
+            enabled.copy(
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(
+                    style = anchorStyle,
+                    fullRipple = enabled.anchor.fullRipple.copy(centerAtBall = centerAtBall),
+                ),
+            ),
+            standard,
+        )
+
+        assertTrue(needsCapsule(planOf(AnchorAlertStyle.Ring)))
+        assertTrue(needsCapsule(planOf(AnchorAlertStyle.Ripple, centerAtBall = true)))
+        assertFalse(needsCapsule(planOf(AnchorAlertStyle.Ripple, centerAtBall = false)))
+        // 胶囊层依赖胶囊窗自己的 Compose 层。
+        val capsuleOnly = buildPlan(
+            enabled.copy(
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
+            ),
+            standard,
+        )
+        assertTrue(needsCapsule(capsuleOnly))
+        // 纯边缘 / 粒子计划不依赖胶囊。
+        val stageOnly = buildPlan(
+            enabled.copy(
+                capsule = enabled.capsule.copy(enabled = false),
+                anchor = enabled.anchor.copy(enabled = false),
+            ),
+            standard,
+        )
+        assertFalse(needsCapsule(stageOnly))
+    }
+
+    @Test
+    fun `every style has a base duration`() {
+        val styles = EdgeAlertStyle.entries +
+            ParticleAlertStyle.entries +
+            CapsuleAlertStyle.entries +
+            AnchorAlertStyle.entries
+        for (style in styles) {
+            assertTrue("$style 未登记基准时长", alertStyleBaseMillis(style) > 0)
+        }
     }
 
     @Test

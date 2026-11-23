@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.widget.Toast
 import java.lang.ref.WeakReference
 import hunoia.luno.core.LunoLog as Log
 import androidx.compose.material.icons.Icons
@@ -47,19 +48,18 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
-import hunoia.luno.config.model.NotificationAlertEffect
+import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.config.model.withAnchorY
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
-import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
+import hunoia.luno.runtime.floatball.alert.AlertAnchor
 import hunoia.luno.runtime.floatball.alert.AlertEnvironment
-import hunoia.luno.runtime.floatball.alert.AlertOverlayWindow
-import hunoia.luno.runtime.floatball.alert.AlertRingGeometry
-import hunoia.luno.runtime.floatball.alert.AlertWindowKind
-import hunoia.luno.runtime.floatball.alert.RippleSpec
+import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
+import hunoia.luno.runtime.floatball.alert.AlertStageWindow
 import hunoia.luno.runtime.floatball.alert.buildPlan
+import hunoia.luno.runtime.floatball.alert.needsCapsule
 import hunoia.luno.runtime.floatball.alert.shouldPlay
 import hunoia.luno.runtime.floatball.inbox.BallInboxAction
 import hunoia.luno.runtime.floatball.inbox.BallInboxChange
@@ -96,7 +96,7 @@ import hunoia.luno.config.model.RecognitionDisplay
 import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
-import hunoia.luno.ui.theme.motionMillis
+import hunoia.luno.ui.theme.MotionTuning
 import hunoia.luno.ui.theme.toAlertFamily
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
@@ -297,8 +297,8 @@ class FloatBallService : Service() {
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
     private val notificationManager by lazy { getSystemService<NotificationManager>() }
 
-    /** 到达提示动效的独立 overlay 窗（呼吸光 / 粒子 / 光环）；脉冲 / 流光走胶囊窗内。 */
-    private val alertOverlay by lazy { AlertOverlayWindow(this) }
+    /** 到达提示动效的单舞台窗（边缘 / 粒子 / 球心·全屏）；胶囊层走胶囊窗自己的 Compose 层。 */
+    private val alertStage by lazy { AlertStageWindow(this) }
 
     // ---- 跟随持机手（三球各自独立） ----
 
@@ -435,7 +435,11 @@ class FloatBallService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_PREVIEW_ALERT) {
-            previewArrivalAlert()
+            val categoryName = intent.getStringExtra(EXTRA_PREVIEW_CATEGORY)
+            val category = categoryName?.let { name ->
+                AlertCategory.entries.firstOrNull { it.name == name }
+            }
+            previewArrivalAlert(category)
             refreshWindows()
             if (shouldStopSelf()) {
                 stopSelf()
@@ -710,130 +714,134 @@ class FloatBallService : Service() {
     /**
      * 到达提示动效：通知把胶囊从隐藏拉起时按配置播放一次（需求确认口径）。
      *
-     * 只认「hidden → shown」的转变：胶囊已可见时的后续到达（wasShowing）合并进当前展示
-     * 不播；用户手动展开、结果胶囊来源、转场途中被掐掉的（!slot.showing）也不播。
-     * 熄屏 / 锁屏 / 勿扰由 [AlertPolicy.shouldPlay] 判定——全部是到达时机的一次性读数，
-     * 不轮询、不新增监听（architecture §13「无事件不做功」）。全屏沉浸判定不做。
+     * 只看「这次到达该不该播」：
+     * - 结果胶囊来源 / 胶囊根本没显示 → 不播；
+     * - 动效黑名单命中 → 不播（胶囊照常显示）；
+     * - 胶囊已可见时默认合并，不播；「每次新通知都播」打开后照播；
+     * - 已有动效在播 → 不播（不排队、不打断）；
+     * - 熄屏 / 锁屏 / 勿扰由 [shouldPlay] 判定——一次性读数，不轮询、不新增监听。
      */
     private fun onCapsuleArrivalShown(slot: CapsuleSlot, wasShowing: Boolean) {
         if (slot.source != BallSource.NOTIFICATION) return
-        if (wasShowing || !slot.showing) return
+        if (!slot.showing) return
         val alert = settings.notificationCapsule.alert
         if (!alert.enabled) return
+        if (wasShowing && !alert.playOnEveryNotification) return
+        if (isAlertPlaying()) return
+        val pkg = (slot.state.items.firstOrNull() as? NotificationItem)?.packageName
         val env = AlertEnvironment(
             screenOn = powerManager?.isInteractive == true,
             keyguardLocked = keyguardManager?.isKeyguardLocked == true,
             dndActive = isDndActive(),
         )
-        if (!shouldPlay(alert, env)) {
+        if (!shouldPlay(alert, env, pkg)) {
             // 通知正文不落日志；只记判定所需的元数据（到达路径已有 pkg 日志可对上）。
             Log.i(TAG, "capsule alert skip screenOn=${env.screenOn} locked=${env.keyguardLocked} " +
-                "dnd=${env.dndActive}")
+                "dnd=${env.dndActive} blocked=${pkg != null && pkg in alert.appBlocklist}")
             return
         }
         dispatchAlertPlan(slot, buildAlertPlan())
     }
 
-    /** 当前配置 → 播放计划：单循环时长按效果家族解析（各效果不共用基准，需求确认口径）。 */
+    /** 任一到达动效在播：舞台窗或胶囊窗自己那层。 */
+    private fun isAlertPlaying(): Boolean =
+        alertStage.isShowing ||
+            (this::notificationSlot.isInitialized && notificationSlot.window.isAlertPlaying())
+
+    /** 当前配置 → 分层播放计划：各层单循环 = 样式基准 × 档位 ÷ 速度（由 buildPlan 折算）。 */
     private fun buildAlertPlan(): AlertPlayPlan {
         val alert = settings.notificationCapsule.alert
-        return buildPlan(alert) { effect -> motionMillis(effect.toAlertFamily()) }
+        val profile = MotionTuning.profile
+        return buildPlan(alert) { style -> profile.speedOf(style.category.toAlertFamily()).factor }
     }
 
     /** 到达动效统一用动效独立颜色：未设置时渲染端回落主题主色（与胶囊 / 悬浮球解耦）。 */
     private fun alertColorSpec(): ColorSpec = settings.notificationCapsule.alert.color
 
-    /** 按计划分发效果：真到达与试播共用；胶囊层效果要求胶囊已可见，由调用方保证。 */
-    private fun dispatchAlertPlan(slot: CapsuleSlot, plan: AlertPlayPlan) {
-        Log.i(TAG, "capsule alert play effect=${plan.effect} cycles=${plan.cycles} " +
-            "total=${plan.totalMillis}ms")
-        when (plan.effect) {
-            // 胶囊本体脉冲 / 边框流光画在胶囊窗自己的 Compose 层，不新增窗口。
-            NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
-                slot.window.playArrivalAlert(plan)
-
-            NotificationAlertEffect.EdgeGlow -> alertOverlay.show(
-                kind = AlertWindowKind.EdgeGlow,
-                plan = plan,
-                colorSpec = alertColorSpec(),
-                ring = null,
-                onFinished = {},
-            )
-
-            NotificationAlertEffect.EdgeFlow -> alertOverlay.show(
-                kind = AlertWindowKind.EdgeFlow,
-                plan = plan,
-                colorSpec = alertColorSpec(),
-                ring = null,
-                onFinished = {},
-                secondColor = settings.notificationCapsule.alert.edgeFlow.secondColor,
-            )
-
-            NotificationAlertEffect.TopParticles -> alertOverlay.show(
-                kind = AlertWindowKind.TopParticles,
-                plan = plan,
-                colorSpec = alertColorSpec(),
-                ring = null,
-                onFinished = {},
-            )
-
-            NotificationAlertEffect.BallRing -> {
-                val anchor = slot.window.visibleRectOnScreen() ?: return
-                alertOverlay.show(
-                    kind = AlertWindowKind.BallRing,
-                    plan = plan,
-                    colorSpec = alertColorSpec(),
-                    ring = AlertRingGeometry(
-                        centerX = anchor.centerX,
-                        centerY = anchor.centerY,
-                        ballPx = DensityProvider.dp2px(settings.sizeDp),
-                    ),
-                    onFinished = {},
-                )
-            }
-
-            NotificationAlertEffect.FullRipple -> {
-                // 锚点：通知球心（球不可见则本次不播）或屏幕中心（ballPx = 0，从屏心起波）。
-                val geometry = if ((plan.spec as RippleSpec).centerAtBall) {
-                    val anchor = slot.window.visibleRectOnScreen() ?: return
-                    AlertRingGeometry(
-                        centerX = anchor.centerX,
-                        centerY = anchor.centerY,
-                        ballPx = DensityProvider.dp2px(settings.sizeDp),
-                    )
-                } else {
-                    AlertRingGeometry(
-                        centerX = DensityProvider.screenWidthPx / 2,
-                        centerY = DensityProvider.screenHeightPx / 2,
-                        ballPx = 0,
-                    )
-                }
-                alertOverlay.show(
-                    kind = AlertWindowKind.FullRipple,
-                    plan = plan,
-                    colorSpec = alertColorSpec(),
-                    ring = geometry,
-                    onFinished = {},
-                )
-            }
-        }
+    /**
+     * 锚点：胶囊收起圆的屏幕矩形。
+     *
+     * 舞台窗原点就是屏幕原点，所以这里直接给屏幕绝对坐标；[AlertAnchor.capsulePx] 用
+     * **胶囊自己的行高**（不是悬浮球尺寸——这是旧实现里球环位置 / 大小不对的根因）。
+     */
+    private fun alertAnchor(): AlertAnchor? {
+        val rect = notificationSlot.window.visibleRectOnScreen() ?: return null
+        return AlertAnchor(
+            centerX = rect.centerX.toFloat(),
+            centerY = rect.centerY.toFloat(),
+            capsulePx = DensityProvider.dp2px(
+                settings.notificationCapsule.capsuleRowHeightDp.toFloat(),
+            ),
+        )
     }
 
     /**
-     * 试播：按当前配置立即播一次提示动效（设置页入口）。
-     *
-     * 用户显式点击即授权，忽略 enabled 与熄屏 / 锁屏 / 勿扰闸；胶囊层效果需要胶囊可见，
-     * 未显时插入一条带标记的演示通知拉起，播完移除（见 [CapsuleSlot.previewCapsuleAlert]）。
+     * 按计划分发：胶囊层画在胶囊窗自己的 Compose 层，舞台层进单舞台窗。
+     * 真到达与试播共用；舞台窗已在播放时 [AlertStageWindow.show] 返回 false（由调用方先判 [isAlertPlaying]）。
      */
-    private fun previewArrivalAlert() {
-        val plan = buildAlertPlan()
-        when (plan.effect) {
-            // 胶囊层效果要先保证胶囊可见：走演示行路径（未显则插入演示通知拉起）。
-            NotificationAlertEffect.CapsulePulse, NotificationAlertEffect.CapsuleShimmer ->
-                notificationSlot.previewCapsuleAlert(plan)
+    private fun dispatchAlertPlan(slot: CapsuleSlot, plan: AlertPlayPlan): Boolean {
+        if (plan.isEmpty) return false
+        Log.i(
+            TAG,
+            "capsule alert play layers=" +
+                plan.layers.joinToString { "${it.style}x${it.cycles}/${it.cycleMillis}ms" } +
+                " total=${plan.durationMillis}ms",
+        )
+        plan.capsuleLayers.firstOrNull()?.let(slot.window::playArrivalAlert)
+        if (plan.stageLayers.isEmpty()) return true
+        // 锚点缺失（胶囊未挂窗）时回落屏幕中心：舞台层里只有球心锚定的层会读它，
+        // 那种情况由 [needsCapsule] 在试播路径上先拉起胶囊。
+        val anchor = alertAnchor() ?: AlertAnchor(
+            centerX = DensityProvider.screenWidthPx / 2f,
+            centerY = DensityProvider.screenHeightPx / 2f,
+            capsulePx = 0,
+        )
+        return alertStage.show(
+            plan = plan,
+            anchor = anchor,
+            colorSpec = alertColorSpec(),
+            secondColor = settings.notificationCapsule.alert.edge.edgeFlow.secondColor,
+            onFinished = {},
+        )
+    }
 
-            else -> dispatchAlertPlan(notificationSlot, plan)
+    /**
+     * 试播：按当前配置立即播一次（设置页入口）。
+     *
+     * 用户显式点击即授权，忽略总开关与熄屏 / 锁屏 / 勿扰闸；[category] 非空时只播该类。
+     * 依赖胶囊的计划（胶囊层 / 球心锚定）在胶囊未显示时先拉起演示胶囊再播。
+     * 播不出来一定给一句原因（Toast），不再静默失败。
+     */
+    private fun previewArrivalAlert(category: AlertCategory?) {
+        if (!canDrawOverlays()) {
+            showAlertToast(R.string.float_ball_capsule_alert_preview_no_overlay)
+            return
         }
+        if (!settings.notificationCapsule.enabled) {
+            showAlertToast(R.string.float_ball_capsule_alert_preview_no_capsule)
+            return
+        }
+        if (isAlertPlaying()) {
+            showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
+            return
+        }
+        val plan = buildAlertPlan().onlyCategory(category)
+        if (plan.isEmpty) {
+            showAlertToast(R.string.float_ball_capsule_alert_preview_none)
+            return
+        }
+        val slot = notificationSlot
+        if (needsCapsule(plan) && !slot.showing) {
+            // 演示胶囊：走真实展示管线（含展开动画与自动收起），球心锚点才有意义。
+            slot.previewCapsuleAlert(plan)
+            return
+        }
+        dispatchAlertPlan(slot, plan)
+    }
+
+    /** 试播失败的可见反馈：一句原因，不打扰、不弹窗。 */
+    private fun showAlertToast(resId: Int) {
+        Toast.makeText(this, getString(resId), Toast.LENGTH_SHORT).show()
     }
 
     /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
@@ -841,7 +849,7 @@ class FloatBallService : Service() {
         if (this::notificationSlot.isInitialized) {
             notificationSlot.window.cancelArrivalAlert()
         }
-        alertOverlay.cancel()
+        alertStage.cancel()
     }
 
     /** 勿扰判定：勿扰档位非「全部」即视为勿扰；未知档位按不开启处理。 */
@@ -2329,10 +2337,10 @@ class FloatBallService : Service() {
             )
             enqueue(demo, makeCurrent = true, show = false)
             showIfNeeded()
-            window.playArrivalAlert(plan)
+            dispatchAlertPlan(this, plan)
             // 播完（含一帧收尾余量）移除演示行；队列因此为空则随 removeById 收起。
             scope.launch {
-                delay(plan.totalMillis.toLong() + PreviewCleanupSlackMs)
+                delay(plan.durationMillis.toLong() + PreviewCleanupSlackMs)
                 removeById(demo.id)
             }
         }
@@ -2810,6 +2818,7 @@ class FloatBallService : Service() {
         private const val NOTIFICATION_ID = FLOATBALL_NOTIFICATION_ID
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
         const val ACTION_PREVIEW_ALERT = "hunoia.luno.action.PREVIEW_CAPSULE_ALERT"
+        private const val EXTRA_PREVIEW_CATEGORY = "preview_category"
         private var currentRef: WeakReference<FloatBallService>? = null
 
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
@@ -2969,10 +2978,16 @@ class FloatBallService : Service() {
          * 试播到达提示动效（设置页入口）：服务没在跑时不播——试播的前提是
          * 通知胶囊已启用，而胶囊启用时宿主必然已被拉起（见恢复口径）。
          */
-        fun previewAlert(context: Context) {
+        /**
+         * 试播一次到达提示动效；[category] 非空时只播该类（每类设置页的行内单播）。
+         * 失败的可见反馈由服务侧 Toast 给出。
+         */
+        fun previewAlert(context: Context, category: AlertCategory? = null) {
             runCatching {
                 context.startService(
-                    Intent(context, FloatBallService::class.java).setAction(ACTION_PREVIEW_ALERT),
+                    Intent(context, FloatBallService::class.java)
+                        .setAction(ACTION_PREVIEW_ALERT)
+                        .putExtra(EXTRA_PREVIEW_CATEGORY, category?.name),
                 )
             }.onFailure {
                 Log.e(TAG, "preview capsule alert FAILED", it)

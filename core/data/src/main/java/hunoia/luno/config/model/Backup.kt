@@ -15,8 +15,11 @@ object BackupVersions {
     /**
      * 3：`linkDispatch` 与 `floatBall.clipboardBall.rules` 两张规则表并入 `recognition`。
      * 旧备份里的规则会被丢弃（不做迁移），因此必须拒绝旧版本，否则导入后规则静默消失。
+     *
+     * 4：通知胶囊到达动效从「单选 `effect`」改为「四个类目块（边缘 / 粒子 / 胶囊 / 球心·全屏）」，
+     * 旧字段语义整体漂移，同样拒绝旧版本（不做迁移）。
      */
-    const val ACTION = 3
+    const val ACTION = 4
     const val SEARCH = 1
     const val HABIT = 2
     /** 2：待办提醒（`TodoItem.reminder`）与全局推迟时长（`TodoConfig.reminderSnoozeMinutes`）。 */

@@ -8,9 +8,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.MotionSpeed
 import hunoia.luno.config.model.MotionTuningSettings
-import hunoia.luno.config.model.NotificationAlertEffect
 import kotlin.math.roundToInt
 
 /**
@@ -39,30 +39,22 @@ enum class MotionFamily(val baseMillis: Int) {
     FloatingSnap(170),
 
     /**
-     * 通知胶囊到达提示动效：**每个效果一个家族**，单循环基准（呼吸一圈 / 一波粒子 /
-     * 一圈光环 / 一次脉冲 / 一次扫光）各按效果的实际观感定值，不共用（需求确认口径）。
-     * 总时长 = 各自基准 × 该效果的次数旋钮（配置项，不是档位）；全部走浮窗档位。
-     * 效果 → 家族的唯一映射见 [hunoia.luno.ui.theme.toAlertFamily]。
+     * 通知胶囊到达提示动效：**每个类目一个家族**（边缘 / 粒子 / 胶囊 / 球心·全屏），
+     * 全部走浮窗档位。类目内各样式的单循环基准（呼吸一圈 / 一波粒子 / 一次扫光…）
+     * 在 floatball 的 `AlertTuning` 表里随样式走，**不再由家族承载**——家族只负责
+     * 「这一类该用哪档速度」（需求确认口径，见 ui-guidelines §2.4）。
+     * 类目 → 家族的唯一映射见 [hunoia.luno.ui.theme.toAlertFamily]。
      */
-    AlertEdgeGlow(1400),
+    AlertEdge(1400),
 
-    /** 屏幕边缘流光的单循环（亮带沿屏缘绕行一圈）。 */
-    AlertEdgeFlow(1600),
+    /** 粒子类的档位载体（单循环基准见 `alertStyleBaseMillis`）。 */
+    AlertParticle(1000),
 
-    /** 顶部粒子掉落的单循环（一波粒子从顶缘落到淡出）。 */
-    AlertParticles(1000),
+    /** 胶囊本体类的档位载体（画在胶囊窗自己的 Compose 层）。 */
+    AlertCapsule(1000),
 
-    /** 球光环扩散的单循环（一圈光环从球缘扩出并淡出）。 */
-    AlertRing(1000),
-
-    /** 胶囊本体脉冲的单循环（描边辉光呼吸一次）。 */
-    AlertPulse(1000),
-
-    /** 全屏涟漪的单循环（一圈水波从锚点扩到屏缘并淡出）。 */
-    AlertFullRipple(1100),
-
-    /** 胶囊边框流光的单循环（亮带沿边框扫过一次）。 */
-    AlertShimmer(1150),
+    /** 球心·全屏类的档位载体。 */
+    AlertAnchor(1000),
 }
 
 /** 一次动效的完整 spec：时长 + 缓动。对称由调用点用同一 spec 正反播放保证。 */
@@ -81,9 +73,8 @@ data class MotionProfile(
         MotionFamily.PanelCard, MotionFamily.PanelFull -> panel
         MotionFamily.Overlay -> overlay
         MotionFamily.Floating, MotionFamily.FloatingMorph, MotionFamily.FloatingSnap -> floating
-        MotionFamily.AlertEdgeGlow, MotionFamily.AlertEdgeFlow, MotionFamily.AlertParticles,
-        MotionFamily.AlertRing, MotionFamily.AlertPulse, MotionFamily.AlertFullRipple,
-        MotionFamily.AlertShimmer,
+        MotionFamily.AlertEdge, MotionFamily.AlertParticle, MotionFamily.AlertCapsule,
+        MotionFamily.AlertAnchor,
         -> floating
     }
 
@@ -146,15 +137,12 @@ fun floatingSpec(family: MotionFamily = MotionFamily.Floating): MotionSpec =
 fun <T> MotionSpec.tween(): TweenSpec<T> = tween(durationMillis, easing = easing)
 
 /**
- * 到达提示效果 → 动效家族的唯一映射（效果与家族一一对应，各按观感定基准时长）。
- * 服务侧按所选效果经此取单循环时长，已含应用档位。
+ * 到达提示类目 → 动效家族的唯一映射（每类一个家族，只承载档位）。
+ * 类内单循环基准在 floatball 的 `AlertTuning.alertStyleBaseMillis`，不在这里。
  */
-fun NotificationAlertEffect.toAlertFamily(): MotionFamily = when (this) {
-    NotificationAlertEffect.EdgeGlow -> MotionFamily.AlertEdgeGlow
-    NotificationAlertEffect.EdgeFlow -> MotionFamily.AlertEdgeFlow
-    NotificationAlertEffect.TopParticles -> MotionFamily.AlertParticles
-    NotificationAlertEffect.BallRing -> MotionFamily.AlertRing
-    NotificationAlertEffect.CapsulePulse -> MotionFamily.AlertPulse
-    NotificationAlertEffect.FullRipple -> MotionFamily.AlertFullRipple
-    NotificationAlertEffect.CapsuleShimmer -> MotionFamily.AlertShimmer
+fun AlertCategory.toAlertFamily(): MotionFamily = when (this) {
+    AlertCategory.Edge -> MotionFamily.AlertEdge
+    AlertCategory.Particle -> MotionFamily.AlertParticle
+    AlertCategory.Capsule -> MotionFamily.AlertCapsule
+    AlertCategory.Anchor -> MotionFamily.AlertAnchor
 }

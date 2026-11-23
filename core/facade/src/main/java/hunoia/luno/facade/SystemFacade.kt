@@ -1,6 +1,7 @@
 package hunoia.luno.facade
 
 import android.content.Context
+import hunoia.luno.config.model.AlertCategory
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -19,8 +20,11 @@ interface SystemFacade {
     fun setFloatBallEnabled(context: Context, enabled: Boolean)
     fun refreshFloatBall(context: Context)
 
-    /** 试播一次通知胶囊的到达提示动效（按当前落盘配置；服务没在跑时不播）。 */
-    fun previewFloatBallAlert(context: Context)
+    /**
+     * 试播一次通知胶囊的到达提示动效（按当前落盘配置；服务没在跑时不播）。
+     * [category] 非空时只播该类（每类设置页的行内单播）；失败原因由服务侧 Toast 反馈。
+     */
+    fun previewFloatBallAlert(context: Context, category: AlertCategory? = null)
 
     /** 总闸重新打开后按落盘配置恢复悬浮球宿主（球 / 通知 / 剪贴板任一开启才拉起）。 */
     suspend fun restoreFloatBall(context: Context)

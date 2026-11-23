@@ -1,7 +1,7 @@
 package hunoia.luno.ui.theme
 
 import hunoia.luno.config.model.MotionSpeed
-import hunoia.luno.config.model.NotificationAlertEffect
+import hunoia.luno.config.model.AlertCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,14 +32,11 @@ class MotionProfileTest {
         assertEquals(306, profile(floating = MotionSpeed.Slowest).millisOf(MotionFamily.FloatingMorph))
         assertEquals(136, profile(floating = MotionSpeed.Faster).millisOf(MotionFamily.FloatingSnap))
 
-        // 到达提示家族：各效果独立基准（1.0× 浮窗档）。
-        assertEquals(1400, profile().millisOf(MotionFamily.AlertEdgeGlow))
-        assertEquals(1600, profile().millisOf(MotionFamily.AlertEdgeFlow))
-        assertEquals(1000, profile().millisOf(MotionFamily.AlertParticles))
-        assertEquals(1000, profile().millisOf(MotionFamily.AlertRing))
-        assertEquals(1000, profile().millisOf(MotionFamily.AlertPulse))
-        assertEquals(1100, profile().millisOf(MotionFamily.AlertFullRipple))
-        assertEquals(1150, profile().millisOf(MotionFamily.AlertShimmer))
+        // 到达提示家族：每类一个家族，家族只承载档位（类内样式基准在 floatball 的 tuning 表）。
+        assertEquals(1400, profile().millisOf(MotionFamily.AlertEdge))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertParticle))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertCapsule))
+        assertEquals(1000, profile().millisOf(MotionFamily.AlertAnchor))
     }
 
     @Test
@@ -55,25 +52,19 @@ class MotionProfileTest {
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.Floating))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingMorph))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingSnap))
-        // 到达提示七家族全部走浮窗档位。
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdgeGlow))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdgeFlow))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertParticles))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertRing))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertPulse))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertFullRipple))
-        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertShimmer))
+        // 到达提示四家族全部走浮窗档位。
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdge))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertParticle))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertCapsule))
+        assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertAnchor))
     }
 
     @Test
-    fun `到达提示效果与家族一一映射`() {
-        assertEquals(MotionFamily.AlertEdgeGlow, NotificationAlertEffect.EdgeGlow.toAlertFamily())
-        assertEquals(MotionFamily.AlertEdgeFlow, NotificationAlertEffect.EdgeFlow.toAlertFamily())
-        assertEquals(MotionFamily.AlertParticles, NotificationAlertEffect.TopParticles.toAlertFamily())
-        assertEquals(MotionFamily.AlertRing, NotificationAlertEffect.BallRing.toAlertFamily())
-        assertEquals(MotionFamily.AlertPulse, NotificationAlertEffect.CapsulePulse.toAlertFamily())
-        assertEquals(MotionFamily.AlertFullRipple, NotificationAlertEffect.FullRipple.toAlertFamily())
-        assertEquals(MotionFamily.AlertShimmer, NotificationAlertEffect.CapsuleShimmer.toAlertFamily())
+    fun `到达提示类目与家族一一映射`() {
+        assertEquals(MotionFamily.AlertEdge, AlertCategory.Edge.toAlertFamily())
+        assertEquals(MotionFamily.AlertParticle, AlertCategory.Particle.toAlertFamily())
+        assertEquals(MotionFamily.AlertCapsule, AlertCategory.Capsule.toAlertFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertCategory.Anchor.toAlertFamily())
     }
 
     @Test

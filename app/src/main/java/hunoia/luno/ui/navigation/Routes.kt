@@ -201,6 +201,32 @@ data object FloatBallNotificationCapsule
 @Serializable
 data object FloatBallResultCapsule
 
+/** 到达提示·边缘类设置页。 */
+@Keep
+@Serializable
+data object FloatBallAlertEdge
+
+/** 到达提示·粒子类设置页。 */
+@Keep
+@Serializable
+data object FloatBallAlertParticle
+
+/** 到达提示·胶囊本体类设置页。 */
+@Keep
+@Serializable
+data object FloatBallAlertCapsule
+
+/** 到达提示·球心·全屏类设置页。 */
+@Keep
+@Serializable
+data object FloatBallAlertAnchor
+
+/** 到达提示·动效独立黑名单（不复用通知胶囊黑名单）。 */
+@Keep
+@Serializable
+data object FloatBallAlertBlocklist
+
+
 /** 运行日志：开关、最近日志预览、清空与导出。 */
 @Keep
 @Serializable
