@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollField
+import androidx.compose.material3.ScrollFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberScrollFieldState
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -76,6 +78,9 @@ fun <T> WheelColumn(
         state = state,
         contentDescription = null,
         modifier = modifier.height(wheelHeight),
+        // ScrollField 默认会画一层浅色容器背景（containerColor），滚轮是嵌在弹窗 / 卡片自己的
+        // 底上的，这里显式置透明，否则滚轮四周多出一块白底。
+        colors = ScrollFieldDefaults.colors(containerColor = Color.Transparent),
         field = { index, selected, _ ->
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(

@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,8 +48,8 @@ import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.input.WheelColumn
-import hunoia.luno.ui.component.input.wheelNumber
+import hunoia.luno.ui.component.input.LunoTimePicker
+import hunoia.luno.ui.component.input.rememberLunoTimePickerState
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -440,7 +439,7 @@ private fun trendGoalLabel(direction: TrendGoalDirection): String = stringResour
     },
 )
 
-/** 提醒时间滚轮：与习惯 / 待办共用 [WheelColumn]。 */
+/** 提醒时间选择：M3 表盘（[LunoTimePicker]）装在底部锚定卡片里，与习惯提醒同一套。 */
 @Composable
 private fun TrendTimePickerDialog(
     initialHour: Int,
@@ -448,35 +447,16 @@ private fun TrendTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
-    val hours = remember { (0 until 24).toList() }
-    val minutes = remember { (0 until 60).toList() }
-    var hour by rememberSaveable { mutableIntStateOf(initialHour) }
-    var minute by rememberSaveable { mutableIntStateOf(initialMinute) }
-    AnchoredDialog(onDismiss = onDismiss) { dismiss ->
+    val state = rememberLunoTimePickerState(initialHour, initialMinute)
+    AnchoredDialog(
+        onDismiss = onDismiss,
+    ) { dismiss ->
         Text(
             text = stringResource(R.string.trend_edit_reminder_time),
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-        ) {
-            WheelColumn(
-                values = hours,
-                initialIndex = initialHour,
-                onSelected = { hour = it },
-                label = ::wheelNumber,
-                modifier = Modifier.weight(1f),
-            )
-            WheelColumn(
-                values = minutes,
-                initialIndex = initialMinute,
-                onSelected = { minute = it },
-                label = ::wheelNumber,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        LunoTimePicker(state = state)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(ListSpacing),
@@ -488,7 +468,7 @@ private fun TrendTimePickerDialog(
             }
             PressTextButton(
                 onClick = {
-                    onConfirm(hour, minute)
+                    onConfirm(state.hour, state.minute)
                     dismiss()
                 },
             ) {

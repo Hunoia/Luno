@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,8 +48,8 @@ import hunoia.luno.config.model.normalizeReminderTimes
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.input.WheelColumn
-import hunoia.luno.ui.component.input.wheelNumber
+import hunoia.luno.ui.component.input.LunoTimePicker
+import hunoia.luno.ui.component.input.rememberLunoTimePickerState
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -438,9 +437,10 @@ fun HabitEditScreen(
 }
 
 /**
- * 提醒时间选择：与待办提醒同一套「时 / 分」滚轮，卡片由 [AnchoredDialog] 统一锚定在底部。
+ * 提醒时间选择：M3 表盘（[LunoTimePicker]）装在底部锚定卡片里。
  *
- * 不再用 M3 默认居中 AlertDialog + 表盘（ui-guidelines §4.4 禁止直接用默认居中弹窗）。
+ * 只走底部锚定卡片承载，不用 M3 默认居中 AlertDialog
+ *（ui-guidelines §4.4 禁止直接用默认居中弹窗）。
  */
 @Composable
 private fun HabitTimePickerDialog(
@@ -449,35 +449,16 @@ private fun HabitTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
-    val hours = remember { (0 until 24).toList() }
-    val minutes = remember { (0 until 60).toList() }
-    var hour by rememberSaveable { mutableIntStateOf(initialHour) }
-    var minute by rememberSaveable { mutableIntStateOf(initialMinute) }
-    AnchoredDialog(onDismiss = onDismiss) { dismiss ->
+    val state = rememberLunoTimePickerState(initialHour, initialMinute)
+    AnchoredDialog(
+        onDismiss = onDismiss,
+    ) { dismiss ->
         Text(
             text = stringResource(R.string.habit_reminder_time),
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-        ) {
-            WheelColumn(
-                values = hours,
-                initialIndex = initialHour,
-                onSelected = { hour = it },
-                label = ::wheelNumber,
-                modifier = Modifier.weight(1f),
-            )
-            WheelColumn(
-                values = minutes,
-                initialIndex = initialMinute,
-                onSelected = { minute = it },
-                label = ::wheelNumber,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        LunoTimePicker(state = state)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(ListSpacing),
@@ -489,7 +470,7 @@ private fun HabitTimePickerDialog(
             }
             PressTextButton(
                 onClick = {
-                    onConfirm(hour, minute)
+                    onConfirm(state.hour, state.minute)
                     dismiss()
                 },
             ) {

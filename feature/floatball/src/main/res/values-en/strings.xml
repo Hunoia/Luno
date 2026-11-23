@@ -77,7 +77,6 @@
     <string name="float_ball_capsule_background_color">Capsule background</string>
     <string name="float_ball_capsule_color_default">Default primary</string>
     <string name="float_ball_capsule_color_custom">Custom</string>
-    <string name="float_ball_capsule_color_reset">Reset to default primary</string>
 
     <string name="float_ball_result_group">Result capsule</string>
     <string name="float_ball_result_follow_hand">Follow hand to switch sides</string>

@@ -69,7 +69,10 @@ object Launcher {
         swapExisting: Boolean = true,
     ): Boolean {
         val tLaunch = SystemClock.uptimeMillis()
-        if (miniWindow) {
+        // 横屏：应用启动一律小窗（点按/长按/配置动作都改小窗启动）；竖屏按原参数。
+        val effectiveMini = miniWindow || context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (effectiveMini) {
             Log.i(LOG_TAG, "miniWindow launch begin pkg=$packageName user=$userId t=$tLaunch")
         }
         return try {
@@ -81,7 +84,7 @@ object Launcher {
                 // 提到前台，而不是重新走一次 Activity 启动。实测能让 2.5s / 5.0s 的
                 // 「快照启动窗卡在 OPEN 转场直到超时」变成 60–170ms。
                 // 放在 hasClone / 分身分支之前，保证微信这类装了分身的应用也能命中。
-                if (miniWindow && miniReuseEnabled()) {
+                if (effectiveMini && miniReuseEnabled()) {
                     when (tryReuseTaskInMiniWindow(
                         context = context,
                         packageName = packageName,
@@ -104,7 +107,7 @@ object Launcher {
                         context = context,
                         packageName = packageName,
                         className = className,
-                        miniWindow = miniWindow,
+                        miniWindow = effectiveMini,
                         miniWindowSettings = miniWindowSettings,
                         intentAction = intentAction,
                         data = data,
@@ -117,13 +120,13 @@ object Launcher {
                 // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
                 if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
                     buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
-                        val options = if (miniWindow) {
+                        val options = if (effectiveMini) {
                             MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
                         } else {
                             null
                         }
                         if (ShizukuManager.startActivityAsUser(intent, 0, options)) {
-                            if (miniWindow) {
+                            if (effectiveMini) {
                                 Log.i(
                                     LOG_TAG,
                                     "miniWindow shizuku launched elapsedMs=${SystemClock.uptimeMillis() - tLaunch} pkg=$packageName",
@@ -143,14 +146,14 @@ object Launcher {
                         }
                         return@withContext openAppDetails(context, packageName)
                     }
-                if (miniWindow) {
+                if (effectiveMini) {
                     MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
                 } else {
                     context.startActivity(intent)
                     true
                 }
             }
-            if (launched && miniWindow) {
+            if (launched && effectiveMini) {
                 scheduleScaleLearn(context, packageName)
                 // 「小窗打开应用」不动已有小窗；「小窗当前应用」才按互换开关把
                 // 其他既有小窗恢复全屏（单前台小窗）。切换/toggle 路径已自行处理
@@ -1302,9 +1305,15 @@ private object MiniWindow {
             )
             true
         } catch (e: Exception) {
-            Log.e(LOG_TAG, "startActivity in mini window failed", e)
-            showToast(context.getString(R.string.launch_mini_window_failed))
-            false
+            // 小窗启动失败：自动回退普通全屏启动，不弹失败 toast。
+            Log.w(LOG_TAG, "miniWindow startActivity failed, fallback normal", e)
+            try {
+                context.startActivity(intent)
+                true
+            } catch (e2: Exception) {
+                Log.e(LOG_TAG, "normal fallback launch failed", e2)
+                false
+            }
         }
     }
 }

@@ -39,7 +39,8 @@ val PageGutter = 16.dp
 val ListSpacing = 16.dp
 val ListItemVerticalPadding = 12.dp
 val CardInnerSpacing = 8.dp
-val SliderInnerPadding = 12.dp
+// 滑杆行内容横向内边距：与普通设置行（RowInnerPadding=16dp）对齐，行内容位置一致。
+val SliderInnerPadding = 16.dp
 /** 滑杆 thumb 宽度：与 M3 Slider 默认 handle 同宽，拖动映射按轨道净宽（总宽 − thumb）换算。 */
 val SliderThumbWidth = 20.dp
 val ContentBottom = 24.dp

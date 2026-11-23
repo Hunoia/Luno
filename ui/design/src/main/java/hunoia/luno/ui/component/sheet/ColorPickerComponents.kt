@@ -10,18 +10,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,14 +39,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
 import hunoia.luno.ui.component.input.horizontalSliderDrag
+import hunoia.luno.ui.component.row.RowInnerPadding
 import hunoia.luno.ui.theme.CanvasStrokeWidth
 import hunoia.luno.ui.theme.CanvasThumbRadius
 import hunoia.luno.ui.theme.LargeShape
@@ -47,6 +57,7 @@ import hunoia.luno.ui.theme.HueBarTouchHeight
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -161,19 +172,38 @@ internal fun ColorSlider(
 ) {
     val density = LocalDensity.current
     val tile = with(density) { 8.dp.toPx() }
-    val thumbSize = CanvasThumbRadius * 2
+    // 圆点直径对齐轨道高：同一根滑杆，圆点比轨道小一截时视觉上不一致。
+    val thumbSize = HueBarTouchHeight
+    val thumbSizePx = with(density) { thumbSize.toPx() }
     val interactionSource = remember { MutableInteractionSource() }
-    val latestValue by rememberUpdatedState(value)
     // M3 1.5.0 起，自定义 thumb/track 的 Slider 只接 SliderState（不再从参数透传值）。
-    // 外部改值（吸管取色、十六进制输入）在组合结束后同步回 state，避免拇指停在旧位置。
+    // 外部改值（吸管取色、十六进制输入）同步回 state，避免拇指停在旧位置；
+    // 拖动态加守卫跳过 —— 外部 value 可能松手才落盘，无守卫时每次重组把 state 拉回旧值，
+    // 圆点跟不动。
     val sliderState = rememberSliderState(value = value, trackRange = 0f..1f)
-    SideEffect {
-        if (sliderState.value != value) sliderState.value = value
+    var isDragging by remember { mutableStateOf(false) }
+    // 圆点由本层自己摆位（见下），用轨道实测宽度换算两端偏移。
+    var trackWidthPx by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(value) {
+        if (!isDragging) sliderState.value = value
+    }
+
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> isDragging = true
+                is DragInteraction.Stop -> isDragging = false
+                is PressInteraction.Release, is PressInteraction.Cancel -> isDragging = false
+            }
+        }
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .padding(horizontal = RowInnerPadding)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -193,7 +223,8 @@ internal fun ColorSlider(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(HueBarTouchHeight)
-                .clip(LargeShape),
+                .clip(LargeShape)
+                .onSizeChanged { trackWidthPx = it.width },
             contentAlignment = Alignment.Center,
         ) {
             if (checker) {
@@ -215,26 +246,35 @@ internal fun ColorSlider(
                 onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth(),
                 interactionSource = interactionSource,
-                // 轨道由底下两层画（渐变 + 棋盘），M3 自绘轨会盖掉它们，所以不画。
-                track = {},
-                // 白实心 + 深色细环：alpha 再低、底色再浅也不隐形。
-                thumb = {
-                    Box(
-                        modifier = Modifier
-                            .size(thumbSize)
-                            .drawWithCache {
-                                onDrawBehind {
-                                    val stroke = CanvasStrokeWidth.toPx()
-                                    drawCircle(Color.White, radius = size.minDimension / 2f)
-                                    drawCircle(
-                                        Color.Black.copy(alpha = 0.3f),
-                                        radius = size.minDimension / 2f - stroke / 2,
-                                        style = Stroke(stroke),
-                                    )
-                                }
-                            },
-                    )
-                },
+                // 轨道不画（渐变 + 棋盘由底下两层画），但必须占满宽度：M3 用轨道实测宽度算拇指
+                // 行程，空轨道会测成 0 宽、圆点钉死不动。
+                track = { Box(Modifier.fillMaxWidth()) },
+                // M3 拇指摆位按内部固定 20dp 拇指宽换算，内容给多大都有约 6dp 两端偏移，
+                // 所以不画它，圆点由本层自己摆。
+                thumb = { Box(Modifier.size(thumbSize)) },
+            )
+            // 圆点自己摆位：x = 比例 ×（轨道宽 − 圆点宽），0% 贴左端、100% 贴右端。
+            // align(CenterStart) 让圆点从轨道左端起算，offset 才是绝对行程（否则先居中再偏移）。
+            Box(
+                modifier = Modifier
+                    .size(thumbSize)
+                    .align(Alignment.CenterStart)
+                    .offset {
+                        val frac = sliderState.value.coerceIn(0f, 1f)
+                        IntOffset(((trackWidthPx - thumbSizePx) * frac).roundToInt(), 0)
+                    }
+                    // 白实心 + 深色细环：alpha 再低、底色再浅也不隐形。
+                    .drawWithCache {
+                        onDrawBehind {
+                            val stroke = CanvasStrokeWidth.toPx()
+                            drawCircle(Color.White, radius = size.minDimension / 2f)
+                            drawCircle(
+                                Color.Black.copy(alpha = 0.3f),
+                                radius = size.minDimension / 2f - stroke / 2,
+                                style = Stroke(stroke),
+                            )
+                        }
+                    },
             )
             // 与 LunoSlider 同一手势：只认横向拖动、点按不跳值、纵向让给父级滚动。
             Box(
@@ -243,9 +283,10 @@ internal fun ColorSlider(
                     .horizontalSliderDrag(
                         valueRange = 0f..1f,
                         steps = 0,
-                        currentValue = { latestValue },
+                        currentValue = { sliderState.value },
                         interactionSource = interactionSource,
-                        // 外部受控值可能松手才落盘：先写 state，拇指才跟手；外部回写由 SideEffect 对齐。
+                        // 外部受控值可能松手才落盘：先写 state，拇指才跟手；外部回写由上面
+                        // 带 isDragging 守卫的 LaunchedEffect 对齐。
                         onValueChange = { v ->
                             sliderState.value = v
                             onValueChange(v)

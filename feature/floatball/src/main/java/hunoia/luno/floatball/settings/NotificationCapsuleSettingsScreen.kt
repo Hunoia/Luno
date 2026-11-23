@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +33,6 @@ import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.CapsuleGestureBehavior
-import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.NotificationAlertEffect
@@ -284,9 +282,9 @@ fun NotificationCapsuleSettingsScreen(
 
         item(key = "icon") {
             val hasIcon = capsule.customIcon.path != null
-            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 2–3 行），段形随之。
+            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 1 行），段形随之。
             val iconRows = if (hasIcon) 2 else 1
-            val colorRows = capsuleColorRowCount(capsule.ballColor, capsule.backgroundColor)
+            val colorRows = capsuleColorRowCount()
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 BallCustomIconRows(
                     context = context,
@@ -310,20 +308,6 @@ fun NotificationCapsuleSettingsScreen(
                     rowCount = iconRows + colorRows,
                     onBallClick = { showBallColorPicker = true },
                     onBackgroundClick = { showBackgroundColorPicker = true },
-                    onBallReset = {
-                        update {
-                            it.copy(notificationCapsule = it.notificationCapsule.copy(ballColor = ColorSpec.Unset))
-                        }
-                    },
-                    onBackgroundReset = {
-                        update {
-                            it.copy(
-                                notificationCapsule = it.notificationCapsule.copy(
-                                    backgroundColor = ColorSpec.Unset,
-                                ),
-                            )
-                        }
-                    },
                 )
             }
         }
@@ -623,16 +607,14 @@ fun NotificationCapsuleSettingsScreen(
                         )
                     }
                 }
-                // 行数动态：开关 1 +（开启时：效果 1 + 所选效果旋钮行 + 动效色行 + 重置 + 试播 1）。
+                // 行数动态：开关 1 +（开启时：效果 1 + 所选效果旋钮行 + 动效色行 + 试播 1）。
                 // 旋钮行含所选效果的滑杆与开关（开关也是行），流光第二颜色行随双色模式出现。
-                val colorRows = 1 + if (alert.color.isUnset) 0 else 1
+                val colorRows = 1
                 val knobRows = when (alert.effect) {
                     NotificationAlertEffect.EdgeGlow -> 6
                     NotificationAlertEffect.EdgeFlow ->
                         6 + if (alert.edgeFlow.dualBand) {
-                            1 + if (alert.edgeFlow.dualColor) {
-                                1 + if (alert.edgeFlow.secondColor.isUnset) 0 else 1
-                            } else 0
+                            1 + if (alert.edgeFlow.dualColor) 1 else 0
                         } else 0
                     NotificationAlertEffect.TopParticles -> 8
                     NotificationAlertEffect.CapsulePulse -> 5
@@ -805,18 +787,6 @@ fun NotificationCapsuleSettingsScreen(
                                         },
                                         onClick = { showAlertSecondColorPicker = true },
                                     )
-                                    if (!alert.edgeFlow.secondColor.isUnset) {
-                                        LunoSettingsRow(
-                                            title = stringResource(R.string.float_ball_capsule_color_reset),
-                                            icon = Icons.Default.Refresh,
-                                            shape = segmentedShape(row++, alertRows),
-                                            onClick = {
-                                                updateAlert {
-                                                    it.copy(edgeFlow = it.edgeFlow.copy(secondColor = ColorSpec.Unset))
-                                                }
-                                            },
-                                        )
-                                    }
                                 }
                                 AlertKnobSlider(
                                     label = stringResource(R.string.float_ball_capsule_alert_brightness),
@@ -1148,7 +1118,7 @@ fun NotificationCapsuleSettingsScreen(
                                 )
                             }
                         }
-                        // 动效独立颜色：默认主色（与胶囊 / 悬浮球解耦），已自定义时给重置行。
+                        // 动效独立颜色：默认主色（与胶囊 / 悬浮球解耦）。
                         LunoSettingsRow(
                             title = stringResource(R.string.float_ball_capsule_alert_color),
                             icon = Icons.Default.Palette,
@@ -1176,14 +1146,6 @@ fun NotificationCapsuleSettingsScreen(
                             },
                             onClick = { showAlertColorPicker = true },
                         )
-                        if (!alert.color.isUnset) {
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_capsule_color_reset),
-                                icon = Icons.Default.Refresh,
-                                shape = segmentedShape(row++, alertRows),
-                                onClick = { updateAlert { it.copy(color = ColorSpec.Unset) } },
-                            )
-                        }
                         // 试播：按当前配置立即播一次，不等真通知（用户显式点击即授权）。
                         LunoSettingsRow(
                             title = stringResource(R.string.float_ball_capsule_alert_preview),

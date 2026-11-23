@@ -27,7 +27,6 @@
     <string name="action_library_entry_not_found">Library entry not found; it may have been deleted</string>
     <string name="action_library_icon_custom">Text or emoji</string>
     <string name="action_library_icon_default">Default</string>
-    <string name="action_library_icon_use">Use</string>
     <string name="action_library_invalid_hint">Draft is invalid; complete the parameters first</string>
     <string name="action_library_reference_count">References %1$d</string>
     <string name="action_library_test">Test</string>

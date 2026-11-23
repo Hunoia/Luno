@@ -90,7 +90,6 @@
     <string name="float_ball_capsule_background_color">胶囊背景色</string>
     <string name="float_ball_capsule_color_default">默认主色</string>
     <string name="float_ball_capsule_color_custom">自定义</string>
-    <string name="float_ball_capsule_color_reset">重置为默认主色</string>
 
     <string name="float_ball_result_group">结果胶囊</string>
     <string name="float_ball_result_follow_hand">结果球跟手换边</string>

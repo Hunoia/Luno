@@ -27,7 +27,6 @@
     <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
     <string name="action_library_icon_custom">文字或表情</string>
     <string name="action_library_icon_default">默认</string>
-    <string name="action_library_icon_use">使用</string>
     <string name="action_library_invalid_hint">草稿无效，先补全参数</string>
     <string name="action_library_reference_count">引用 %1$d</string>
     <string name="action_library_test">测试</string>

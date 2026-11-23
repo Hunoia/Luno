@@ -171,6 +171,7 @@ fun TextInputDialog(
     isError: Boolean = false,
     supportingText: String = "",
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+    content: (@Composable () -> Unit)? = null,
 ) {
     // 按 initialValue 复位：同一调用点切换目标（换引擎/换重命名对象）时不能残留上次的输入。
     // 光标放末尾（编辑预填后直接续写，而不是从最前插入）。
@@ -204,11 +205,16 @@ fun TextInputDialog(
         // 自动聚焦：窗口获得焦点时由 SOFT_INPUT_STATE_ALWAYS_VISIBLE 拉起键盘，与卡片进场同时。
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        if (title.isNotEmpty()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (content != null) {
+            content()
+        }
         TextField(
             value = textValue,
             onValueChange = { textValue = it },

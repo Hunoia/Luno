@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -271,7 +270,6 @@ fun TodoEditDialog(
     if (inlineHost) {
         AnchoredDialogContent(
             onDismiss = onDismiss,
-            contentPadding = PaddingValues(PageGutter),
             cardModifier = cardModifier,
             startOnIme = true,
             content = content,
@@ -281,7 +279,6 @@ fun TodoEditDialog(
             onDismiss = onDismiss,
             // 进场就让窗口自己拉起键盘：和卡片上滑同一段动画（见 AnchoredDialog 的 imeAutoShow）。
             imeAutoShow = true,
-            contentPadding = PaddingValues(PageGutter),
             cardModifier = cardModifier,
             content = content,
         )

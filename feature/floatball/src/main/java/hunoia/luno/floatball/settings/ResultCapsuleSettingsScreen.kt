@@ -22,7 +22,6 @@ import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.CapsuleGestureBehavior
-import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
@@ -372,9 +371,9 @@ fun ResultCapsuleSettingsScreen(
 
         item(key = "icon") {
             val hasIcon = capsule.customIcon.path != null
-            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 2–3 行），段形随之。
+            // 外观组行数 = 图标行（1–2）+ 颜色行（球色 / 背景色各 1 行），段形随之。
             val iconRows = if (hasIcon) 2 else 1
-            val colorRows = capsuleColorRowCount(capsule.ballColor, capsule.backgroundColor)
+            val colorRows = capsuleColorRowCount()
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 BallCustomIconRows(
                     context = context,
@@ -396,20 +395,6 @@ fun ResultCapsuleSettingsScreen(
                     rowCount = iconRows + colorRows,
                     onBallClick = { showBallColorPicker = true },
                     onBackgroundClick = { showBackgroundColorPicker = true },
-                    onBallReset = {
-                        update {
-                            it.copy(resultCapsule = it.resultCapsule.copy(ballColor = ColorSpec.Unset))
-                        }
-                    },
-                    onBackgroundReset = {
-                        update {
-                            it.copy(
-                                resultCapsule = it.resultCapsule.copy(
-                                    backgroundColor = ColorSpec.Unset,
-                                ),
-                            )
-                        }
-                    },
                 )
             }
         }
