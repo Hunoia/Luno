@@ -121,7 +121,6 @@
     <string name="button_visibility_target_notification_capsule">Notification bubble</string>
     <string name="button_visibility_target_only">Selected only</string>
     <string name="button_visibility_visible">Show gesture buttons</string>
-    <string name="button_visibility_visible_desc">Hides gesture buttons when off</string>
     <string name="delete_gesture_button_warning">Delete gesture button</string>
     <string name="delete_gesture_button_warning_desc">Will delete the gesture button. Continue?</string>
     <string name="delete_sub_gesture_warning">Delete sub-gesture?</string>
