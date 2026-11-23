@@ -54,7 +54,7 @@ object AppListRepository {
     private val staleMarker: () -> Unit = { stale = true }
 
     /** 上一次看到的系统包开关；首次 emission 只同步缓存，不重复触发整表重扫。 */
-    private var lastShowSystemApps: Boolean? = null
+    private var lastSystemVisibility: SystemAppsVisibility? = null
 
     private val onPackageChanged: () -> Unit = { reload() }
 
@@ -74,10 +74,10 @@ object AppListRepository {
                 // 系统应用开关是清单的一部分：真正变化时才重扫；首次 emission 只同步缓存，
                 // 否则每次打开面板都会因为「重新订阅」白扫一遍系统包。
                 systemAppsJob = scope.launch {
-                    SearchCenter.showSystemApps.collect { enabled ->
-                        val changed = lastShowSystemApps != null && lastShowSystemApps != enabled
-                        lastShowSystemApps = enabled
-                        AppCatalog.setShowSystemApps(enabled)
+                    SearchCenter.showSystemApps.collect { visibility ->
+                        val changed = lastSystemVisibility != null && lastSystemVisibility != visibility
+                        lastSystemVisibility = visibility
+                        AppCatalog.setSystemAppsVisibility(visibility)
                         if (changed) {
                             stale = true
                             reload()
@@ -142,7 +142,7 @@ object AppListRepository {
                     AppCatalog.query(
                         AppContext.get(),
                         includeDisabled = true,
-                        includeSystem = AppCatalog.showSystemApps(),
+                        systemVisibility = AppCatalog.systemAppsVisibility(),
                     )
                 }.getOrNull()
                 if (fresh != null) {

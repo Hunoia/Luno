@@ -73,13 +73,23 @@ fun ButtonVisibilityScreen(
             LunoGroup(title = stringResource(R.string.button_visibility_system_group)) {
                 LunoSwitchRow(
                     icon = Icons.Default.Android,
-                    title = stringResource(R.string.apps_show_system),
-                    subtitle = stringResource(R.string.apps_show_system_hint),
-                    checked = actionSettings.showSystemAppsInAppList,
+                    title = stringResource(R.string.apps_show_uiless),
+                    subtitle = stringResource(R.string.apps_show_uiless_hint),
+                    checked = actionSettings.showUILessSystemComponents,
                     onCheckedChange = { enabled ->
-                        scope.launch { TuneConfig.updateAction { it.copy(showSystemAppsInAppList = enabled) } }
+                        scope.launch { TuneConfig.updateAction { it.copy(showUILessSystemComponents = enabled) } }
                     },
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
+                )
+                LunoSwitchRow(
+                    icon = Icons.Default.Android,
+                    title = stringResource(R.string.apps_show_noentry),
+                    subtitle = stringResource(R.string.apps_show_noentry_hint),
+                    checked = actionSettings.showNoEntrySystemApps,
+                    onCheckedChange = { enabled ->
+                        scope.launch { TuneConfig.updateAction { it.copy(showNoEntrySystemApps = enabled) } }
+                    },
+                    shape = segmentedShape(1, 3),
                 )
                 LunoSwitchRow(
                     icon = Icons.Default.VisibilityOff,
@@ -89,7 +99,7 @@ fun ButtonVisibilityScreen(
                     onCheckedChange = { hidden ->
                         scope.launch { TuneConfig.updateAdvanced { it.copy(hideLunoFromRecents = hidden) } }
                     },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

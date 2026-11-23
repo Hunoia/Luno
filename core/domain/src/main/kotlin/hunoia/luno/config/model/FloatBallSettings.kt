@@ -256,7 +256,7 @@ data class NotificationCapsuleSettings(
      */
     val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
     /** 收起态行高设置（dp）：胶囊自己的大小，48–72；读请走 [capsuleRowHeightDp]。 */
-    val rowHeightDp: Int = 56,
+    val rowHeightDp: Int = FloatBallDefaults.CapsuleRowHeightDp,
     /** 用户滑掉后，同 key 的通知在 [dismissSuppressMs] 内再次更新也不再弹。 */
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
@@ -275,7 +275,10 @@ data class NotificationCapsuleSettings(
 
     /** 生效行高（dp）：夹在 48–72。 */
     val capsuleRowHeightDp: Int
-        get() = rowHeightDp.coerceIn(48, 72)
+        get() = rowHeightDp.coerceIn(
+            FloatBallDefaults.CapsuleRowHeightDpMin,
+            FloatBallDefaults.CapsuleRowHeightDpMax,
+        )
 
     /** 通知球长按行为：仅允许 无 / 清空队列，其余归 无。 */
     val ballLongPressBehavior: CapsuleGestureBehavior
@@ -489,7 +492,7 @@ data class ResultCapsuleSettings(
      */
     val visibleRows: Int = FloatBallDefaults.CapsuleVisibleRows,
     /** 收起态行高设置（dp）：胶囊自己的大小，48–72；读请走 [capsuleRowHeightDp]。 */
-    val rowHeightDp: Int = 56,
+    val rowHeightDp: Int = FloatBallDefaults.CapsuleRowHeightDp,
     /** 存储原值，读请走 [ballLongPressBehavior]。 */
     val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
     /** 存储原值，读请走 [rowLongPressBehavior]。 */
@@ -508,7 +511,10 @@ data class ResultCapsuleSettings(
 
     /** 生效行高（dp）：夹在 48–72。 */
     val capsuleRowHeightDp: Int
-        get() = rowHeightDp.coerceIn(48, 72)
+        get() = rowHeightDp.coerceIn(
+            FloatBallDefaults.CapsuleRowHeightDpMin,
+            FloatBallDefaults.CapsuleRowHeightDpMax,
+        )
 
     /** 结果球长按行为：仅允许 无 / 清空队列，其余归 无。 */
     val ballLongPressBehavior: CapsuleGestureBehavior
@@ -718,6 +724,11 @@ object FloatBallDefaults {
     const val CapsuleVisibleRows = 3
     const val CapsuleVisibleRowsMin = 1
     const val CapsuleVisibleRowsMax = 5
+
+    /** 内容胶囊（通知 / 结果）收起态行高默认值与滑杆上下限（dp）。下限与 §4.6 命中区硬下限同源。 */
+    const val CapsuleRowHeightDp = 56
+    const val CapsuleRowHeightDpMin = 48
+    const val CapsuleRowHeightDpMax = 72
 
     /** 剪贴板球：自动收起时长默认值与滑杆上下限（ms）。 */
     const val ClipboardBallAutoHideMs = 5_000L

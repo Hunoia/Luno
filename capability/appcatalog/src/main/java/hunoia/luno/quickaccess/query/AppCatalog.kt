@@ -12,6 +12,17 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
+ * 应用清单里「无桌面入口的系统包」的两类显示开关，各自独立、默认都关。
+ *
+ * - [showUILess]：无界面系统组件（0 个 Activity，纯 Service/Provider/Receiver），没有可打开界面；
+ * - [showNoEntry]：有界面无入口系统应用（≥1 个 Activity，但没有桌面入口），点开走 [Launcher] 兜底。
+ */
+data class SystemAppsVisibility(
+    val showUILess: Boolean = false,
+    val showNoEntry: Boolean = false,
+)
+
+/**
  * 统一应用清单：主用户桌面应用 + 分身 + 禁用应用（+ 可选的无桌面入口系统包）。
  *
  * 所有消费方（快速启动器 / 抽屉 / 搜索 / 选择弹层 / 动作选择页 / 黑名单）都从这里取，
@@ -20,14 +31,14 @@ import kotlinx.coroutines.withContext
  */
 object AppCatalog {
 
-    /** 无桌面入口的系统包开关；UI 改动后 [refreshSystemSetting] / [setShowSystemApps] 同步。 */
+    /** 无桌面入口系统包的两类开关；UI 改动后 [refreshSystemSetting] / [setSystemAppsVisibility] 同步。 */
     @Volatile
-    private var showSystemAppsCache: Boolean? = null
+    private var systemVisibilityCache: SystemAppsVisibility? = null
 
     fun query(
         context: Context,
         includeDisabled: Boolean = true,
-        includeSystem: Boolean = showSystemApps(),
+        systemVisibility: SystemAppsVisibility = systemAppsVisibility(),
     ): QuickAppLauncherAppList {
         // 清单**包含 Luno 自己**：搜索 / 抽屉 / 选择弹层都要能搜到本应用，
         // 这里一旦排除，用户就永远搜不到 Luno。
@@ -42,11 +53,12 @@ object AppCatalog {
             emptyList()
         }
         // 禁用包已经以「禁用应用」行出现，系统包集合里要排除，避免同一身份重复出行。
-        val systems = if (includeSystem) {
-            querySystemApps(context, normalPkgs + disabled.map { it.packageName })
-        } else {
-            emptyList()
-        }
+        // 有桌面入口的系统包已在 mainApps；这里只补「无入口」的两类，由 systemVisibility 决定。
+        val systems = querySystemApps(
+            context,
+            normalPkgs + disabled.map { it.packageName },
+            systemVisibility,
+        )
 
         val apps = groupClonesAfterPrimary(mainApps + clones) +
             disabled.filter { app -> (mainApps + clones).none { it.packageName == app.packageName && it.userId == 0 } } +
@@ -85,8 +97,15 @@ object AppCatalog {
         return result.distinctBy { it.packageName to it.userId }
     }
 
-    /** 没有桌面入口的系统包：仅用于启动/查看详情，不参与桌面列表常规排序。 */
-    fun querySystemApps(context: Context, excludePkgs: Set<String> = emptySet()): List<AppInfo> {
+    /**
+     * 没有桌面入口的系统包：仅用于启动/查看详情，不参与桌面列表常规排序。
+     * 分两类（[visibility] 独立控制）：有界面无入口（≥1 个 Activity）/ 无界面系统组件（0 个 Activity）。
+     */
+    fun querySystemApps(
+        context: Context,
+        excludePkgs: Set<String> = emptySet(),
+        visibility: SystemAppsVisibility = SystemAppsVisibility(),
+    ): List<AppInfo> {
         val pm = context.packageManager
         val installed = runCatching {
             pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
@@ -101,6 +120,18 @@ object AppCatalog {
             if (!isSystem) continue
             // 有桌面入口的已经在主清单里；这里只补「无入口」的包。
             if (runCatching { pm.getLaunchIntentForPackage(pkg) }.getOrNull() != null) continue
+            // 有界面（≥1 Activity）与无界面（0 Activity）两类，由各自开关决定是否显示。
+            val hasActivity = runCatching {
+                pm.getPackageInfo(
+                    pkg,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong()),
+                ).activities?.isNotEmpty() == true
+            }.getOrDefault(false)
+            if (hasActivity) {
+                if (!visibility.showNoEntry) continue
+            } else {
+                if (!visibility.showUILess) continue
+            }
             val label = runCatching { app.loadLabel(pm).toString() }.getOrDefault(pkg)
             result.add(AppInfo(packageName = pkg, className = "", label = label))
         }
@@ -130,25 +161,29 @@ object AppCatalog {
         return result
     }
 
-    fun showSystemApps(): Boolean {
-        showSystemAppsCache?.let { return it }
+    fun systemAppsVisibility(): SystemAppsVisibility {
+        systemVisibilityCache?.let { return it }
         // 同步调用方都在后台线程（查询本身就要扫包）；首次读配置的 IO 远小于扫包成本。
         val value = runBlocking(Dispatchers.IO) {
-            runCatching { ConfigProvider.getActionSettings().showSystemAppsInAppList }
-                .getOrDefault(false)
+            runCatching {
+                val s = ConfigProvider.getActionSettings()
+                SystemAppsVisibility(s.showUILessSystemComponents, s.showNoEntrySystemApps)
+            }.getOrDefault(SystemAppsVisibility())
         }
-        showSystemAppsCache = value
+        systemVisibilityCache = value
         return value
     }
 
-    fun setShowSystemApps(value: Boolean) {
-        showSystemAppsCache = value
+    fun setSystemAppsVisibility(value: SystemAppsVisibility) {
+        systemVisibilityCache = value
     }
 
     suspend fun refreshSystemSetting() {
-        showSystemAppsCache = withContext(Dispatchers.IO) {
-            runCatching { ConfigProvider.getActionSettings().showSystemAppsInAppList }
-                .getOrDefault(false)
+        systemVisibilityCache = withContext(Dispatchers.IO) {
+            runCatching {
+                val s = ConfigProvider.getActionSettings()
+                SystemAppsVisibility(s.showUILessSystemComponents, s.showNoEntrySystemApps)
+            }.getOrDefault(SystemAppsVisibility())
         }
     }
 }

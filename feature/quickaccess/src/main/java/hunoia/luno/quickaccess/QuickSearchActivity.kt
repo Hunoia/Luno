@@ -152,8 +152,8 @@ class QuickSearchActivity : ComponentActivity() {
         }
         // 系统应用开关变化时重扫索引（搜索面板可能在服务进程里长时间存在）。
         lifecycleScope.launch(Dispatchers.IO) {
-            hunoia.luno.domain.search.SearchCenter.showSystemApps.collect { enabled ->
-                hunoia.luno.quickaccess.query.AppCatalog.setShowSystemApps(enabled)
+            hunoia.luno.domain.search.SearchCenter.showSystemApps.collect { visibility ->
+                hunoia.luno.quickaccess.query.AppCatalog.setSystemAppsVisibility(visibility)
                 index.invalidateApps()
             }
         }

@@ -1,6 +1,13 @@
 package hunoia.luno.ui.settings.action
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +68,7 @@ import hunoia.luno.core.domain.RecentApp
 import hunoia.luno.quickaccess.model.getIcon
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.query.AppDrawerSections
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import hunoia.luno.ui.component.IndexBar
 import hunoia.luno.ui.component.IndexBarEntry
 import hunoia.luno.ui.component.IndexBarOrientation
@@ -68,6 +77,7 @@ import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -81,12 +91,15 @@ import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.MotionSwapIn
+import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.glassCapsuleBackground
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -120,6 +133,9 @@ fun RecentAppsBlocklistScreen(
     var searchExpanded by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
+    // 页内内存开关：默认关、不记忆；两类（无界面组件 / 有界面无入口）各自独立，展开重查。
+    var systemVisibility by remember { mutableStateOf(SystemAppsVisibility()) }
+    val scope = rememberCoroutineScope()
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
         if (granted) {
             // 刚授权：清掉进程级缓存里的空表，再触发重读。
@@ -131,7 +147,10 @@ fun RecentAppsBlocklistScreen(
     suspend fun loadApps() {
         loading = true
         apps = withContext(Dispatchers.IO) {
-            QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
+            QuickLaunchFacade.queryAppsIncludingDisabled(
+                AppContext.get(),
+                systemVisibility = systemVisibility,
+            )
         }
         loading = false
     }
@@ -171,6 +190,18 @@ fun RecentAppsBlocklistScreen(
         onBack = onBack,
         actions = {
             if (permissionState.isGranted) {
+                SystemAppsMenuButton(
+                    showUILess = systemVisibility.showUILess,
+                    showNoEntry = systemVisibility.showNoEntry,
+                    onShowUILessChange = { enabled ->
+                        systemVisibility = systemVisibility.copy(showUILess = enabled)
+                        scope.launch { loadApps() }
+                    },
+                    onShowNoEntryChange = { enabled ->
+                        systemVisibility = systemVisibility.copy(showNoEntry = enabled)
+                        scope.launch { loadApps() }
+                    },
+                )
                 LunoIconButton(
                     icon = Icons.Default.RestartAlt,
                     contentDescription = stringResource(hunoia.luno.design.R.string.reset),
@@ -437,18 +468,40 @@ private fun BlocklistToolbarContent(
     // 系统返回先收搜索框，否则输入到一半直接退页。
     BackHandler(enabled = searchExpanded) { closeSearch() }
 
-    if (searchExpanded) {
-        ToolbarSearchContent(
-            query = query,
-            onQueryChange = onQueryChange,
-            focusRequester = focusRequester,
-            onClose = { closeSearch() },
-        )
-    } else {
-        ToolbarNormalContent(
-            onSave = onSave,
-            onToggleSearch = onToggleSearch,
-        )
+    // 常态 ↔ 搜索展开/收起：slide(±width/8)+fade，与动作选择页（ActionSelectBottomBar）
+    // 同款。搜索内容在框内自带收起 ×（无尾槽），展开全宽、收起回右侧动作。
+    // 高度填满、宽度**按内容**（不能 fillMaxWidth/fillMaxSize：本函数是底栏 Row 里的
+    // 非 weight 子项，会被先于 IndexBar(weight 1f) 测量，fillMaxWidth 会吃满整行、
+    // 把拼音滑杆挤到 0 宽消失）。
+    AnimatedContent(
+        targetState = searchExpanded,
+        modifier = Modifier.fillMaxHeight(),
+        transitionSpec = {
+            val enter = fadeIn(tween(MotionSwapIn)) +
+                slideInHorizontally(tween(MotionSwapIn)) { full ->
+                    if (targetState) full / 8 else -full / 8
+                }
+            val exit = fadeOut(tween(MotionSwapOut)) +
+                slideOutHorizontally(tween(MotionSwapOut)) { full ->
+                    if (targetState) -full / 8 else full / 8
+                }
+            enter togetherWith exit
+        },
+        label = "blocklistToolbarMode",
+    ) { searching ->
+        if (searching) {
+            ToolbarSearchContent(
+                query = query,
+                onQueryChange = onQueryChange,
+                focusRequester = focusRequester,
+                onClose = { closeSearch() },
+            )
+        } else {
+            ToolbarNormalContent(
+                onSave = onSave,
+                onToggleSearch = onToggleSearch,
+            )
+        }
     }
 }
 

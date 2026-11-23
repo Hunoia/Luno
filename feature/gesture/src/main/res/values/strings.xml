@@ -5,8 +5,10 @@
     <string name="gesture_global_trigger_takeover_hint">触发后取消原应用的手势并拦住后续触摸</string>
     <string name="long_press">长按</string>
     <string name="tap">单击</string>
-    <string name="apps_show_system">显示系统应用</string>
-    <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
+    <string name="apps_show_uiless">显示无界面系统组件</string>
+    <string name="apps_show_uiless_hint">在应用列表中加入没有界面的系统组件（纯服务/提供者/接收器）</string>
+    <string name="apps_show_noentry">显示有界面无入口系统应用</string>
+    <string name="apps_show_noentry_hint">在应用列表中加入没有桌面入口但有界面的系统应用</string>
     <string name="hide_luno_from_recents">隐藏 Luno 后台</string>
     <string name="hide_luno_from_recents_hint">只隐藏主页面，图片标注等页面仍保留在最近任务</string>
     <string name="screen_pick_copy_image">复制</string>

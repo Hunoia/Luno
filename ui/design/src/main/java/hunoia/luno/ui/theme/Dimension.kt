@@ -31,6 +31,8 @@ val TopBarPaddingExtra = 8.dp
 val TopBarTitlePadding = 12.dp
 /** 波浪进度条高度：小于此值波幅没有空间，只适合平条。 */
 val ProgressBarHeight = 12.dp
+/** 页面加载态圆环直径：`LoadingState` 用。按用户要求提到 60dp。 */
+val LoadingIndicatorSize = 60.dp
 
 // Layout spacing
 val PageGutter = 16.dp

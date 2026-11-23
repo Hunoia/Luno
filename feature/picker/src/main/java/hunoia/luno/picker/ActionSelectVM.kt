@@ -13,6 +13,7 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.model.qualifiedName
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import hunoia.luno.picker.SaveOutcome
 import hunoia.luno.picker.updateActionParamsTransform
 import kotlinx.coroutines.flow.collectLatest
@@ -232,13 +233,20 @@ class ActionSelectVM(
         }
     }
 
-    fun updateAppInfos() {
+    fun updateAppInfos(visibility: SystemAppsVisibility = SystemAppsVisibility()) {
         viewModelScope.launchWithLoading {
             updateAppInfosBody(
                 getUiState = { uiState },
-                updateUiState = { transform -> updateUiState(transform) }
+                updateUiState = { transform -> updateUiState(transform) },
+                visibility = visibility,
             )
         }
+    }
+
+    /** 应用tab「系统应用两类开关」页内内存开关：更新本地态并重查，不落盘（默认关、不记忆）。 */
+    fun setSystemVisibility(visibility: SystemAppsVisibility) {
+        updateUiState { it.copy(systemVisibility = visibility) }
+        updateAppInfos(visibility)
     }
 
     private fun assembleData() {

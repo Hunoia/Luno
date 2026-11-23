@@ -26,22 +26,42 @@ import hunoia.luno.design.R
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionSubtle
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 
 @Composable
-fun SheetGroupHeader(@StringRes titleRes: Int) {
-    SheetGroupHeader(stringResource(titleRes))
+fun SheetGroupHeader(
+    @StringRes titleRes: Int,
+    trailing: @Composable () -> Unit = {},
+) {
+    SheetGroupHeader(stringResource(titleRes), trailing)
 }
 
 @Composable
-fun SheetGroupHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = ListSpacing, bottom = SegmentedGap),
-    )
+fun SheetGroupHeader(
+    title: String,
+    trailing: @Composable () -> Unit = {},
+) {
+    Row(
+        modifier = Modifier
+            .padding(
+                start = PageGutter,
+                end = PageGutter,
+                top = ListSpacing,
+                bottom = SegmentedGap,
+            )
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        trailing()
+    }
 }
 
 /**

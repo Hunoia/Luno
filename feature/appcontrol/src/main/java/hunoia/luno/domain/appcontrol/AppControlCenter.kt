@@ -14,10 +14,6 @@ object AppControlCenter {
 
     val settings: Flow<AppControlSettings> = ConfigProvider.appControlSettings
 
-    suspend fun setShowSystemApps(enabled: Boolean) {
-        ConfigProvider.updateActionSettings { it.copy(showSystemAppsInAppList = enabled) }
-    }
-
     /** 选择器确认：用选择结果整体替换名单（选择器已预选现有成员）。 */
     suspend fun setOneKeyList(packageNames: Collection<String>) {
         ConfigProvider.updateAppControlSettings { settings ->

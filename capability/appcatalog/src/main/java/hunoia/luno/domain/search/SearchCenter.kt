@@ -7,6 +7,7 @@ import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.core.domain.ActionLibrarySettings
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -16,9 +17,11 @@ object SearchCenter {
     val launcher: Flow<QuickAppLauncherSettings> = ConfigProvider.quickAppLauncherSettings
     val appUsage: Flow<AppUsageStats> = ConfigProvider.appUsageStats
     val search: Flow<QuickSearchSettings> = ConfigProvider.quickSearchSettings
-    /** 应用清单是否包含「无桌面入口的系统包」；统一清单与选择页共用。 */
-    val showSystemApps: Flow<Boolean> =
-        ConfigProvider.actionSettings.map { it.showSystemAppsInAppList }
+    /** 启动器/搜索面（快速启动面板 / 应用抽屉 / 快速搜索）两类系统包开关；全局开关。 */
+    val showSystemApps: Flow<SystemAppsVisibility> =
+        ConfigProvider.actionSettings.map {
+            SystemAppsVisibility(it.showUILessSystemComponents, it.showNoEntrySystemApps)
+        }
 
     /** 搜索面板展示动作库条目所需的只读投影，避免 quickaccess 直连配置存储。 */
     val actionLibrary: Flow<ActionLibrarySettings> = ConfigProvider.actionLibrarySettings

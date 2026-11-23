@@ -53,4 +53,7 @@
     <string name="surface_side_margin">Side margin</string>
     <string name="surface_top_gap">Top gap</string>
     <string name="surface_bottom_gap">Bottom gap</string>
+    <string name="system_apps_menu_cd">System apps display settings</string>
+    <string name="system_apps_show_uiless">UI-less components</string>
+    <string name="system_apps_show_noentry">No-entry apps</string>
 </resources>

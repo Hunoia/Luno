@@ -2,12 +2,9 @@
 <resources>
     <string name="app_control_title">App freeze</string>
     <string name="app_control_search_hint">Search apps</string>
-    <string name="app_control_show_system">Show system apps</string>
-    <string name="app_control_hide_system">Hide system apps</string>
     <string name="app_control_state_frozen">Frozen</string>
     <string name="app_control_state_suspended">Frozen by system; Luno cannot unfreeze</string>
     <string name="app_control_state_protected">Protected; cannot freeze</string>
-    <string name="app_control_one_key">One-key list</string>
     <string name="app_control_one_key_add">Add to one-key list</string>
     <string name="app_control_one_key_remove">Remove from one-key list</string>
     <string name="app_control_one_key_remove_selected">Remove from list</string>
@@ -26,7 +23,6 @@
     <string name="app_control_failures_title">Last failures</string>
     <string name="app_control_clear_failures">Clear</string>
     <string name="app_control_empty">No matching apps</string>
-    <string name="app_control_frozen_count">Frozen %1$d/%2$d</string>
     <string name="app_control_freeze_failed">Freeze failed</string>
     <string name="app_control_suspended_toast">This app is frozen by the system; Luno cannot unfreeze it</string>
     <string name="app_control_protected_toast">Luno and the current launcher cannot be frozen</string>

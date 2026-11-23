@@ -31,6 +31,7 @@ import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.model.qualifiedName
 import hunoia.luno.quickaccess.model.qualifiedNameWithIntents
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import hunoia.luno.action.model.Action
@@ -691,11 +692,15 @@ internal suspend fun updateShortcutInfosBody(
 
 internal suspend fun updateAppInfosBody(
     getUiState: () -> UiState,
-    updateUiState: ((UiState) -> UiState) -> Unit
+    updateUiState: ((UiState) -> UiState) -> Unit,
+    visibility: SystemAppsVisibility = SystemAppsVisibility(),
 ) {
-    // 统一清单：主用户 + 分身 + 禁用应用 +（按开关）无桌面入口系统包。
+    // 统一清单：主用户 + 分身 + 禁用应用 +（按页内两类开关）无桌面入口系统包。
     val mergedApps = withContext(Dispatchers.IO) {
-        QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
+        QuickLaunchFacade.queryAppsIncludingDisabled(
+            AppContext.get(),
+            systemVisibility = visibility,
+        )
     }
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { record ->

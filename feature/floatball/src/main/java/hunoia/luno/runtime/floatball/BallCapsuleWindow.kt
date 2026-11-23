@@ -12,14 +12,10 @@ import android.view.VelocityTracker
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
-import android.widget.FrameLayout
 import android.graphics.Color as AndroidColor
-import android.graphics.drawable.GradientDrawable
-import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.bridge.ui.SystemBarsSafeArea
 import hunoia.luno.bridge.ui.systemBarsSafeAreaOrNull
 import hunoia.luno.runtime.floatball.inbox.BadgeState
@@ -122,6 +118,7 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.FloatBallPosition
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.NotificationAlertEffect
 import hunoia.luno.core.LOG_TAG
@@ -141,7 +138,6 @@ import hunoia.luno.runtime.recognition.RecognitionAction
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.PressScaleLarge
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionFamily
@@ -257,6 +253,16 @@ internal class BallCapsuleWindow(
     /** 胶囊侧设置（行色 / 行数 / 手势）：服务注入，与球侧互不影响。 */
     private var capsuleSettings by mutableStateOf(FloatBallSettings())
 
+    /** 首次设置到达后已按当前朝向恢复过落点（只做一次）。 */
+    private var positionRestored = false
+
+    /** 指定朝向已存档的落点；null = 从未落过盘（保持内存现位）。 */
+    private fun savedPosition(orientation: Boolean): FloatBallPosition? =
+        when (source) {
+            BallSource.NOTIFICATION -> capsuleSettings.notificationBallPosition.position(orientation)
+            BallSource.RESULT -> capsuleSettings.resultBallPosition.position(orientation)
+        }
+
     /** 收起圆上的未读数：服务下发，画在圆面右下角。 */
     private var collapsedBadgeState by mutableStateOf<BadgeState?>(null)
 
@@ -358,15 +364,19 @@ internal class BallCapsuleWindow(
 
     /** 键盘要把圆抬多高：圆底 + 边距越过键盘顶的部分，封顶在圆顶正好到安全区上界。 */
     private fun resolveImeLift(): Float {
-        if (imeBottomPx <= 0) return 0f
         val size = rowHeightPx.coerceAtLeast(1)
         val marginPx = DensityProvider.dp2px(
             FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp,
         )
         val base = baseTopPx()
-        val overflow = base + size + marginPx - (screenHeightPx - imeBottomPx)
-        val capPx = max(0f, base - circleBounds(size).minY)
-        return max(0f, overflow).coerceAtMost(capPx)
+        return BallPlacement.imeLiftAmount(
+            base = base.roundToInt(),
+            size = size,
+            marginPx = marginPx,
+            imeBottomPx = imeBottomPx,
+            minY = circleBounds(size).minY.roundToInt(),
+            screenHeightPx = screenHeightPx,
+        ).toFloat()
     }
 
     /** 抬升缓动：逐帧落窗口；目标差值极小直接落定。 */
@@ -443,10 +453,17 @@ internal class BallCapsuleWindow(
         draggedDx = 0f
         draggedDy = 0f
         val bounds = circleBounds(size)
-        // 落点存的是**基准**（未减键盘抬升）：显示位置 = 基准 − 抬升。
-        posYPx = (released.top + imeLiftPx).coerceIn(bounds.minY, bounds.maxY)
-        // 拖动中键盘可能起落过：松手结算一次让位。
-        imeLiftPx = resolveImeLift()
+        // 拖动全程走显示坐标（[dragCenterX]/[dragCenterY]），收尾把**显示落点**当基准；
+        // 不再把键盘抬升量叠回基准（`+ imeLiftPx` 会让关键盘后圆沉到抬升量之下）。
+        // 用户拖动即显式定位，覆盖自动让位：松手不重抬（`resolveImeLift`），否则会弹回。
+        posYPx = released.top.toFloat().coerceIn(bounds.minY, bounds.maxY)
+        imeLiftPx = 0f
+        // 拖动收尾落点（归一）：服务分向落盘（横竖屏各一份，和悬浮球一致）。
+        val normX = if (sideRight) {
+            ((screenWidthPx - size) / screenWidthPx.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+        val normY = if (screenHeightPx > 0) (posYPx / screenHeightPx).coerceIn(0f, 1f) else 0.5f
+        onDragFinished?.invoke(normX, normY)
         // 离目标屏缘还差多少（带符号）：贴边缓动从这里回 0。
         edgeOffsetPx = if (sideRight) {
             ((screenWidthPx - size) - released.left).toFloat()
@@ -656,6 +673,12 @@ internal class BallCapsuleWindow(
             anchorYRatio = (posYPx / screenHeightPx).coerceIn(0f, 1f)
         }
         this.landscape = landscape
+        // 目标朝向已有存档 → 按它落（横竖屏分开记录）；无存档保留上面折现的比例。
+        val saved = savedPosition(landscape)
+        if (saved != null) {
+            sideRight = !BallPlacement.isLeftEdge(saved.x, screenWidthPx, rowHeightPx.coerceAtLeast(1))
+            anchorYRatio = saved.y.coerceIn(0f, 1f)
+        }
         posYPx = -1f
         refreshBarSafeArea()
         cancelSnap()
@@ -982,6 +1005,9 @@ internal class BallCapsuleWindow(
     /** 按住状态：暂停 / 恢复自动收起。 */
     var onPressStateChanged: ((Boolean) -> Unit)? = null
 
+    /** 拖动收尾落点（归一 x/y，已含贴边侧别）：服务据此分向落盘（横竖屏各一份）。 */
+    var onDragFinished: ((Float, Float) -> Unit)? = null
+
     /** 胶囊首帧真正画出来（行宽已收敛）：服务这时才结算徽标。 */
     var onReady: (() -> Unit)? = null
 
@@ -990,6 +1016,15 @@ internal class BallCapsuleWindow(
 
     fun updateCapsuleSettings(next: FloatBallSettings) {
         capsuleSettings = next
+        if (!positionRestored) {
+            positionRestored = true
+            // 启动恢复：按当前朝向加载已存落点（横竖屏各一份，和悬浮球一致）。
+            savedPosition(landscape)?.let { saved ->
+                sideRight = !BallPlacement.isLeftEdge(saved.x, screenWidthPx, rowHeightPx.coerceAtLeast(1))
+                anchorYRatio = saved.y.coerceIn(0f, 1f)
+                posYPx = -1f
+            }
+        }
         // 静置时长可能刚被改掉：收起态要按新值重新起算（展开态本来就不静置）。
         if (collapsedVisual) scheduleIdle()
         // 行高是胶囊自己的几何来源，与行数变更是两件事：变高 / 变矮要重推行高与落点夹取。
@@ -2155,6 +2190,12 @@ internal class BallCapsuleWindow(
     /** 展开形变：相位当前值 → 1（球矩形 → 内容矩形），时长 / 曲线与其他浮窗家族一致。 */
     private fun startMorphIn(v: View) {
         enterPending = false
+        // 展开是「收起圆按钮 → 内容」：收起圆的按压缩放（scale 0.9）不得带进展开态，
+        // 否则整颗胶囊小一圈。回弹被中断（快速重按 / 到达动效自动展开）时 scale 可能
+        // 停在 0.9，这里起手硬复位。
+        pressAnimator?.let { pressAnimator = null; it.cancel() }
+        v.scaleX = 1f
+        v.scaleY = 1f
         // 相位不硬归 0：收起被打断时就是从半路接着长（硬归位会跳一帧）。
         // 位置已由 [startMorphIfPending] 的门控确保落好（新建窗之前是隐形的），可以亮出来。
         if (!visuallyHidden) v.alpha = 1f
@@ -2892,8 +2933,8 @@ internal class BallCapsuleWindow(
     }
 
     /**
-     * 自动横向滚动文本：正文完整宽 > 视口宽时无限往复（marquee），与手势无关；
-     * 视口内能放下就不滚（短内容全显，不裁）。
+     * 自动横向滚动文本：正文完整宽 > 视口宽时单向滚动，尾部贴左缘后直接跳回开头（marquee），
+     * 与手势无关；视口内能放下就不滚（短内容全显，不裁）。
      */
     @Composable
     private fun MarqueeText(
@@ -2908,6 +2949,8 @@ internal class BallCapsuleWindow(
             val viewport = constraints.maxWidth
             val textWidth = layout.size.width
             if (textWidth > viewport) {
+                // 单副本：正文完整宽 > 视口时单向滚动，尾部贴左缘后直接跳回开头（不续接、
+                // 无尾部提前出现）。单 Text 渲染宽 == 测量宽，无布局歧义。
                 val distance = (textWidth - viewport).coerceAtLeast(1)
                 val transition = rememberInfiniteTransition()
                 val dx by transition.animateFloat(
@@ -2919,7 +2962,8 @@ internal class BallCapsuleWindow(
                                 .roundToInt().coerceAtLeast(600),
                             easing = LinearEasing,
                         ),
-                        repeatMode = RepeatMode.Reverse,
+                        // 单副本：滚到文本尾部贴左缘后直接跳回开头（不续接、无尾部提前出现）。
+                        repeatMode = RepeatMode.Restart,
                     ),
                 )
                 Text(
@@ -2928,10 +2972,8 @@ internal class BallCapsuleWindow(
                     color = color,
                     maxLines = 1,
                     softWrap = false,
-                    // requiredWidth 绕过父约束：文本宽 = 测量自然宽，offset 左移时右侧仍显示
-                    // 剩余文本（否则 Text 被夹到视口宽，滚动时右缘移出视口 → 空白/截断）。
                     modifier = Modifier
-                        .requiredWidth(with(LocalDensity.current) { layout.size.width.toDp() })
+                        .requiredWidth(with(LocalDensity.current) { textWidth.toDp() })
                         .offset { IntOffset(dx.roundToInt(), 0) },
                 )
             } else {

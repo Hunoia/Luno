@@ -893,6 +893,8 @@ class FloatBallService : Service() {
 
     private fun onNotificationArrived(pulse: NotificationPulse) {
         if (!gestureEnabledSnapshot) return
+        // 锁屏期间的新通知：留在系统通知栏，不进胶囊、不隐藏、不参与规则分发（含直执行）。
+        if (isScreenLocked()) return
         // 通知胶囊只管「未命中的普通通知」；规则读不读通知是另一个轴（notificationReadEnabled）。
         if (!settings.notificationCapsule.enabled && !recognition.notificationReadEnabled) return
         // 黑名单同时屏蔽通知胶囊和该应用的规则结果。
@@ -926,6 +928,11 @@ class FloatBallService : Service() {
             delay(CAPSULE_SETTLE_MS)
             notificationSlot.settleJobs.remove(settleKey)
             if (!gestureEnabledSnapshot) return@launch
+            // 结算窗口内屏幕被锁：不进胶囊、不参与规则；前置已藏起的要还原回通知栏。
+            if (isScreenLocked()) {
+                if (hidden) restoreHiddenNotification(pulse.key)
+                return@launch
+            }
             // 我们自己藏起的那条 isPosted 必然是 false（是我们 cancel 的），
             // 跳过守卫，别把本该显示的胶囊项自己掐了。
             if (!hidden && !NotificationPulseListener.isPosted(pulse.key)) {
@@ -2166,6 +2173,7 @@ class FloatBallService : Service() {
                     refreshBadge()
                 }
                 onSwipedAway = { id -> onSwipedAway(id) }
+                onDragFinished = { x, y -> persistContentBallPosition(source, x, y) }
                 onPressStateChanged = { pressed ->
                     bubblePressed = pressed
                     if (pressed) {

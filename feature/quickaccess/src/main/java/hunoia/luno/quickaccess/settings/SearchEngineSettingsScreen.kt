@@ -61,6 +61,7 @@ import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -322,70 +323,69 @@ fun SearchEngineSettingsScreen(
             }
         },
     ) {
-        item(key = "engines") {
-            LunoGroup(title = stringResource(R.string.search_engine_group_title)) {
-                if (engines.isEmpty()) {
+        chunkedGroup(
+            engines,
+            "engines",
+            title = { stringResource(R.string.search_engine_group_title) },
+            emptyContent = {
+                LunoGroup(title = stringResource(R.string.search_engine_group_title)) {
                     EmptyState(message = stringResource(R.string.search_engine_empty_hint))
+                }
+            },
+        ) { shape, position, engine ->
+            val launch = engine.effectiveLaunch()
+            val template = when (launch) {
+                is SearchLaunch.Url -> launch.template
+                is SearchLaunch.Chooser -> launch.template
+                is SearchLaunch.Share -> launch.textTemplate
+                is SearchLaunch.Action -> launch.copyTemplate
+                is SearchLaunch.ShareImage -> ""
+                is SearchLaunch.Activity -> ""
+            }
+            val launchLabel = when (launch) {
+                is SearchLaunch.Chooser -> stringResource(R.string.search_engine_open_chooser)
+                is SearchLaunch.Url -> if (launch.packageName.isNotBlank()) {
+                    stringResource(R.string.search_engine_open_app)
                 } else {
-                    // 引擎行（与动作面板编辑页同一套交互）：点行进编辑页，行尾删除按钮，
-                    // 按住手柄只改本地草稿顺序（半行高阈值换位 + 跟手位移），松手才落盘。
-                    engines.forEachIndexed { index, engine ->
-                        val launch = engine.effectiveLaunch()
-                        val template = when (launch) {
-                            is SearchLaunch.Url -> launch.template
-                            is SearchLaunch.Chooser -> launch.template
-                            is SearchLaunch.Share -> launch.textTemplate
-                            is SearchLaunch.Action -> launch.copyTemplate
-                            is SearchLaunch.ShareImage -> ""
-                            is SearchLaunch.Activity -> ""
+                    ""
+                }
+                is SearchLaunch.Share -> stringResource(R.string.search_engine_open_share)
+                is SearchLaunch.ShareImage -> stringResource(R.string.search_engine_open_share_image)
+                is SearchLaunch.Activity -> stringResource(R.string.search_engine_open_activity)
+                is SearchLaunch.Action -> ""
+            }
+            LunoSettingsRow(
+                title = engine.name,
+                textIcon = TextIcon(engine.badgeText),
+                subtitle = listOfNotNull(
+                    // 首位即主引擎：给个视觉锚点，拖拽换位就是换主引擎。
+                    if (position == 0) stringResource(R.string.search_engine_primary) else null,
+                    engine.trigger.takeIf { it.isNotBlank() },
+                    launchLabel.takeIf { it.isNotBlank() },
+                    template.takeIf { it.isNotBlank() },
+                ).joinToString(" · "),
+                modifier = Modifier.dragReorderPlacement(reorder, position),
+                onClick = { onNavToEdit(engine.id) },
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PressIconButton(onClick = { deleteTarget = engine }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(hunoia.luno.design.R.string.delete),
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(RowIconSize),
+                            )
                         }
-                        val launchLabel = when (launch) {
-                            is SearchLaunch.Chooser -> stringResource(R.string.search_engine_open_chooser)
-                            is SearchLaunch.Url -> if (launch.packageName.isNotBlank()) {
-                                stringResource(R.string.search_engine_open_app)
-                            } else {
-                                ""
-                            }
-                            is SearchLaunch.Share -> stringResource(R.string.search_engine_open_share)
-                            is SearchLaunch.ShareImage -> stringResource(R.string.search_engine_open_share_image)
-                            is SearchLaunch.Activity -> stringResource(R.string.search_engine_open_activity)
-                            is SearchLaunch.Action -> ""
-                        }
-                        LunoSettingsRow(
-                            title = engine.name,
-                            textIcon = TextIcon(engine.badgeText),
-                            subtitle = listOfNotNull(
-                                // 首位即主引擎：给个视觉锚点，拖拽换位就是换主引擎。
-                                if (index == 0) stringResource(R.string.search_engine_primary) else null,
-                                engine.trigger.takeIf { it.isNotBlank() },
-                                launchLabel.takeIf { it.isNotBlank() },
-                                template.takeIf { it.isNotBlank() },
-                            ).joinToString(" · "),
-                            modifier = Modifier.dragReorderPlacement(reorder, index),
-                            onClick = { onNavToEdit(engine.id) },
-                            trailing = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    PressIconButton(onClick = { deleteTarget = engine }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(RowIconSize),
-                                        )
-                                    }
-                                    DragReorderHandle(
-                                        reorder,
-                                        index,
-                                        stringResource(R.string.search_engine_drag),
-                                        configEngines,
-                                    )
-                                }
-                            },
-                            shape = segmentedShape(index, engines.size),
+                        DragReorderHandle(
+                            reorder,
+                            position,
+                            stringResource(R.string.search_engine_drag),
+                            configEngines,
                         )
                     }
-                }
-            }
+                },
+                shape = shape,
+            )
         }
         item(key = "gap-general") { GroupGap() }
         // 通用组：内容源入口 + 列表样式 + 输入行为开关。

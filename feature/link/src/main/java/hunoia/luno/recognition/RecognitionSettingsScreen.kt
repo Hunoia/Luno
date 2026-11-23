@@ -66,6 +66,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -529,62 +530,62 @@ fun RecognitionSettingsScreen(
                 }
             }
         }
-        item {
-            // 常用规则预设已删：seed（静态文本规则 + 按已装应用生成的链接规则）在进程启动时
-            // 一次性合并进规则表（见 LinkPresets / RecognitionRuleSeed），这里只剩规则表本身。
-            val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
-            LunoGroup(
-                title = stringResource(R.string.recognition_rules_group),
-                subtitle = stringResource(R.string.recognition_rules_order),
-            ) {
-                if (rules.isEmpty()) {
+        chunkedGroup(
+            rules,
+            "rules",
+            title = { stringResource(R.string.recognition_rules_group) },
+            subtitle = { stringResource(R.string.recognition_rules_order) },
+            emptyContent = {
+                LunoGroup(
+                    title = stringResource(R.string.recognition_rules_group),
+                    subtitle = stringResource(R.string.recognition_rules_order),
+                ) {
                     LunoGroupItem(shape = segmentedShape(0, 1)) {
                         EmptyState(message = stringResource(R.string.recognition_rules_empty))
                     }
+                }
+            },
+        ) { shape, globalIndex, rule ->
+            val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
+            // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题与图标。
+            val target by produceState(
+                initialValue = null as LinkTarget?,
+                rule.id,
+                rule.match,
+                settings.browserPackage,
+            ) {
+                val match = rule.match
+                value = if (match is RecognitionMatch.Link) {
+                    Links.resolvedTargetOf(context, match, settings.browserPackage)
                 } else {
-                    rules.forEachIndexed { index, rule ->
-                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题与图标。
-                        val target by produceState(
-                            initialValue = null as LinkTarget?,
-                            rule.id,
-                            rule.match,
-                            settings.browserPackage,
-                        ) {
-                            val match = rule.match
-                            value = if (match is RecognitionMatch.Link) {
-                                Links.resolvedTargetOf(context, match, settings.browserPackage)
-                            } else {
-                                null
-                            }
-                        }
-                        val targetIcon = target?.packageName?.takeIf { it.isNotEmpty() }
-                            ?.let { rememberPackageIconBitmap(it, iconPx) }
-                        LunoSettingsRow(
-                            icon = when {
-                                targetIcon != null -> null
-                                rule.match is RecognitionMatch.Link -> Icons.Default.Link
-                                rule.output is RecognitionOutput.Action -> Icons.Default.Android
-                                else -> Icons.Default.Lightbulb
-                            },
-                            iconBitmap = targetIcon,
-                            title = rule.name.ifBlank { rule.match.pattern.ifBlank { rule.id } },
-                            subtitle = recognitionRuleSummary(rule, target?.label),
-                            modifier = Modifier.dragReorderPlacement(reorder, index),
-                            shape = segmentedShape(index, rules.size),
-                            enabled = rule.enabled,
-                            onClick = { onEditRule(rule.id) },
-                            trailing = {
-                                DragReorderHandle(
-                                    reorder,
-                                    index,
-                                    stringResource(R.string.recognition_rule_drag),
-                                    settings.rules,
-                                )
-                            },
-                        )
-                    }
+                    null
                 }
             }
+            val targetIcon = target?.packageName?.takeIf { it.isNotEmpty() }
+                ?.let { rememberPackageIconBitmap(it, iconPx) }
+            LunoSettingsRow(
+                icon = when {
+                    targetIcon != null -> null
+                    rule.match is RecognitionMatch.Link -> Icons.Default.Link
+                    rule.output is RecognitionOutput.Action -> Icons.Default.Android
+                    else -> Icons.Default.Lightbulb
+                },
+                iconBitmap = targetIcon,
+                title = rule.name.ifBlank { rule.match.pattern.ifBlank { rule.id } },
+                subtitle = recognitionRuleSummary(rule, target?.label),
+                modifier = Modifier.dragReorderPlacement(reorder, globalIndex),
+                shape = shape,
+                enabled = rule.enabled,
+                onClick = { onEditRule(rule.id) },
+                trailing = {
+                    DragReorderHandle(
+                        reorder,
+                        globalIndex,
+                        stringResource(R.string.recognition_rule_drag),
+                        settings.rules,
+                    )
+                },
+            )
         }
     }
 }

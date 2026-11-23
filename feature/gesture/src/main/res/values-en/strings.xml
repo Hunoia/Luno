@@ -5,8 +5,10 @@
     <string name="gesture_global_trigger_takeover_hint">After triggering, cancels the app\'s own gesture and absorbs later touches.</string>
     <string name="long_press">Long press</string>
     <string name="tap">Tap</string>
-    <string name="apps_show_system">Show system apps</string>
-    <string name="apps_show_system_hint">Add system apps without a launcher entry to the app list</string>
+    <string name="apps_show_uiless">Show UI-less system components</string>
+    <string name="apps_show_uiless_hint">Add system components without UI (services/providers/receivers only) to the app list</string>
+    <string name="apps_show_noentry">Show no-entry system apps with UI</string>
+    <string name="apps_show_noentry_hint">Add system apps that have UI but no launcher entry to the app list</string>
     <string name="hide_luno_from_recents">Hide Luno from recents</string>
     <string name="hide_luno_from_recents_hint">Hides only the main page; annotate and other pages stay in recents</string>
     <string name="screen_pick_copy_image">Copy</string>

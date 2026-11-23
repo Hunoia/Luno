@@ -2,14 +2,12 @@
 <resources>
     <string name="app_control_title">应用冻结</string>
     <string name="app_control_search_hint">搜索应用</string>
-    <string name="app_control_show_system">显示系统应用</string>
-    <string name="app_control_hide_system">隐藏系统应用</string>
     <string name="app_control_state_frozen">已冻结</string>
     <string name="app_control_state_suspended">系统冻结，Luno 无法解除</string>
     <string name="app_control_state_protected">受保护，不可冻结</string>
-    <string name="app_control_one_key">一键名单</string>
     <string name="app_control_one_key_add">加入一键名单</string>
     <string name="app_control_one_key_remove">移出一键名单</string>
+    <string name="app_control_more_actions">更多操作</string>
     <string name="app_control_one_key_remove_selected">移出名单</string>
     <string name="app_control_select">选择</string>
     <string name="app_control_cancel_select">取消选择</string>
@@ -26,7 +24,6 @@
     <string name="app_control_failures_title">上次失败</string>
     <string name="app_control_clear_failures">清除</string>
     <string name="app_control_empty">没有匹配的应用</string>
-    <string name="app_control_frozen_count">冻结 %1$d/%2$d</string>
     <string name="app_control_freeze_failed">冻结失败</string>
     <string name="app_control_suspended_toast">该应用由系统冻结，Luno 无法解除</string>
     <string name="app_control_protected_toast">自己与当前桌面不允许冻结</string>

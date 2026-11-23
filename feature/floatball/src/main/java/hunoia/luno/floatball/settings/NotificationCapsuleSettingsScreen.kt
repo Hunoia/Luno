@@ -58,7 +58,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * 通知胶囊设置页：显示/跟手/停留时长/队列/同屏条数与黑名单。
+ * 通知胶囊设置页：显示/跟手/停留时长/队列/同屏条数/行高与黑名单。
  *
  * 与悬浮球、结果胶囊并列，只负责通知球自己的行为。
  */
@@ -93,6 +93,9 @@ fun NotificationCapsuleSettingsScreen(
     }
     var localVisibleRows by remember(capsule.visibleRows) {
         mutableFloatStateOf(capsule.visibleRows.toFloat())
+    }
+    var localRowHeight by remember(capsule.rowHeightDp) {
+        mutableFloatStateOf(capsule.rowHeightDp.toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
@@ -328,7 +331,7 @@ fun NotificationCapsuleSettingsScreen(
         item(key = "behavior") {
             val suppress = capsule.dismissSuppressEnabled
             // 抑制时长只在开关打开时出现：条数会变，段形按实际条数算。
-            val rowCount = if (suppress) 11 else 10
+            val rowCount = if (suppress) 12 else 11
             LunoGroup(title = stringResource(R.string.float_ball_notification_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_notification_enabled),
@@ -453,6 +456,24 @@ fun NotificationCapsuleSettingsScreen(
                         FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
                     shape = segmentedShape(7, rowCount),
                 )
+                LunoTextSlider(
+                    value = localRowHeight,
+                    onValueChange = { value -> localRowHeight = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    rowHeightDp = localRowHeight.toInt(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_capsule_row_height),
+                    valueDisplay = { "${it.toInt()} dp" },
+                    valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
+                        FloatBallDefaults.CapsuleRowHeightDpMax.toFloat(),
+                    shape = segmentedShape(8, rowCount),
+                )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_suppress_dismiss),
                     checked = suppress,
@@ -465,7 +486,7 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(8, rowCount),
+                    shape = segmentedShape(9, rowCount),
                 )
                 if (suppress) {
                     LunoTextSlider(
@@ -484,7 +505,7 @@ fun NotificationCapsuleSettingsScreen(
                         valueDisplay = { "${(it / 1000).toInt()} s" },
                         valueRange = FloatBallDefaults.CapsuleDismissSuppressMsMin.toFloat()..
                             FloatBallDefaults.CapsuleDismissSuppressMsMax.toFloat(),
-                        shape = segmentedShape(9, rowCount),
+                        shape = segmentedShape(10, rowCount),
                     )
                 }
                 LunoSettingsRow(
@@ -501,7 +522,7 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(if (suppress) 10 else 9, rowCount),
+                    shape = segmentedShape(if (suppress) 11 else 10, rowCount),
                     onClick = onNavToNotificationBlocklist,
                 )
             }

@@ -39,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -83,6 +85,8 @@ internal fun LunoRowBase(
     iconBitmap: androidx.compose.ui.graphics.ImageBitmap? = null,
     iconModel: Any? = null,
     textIcon: hunoia.luno.ui.component.TextIcon? = null,
+    /** 图标着色（如冻结行灰度）：只作用于 [iconModel]（AsyncImage）路径。 */
+    iconColorFilter: ColorFilter? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -133,6 +137,14 @@ internal fun LunoRowBase(
             indication = null,
             enabled = enabled,
             onClick = onClick,
+        )
+        // 仅长按（单击不做事）：与「长按+单击」共用 combinedClickable，单击给空实现。
+        onLongClick != null -> Modifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            onClick = {},
+            onLongClick = onLongClick,
         )
         selectable -> Modifier.clickable(
             interactionSource = interactionSource,
@@ -202,12 +214,19 @@ internal fun LunoRowBase(
             }
             ?: iconModel?.let { model ->
                 {
+                    // Coil 快速滚动时请求被取消 / 内存缓存逐出，AsyncImage 会短暂处于
+                    // Empty（加载中）或 Error 态；无占位则整格渲染空白（冻结管理页长列表
+                    // 实测：滚到下面个别图标空白，重滚才恢复）。占位/错误用中性色块兜底。
+                    val iconPlaceholder = ColorPainter(MaterialTheme.colorScheme.surfaceVariant)
                     AsyncImage(
                         modifier = Modifier.size(RowIconSize).clip(SmallShape),
                         model = model,
                         contentDescription = null,
                         imageLoader = LocalContext.current.imageLoader,
                         contentScale = ContentScale.Crop,
+                        colorFilter = iconColorFilter,
+                        placeholder = iconPlaceholder,
+                        error = iconPlaceholder,
                     )
                 }
             },
@@ -241,6 +260,8 @@ fun LunoSettingsRow(
     iconBitmap: androidx.compose.ui.graphics.ImageBitmap? = null,
     iconModel: Any? = null,
     textIcon: hunoia.luno.ui.component.TextIcon? = null,
+    /** 图标着色（如冻结行灰度）：只作用于 [iconModel]（AsyncImage）路径。 */
+    iconColorFilter: ColorFilter? = null,
     subtitle: String = "",
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     onClick: (() -> Unit)? = null,
@@ -263,6 +284,7 @@ fun LunoSettingsRow(
         iconBitmap = iconBitmap,
         iconModel = iconModel,
         textIcon = textIcon,
+        iconColorFilter = iconColorFilter,
         leading = leading,
         trailing = trailing ?: chevron.takeIf { enabled && onClick != null },
         onClick = onClick,

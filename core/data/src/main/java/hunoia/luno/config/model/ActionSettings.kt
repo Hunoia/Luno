@@ -44,10 +44,13 @@ data class ActionSettings(
     /** 手势工具全局参数：最近应用灵敏度/图标大小、滑动调音量灵敏度。 */
     val gestureTools: GestureToolsSettings = GestureToolsSettings(),
     /**
-     * 应用列表是否包含「无桌面入口的系统包」。
-     * 统一应用清单（启动器 / 抽屉 / 搜索 / 选择弹层 / 黑名单）共用这一个开关。
+     * 应用清单是否包含「无桌面入口的系统包」——**启动器/搜索面**（快速启动面板、
+     * 应用抽屉部件、快速启动部件、快速搜索）共用的全局开关；4 个应用选择列表
+     * （应用选择页 / 动作选择应用tab / 最近应用黑名单 / 应用管控）各自用页内内存开关。
+     * 两类独立：无界面系统组件（0 个 Activity）/ 有界面无入口系统应用（≥1 个 Activity）。
      */
-    val showSystemAppsInAppList: Boolean = false,
+    val showUILessSystemComponents: Boolean = false,
+    val showNoEntrySystemApps: Boolean = false,
 )
 
 @Serializable

@@ -11,6 +11,7 @@ import hunoia.luno.quickaccess.query.AppAvailability
 import hunoia.luno.quickaccess.query.AppCatalog
 import hunoia.luno.quickaccess.query.DisabledAppQuery
 import hunoia.luno.quickaccess.query.LauncherEnvironment
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +40,8 @@ data class AppControlUiState(
     val loading: Boolean = true,
     val query: String = "",
     val searchExpanded: Boolean = false,
-    val showSystemApps: Boolean = false,
+    /** 系统应用两类开关（无界面组件 / 有界面无入口），页内内存态。 */
+    val systemVisibility: SystemAppsVisibility = SystemAppsVisibility(),
     val selectionMode: Boolean = false,
     val selected: Set<String> = emptySet(),
     val pendingFreezeCount: Int = 0,
@@ -52,12 +54,12 @@ class AppControlVM : ViewModel() {
     private data class Loaded(
         val apps: List<ManagedApp> = emptyList(),
         val loading: Boolean = true,
-        val showSystemApps: Boolean = false,
     )
 
     private data class Local(
         val query: String = "",
         val searchExpanded: Boolean = false,
+        val systemVisibility: SystemAppsVisibility = SystemAppsVisibility(),
         val selectionMode: Boolean = false,
         val selected: Set<String> = emptySet(),
         val pendingFreeze: List<String> = emptyList(),
@@ -86,7 +88,7 @@ class AppControlVM : ViewModel() {
             loading = load.loading,
             query = local.query,
             searchExpanded = local.searchExpanded,
-            showSystemApps = load.showSystemApps,
+            systemVisibility = local.systemVisibility,
             selectionMode = local.selectionMode,
             selected = local.selected,
             pendingFreezeCount = local.pendingFreeze.size,
@@ -105,24 +107,25 @@ class AppControlVM : ViewModel() {
 
     fun refresh() {
         viewModelScope.launch {
-            loaded.update { it.copy(loading = true) }
+            // 就地更新，不闪 loading（对齐 ClipboardVM.refresh 语义）：runBatch / setSystemVisibility
+            // 触发刷新时列表不切 LoadingState，LazyColumn 滚动位置才不会被钳回顶部（冻结后跳顶）。
+            // 首屏仍显示 LoadingState：AppControlUiState 默认 loading = true，本次完成后才置 false。
             val result = withContext(Dispatchers.IO) { loadApps() }
             loaded.update {
                 it.copy(
-                    apps = result.first,
-                    showSystemApps = result.second,
+                    apps = result,
                     loading = false,
                 )
             }
         }
     }
 
-    private suspend fun loadApps(): Pair<List<ManagedApp>, Boolean> {
+    private suspend fun loadApps(): List<ManagedApp> {
         val context = AppContext.get()
-        AppCatalog.refreshSystemSetting()
-        val showSystemApps = runCatching { AppCatalog.showSystemApps() }.getOrDefault(false)
+        // 系统应用两类开关是页内内存态（默认关、不记忆），不落盘：用户显式打开则查询带上。
+        val visibility = local.value.systemVisibility
         val list = runCatching {
-            AppCatalog.query(context, includeDisabled = true, includeSystem = showSystemApps)
+            AppCatalog.query(context, includeDisabled = true, systemVisibility = visibility)
         }.getOrNull()
         val disabledEntries = runCatching {
             DisabledAppQuery.queryDisabledEntries(context)
@@ -144,7 +147,7 @@ class AppControlVM : ViewModel() {
                 )
             }
             .sortedBy { it.label.lowercase() }
-        return apps to showSystemApps
+        return apps
     }
 
     private fun AppInfo.toManaged(
@@ -196,11 +199,10 @@ class AppControlVM : ViewModel() {
         it.copy(selected = packageNames.toSet())
     }
 
-    fun setShowSystemApps(enabled: Boolean) {
-        viewModelScope.launch {
-            AppControlCenter.setShowSystemApps(enabled)
-            refresh()
-        }
+    fun setSystemVisibility(visibility: SystemAppsVisibility) {
+        // 页内内存开关：只翻转本地态并重查，不落盘（默认关、不记忆）。
+        local.update { it.copy(systemVisibility = visibility) }
+        refresh()
     }
 
     /** 单行开关：已冻结则解冻；正常则冻结（suspend / 受保护直接提示）。 */

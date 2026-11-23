@@ -40,6 +40,7 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.quickaccess.model.icon
 import hunoia.luno.quickaccess.query.AppDrawerSections
 import hunoia.luno.quickaccess.query.AlphabeticalSection
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -59,6 +60,7 @@ import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.SystemAppsMenuButton
 
 /**
  * 应用选择 sheet（单选）：点一行即确认并关闭（[onConfirm] / [onSelectApp]），无底部确认/取消。
@@ -88,6 +90,8 @@ fun AppPickerSheet(
     var searchQuery by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
+    // 页内内存开关：默认关、不记忆；两类（无界面组件 / 有界面无入口）各自独立，展开重查。
+    var systemVisibility by remember { mutableStateOf(SystemAppsVisibility()) }
     val context = LocalContext.current
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
         if (granted) {
@@ -99,7 +103,10 @@ fun AppPickerSheet(
     suspend fun loadApps() {
         loading = true
         apps = withContext(Dispatchers.IO) {
-            QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
+            QuickLaunchFacade.queryAppsIncludingDisabled(
+                AppContext.get(),
+                systemVisibility = systemVisibility,
+            )
         }
         loading = false
     }
@@ -140,6 +147,18 @@ fun AppPickerSheet(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 if (permissionState.isGranted) {
+                    SystemAppsMenuButton(
+                        showUILess = systemVisibility.showUILess,
+                        showNoEntry = systemVisibility.showNoEntry,
+                        onShowUILessChange = { enabled ->
+                            systemVisibility = systemVisibility.copy(showUILess = enabled)
+                            scope.launch { loadApps() }
+                        },
+                        onShowNoEntryChange = { enabled ->
+                            systemVisibility = systemVisibility.copy(showNoEntry = enabled)
+                            scope.launch { loadApps() }
+                        },
+                    )
                     LunoIconButton(
                         icon = Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.refresh),

@@ -59,4 +59,7 @@
     <string name="motion_preview_panel">面板</string>
     <string name="motion_preview_overlay">浮层</string>
     <string name="motion_preview_floating">浮窗</string>
+    <string name="system_apps_menu_cd">系统应用显示设置</string>
+    <string name="system_apps_show_uiless">无界面组件</string>
+    <string name="system_apps_show_noentry">无入口应用</string>
 </resources>

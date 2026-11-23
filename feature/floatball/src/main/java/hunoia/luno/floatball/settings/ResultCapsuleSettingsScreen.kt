@@ -41,7 +41,7 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 
 /**
- * 结果胶囊设置页：只管**胶囊自己**（跟手 / 静置 / 停留时长 / 队列 / 图标）。
+ * 结果胶囊设置页：只管**胶囊自己**（跟手 / 静置 / 停留时长 / 队列 / 行高 / 图标）。
  *
  * 规则表、来源读取开关、直执行提示开关、情景识别都在分发规则页（`RecognitionSettingsScreen`），
  * 本页从那里进入：结果胶囊是分发规则的**结果显示面**，没有自己的开关，也不拥有一份规则表。
@@ -73,6 +73,9 @@ fun ResultCapsuleSettingsScreen(
     }
     var localVisibleRows by remember(capsule.visibleRows) {
         mutableFloatStateOf(capsule.visibleRows.toFloat())
+    }
+    var localRowHeight by remember(capsule.rowHeightDp) {
+        mutableFloatStateOf(capsule.rowHeightDp.toFloat())
     }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
@@ -192,7 +195,7 @@ fun ResultCapsuleSettingsScreen(
                             it.copy(resultCapsule = it.resultCapsule.copy(followHand = checked))
                         }
                     },
-                    shape = segmentedShape(0, 6),
+                    shape = segmentedShape(0, 7),
                 )
                 LunoTextSlider(
                     value = localIdleDim,
@@ -210,7 +213,7 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
                     valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
                         FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
-                    shape = segmentedShape(1, 6),
+                    shape = segmentedShape(1, 7),
                 )
                 LunoTextSlider(
                     value = localAutoHide,
@@ -228,7 +231,7 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(2, 6),
+                    shape = segmentedShape(2, 7),
                 )
                 LunoTextSlider(
                     value = localVisibleRows,
@@ -246,7 +249,25 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
                         FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
-                    shape = segmentedShape(3, 6),
+                    shape = segmentedShape(3, 7),
+                )
+                LunoTextSlider(
+                    value = localRowHeight,
+                    onValueChange = { value -> localRowHeight = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                resultCapsule = it.resultCapsule.copy(
+                                    rowHeightDp = localRowHeight.toInt(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_capsule_row_height),
+                    valueDisplay = { "${it.toInt()} dp" },
+                    valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
+                        FloatBallDefaults.CapsuleRowHeightDpMax.toFloat(),
+                    shape = segmentedShape(4, 7),
                 )
                 LunoTextSlider(
                     value = localTtl,
@@ -260,7 +281,7 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
                         FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
-                    shape = segmentedShape(4, 6),
+                    shape = segmentedShape(5, 7),
                 )
                 LunoTextSlider(
                     value = localCapacity,
@@ -278,7 +299,7 @@ fun ResultCapsuleSettingsScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(5, 6),
+                    shape = segmentedShape(6, 7),
                 )
             }
         }

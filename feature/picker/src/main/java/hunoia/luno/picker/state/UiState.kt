@@ -12,6 +12,7 @@ import hunoia.luno.core.domain.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.quickaccess.model.qualifiedNameWithIntents
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import hunoia.luno.action.model.Action
 
 /**
@@ -52,6 +53,8 @@ data class UiState(
     val excludedTypeIds: Set<String> = emptySet(),
     /** true = 只挑一个动作复制 Deep Link，不写任何配置（这类选择里「无动作」无意义）。 */
     val copyDeepLink: Boolean = false,
+    /** 应用tab「系统应用两类开关」页内内存开关（默认关、不记忆），影响应用清单查询。 */
+    val systemVisibility: SystemAppsVisibility = SystemAppsVisibility(),
 ) {
     /**
      * 单选：一个槽至多一个动作。内部仍是 List<Any>（应用/快捷方式/库条目类型不同，

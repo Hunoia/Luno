@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,6 +94,7 @@ import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -292,28 +295,26 @@ fun ClipboardScreen(
 
             // 固定项组置顶（文本 / 图片各自管理；搜索时搜索结果平铺，不再分组）。
             if (!searching && pinnedItems.isNotEmpty()) {
-                item(key = "pinned") {
-                    LunoGroup(title = stringResource(R.string.clipboard_pinned_group)) {
-                        pinnedItems.forEachIndexed { index, entry ->
-                            EntryRow(entry, segmentedShape(index, pinnedItems.size))
-                        }
-                    }
+                chunkedGroup(
+                    pinnedItems,
+                    "pinned",
+                    title = { stringResource(R.string.clipboard_pinned_group) },
+                ) { shape, _, entry ->
+                    EntryRow(entry, shape)
                 }
             }
 
             if (searching) {
-                if (visible.isEmpty()) {
-                    item(key = "empty") {
+                // 搜索结果可达数百条，同内容组一样按块拆（§3.2 第 10 条）。
+                chunkedGroup(
+                    visible,
+                    "search",
+                    title = { stringResource(R.string.clipboard_search_results_group) },
+                    emptyContent = {
                         EmptyState(message = stringResource(R.string.clipboard_empty_search))
-                    }
-                } else {
-                    item(key = "content") {
-                        LunoGroup(title = stringResource(R.string.clipboard_search_results_group)) {
-                            visible.forEachIndexed { index, entry ->
-                                EntryRow(entry, segmentedShape(index, visible.size))
-                            }
-                        }
-                    }
+                    },
+                ) { shape, _, entry ->
+                    EntryRow(entry, shape)
                 }
             } else if (pinnedItems.isEmpty() && restItems.isEmpty()) {
                 // 当前页完全为空（无固定、无内容）。
@@ -329,12 +330,13 @@ fun ClipboardScreen(
                     )
                 }
             } else if (restItems.isNotEmpty()) {
-                item(key = "content") {
-                    LunoGroup(title = stringResource(state.contentTab.labelRes)) {
-                        restItems.forEachIndexed { index, entry ->
-                            EntryRow(entry, segmentedShape(index, restItems.size))
-                        }
-                    }
+                // 内容组可达数百条，是合成上限的主要来源（§3.2 第 10 条）。
+                chunkedGroup(
+                    restItems,
+                    "content",
+                    title = { stringResource(state.contentTab.labelRes) },
+                ) { shape, _, entry ->
+                    EntryRow(entry, shape)
                 }
             }
             // 只有固定项（无未固定内容）时：固定组已渲染，不再渲染空态或内容组。
@@ -524,11 +526,23 @@ private fun ClipboardToolbar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // 分段 / 搜索 / 选中态同一行互换：不把底栏撑高，列表留白不跳。
+                    // 搜索↔常态走 slide(±width/8)+fade（与动作选择页一致）；选中↔常态仍纯 fade。
                     AnimatedContent(
                         targetState = mode,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         transitionSpec = {
-                            fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                            val expanding = targetState == ToolbarMode.Search
+                            val collapsing = initialState == ToolbarMode.Search
+                            if (expanding || collapsing) {
+                                val dir = if (expanding) 1 else -1
+                                val enter = fadeIn(tween(MotionSwapIn)) +
+                                    slideInHorizontally(tween(MotionSwapIn)) { full -> dir * full / 8 }
+                                val exit = fadeOut(tween(MotionSwapOut)) +
+                                    slideOutHorizontally(tween(MotionSwapOut)) { full -> -dir * full / 8 }
+                                enter togetherWith exit
+                            } else {
+                                fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                            }
                         },
                         label = "clipboardToolbarMode",
                     ) { m ->
@@ -537,7 +551,6 @@ private fun ClipboardToolbar(
                                 query = query,
                                 onQueryChange = onQueryChange,
                                 focusRequester = focusRequester,
-                                onClose = { closeSearch() },
                             )
                             ToolbarMode.Selection -> ToolbarSelectionContent(
                                 selectedCount = selectedCount,
@@ -643,13 +656,16 @@ private fun SlotButton(
     }
 }
 
-/** 栏内搜索：输入框 + × 收起；展开动画铺好布局再取焦点（节点未挂载时 requestFocus 落空）。 */
+/**
+ * 栏内搜索：只放输入框（框内清空 × 由 [LunoSearchField] 自带）。收起搜索走尾槽
+ * [SlotButton]（design §4.3 语义三分：框内 × 清空 query，底栏右侧 × 收起），
+ * 这里不再画第二个收起 ×，避免输入时并排两个 ×。
+ */
 @Composable
 private fun ToolbarSearchContent(
     query: String,
     onQueryChange: (String) -> Unit,
     focusRequester: FocusRequester,
-    onClose: () -> Unit,
 ) {
     var placed by remember { mutableStateOf(false) }
     LaunchedEffect(placed) {
@@ -670,12 +686,6 @@ private fun ToolbarSearchContent(
                 .fillMaxHeight()
                 .onGloballyPositioned { placed = true },
         )
-        PressIconButton(onClick = onClose) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = stringResource(R.string.clipboard_search_collapse),
-            )
-        }
     }
 }
 

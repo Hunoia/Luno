@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +69,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.screen.LunoScreenPlain
 import hunoia.luno.gridpanel.habit.HabitPickerDialog
 import hunoia.luno.gridpanel.trend.TrendPickerDialog
@@ -120,12 +122,32 @@ fun ActionSelectContent(
         var pendingTrendWidgetId by remember { mutableStateOf<String?>(null) }
         val trendConfig by TrendCenter.trendConfig
             .collectAsStateWithLifecycle(initialValue = TrendConfig())
+        // 当前 chip 提升到宿主：顶栏才能按「应用tab」显示系统应用开关。
+        var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
+        val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
 
         // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
         LunoScreenPlain(
             title = uiState.title,
             onBack = onDismissRequest,
             actions = {
+                // 应用tab：系统应用两类开关（页内内存开关，默认关、不记忆）。
+                if (normalizedType == TYPE_APP) {
+                    SystemAppsMenuButton(
+                        showUILess = uiState.systemVisibility.showUILess,
+                        showNoEntry = uiState.systemVisibility.showNoEntry,
+                        onShowUILessChange = { enabled ->
+                            vm.setSystemVisibility(
+                                uiState.systemVisibility.copy(showUILess = enabled),
+                            )
+                        },
+                        onShowNoEntryChange = { enabled ->
+                            vm.setSystemVisibility(
+                                uiState.systemVisibility.copy(showNoEntry = enabled),
+                            )
+                        },
+                    )
+                }
                 // 仅可多选调用方（动作面板 / 网格面板加项）显示。非多选=入口图标；
                 // 多选=清空 × + 已选数纯数字（点数字=提交）。
                 if (actionSelect.supportsMultiSelect) {
@@ -408,6 +430,8 @@ fun ActionSelectContent(
                                     vm.commitInternalWidget(id)
                                 }
                             },
+                            selectedType = selectedType,
+                            onSelectedTypeChange = { selectedType = it },
                         )
                     }
                 }

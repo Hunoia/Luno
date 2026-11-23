@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,32 +23,33 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -61,13 +64,20 @@ import dev.chrisbanes.haze.HazeState
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.quickaccess.icon.AppIconRequests
 import hunoia.luno.quickaccess.query.AppAvailability
+import hunoia.luno.quickaccess.query.AppDrawerSections
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.SectionBadge
+import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.AppPickerSlot
@@ -91,7 +101,8 @@ import hunoia.luno.ui.theme.glassCapsule
  * 底栏玻璃胶囊工具条（参考剪贴板页 [hunoia.luno.clipboard.ClipboardScreen]）：
  * 常态 [添加(一键名单)][搜索]、搜索 [输入框][收起×]、选择 [已选 N][全选][冻结][解冻]；
  * 胶囊随内容自适应、靠右，搜索时展开成全宽。搜索 / 选择互斥（VM 负责）。
- * 行点按不触发冻结（1B），冻结 / 解冻只走行尾雪花 / 解锁图标。
+ * 行单击不做事；长按行冻结 / 解冻（SUSPENDED / 保护应用不触发）。行尾 ⋮ 菜单提供
+ * 加入/移出一键名单 与 冻结/解冻（SUSPENDED / 保护应用禁用冻结项）。
  */
 @Composable
 fun AppControlScreen(
@@ -108,7 +119,10 @@ fun AppControlScreen(
         vm.messages.collect { showToast(it) }
     }
 
-    val visible = remember(state.apps, state.query) {
+    // 按拼音分节且**保留节结构**（不 flatMap 平铺）：列表按节发多个 item。整表塞进单个 item 时
+    // 该节点承载全部行，高度越过设备合成上限（真机 ≈8192px，34 行 ≈8058px 在限内、35 行 ≈8295px
+    // 越界），超出部分既不可见也不可点、且与屏幕位置无关；拆成多 item 后惰性窗口落到节粒度。
+    val sections = remember(state.apps, state.query) {
         val query = state.query.trim()
         val filtered = if (query.isEmpty()) {
             state.apps.filter { it.inOneKey }
@@ -118,16 +132,13 @@ fun AppControlScreen(
                     it.packageName.contains(query, ignoreCase = true)
             }
         }
-        filtered.sortedWith(
-            compareBy<ManagedApp> {
-                when (it.availability) {
-                    AppAvailability.DISABLED -> 0
-                    AppAvailability.SUSPENDED -> 1
-                    AppAvailability.ENABLED -> 2
-                }
-            }.thenByDescending { it.inOneKey }.thenBy { it.label.lowercase() },
-        )
+        // 拼音口径排序（与选择页 / 最近应用黑名单页 / 应用抽屉一致）：中文按拼音首字母 +
+        // 节内全拼序、英文按字母、`#` 恒最后。排序键只含 label（不含 availability/oneKey），
+        // 冻结/解冻只改 availability 不改 label → 行不跳位（#5）。
+        AppDrawerSections.alphabeticalSectionsOf(filtered) { it.label }
     }
+    // 保留分节结构供按节发 item（见列表 content）；平铺视图供空态 / 使能态判断。
+    val visible = sections.flatMap { it.items }
 
     LunoScreenLazy(
         title = stringResource(R.string.app_control_title),
@@ -143,25 +154,16 @@ fun AppControlScreen(
                     )
                 }
             } else {
-                PressIconButton(
-                    onClick = { vm.setShowSystemApps(!state.showSystemApps) },
-                ) {
-                    Icon(
-                        Icons.Default.Android,
-                        contentDescription = stringResource(
-                            if (state.showSystemApps) {
-                                R.string.app_control_hide_system
-                            } else {
-                                R.string.app_control_show_system
-                            },
-                        ),
-                        tint = if (state.showSystemApps) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            LocalContentColor.current
-                        },
-                    )
-                }
+                SystemAppsMenuButton(
+                    showUILess = state.systemVisibility.showUILess,
+                    showNoEntry = state.systemVisibility.showNoEntry,
+                    onShowUILessChange = { enabled ->
+                        vm.setSystemVisibility(state.systemVisibility.copy(showUILess = enabled))
+                    },
+                    onShowNoEntryChange = { enabled ->
+                        vm.setSystemVisibility(state.systemVisibility.copy(showNoEntry = enabled))
+                    },
+                )
                 PressIconButton(
                     onClick = { vm.toggleSelectionMode() },
                     enabled = visible.isNotEmpty(),
@@ -240,31 +242,45 @@ fun AppControlScreen(
                 )
             }
         } else {
-            // 应用列表与全站一致：LunoGroup 连接分段圆角，计数摘要放组副标题（仍为全量，不随搜索过滤）。
-            item {
-                LunoGroup(
-                    subtitle = stringResource(
-                        R.string.app_control_frozen_count,
-                        state.frozenCount,
-                        state.oneKeyCount,
-                    ),
-                ) {
-                    visible.forEachIndexed { index, app ->
-                        val stateText = statusText(app)
-                        if (state.selectionMode) {
-                            LunoSelectableRow(
-                                title = app.label,
-                                subtitle = stateText.ifEmpty { app.packageName },
-                                selected = app.packageName in state.selected,
-                                onSelectedChange = { vm.toggleSelected(app.packageName) },
-                                iconModel = AppIconRequests.request(
-                                    context,
-                                    app.packageName,
-                                    iconSizePx,
-                                ),
-                                shape = segmentedShape(index, visible.size),
-                            )
-                        } else {
+            // 按拼音分节各发一个 item（同 RecentAppsBlocklistScreen），节内再按 [MaxRowsPerLazyItem]
+            // 分块：单个 item 只承载少量行，节点高度远低于设备合成上限。计数摘要仍为全量，放首节首块。
+            sections.forEachIndexed { sectionIndex, section ->
+                // 字母节头吸顶（同 RecentAppsBlocklistScreen）：分组可扫读，节间留白有了着落。
+                // 冻结计数徽标只放首字母节（A）标题右侧（≥0 始终显示，含 0）。
+                stickyHeader(key = "app_header_${section.letter}") {
+                    SheetGroupHeader(
+                        title = section.letter.toString(),
+                        trailing = {
+                            if (sectionIndex == 0) {
+                                SectionBadge(text = state.frozenCount.toString())
+                            }
+                        },
+                    )
+                }
+                chunkedGroup(
+                    section.items,
+                    "app_${section.letter}",
+                ) { shape, _, app ->
+                    val stateText = statusText(app)
+                    if (state.selectionMode) {
+                        LunoSelectableRow(
+                            title = app.label,
+                            subtitle = stateText.ifEmpty { app.packageName },
+                            selected = app.packageName in state.selected,
+                            onSelectedChange = { vm.toggleSelected(app.packageName) },
+                            iconModel = AppIconRequests.request(
+                                context,
+                                app.packageName,
+                                iconSizePx,
+                            ),
+                            shape = shape,
+                        )
+                    } else {
+                        key(app.packageName) {
+                            val frozen = app.availability == AppAvailability.DISABLED
+                            val freezeEnabled = !app.protected &&
+                                app.availability != AppAvailability.SUSPENDED
+                            var menuExpanded by remember { mutableStateOf(false) }
                             LunoSettingsRow(
                                 title = app.label,
                                 subtitle = stateText.ifEmpty { app.packageName },
@@ -273,47 +289,52 @@ fun AppControlScreen(
                                     app.packageName,
                                     iconSizePx,
                                 ),
-                                shape = segmentedShape(index, visible.size),
+                                // 冻结行图标灰度（#3）；只作用于 AsyncImage(iconModel) 路径。
+                                iconColorFilter = if (frozen) FrozenIconFilter else null,
+                                // 长按行冻结/解冻（#2）；单击不做事（保持既有行为）。
+                                onLongClick = { vm.toggleFreeze(app) },
+                                shape = shape,
                                 trailing = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        PressIconButton(onClick = { vm.toggleOneKey(app) }) {
+                                    Box {
+                                        PressIconButton(onClick = { menuExpanded = true }) {
                                             Icon(
-                                                modifier = Modifier.size(24.dp),
-                                                imageVector = if (app.inOneKey) {
-                                                    Icons.Default.Remove
-                                                } else {
-                                                    Icons.Default.Add
-                                                },
+                                                Icons.Default.MoreVert,
                                                 contentDescription = stringResource(
+                                                    R.string.app_control_more_actions,
+                                                ),
+                                            )
+                                        }
+                                        LunoDropdownMenu(
+                                            expanded = menuExpanded,
+                                            onDismissRequest = { menuExpanded = false },
+                                        ) {
+                                            LunoDropdownMenuItem(
+                                                text = stringResource(
                                                     if (app.inOneKey) {
                                                         R.string.app_control_one_key_remove
                                                     } else {
                                                         R.string.app_control_one_key_add
                                                     },
                                                 ),
-                                            )
-                                        }
-                                        // 冻结 / 解冻只用图标（不用 Switch）：已冻结 → 解锁；正常 → 雪花。
-                                        val frozen = app.availability == AppAvailability.DISABLED
-                                        PressIconButton(
-                                            onClick = { vm.toggleFreeze(app) },
-                                            enabled = !app.protected &&
-                                                app.availability != AppAvailability.SUSPENDED,
-                                        ) {
-                                            Icon(
-                                                modifier = Modifier.size(24.dp),
-                                                imageVector = if (frozen) {
-                                                    Icons.Default.LockOpen
-                                                } else {
-                                                    Icons.Default.AcUnit
+                                                onClick = {
+                                                    menuExpanded = false
+                                                    vm.toggleOneKey(app)
                                                 },
-                                                contentDescription = stringResource(
+                                            )
+                                            // 冻结 / 解冻（#1）；SUSPENDED / 保护应用禁用该项。
+                                            LunoDropdownMenuItem(
+                                                text = stringResource(
                                                     if (frozen) {
                                                         R.string.app_control_unfreeze
                                                     } else {
                                                         R.string.app_control_freeze
                                                     },
                                                 ),
+                                                enabled = freezeEnabled,
+                                                onClick = {
+                                                    menuExpanded = false
+                                                    vm.toggleFreeze(app)
+                                                },
                                             )
                                         }
                                     }
@@ -443,7 +464,18 @@ private fun AppControlToolbar(
                         .then(if (isSearch) Modifier.fillMaxWidth() else Modifier)
                         .fillMaxHeight(),
                     transitionSpec = {
-                        fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                        val expanding = targetState == ToolbarMode.Search
+                        val collapsing = initialState == ToolbarMode.Search
+                        if (expanding || collapsing) {
+                            val dir = if (expanding) 1 else -1
+                            val enter = fadeIn(tween(MotionSwapIn)) +
+                                slideInHorizontally(tween(MotionSwapIn)) { full -> dir * full / 8 }
+                            val exit = fadeOut(tween(MotionSwapOut)) +
+                                slideOutHorizontally(tween(MotionSwapOut)) { full -> -dir * full / 8 }
+                            enter togetherWith exit
+                        } else {
+                            fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                        }
                     },
                     label = "appControlToolbarMode",
                 ) { m ->
@@ -614,7 +646,6 @@ private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
 @Composable
 private fun statusText(app: ManagedApp): String {
     val parts = buildList {
-        if (app.inOneKey) add(stringResource(R.string.app_control_one_key))
         when (app.availability) {
             AppAvailability.DISABLED -> add(stringResource(R.string.app_control_state_frozen))
             AppAvailability.SUSPENDED -> add(stringResource(R.string.app_control_state_suspended))
@@ -625,3 +656,8 @@ private fun statusText(app: ManagedApp): String {
     }
     return parts.joinToString(" · ")
 }
+
+/** 冻结行图标灰度（#3）：去饱和。无状态，文件级共享，无需 remember。 */
+private val FrozenIconFilter = ColorFilter.colorMatrix(
+    ColorMatrix().apply { setToSaturation(0f) },
+)

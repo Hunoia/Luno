@@ -58,6 +58,29 @@ internal object BallPlacement {
     /** 静置横向外移量：左缘为负（向屏外），右缘为正。 */
     fun idleShiftPx(left: Boolean, ballPx: Int, outRatio: Float): Float =
         (if (left) -1f else 1f) * outRatio * ballPx
+
+    /**
+     * 键盘让位抬升量（px）：悬浮球与胶囊共用同一公式。
+     *
+     * [base] 是未让位的落点（屏幕绝对坐标，球窗顶边），[size] 是球 / 收起圆直径，
+     * [imeBottomPx] 是键盘顶部到屏幕底的距离（`WindowInsets.Type.ime().bottom`，
+     * display 绝对参考系），[minY] 是可落范围上界（安全区 / LP 原点）。
+     *
+     * 抬升量 = 球底 + 边距越过键盘顶的部分；封顶在球顶正好到 [minY]——不把球顶上
+     * 状态栏。只算量、不落窗口：调用方各自把「显示位置 = 基准 − 抬升」写进窗口。
+     */
+    fun imeLiftAmount(
+        base: Int,
+        size: Int,
+        marginPx: Int,
+        imeBottomPx: Int,
+        minY: Int,
+        screenHeightPx: Int,
+    ): Int {
+        if (imeBottomPx <= 0) return 0
+        val overflow = base + size + marginPx - (screenHeightPx - imeBottomPx)
+        return max(0, overflow).coerceAtMost(max(0, base - minY))
+    }
 }
 
 /** 球窗可落范围（屏幕绝对坐标，px）。 */

@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import hunoia.luno.ui.theme.EmptyStatePaddingVertical
+import hunoia.luno.ui.theme.LoadingIndicatorSize
 import hunoia.luno.ui.theme.ListSpacing
 
 @Composable
@@ -26,7 +27,7 @@ fun LoadingState(
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            LunoLoadingIndicator(modifier = Modifier.size(ListSpacing))
+            LunoLoadingIndicator(modifier = Modifier.size(LoadingIndicatorSize))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,

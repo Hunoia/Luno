@@ -615,9 +615,30 @@ object Launcher {
                 // 否则本来能启动的应用也会失败；extras 不改变解析结果，保留。
                 extras.forEach { (key, value) -> fallback.putExtra(key, value) }
             }
+            // 无桌面入口但有界面的系统应用：className 空且无 launcher intent 时，
+            // 解析 MAIN / 首个 exported Activity 直达界面（否则落 openAppDetails 详情页）。
+            ?: resolveNoEntryActivityIntent(pm, packageName)?.also { fallback ->
+                extras.forEach { (key, value) -> fallback.putExtra(key, value) }
+            }
             ?: return null
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return intent
+    }
+
+    /**
+     * 无桌面入口但有界面的系统应用（AppCatalog.querySystemApps 的「有界面无入口」类）：
+     * className 为空且系统 launch intent 命不中时，解析该包首个 exported Activity 显式打开，
+     * 让点击直达其真实界面（否则会落 openAppDetails 详情页）。
+     */
+    private fun resolveNoEntryActivityIntent(
+        pm: android.content.pm.PackageManager,
+        packageName: String,
+    ): Intent? {
+        val info: android.content.pm.PackageInfo? = runCatching {
+            pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_ACTIVITIES)
+        }.getOrNull()
+        val activity = info?.activities?.firstOrNull { it.exported } ?: return null
+        return Intent().setComponent(ComponentName(packageName, activity.name))
     }
 
     /**

@@ -602,10 +602,8 @@ class FloatBallWindow(
     }
 
     private fun computeImeLift(imeBottomPx: Int): Int {
-        if (imeBottomPx <= 0) return 0
         // ImeMargin 防贴键盘顶；ImeExtraLift 再抬高一段 —— 键盘上方通常是应用的输入栏/发送按钮。
         val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp)
-        val overflow = (posY).roundToInt() + ballPx + marginPx - (screenHeightPx - imeBottomPx)
         // 让位只作用于显示位置，基准 posY 不动；封顶在球顶正好到安全区上界
         // （横屏 LP 原点为 0 时，若按 LP 原点封顶，键盘会把球顶上状态栏）。
         val minY = BallPlacement.bounds(
@@ -615,7 +613,14 @@ class FloatBallWindow(
             barSafeArea,
             lpOriginY,
         ).minY.roundToInt()
-        return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - minY))
+        return BallPlacement.imeLiftAmount(
+            base = posY.roundToInt(),
+            size = ballPx,
+            marginPx = marginPx,
+            imeBottomPx = imeBottomPx,
+            minY = minY,
+            screenHeightPx = screenHeightPx,
+        )
     }
 
     // ---- 触摸 → 定位 ----
@@ -626,6 +631,13 @@ class FloatBallWindow(
             onDragStarted?.invoke()
             cancelSettle()
             cancelImeAnim()
+            // 键盘让位只进显示值；开始拖动时把基准搬到当前显示位置并释放让位。
+            // 否则拖动收尾的落盘会记成「显示 + 抬升」，键盘关闭后球沉到抬升量之下
+            // （表现为「关键盘后位置移了」）。用户拖动即显式定位，覆盖自动让位。
+            if (imeLiftPx > 0f) {
+                posY -= imeLiftPx
+                imeLiftPx = 0f
+            }
             cancelIdle()
         }
         posX += dx
@@ -642,8 +654,8 @@ class FloatBallWindow(
 
     /** 贴边结算 + 落盘（拖动收尾）。调用前应已置 dragging=false。 */
     private fun finishDrag() {
-        // 拖动中键盘可能起落过：结算一次让位，再夹取。
-        imeLiftPx = computeImeLift(imeBottomPx).toFloat()
+        // 拖动开始已把基准搬到显示位置并释放键盘让位（用户显式定位覆盖自动让位），
+        // 收尾不再重抬：否则球会在松手瞬间「弹回」抬升量，关键盘后又沉下去。
         applyWindowBounds()
         // 判定区彩蛋：松手时球心在判定区 → 通知服务执行动作（坐标取贴边结算前的球心）；
         // 球随后照常贴边落位，不停在屏幕中央。

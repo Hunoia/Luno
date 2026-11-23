@@ -10,6 +10,7 @@ import hunoia.luno.quickaccess.query.AppCatalog
 import hunoia.luno.quickaccess.query.AppListRepository
 import hunoia.luno.quickaccess.query.AppQuery
 import hunoia.luno.quickaccess.query.DisabledAppQuery
+import hunoia.luno.quickaccess.query.SystemAppsVisibility
 import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.bridge.launcher.toShortcutInfo
 import hunoia.luno.quickaccess.query.LauncherIconQuery
@@ -28,12 +29,14 @@ object QuickLaunchFacade {
 
     /**
      * 应用清单加载（AppPickerSheet / 黑名单 / 动作选择页共用）：统一清单来源
-     * （主用户 + 分身 + 禁用应用 + 按开关追加的系统包），查询失败回退空表。
-     * 调用方须在 IO 线程。
+     * （主用户 + 分身 + 禁用应用 + [visibility] 追加的两类系统包），查询失败回退空表。
+     * 调用方须在 IO 线程；[visibility] 由各列表自己的内存开关决定（默认都不含）。
      */
-    suspend fun queryAppsIncludingDisabled(context: Context): List<AppInfo> = try {
-        AppCatalog.refreshSystemSetting()
-        AppCatalog.query(context, includeDisabled = true).apps
+    suspend fun queryAppsIncludingDisabled(
+        context: Context,
+        systemVisibility: SystemAppsVisibility = SystemAppsVisibility(),
+    ): List<AppInfo> = try {
+        AppCatalog.query(context, includeDisabled = true, systemVisibility = systemVisibility).apps
     } catch (_: Exception) {
         emptyList()
     }

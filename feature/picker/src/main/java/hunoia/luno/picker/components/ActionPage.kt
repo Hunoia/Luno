@@ -109,9 +109,9 @@ import kotlinx.coroutines.withContext
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
 /** 应用与快捷方式合成一颗 chip：两者都是「从别的 app 取入口」，合并后底栏少一格。 */
-private const val TYPE_APP = "app"
+const val TYPE_APP = "app"
 /** 旧版本单独保存的快捷方式筛选值，恢复时并到合并后的 chip。 */
-private const val TYPE_SHORTCUT_LEGACY = "shortcut"
+const val TYPE_SHORTCUT_LEGACY = "shortcut"
 private const val TYPE_WIDGET = "widget"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -149,9 +149,11 @@ internal fun ActionPage(
     onSelectInternalWidget: (String) -> Unit = { },
     /** 行尾设置弹窗确认：把带参的动作写回列表（及当前选中项），不触发选择/返回。 */
     onUpdateAction: (old: StoredAction, new: StoredAction) -> Unit = { _, _ -> },
+    /** 当前 chip（归一化前的原始值）；由宿主提升，顶栏才能按 tab 显示系统应用开关。 */
+    selectedType: String?,
+    onSelectedTypeChange: (String?) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     // 旧版本「快捷方式」是独立 chip；合并后归一化，避免恢复出任何 chip 都不匹配的空列表。
     val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
     // 应用区按字母分节，每个应用行各自可展开；不再有顶层「应用 / 快捷方式」两个折叠组。
@@ -833,7 +835,7 @@ internal fun ActionPage(
             onQueryChange = { query = it },
             typeChips = typeChips,
             selectedType = normalizedType,
-            onSelectedTypeChange = { selectedType = it },
+            onSelectedTypeChange = onSelectedTypeChange,
             hazeState = hazeState,
             onHeightChange = { bottomBarHeightPx = it },
         )
