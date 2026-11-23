@@ -13,19 +13,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.paletteFor
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
@@ -50,31 +47,19 @@ import hunoia.luno.ui.theme.toMarkColor
 @Composable
 fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {}) {
     val facades = LocalFacades.current
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    // 本地即显状态：用户操作（切样式 / 旋钮 / 开关）立即更新 UI，再异步落盘。
-    // 不依赖配置流「活跃推送」：MultiProcessDataStore 写盘后不保证通知活跃订阅者，
-    // 同屏切样式才不换旋钮；resume 时再从 latestAction 同步一次，兜底外部写入
-    // （调色板改色、回前台等）。
-    val alertState = remember {
-        mutableStateOf(TuneConfig.latestAction().floatBall.notificationCapsule.alert)
-    }
-    var alert by alertState
+    // 本地即显状态：用户操作（切样式 / 旋钮 / 开关）立即更新 UI，再异步落盘；
+    // resume 时从真实配置再同步一次，兜底调色板页返回 / 外部写入（见 rememberAlertEditor）。
+    val editor = rememberAlertEditor()
+    val alert = editor.alert
     // settings 提到页面顶层：LunoScreen 的 content 是普通 Column（非懒重组），
     // 重组时整个 content lambda 重跑，when(settings.style) 才能跟着换分支。
     val settings = alert.edge
     var showSecondColorPicker by remember { mutableStateOf(false) }
 
-    LifecycleResumeEffect(Unit) {
-        alert = TuneConfig.latestAction().floatBall.notificationCapsule.alert
-        onPauseOrDispose { }
-    }
-
     // 本地即显 + 异步落盘：transform 先应用到本地（UI 立即反映），再写回配置。
-    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
-        alert = transform(alert)
-        persistAlert(scope, transform)
-    }
+    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) =
+        editor.update(transform)
 
     LunoScreen(
         title = stringResource(AlertCategory.Edge.titleRes()),

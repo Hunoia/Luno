@@ -5,7 +5,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.AlertPalette
@@ -17,6 +20,8 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import java.util.UUID
+import kotlinx.coroutines.launch
 
 /**
  * 到达提示·调色板管理页：内置只读（缩略预览），自定义可点进编辑；「新建」追加一个
@@ -32,6 +37,8 @@ fun AlertPaletteManagerScreen(
         .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val alert = actionSettings.floatBall.notificationCapsule.alert
     val palettes = alert.allPalettes()
+    // 连点「新建」会建出两个调色板并连进两次编辑页：用 creating 收口。
+    var creating by remember { mutableStateOf(false) }
 
     LunoScreenLazy(
         title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
@@ -61,24 +68,31 @@ fun AlertPaletteManagerScreen(
             ) {
                 LunoSegmentedGroup {
                     item { shape ->
+                        val defaultName = stringResource(R.string.float_ball_capsule_alert_palette_default_name)
                         LunoSettingsRow(
                             title = stringResource(R.string.float_ball_capsule_alert_palette_new),
                             icon = Icons.Default.Add,
                             shape = shape,
                             onClick = {
-                                val newPalette = AlertPalette(
-                                    id = "custom_${System.currentTimeMillis()}",
-                                    name = "新调色板",
-                                    colors = listOf(
-                                        0xFFE53935.toInt(),
-                                        0xFFFB8C00.toInt(),
-                                        0xFF43A047.toInt(),
-                                    ),
-                                )
-                                persistAlert(scope) {
-                                    it.copy(customPalettes = it.customPalettes + newPalette)
+                                if (!creating) {
+                                    creating = true
+                                    val newPalette = AlertPalette(
+                                        id = "custom_${UUID.randomUUID()}",
+                                        name = defaultName,
+                                        colors = listOf(
+                                            0xFFE53935.toInt(),
+                                            0xFFFB8C00.toInt(),
+                                            0xFF43A047.toInt(),
+                                        ),
+                                    )
+                                    // 先等写盘完成并同步兜底缓存，再进编辑页：否则编辑页首帧读不到
+                                    // 这个 id（写盘回推异步）会被判定为「已删除」直接弹回。
+                                    scope.launch {
+                                        persistAlertNow { it.copy(customPalettes = it.customPalettes + newPalette) }
+                                        TuneConfig.syncActionSnapshot()
+                                        onEditPalette(newPalette.id)
+                                    }
                                 }
-                                onEditPalette(newPalette.id)
                             },
                         )
                     }

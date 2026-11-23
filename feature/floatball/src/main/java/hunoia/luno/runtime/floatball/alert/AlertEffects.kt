@@ -1,17 +1,22 @@
 package hunoia.luno.runtime.floatball.alert
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.Paint
 import android.graphics.RuntimeShader
-import android.net.Uri
 import android.util.Log
+import android.util.LruCache
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
@@ -30,7 +35,11 @@ import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.ParticleAlertStyle
 import hunoia.luno.config.model.ParticleShape
+import hunoia.luno.config.model.ParticleShapeSettings
 import hunoia.luno.ui.theme.toMarkColor
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -52,7 +61,12 @@ import kotlin.random.Random
 
 private const val TAG = "AlertEffects"
 
-/** 调色板 AGSL 声明与取色助手：`paletteCount` + 5 色，单色时恒 [paletteAt] 首色。 */
+/**
+ * 调色板 AGSL 声明与取色助手：`paletteCount` + 5 色。
+ *
+ * `paletteAt` 在相邻两色之间**线性插值**（末色接回首色）：分桶取色会让 5 色在屏缘上
+ * 读作 5 段硬色带，与「沿屏缘渐变」的取色口径不符；单色恒 `palette0`。
+ */
 private const val PALETTE_DECL = """
     uniform float paletteCount;
     layout(color) uniform half4 palette0;
@@ -61,16 +75,24 @@ private const val PALETTE_DECL = """
     layout(color) uniform half4 palette3;
     layout(color) uniform half4 palette4;
 
-    half4 paletteAt(float s) {
-        float n = paletteCount;
-        if (n < 1.5) return palette0;
-        float x = s * n;
-        float fi = clamp(floor(x), 0.0, n - 1.0);
-        if (fi < 0.5) return palette0;
-        if (fi < 1.5) return palette1;
-        if (fi < 2.5) return palette2;
-        if (fi < 3.5) return palette3;
+    half4 paletteNth(float fi) {
+        float i = mod(fi, max(paletteCount, 1.0));
+        if (i < 0.5) return palette0;
+        if (i < 1.5) return palette1;
+        if (i < 2.5) return palette2;
+        if (i < 3.5) return palette3;
         return palette4;
+    }
+
+    half4 paletteAt(float s) {
+        if (paletteCount < 1.5) return palette0;
+        float x = s * paletteCount;
+        float fi = floor(x);
+        half4 c0 = paletteNth(fi);
+        half4 c1 = paletteNth(fi + 1.0);
+        half f = half(x - fi);
+        half g = half(1.0) - f;
+        return c0 * g + c1 * f;
     }
 """
 
@@ -323,7 +345,7 @@ private fun EdgeGlowLayer(
 /**
  * 屏幕边缘流光：亮带沿屏缘匀速环绕（每循环一圈），深度衰减口径与呼吸光一致。
  * 刃感 = 主带宽（`coreBand`）+ 深度硬度（`hardness`）+ 拖尾浓度（`trailAlpha`）三件套；
- * 双带时第二带反向行进。颜色按周长采样调色板（单色 + 双色走 [palette.second]）。
+ * 双带时第二带反向行进。颜色按周长采样调色板（单色 + 双色回退 [secondColorSpec]）。
  */
 @Composable
 private fun EdgeFlowLayer(
@@ -418,7 +440,7 @@ private fun TopRainLayer(
     val lifetimeMs = layer.cycleMillis * ParticlesTuning.LifeShare
     val spreadMs = (layer.totalMillis - lifetimeMs).coerceAtLeast(1f)
     val particles = remember(layer) {
-        val random = Random.Default
+        val random = Random(0x7A1AL)
         List(count) { index ->
             val hero = random.nextFloat() < ParticlesTuning.HeroFraction
             Particle(
@@ -669,7 +691,10 @@ private fun EdgeRippleLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as EdgeRippleSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.3f, 0.8f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeRippleTuning.PeakAlphaMin,
+        EdgeRippleTuning.PeakAlphaMax,
+    )
     val sizePx = layer.amount
         .lerpInRange(
             FloatBallDefaults.AlertEdgeRippleSizeDpMin.toFloat(),
@@ -681,7 +706,7 @@ private fun EdgeRippleLayer(
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val crests = spec.crestCount
         val travel = (now / layer.cycleMillis) % 1f
-        val insetPx = 6.dp.toPx()
+        val insetPx = EdgeFrameTuning.InsetDp.dp.toPx()
         val perim = EdgePerimeter(size, insetPx, spec.cornerRadiusDp.dp.toPx())
         val sizeR = sizePx.dp.toPx()
         val sigma = 0.03f
@@ -719,7 +744,10 @@ private fun EdgeBlinkLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as EdgeBlinkSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.3f, 0.85f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeBlinkTuning.PeakAlphaMin,
+        EdgeBlinkTuning.PeakAlphaMax,
+    )
     val points = remember(layer) {
         val random = Random(0x5EEDL)
         List(spec.pointCount) { index ->
@@ -740,14 +768,14 @@ private fun EdgeBlinkLayer(
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val t = (now / layer.cycleMillis) % 1f
-        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
+        val perim = EdgePerimeter(size, EdgeFrameTuning.InsetDp.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val sizeR = sizePx.dp.toPx()
         val blinkSpeed = 2f * Math.PI.toFloat() * 2f
         for ((f, phase, jitter) in points) {
             val blink = 0.5f + 0.5f * sin(blinkSpeed * t + phase + jitter * 6.28f)
             if (blink <= 0.05f) continue
             val alpha = peakAlpha * blink * envelope
-            val p = perim.point(f + t * 0.02f * (jitter - 0.5f) * 2f)
+            val p = perim.point(f)
             val radius = sizeR * (0.6f + 0.4f * blink)
             drawCircle(color = palette.sample(f), alpha = alpha, radius = radius, center = p)
         }
@@ -765,7 +793,10 @@ private fun EdgeFireworksLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as EdgeFireworksSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.35f, 0.9f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeFireworksTuning.PeakAlphaMin,
+        EdgeFireworksTuning.PeakAlphaMax,
+    )
     val particles = remember(layer) {
         val random = Random(0xF1AEL)
         List(spec.burstCount) { b ->
@@ -794,7 +825,7 @@ private fun EdgeFireworksLayer(
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
+        val perim = EdgePerimeter(size, EdgeFrameTuning.InsetDp.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val travelPx = spreadPx.dp.toPx()
         for (p in particles) {
             val progress = (now / layer.cycleMillis - p.delay) % 1f
@@ -839,7 +870,10 @@ private fun EdgeSwirlLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as EdgeSwirlSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.3f, 0.85f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeSwirlTuning.PeakAlphaMin,
+        EdgeSwirlTuning.PeakAlphaMax,
+    )
     val radiusPx = layer.amount
         .lerpInRange(
             FloatBallDefaults.AlertEdgeSwirlRadiusDpMin.toFloat(),
@@ -850,7 +884,7 @@ private fun EdgeSwirlLayer(
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val travel = (now / layer.cycleMillis) % 1f
-        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
+        val perim = EdgePerimeter(size, EdgeFrameTuning.InsetDp.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val radial = radiusPx.dp.toPx()
         val cx = size.width / 2f
         val cy = size.height / 2f
@@ -886,7 +920,10 @@ private fun EdgeBladeRiseLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as EdgeBladeRiseSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.35f, 0.9f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeBladeTuning.PeakAlphaMin,
+        EdgeBladeTuning.PeakAlphaMax,
+    )
     val bladeWidth = layer.amount
         .lerpInRange(
             FloatBallDefaults.AlertEdgeBladeWidthDpMin.toFloat(),
@@ -901,7 +938,6 @@ private fun EdgeBladeRiseLayer(
         val bladeH = spec.bladeHeightDp.dp.toPx()
         val headY = progress * (size.height + bladeH) - bladeH / 2f
         // 每侧一道刃：顶部最亮（刃尖），向下线性衰减到尾迹。
-        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         for (side in intArrayOf(0, 1)) {
             val x = if (side == 0) bladeW / 2f else size.width - bladeW / 2f
             val steps = 24
@@ -936,7 +972,10 @@ private fun BallBurstLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as BallBurstSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.35f, 0.9f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        BallBurstTuning.PeakAlphaMin,
+        BallBurstTuning.PeakAlphaMax,
+    )
     val particles = remember(layer) {
         val random = Random(0xB0A5L)
         List(spec.count) { index ->
@@ -1001,7 +1040,10 @@ private fun BallHaloLayer(
     clock: () -> Float,
 ) {
     val spec = layer.spec as BallHaloSpec
-    val peakAlpha = layer.brightness.lerpInRange(0.2f, 0.7f)
+    val peakAlpha = layer.brightness.lerpInRange(
+        BallHaloTuning.PeakAlphaMin,
+        BallHaloTuning.PeakAlphaMax,
+    )
     val baseRadius = anchor.capsulePx / 2f * (spec.radiusPercent / 100f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
@@ -1088,42 +1130,114 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMote(
     }
 }
 
-/** 粒子形状 → 位图：自定义图片按 content Uri 解码；App 图标取通知应用图标；失败回落 null（圆点）。 */
+/**
+ * 形状图片的解码上限（px，长边）：粒子核最多几十像素，按 128 解码足够清晰，
+ * 又不至于把一张 12MP 原图整张解进内存（ARGB 一格 ≈ 12MP × 4B ≈ 48MB）。
+ */
+private const val ParticleImageMaxPx = 128
+
+/**
+ * 形状图片的进程内缓存：同一次播放里每个粒子层都会取同一张；键 = 形状 + 图片名 + 来源包。
+ * 条目很少（≤ 形状数 × 来源），容量 8 足够，避免整段动效期间反复解码。
+ */
+private val particleImageCache = LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(8)
+
+private fun particleImageKey(spec: ParticlesSpec, appPackage: String?): String =
+    "${spec.shape}|${spec.customImage}|${appPackage.orEmpty()}"
+
+/**
+ * 粒子形状 → 位图：自定义图片 / 通知应用图标，**后台解码 + 降采样**，失败回落 null（圆点）。
+ *
+ * 解码不能放在 `remember` 里同步做：那是在主线程解一张全尺寸图，首帧直接卡住，
+ * 大图还会 OOM。命中缓存时 `remember` 的初始值就是图，避免重播时闪一帧圆点。
+ */
 @Composable
 private fun rememberParticleImage(
     spec: ParticlesSpec,
     appPackage: String?,
 ): androidx.compose.ui.graphics.ImageBitmap? {
-    if (spec.shape == ParticleShape.Dot) return null
     val context = LocalContext.current
-    return remember(spec.shape, spec.customImage, appPackage) {
-        runCatching {
-            when (spec.shape) {
-                ParticleShape.Dot -> null
-                ParticleShape.CustomImage -> {
-                    if (spec.customImage.isBlank()) null
-                    else context.contentResolver.openInputStream(Uri.parse(spec.customImage))?.use {
-                        BitmapFactory.decodeStream(it)?.asImageBitmap()
-                    }
-                }
-                ParticleShape.AppIcon -> {
-                    val pkg = appPackage ?: return@runCatching null
-                    val drawable = context.packageManager.getApplicationIcon(pkg)
-                    val w = drawable.intrinsicWidth.coerceAtLeast(1)
-                    val h = drawable.intrinsicHeight.coerceAtLeast(1)
-                    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bmp)
-                    drawable.setBounds(0, 0, w, h)
-                    drawable.draw(canvas)
-                    bmp.asImageBitmap()
-                }
-            }
-        }.getOrNull()
+    val key = particleImageKey(spec, appPackage)
+    var image by remember(key) { mutableStateOf(particleImageCache.get(key)) }
+    LaunchedEffect(key) {
+        if (spec.shape == ParticleShape.Dot) {
+            image = null
+            return@LaunchedEffect
+        }
+        image = decodeParticleImage(context, spec, appPackage)
     }
+    return if (spec.shape == ParticleShape.Dot) null else image
+}
+
+/** 后台解码并按 [ParticleImageMaxPx] 降采样；结果写入 [particleImageCache]。 */
+private suspend fun decodeParticleImage(
+    context: Context,
+    spec: ParticlesSpec,
+    appPackage: String?,
+): androidx.compose.ui.graphics.ImageBitmap? = withContext(Dispatchers.IO) {
+    val key = particleImageKey(spec, appPackage)
+    particleImageCache.get(key)?.let { return@withContext it }
+    val decoded = runCatching {
+        when (spec.shape) {
+            ParticleShape.Dot -> null
+            ParticleShape.CustomImage -> decodeShapeFile(context, spec.customImage)
+            ParticleShape.AppIcon -> decodeAppIcon(context, appPackage)
+        }
+    }.getOrNull()
+    if (decoded != null) particleImageCache.put(key, decoded)
+    decoded
+}
+
+/** 自定义形状文件：新数据只存文件名（文件在 `ParticleShapeSettings.ImageDirName` 下）；旧数据可能是绝对路径。 */
+private fun decodeShapeFile(context: Context, stored: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val file = resolveShapeFile(context, stored)?.takeIf { it.isFile } ?: return null
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
+        inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+    }
+    return BitmapFactory.decodeFile(file.absolutePath, options)?.asImageBitmap()
+}
+
+private fun resolveShapeFile(context: Context, stored: String): File? {
+    val raw = stored.removePrefix("file://")
+    if (raw.isBlank()) return null
+    return if (raw.contains('/')) File(raw)
+    else File(File(context.filesDir, ParticleShapeSettings.ImageDirName), raw)
+}
+
+private fun sampleSizeFor(width: Int, height: Int): Int {
+    var maxEdge = maxOf(width, height)
+    var sample = 1
+    while (maxEdge / 2 >= ParticleImageMaxPx) {
+        maxEdge /= 2
+        sample *= 2
+    }
+    return sample
+}
+
+private fun decodeAppIcon(context: Context, appPackage: String?): androidx.compose.ui.graphics.ImageBitmap? {
+    val pkg = appPackage ?: return null
+    val drawable = context.packageManager.getApplicationIcon(pkg)
+    val intrinsic = maxOf(drawable.intrinsicWidth, drawable.intrinsicHeight, 1)
+    val scale = (ParticleImageMaxPx.toFloat() / intrinsic).coerceAtMost(1f)
+    val width = (drawable.intrinsicWidth * scale).toInt().coerceAtLeast(1)
+    val height = (drawable.intrinsicHeight * scale).toInt().coerceAtLeast(1)
+    val bitmap = android.graphics.Bitmap.createBitmap(
+        width,
+        height,
+        android.graphics.Bitmap.Config.ARGB_8888,
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+    drawable.setBounds(0, 0, width, height)
+    drawable.draw(canvas)
+    return bitmap.asImageBitmap()
 }
 
 /**
- * 底部喷泉：粒子从底缘向上喷出，重力回落（[ParticlesSpec.gravityExp]），横向微漂。
+ * 底部喷泉：粒子从底缘向上喷出，上冲到顶点后被重力拉回（对称二次弧），横向微漂。
  * 颜色按粒子序号采样。
  */
 @Composable
@@ -1218,7 +1332,7 @@ private fun MeteorLayer(
             val alpha = peak * (1f - t) * envelope
             if (alpha <= 0.005f) continue
             val x = (m.xNorm + m.vx * t) * size.width
-            val y = (m.yNorm + m.vy * t) * travelPx + m.yNorm * size.height * 0f
+            val y = (m.yNorm + m.vy * t) * travelPx
             val center = Offset(x, y)
             val dir = Offset(m.vx, m.vy)
             val len = kotlin.math.hypot(dir.x, dir.y).coerceAtLeast(1e-3f)

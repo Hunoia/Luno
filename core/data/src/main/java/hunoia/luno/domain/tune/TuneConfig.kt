@@ -31,6 +31,9 @@ object TuneConfig {
     suspend fun updateAction(transform: suspend (ActionSettings) -> ActionSettings) =
         ConfigProvider.updateActionSettings(transform)
 
+    /** 写盘后立即对齐兜底缓存（写完就返回的页面用，见 `ConfigProvider.syncLatestActionSettings`）。 */
+    suspend fun syncActionSnapshot() = ConfigProvider.syncLatestActionSettings()
+
     /** 引用该面板的处数（面板项 / 触钮槽 / 子手势槽 / 悬浮球）：删面板前提示用。 */
     suspend fun countPanelReferences(panelId: String): Int =
         PanelCleaner.countPanelReferences(panelId)

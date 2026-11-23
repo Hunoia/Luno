@@ -25,4 +25,9 @@ class SettingsFlowCache<T : Any>(private val fallback: () -> T) {
 
     /** 真实值兜底：还没拿到过真值时回落 [fallback]。 */
     fun latest(): T = latest.value ?: fallback()
+
+    /** 写盘后主动对齐缓存：`updateData` 返回时 DataStore 内存值已是新值，但流回推是异步的。 */
+    fun publish(value: T) {
+        latest.value = value
+    }
 }

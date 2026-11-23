@@ -165,6 +165,15 @@ object ConfigProvider {
     suspend fun updateActionSettings(transform: suspend (ActionSettings) -> ActionSettings) {
         stores._actionSettings.updateData(transform)
     }
+
+    /**
+     * 写盘后把「真实值兜底」缓存对齐到 DataStore 当前值：`updateData` 返回时内存已是新值，
+     * 但流回推是异步的——写完立刻导航走的页面（调色板选择 / 新建、黑名单保存）会在
+     * resume 那一帧读到旧缓存，表现为「选了没生效 / 返回后又变回去」。
+     */
+    suspend fun syncLatestActionSettings() {
+        actionCache.publish(stores._actionSettings.data.first())
+    }
     suspend fun updateGestureSettings(transform: suspend (GestureSettings) -> GestureSettings) {
         stores._gestureSettings.updateData(transform)
     }

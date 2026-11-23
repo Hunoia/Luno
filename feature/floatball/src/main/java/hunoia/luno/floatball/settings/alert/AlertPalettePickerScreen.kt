@@ -6,11 +6,15 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AlertPalette
+import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.allPalettes
 import hunoia.luno.config.model.paletteIdOf
 import hunoia.luno.config.model.withPaletteId
@@ -20,6 +24,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import kotlinx.coroutines.launch
 
 /**
  * 到达提示·调色板选择页：某分类从「跟随动效颜色」+ 内置/自定义调色板里单选。
@@ -39,9 +44,26 @@ fun AlertPalettePickerScreen(
     val palettes = alert.allPalettes()
     val currentId = alert.paletteIdOf(category)
 
+    // 选完即落盘 + 返回；连点两下会连弹两次（第二次弹到分类页），用 leaving 收口。
+    var leaving by remember { mutableStateOf(false) }
+    fun commitAndBack(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        if (leaving) return
+        leaving = true
+        scope.launch {
+            persistAlertNow(transform)
+            TuneConfig.syncActionSnapshot()
+            onBack()
+        }
+    }
+
     LunoScreenLazy(
         title = stringResource(R.string.float_ball_capsule_alert_palette_picker),
-        onBack = onBack,
+        onBack = {
+            if (!leaving) {
+                leaving = true
+                onBack()
+            }
+        },
     ) {
         item(key = "pick") {
             LunoGroup(
@@ -59,10 +81,7 @@ fun AlertPalettePickerScreen(
                             } else {
                                 null
                             },
-                            onClick = {
-                                persistAlert(scope) { it.withPaletteId(category, null) }
-                                onBack()
-                            },
+                            onClick = { commitAndBack { it.withPaletteId(category, null) } },
                         )
                     }
                     palettes.forEach { palette ->
@@ -71,10 +90,7 @@ fun AlertPalettePickerScreen(
                                 palette = palette,
                                 selected = palette.id == currentId,
                                 shape = shape,
-                                onClick = {
-                                    persistAlert(scope) { it.withPaletteId(category, palette.id) }
-                                    onBack()
-                                },
+                                onClick = { commitAndBack { it.withPaletteId(category, palette.id) } },
                             )
                         }
                     }

@@ -10,6 +10,11 @@ import sv.lib.squircleshape.SquircleShape
 
 // Component sizes
 val MarkColorSize = 20.dp
+// 设置页调色板预览：色点直径与彩虹条高度。两者都不随字体缩放（纯色块/色条），是固定尺寸语义。
+val PaletteDotSize = 18.dp
+val PalettePreviewHeight = 24.dp
+/** 调色板预览里相邻色点的间距。 */
+val PaletteDotSpacing = 4.dp
 val MinItemHeightNoSecondary = 50.dp
 val MinInteractiveSize = 48.dp
 /**

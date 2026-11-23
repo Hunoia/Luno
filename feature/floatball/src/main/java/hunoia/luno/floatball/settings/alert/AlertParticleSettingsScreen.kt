@@ -1,28 +1,22 @@
 package hunoia.luno.floatball.settings.alert
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
 import hunoia.luno.config.model.ParticleShape
+import hunoia.luno.config.model.ParticleShapeSettings
 import hunoia.luno.config.model.paletteFor
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
@@ -38,12 +32,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 到达提示·粒子类设置页：类目开关、类内单选运动（① 只有顶部雨）与旋钮。
+ * 到达提示·粒子类设置页：类目开关、类内单选运动（雨 / 喷泉 / 流星 / 彩带 / 雪花 /
+ * 花瓣 / 气泡 / 星火 / 萤火）与旋钮。
  *
  * 粒子类的旋钮按**类目共享**（数量 / 大小 / 行程 / 速度 / 亮度 / 波次），
- * 只有运动差异项按所选运动显隐：摆幅仅顶部雨、重力仅顶部雨 / 星火 / 喷泉、
+ * 只有运动差异项按所选运动显隐：摆幅仅顶部雨、重力仅顶部雨 / 星火、
  * 散开仅喷泉 / 星火、拖尾仅流星；
- * 形状对全部运动生效（② 起每运动都接 `drawMote`）。这是 ui-guidelines §2.4
+ * 形状对全部运动生效（每运动都接 `drawMote`）。这是 ui-guidelines §2.4
  * 里「每效果各存一组」的例外。
  */
 @Composable
@@ -51,27 +46,17 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    // 本地即显状态：用户操作（切运动 / 旋钮 / 开关）立即更新 UI，再异步落盘。
-    // 不依赖配置流「活跃推送」：MultiProcessDataStore 写盘后不保证通知活跃订阅者，
-    // 同屏切运动才不换旋钮；resume 时再从 latestAction 同步一次，兜底外部写入。
-    val alertState = remember {
-        mutableStateOf(TuneConfig.latestAction().floatBall.notificationCapsule.alert)
-    }
-    var alert by alertState
+    // 本地即显状态：用户操作（切运动 / 旋钮 / 开关）立即更新 UI，再异步落盘；
+    // resume 时从真实配置再同步一次，兜底调色板页返回 / 外部写入（见 rememberAlertEditor）。
+    val editor = rememberAlertEditor()
+    val alert = editor.alert
     // settings 提到页面顶层：LunoScreen 的 content 是普通 Column（非懒重组），
     // 重组时整个 content lambda 重跑，when(settings.style) 才能跟着换分支。
     val settings = alert.particle
 
-    LifecycleResumeEffect(Unit) {
-        alert = TuneConfig.latestAction().floatBall.notificationCapsule.alert
-        onPauseOrDispose { }
-    }
-
     // 本地即显 + 异步落盘：transform 先应用到本地（UI 立即反映），再写回配置。
-    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
-        alert = transform(alert)
-        persistAlert(scope, transform)
-    }
+    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) =
+        editor.update(transform)
 
     LunoScreen(
         title = stringResource(AlertCategory.Particle.titleRes()),
@@ -145,22 +130,47 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                             if (uri != null) {
                                 // GetContent 授权只在当前任务存活，立即复制到 filesDir 落盘。
                                 scope.launch {
-                                    val target = withContext(Dispatchers.IO) {
+                                    val copied = withContext(Dispatchers.IO) {
                                         runCatching {
-                                            val dir = File(context.filesDir, "floatball_particle_shape")
-                                            if (!dir.exists()) dir.mkdirs()
-                                            val dst = File(dir, "shape_${System.currentTimeMillis()}.png")
-                                            context.contentResolver.openInputStream(uri)?.use { input ->
-                                                dst.outputStream().use { output -> input.copyTo(output) }
+                                            val dir = File(
+                                                context.filesDir,
+                                                ParticleShapeSettings.ImageDirName,
+                                            )
+                                            if (!dir.exists() && !dir.mkdirs()) return@runCatching null
+                                            val name = "shape_${System.currentTimeMillis()}.png"
+                                            val dst = File(dir, name)
+                                            val ok = context.contentResolver
+                                                .openInputStream(uri)
+                                                ?.use { input ->
+                                                    dst.outputStream().use { output -> input.copyTo(output) }
+                                                } != null
+                                            if (ok) {
+                                                name
+                                            } else {
+                                                runCatching { dst.delete() }
+                                                null
                                             }
-                                            dst.absolutePath
                                         }.getOrNull()
                                     }
-                                    if (target != null) {
+                                    if (copied != null) {
+                                        // 只存文件名（换机备份仍可判定失效）；顺手删掉上一张，不留孤儿文件。
+                                        val previous = editor.alert.particle.shape.customImage
                                         updateAlert {
                                             it.copy(particle = it.particle.copy(
-                                                shape = it.particle.shape.copy(customImage = Uri.fromFile(File(target)).toString()),
+                                                shape = it.particle.shape.copy(customImage = copied),
                                             ))
+                                        }
+                                        withContext(Dispatchers.IO) {
+                                            runCatching {
+                                                if (previous.isNotBlank() && previous != copied &&
+                                                    !previous.contains('/')
+                                                ) {
+                                                    File(
+                                                        File(context.filesDir, ParticleShapeSettings.ImageDirName),
+                                                        previous,
+                                                    ).delete()
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -239,8 +249,7 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                             }
                         }
                         if (settings.style == ParticleAlertStyle.TopRain ||
-                            settings.style == ParticleAlertStyle.Spark ||
-                            settings.style == ParticleAlertStyle.BottomFountain
+                            settings.style == ParticleAlertStyle.Spark
                         ) {
                             item { shape ->
                                 AlertKnobSlider(

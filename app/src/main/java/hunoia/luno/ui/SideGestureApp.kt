@@ -601,6 +601,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                                         ),
                                     )
                                 }
+                                TuneConfig.syncActionSnapshot()
                                 navController.popBackStack()
                             }
                         },

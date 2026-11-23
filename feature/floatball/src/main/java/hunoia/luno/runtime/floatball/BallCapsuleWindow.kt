@@ -129,7 +129,9 @@ import hunoia.luno.runtime.floatball.alert.AlertEnvelopeShare
 import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
 import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
+import hunoia.luno.runtime.floatball.alert.BreathOutlineTuning
 import hunoia.luno.runtime.floatball.alert.InnerSweepSpec
+import hunoia.luno.runtime.floatball.alert.InnerSweepTuning
 import hunoia.luno.runtime.floatball.alert.PulseSpec
 import hunoia.luno.runtime.floatball.alert.PulseTuning
 import hunoia.luno.runtime.floatball.alert.ShimmerSpec
@@ -2926,7 +2928,10 @@ internal class BallCapsuleWindow(
                 // 描边宽度随呼吸略胀，与 [PulseTuning] 的多层辉光拉开观感差异。
                 CapsuleAlertStyle.BreathOutline -> {
                     val spec = layer.spec as BreathOutlineSpec
-                    val boost = layer.brightness.lerpInRange(0.3f, 0.9f)
+                    val boost = layer.brightness.lerpInRange(
+                        BreathOutlineTuning.BoostMin,
+                        BreathOutlineTuning.BoostMax,
+                    )
                     val breathe = sin(Math.PI.toFloat() * t)
                     val scaleFactor = 1f + spec.breatheScale * breathe
                     val strokeW = spec.strokeWidthDp.dp.toPx() * (1f + 0.4f * breathe)
@@ -2955,7 +2960,10 @@ internal class BallCapsuleWindow(
                 // 主带宽度与方向是用户旋钮；用调色板逐行取色。
                 CapsuleAlertStyle.InnerSweep -> {
                     val spec = layer.spec as InnerSweepSpec
-                    val peak = layer.brightness.lerpInRange(0.25f, 0.7f) * envelope
+                    val peak = layer.brightness.lerpInRange(
+                        InnerSweepTuning.PeakAlphaMin,
+                        InnerSweepTuning.PeakAlphaMax,
+                    ) * envelope
                     val eased = t.easedOut(1.2f)
                     val pos = if (spec.reverse) 1f - eased else eased
                     val band = spec.bandWidth.coerceIn(0.05f, 0.9f)

@@ -135,13 +135,13 @@
     <string name="float_ball_capsule_alert_category_enabled">启用该类动效</string>
     <string name="float_ball_capsule_alert_category_enabled_subtitle">关闭后该类不参与播放，其余类照常</string>
     <string name="float_ball_capsule_alert_category_edge">边缘</string>
-    <string name="float_ball_capsule_alert_category_edge_hint">沿屏幕边缘的光效：呼吸光 / 流光</string>
+    <string name="float_ball_capsule_alert_category_edge_hint">沿屏幕边缘的光效：呼吸光 / 流光 / 波纹 / 闪点 / 烟花 / 回旋 / 双刃</string>
     <string name="float_ball_capsule_alert_category_particle">粒子</string>
-    <string name="float_ball_capsule_alert_category_particle_hint">从屏幕顶缘落下的粒子雨</string>
+    <string name="float_ball_capsule_alert_category_particle_hint">粒子运动：雨 / 喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火</string>
     <string name="float_ball_capsule_alert_category_capsule">胶囊</string>
-    <string name="float_ball_capsule_alert_category_capsule_hint">画在通知胶囊本身上的描边效果</string>
+    <string name="float_ball_capsule_alert_category_capsule_hint">画在通知胶囊本身上的描边 / 扫光效果</string>
     <string name="float_ball_capsule_alert_category_anchor">球心·全屏</string>
-    <string name="float_ball_capsule_alert_category_anchor_hint">锚定通知球的光环与全屏涟漪</string>
+    <string name="float_ball_capsule_alert_category_anchor_hint">锚定通知球的光环 / 爆发 / 光晕与全屏涟漪</string>
     <string name="float_ball_capsule_alert_category_disabled">已关闭</string>
     <string name="float_ball_capsule_alert_style">样式</string>
     <string name="float_ball_capsule_alert_edge_depth">贴边深度</string>
@@ -153,6 +153,7 @@
     <string name="float_ball_capsule_alert_palette_picker">选择调色板</string>
     <string name="float_ball_capsule_alert_palette_manage">管理调色板</string>
     <string name="float_ball_capsule_alert_palette_new">新建调色板</string>
+    <string name="float_ball_capsule_alert_palette_default_name">新调色板</string>
     <string name="float_ball_capsule_alert_palette_name">名称</string>
     <string name="float_ball_capsule_alert_palette_rainbow">彩虹模式</string>
     <string name="float_ball_capsule_alert_palette_rainbow_subtitle">按色相环循环取色，忽略下方色表</string>

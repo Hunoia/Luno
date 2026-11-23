@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,18 +14,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.AlertPalette
+import hunoia.luno.config.model.BuiltinAlertPalettes
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.theme.CapsuleShape
-
-/** 色点直径（设置页调色板预览 / 逐色编辑共用）。 */
-internal val PaletteDotSize = 18.dp
+import hunoia.luno.ui.theme.PaletteDotSize
+import hunoia.luno.ui.theme.PaletteDotSpacing
+import hunoia.luno.ui.theme.PalettePreviewHeight
 
 /**
  * 调色板缩略预览：非彩虹 = 一排色点（1–5 色），彩虹 = 一条色相环渐变条。
- * [heightFraction] 让内嵌预览在行里居中不撑高；独立预览页传 1f。
+ *
+ * 彩虹条与渲染端共用 `BuiltinAlertPalettes.rainbowColors`（首色在末尾再放一次让渐变
+ * 首尾相接），预览与实际播放同色；位置不受字体缩放影响，是固定尺寸的色块。
  */
 @Composable
 internal fun PalettePreview(
@@ -34,31 +35,20 @@ internal fun PalettePreview(
     modifier: Modifier = Modifier,
 ) {
     if (palette.rainbow) {
+        val ring = BuiltinAlertPalettes.rainbowColors.map { Color(it) }
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .height(24.dp)
-                .clip(CapsuleShape),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp)
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            listOf(
-                                Color(0xFFE53935), Color(0xFFFB8C00), Color(0xFFFDD835),
-                                Color(0xFF43A047), Color(0xFF1E88E5), Color(0xFF8E24AA),
-                            ),
-                        ),
-                    ),
-            ) {}
-        }
+                .height(PalettePreviewHeight)
+                .clip(CapsuleShape)
+                .background(
+                    brush = Brush.horizontalGradient(ring + ring.first()),
+                ),
+        ) {}
     } else {
         Row(
             modifier = modifier,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(PaletteDotSpacing),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             palette.colors.take(5).forEach { argb ->

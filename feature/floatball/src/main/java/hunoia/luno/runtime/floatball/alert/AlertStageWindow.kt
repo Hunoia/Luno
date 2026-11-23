@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ComposeView
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
@@ -59,7 +58,6 @@ internal class AlertStageWindow(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var root: FrameLayout? = null
-    private var compose: ComposeView? = null
     private var fallback: Runnable? = null
 
     /** 正在播放（含兜底待摘的收尾期）：期间的到达合并进当前播放，不重启。 */
@@ -86,7 +84,7 @@ internal class AlertStageWindow(private val context: Context) {
             detach()
             onFinished()
         }
-        val (composeView, frame) = FloatBallLifecycleOwner.createWindowRoot(context) {
+        val (_, frame) = FloatBallLifecycleOwner.createWindowRoot(context) {
             AlertStageContent(
                 plan = plan,
                 anchor = anchor,
@@ -101,7 +99,6 @@ internal class AlertStageWindow(private val context: Context) {
             return false
         }
         root = frame
-        compose = composeView
         // 熔断兜底：末帧回调因任何原因（重组丢失 / 挂起被打断）没来，也保证摘窗。
         val fallbackRun = Runnable {
             fallback = null
@@ -122,7 +119,6 @@ internal class AlertStageWindow(private val context: Context) {
     private fun detach() {
         val frame = root ?: return
         root = null
-        compose = null
         context.removeWindow(frame)
     }
 

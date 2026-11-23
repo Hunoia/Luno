@@ -1,33 +1,32 @@
 package hunoia.luno.runtime.floatball.alert
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import hunoia.luno.config.model.BuiltinAlertPalettes
 import kotlin.math.abs
 
 /**
- * 解析好的调色板（Compose 侧）：1–5 色或彩虹，附单色回退。
+ * 解析好的调色板（Compose 侧）：1–5 色或彩虹。
  *
- * 取色口径（需求确认）：边缘按周长、粒子按序号、胶囊/球环按周长；单色恒纯色。
- * [second] 是单色 + 双色（边缘流光）时的第二色，多色时不用（第二带按自己的周长采样）。
+ * 取色口径（需求确认）：边缘按周长、粒子按序号、胶囊 / 球环按角度；单色恒纯色。
+ * 周长 / 角度采样走 [sampleArgb] 的**环形插值**（末色接回首色）—— 5 色在屏缘上读作
+ * 连续渐变，不会出现 5 段硬色带；粒子按序号取色本就是逐颗离散，仍走 [at]。
  */
 internal class AlertPaletteColors(
     val colors: List<Color>,
     val rainbow: Boolean,
-    val second: Color? = null,
 ) {
     init {
         require(colors.isNotEmpty()) { "palette needs at least one color" }
     }
 
+    /** 预转 ARGB：绘制期按周长采样是逐帧热路径，不在每帧做 Color → Int 往返。 */
+    private val argb: IntArray = IntArray(colors.size) { colors[it].toArgb() }
+
     val isSingle: Boolean get() = colors.size == 1 && !rainbow
 
-    /** 归一化位置（周长 / 相位）取色；单色返回唯一色，多色按位置分桶，彩虹按色相环。 */
-    fun sample(t: Float): Color {
-        if (isSingle) return colors[0]
-        val n = colors.size
-        val x = (((t - t.toInt()) % 1f) + 1f) % 1f
-        val idx = (x * n).toInt().coerceIn(0, n - 1)
-        return colors[idx]
-    }
+    /** 归一化位置（周长 / 相位）取色；单色返回唯一色，多色环形插值。 */
+    fun sample(t: Float): Color = if (isSingle) colors[0] else Color(sampleArgb(argb, t))
 
     /** 按序号取色（粒子）；单色返回唯一色。 */
     fun at(index: Int): Color {
@@ -39,7 +38,11 @@ internal class AlertPaletteColors(
 /** [AlertPaletteSpec] → 渲染用颜色；[fallback] 是未选调色板时的单色（主题解析后）。 */
 internal fun AlertPaletteSpec.toColors(fallback: Color): AlertPaletteColors {
     if (rainbow) {
-        return AlertPaletteColors(colors = RainbowColors, rainbow = true)
+        // 彩虹与设置页预览共用同一份色表（BuiltinAlertPalettes.rainbowColors）。
+        return AlertPaletteColors(
+            colors = BuiltinAlertPalettes.rainbowColors.map { Color(it) },
+            rainbow = true,
+        )
     }
     val list = colors.map { Color(it) }
     return AlertPaletteColors(
@@ -47,7 +50,3 @@ internal fun AlertPaletteSpec.toColors(fallback: Color): AlertPaletteColors {
         rainbow = false,
     )
 }
-
-/** 彩虹的固定色相环（HSV 均匀 5 档）。 */
-private val RainbowColors: List<Color> =
-    listOf(0f, 0.2f, 0.4f, 0.6f, 0.8f).map { hue -> Color.hsv(hue * 360f, 0.85f, 0.95f) }

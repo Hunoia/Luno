@@ -304,16 +304,16 @@ data class NotificationCapsuleSettings(
  * [Capsule] 画在胶囊窗自己的 Compose 层，其余三类画在全屏舞台窗。
  */
 enum class AlertCategory {
-    /** 屏幕边缘类：呼吸光 / 流光（后续波纹 / 闪点 / 烟花 / 回旋 / 双刃）。 */
+    /** 屏幕边缘类：呼吸光 / 流光 / 波纹 / 闪点 / 烟花 / 回旋 / 双刃。 */
     Edge,
 
-    /** 粒子类：顶部雨（后续喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火）。 */
+    /** 粒子类：雨 / 喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火。 */
     Particle,
 
-    /** 胶囊本体类：脉冲 / 边框流光。 */
+    /** 胶囊本体类：脉冲 / 边框流光 / 呼吸描边 / 内部扫光。 */
     Capsule,
 
-    /** 球心·全屏类：球光环 / 全屏涟漪。 */
+    /** 球心·全屏类：球光环 / 全屏涟漪 / 球心爆发 / 球心光晕。 */
     Anchor,
 }
 
@@ -578,7 +578,7 @@ data class ParticlesAlertSettings(
     val sizeScale: Int = FloatBallDefaults.AlertParticlesSizeScale,
     /** 摆动幅度（%）：缩放基准横摆幅；仅顶部雨读取（其余运动用各自曲线常量）。 */
     val swayScale: Int = FloatBallDefaults.AlertParticlesSwayScale,
-    /** 重力强度（指数）：1 = 匀速，2 = 真重力，3 = 更强的加速；仅顶部雨 / 星火 / 喷泉读取。 */
+    /** 重力强度（指数）：1 = 匀速，2 = 真重力，3 = 更强的加速；仅顶部雨 / 星火读取。 */
     val gravity: Int = FloatBallDefaults.AlertParticlesGravity,
     /** 散开幅度（%）：缩放横向 / 径向散开基准；仅底部喷泉 / 星火读取（其余运动固定散开）。 */
     val spreadScale: Int = FloatBallDefaults.AlertParticlesSpreadScale,
@@ -763,14 +763,24 @@ data class BallHaloAlertSettings(
 @Keep
 enum class ParticleShape { Dot, CustomImage, AppIcon }
 
-/** 粒子形状设置：形状 + 自定义图片路径（[ParticleShape.CustomImage] 时用）。 */
+/** 粒子形状设置：形状 + 自定义图片文件名（[ParticleShape.CustomImage] 时用）。 */
 @Serializable
 @Keep
 data class ParticleShapeSettings(
     val shape: ParticleShape = ParticleShape.Dot,
-    /** 自定义图片的 content Uri 字符串；空 = 回落圆点。 */
+    /**
+     * 自定义图片的**文件名**（位于 [ImageDirName] 目录下）；空 = 回落圆点。
+     *
+     * 只存文件名而不是绝对路径：整机备份换机后 filesDir 路径会变，绝对路径必然失效；
+     * 文件名在文件不在时也只是回落圆点。旧数据里的绝对路径由渲染端兼容解析。
+     */
     val customImage: String = "",
-)
+) {
+    companion object {
+        /** 自定义形状图片目录（`filesDir` 下）：选择页写入、渲染端读取共用。 */
+        const val ImageDirName = "floatball_particle_shape"
+    }
+}
 
 /**
  * 结果胶囊配置：分发规则的胶囊档结果从这里展开，[autoHideMs] 后自动收起。

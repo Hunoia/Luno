@@ -76,6 +76,21 @@ object BuiltinAlertPalettes {
         rainbow = true,
     )
 
+    /**
+     * 彩虹色相环的 5 个采样（ARGB，色相 0° / 72° / 144° / 216° / 288°）。
+     *
+     * 渲染端（AGSL / Compose）与设置页预览共用同一份色表：预览条与实际播放必须同色，
+     * 否则「预览里是紫红、播出来是蓝」这类差异只能靠肉眼发现。多色取色在相邻两色之间
+     * 线性插值（首尾相接），所以 5 个采样在屏缘上读作连续色相环，而不是 5 段硬色带。
+     */
+    val rainbowColors: List<Int> = listOf(
+        0xFFF22424.toInt(),
+        0xFFC9F224.toInt(),
+        0xFF24F2A0.toInt(),
+        0xFF2477F2.toInt(),
+        0xFF4E24F2.toInt(),
+    )
+
     /** 内置全集（顺序即设置页展示顺序）。 */
     val all: List<AlertPalette> = listOf(
         CatppuccinMocha,

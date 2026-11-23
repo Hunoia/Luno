@@ -1,12 +1,16 @@
 package hunoia.luno.floatball.settings.alert
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AlertStyleId
 import hunoia.luno.config.model.AnchorAlertStyle
@@ -101,20 +105,66 @@ internal fun NotificationAlertSettings.styleOf(category: AlertCategory): AlertSt
  * 调色板页（独立目的地）不持本地状态，也走这里落盘，分类页返回时经 resume 兜底同步。
  * 写入走 [TuneConfig.updateAction] 的串行队列（拖滑杆松手才调用一次，不逐帧写盘）。
  */
+internal suspend fun persistAlertNow(
+    transform: (NotificationAlertSettings) -> NotificationAlertSettings,
+) {
+    TuneConfig.updateAction { current ->
+        val capsule = current.floatBall.notificationCapsule
+        current.copy(
+            floatBall = current.floatBall.copy(
+                notificationCapsule = capsule.copy(alert = transform(capsule.alert)),
+            ),
+        )
+    }
+}
+
+/** [persistAlertNow] 的页面便捷写法（页面留在前台时用；要立刻导航走请用 `persistAlertNow`）。 */
 internal fun persistAlert(
     scope: CoroutineScope,
     transform: (NotificationAlertSettings) -> NotificationAlertSettings,
 ) {
-    scope.launch {
-        TuneConfig.updateAction { current ->
-            val capsule = current.floatBall.notificationCapsule
-            current.copy(
-                floatBall = current.floatBall.copy(
-                    notificationCapsule = capsule.copy(alert = transform(capsule.alert)),
-                ),
-            )
-        }
+    scope.launch { persistAlertNow(transform) }
+}
+
+/**
+ * 四类设置页共用的编辑态：本地即显 + 异步落盘。
+ *
+ * 不直接读配置流的原因见 `persistAlert` 的注释：MultiProcessDataStore 写盘后不保证
+ * 通知活跃订阅者，同屏切样式会换不出旋钮。这里用 `latestAction()` 起步、页面内立即反映
+ * 用户操作，resume 时再从真实配置同步一次（兜底调色板页返回 / 外部写入）。
+ *
+ * 状态归属：一屏一个状态类型（架构 §8.4），这里就是页面状态；`update` 是唯一写入口，
+ * 页面只读 [alert]、只发 `transform`。
+ */
+@Stable
+internal class AlertEditorState internal constructor(private val scope: CoroutineScope) {
+
+    var alert: NotificationAlertSettings by mutableStateOf(
+        TuneConfig.latestAction().floatBall.notificationCapsule.alert,
+    )
+        private set
+
+    /** 本地即显 + 异步落盘：transform 先应用到本地（UI 立即反映），再写回配置。 */
+    fun update(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        alert = transform(alert)
+        persistAlert(scope, transform)
     }
+
+    /** resume 兜底：从真实配置同步一次。 */
+    fun refresh() {
+        alert = TuneConfig.latestAction().floatBall.notificationCapsule.alert
+    }
+}
+
+@Composable
+internal fun rememberAlertEditor(): AlertEditorState {
+    val scope = rememberCoroutineScope()
+    val editor = remember { AlertEditorState(scope) }
+    LifecycleResumeEffect(Unit) {
+        editor.refresh()
+        onPauseOrDispose { }
+    }
+    return editor
 }
 
 /**

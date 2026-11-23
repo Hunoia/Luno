@@ -21,8 +21,7 @@ import kotlin.math.roundToInt
 
 /**
  * 首尾淡入淡出包络占比：整段时长的这个比例内从 0 升到 1、再从 1 落到 0。
- * 所有「整段播完即止」的效果都乘这个包络，避免最后一帧还在全亮就戛然而止
- * （EdgeFlow 已用 `FlowTuning.EnvelopeShare`，其余层统一走这里的共享常量）。
+ * 所有「整段播完即止」的效果都乘这个包络，避免最后一帧还在全亮就戛然而止。
  */
 internal const val AlertEnvelopeShare = 0.10f
 
@@ -157,6 +156,65 @@ internal object ShimmerTuning {
     /** 主带 alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.9f
+}
+
+/**
+ * 边缘波纹 / 闪点 / 烟花 / 回旋 / 双刃的亮度映射区间。
+ *
+ * 与 [EdgeGlowTuning] / [FlowTuning] 同族的口径：亮度旋钮只映射 alpha 峰值，形状常量
+ * 各效果独立；不要在绘制函数里内联区间——区间是调校参数，属于本文件。
+ */
+internal object EdgeRippleTuning {
+    const val PeakAlphaMin = 0.30f
+    const val PeakAlphaMax = 0.80f
+}
+
+internal object EdgeBlinkTuning {
+    const val PeakAlphaMin = 0.30f
+    const val PeakAlphaMax = 0.85f
+}
+
+internal object EdgeFireworksTuning {
+    const val PeakAlphaMin = 0.35f
+    const val PeakAlphaMax = 0.90f
+}
+
+internal object EdgeSwirlTuning {
+    const val PeakAlphaMin = 0.30f
+    const val PeakAlphaMax = 0.85f
+}
+
+internal object EdgeBladeTuning {
+    const val PeakAlphaMin = 0.35f
+    const val PeakAlphaMax = 0.90f
+}
+
+/** 球心爆发 / 球心光晕的亮度映射区间（形状与行程是各自旋钮）。 */
+internal object BallBurstTuning {
+    const val PeakAlphaMin = 0.35f
+    const val PeakAlphaMax = 0.90f
+}
+
+internal object BallHaloTuning {
+    const val PeakAlphaMin = 0.20f
+    const val PeakAlphaMax = 0.70f
+}
+
+/** 胶囊内部扫光的亮度映射区间（主带宽度与方向是旋钮，画在胶囊窗 Compose 层）。 */
+internal object InnerSweepTuning {
+    const val PeakAlphaMin = 0.25f
+    const val PeakAlphaMax = 0.70f
+}
+
+/** 胶囊呼吸描边的亮度映射区间（描边宽度与呼吸缩放是旋钮）。 */
+internal object BreathOutlineTuning {
+    const val BoostMin = 0.30f
+    const val BoostMax = 0.90f
+}
+
+/** 屏缘采样内缩（dp）：边缘效果都贴屏缘画，取一个统一内缩量，避免被裁切。 */
+internal object EdgeFrameTuning {
+    const val InsetDp = 6f
 }
 
 /** 球光环的扩散行程（px）：随量旋钮拉远，宿主与效果共用同一份口径定窗口余量。 */
