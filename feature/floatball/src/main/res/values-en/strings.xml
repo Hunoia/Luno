@@ -115,6 +115,8 @@
     <string name="float_ball_capsule_alert_particle_size">Particle size</string>
     <string name="float_ball_capsule_alert_particle_sway">Sway amount</string>
     <string name="float_ball_capsule_alert_particle_gravity">Gravity strength</string>
+    <string name="float_ball_capsule_alert_particle_spread">Spread amount</string>
+    <string name="float_ball_capsule_alert_particle_tail">Tail length</string>
     <string name="float_ball_capsule_alert_particle_travel">Fall distance</string>
     <string name="float_ball_capsule_alert_stroke_width">Stroke width</string>
     <string name="float_ball_capsule_alert_rings_per_cycle">Rings per wave</string>

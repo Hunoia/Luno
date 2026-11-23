@@ -20,6 +20,13 @@ import kotlin.math.roundToInt
  */
 
 /**
+ * 首尾淡入淡出包络占比：整段时长的这个比例内从 0 升到 1、再从 1 落到 0。
+ * 所有「整段播完即止」的效果都乘这个包络，避免最后一帧还在全亮就戛然而止
+ * （EdgeFlow 已用 `FlowTuning.EnvelopeShare`，其余层统一走这里的共享常量）。
+ */
+internal const val AlertEnvelopeShare = 0.10f
+
+/**
  * 屏幕边缘呼吸光（AGSL 距离场）：辉光沿圆角屏缘按距离指数衰减，alpha 按 sin 包络呼吸。
  * 强度映射 alpha 峰值；光带宽度（衰减尺度）、屏缘圆角、衰减硬度是用户旋钮。
  */
@@ -40,9 +47,6 @@ internal object FlowTuning {
     /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.9f
-
-    /** 首尾包络占比：整段时长的这个比例内淡入 / 淡出，避免亮带凭空出现又凭空消失。 */
-    const val EnvelopeShare = 0.08f
 }
 
 /**
@@ -144,12 +148,9 @@ internal object PulseTuning {
 
 /**
  * 胶囊边框流光：一道亮带沿边框自左向右扫过，主带后随一道更宽更暗的拖尾，
- * 扫动位置缓出（收尾减速）。主带宽度 / 拖尾宽度 / 方向是用户旋钮（[ShimmerSpec]）。
+ * 扫动位置缓出（收尾减速）。主带宽度 / 拖尾宽度 / 拖尾浓度 / 方向是用户旋钮（[ShimmerSpec]）。
  */
 internal object ShimmerTuning {
-    /** 拖尾带 alpha 占主带峰值的比例。 */
-    const val TrailAlphaFraction = 0.4f
-
     /** 扫动位置缓出指数：1 = 匀速，>1 起步快、收尾减速。 */
     const val SweepEaseExp = 1.35f
 

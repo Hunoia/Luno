@@ -75,7 +75,7 @@ fun AlertPaletteManagerScreen(
                                         0xFF43A047.toInt(),
                                     ),
                                 )
-                                updateAlert(scope) {
+                                persistAlert(scope) {
                                     it.copy(customPalettes = it.customPalettes + newPalette)
                                 }
                                 onEditPalette(newPalette.id)

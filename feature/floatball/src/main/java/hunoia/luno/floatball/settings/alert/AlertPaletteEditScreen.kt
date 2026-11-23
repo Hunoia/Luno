@@ -64,7 +64,7 @@ fun AlertPaletteEditScreen(
     var editingColorIndex by remember { mutableStateOf(-1) }
 
     fun updatePalette(transform: (hunoia.luno.config.model.AlertPalette) -> hunoia.luno.config.model.AlertPalette) {
-        updateAlert(scope) {
+        persistAlert(scope) {
             it.copy(
                 customPalettes = it.customPalettes.map { p ->
                     if (p.id == paletteId) transform(p) else p
@@ -173,7 +173,7 @@ fun AlertPaletteEditScreen(
                             icon = Icons.Default.Delete,
                             shape = shape,
                             onClick = {
-                                updateAlert(scope) { it.removePalette(paletteId) }
+                                persistAlert(scope) { it.removePalette(paletteId) }
                                 onBack()
                             },
                         )

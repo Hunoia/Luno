@@ -94,12 +94,14 @@ internal fun NotificationAlertSettings.styleOf(category: AlertCategory): AlertSt
     }
 
 /**
- * 二级页的落盘助手：只改 `notificationCapsule.alert` 这棵子树。
+ * 二级页的落盘助手（**仅持久化**，不做同屏刷新）：只改 `notificationCapsule.alert` 这棵子树。
  *
- * 四个二级页与主页面共用同一份 `ActionSettings`，写入走 [TuneConfig.updateAction]
- * 的串行队列（拖滑杆松手才调用一次，不逐帧写盘）。
+ * 四个分类设置页持有本地即显状态（用户操作立即反映到 UI），这里只把同一 transform
+ * 写回配置；同屏刷新由页内本地状态负责，不依赖配置流「活跃推送」。
+ * 调色板页（独立目的地）不持本地状态，也走这里落盘，分类页返回时经 resume 兜底同步。
+ * 写入走 [TuneConfig.updateAction] 的串行队列（拖滑杆松手才调用一次，不逐帧写盘）。
  */
-internal fun updateAlert(
+internal fun persistAlert(
     scope: CoroutineScope,
     transform: (NotificationAlertSettings) -> NotificationAlertSettings,
 ) {

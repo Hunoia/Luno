@@ -125,6 +125,7 @@ import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
+import hunoia.luno.runtime.floatball.alert.AlertEnvelopeShare
 import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
 import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
@@ -134,6 +135,7 @@ import hunoia.luno.runtime.floatball.alert.PulseTuning
 import hunoia.luno.runtime.floatball.alert.ShimmerSpec
 import hunoia.luno.runtime.floatball.alert.ShimmerTuning
 import hunoia.luno.runtime.floatball.alert.easedOut
+import hunoia.luno.runtime.floatball.alert.envelopeAt
 import hunoia.luno.runtime.floatball.alert.lerpInRange
 import hunoia.luno.runtime.floatball.alert.toColors
 import hunoia.luno.runtime.floatball.inbox.BallItem
@@ -2801,6 +2803,7 @@ internal class BallCapsuleWindow(
         }
         Canvas(modifier = modifier) {
             if (elapsed.value >= layer.totalMillis) return@Canvas
+            val envelope = envelopeAt(elapsed.value, layer.totalMillis, AlertEnvelopeShare)
             val t = (elapsed.value / layer.cycleMillis) % 1f
             val gapPx = metrics.gapPx
             val rows = items.size
@@ -2816,7 +2819,7 @@ internal class BallCapsuleWindow(
                 CapsuleAlertStyle.Pulse -> {
                     val spec = layer.spec as PulseSpec
                     val boost = layer.brightness.lerpInRange(PulseTuning.BoostMin, PulseTuning.BoostMax)
-                    val peak = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t)).coerceAtMost(1f)
+                    val peak = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t)).coerceAtMost(1f) * envelope
                     val corePx = spec.glowWidthDp.dp.toPx()
                     val layers = buildList {
                         listOf(
@@ -2852,7 +2855,7 @@ internal class BallCapsuleWindow(
                 // 渐变 stop 必须严格递增：可见跨度不足时跳过该带，峰值点强制落在带内。
                 CapsuleAlertStyle.Shimmer -> {
                     val spec = layer.spec as ShimmerSpec
-                    val peak = layer.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax)
+                    val peak = layer.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax) * envelope
                     val eased = t.easedOut(ShimmerTuning.SweepEaseExp)
                     val pos = if (spec.reverse) 1f - eased else eased
                     val band = layer.amount.lerpInRange(
@@ -2883,7 +2886,7 @@ internal class BallCapsuleWindow(
                             Brush.horizontalGradient(
                                 mainEnd to trailColor.copy(alpha = 0f),
                                 mainEnd + span / 2f to trailColor.copy(
-                                    alpha = peak * ShimmerTuning.TrailAlphaFraction,
+                                    alpha = peak * spec.trailAlpha,
                                 ),
                                 trailEnd to trailColor.copy(alpha = 0f),
                             )
@@ -2898,7 +2901,7 @@ internal class BallCapsuleWindow(
                             Brush.horizontalGradient(
                                 trailStart to trailColor.copy(alpha = 0f),
                                 trailStart + span / 2f to trailColor.copy(
-                                    alpha = peak * ShimmerTuning.TrailAlphaFraction,
+                                    alpha = peak * spec.trailAlpha,
                                 ),
                                 mainStart to trailColor.copy(alpha = 0f),
                             )
@@ -2927,7 +2930,7 @@ internal class BallCapsuleWindow(
                     val breathe = sin(Math.PI.toFloat() * t)
                     val scaleFactor = 1f + spec.breatheScale * breathe
                     val strokeW = spec.strokeWidthDp.dp.toPx() * (1f + 0.4f * breathe)
-                    val alpha = (RowBorderAlpha + boost * breathe).coerceAtMost(1f)
+                    val alpha = (RowBorderAlpha + boost * breathe).coerceAtMost(1f) * envelope
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
                         translate(
@@ -2952,7 +2955,7 @@ internal class BallCapsuleWindow(
                 // 主带宽度与方向是用户旋钮；用调色板逐行取色。
                 CapsuleAlertStyle.InnerSweep -> {
                     val spec = layer.spec as InnerSweepSpec
-                    val peak = layer.brightness.lerpInRange(0.25f, 0.7f)
+                    val peak = layer.brightness.lerpInRange(0.25f, 0.7f) * envelope
                     val eased = t.easedOut(1.2f)
                     val pos = if (spec.reverse) 1f - eased else eased
                     val band = spec.bandWidth.coerceIn(0.05f, 0.9f)

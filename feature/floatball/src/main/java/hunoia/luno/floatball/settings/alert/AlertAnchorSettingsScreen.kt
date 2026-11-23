@@ -4,13 +4,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AnchorAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.paletteFor
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
@@ -19,12 +24,13 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
 
 /**
- * 到达提示·球心·全屏类设置页：类目开关、类内单选样式（球光环 / 全屏涟漪）与旋钮。
+ * 到达提示·球心·全屏类设置页：类目开关、类内单选样式（球光环 / 全屏涟漪 /
+ * 球心爆发 / 球心光晕）与旋钮。
  *
  * 球光环锚定通知胶囊的收起圆；全屏涟漪可选球心或屏幕中心。两者都画在整屏舞台窗上，
  * 试播时胶囊没显示会先弹一条演示胶囊（球心锚点需要真实胶囊矩形）。
@@ -34,46 +40,65 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
-    val alert = actionSettings.floatBall.notificationCapsule.alert
-    val settings = actionSettings.floatBall.notificationCapsule.alert.anchor
+    // 本地即显状态：用户操作（切样式 / 旋钮 / 开关）立即更新 UI，再异步落盘。
+    // 不依赖配置流「活跃推送」：MultiProcessDataStore 写盘后不保证通知活跃订阅者，
+    // 同屏切样式才不换旋钮；resume 时再从 latestAction 同步一次，兜底外部写入。
+    val alertState = remember {
+        mutableStateOf(TuneConfig.latestAction().floatBall.notificationCapsule.alert)
+    }
+    var alert by alertState
+    // settings 提到页面顶层：LunoScreen 的 content 是普通 Column（非懒重组），
+    // 重组时整个 content lambda 重跑，when(settings.style) 才能跟着换分支。
+    val settings = alert.anchor
 
-    LunoScreenLazy(
+    LifecycleResumeEffect(Unit) {
+        alert = TuneConfig.latestAction().floatBall.notificationCapsule.alert
+        onPauseOrDispose { }
+    }
+
+    // 本地即显 + 异步落盘：transform 先应用到本地（UI 立即反映），再写回配置。
+    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        alert = transform(alert)
+        persistAlert(scope, transform)
+    }
+
+    LunoScreen(
         title = stringResource(AlertCategory.Anchor.titleRes()),
         onBack = onBack,
     ) {
-        item(key = "anchor") {
-            LunoGroup(
-                title = stringResource(AlertCategory.Anchor.titleRes()),
-                subtitle = stringResource(AlertCategory.Anchor.subtitleRes()),
-            ) {
-                LunoSegmentedGroup {
-                    item { shape ->
-                        LunoSwitchRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
-                            subtitle = stringResource(R.string.float_ball_capsule_alert_category_enabled_subtitle),
-                            checked = settings.enabled,
-                            onCheckedChange = { checked ->
-                                updateAlert(scope) { it.copy(anchor = it.anchor.copy(enabled = checked)) }
-                            },
-                            shape = shape,
-                        )
-                    }
-                    item { shape ->
-                        val styles = AnchorAlertStyle.entries
-                        LunoDropdownRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_style),
-                            options = styleLabels(styles),
-                            selectedIndex = styles.indexOf(settings.style).coerceAtLeast(0),
-                            onSelect = { index ->
-                                updateAlert(scope) {
-                                    it.copy(anchor = it.anchor.copy(style = styles[index]))
-                                }
-                            },
-                            shape = shape,
-                        )
-                    }
+        LunoGroup(
+            title = stringResource(AlertCategory.Anchor.titleRes()),
+            subtitle = stringResource(AlertCategory.Anchor.subtitleRes()),
+        ) {
+            LunoSegmentedGroup {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_category_enabled_subtitle),
+                        checked = settings.enabled,
+                        onCheckedChange = { checked ->
+                            updateAlert { it.copy(anchor = it.anchor.copy(enabled = checked)) }
+                        },
+                        shape = shape,
+                    )
+                }
+                item { shape ->
+                    val styles = AnchorAlertStyle.entries
+                    LunoDropdownRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_style),
+                        options = styleLabels(styles),
+                        selectedIndex = styles.indexOf(settings.style).coerceAtLeast(0),
+                        onSelect = { index ->
+                            updateAlert {
+                                it.copy(anchor = it.anchor.copy(style = styles[index]))
+                            }
+                        },
+                        shape = shape,
+                    )
+                }
+                // 调色板：环 / 涟漪 / 爆发都按周长或序号取色；球心光晕只用首色（单色辉光），
+                // 多色调色板对它无效，选中时隐藏入口（避免「无效项仍显示」）。
+                if (settings.style != AnchorAlertStyle.BallHalo) {
                     item { shape ->
                         AlertPaletteSettingsRow(
                             palette = alert.paletteFor(AlertCategory.Anchor),
@@ -82,6 +107,12 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                             onClick = onNavToPalette,
                         )
                     }
+                }
+            }
+        }
+        key(settings.style) {
+            LunoGroup {
+                LunoSegmentedGroup {
                     when (settings.style) {
                         AnchorAlertStyle.Ring -> {
                             val s = settings.ring
@@ -94,7 +125,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(travel = v),
                                             ))
@@ -111,7 +142,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(strokeWidthDp = v),
                                             ))
@@ -128,7 +159,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(ringsPerCycle = v),
                                             ))
@@ -145,7 +176,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(haloScale = v),
                                             ))
@@ -162,7 +193,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(speed = v),
                                             ))
@@ -179,7 +210,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(brightness = v),
                                             ))
@@ -196,7 +227,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} ×" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ring = it.anchor.ring.copy(cycles = v),
                                             ))
@@ -205,7 +236,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                 )
                             }
                         }
-
+    
                         AnchorAlertStyle.Ripple -> {
                             val s = settings.fullRipple
                             item { shape ->
@@ -214,7 +245,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     subtitle = stringResource(R.string.float_ball_capsule_alert_center_at_ball_subtitle),
                                     checked = s.centerAtBall,
                                     onCheckedChange = { checked ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 fullRipple = it.anchor.fullRipple.copy(centerAtBall = checked),
                                             ))
@@ -232,9 +263,26 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 fullRipple = it.anchor.fullRipple.copy(strokeWidthDp = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_halo),
+                                    value = s.haloScale,
+                                    range = FloatBallDefaults.AlertHaloScaleMin..
+                                        FloatBallDefaults.AlertHaloScaleMax,
+                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert {
+                                            it.copy(anchor = it.anchor.copy(
+                                                fullRipple = it.anchor.fullRipple.copy(haloScale = v),
                                             ))
                                         }
                                     },
@@ -249,7 +297,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 fullRipple = it.anchor.fullRipple.copy(speed = v),
                                             ))
@@ -266,7 +314,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 fullRipple = it.anchor.fullRipple.copy(brightness = v),
                                             ))
@@ -283,7 +331,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} ×" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 fullRipple = it.anchor.fullRipple.copy(cycles = v),
                                             ))
@@ -303,7 +351,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ballBurst = it.anchor.ballBurst.copy(count = v),
                                             ))
@@ -320,7 +368,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ballBurst = it.anchor.ballBurst.copy(particleSizeDp = v),
                                             ))
@@ -337,7 +385,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ballBurst = it.anchor.ballBurst.copy(spreadDp = v),
                                             ))
@@ -346,9 +394,9 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                 )
                             }
                             AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                                onSpeed = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(speed = v))) } },
-                                onBrightness = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(brightness = v))) } },
-                                onCycles = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(cycles = v))) } },
+                                onSpeed = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballBurst = it.anchor.ballBurst.copy(cycles = v))) } },
                             )
                         }
                         AnchorAlertStyle.BallHalo -> {
@@ -362,7 +410,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ballHalo = it.anchor.ballHalo.copy(radiusPercent = v),
                                             ))
@@ -379,7 +427,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(anchor = it.anchor.copy(
                                                 ballHalo = it.anchor.ballHalo.copy(haloScale = v),
                                             ))
@@ -388,9 +436,9 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                 )
                             }
                             AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                                onSpeed = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(speed = v))) } },
-                                onBrightness = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(brightness = v))) } },
-                                onCycles = { v -> updateAlert(scope) { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(cycles = v))) } },
+                                onSpeed = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(cycles = v))) } },
                             )
                         }
                     }

@@ -181,11 +181,13 @@ class AlertPolicyTest {
         assertEquals(FloatBallDefaults.AlertBrightnessMin / 100f, layer.brightness, 0.001f)
         assertEquals(FloatBallDefaults.AlertCyclesMax, layer.cycles)
         assertEquals(alertStyleBaseMillis(ParticleAlertStyle.TopRain), layer.cycleMillis)
-        // 专属 spec：默认形状参数（大小 / 摆幅缩放 100%，真重力，行程 200dp）。
+        // 专属 spec：默认形状参数（大小 / 摆幅缩放 100%，真重力，行程 200dp；散开 100%、拖尾默认）。
         val spec = layer.spec as ParticlesSpec
         assertEquals(1f, spec.sizeScale, 0.001f)
         assertEquals(1f, spec.swayScale, 0.001f)
         assertEquals(2f, spec.gravityExp, 0.001f)
+        assertEquals(1f, spec.spreadScale, 0.001f)
+        assertEquals(FloatBallDefaults.AlertParticlesTailLengthDp, spec.tailLengthDp)
         assertEquals(200, spec.travelDp)
     }
 
@@ -234,7 +236,11 @@ class AlertPolicyTest {
                 capsule = enabled.capsule.copy(enabled = false),
                 anchor = enabled.anchor.copy(
                     style = AnchorAlertStyle.Ripple,
-                    fullRipple = enabled.anchor.fullRipple.copy(strokeWidthDp = 5, centerAtBall = false),
+                    fullRipple = enabled.anchor.fullRipple.copy(
+                        strokeWidthDp = 5,
+                        haloScale = 150,
+                        centerAtBall = false,
+                    ),
                 ),
             ),
             standard,
@@ -244,6 +250,7 @@ class AlertPolicyTest {
         assertEquals(0f, layer.amount, 0.001f)
         val spec = layer.spec as RippleSpec
         assertEquals(5, spec.strokeWidthDp)
+        assertEquals(1.5f, spec.haloScale, 0.001f)
         assertFalse(spec.centerAtBall)
         assertEquals(alertStyleBaseMillis(AnchorAlertStyle.Ripple), layer.cycleMillis)
     }

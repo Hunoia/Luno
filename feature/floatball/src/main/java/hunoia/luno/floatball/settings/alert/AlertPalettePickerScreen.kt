@@ -60,7 +60,7 @@ fun AlertPalettePickerScreen(
                                 null
                             },
                             onClick = {
-                                updateAlert(scope) { it.withPaletteId(category, null) }
+                                persistAlert(scope) { it.withPaletteId(category, null) }
                                 onBack()
                             },
                         )
@@ -72,7 +72,7 @@ fun AlertPalettePickerScreen(
                                 selected = palette.id == currentId,
                                 shape = shape,
                                 onClick = {
-                                    updateAlert(scope) { it.withPaletteId(category, palette.id) }
+                                    persistAlert(scope) { it.withPaletteId(category, palette.id) }
                                     onBack()
                                 },
                             )

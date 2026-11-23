@@ -345,7 +345,7 @@ private fun EdgeFlowLayer(
         val activeShader = shader ?: return@Canvas
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, FlowTuning.EnvelopeShare)
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         if (envelope <= 0.005f) return@Canvas
         val falloffPx = layer.amount
             .lerpInRange(
@@ -408,6 +408,7 @@ private fun TopRainLayer(
     val spec = layer.spec as ParticlesSpec
     val peakAlpha = layer.brightness
         .lerpInRange(ParticlesTuning.PeakAlphaMin, ParticlesTuning.PeakAlphaMax)
+    val image = rememberParticleImage(spec, layer.appPackage)
     val count = layer.amount
         .lerpInRange(
             FloatBallDefaults.AlertParticlesCountMin.toFloat(),
@@ -435,6 +436,7 @@ private fun TopRainLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val w = size.width
         val travelPx = spec.travelDp.dp.toPx()
         val fadeExp = ParticlesTuning.FadeExp
@@ -442,7 +444,7 @@ private fun TopRainLayer(
         for (particle in particles) {
             val progress = (now - particle.delayMs) / lifetimeMs
             if (progress <= 0f || progress >= 1f) continue
-            val alpha = peakAlpha * (1f - progress).pow(fadeExp)
+            val alpha = peakAlpha * (1f - progress).pow(fadeExp) * envelope
             if (alpha <= 0.005f) continue
             val fall = progress.pow(spec.gravityExp)
             val sway = sin(
@@ -454,13 +456,23 @@ private fun TopRainLayer(
                 x = (particle.xNorm + particle.driftNorm * progress) * w + sway,
                 y = fall * travelPx,
             )
-            drawCircle(
-                color = accent,
-                alpha = alpha * ParticlesTuning.HaloAlphaFraction,
-                radius = radius * ParticlesTuning.HaloScale,
-                center = center,
-            )
-            drawCircle(color = accent, alpha = alpha, radius = radius, center = center)
+            if (image != null) {
+                drawMote(
+                    image = image,
+                    color = accent.copy(alpha = alpha),
+                    center = center,
+                    radiusPx = radius,
+                    rotationDeg = 0f,
+                )
+            } else {
+                drawCircle(
+                    color = accent,
+                    alpha = alpha * ParticlesTuning.HaloAlphaFraction,
+                    radius = radius * ParticlesTuning.HaloScale,
+                    center = center,
+                )
+                drawCircle(color = accent, alpha = alpha, radius = radius, center = center)
+            }
         }
     }
 }
@@ -488,6 +500,7 @@ private fun BallRingLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val totalRings = layer.cycles * ringsPerCycle
         val strokePx = strokeWidthDp.dp.toPx()
         val haloPx = strokePx * RingTuning.HaloStrokeScale * haloScale
@@ -496,7 +509,7 @@ private fun BallRingLayer(
             val offset = index * (layer.cycleMillis.toFloat() / ringsPerCycle)
             val progress = (now - offset) / layer.cycleMillis
             if (progress <= 0f || progress >= 1f) continue
-            val alpha = peakAlpha * (1f - progress).pow(RingTuning.FadeExp)
+            val alpha = peakAlpha * (1f - progress).pow(RingTuning.FadeExp) * envelope
             if (alpha <= 0.005f) continue
             val radius = startRadius + travelPx * progress.easedOut(RingTuning.EaseExp)
             val accent = palette.at(index)
@@ -538,6 +551,7 @@ private fun FullRippleLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val center = if (spec.centerAtBall) {
             Offset(anchor.centerX, anchor.centerY)
         } else {
@@ -552,21 +566,25 @@ private fun FullRippleLayer(
         )
         val travelPx = (farthest - startRadius).coerceAtLeast(0f)
         val strokePx = strokeWidthDp.dp.toPx()
-        val haloPx = strokePx * RippleTuning.HaloStrokeScale
+        val haloScale = spec.haloScale.coerceIn(0f, 2f)
+        val haloPx = strokePx * RippleTuning.HaloStrokeScale * haloScale
+        val haloAlphaFraction = RippleTuning.HaloAlphaFraction * haloScale
         for (index in 0 until layer.cycles) {
             val progress = (now - index * layer.cycleMillis) / layer.cycleMillis
             if (progress <= 0f || progress >= 1f) continue
-            val alpha = peakAlpha * (1f - progress).pow(RippleTuning.FadeExp)
+            val alpha = peakAlpha * (1f - progress).pow(RippleTuning.FadeExp) * envelope
             if (alpha <= 0.005f) continue
             val radius = startRadius + travelPx * progress.easedOut(RippleTuning.EaseExp)
             val accent = palette.at(index)
-            drawCircle(
-                color = accent,
-                alpha = alpha * RippleTuning.HaloAlphaFraction,
-                radius = radius,
-                center = center,
-                style = Stroke(width = haloPx, cap = StrokeCap.Round),
-            )
+            if (haloPx > 0f && haloAlphaFraction > 0f) {
+                drawCircle(
+                    color = accent,
+                    alpha = alpha * haloAlphaFraction,
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = haloPx, cap = StrokeCap.Round),
+                )
+            }
             drawCircle(
                 color = accent,
                 alpha = alpha,
@@ -660,10 +678,11 @@ private fun EdgeRippleLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val crests = spec.crestCount
         val travel = (now / layer.cycleMillis) % 1f
         val insetPx = 6.dp.toPx()
-        val perim = EdgePerimeter(size, insetPx, 28.dp.toPx())
+        val perim = EdgePerimeter(size, insetPx, spec.cornerRadiusDp.dp.toPx())
         val sizeR = sizePx.dp.toPx()
         val sigma = 0.03f
         val samples = 96
@@ -676,7 +695,7 @@ private fun EdgeRippleLayer(
                 wave = maxOf(wave, exp(-dist * dist / (2f * sigma * sigma)))
             }
             if (wave <= 0.01f) continue
-            val alpha = peakAlpha * wave
+            val alpha = peakAlpha * wave * envelope
             val radius = sizeR * (0.5f + 0.5f * wave)
             val p = perim.point(f)
             drawCircle(
@@ -719,14 +738,15 @@ private fun EdgeBlinkLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val t = (now / layer.cycleMillis) % 1f
-        val perim = EdgePerimeter(size, 6.dp.toPx(), 28.dp.toPx())
+        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val sizeR = sizePx.dp.toPx()
         val blinkSpeed = 2f * Math.PI.toFloat() * 2f
         for ((f, phase, jitter) in points) {
             val blink = 0.5f + 0.5f * sin(blinkSpeed * t + phase + jitter * 6.28f)
             if (blink <= 0.05f) continue
-            val alpha = peakAlpha * blink
+            val alpha = peakAlpha * blink * envelope
             val p = perim.point(f + t * 0.02f * (jitter - 0.5f) * 2f)
             val radius = sizeR * (0.6f + 0.4f * blink)
             drawCircle(color = palette.sample(f), alpha = alpha, radius = radius, center = p)
@@ -773,13 +793,14 @@ private fun EdgeFireworksLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        val perim = EdgePerimeter(size, 6.dp.toPx(), 28.dp.toPx())
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val travelPx = spreadPx.dp.toPx()
         for (p in particles) {
             val progress = (now / layer.cycleMillis - p.delay) % 1f
             if (progress <= 0f || progress >= 1f) continue
             val ease = progress.easedOut(1.6f)
-            val alpha = peakAlpha * (1f - progress)
+            val alpha = peakAlpha * (1f - progress) * envelope
             if (alpha <= 0.005f) continue
             val anchorP = perim.point(p.anchor)
             val dir = Offset(cos(p.angle), sin(p.angle))
@@ -827,8 +848,9 @@ private fun EdgeSwirlLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val travel = (now / layer.cycleMillis) % 1f
-        val perim = EdgePerimeter(size, 6.dp.toPx(), 28.dp.toPx())
+        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         val radial = radiusPx.dp.toPx()
         val cx = size.width / 2f
         val cy = size.height / 2f
@@ -845,7 +867,7 @@ private fun EdgeSwirlLayer(
             )
             drawCircle(
                 color = palette.sample(base),
-                alpha = peakAlpha * (0.55f + 0.45f * osc),
+                alpha = peakAlpha * (0.55f + 0.45f * osc) * envelope,
                 radius = (3.5f.dp.toPx()) * (0.8f + 0.3f * (0.5f + 0.5f * osc)),
                 center = center,
             )
@@ -873,12 +895,13 @@ private fun EdgeBladeRiseLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val progress = (now / layer.cycleMillis) % 1f
         val bladeW = bladeWidth.dp.toPx()
         val bladeH = spec.bladeHeightDp.dp.toPx()
         val headY = progress * (size.height + bladeH) - bladeH / 2f
         // 每侧一道刃：顶部最亮（刃尖），向下线性衰减到尾迹。
-        val perim = EdgePerimeter(size, 6.dp.toPx(), 28.dp.toPx())
+        val perim = EdgePerimeter(size, 6.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
         for (side in intArrayOf(0, 1)) {
             val x = if (side == 0) bladeW / 2f else size.width - bladeW / 2f
             val steps = 24
@@ -887,7 +910,7 @@ private fun EdgeBladeRiseLayer(
                 val y = headY + dy
                 if (y < 0f || y > size.height) continue
                 val fall = 1f - (i.toFloat() / steps)
-                val alpha = peakAlpha * fall * fall
+                val alpha = peakAlpha * fall * fall * envelope
                 if (alpha <= 0.005f) continue
                 val f = y / size.height
                 drawCircle(
@@ -934,13 +957,14 @@ private fun BallBurstLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val progress = (now / layer.cycleMillis) % 1f
         if (progress <= 0f || progress >= 1f) return@Canvas
         val center = Offset(anchor.centerX, anchor.centerY)
         val travelPx = spreadPx.dp.toPx()
         val ease = progress.easedOut(1.5f)
         for (p in particles) {
-            val alpha = peakAlpha * (1f - progress)
+            val alpha = peakAlpha * (1f - progress) * envelope
             if (alpha <= 0.005f) continue
             val dir = Offset(cos(p.angle), sin(p.angle))
             val c = Offset(
@@ -982,12 +1006,13 @@ private fun BallHaloLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val t = (now / layer.cycleMillis) % 1f
         val breath = 0.5f + 0.5f * sin(2f * Math.PI.toFloat() * t)
         val radius = (baseRadius * (0.85f + 0.3f * breath)).coerceAtLeast(1f)
         val center = Offset(anchor.centerX, anchor.centerY)
         val color = palette.colors[0]
-        val peak = peakAlpha * (0.4f + 0.6f * breath)
+        val peak = peakAlpha * (0.4f + 0.6f * breath) * envelope
         val haloScale = spec.haloScale.coerceIn(0.2f, 2f)
         // 柔和径向辉光：中心亮 → 边缘透明，避免硬边圆盘。
         drawCircle(
@@ -1121,7 +1146,7 @@ private fun BottomFountainLayer(
                 delay = random.nextFloat(),
                 radiusDp = (ParticlesTuning.RadiusMinDp +
                     random.nextFloat() * (ParticlesTuning.RadiusMaxDp - ParticlesTuning.RadiusMinDp)) *
-                    spec.sizeScale / 100f,
+                    spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1131,14 +1156,19 @@ private fun BottomFountainLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val travelPx = spec.travelDp.dp.toPx()
+        val spread = spec.spreadScale
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - t)
+            val alpha = peak * (1f - 0.3f * t) * envelope
             if (alpha <= 0.005f) continue
-            val y = m.yNorm * size.height - t * travelPx * (-m.vy) * (1f - 0.5f * t)
-            val x = (m.xNorm + m.vx * t * 2f) * size.width
+            // 真喷泉：上冲到顶点再被重力拉回（二次弧，0→峰→0），与顶部雨（只落不升）拉开。
+            val arc = 4f * t * (1f - t)
+            val height = travelPx * (-m.vy) * 2.2f
+            val y = m.yNorm * size.height - arc * height
+            val x = (m.xNorm + m.vx * t * 2f * spread) * size.width
             drawMote(
                 image = image,
                 color = palette.at(m.colorIndex).copy(alpha = alpha),
@@ -1169,7 +1199,7 @@ private fun MeteorLayer(
                 vx = -(0.2f + random.nextFloat() * 0.25f),
                 vy = 0.6f + random.nextFloat() * 0.5f,
                 delay = random.nextFloat(),
-                radiusDp = (ParticlesTuning.RadiusMinDp + random.nextFloat() * 2.5f) * spec.sizeScale / 100f,
+                radiusDp = (ParticlesTuning.RadiusMinDp + random.nextFloat() * 2.5f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1179,12 +1209,13 @@ private fun MeteorLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val travelPx = spec.travelDp.dp.toPx()
-        val tail = 26.dp.toPx()
+        val tail = spec.tailLengthDp.dp.toPx()
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - t)
+            val alpha = peak * (1f - t) * envelope
             if (alpha <= 0.005f) continue
             val x = (m.xNorm + m.vx * t) * size.width
             val y = (m.yNorm + m.vy * t) * travelPx + m.yNorm * size.height * 0f
@@ -1219,6 +1250,7 @@ private fun ConfettiLayer(
 ) {
     val spec = layer.spec as ParticlesSpec
     val peak = motePeak(layer)
+    val image = rememberParticleImage(spec, layer.appPackage)
     val motes = remember(layer) {
         val random = Random(0xC0FFL)
         List(moteCount(layer)) { index ->
@@ -1228,7 +1260,7 @@ private fun ConfettiLayer(
                 vx = 0f,
                 vy = 0.35f + random.nextFloat() * 0.35f,
                 delay = random.nextFloat(),
-                radiusDp = (2f + random.nextFloat() * 3f) * spec.sizeScale / 100f,
+                radiusDp = (2f + random.nextFloat() * 3f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = (2f + random.nextFloat() * 6f) * (if (random.nextBoolean()) 1f else -1f),
@@ -1242,19 +1274,30 @@ private fun ConfettiLayer(
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - t)
+            val alpha = peak * (1f - t) * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
             val sway = sin(2f * Math.PI.toFloat() * t * 1.5f + m.phase) * 0.04f
             val x = (m.xNorm + sway + m.vx * t) * size.width
             val y = m.yNorm * size.height + t * travelPx * m.vy
             val rot = m.spin * t * 360f
             val r = m.radiusDp.dp.toPx()
-            rotate(rot, pivot = Offset(x, y)) {
-                drawRect(
-                    color = palette.at(m.colorIndex).copy(alpha = alpha),
-                    topLeft = Offset(x - r, y - r * 0.6f),
-                    size = androidx.compose.ui.geometry.Size(r * 2f, r * 1.2f),
+            val color = palette.at(m.colorIndex).copy(alpha = alpha)
+            if (image != null) {
+                drawMote(
+                    image = image,
+                    color = color,
+                    center = Offset(x, y),
+                    radiusPx = r,
+                    rotationDeg = rot,
                 )
+            } else {
+                rotate(rot, pivot = Offset(x, y)) {
+                    drawRect(
+                        color = color,
+                        topLeft = Offset(x - r, y - r * 0.6f),
+                        size = androidx.compose.ui.geometry.Size(r * 2f, r * 1.2f),
+                    )
+                }
             }
         }
     }
@@ -1279,7 +1322,7 @@ private fun SnowflakeLayer(
                 vx = 0f,
                 vy = 0.12f + random.nextFloat() * 0.15f,
                 delay = random.nextFloat(),
-                radiusDp = (1.5f + random.nextFloat() * 2f) * spec.sizeScale / 100f,
+                radiusDp = (1.5f + random.nextFloat() * 2f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1293,7 +1336,7 @@ private fun SnowflakeLayer(
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - 0.3f * t)
+            val alpha = peak * (1f - 0.3f * t) * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
             val x = (m.xNorm + sin(2f * Math.PI.toFloat() * t * 1.2f + m.phase) * 0.05f) * size.width
             val y = m.yNorm * size.height + t * travelPx * m.vy
@@ -1317,6 +1360,7 @@ private fun PetalLayer(
 ) {
     val spec = layer.spec as ParticlesSpec
     val peak = motePeak(layer)
+    val image = rememberParticleImage(spec, layer.appPackage)
     val motes = remember(layer) {
         val random = Random(0x1E7AL)
         List(moteCount(layer)) { index ->
@@ -1326,7 +1370,7 @@ private fun PetalLayer(
                 vx = 0f,
                 vy = 0.25f + random.nextFloat() * 0.25f,
                 delay = random.nextFloat(),
-                radiusDp = (3f + random.nextFloat() * 3f) * spec.sizeScale / 100f,
+                radiusDp = (3f + random.nextFloat() * 3f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = (1f + random.nextFloat() * 4f) * (if (random.nextBoolean()) 1f else -1f),
@@ -1340,19 +1384,30 @@ private fun PetalLayer(
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - 0.4f * t)
+            val alpha = peak * (1f - 0.4f * t) * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
             val sway = sin(2f * Math.PI.toFloat() * t * 1.2f + m.phase) * 0.06f
             val x = (m.xNorm + sway) * size.width
             val y = m.yNorm * size.height + t * travelPx * m.vy
             val rot = m.spin * t * 360f
             val r = m.radiusDp.dp.toPx()
-            rotate(rot, pivot = Offset(x, y)) {
-                drawOval(
-                    color = palette.at(m.colorIndex).copy(alpha = alpha),
-                    topLeft = Offset(x - r, y - r * 0.5f),
-                    size = androidx.compose.ui.geometry.Size(r * 2f, r),
+            val color = palette.at(m.colorIndex).copy(alpha = alpha)
+            if (image != null) {
+                drawMote(
+                    image = image,
+                    color = color,
+                    center = Offset(x, y),
+                    radiusPx = r,
+                    rotationDeg = rot,
                 )
+            } else {
+                rotate(rot, pivot = Offset(x, y)) {
+                    drawOval(
+                        color = color,
+                        topLeft = Offset(x - r, y - r * 0.5f),
+                        size = androidx.compose.ui.geometry.Size(r * 2f, r),
+                    )
+                }
             }
         }
     }
@@ -1367,6 +1422,7 @@ private fun BubbleLayer(
 ) {
     val spec = layer.spec as ParticlesSpec
     val peak = motePeak(layer) * 0.8f
+    val image = rememberParticleImage(spec, layer.appPackage)
     val motes = remember(layer) {
         val random = Random(0xB0B0L)
         List(moteCount(layer)) { index ->
@@ -1376,7 +1432,7 @@ private fun BubbleLayer(
                 vx = 0f,
                 vy = -(0.25f + random.nextFloat() * 0.3f),
                 delay = random.nextFloat(),
-                radiusDp = (2f + random.nextFloat() * 5f) * spec.sizeScale / 100f,
+                radiusDp = (2f + random.nextFloat() * 5f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1390,22 +1446,29 @@ private fun BubbleLayer(
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - 0.3f * t)
+            val alpha = peak * (1f - 0.3f * t) * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
             val x = (m.xNorm + sin(2f * Math.PI.toFloat() * t * 2f + m.phase) * 0.03f) * size.width
-            val y = m.yNorm * size.height + t * travelPx * (-m.vy)
+            // 从底缘上浮（减号）：yNorm=1.05 起步、向上走并微减速；修掉旧符号错（加号把气泡推出屏外）。
+            val y = m.yNorm * size.height - t * travelPx * (-m.vy) * (1f - 0.3f * t)
             val r = m.radiusDp.dp.toPx()
-            drawCircle(
-                color = palette.at(m.colorIndex).copy(alpha = alpha * 0.5f),
-                radius = r,
-                center = Offset(x, y),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.3f),
-            )
-            drawCircle(
-                color = palette.at(m.colorIndex).copy(alpha = alpha * 0.9f),
-                radius = r * 0.2f,
-                center = Offset(x - r * 0.3f, y - r * 0.3f),
-            )
+            val center = Offset(x, y)
+            val color = palette.at(m.colorIndex).copy(alpha = alpha)
+            if (image != null) {
+                drawMote(image = image, color = color, center = center, radiusPx = r, rotationDeg = 0f)
+            } else {
+                drawCircle(
+                    color = palette.at(m.colorIndex).copy(alpha = alpha * 0.5f),
+                    radius = r,
+                    center = center,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.3f),
+                )
+                drawCircle(
+                    color = palette.at(m.colorIndex).copy(alpha = alpha * 0.9f),
+                    radius = r * 0.2f,
+                    center = Offset(x - r * 0.3f, y - r * 0.3f),
+                )
+            }
         }
     }
 }
@@ -1423,14 +1486,16 @@ private fun SparkLayer(
     val motes = remember(layer) {
         val random = Random(0x5A4AL)
         List(moteCount(layer)) { index ->
-            val angle = -Math.PI.toFloat() * (0.15f + random.nextFloat() * 0.7f)
+            // 真迸发：向 ~360° 全方向迸射（速度随机），配重力回落；不再只是向上的斜线。
+            val angle = random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = 0.3f + random.nextFloat() * 0.3f
             Mote(
-                xNorm = 0.2f + random.nextFloat() * 0.6f,
-                yNorm = 0.75f + random.nextFloat() * 0.2f,
-                vx = cos(angle) * (0.4f + random.nextFloat() * 0.5f),
-                vy = sin(angle) * (0.5f + random.nextFloat() * 0.4f),
+                xNorm = 0.15f + random.nextFloat() * 0.7f,
+                yNorm = 0.6f + random.nextFloat() * 0.25f,
+                vx = cos(angle) * speed,
+                vy = sin(angle) * speed,
                 delay = random.nextFloat(),
-                radiusDp = (1.5f + random.nextFloat() * 2f) * spec.sizeScale / 100f,
+                radiusDp = (1.5f + random.nextFloat() * 2f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1443,13 +1508,14 @@ private fun SparkLayer(
         val travelPx = spec.travelDp.dp.toPx()
         val g = spec.gravityExp
         val tail = 16.dp.toPx()
+        val spread = spec.spreadScale
         for (m in motes) {
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
-            val alpha = peak * (1f - t)
+            val alpha = peak * (1f - t) * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
-            val x = (m.xNorm + m.vx * t) * size.width
-            val y = (m.yNorm * size.height) + m.vy * t * travelPx + 0.5f * g * t * t * travelPx * 0.6f
+            val x = m.xNorm * size.width + m.vx * t * travelPx * spread
+            val y = m.yNorm * size.height + m.vy * t * travelPx * spread + 0.5f * g * t * t * travelPx * 0.4f
             val center = Offset(x, y)
             val dir = Offset(m.vx, m.vy * g)
             val len = kotlin.math.hypot(dir.x, dir.y).coerceAtLeast(1e-3f)
@@ -1491,7 +1557,7 @@ private fun FireflyLayer(
                 vx = (random.nextFloat() - 0.5f) * 0.08f,
                 vy = (random.nextFloat() - 0.5f) * 0.08f,
                 delay = random.nextFloat(),
-                radiusDp = (1.5f + random.nextFloat() * 2.5f) * spec.sizeScale / 100f,
+                radiusDp = (1.5f + random.nextFloat() * 2.5f) * spec.sizeScale,
                 phase = random.nextFloat() * 2f * Math.PI.toFloat(),
                 colorIndex = index,
                 spin = 0f,
@@ -1506,7 +1572,7 @@ private fun FireflyLayer(
             val t = ((now / layer.cycleMillis) - m.delay) % 1f
             if (t <= 0f || t >= 1f) continue
             val blink = 0.5f + 0.5f * sin(2f * Math.PI.toFloat() * t * 3f + m.phase)
-            val alpha = peak * (1f - 0.2f * t) * blink
+            val alpha = peak * (1f - 0.2f * t) * blink * envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
             if (alpha <= 0.005f) continue
             val x = (m.xNorm + m.vx * t + sin(t * 6f + m.phase) * 0.01f) * size.width
             val y = (m.yNorm + m.vy * t + cos(t * 5f + m.phase) * 0.01f) * size.height
@@ -1544,7 +1610,7 @@ private fun createShader(source: String, name: String): RuntimeShader? =
         .getOrNull()
 
 /** 首尾淡入淡出包络：整段时长的 [share] 比例内从 0 升到 1、再从 1 落到 0。 */
-private fun envelopeAt(now: Float, totalMillis: Int, share: Float): Float {
+internal fun envelopeAt(now: Float, totalMillis: Int, share: Float): Float {
     val fade = (totalMillis * share).coerceAtLeast(1f)
     val inFraction = (now / fade).coerceIn(0f, 1f)
     val outFraction = ((totalMillis - now) / fade).coerceIn(0f, 1f)

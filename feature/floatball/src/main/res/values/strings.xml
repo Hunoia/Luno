@@ -109,6 +109,8 @@
     <string name="float_ball_capsule_alert_particle_size">粒子大小</string>
     <string name="float_ball_capsule_alert_particle_sway">摆动幅度</string>
     <string name="float_ball_capsule_alert_particle_gravity">重力强度</string>
+    <string name="float_ball_capsule_alert_particle_spread">散开幅度</string>
+    <string name="float_ball_capsule_alert_particle_tail">拖尾长度</string>
     <string name="float_ball_capsule_alert_particle_travel">下落行程</string>
     <string name="float_ball_capsule_alert_travel">扩散行程</string>
     <string name="float_ball_capsule_alert_stroke_width">描边宽度</string>

@@ -4,13 +4,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.paletteFor
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
@@ -19,12 +24,13 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
 
 /**
- * 到达提示·胶囊本体类设置页：类目开关、类内单选样式（描边脉冲 / 边框流光）与旋钮。
+ * 到达提示·胶囊本体类设置页：类目开关、类内单选样式（描边脉冲 / 边框流光 /
+ * 呼吸描边 / 内部扫光）与旋钮。
  *
  * 这一类的效果画在胶囊窗口自己的 Compose 层（不新增窗口、不动几何）；
  * 试播时胶囊没显示会先弹一条演示胶囊。
@@ -34,54 +40,75 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
-    val alert = actionSettings.floatBall.notificationCapsule.alert
-    val settings = actionSettings.floatBall.notificationCapsule.alert.capsule
+    // 本地即显状态：用户操作（切样式 / 旋钮 / 开关）立即更新 UI，再异步落盘。
+    // 不依赖配置流「活跃推送」：MultiProcessDataStore 写盘后不保证通知活跃订阅者，
+    // 同屏切样式才不换旋钮；resume 时再从 latestAction 同步一次，兜底外部写入。
+    val alertState = remember {
+        mutableStateOf(TuneConfig.latestAction().floatBall.notificationCapsule.alert)
+    }
+    var alert by alertState
+    // settings 提到页面顶层：LunoScreen 的 content 是普通 Column（非懒重组），
+    // 重组时整个 content lambda 重跑，when(settings.style) 才能跟着换分支。
+    val settings = alert.capsule
 
-    LunoScreenLazy(
+    LifecycleResumeEffect(Unit) {
+        alert = TuneConfig.latestAction().floatBall.notificationCapsule.alert
+        onPauseOrDispose { }
+    }
+
+    // 本地即显 + 异步落盘：transform 先应用到本地（UI 立即反映），再写回配置。
+    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        alert = transform(alert)
+        persistAlert(scope, transform)
+    }
+
+    LunoScreen(
         title = stringResource(AlertCategory.Capsule.titleRes()),
         onBack = onBack,
     ) {
-        item(key = "capsule") {
-            LunoGroup(
-                title = stringResource(AlertCategory.Capsule.titleRes()),
-                subtitle = stringResource(AlertCategory.Capsule.subtitleRes()),
-            ) {
+        LunoGroup(
+            title = stringResource(AlertCategory.Capsule.titleRes()),
+            subtitle = stringResource(AlertCategory.Capsule.subtitleRes()),
+        ) {
+            LunoSegmentedGroup {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_category_enabled_subtitle),
+                        checked = settings.enabled,
+                        onCheckedChange = { checked ->
+                            updateAlert { it.copy(capsule = it.capsule.copy(enabled = checked)) }
+                        },
+                        shape = shape,
+                    )
+                }
+                item { shape ->
+                    val styles = CapsuleAlertStyle.entries
+                    LunoDropdownRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_style),
+                        options = styleLabels(styles),
+                        selectedIndex = styles.indexOf(settings.style).coerceAtLeast(0),
+                        onSelect = { index ->
+                            updateAlert {
+                                it.copy(capsule = it.capsule.copy(style = styles[index]))
+                            }
+                        },
+                        shape = shape,
+                    )
+                }
+                item { shape ->
+                    AlertPaletteSettingsRow(
+                        palette = alert.paletteFor(AlertCategory.Capsule),
+                        fallbackColor = alert.color.toMarkColor(),
+                        shape = shape,
+                        onClick = onNavToPalette,
+                    )
+                }
+            }
+        }
+        key(settings.style) {
+            LunoGroup {
                 LunoSegmentedGroup {
-                    item { shape ->
-                        LunoSwitchRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
-                            subtitle = stringResource(R.string.float_ball_capsule_alert_category_enabled_subtitle),
-                            checked = settings.enabled,
-                            onCheckedChange = { checked ->
-                                updateAlert(scope) { it.copy(capsule = it.capsule.copy(enabled = checked)) }
-                            },
-                            shape = shape,
-                        )
-                    }
-                    item { shape ->
-                        val styles = CapsuleAlertStyle.entries
-                        LunoDropdownRow(
-                            title = stringResource(R.string.float_ball_capsule_alert_style),
-                            options = styleLabels(styles),
-                            selectedIndex = styles.indexOf(settings.style).coerceAtLeast(0),
-                            onSelect = { index ->
-                                updateAlert(scope) {
-                                    it.copy(capsule = it.capsule.copy(style = styles[index]))
-                                }
-                            },
-                            shape = shape,
-                        )
-                    }
-                    item { shape ->
-                        AlertPaletteSettingsRow(
-                            palette = alert.paletteFor(AlertCategory.Capsule),
-                            fallbackColor = alert.color.toMarkColor(),
-                            shape = shape,
-                            onClick = onNavToPalette,
-                        )
-                    }
                     when (settings.style) {
                         CapsuleAlertStyle.Pulse -> {
                             val s = settings.pulse
@@ -94,7 +121,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it / 10f} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 pulse = it.capsule.pulse.copy(glowWidthDpTenths = v),
                                             ))
@@ -111,7 +138,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 pulse = it.capsule.pulse.copy(haloScale = v),
                                             ))
@@ -128,7 +155,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 pulse = it.capsule.pulse.copy(speed = v),
                                             ))
@@ -145,7 +172,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 pulse = it.capsule.pulse.copy(brightness = v),
                                             ))
@@ -162,7 +189,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()} ×" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 pulse = it.capsule.pulse.copy(cycles = v),
                                             ))
@@ -171,7 +198,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                 )
                             }
                         }
-
+    
                         CapsuleAlertStyle.Shimmer -> {
                             val s = settings.shimmer
                             item { shape ->
@@ -183,7 +210,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(bandWidth = v),
                                             ))
@@ -200,9 +227,26 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "×${it / 100f}" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(trailScale = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_trail_alpha),
+                                    value = s.trailAlpha,
+                                    range = FloatBallDefaults.AlertShimmerTrailAlphaMin..
+                                        FloatBallDefaults.AlertShimmerTrailAlphaMax,
+                                    display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert {
+                                            it.copy(capsule = it.capsule.copy(
+                                                shimmer = it.capsule.shimmer.copy(trailAlpha = v),
                                             ))
                                         }
                                     },
@@ -214,7 +258,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     subtitle = stringResource(R.string.float_ball_capsule_alert_reverse_subtitle),
                                     checked = s.reverse,
                                     onCheckedChange = { checked ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(reverse = checked),
                                             ))
@@ -232,7 +276,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(speed = v),
                                             ))
@@ -249,7 +293,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(brightness = v),
                                             ))
@@ -266,7 +310,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()} ×" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(cycles = v),
                                             ))
@@ -286,7 +330,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it / 10f} dp" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 breathOutline = it.capsule.breathOutline.copy(strokeWidthDpTenths = v),
                                             ))
@@ -303,7 +347,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { if (it <= 0f) stringResource(R.string.float_ball_off) else "×${it / 1000f}" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 breathOutline = it.capsule.breathOutline.copy(breatheScale = v),
                                             ))
@@ -312,9 +356,9 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                 )
                             }
                             AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                                onSpeed = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(speed = v))) } },
-                                onBrightness = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(brightness = v))) } },
-                                onCycles = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(cycles = v))) } },
+                                onSpeed = { v -> updateAlert { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert { it.copy(capsule = it.capsule.copy(breathOutline = it.capsule.breathOutline.copy(cycles = v))) } },
                             )
                         }
                         CapsuleAlertStyle.InnerSweep -> {
@@ -328,7 +372,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     display = { "${it.toInt()}%" },
                                     shape = shape,
                                     onCommit = { v ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 innerSweep = it.capsule.innerSweep.copy(bandWidth = v),
                                             ))
@@ -342,7 +386,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                     subtitle = stringResource(R.string.float_ball_capsule_alert_reverse_subtitle),
                                     checked = s.reverse,
                                     onCheckedChange = { checked ->
-                                        updateAlert(scope) {
+                                        updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 innerSweep = it.capsule.innerSweep.copy(reverse = checked),
                                             ))
@@ -352,9 +396,9 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                 )
                             }
                             AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                                onSpeed = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(speed = v))) } },
-                                onBrightness = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(brightness = v))) } },
-                                onCycles = { v -> updateAlert(scope) { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(cycles = v))) } },
+                                onSpeed = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(speed = v))) } },
+                                onBrightness = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(brightness = v))) } },
+                                onCycles = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(cycles = v))) } },
                             )
                         }
                     }
