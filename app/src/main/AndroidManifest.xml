@@ -292,6 +292,18 @@
             android:exported="false"
             android:process=":service" />
 
+        <!-- 通知胶囊点击的透明跳板：把通知的 PendingIntent 带到前台发送（绕过后台启动
+             限制）。无界面、无动画、不进最近任务、不回退到主任务；跟 :service 同进程，
+             胶囊只可能在服务活着时出现，跟着服务走避免主进程冷启动的延迟。 -->
+        <activity
+            android:name=".runtime.floatball.NotificationOpenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.notificationopen"
+            android:theme="@style/Theme.SideGesture.Transparent" />
+
         <!-- 悬浮球宿主。必须 startForegroundService（Android 12+ 用 startService 会抛
              ForegroundServiceStartNotAllowedException），并在 5s 内 startForeground。 -->
         <service

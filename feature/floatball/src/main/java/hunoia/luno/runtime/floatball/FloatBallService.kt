@@ -115,6 +115,7 @@ import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.runtime.surface.SurfaceController
 import hunoia.luno.runtime.surface.GestureCommand
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -123,6 +124,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.random.Random
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -1684,24 +1686,44 @@ class FloatBallService : Service() {
     // ---- 通知点按 ----
 
     private fun openNotificationItem(item: NotificationItem) {
-        notificationSlot.hideCapsule()
+        // 先不收起胶囊：起跳板发送依赖「有可见 overlay」的后台启动豁免（BAL），
+        // 发送成功后再收；否则被系统静默拦掉时表现为「点了没反应、条目还消失」。
         scope.launch {
             val contentIntent = NotificationContentIntents.get(item.notificationKey)
             if (contentIntent != null) {
-                val sent = runCatching { contentIntent.send() }.isSuccess
-                if (sent) {
-                    notificationSlot.removeItem(item.id)
-                    return@launch
+                val settled = CompletableDeferred<Boolean>()
+                val started = NotificationOpenActivity.start(
+                    context = this@FloatBallService,
+                    pendingIntent = contentIntent,
+                    onResult = { ok -> settled.complete(ok) },
+                )
+                if (started) {
+                    val ok = withTimeoutOrNull(NOTIFICATION_OPEN_RESULT_TIMEOUT_MS) { settled.await() }
+                        ?: false
+                    if (ok) {
+                        Log.i(TAG, "capsule open via pi ok pkg=${item.packageName}")
+                        notificationSlot.removeById(item.id)
+                        return@launch
+                    }
+                    Log.w(
+                        TAG,
+                        "capsule open via pi timeout/fail, fallback pkg=${item.packageName}",
+                    )
                 }
             }
-            SurfaceDispatch.dispatch(
-                action = AppLaunchAction.stored(packageName = item.packageName),
-                origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
-                idempotencyKey = "inbox.notification:${item.id}",
-            ) { launched ->
-                if (launched) notificationSlot.removeItem(item.id)
-                else Log.w(TAG, "capsule app launch failed: package=${item.packageName}")
-            }
+            launchAppFallback(item)
+        }
+    }
+
+    /** PI 缺失 / 发送失败 / 跳板被拦：走现有应用启动回退（失败保留条目与胶囊）。 */
+    private fun launchAppFallback(item: NotificationItem) {
+        SurfaceDispatch.dispatch(
+            action = AppLaunchAction.stored(packageName = item.packageName),
+            origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+            idempotencyKey = "inbox.notification:${item.id}",
+        ) { launched ->
+            if (launched) notificationSlot.removeById(item.id)
+            else Log.w(TAG, "capsule app launch failed: package=${item.packageName}")
         }
     }
 
@@ -3256,6 +3278,9 @@ class FloatBallService : Service() {
         private const val CAPSULE_SETTLE_MS = 300L
         private const val SETTLE_JOBS_MAX = 16
         private const val CAPSULE_HIDDEN_MAX = 32
+
+        /** 通知点击：跳板回执等待上限；超时按「被系统静默拦掉」走应用启动回退。 */
+        private const val NOTIFICATION_OPEN_RESULT_TIMEOUT_MS = 1_500L
         /** 结果来源的滑掉抑制窗口：与剪贴板 / 情景来源同口径。 */
         private const val ResultDismissSuppressMs = 10_000L
 

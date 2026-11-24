@@ -106,13 +106,15 @@ class NotificationPulseListener : NotificationListenerService() {
         if (isSameApplicationVariant(sbn.packageName, packageName)) return
         val pulse = sbn.toPulse()
         updateActiveCache(removeKey = pulse.key)
-        NotificationContentIntents.forget(pulse.key)
+        // 不在这里清 PI：「只显示胶囊」时系统通知被我们 cancel/snooze 也会走这里，
+        // 那是自己的副作用，条目还在胶囊里，点击仍要用这条 PI 直达目标界面。
         NotificationPulseHub.fireRemoved(pulse)
     }
 
     override fun onListenerDisconnected() {
         synchronized(activeLock) { activeCache = emptyList() }
-        NotificationContentIntents.clear()
+        // 清空 PI 会误杀「被胶囊藏起、但条目仍存活」的通知；重连是常态，
+        // PendingIntent 不随监听连接失效，交给 onDestroy 收底。
         super.onListenerDisconnected()
     }
 
@@ -213,8 +215,8 @@ class NotificationPulseListener : NotificationListenerService() {
             .getOrDefault(emptyList())
             .filterNot { isSameApplicationVariant(it.packageName, packageName) }
         synchronized(activeLock) { activeCache = current }
-        // 以活跃快照为准收紧 PendingIntent 旁路：个别 ROM 不逐条回调 removed。
-        NotificationContentIntents.retainOnly(current.mapNotNullTo(HashSet()) { it.key })
+        // 不按活跃快照收紧 PI：被「只显示胶囊」藏起的通知不在快照里，清掉就丢了直达目标
+        // 界面所需的 PI。收敛交给 [NotificationContentIntents] 的 LRU 上限。
     }
 
     private fun updateActiveCache(add: NotificationPulse? = null, removeKey: String? = null) {

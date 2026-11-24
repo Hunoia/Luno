@@ -300,6 +300,16 @@ internal class BallCapsuleWindow(
     /** 当前朝向：决定读横屏还是竖屏的落点。快照状态：转屏要重推落点与行宽。 */
     private var landscape by mutableStateOf(false)
 
+    /** 上一次应用过几何的屏宽 / 屏高（px）：同朝向的折叠 / 分屏 / 改显示大小也要重排。 */
+    private var displayWidthPx = 0
+    private var displayHeightPx = 0
+
+    /**
+     * 几何 / 屏尺寸版本：`setOrientation` 自增，驱动 Compose 侧重算行宽（LaunchedEffect
+     * 与行宽 remember 的键）。同朝向改了屏宽时 `landscape` 不变，光靠它作键会漏。
+     */
+    private var layoutEpoch by mutableIntStateOf(0)
+
     private val screenWidthPx: Int get() = DensityProvider.screenWidthPx
     private val screenHeightPx: Int get() = DensityProvider.screenHeightPx
 
@@ -682,29 +692,45 @@ internal class BallCapsuleWindow(
         fixedIconState = icon
     }
 
-    /** 转屏：换用该朝向自己的落点。返回是否真的换了朝向。 */
+    /**
+     * 朝向或屏尺寸变了：重推落点与行宽。返回是否真的需要重排。
+     *
+     * **屏尺寸也要判**：折叠 / 展开、分屏 / 自由窗口改尺寸、改显示大小都不翻朝向，
+     * 只按 [landscape] 早退会把旧屏宽算出的行宽与窗口原样留在新屏上——窗口比屏还宽，
+     * 贴边侧内容直接被裁掉。
+     */
     fun setOrientation(landscape: Boolean): Boolean {
-        if (this.landscape == landscape) return false
-        // 落点存的是屏幕绝对 y：转屏先折回比例、再按新屏高重建，否则绝对像素会在新屏上偏。
-        if (posYPx >= 0f && screenHeightPx > 0) {
-            anchorYRatio = (posYPx / screenHeightPx).coerceIn(0f, 1f)
+        val width = screenWidthPx
+        val height = screenHeightPx
+        val orientationChanged = this.landscape != landscape
+        val heightChanged = displayHeightPx > 0 && displayHeightPx != height
+        if (!orientationChanged && displayHeightPx == height && displayWidthPx == width) return false
+        // 落点存的是屏幕绝对 y：先按**上一块屏**的高度折回比例，再按新屏高重建。
+        if (posYPx >= 0f && displayHeightPx > 0) {
+            anchorYRatio = (posYPx / displayHeightPx).coerceIn(0f, 1f)
         }
         this.landscape = landscape
-        // 目标朝向已有存档 → 按它落（横竖屏分开记录）；无存档保留上面折现的比例。
-        val saved = savedPosition(landscape)
-        if (saved != null) {
-            sideRight = !BallPlacement.isLeftEdge(saved.x, screenWidthPx, rowHeightPx.coerceAtLeast(1))
-            anchorYRatio = saved.y.coerceIn(0f, 1f)
+        displayWidthPx = width
+        displayHeightPx = height
+        // 同朝向只改了屏宽时保留当前落点（用户没动过它，不该跳回存档位）。
+        if (orientationChanged) {
+            // 目标朝向已有存档 → 按它落（横竖屏分开记录）；无存档保留上面折现的比例。
+            val saved = savedPosition(landscape)
+            if (saved != null) {
+                sideRight = !BallPlacement.isLeftEdge(saved.x, screenWidthPx, rowHeightPx.coerceAtLeast(1))
+                anchorYRatio = saved.y.coerceIn(0f, 1f)
+            }
         }
-        posYPx = -1f
+        if (orientationChanged || heightChanged) posYPx = -1f
         refreshBarSafeArea()
         cancelSnap()
         cancelImeLift()
         imeLiftPx = resolveImeLift()
-        // 朝向换了，行宽与贴边位置都要按新屏宽重推。
+        // 屏宽变了，行宽与贴边位置都要按新屏宽重推；epoch 驱动 Compose 侧重算行宽。
         frozenAnchor = null
         edgeOffsetPx = 0f
         capsuleWidthPx = 0
+        layoutEpoch++
         view?.let { applyCapsuleGeometry(it) }
         return true
     }
@@ -900,18 +926,19 @@ internal class BallCapsuleWindow(
         get() = DensityProvider.dp2px(GlowMarginDp)
 
     /**
-     * 中侧余量（px）：横滑视觉上限 + 辉光余量。反向滑的行位移钳在 [DragRubberCapDp] 内，
-     * 行不再被窗口边缘硬裁。**按相位缩放**：[innerMarginPx] 在收起态是 0，否则窗口比圆宽出
-     * 一大截——圆不贴边、空白处还吃触摸。
+     * 中侧余量（px）：只有辉光出血（16dp），**不**按横滑橡皮筋留白——行位移在内容区内
+     * 就被 `clipToBounds` 裁掉，窗口边缘用不到那 72dp；留它只会让窗口比内容宽一大截、
+     * 那片空的透明区还吃触摸（点空白也会当成点胶囊）。**按相位缩放**：[innerMarginPx]
+     * 在收起态是 0，否则窗口比圆宽出这一小条。
      *
      * 系统没有可用的「窗口内局部可触摸区」（`TOUCHABLE_INSETS_REGION` 已从公开 API 移除），
      * 所以做法是让窗口本身在收起态等于圆：多出来的那些像素根本不存在。
      */
     private val centerMarginPx: Int
-        get() = DensityProvider.dp2px(GlowMarginDp + DragRubberCapDp)
+        get() = DensityProvider.dp2px(CenterMarginDp)
 
     /**
-     * 当前相位下真正的中侧余量：0（收起圆窗口 == 圆）→ [centerMarginPx]（展开，给横滑余量）。
+     * 当前相位下真正的中侧余量：0（收起圆窗口 == 圆）→ [centerMarginPx]（展开，只留辉光出血）。
      *
      * 窗口宽度、画面左边、命中口径三处必须读同一份；相位的进度在 [applyCapsuleGeometry]
      * 里冻结成 [drawnInnerMarginPx] 给 Compose 用。
@@ -1160,7 +1187,8 @@ internal class BallCapsuleWindow(
         }
         if (menuItemId != null && items.getOrNull(currentIndex)?.id != menuItemId) menuItemId = null
         if (copiedItemId != null && items.none { it.id == copiedItemId }) copiedItemId = null
-        // 目标宽：通知行按内容（Compose 侧量出的终值），结果胶囊用固定公式。
+        // 目标宽：通知行按内容（Compose 侧量出的终值），结果胶囊内容驱动（实测行宽收敛，
+        // 未量出前按公式兜底，见 [fixedCapsuleWidth]）。
         val newWidth = if (items.any { it is NotificationItem } && capsuleWidthPx > 0) {
             capsuleWidthPx
         } else {
@@ -1526,7 +1554,7 @@ internal class BallCapsuleWindow(
         val newRowHeight = capsuleRowHeightPx()
         if (newRowHeight != rowHeightPx) rowHeightPx = newRowHeight
         // 有通知行时保留内容驱动宽（LaunchedEffect 收敛），键盘让位/转屏不撑宽；
-        // 结果胶囊（无通知行）用固定公式。
+        // 结果胶囊（无通知行）按实测行宽收敛，未量出前按公式兜底。
         if (items.none { it is NotificationItem } || capsuleWidthPx <= 0) {
             capsuleWidthPx = fixedCapsuleWidth()
         }
@@ -1715,7 +1743,9 @@ internal class BallCapsuleWindow(
         // 收起态：行都不可见，整圆都是「长开」按钮。
         if (collapsedVisual) return HitTarget.Body
         val row = rowItem(y) ?: return HitTarget.None
-        val rowWidth = (rowWidthsPx[row.id] ?: capsuleWidthPx).coerceAtLeast(1)
+        // 行宽用实测值；未收敛（首帧）时回退到「真正画出的画面宽」，而不是 capsuleWidthPx——
+        // 后者在结果胶囊是固定公式、可能比实际行宽，会把内容框里的空区算成命中区。
+        val rowWidth = (rowWidthsPx[row.id] ?: drawnSurfaceW.roundToInt()).coerceAtLeast(1)
         val range = rowXRange(v, rowWidth)
         if (x < range.first || x > range.last) return HitTarget.None
         if (row is ResultItem && menuItemId == row.id) {
@@ -2036,15 +2066,42 @@ internal class BallCapsuleWindow(
 
     // ---- 定位 ----
 
+    /** 画面（内容）宽的硬上限：窗口再叠加中侧余量也不越屏（见 [CapsuleWidths]）。 */
+    private val maxSurfaceWidthPx: Int
+        get() = CapsuleWidths.maxSurfaceWidthPx(
+            screenWidthPx = screenWidthPx,
+            centerMarginPx = centerMarginPx,
+            edgeInsetPx = CapsuleWidths.edgeInsetPx(DensityProvider.density),
+        )
+
     private fun fixedCapsuleWidth(): Int {
-        val screenW = DensityProvider.screenWidthPx
-        val cap = min(DensityProvider.dp2px(MaxWidthDp), (screenW * WidthRatio).roundToInt())
-        return max(rowHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f)))
+        // 结果胶囊按实测行宽收敛：行已量出时窗口宽 = 最长行宽（贴内容），不再用固定公式
+        // 把窗口撑到 48% 屏宽、留出一片空的、可触摸的窗口区（点空白也触发胶囊）。
+        // 兜底下限还是球宽，上限是「窗口不越屏」的余量口径（[CapsuleWidths]）。
+        val contentDriven = rowWidthsPx.values.maxOrNull()
+        if (contentDriven != null) {
+            return contentDriven.coerceIn(rowHeightPx, maxSurfaceWidthPx)
+        }
+        val cap = CapsuleWidths.surfaceCapPx(
+            screenWidthPx = screenWidthPx,
+            centerMarginPx = centerMarginPx,
+            edgeInsetPx = CapsuleWidths.edgeInsetPx(DensityProvider.density),
+            absoluteCapPx = DensityProvider.dp2px(MaxWidthDp),
+            widthRatio = WidthRatio,
+        )
+        return max(rowHeightPx, cap).coerceAtMost(maxSurfaceWidthPx)
     }
 
-    /** 当前相位下的画面宽度（px）：0 = 收起圆，1 = 内容。 */
-    private fun phaseSurfaceW(): Float =
-        (rowHeightPx + (capsuleWidthPx - rowHeightPx) * morphPhase).coerceAtLeast(1f)
+    /**
+     * 当前相位下的画面宽度（px）：0 = 收起圆，1 = 内容。
+     *
+     * 行宽还没重算（转屏 / 改尺寸刚把 [capsuleWidthPx] 清零）时按收起圆算，窗口立刻
+     * 缩回球大小，而不是把旧屏的宽值原样留在新屏上。
+     */
+    private fun phaseSurfaceW(): Float {
+        val content = if (capsuleWidthPx > 0) capsuleWidthPx else rowHeightPx
+        return (rowHeightPx + (content - rowHeightPx) * morphPhase).coerceAtLeast(1f)
+    }
 
     /** 当前相位下的画面高度（px）：收起圆 = 行高，多行随行数长高。 */
     private fun phaseSurfaceH(): Float =
@@ -2059,17 +2116,35 @@ internal class BallCapsuleWindow(
      * 一帧也只是整条动画慢一帧，不会出现「形变面按目标几何算、却画在旧窗里」的第一帧偏移。
      */
     private fun applyCapsuleGeometry(v: View) {
-        // 窗口未挂 / 行高未就绪：几何无从落窗。
+        // 窗口未挂：几何无从落窗。
         if (!isCapsule) return
-        if (capsuleWidthPx <= 0) return
         val targetH = windowHeightPx
         // 首帧前 rowHeight 还没测出来：别把窗口写成 0 高。
         if (targetH <= 0) return
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
-        val screenW = DensityProvider.screenWidthPx
-        val surfaceW = phaseSurfaceW()
+        val screenW = screenWidthPx.coerceAtLeast(1)
+        val desiredSurfaceW = phaseSurfaceW()
         val surfaceH = phaseSurfaceH()
-        val windowWidth = surfaceW.roundToInt() + innerMarginPx()
+        val desiredWindowW = desiredSurfaceW.roundToInt() + innerMarginPx()
+        // 末端硬夹：任何来源（旧屏宽遗留 / 相位中间值 / ROM 上报偏差）都不让窗口越出屏幕。
+        // 被夹时同步收窄画面宽，保证 Compose 画的永远不超过窗口（[drawnSurfaceW] 口径）。
+        val windowWidth = CapsuleWidths.windowWidthPx(
+            surfaceWidthPx = desiredSurfaceW.roundToInt(),
+            innerMarginPx = innerMarginPx(),
+            screenWidthPx = screenW,
+        )
+        val surfaceW = if (windowWidth < desiredWindowW) {
+            val narrowed = (windowWidth - innerMarginPx()).coerceAtLeast(1)
+            Log.w(
+                LOG_TAG,
+                "capsule width clamped ${desiredWindowW}px -> ${windowWidth}px" +
+                    " (screen=$screenW surface=${desiredSurfaceW.roundToInt()} phase=$morphPhase" +
+                    " sideRight=$sideRight) | ${snapshot()}",
+            )
+            narrowed.toFloat()
+        } else {
+            desiredSurfaceW
+        }
         val windowHeight = surfaceH.roundToInt() + outerGlowPx() * 2
         // 形变期间用冻结锚点：在途位移不能把胶囊基准挪走。
         val live = currentAnchor()
@@ -2582,14 +2657,17 @@ internal class BallCapsuleWindow(
                 textMeasurer.measure(item.text, bodyStyle, constraints = Constraints()).size.width
             } else 0
             val contentW = max(titleW, bodyW)
-            val screenW = DensityProvider.screenWidthPx
             // 行宽上限按**整行**（文本列+图标+间距+内距）计：文本列上限再扣掉装饰宽，
             // 避免「文本列 + 图标/内距」实际超过行宽上限（dp 封顶，窄屏按比例兜底）。
+            // 上限还要扣掉中侧余量与屏缘留白：行宽 + 余量不得越屏（[CapsuleWidths]）。
             val rowDecoration = iconPx + rowGapPx + rowPadPx * 2
-            val maxRowPx = min(
-                screenW * NarrowWidthRatio,
-                DensityProvider.dp2px(MaxWidthCapDp).toFloat(),
-            ).roundToInt()
+            val maxRowPx = CapsuleWidths.surfaceCapPx(
+                screenWidthPx = DensityProvider.screenWidthPx,
+                centerMarginPx = centerMarginPx,
+                edgeInsetPx = CapsuleWidths.edgeInsetPx(DensityProvider.density),
+                absoluteCapPx = DensityProvider.dp2px(MaxWidthCapDp),
+                widthRatio = NarrowWidthRatio,
+            )
             val maxContentPx = maxRowPx - rowDecoration
             // 按实际内容宽：内容宽 ≤ 上限 → 全显贴内容（正文不滚）；
             // 内容宽 > 上限 → 文本列封顶上限，正文由 MarqueeText 自动滚动看全文。
@@ -2597,8 +2675,9 @@ internal class BallCapsuleWindow(
         }
         // 首帧窗口宽按公式兜底，Compose 测量出通知行目标宽后再收窄/加宽（一次收敛）。
         // 有通知行时只按内容驱动（不叠加 fixedCapsuleWidth 兜底下限，否则短内容被撑到 ~48% 屏宽）；
-        // 无通知行（结果胶囊）保持固定公式。key 带朝向：转屏后按新屏宽立即重推行宽，不等下一条通知。
-        LaunchedEffect(list, landscape, rowHeightPx) {
+        // 无通知行（结果胶囊）保持固定公式。key 带朝向与屏尺寸版本：转屏 / 折叠 / 改显示大小后
+        // 立即按新屏宽重推行宽，不等下一条通知。
+        LaunchedEffect(list, layoutEpoch, rowHeightPx) {
             val notifMax = list.filterIsInstance<NotificationItem>()
                 .maxOfOrNull { notificationContentWidthPx(it) + iconPx + rowGapPx + rowPadPx * 2 }
                 ?: 0
@@ -2609,14 +2688,28 @@ internal class BallCapsuleWindow(
             } else {
                 fixedCapsuleWidth()
             }
-            if (desired != capsuleWidthPx) {
-                capsuleWidthPx = desired
+            val capped = desired.coerceIn(1, maxSurfaceWidthPx)
+            if (capped != capsuleWidthPx) {
+                capsuleWidthPx = capped
                 // 宽变了必须连 x 一起重写（贴屏侧那条边由宽反推）。
                 view?.let { applyCapsuleGeometry(it) }
             }
             // 内容宽收敛：展开形变可以从球矩形起了（窗口是否已落几何由 startMorphIfPending 判）。
             widthSettled = true
             view?.let { startMorphIfPending(it) }
+        }
+        // 结果胶囊按实测行宽收口：行量出后把窗口收到最长行宽，紧贴内容（余量只剩 16dp）。
+        // 只在「比当前窗口窄」时收，不回加宽——行宽由内容决定、窗口宽只是容器，收敛一次即稳；
+        // 通知行不走这里（上面的 effect 已按内容驱动，重复收会跟它抢宽）。
+        LaunchedEffect(rowWidthsPx.values.maxOrNull(), rowWidthsPx.size) {
+            if (list.any { it is NotificationItem }) return@LaunchedEffect
+            val contentDriven = rowWidthsPx.values.maxOrNull() ?: return@LaunchedEffect
+            val narrowed = contentDriven.coerceIn(rowHeightPx, maxSurfaceWidthPx)
+            if (narrowed < capsuleWidthPx) {
+                capsuleWidthPx = narrowed
+                // 宽变了必须连 x 一起重写（贴屏侧那条边由宽反推）。
+                view?.let { applyCapsuleGeometry(it) }
+            }
         }
         val metrics = stackMetrics
         val thumbHeightPx = if (metrics.maxScrollPx > 0) {
@@ -2651,9 +2744,10 @@ internal class BallCapsuleWindow(
                 ) {
                 list.forEach { item ->
                     // 通知行：文本列宽 = 内容自然宽×1/2（夹最小可读宽与半屏），行宽 = 列宽+图标+间距+内距。
-                    // 结果行：保持「贴内容」夹窗口宽。测量结果按内容缓存（条目少，重组不重复测）。
+                    // 结果行：保持「贴内容」夹窗口宽。测量结果按内容缓存（条目少，重组不重复测）；
+                    // key 带 [layoutEpoch]：同朝向改了屏宽后行宽要按新屏宽重算，不能留着旧屏的值。
                     val notifContentWidth = if (item is NotificationItem) {
-                        remember(item.id, item.title, item.text) {
+                        remember(item.id, item.title, item.text, layoutEpoch) {
                             with(density) { notificationContentWidthPx(item).toDp() }
                         }
                     } else {
@@ -3602,7 +3696,14 @@ internal class BallCapsuleWindow(
         /** 辉光余量（dp）：脉冲 / 流光描边越出轮廓的空间，上下各留；贴屏侧不留。 */
         const val GlowMarginDp = 12f
 
-        /** 反向横滑的视觉上限（dp）：行位移橡皮筋钳到这个值，窗口中侧余量按此 + 辉光留白。 */
+        /**
+         * 中侧余量（dp）：只留辉光出血。窗口宽 = 内容宽 + 这个值，紧贴内容——
+         * 行位移在内容区内就被裁掉，窗口边缘用不到 [DragRubberCapDp]，留了只会多出
+         * 一片空的、可触摸的窗口区（点空白也触发胶囊）。
+         */
+        const val CenterMarginDp = 16f
+
+        /** 反向横滑的视觉上限（dp）：行位移橡皮筋钳到这个值（行在内容区内被裁，不撑窗口）。 */
         const val DragRubberCapDp = 72f
 
         /** 橡皮筋阻尼：超过收起阈值后的位移按此比例递减跟进。 */
@@ -3611,7 +3712,7 @@ internal class BallCapsuleWindow(
 
     /**
      * 反向横滑的视觉位移：阈值内 1:1 跟手，阈值后按 [DragRubberDamping] 递减，
-     * 钳在 [DragRubberCapDp] 内——窗口中侧余量按此留白，行不再被窗口边缘硬裁。
+     * 钳在 [DragRubberCapDp] 内——只钳行位移，不撑窗口（行在内容区内被裁）。
      * 手势判定（收起 / 滑掉的阈值派发）仍用原始位移，不受钳制影响。
      */
     private fun rubberBandedRowDx(raw: Float): Float {
