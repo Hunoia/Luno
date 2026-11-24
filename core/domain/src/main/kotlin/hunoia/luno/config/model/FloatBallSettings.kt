@@ -265,6 +265,13 @@ data class NotificationCapsuleSettings(
     /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（四类各自开关，默认全关）。 */
     @SerialName("alert_v2")
     val alert: NotificationAlertSettings = NotificationAlertSettings(),
+    /**
+     * 动效素材库（调色板 + 用户预设）：与 [alert] 平级，样式换代 / `alert_v3` 重置都不动这里。
+     *
+     * 目前先落数据层；切换设置页与引擎那一版起，调色板从这里读取。旧 `alert` 内的
+     * 自定义调色板按确认口径不迁移（素材库空启动）。
+     */
+    val alertLibrary: AlertLibrary = AlertLibrary(),
     /** 存储原值，读请走 [ballLongPressBehavior]。 */
     val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
     /** 存储原值，读请走 [rowLongPressBehavior]。 */

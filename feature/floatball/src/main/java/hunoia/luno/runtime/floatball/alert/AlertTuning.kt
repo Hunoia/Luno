@@ -58,86 +58,11 @@ internal object ParticlesTuning {
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.8f
 
-    /** 粒子核基准半径下/上限（dp）：大小旋钮的缩放基准。 */
-    const val RadiusMinDp = 2f
-    const val RadiusMaxDp = 4.5f
-
-    /** 少量大颗粒：占比 × 半径放大倍数，制造层次（其余按均匀随机半径）。 */
-    const val HeroFraction = 0.15f
-    const val HeroRadiusScale = 1.8f
-
-    /** 光晕层：半径倍数与 alpha 占比（核亮、晕软）。 */
+    /** 光晕层半径倍数（低 alpha 大圆垫底）。 */
     const val HaloScale = 2.6f
-    const val HaloAlphaFraction = 0.35f
 
     /** alpha 衰减指数：>1 先驻留后衰减，避免一出发就明显变暗。 */
     const val FadeExp = 1.6f
-
-    /**
-     * 单颗粒子的寿命占单循环时长的比例；剩余时长用来摊开出发时刻。
-     * 这一项保证 `cycles = 1` 时也是一场雨（错峰出发），而不是所有粒子同刻落下。
-     */
-    const val LifeShare = 0.65f
-
-    /** 横摆：基准摆幅（宽度占比，摆幅旋钮的缩放基准）与单次下落内的正弦周期数。 */
-    const val SwayAmpNorm = 0.02f
-    const val SwayCycles = 1.5f
-
-    /** 随机横向漂移（宽度占比，居中 ± 一半）。 */
-    const val DriftNorm = 0.06f
-
-    /**
-     * 共享物理映射（风 / 阻力 / 方差）：滑杆归一化值 → 曲线系数。
-     * 三个旋钮对全部运动生效，映射口径只在这里定义。
-     */
-    const val WindAccelNorm = 0.25f
-    const val DragMaxExp = 3f
-    const val VarianceAmplitude = 0.4f
-
-    /** 行程基准系数：滑杆（屏高 %）在各自运动里的换算比例。 */
-    const val TravelBasisRain = 1f
-    const val TravelBasisFountain = 0.45f
-    const val TravelBasisMeteor = 1.2f
-    const val TravelBasisConfetti = 1f
-
-    /** 喷泉：横向初速、上升速度区间、二次弧高倍率、alpha 衰减。 */
-    const val FountainSideVx = 0.15f
-    const val FountainRiseMin = 0.5f
-    const val FountainRiseMax = 1.1f
-    const val FountainHeightScale = 2.2f
-    const val FountainFade = 0.3f
-
-    /** 流星：速度区间与尾迹 alpha。 */
-    const val MeteorVxMin = 0.2f
-    const val MeteorVxMax = 0.45f
-    const val MeteorVyMin = 0.6f
-    const val MeteorVyMax = 1.1f
-    const val MeteorTailAlpha = 0.5f
-
-    /** 彩带：横摆幅度 / 周期、3D 翻面的单循环翻面次数。 */
-    const val ConfettiSwayNorm = 0.04f
-    const val ConfettiSwayCycles = 1.5f
-    const val ConfettiFlipCycles = 2f
-    const val ConfettiMinFlipScale = 0.15f
-
-    /** 萤火：明灭周期、漂移抖动幅度与横向 / 纵向周期、整体亮度与光晕。 */
-    const val FireflyBlinkCycles = 3f
-    const val FireflyDriftJitterNorm = 0.01f
-    const val FireflyDriftCyclesX = 6f
-    const val FireflyDriftCyclesY = 5f
-    const val FireflyAlphaFade = 0.2f
-    const val FireflyPeakScale = 0.9f
-    const val FireflyHaloScale = 2.2f
-    const val FireflyHaloAlphaFraction = 0.3f
-
-    /** 彩带：单颗粒子的基准半径（dp）。 */
-    const val ConfettiRadiusMinDp = 2f
-    const val ConfettiRadiusMaxDp = 5f
-
-    /** 流星：单颗粒子的基准半径上限（dp）与起始纵向范围。 */
-    const val MeteorRadiusExtraDp = 2.5f
-    const val MeteorStartYMin = -0.05f
-    const val MeteorStartYRange = 0.3f
 }
 
 /**

@@ -10,7 +10,7 @@ object ModuleRules {
 
     /** 允许出现的模块。新增模块必须登记，否则构建失败。 */
     val knownModules: Set<String> = setOf(
-        ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:facade",
+        ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:effect", ":core:facade",
         ":ui:design", ":capability:launch", ":capability:ocr", ":capability:qr", ":capability:notify",
         ":capability:appcatalog",
         ":feature:execute", ":feature:actions",
@@ -31,7 +31,9 @@ object ModuleRules {
         ":core:data" to setOf(":core:common", ":core:domain", ":core:bridge"),
         ":core:runtime" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:data"),
         // 门面契约（UI 可见）：只放契约与 DTO，实现留在 :app
-        ":core:facade" to setOf(":core:common", ":core:domain", ":core:data"),
+        // 效果播放契约：纯 JVM，不依赖任何模块（Request / Handle / 枚举）
+        ":core:effect" to emptySet(),
+        ":core:facade" to setOf(":core:common", ":core:domain", ":core:data", ":core:effect"),
         ":ui:design" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:facade"),
         ":capability:launch" to setOf(":core:common", ":core:domain", ":core:data", ":core:bridge", ":capability:appcatalog"),
         ":capability:appcatalog" to setOf(

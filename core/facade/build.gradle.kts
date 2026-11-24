@@ -16,6 +16,7 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:domain"))
     api(project(":core:data"))
+    api(project(":core:effect"))
     api(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.annotation)
 }
