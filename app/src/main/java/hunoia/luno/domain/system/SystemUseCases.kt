@@ -33,7 +33,9 @@ object SystemUseCases : SystemFacade {
         context: Context,
         preset: AlertPreset,
         layerId: String?,
-    ) = FloatBallUseCase.previewPreset(context, preset, layerId)
+        intensityPercent: Int?,
+        speedPercent: Int?,
+    ) = FloatBallUseCase.previewPreset(context, preset, layerId, intensityPercent, speedPercent)
 
     override fun playAlertEffect(context: Context, request: AlertEffectRequest): AlertEffectHandle? =
         FloatBallUseCase.playAlertEffect(context, request)

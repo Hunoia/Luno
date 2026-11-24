@@ -24,7 +24,7 @@ class BuiltinAlertPresetsTest {
     @Test
     fun `registry size matches the declared count`() {
         assertEquals(BuiltinAlertPresets.Count, presets.size)
-        assertEquals(36, presets.size)
+        assertEquals(18, presets.size)
     }
 
     @Test
@@ -92,35 +92,23 @@ class BuiltinAlertPresetsTest {
         assertTrue(shapes.contains(AlertParticleShape.Line))
         assertTrue(shapes.contains(AlertParticleShape.Square))
         assertTrue(shapes.contains(AlertParticleShape.Star))
-        assertTrue(shapes.contains(AlertParticleShape.Petal))
-        assertTrue(shapes.contains(AlertParticleShape.Snowflake))
     }
 
     @Test
     fun `named forms map to distinct patterns`() {
+        // 精简后的内置素材是「每类 1–3 个代表」：同一族内不重复形态，也不要求覆盖全部枚举。
         val edge = presets.filter { it.layers.single().kind == AlertKind.Edge }
             .map { it.layers.single().edge!!.pattern }
-        assertEquals(8, edge.toSet().size)
+        assertEquals(3, edge.size)
+        assertEquals(edge.size, edge.toSet().size)
         val ball = presets.filter { it.layers.single().kind == AlertKind.Ball }
             .map { it.layers.single().ball!!.pattern }
-        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Shockwave))
-        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Spiral))
+        assertEquals(3, ball.size)
+        assertEquals(ball.size, ball.toSet().size)
         assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Orbit3D))
-        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Halo))
         val capsule = presets.filter { it.layers.single().kind == AlertKind.Capsule }
             .map { it.layers.single().capsule!!.pattern }
-        assertEquals(6, capsule.toSet().size)
-    }
-
-    @Test
-    fun `builtin materials cover every renderable shape`() {
-        val patterns = layers.mapNotNull { it.edge?.pattern }.toSet()
-        assertEquals(hunoia.luno.config.model.EdgePattern.entries.toSet(), patterns)
-        val ballPatterns = layers.mapNotNull { it.ball?.pattern }.toSet()
-        assertEquals(hunoia.luno.config.model.BallPattern.entries.toSet(), ballPatterns)
-        val capsulePatterns = layers.mapNotNull { it.capsule?.pattern }.toSet()
-        assertEquals(hunoia.luno.config.model.CapsulePattern.entries.toSet(), capsulePatterns)
-        val screenPatterns = layers.mapNotNull { it.screen?.pattern }.toSet()
-        assertEquals(hunoia.luno.config.model.ScreenPattern.entries.toSet(), screenPatterns)
+        assertEquals(3, capsule.size)
+        assertEquals(capsule.size, capsule.toSet().size)
     }
 }

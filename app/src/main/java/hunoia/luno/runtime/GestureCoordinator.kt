@@ -733,6 +733,7 @@ class GestureCoordinator(
                     }.getOrDefault(false) || hunoia.luno.service.SideGestureService.current != null
                 },
             ),
+            settlementObserver = ActionAlertTrigger::observe,
         )
     }
 

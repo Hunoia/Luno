@@ -11,6 +11,7 @@ import hunoia.luno.core.domain.longPressVariant
  * [StoredAction]，所以删库条目前必须能数清「谁指着我」：否则悬空引用只在运行时
  * 表现为「点了没反应」，配置里看不出来。
  * 长按变体（`__longPress`）也是独立一处引用，必须一起数。
+ * 动作动效的条目绑定（`entry:<id>`）同样是指向条目的引用，删条目时由清理口一并摘掉。
  *
  * 纯函数，只读快照；真正改配置的清理在 `LibraryCleaner`。
  */
@@ -41,6 +42,10 @@ object LibraryReferences {
         subGestures.flatMap { it.actionList() }.forEach(::tally)
         globalGesture.zones.flatMap { zone -> zone.triggers.flatMap { it.storedActions } }.forEach(::tally)
         tally(action.floatBall.tapAction)
+        action.floatBall.actionAlert.bindings.keys
+            .filter { it.startsWith("entry:") }
+            .map { it.removePrefix("entry:") }
+            .forEach { id -> counts[id] = (counts[id] ?: 0) + 1 }
         return counts
     }
 }

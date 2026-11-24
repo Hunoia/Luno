@@ -147,6 +147,8 @@ data class FloatBallSettings(
     val customIconAlpha: Float = 1f,
     /** 静置时暂停动图动画（与球静置变暗缩小同判定点），省电。 */
     val customIconPauseWhenIdle: Boolean = false,
+    /** 动作触发动效：每种动作 / 每个动作库条目绑一份预设，执行成功后播（默认关）。 */
+    val actionAlert: ActionAlertSettings = ActionAlertSettings(),
 ) {
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait

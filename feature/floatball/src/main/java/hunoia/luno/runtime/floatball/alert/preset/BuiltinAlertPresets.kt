@@ -14,7 +14,6 @@ import hunoia.luno.config.model.EdgeParams
 import hunoia.luno.config.model.EdgePattern
 import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleEmitter
-import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticleParams
@@ -49,29 +48,6 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
-            id = "builtin_edge_flow",
-            name = "屏幕边缘流光",
-            layer = edge(
-                pattern = EdgePattern.Flow,
-                bandWidthDp = 18f,
-                hardness = 2.2f,
-                dualBand = false,
-                trailScale = 2.5f,
-                trailAlpha = 0.45f,
-                timing = AlertTiming(baseMillis = 1600),
-            ),
-        ),
-        preset(
-            id = "builtin_edge_ripple",
-            name = "边缘波纹",
-            layer = edge(
-                pattern = EdgePattern.Ripple,
-                bandWidthDp = 6f,
-                crests = 3,
-                timing = AlertTiming(baseMillis = 1300),
-            ),
-        ),
-        preset(
             id = "builtin_edge_comet",
             name = "屏缘彗星",
             layer = edge(
@@ -100,25 +76,6 @@ internal object BuiltinAlertPresets {
                 look = ParticleLook(shape = AlertParticleShape.Dot),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1000),
-            ),
-        ),
-        preset(
-            id = "builtin_particle_fountain",
-            name = "底部喷泉",
-            layer = particle(
-                emitter = ParticleEmitter(
-                    area = ParticleArea.BottomEdge,
-                    count = 48,
-                    directionDeg = 270f,
-                    spreadDeg = 20f,
-                    speed = 2.2f,
-                    speedJitter = 0.2f,
-                ),
-                // 不设 bounce：喷泉落到屏幕外自然淡出；初速 2.2 才抬得起来（0.85 只露 4% 屏高）。
-                motion = ParticleMotion(gravity = 2f, drag = 0.2f),
-                look = ParticleLook(shape = AlertParticleShape.Dot),
-                color = AlertColorRef(),
-                timing = AlertTiming(baseMillis = 1100),
             ),
         ),
         preset(
@@ -171,37 +128,6 @@ internal object BuiltinAlertPresets {
                 timing = AlertTiming(baseMillis = 1200),
             ),
         ),
-        preset(
-            id = "builtin_particle_firefly",
-            name = "萤火",
-            layer = particle(
-                emitter = ParticleEmitter(
-                    area = ParticleArea.ScreenRect,
-                    count = 42,
-                    directionDeg = 90f,
-                    spreadDeg = 360f,
-                    speed = 0.05f,
-                    speedJitter = 1f,
-                ),
-                motion = ParticleMotion(
-                    gravity = 0f,
-                    drag = 0.6f,
-                    brownian = 0.6f,
-                    turbulence = 0.4f,
-                    sway = 0.5f,
-                ),
-                look = ParticleLook(
-                    alpha = 0.9f,
-                    haloStyle = ParticleHaloStyle.Soft,
-                    haloAlpha = 0.5f,
-                    haloScale = 2.4f,
-                    blink = true,
-                    blinkCycles = 2.5f,
-                ),
-                color = AlertColorRef(),
-                timing = AlertTiming(baseMillis = 1500),
-            ),
-        ),
 
         // ---------------------------------------------------------------- 球体
         preset(
@@ -216,17 +142,6 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
-            id = "builtin_ball_ripple",
-            name = "球心涟漪",
-            layer = ball(
-                pattern = BallPattern.Ripple,
-                travelPercent = 140,
-                strokeWidthDp = 2f,
-                centerAtBall = true,
-                timing = AlertTiming(baseMillis = 1000),
-            ),
-        ),
-        preset(
             id = "builtin_ball_burst",
             name = "球心爆发",
             layer = ball(
@@ -235,17 +150,6 @@ internal object BuiltinAlertPresets {
                 particleCount = 20,
                 particleSizeDp = 4f,
                 timing = AlertTiming(baseMillis = 1000),
-            ),
-        ),
-        preset(
-            id = "builtin_ball_shockwave",
-            name = "冲击波",
-            layer = ball(
-                pattern = BallPattern.Shockwave,
-                travelPercent = 160,
-                strokeWidthDp = 4f,
-                haloScale = 1.4f,
-                timing = AlertTiming(baseMillis = 900),
             ),
         ),
         preset(
@@ -278,16 +182,6 @@ internal object BuiltinAlertPresets {
                 timing = AlertTiming(baseMillis = 900),
             ),
         ),
-        preset(
-            id = "builtin_screen_zoom",
-            name = "缩放脉冲",
-            layer = screen(
-                pattern = ScreenPattern.ZoomPulse,
-                amplitude = 0.5f,
-                zoomPercent = 8,
-                timing = AlertTiming(baseMillis = 700),
-            ),
-        ),
 
         // ---------------------------------------------------------------- 路径
         preset(
@@ -316,32 +210,6 @@ internal object BuiltinAlertPresets {
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1100),
-            ),
-        ),
-        preset(
-            id = "builtin_path_orbit",
-            name = "轨道环绕",
-            layer = particle(
-                emitter = ParticleEmitter(
-                    area = ParticleArea.Point,
-                    count = 26,
-                    directionDeg = 0f,
-                    spreadDeg = 360f,
-                    speed = 0.2f,
-                    speedJitter = 0.1f,
-                ),
-                motion = ParticleMotion(
-                    gravity = 0f,
-                    drag = 0f,
-                    orbit = 1f,
-                    spin = 1f,
-                ),
-                look = ParticleLook(
-                    shape = AlertParticleShape.Triangle,
-                    sizeDp = 6f,
-                ),
-                color = AlertColorRef(),
-                timing = AlertTiming(baseMillis = 1400),
             ),
         ),
         preset(
@@ -376,17 +244,6 @@ internal object BuiltinAlertPresets {
         // ---------------------------------------------------------------- Step 2 新形态
 
         preset(
-            id = "builtin_edge_ribbon",
-            name = "屏缘缎带",
-            layer = edge(
-                pattern = EdgePattern.Ribbon,
-                bandWidthDp = 22f,
-                trailScale = 3f,
-                trailAlpha = 0.55f,
-                timing = AlertTiming(baseMillis = 1500),
-            ),
-        ),
-        preset(
             id = "builtin_edge_lightning",
             name = "屏缘闪电",
             layer = edge(
@@ -394,38 +251,6 @@ internal object BuiltinAlertPresets {
                 bandWidthDp = 8f,
                 strikeCount = 2,
                 timing = AlertTiming(baseMillis = 800),
-            ),
-        ),
-        preset(
-            id = "builtin_edge_fireworks",
-            name = "屏缘烟花",
-            layer = edge(
-                pattern = EdgePattern.Fireworks,
-                bandWidthDp = 6f,
-                strikeCount = 3,
-                timing = AlertTiming(baseMillis = 1000),
-            ),
-        ),
-        preset(
-            id = "builtin_edge_blade",
-            name = "屏缘双刃",
-            layer = edge(
-                pattern = EdgePattern.Blade,
-                bandWidthDp = 14f,
-                bladeHeightDp = 160,
-                timing = AlertTiming(baseMillis = 1100),
-            ),
-        ),
-        preset(
-            id = "builtin_ball_spiral",
-            name = "螺旋卷吸",
-            layer = ball(
-                pattern = BallPattern.Spiral,
-                travelPercent = 180,
-                particleCount = 36,
-                particleSizeDp = 3f,
-                ringsPerCycle = 2,
-                timing = AlertTiming(baseMillis = 1200),
             ),
         ),
         preset(
@@ -440,16 +265,6 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
-            id = "builtin_ball_halo",
-            name = "球体光晕",
-            layer = ball(
-                pattern = BallPattern.Halo,
-                travelPercent = 110,
-                haloScale = 1.2f,
-                timing = AlertTiming(baseMillis = 1200),
-            ),
-        ),
-        preset(
             id = "builtin_capsule_flip",
             name = "胶囊 3D 翻转",
             layer = capsule(
@@ -460,39 +275,6 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
-            id = "builtin_capsule_chase",
-            name = "双色追逐",
-            layer = capsule(
-                pattern = CapsulePattern.DualChase,
-                strokeWidthDp = 1.5f,
-                bandWidthPercent = 22,
-                trailScale = 2f,
-                trailAlpha = 0.4f,
-                timing = AlertTiming(baseMillis = 1200),
-            ),
-        ),
-        preset(
-            id = "builtin_capsule_shimmer",
-            name = "胶囊边框流光",
-            layer = capsule(
-                pattern = CapsulePattern.Shimmer,
-                strokeWidthDp = 2f,
-                bandWidthPercent = 30,
-                trailScale = 2.5f,
-                trailAlpha = 0.5f,
-                timing = AlertTiming(baseMillis = 1200),
-            ),
-        ),
-        preset(
-            id = "builtin_capsule_breath",
-            name = "胶囊呼吸描边",
-            layer = capsule(
-                pattern = CapsulePattern.BreathOutline,
-                strokeWidthDp = 2f,
-                timing = AlertTiming(baseMillis = 1200),
-            ),
-        ),
-        preset(
             id = "builtin_capsule_sweep",
             name = "胶囊内部扫光",
             layer = capsule(
@@ -500,69 +282,6 @@ internal object BuiltinAlertPresets {
                 strokeWidthDp = 1.5f,
                 bandWidthPercent = 30,
                 timing = AlertTiming(baseMillis = 1100),
-            ),
-        ),
-        preset(
-            id = "builtin_particle_petals",
-            name = "花瓣飘落",
-            layer = particle(
-                emitter = ParticleEmitter(
-                    area = ParticleArea.TopEdge,
-                    count = 40,
-                    directionDeg = 90f,
-                    spreadDeg = 50f,
-                    speed = 0.35f,
-                    speedJitter = 0.45f,
-                    delaySpread = 0.8f,
-                ),
-                motion = ParticleMotion(
-                    gravity = 0.5f,
-                    drag = 0.45f,
-                    wind = 0.15f,
-                    sway = 0.5f,
-                    swayCycles = 2f,
-                    spin = 0.6f,
-                ),
-                look = ParticleLook(
-                    shape = AlertParticleShape.Petal,
-                    sizeDp = 12f,
-                    sizeJitter = 0.35f,
-                    alpha = 0.85f,
-                    rotate = true,
-                ),
-                color = AlertColorRef(),
-                timing = AlertTiming(baseMillis = 1500),
-            ),
-        ),
-        preset(
-            id = "builtin_particle_snow",
-            name = "雪花",
-            layer = particle(
-                emitter = ParticleEmitter(
-                    area = ParticleArea.TopEdge,
-                    count = 44,
-                    directionDeg = 90f,
-                    spreadDeg = 40f,
-                    speed = 0.3f,
-                    speedJitter = 0.35f,
-                    delaySpread = 0.9f,
-                ),
-                motion = ParticleMotion(
-                    gravity = 0.35f,
-                    drag = 0.5f,
-                    wind = -0.1f,
-                    sway = 0.35f,
-                    swayCycles = 1.5f,
-                    spin = 0.35f,
-                ),
-                look = ParticleLook(
-                    shape = AlertParticleShape.Snowflake,
-                    sizeDp = 10f,
-                    sizeJitter = 0.4f,
-                    alpha = 0.9f,
-                ),
-                color = AlertColorRef(),
-                timing = AlertTiming(baseMillis = 1600),
             ),
         ),
         preset(
@@ -584,7 +303,7 @@ internal object BuiltinAlertPresets {
     )
 
     /** 内置总数（门禁测试用）。 */
-    const val Count: Int = 36
+    const val Count: Int = 18
 
     fun find(id: String): AlertPreset? = all.firstOrNull { it.id == id }
 

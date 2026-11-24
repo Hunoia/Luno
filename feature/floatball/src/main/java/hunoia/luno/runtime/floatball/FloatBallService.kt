@@ -48,6 +48,7 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
@@ -63,7 +64,6 @@ import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.runtime.floatball.alert.needsCapsule
 import hunoia.luno.runtime.floatball.alert.shouldPlay
-import hunoia.luno.core.effect.AlertConcurrency
 import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
@@ -311,8 +311,21 @@ class FloatBallService : Service() {
     /** 外部效果请求 id：只用于取消匹配（播放中不排队、不打断由并发策略决定）。 */
     private var activeEffectId: String? = null
 
-    /** QUEUE 的待播槽位（上限 1，契约约定）；播完当前效果后自动起播。 */
-    private var pendingEffect: AlertEffectRequest? = null
+    /** 当前这次播放的序号：舞台回调与胶囊兜底计时都靠它防止重复收尾。 */
+    private var playbackSeq = 0
+
+    /** QUEUE 的待播槽位（上限 1，契约约定）；播完当前动效后自动起播。 */
+    private var pendingPlay: PendingPlay? = null
+
+    /** 只有胶囊层的计划没有舞台窗回调，用计时兜底触发「播完起下一条」。 */
+    private var playbackFinishJob: Job? = null
+
+    /** 一次待播：计划 + 外部请求 id（外部 API 取消待播时按 id 匹配）+ 起播后的清理动作。 */
+    private class PendingPlay(
+        val plan: AlertPlayPlan,
+        val effectId: String?,
+        val onStarted: () -> Unit,
+    )
 
     // ---- 跟随持机手（三球各自独立） ----
 
@@ -392,6 +405,7 @@ class FloatBallService : Service() {
         Events.subscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = followHandBroadcast
         FloatBallCommand.toggleScreenHide = ::toggleScreenHide
+        FloatBallCommand.playActionAlert = ::onActionSettled
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
         hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
@@ -467,6 +481,10 @@ class FloatBallService : Service() {
             previewArrivalAlert(
                 layerId = intent.getStringExtra(EXTRA_PREVIEW_LAYER),
                 preset = preset,
+                intensityPercent = intent.getIntExtra(EXTRA_PREVIEW_INTENSITY, -1)
+                    .takeIf { it > 0 },
+                speedPercent = intent.getIntExtra(EXTRA_PREVIEW_SPEED, -1)
+                    .takeIf { it > 0 },
             )
             refreshWindows()
             if (shouldStopSelf()) {
@@ -530,6 +548,7 @@ class FloatBallService : Service() {
         Events.unsubscribe(ScreenSceneEvent::class, sceneSubscriber)
         FloatBallCommand.requestFollowHandSwap = null
         FloatBallCommand.toggleScreenHide = null
+        FloatBallCommand.playActionAlert = null
         followHandRetryJob?.cancel()
         followHandRetryJob = null
         pendingFollowHandSide = null
@@ -775,7 +794,6 @@ class FloatBallService : Service() {
         val alert = settings.notificationCapsule.alert
         if (wasShowing && !alert.playOnEveryNotification) return
         if (!alert.enabled || alert.presetId == null) return
-        if (isAlertPlaying()) return
         val item = slot.state.items.firstOrNull() as? NotificationItem
         val pkg = item?.packageName
         val env = AlertEnvironment(
@@ -797,7 +815,48 @@ class FloatBallService : Service() {
                 iconPackage = it.packageName,
             )
         }
-        dispatchAlertPlan(slot, buildAlertPlan(pkg, content))
+        val plan = buildAlertPlan(pkg, content)
+        when (playAlertPlan(plan)) {
+            PlayOutcome.Played, PlayOutcome.Queued -> Unit
+            PlayOutcome.Busy ->
+                Log.i(TAG, "capsule alert skip busy policy=${plan.playbackPolicy}")
+            PlayOutcome.Empty, PlayOutcome.Failed ->
+                Log.i(TAG, "capsule alert drop empty/failed")
+        }
+    }
+
+    /**
+     * 动作触发动效：统一执行口执行成功后按绑定播一次（类型 / 动作库条目互不回退）。
+     *
+     * 未开总开关、未绑定、预设缺失、没有悬浮窗权限都静默跳过——动作本身已成功，
+     * 动效是附加反馈，不反过来提示失败。
+     */
+    private fun onActionSettled(typeId: String?, entryId: String?) {
+        val actionAlert = settings.actionAlert
+        if (!actionAlert.enabled) return
+        val presetId = actionAlert.presetFor(typeId, entryId) ?: return
+        val library = settings.notificationCapsule.alertLibrary
+        val preset = AlertPlanFactory.presets(library)[presetId]
+        if (preset == null) {
+            Log.i(TAG, "action alert preset missing id=$presetId")
+            return
+        }
+        if (!canDrawOverlays()) return
+        val profile = MotionTuning.profile
+        val plan = AlertPlanFactory.buildFromPreset(
+            preset = preset,
+            presetId = presetId,
+            library = library,
+            intensityScale = actionAlert.intensityScale,
+            speedScale = actionAlert.speedScale,
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            seed = Random.nextInt(),
+        ).toPlayPlan()
+        when (playAlertPlan(plan)) {
+            PlayOutcome.Played, PlayOutcome.Queued -> Unit
+            PlayOutcome.Busy, PlayOutcome.Empty, PlayOutcome.Failed ->
+                Log.i(TAG, "action alert skip type=$typeId entry=$entryId")
+        }
     }
 
     /** 任一到达动效在播：舞台窗或胶囊窗自己那层。 */
@@ -845,69 +904,119 @@ class FloatBallService : Service() {
         )
     }
 
+    /** 一次播放的落点：调用方据此决定失败提示 / 返回 handle。 */
+    private enum class PlayOutcome { Played, Queued, Busy, Empty, Failed }
+
     /**
-     * 按计划分发：胶囊层画在胶囊窗自己的 Compose 层，舞台层进单舞台窗。
-     * 真到达与试播共用；舞台窗已在播放时 [AlertStageWindow.show] 返回 false（由调用方先判 [isAlertPlaying]）。
+     * 唯一的播放入口：预设自带的冲突策略在这里执行，调用方只管给出计划。
+     *
+     * - [AlertPlaybackPolicy.Skip]：在播就丢弃，不排队不打断；
+     * - [AlertPlaybackPolicy.Replace]：先停当前动效再播；
+     * - [AlertPlaybackPolicy.Queue]：存进上限 1 的待播槽，当前播完自动起播（槽满丢弃）。
+     *
+     * [onStarted] 在真正起播时（含从队列起播）调用一次，试播的演示胶囊清理靠它跟着排队。
      */
-    private fun dispatchAlertPlan(slot: CapsuleSlot?, plan: AlertPlayPlan): Boolean {
-        if (plan.isEmpty) return false
+    private fun playAlertPlan(
+        plan: AlertPlayPlan,
+        effectId: String? = null,
+        onStarted: () -> Unit = {},
+    ): PlayOutcome {
+        if (plan.isEmpty) return PlayOutcome.Empty
+        if (isAlertPlaying()) {
+            when (plan.playbackPolicy) {
+                AlertPlaybackPolicy.Skip -> return PlayOutcome.Busy
+                AlertPlaybackPolicy.Replace -> {
+                    Log.i(TAG, "alert replace id=$effectId")
+                    stopArrivalAlerts()
+                }
+                AlertPlaybackPolicy.Queue -> {
+                    if (pendingPlay != null) return PlayOutcome.Busy
+                    pendingPlay = PendingPlay(plan, effectId, onStarted)
+                    Log.i(TAG, "alert queued id=$effectId")
+                    return PlayOutcome.Queued
+                }
+            }
+        }
+        return if (startAlertPlan(plan, effectId, onStarted)) {
+            PlayOutcome.Played
+        } else {
+            PlayOutcome.Failed
+        }
+    }
+
+    /** 真正起播：胶囊层画在胶囊窗自己的 Compose 层，舞台层进单舞台窗。 */
+    private fun startAlertPlan(
+        plan: AlertPlayPlan,
+        effectId: String?,
+        onStarted: () -> Unit,
+    ): Boolean {
+        val token = ++playbackSeq
+        val slot = if (this::notificationSlot.isInitialized) notificationSlot else null
+        val capsuleLayer = plan.capsuleLayers.firstOrNull()
+        val capsuleHost = slot?.takeIf { it.showing }
+        val hasStage = plan.stageLayers.isNotEmpty()
+        // 胶囊层需要胶囊窗；胶囊没显示时跳过这一层（动作动效 / 外部调用不拉起胶囊）。
+        // 只有胶囊层的计划在胶囊不可见时整条丢弃。
+        if (!hasStage && capsuleHost == null) return false
         Log.i(
             TAG,
-            "capsule alert play layers=" +
+            "alert play layers=" +
                 plan.layers.joinToString { "${it.style}x${it.cycles}/${it.cycleMillis}ms" } +
-                " total=${plan.durationMillis}ms",
+                " total=${plan.durationMillis}ms policy=${plan.playbackPolicy}",
         )
-        plan.capsuleLayers.firstOrNull()?.let { layer ->
-            slot?.window?.playArrivalAlert(layer, alertColorSpec())
+        activeEffectId = effectId
+        onStarted()
+        if (capsuleLayer != null && capsuleHost != null) {
+            capsuleHost.window.playArrivalAlert(capsuleLayer, alertColorSpec())
         }
-        if (plan.stageLayers.isEmpty()) return true
-        // 锚点缺失（胶囊未挂窗）时回落屏幕中心：舞台层里只有球心锚定的层会读它，
-        // 那种情况由 [needsCapsule] 在试播路径上先拉起胶囊。
+        if (plan.stageLayers.isEmpty()) {
+            // 只有胶囊层：没有舞台回调，按总时长兜底收尾。
+            playbackFinishJob?.cancel()
+            playbackFinishJob = scope.launch {
+                delay(plan.durationMillis.toLong() + PlaybackFinishSlackMs)
+                finishAlertPlayback(token)
+            }
+            return true
+        }
+        // 锚点缺失（胶囊未挂窗）时回落屏幕中心：舞台层里只有球心锚定的层会读它。
         val anchor = alertAnchor() ?: AlertAnchor(
             centerX = DensityProvider.screenWidthPx / 2f,
             centerY = DensityProvider.screenHeightPx / 2f,
             capsulePx = 0,
         )
-        return alertStage.show(
+        val shown = alertStage.show(
             plan = plan,
             anchor = anchor,
             colorSpec = alertColorSpec(),
             secondColor = ColorSpec.Unset,
-            onFinished = {},
+            onFinished = { finishAlertPlayback(token) },
         )
+        if (!shown) {
+            finishAlertPlayback(token)
+            return false
+        }
+        return true
+    }
+
+    /** 本次播放播完（舞台回调 / 胶囊兜底计时）：起播待播槽里的一条。 */
+    private fun finishAlertPlayback(token: Int) {
+        if (token != playbackSeq) return
+        playbackFinishJob?.cancel()
+        playbackFinishJob = null
+        activeEffectId = null
+        val next = pendingPlay ?: return
+        pendingPlay = null
+        startAlertPlan(next.plan, next.effectId, next.onStarted)
     }
 
     /**
      * 外部效果请求（Intent + JSON，来自 [playAlertEffect]）：与通知到达共用一条渲染路径。
      *
-     * 并发语义由请求显式指定：Reject 有动画在播就拒绝；Replace 先停旧的再播；
-     * Queue 暂按 Reject 处理（上限 1，不维护待播队列）。
+     * 并发语义由请求显式指定（已发布 API 契约）：Reject 有动画在播就拒绝；Replace 先停旧的
+     * 再播；Queue 排队（上限 1）。映射到内部策略后统一交给 [playAlertPlan]。
      */
     private fun playEffect(request: AlertEffectRequest): AlertEffectHandle? {
         if (!canDrawOverlays()) return null
-        if (isAlertPlaying()) {
-            when (request.concurrency) {
-                AlertConcurrency.Reject -> {
-                    Log.i(TAG, "effect reject busy id=${request.id}")
-                    return null
-                }
-                AlertConcurrency.Queue -> {
-                    if (pendingEffect != null) return null
-                    pendingEffect = request
-                    Log.i(TAG, "effect queued id=${request.id}")
-                    return object : AlertEffectHandle {
-                        override val requestId = request.id
-                        override fun cancel() {
-                            if (pendingEffect?.id == request.id) pendingEffect = null
-                        }
-                    }
-                }
-                AlertConcurrency.Replace -> {
-                    stopArrivalAlerts()
-                    pendingEffect = null
-                }
-            }
-        }
         val capsule = settings.notificationCapsule
         val profile = MotionTuning.profile
         val plan = AlertPlanFactory.buildFromRequest(
@@ -921,45 +1030,27 @@ class FloatBallService : Service() {
             Log.i(TAG, "effect empty id=${request.id}")
             return null
         }
-        activeEffectId = request.id
-        val capsuleLayer = plan.capsuleLayers.firstOrNull()
-        if (capsuleLayer != null && this::notificationSlot.isInitialized && notificationSlot.showing) {
-            notificationSlot.window.playArrivalAlert(capsuleLayer, alertColorSpec())
-        }
-        if (plan.stageLayers.isEmpty()) return object : AlertEffectHandle {
-            override val requestId = request.id
-            override fun cancel() = stopArrivalAlerts()
-        }
-        val anchor = alertAnchor() ?: AlertAnchor(
-            centerX = DensityProvider.screenWidthPx / 2f,
-            centerY = DensityProvider.screenHeightPx / 2f,
-            capsulePx = 0,
-        )
-        val shown = alertStage.show(
-            plan = plan,
-            anchor = anchor,
-            colorSpec = alertColorSpec(),
-            secondColor = ColorSpec.Unset,
-            onFinished = {
-                activeEffectId = null
-                consumePendingEffect()
-            },
-        )
-        if (!shown) {
-            activeEffectId = null
-            return null
+        when (playAlertPlan(plan, effectId = request.id)) {
+            PlayOutcome.Played, PlayOutcome.Queued -> Unit
+            PlayOutcome.Busy -> {
+                Log.i(TAG, "effect reject busy id=${request.id}")
+                return null
+            }
+            PlayOutcome.Empty, PlayOutcome.Failed -> {
+                Log.i(TAG, "effect drop id=${request.id}")
+                return null
+            }
         }
         return object : AlertEffectHandle {
             override val requestId = request.id
-            override fun cancel() = stopArrivalAlerts()
+            override fun cancel() {
+                if (activeEffectId == request.id) {
+                    stopArrivalAlerts()
+                } else if (pendingPlay?.effectId == request.id) {
+                    pendingPlay = null
+                }
+            }
         }
-    }
-
-    /** 当前效果播完：起播 QUEUE 里待着的那一条（上限 1）。 */
-    private fun consumePendingEffect() {
-        val next = pendingEffect ?: return
-        pendingEffect = null
-        playEffect(next)
     }
 
     /**
@@ -970,13 +1061,14 @@ class FloatBallService : Service() {
      * 依赖胶囊的计划（胶囊层 / 球心锚定）在胶囊未显示时先拉起演示胶囊再播。
      * 播不出来一定给一句原因（Toast），不再静默失败。
      */
-    private fun previewArrivalAlert(layerId: String? = null, preset: AlertPreset? = null) {
+    private fun previewArrivalAlert(
+        layerId: String? = null,
+        preset: AlertPreset? = null,
+        intensityPercent: Int? = null,
+        speedPercent: Int? = null,
+    ) {
         if (!canDrawOverlays()) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_no_overlay)
-            return
-        }
-        if (isAlertPlaying()) {
-            showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
             return
         }
         val alert = settings.notificationCapsule.alert
@@ -999,8 +1091,9 @@ class FloatBallService : Service() {
                 presetId = preset.id,
                 library = settings.notificationCapsule.alertLibrary,
                 content = demo,
-                intensityScale = alert.intensityScale,
-                speedScale = alert.speedScale,
+                // 动作动效有自己的强度 / 速度：试播按它播，不偷到达提示的旋钮。
+                intensityScale = intensityPercent?.div(100f) ?: alert.intensityScale,
+                speedScale = speedPercent?.div(100f) ?: alert.speedScale,
                 tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
                 seed = Random.nextInt(),
             ).toPlayPlan()
@@ -1020,17 +1113,28 @@ class FloatBallService : Service() {
             val slot = notificationSlot
             if (!slot.showing) {
                 // 演示胶囊：走真实展示管线（含展开动画与自动收起），球心锚点才有意义。
-                slot.previewCapsuleAlert(plan)
+                if (!slot.previewCapsuleAlert(plan)) {
+                    showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
+                }
                 return
             }
-            dispatchAlertPlan(slot, plan)
+            when (playAlertPlan(plan)) {
+                PlayOutcome.Played, PlayOutcome.Queued -> Unit
+                PlayOutcome.Busy ->
+                    showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
+                PlayOutcome.Empty, PlayOutcome.Failed ->
+                    showAlertToast(R.string.float_ball_capsule_alert_preview_none)
+            }
             return
         }
         // 只有舞台层：胶囊没开 / 没挂窗时也能试播。
-        dispatchAlertPlan(
-            if (this::notificationSlot.isInitialized) notificationSlot else null,
-            plan,
-        )
+        when (playAlertPlan(plan)) {
+            PlayOutcome.Played, PlayOutcome.Queued -> Unit
+            PlayOutcome.Busy ->
+                showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
+            PlayOutcome.Empty, PlayOutcome.Failed ->
+                showAlertToast(R.string.float_ball_capsule_alert_preview_none)
+        }
     }
 
     /** 试播失败的可见反馈：一句原因，不打扰、不弹窗。 */
@@ -1041,7 +1145,9 @@ class FloatBallService : Service() {
     /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
     private fun stopArrivalAlerts() {
         activeEffectId = null
-        pendingEffect = null
+        pendingPlay = null
+        playbackFinishJob?.cancel()
+        playbackFinishJob = null
         if (this::notificationSlot.isInitialized) {
             notificationSlot.window.cancelArrivalAlert()
         }
@@ -2523,7 +2629,7 @@ class FloatBallService : Service() {
          * 走真实展示管线（含展开动画与自动收起），播完移除演示行，不写用户真实队列的
          * 语义（不走系统侧通知、不动抑制表）。重复试播按 key 去重合并，不堆叠演示行。
          */
-        fun previewCapsuleAlert(plan: AlertPlayPlan) {
+        fun previewCapsuleAlert(plan: AlertPlayPlan): Boolean {
             val demo = NotificationItem(
                 notificationKey = PreviewNotificationKey,
                 packageName = packageName,
@@ -2533,12 +2639,20 @@ class FloatBallService : Service() {
             )
             enqueue(demo, makeCurrent = true, show = false)
             showIfNeeded()
-            dispatchAlertPlan(this, plan)
-            // 播完（含一帧收尾余量）移除演示行；队列因此为空则随 removeById 收起。
-            scope.launch {
-                delay(plan.durationMillis.toLong() + PreviewCleanupSlackMs)
-                removeById(demo.id)
-            }
+            val outcome = this@FloatBallService.playAlertPlan(
+                plan = plan,
+                onStarted = {
+                    // 播完（含一帧收尾余量）移除演示行；队列因此为空则随 removeById 收起。
+                    // 计时挂在真正起播时：排队期间演示行不能被提前摘掉。
+                    scope.launch {
+                        delay(plan.durationMillis.toLong() + PreviewCleanupSlackMs)
+                        removeById(demo.id)
+                    }
+                },
+            )
+            val accepted = outcome == PlayOutcome.Played || outcome == PlayOutcome.Queued
+            if (!accepted) removeById(demo.id)
+            return accepted
         }
 
         /** 当前收件箱里是否已经有这一屏的情景结果项、是否已有内置链接项、已用掉哪些规则链接：
@@ -3017,6 +3131,8 @@ class FloatBallService : Service() {
         private const val ACTION_PREVIEW_PRESET = "hunoia.luno.action.PREVIEW_ALERT_PRESET"
         private const val EXTRA_PREVIEW_PRESET = "preview_preset"
         private const val EXTRA_PREVIEW_LAYER = "preview_layer"
+        private const val EXTRA_PREVIEW_INTENSITY = "preview_intensity"
+        private const val EXTRA_PREVIEW_SPEED = "preview_speed"
         private const val ACTION_PLAY_EFFECT = "hunoia.luno.action.PLAY_ALERT_EFFECT"
         private const val EXTRA_EFFECT_REQUEST = "effect_request"
         private const val ACTION_CANCEL_EFFECT = "hunoia.luno.action.CANCEL_ALERT_EFFECT"
@@ -3149,6 +3265,9 @@ class FloatBallService : Service() {
         /** 试播演示行的清理余量（ms）：动画播完 + 一帧收尾。 */
         private const val PreviewCleanupSlackMs = 300L
 
+        /** 只有胶囊层的计划没有舞台回调：按总时长 + 一帧余量兜底收尾，起播待播槽。 */
+        private const val PlaybackFinishSlackMs = 120L
+
         /**
          * 直执行档的去重窗口：与滑掉抑制同量级。
          *
@@ -3197,10 +3316,16 @@ class FloatBallService : Service() {
         }
 
         /**
-         * 试播一份**未落盘**的预设（预设库 / 编辑器用），不写配置。
-         * [layerId] 非空时只播该层。
+         * 试播一份**未落盘**的预设（预设库 / 编辑器 / 动作动效用），不写配置。
+         * [layerId] 非空时只播该层；强度 / 速度非空时覆盖当前旋钮。
          */
-        fun previewPreset(context: Context, preset: AlertPreset, layerId: String? = null) {
+        fun previewPreset(
+            context: Context,
+            preset: AlertPreset,
+            layerId: String? = null,
+            intensityPercent: Int? = null,
+            speedPercent: Int? = null,
+        ) {
             runCatching {
                 context.startService(
                     Intent(context, FloatBallService::class.java)
@@ -3209,7 +3334,9 @@ class FloatBallService : Service() {
                             EXTRA_PREVIEW_PRESET,
                             JsonSerializer.globalJson.encodeToString(preset),
                         )
-                        .putExtra(EXTRA_PREVIEW_LAYER, layerId),
+                        .putExtra(EXTRA_PREVIEW_LAYER, layerId)
+                        .putExtra(EXTRA_PREVIEW_INTENSITY, intensityPercent ?: -1)
+                        .putExtra(EXTRA_PREVIEW_SPEED, speedPercent ?: -1),
                 )
             }.onFailure {
                 Log.e(TAG, "preview alert preset FAILED", it)

@@ -46,6 +46,16 @@ import androidx.compose.ui.graphics.Color
  * 预设 = 1–5 个层；层类别只用于分组与上限，宿主由层自己的 [AlertKind] 决定。
  */
 
+/** 预设播放冲突策略的展示名（预设编辑页 / 预设库）。 */
+internal fun hunoia.luno.config.model.AlertPlaybackPolicy.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.AlertPlaybackPolicy.Skip ->
+        R.string.float_ball_preset_policy_skip
+    hunoia.luno.config.model.AlertPlaybackPolicy.Replace ->
+        R.string.float_ball_preset_policy_replace
+    hunoia.luno.config.model.AlertPlaybackPolicy.Queue ->
+        R.string.float_ball_preset_policy_queue
+}
+
 /** 层类别的展示名（编辑器分组 / 预设卡片徽标）。 */
 @Composable
 internal fun AlertLayerCategory.titleRes(): Int = when (this) {
@@ -59,39 +69,21 @@ internal fun AlertLayerCategory.titleRes(): Int = when (this) {
 /** 内置预设的本地化名称；未登记时回落内置 name（[AlertPreset.name]）。 */
 internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     "builtin_edge_glow" -> R.string.float_ball_preset_edge_glow
-    "builtin_edge_flow" -> R.string.float_ball_preset_edge_flow
-    "builtin_edge_ripple" -> R.string.float_ball_preset_edge_ripple
     "builtin_edge_comet" -> R.string.float_ball_preset_edge_comet
     "builtin_particle_rain" -> R.string.float_ball_preset_particle_rain
-    "builtin_particle_fountain" -> R.string.float_ball_preset_particle_fountain
     "builtin_particle_meteor" -> R.string.float_ball_preset_particle_meteor
     "builtin_particle_confetti" -> R.string.float_ball_preset_particle_confetti
-    "builtin_particle_firefly" -> R.string.float_ball_preset_particle_firefly
     "builtin_ball_ring" -> R.string.float_ball_preset_ball_ring
-    "builtin_ball_ripple" -> R.string.float_ball_preset_ball_ripple
     "builtin_ball_burst" -> R.string.float_ball_preset_ball_burst
-    "builtin_ball_shockwave" -> R.string.float_ball_preset_ball_shockwave
     "builtin_capsule_pulse" -> R.string.float_ball_preset_capsule_pulse
     "builtin_screen_flash" -> R.string.float_ball_preset_screen_flash
     "builtin_screen_vignette" -> R.string.float_ball_preset_screen_vignette
-    "builtin_screen_zoom" -> R.string.float_ball_preset_screen_zoom
     "builtin_path_comet" -> R.string.float_ball_preset_path_comet
-    "builtin_path_orbit" -> R.string.float_ball_preset_path_orbit
     "builtin_path_spiral" -> R.string.float_ball_preset_path_spiral
-    "builtin_edge_ribbon" -> R.string.float_ball_preset_edge_ribbon
     "builtin_edge_lightning" -> R.string.float_ball_preset_edge_lightning
-    "builtin_edge_fireworks" -> R.string.float_ball_preset_edge_fireworks
-    "builtin_edge_blade" -> R.string.float_ball_preset_edge_blade
-    "builtin_ball_halo" -> R.string.float_ball_preset_ball_halo
-    "builtin_capsule_shimmer" -> R.string.float_ball_preset_capsule_shimmer
-    "builtin_capsule_breath" -> R.string.float_ball_preset_capsule_breath
     "builtin_capsule_sweep" -> R.string.float_ball_preset_capsule_sweep
-    "builtin_ball_spiral" -> R.string.float_ball_preset_ball_spiral
     "builtin_ball_orbit" -> R.string.float_ball_preset_ball_orbit
     "builtin_capsule_flip" -> R.string.float_ball_preset_capsule_flip
-    "builtin_capsule_chase" -> R.string.float_ball_preset_capsule_chase
-    "builtin_particle_petals" -> R.string.float_ball_preset_particle_petals
-    "builtin_particle_snow" -> R.string.float_ball_preset_particle_snow
     "builtin_reveal_text" -> R.string.float_ball_preset_reveal_text
     "builtin_reveal_icon" -> R.string.float_ball_preset_reveal_icon
     else -> null

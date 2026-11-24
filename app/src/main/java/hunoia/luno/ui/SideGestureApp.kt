@@ -82,6 +82,7 @@ import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
 import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
+import hunoia.luno.ui.navigation.FloatBallActionAlert
 import hunoia.luno.ui.navigation.FloatBallAlert
 import hunoia.luno.ui.navigation.FloatBallAlertPresetLibrary
 import hunoia.luno.ui.navigation.FloatBallAlertPresetEditor
@@ -99,6 +100,7 @@ import hunoia.luno.floatball.settings.alert.AlertPresetLibraryScreen
 import hunoia.luno.floatball.settings.alert.AlertPresetEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerAddScreen
+import hunoia.luno.floatball.settings.alert.ActionAlertSettingsScreen
 import hunoia.luno.floatball.settings.alert.AlertSettingsScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteManagerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteEditScreen
@@ -286,6 +288,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToAlertPaletteManager = {
                             navController.navigate(FloatBallAlertPaletteManager)
+                        },
+                        onNavToActionAlert = {
+                            navController.navigate(FloatBallActionAlert)
                         },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
@@ -522,6 +527,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
                         onNavToAlert = { navController.navigate(FloatBallAlert) },
                         onNavToAlertBlocklist = { navController.navigate(FloatBallAlertBlocklist) },
+                    )
+                }
+                myComposable<FloatBallActionAlert> {
+                    ActionAlertSettingsScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<FloatBallAlert> {

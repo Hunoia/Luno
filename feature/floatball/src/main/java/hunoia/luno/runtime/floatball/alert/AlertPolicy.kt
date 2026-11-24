@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.floatball.alert
 
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealDirection
 
@@ -328,6 +329,8 @@ data class AlertLayerPlan(
 data class AlertPlayPlan(
     val layers: List<AlertLayerPlan>,
     val seed: Int = 0,
+    /** 预设自带的冲突策略：播放端统一执行，调用方不判「在播就不播」。 */
+    val playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
 ) {
 
     val durationMillis: Int get() = layers.maxOfOrNull { it.totalMillis } ?: 0

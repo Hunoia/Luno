@@ -25,9 +25,21 @@ object FloatBallUseCase {
         FloatBallService.previewAlert(context.applicationContext, layerId)
     }
 
-    /** 试播未落盘的预设（预设库 / 编辑器入口）。 */
-    fun previewPreset(context: Context, preset: AlertPreset, layerId: String? = null) {
-        FloatBallService.previewPreset(context.applicationContext, preset, layerId)
+    /** 试播未落盘的预设（预设库 / 编辑器 / 动作动效入口）。 */
+    fun previewPreset(
+        context: Context,
+        preset: AlertPreset,
+        layerId: String? = null,
+        intensityPercent: Int? = null,
+        speedPercent: Int? = null,
+    ) {
+        FloatBallService.previewPreset(
+            context.applicationContext,
+            preset,
+            layerId,
+            intensityPercent,
+            speedPercent,
+        )
     }
 
     /** 通用效果播放：服务在跑转发到 `:service`，未在跑由调用进程托管（见架构例外）。 */

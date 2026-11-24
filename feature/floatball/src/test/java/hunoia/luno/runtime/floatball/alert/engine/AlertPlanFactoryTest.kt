@@ -7,6 +7,7 @@ import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLibrary
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPalette
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.AlertTiming
 import hunoia.luno.config.model.BallParams
@@ -244,6 +245,20 @@ class AlertPlanFactoryTest {
     }
 
     @Test
+    fun `preset playback policy rides the plan`() {
+        val preset = preset("policy", AlertKind.Edge).copy(playbackPolicy = AlertPlaybackPolicy.Queue)
+        val stage = AlertPlanFactory.buildFromPreset(preset, preset.id, library)
+        assertEquals(AlertPlaybackPolicy.Queue, stage.playbackPolicy)
+        assertEquals(AlertPlaybackPolicy.Queue, stage.toPlayPlan().playbackPolicy)
+        // 未声明策略的旧预设 → 跳过（与 v4 原有「在播不播」一致）。
+        assertEquals(
+            AlertPlaybackPolicy.Skip,
+            AlertPlanFactory.buildFromPreset(preset("plain", AlertKind.Edge), "plain", library)
+                .playbackPolicy,
+        )
+    }
+
+    @Test
     fun `builtin ball and screen presets map to their own renderers`() {
         assertEquals(
             AnchorAlertStyle.Ring,
@@ -254,10 +269,10 @@ class AlertPlanFactoryTest {
             ).toPlayPlan().stageLayers.single().style,
         )
         assertEquals(
-            AnchorAlertStyle.Shockwave,
+            AnchorAlertStyle.Orbit3D,
             AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_ball_shockwave"),
-                "builtin_ball_shockwave",
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_ball_orbit"),
+                "builtin_ball_orbit",
                 library,
             ).toPlayPlan().stageLayers.single().style,
         )

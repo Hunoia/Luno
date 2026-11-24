@@ -45,6 +45,25 @@ enum class AlertHost {
 @Keep
 enum class AlertKind { Particle, Edge, Ball, Capsule, Screen, Reveal }
 
+/**
+ * 预设自带的播放冲突策略：已有动效在播时如何处理本次播放。
+ *
+ * 与外部 API 的 `AlertConcurrency` 同口径（Reject / Replace / Queue 三种），
+ * 但定义在配置层：预设是可持久化数据，对外契约不反向依赖配置模型。
+ */
+@Serializable
+@Keep
+enum class AlertPlaybackPolicy {
+    /** 跳过本次（默认）：不排队、不打断。 */
+    Skip,
+
+    /** 先停掉当前动效，再播本次。 */
+    Replace,
+
+    /** 排队等当前播完（播放端上限 1 条待播，满了丢弃）。 */
+    Queue,
+}
+
 /** 层的类别（揭示单列一类；胶囊与球体同属球体类）。 */
 val AlertKind.category: AlertLayerCategory
     get() = when (this) {
@@ -153,6 +172,13 @@ data class AlertPreset(
     val builtin: Boolean = false,
     val paletteId: String? = null,
     val layers: List<AlertLayer> = emptyList(),
+    /**
+     * 播放冲突策略：有动效在播时怎么办。
+     *
+     * 策略归预设所有、调用方不判（到达提示 / 动作动效 / 试播三条路径共用）；
+     * 旧预设没有该字段，默认「跳过」= 与 v4 原有行为一致。
+     */
+    val playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
 ) {
     val enabledLayers: List<AlertLayer> get() = layers.filter { it.enabled }
 

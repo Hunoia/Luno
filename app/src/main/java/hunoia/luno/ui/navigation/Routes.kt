@@ -206,6 +206,11 @@ data object FloatBallResultCapsule
 @Serializable
 data object FloatBallAlert
 
+/** 动作动效：每种动作 / 每个动作库条目绑一份预设，执行成功后播。 */
+@Keep
+@Serializable
+data object FloatBallActionAlert
+
 /** 到达提示·预设库（设置页根目录独立入口）：素材 / 组合 / 导入导出。 */
 @Keep
 @Serializable

@@ -48,6 +48,12 @@ class ActionDispatcher(
     capabilityGate: CapabilityGate,
     /** 幂等窗口：同键重放返回上次落定，失败不缓存（architecture §4.7）。 */
     private val idempotency: IdempotencyCache = IdempotencyCache(),
+    /**
+     * 落定观察口：真实执行（不含幂等命中重放）结束、结果已区分后回调一次。
+     *
+     * 只读落定，不参与执行分支；触发侧用它挂「动作成功后播提示动画」这类附加反馈。
+     */
+    private val settlementObserver: (ExecuteSettlement) -> Unit = {},
 ) {
     private val registry: ActionExecutorRegistry = ActionExecutorRegistry(
         executors = executors,
@@ -72,6 +78,14 @@ class ActionDispatcher(
     private suspend fun dispatchAwait(call: ExecuteCall): ExecuteSettlement =
         idempotency.run(call.request.idempotencyKey) { dispatchOnce(call) }
 
+    /** 落定 + 通知观察口（幂等命中不会走到这里，重复投递不会重播附加反馈）。 */
+    private fun settle(
+        call: ExecuteCall,
+        typeId: String,
+        result: ActionResult,
+    ): ExecuteSettlement =
+        ExecuteSettlement(call.request, typeId, result).also(settlementObserver)
+
     private suspend fun dispatchOnce(call: ExecuteCall): ExecuteSettlement {
         val stored = call.request.stored
         try {
@@ -81,8 +95,8 @@ class ActionDispatcher(
                 val entry = libraryEntry(entryId)
                 if (entry == null) {
                     if (hunoia.luno.execute.BuildConfig.DEBUG) Log.w(LOG_TAG, "library entry not found id=$entryId")
-                    return ExecuteSettlement(
-                        call.request,
+                    return settle(
+                        call,
                         stored.typeId,
                         ActionResult.Failed(ActionFailure.InvalidParameter, "library_entry_missing"),
                     )
@@ -95,8 +109,8 @@ class ActionDispatcher(
             // 点击只在触点路径有意义：没有触点就判参数无效。
             if (call.touchPosition == null && effective.typeId == "accessibility.tap") {
                 messages.showToast(messages.failureText(ActionFailure.InvalidParameter))
-                return ExecuteSettlement(
-                    call.request,
+                return settle(
+                    call,
                     effective.typeId,
                     ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"),
                 )
@@ -110,14 +124,14 @@ class ActionDispatcher(
                 is ActionResult.RequiresCapability -> messages.showToast(messages.capabilityText(result.capability))
                 is ActionResult.Success -> result.message?.let { msg -> messages.showToast(msg) }
             }
-            return ExecuteSettlement(call.request, effective.typeId, result)
+            return settle(call, effective.typeId, result)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             // 兜底：畸形数据/第三方执行器异常都不允许冒到协程外崩掉 App。
             Log.w(LOG_TAG, "dispatch crashed typeId=${stored.typeId}", e)
-            return ExecuteSettlement(
-                call.request,
+            return settle(
+                call,
                 stored.typeId,
                 ActionResult.Failed(ActionFailure.ExecutionFailed, e.message),
             )

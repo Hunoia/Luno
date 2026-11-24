@@ -29,13 +29,16 @@ interface SystemFacade {
     fun previewFloatBallAlert(context: Context, layerId: String? = null)
 
     /**
-     * 试播一份**未落盘**的预设（预设库 / 编辑器用），不写配置。
-     * [layerId] 非空时只播该层。
+     * 试播一份**未落盘**的预设（预设库 / 编辑器 / 动作动效用），不写配置。
+     * [layerId] 非空时只播该层；[intensityPercent] / [speedPercent] 非空时覆盖当前旋钮
+     * （动作动效有自己的一套强度 / 速度，试播要按它播，而不是到达提示的配置）。
      */
     fun previewFloatBallAlertPreset(
         context: Context,
         preset: AlertPreset,
         layerId: String? = null,
+        intensityPercent: Int? = null,
+        speedPercent: Int? = null,
     )
 
     /**

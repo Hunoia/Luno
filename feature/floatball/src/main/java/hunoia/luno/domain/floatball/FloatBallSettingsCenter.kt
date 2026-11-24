@@ -2,6 +2,7 @@ package hunoia.luno.domain.floatball
 
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActivityFloatSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ClipFloatSettings
@@ -16,6 +17,10 @@ object FloatBallSettingsCenter {
     val actionSettings: Flow<ActionSettings> = ConfigProvider.actionSettings
     val initialSettings: Flow<InitialSettings> = ConfigProvider.initialSettings
     val advancedSettings: Flow<AdvancedSettings> = ConfigProvider.advancedSettings
+
+    /** 动作库条目（动作动效页的第二个 tab）：只读快照，编辑入口在动作库。 */
+    fun latestActionLibrarySettings(): ActionLibrarySettings =
+        ConfigProvider.latestActionLibrarySettings()
 
     suspend fun getAdvancedSettings(): AdvancedSettings = ConfigProvider.getAdvancedSettings()
 

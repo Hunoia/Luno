@@ -23,6 +23,13 @@ object FloatBallCommand {
     var requestFollowHandSwap: ((leftSide: Boolean) -> Boolean)? = null
 
     /**
+     * 动作执行成功后的附加动效（动作动效）：按 `typeId` / 动作库 `entryId` 查预设绑定并由
+     * 悬浮球服务播一次。未开总开关 / 未绑定 / 预设缺失 / 服务未运行时调用方静默跳过，
+     * 不影响动作本身的成功语义。
+     */
+    var playActionAlert: ((typeId: String?, entryId: String?) -> Unit)? = null
+
+    /**
      * 界面级临时隐藏悬浮球的 toggle（动作 `internal.hideFloatBall`）：可见 → 记录当前
      * 界面进入隐藏；隐藏中 → 立即恢复。前台离开 / 锁屏的清槽由服务自己随运行态做。
      * 球未运行时为 null，调用方静默跳过（动作照常返回成功）。

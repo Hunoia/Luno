@@ -3,9 +3,11 @@ package hunoia.luno.runtime.floatball.alert.engine
 import hunoia.luno.config.model.AlertColorRef
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertLibrary
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.paletteById
+import hunoia.luno.core.effect.AlertConcurrency
 import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
@@ -78,6 +80,12 @@ internal object AlertPlanFactory {
         speedScale = request.speed,
         tierFor = tierFor,
         seed = seed,
+        // 外部 API 的并发语义写在请求里（已发布契约），预设策略只作用于内部三条路径。
+        playbackPolicy = when (request.concurrency) {
+            AlertConcurrency.Reject -> AlertPlaybackPolicy.Skip
+            AlertConcurrency.Replace -> AlertPlaybackPolicy.Replace
+            AlertConcurrency.Queue -> AlertPlaybackPolicy.Queue
+        },
     )
 
     /** 编辑器 / 试播：直接播一份（可能未落盘的）预设。 */
@@ -91,6 +99,7 @@ internal object AlertPlanFactory {
         speedScale: Float = 1f,
         tierFor: (AlertKind) -> Float = { 1f },
         seed: Int = 0,
+        playbackPolicy: AlertPlaybackPolicy = preset?.playbackPolicy ?: AlertPlaybackPolicy.Skip,
     ): AlertRenderPlan = AlertRenderPlanBuilder.build(
         preset = preset,
         presetId = presetId,
@@ -101,6 +110,7 @@ internal object AlertPlanFactory {
         tierForKind = tierFor,
         seed = seed,
         content = content,
+        playbackPolicy = playbackPolicy,
     )
 
     /** 颜色引用 → 渲染用调色板：逐色 > 素材库 / 内置调色板 > 跟随预设自身颜色。 */

@@ -55,7 +55,7 @@ import hunoia.luno.core.effect.AlertContent
  */
 internal fun AlertRenderPlan.toPlayPlan(): AlertPlayPlan {
     val layers = layers.mapNotNull { it.toLayerPlan(content) }
-    return AlertPlayPlan(layers = layers, seed = seed)
+    return AlertPlayPlan(layers = layers, seed = seed, playbackPolicy = playbackPolicy)
 }
 
 private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan? {

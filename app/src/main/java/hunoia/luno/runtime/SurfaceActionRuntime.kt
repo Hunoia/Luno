@@ -180,6 +180,7 @@ object SurfaceActionRuntime {
             // Surface 直派发没有无障碍执行器；一律按「需授权」收口。
             isAccessibilityAvailable = { false },
         ),
+        settlementObserver = ActionAlertTrigger::observe,
     )
 
     private fun environment(context: Context): ExecuteEnvironment = object : ExecuteEnvironment {

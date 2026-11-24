@@ -26,8 +26,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLayer
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.PressIconButton
@@ -203,6 +205,19 @@ fun AlertPresetEditorScreen(
                             if (editor.alert.presetId == current.id) {
                                 editor.commitAlert { it.copy(presetId = null) }
                             }
+                            // 动作动效的绑定一并清掉：删了预设还留着悬空引用只会静默不播。
+                            val ball = TuneConfig.latestAction().floatBall
+                            if (current.id in ball.actionAlert.bindings.values) {
+                                TuneConfig.updateAction { config ->
+                                    config.copy(
+                                        floatBall = config.floatBall.copy(
+                                            actionAlert = config.floatBall.actionAlert
+                                                .withoutPreset(current.id),
+                                        ),
+                                    )
+                                }
+                                TuneConfig.syncActionSnapshot()
+                            }
                             onBack()
                         }
                     },
@@ -246,6 +261,29 @@ fun AlertPresetEditorScreen(
                                 ),
                                 shape = shape,
                                 onSelect = { id -> update { it.copy(paletteId = id) } },
+                            )
+                        }
+                    },
+                )
+            }
+        }
+        item(key = "policy") {
+            LunoGroup(
+                title = stringResource(R.string.float_ball_preset_policy),
+                subtitle = stringResource(R.string.float_ball_preset_policy_hint),
+            ) {
+                SegmentedRows(
+                    segmentedRows {
+                        item { shape ->
+                            LayerDropdownRow(
+                                title = stringResource(R.string.float_ball_preset_policy),
+                                options = AlertPlaybackPolicy.entries,
+                                selected = current.playbackPolicy,
+                                shape = shape,
+                                optionLabel = { stringResource(it.labelRes()) },
+                                onSelect = { policy ->
+                                    update { it.copy(playbackPolicy = policy) }
+                                },
                             )
                         }
                     },

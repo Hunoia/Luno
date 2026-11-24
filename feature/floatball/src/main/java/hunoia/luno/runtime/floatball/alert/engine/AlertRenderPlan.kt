@@ -4,6 +4,7 @@ import hunoia.luno.config.model.AlertColorRef
 import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertLimits
+import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.CapsuleParams
@@ -52,6 +53,8 @@ data class AlertRenderLayer(
 data class AlertRenderPlan(
     val layers: List<AlertRenderLayer>,
     val seed: Int = 0,
+    /** 预设自带的冲突策略，随计划一路带到播放端（调用方不判）。 */
+    val playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
     val skipped: List<PresetResolveError> = emptyList(),
     /** 揭示类内容（标题 / 正文 / 图标来源）；无揭示层时为 null。 */
     val content: AlertContent? = null,
@@ -97,11 +100,13 @@ object AlertRenderPlanBuilder {
         tierForKind: (AlertKind) -> Float = { 1f },
         seed: Int = 0,
         content: AlertContent? = null,
+        playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
     ): AlertRenderPlan {
         if (preset == null) {
             return AlertRenderPlan(
                 layers = emptyList(),
                 seed = seed,
+                playbackPolicy = playbackPolicy,
                 skipped = listOf(PresetResolveError.UnknownPreset(presetId)),
                 content = content,
             )
@@ -141,6 +146,7 @@ object AlertRenderPlanBuilder {
             return AlertRenderPlan(
                 layers = emptyList(),
                 seed = seed,
+                playbackPolicy = playbackPolicy,
                 skipped = listOf(PresetResolveError.EmptyPreset(presetId)),
                 content = content,
             )
@@ -148,6 +154,7 @@ object AlertRenderPlanBuilder {
         return AlertRenderPlan(
             layers = applyParticleBudget(rendered),
             seed = seed,
+            playbackPolicy = playbackPolicy,
             skipped = emptyList(),
             content = content,
         )

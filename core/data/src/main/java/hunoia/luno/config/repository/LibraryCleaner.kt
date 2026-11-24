@@ -22,7 +22,15 @@ object LibraryCleaner {
 
     suspend fun cleanLibraryReferences(entryId: String) {
         val shouldRemove: (StoredAction) -> Boolean = { it.libraryEntryId() == entryId }
-        ConfigProvider.updateActionSettings { settings -> clean(settings, shouldRemove) }
+        ConfigProvider.updateActionSettings { settings ->
+            val cleaned = clean(settings, shouldRemove)
+            // 动作动效的绑定按条目 id 存：删条目必须一并摘掉，否则页面留着一条永远不播的行。
+            cleaned.copy(
+                floatBall = cleaned.floatBall.copy(
+                    actionAlert = cleaned.floatBall.actionAlert.withoutEntry(entryId),
+                ),
+            )
+        }
         ConfigProvider.updateGestureButtons { buttons -> clean(buttons, shouldRemove) }
         ConfigProvider.updateSubGestureSettings { settings -> clean(settings, shouldRemove) }
         ConfigProvider.updateGlobalGesture { settings -> clean(settings, shouldRemove) }

@@ -70,6 +70,7 @@ fun ActionSettingsTab(
     onNavToNotificationCapsuleSettings: () -> Unit = {},
     onNavToAlertPresetLibrary: () -> Unit = {},
     onNavToAlertPaletteManager: () -> Unit = {},
+    onNavToActionAlert: () -> Unit = {},
     onNavToRecognition: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
@@ -162,34 +163,41 @@ fun ActionSettingsTab(
                         icon = Icons.Default.Palette,
                         title = stringResource(R.string.action_settings_appearance_group),
                         subtitle = stringResource(R.string.appearance_settings_entry_hint),
-                        shape = segmentedShape(0, 8),
+                        shape = segmentedShape(0, 9),
                         onClick = onNavToAppearanceSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Adjust,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball),
-                        shape = segmentedShape(1, 8),
+                        shape = segmentedShape(1, 9),
                         onClick = onNavToFloatBallSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Notifications,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball_notification_group),
-                        shape = segmentedShape(2, 8),
+                        shape = segmentedShape(2, 9),
                         onClick = onNavToNotificationCapsuleSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.PlayArrow,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_title),
                         subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_entry_hint),
-                        shape = segmentedShape(3, 8),
+                        shape = segmentedShape(3, 9),
                         onClick = onNavToAlertPresetLibrary,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Palette,
                         title = stringResource(hunoia.luno.floatball.R.string.float_ball_capsule_alert_palette_manage),
                         subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_palette_entry_hint),
-                        shape = segmentedShape(4, 8),
+                        shape = segmentedShape(4, 9),
                         onClick = onNavToAlertPaletteManager,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.PlayArrow,
+                        title = stringResource(hunoia.luno.floatball.R.string.action_alert_title),
+                        subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_action_alert_hint),
+                        shape = segmentedShape(5, 9),
+                        onClick = onNavToActionAlert,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.RadioButtonChecked,
@@ -200,19 +208,19 @@ fun ActionSettingsTab(
                                 actionSettings.actionGridPanels.panels.size +
                                 hunoia.luno.gridpanel.SinglePanelCatalog.widgets().size,
                         ),
-                        shape = segmentedShape(5, 8),
+                        shape = segmentedShape(6, 9),
                         onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Search,
                         title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
-                        shape = segmentedShape(6, 8),
+                        shape = segmentedShape(7, 9),
                         onClick = onNavToSearchEngines,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(hunoia.luno.link.R.string.recognition_title),
-                        shape = segmentedShape(7, 8),
+                        shape = segmentedShape(8, 9),
                         onClick = onNavToRecognition,
                     )
                 }
