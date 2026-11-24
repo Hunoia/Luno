@@ -8,14 +8,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibrary
@@ -25,16 +36,11 @@ import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.ParticlePath
 import hunoia.luno.config.model.AlertPreset
-import hunoia.luno.config.model.BallPattern
-import hunoia.luno.config.model.CapsulePattern
-import hunoia.luno.config.model.EdgePattern
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.RevealPattern
-import hunoia.luno.config.model.ScreenPattern
 import hunoia.luno.config.model.category
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets
 import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -44,7 +50,7 @@ import androidx.compose.ui.graphics.Color
 /**
  * 到达提示 v4 设置页（单选）与预设库 / 编辑器共用的展示件、落盘与编辑状态。
  *
- * 预设 = 1–5 个层；层类别只用于分组与上限，宿主由层自己的 [AlertKind] 决定。
+ * 预设 = 1–5 个层；层类别只用于分组与上限，宿主由层自己的 [AlertFamily] 决定。
  */
 
 /** 预设播放冲突策略的展示名（预设编辑页 / 预设库）。 */
@@ -67,50 +73,14 @@ internal fun AlertLayerCategory.titleRes(): Int = when (this) {
     AlertLayerCategory.Reveal -> R.string.float_ball_alert_category_reveal
 }
 
-/** 内置预设的本地化名称；未登记时回落内置 name（[AlertPreset.name]）。 */
-internal fun builtinPresetNameRes(id: String): Int? = when (id) {
-    "builtin_edge_glow" -> R.string.float_ball_preset_edge_glow
-    "builtin_edge_comet" -> R.string.float_ball_preset_edge_comet
-    "builtin_particle_rain" -> R.string.float_ball_preset_particle_rain
-    "builtin_particle_meteor" -> R.string.float_ball_preset_particle_meteor
-    "builtin_particle_confetti" -> R.string.float_ball_preset_particle_confetti
-    "builtin_ball_ring" -> R.string.float_ball_preset_ball_ring
-    "builtin_ball_burst" -> R.string.float_ball_preset_ball_burst
-    "builtin_capsule_pulse" -> R.string.float_ball_preset_capsule_pulse
-    "builtin_screen_blackout" -> R.string.float_ball_preset_screen_blackout
-    "builtin_screen_crt_off" -> R.string.float_ball_preset_screen_crt_off
-    "builtin_screen_shatter" -> R.string.float_ball_preset_screen_shatter
-    "builtin_screen_blinds" -> R.string.float_ball_preset_screen_blinds
-    "builtin_screen_iris" -> R.string.float_ball_preset_screen_iris
-    "builtin_ball_ripple" -> R.string.float_ball_preset_ball_ripple
-    "builtin_particle_point_burst" -> R.string.float_ball_preset_particle_point_burst
-    "builtin_particle_spark" -> R.string.float_ball_preset_particle_spark
-    "builtin_screen_flash" -> R.string.float_ball_preset_screen_flash
-    "builtin_screen_vignette" -> R.string.float_ball_preset_screen_vignette
-    "builtin_path_comet" -> R.string.float_ball_preset_path_comet
-    "builtin_path_spiral" -> R.string.float_ball_preset_path_spiral
-    "builtin_edge_lightning" -> R.string.float_ball_preset_edge_lightning
-    "builtin_capsule_sweep" -> R.string.float_ball_preset_capsule_sweep
-    "builtin_ball_orbit" -> R.string.float_ball_preset_ball_orbit
-    "builtin_capsule_flip" -> R.string.float_ball_preset_capsule_flip
-    "builtin_reveal_text" -> R.string.float_ball_preset_reveal_text
-    "builtin_reveal_icon" -> R.string.float_ball_preset_reveal_icon
-    else -> null
-}
-
-/** 非 Composable 场景（搜索 / Toast / 对话框）里的展示名：内置走系统语言资源。 */
-internal fun AlertPreset.displayNameString(context: android.content.Context): String {
-    val res = builtinPresetNameRes(id)
-    return if (res != null) context.getString(res) else name.ifBlank { id }
-}
+/** 非 Composable 场景（搜索 / Toast / 对话框）里的展示名。 */
+internal fun AlertPreset.displayNameString(context: android.content.Context): String =
+    name.ifBlank { id }
 
 /** 预设展示名（选择页 / 预设库 / 编辑共用）。 */
 @Composable
-internal fun AlertPreset.displayName(): String {
-    val builtin = builtinPresetNameRes(id)
-    if (builtin != null) return stringResource(builtin)
-    return name.takeIf { it.isNotBlank() } ?: stringResource(R.string.float_ball_preset_unnamed)
-}
+internal fun AlertPreset.displayName(): String =
+    name.takeIf { it.isNotBlank() } ?: stringResource(R.string.float_ball_preset_unnamed)
 
 /** 预设总层数展示：0 层 = 待补素材的空草稿，1 层 = 素材，多层 = 组合。 */
 @Composable
@@ -129,12 +99,12 @@ internal fun NotificationAlertSettings.selectedPreset(library: AlertLibrary): Al
     return AlertPlanFactory.presets(library)[id]
 }
 
-/** 可选预设：内置素材 + 用户单层 / 组合。 */
+/** 可选预设：素材库里的单层 / 组合。 */
 internal fun AlertLibrary.pickerPresets(): List<AlertPreset> =
     AlertPlanFactory.presetsForPicker(this)
 
-/** 用户预设（素材库里的非内置项）。 */
-internal fun AlertLibrary.userPresets(): List<AlertPreset> = presets.filter { !it.builtin }
+/** 素材库里的全部预设（v5 没有内置素材了）。 */
+internal fun AlertLibrary.userPresets(): List<AlertPreset> = presets
 
 /**
  * 编辑 / 校验用查找：**包含空层预设**。
@@ -144,76 +114,79 @@ internal fun AlertLibrary.userPresets(): List<AlertPreset> = presets.filter { !i
  */
 internal fun AlertLibrary.presetById(id: String?): AlertPreset? {
     val presetId = id ?: return null
-    BuiltinAlertPresets.all.firstOrNull { it.id == presetId }?.let { return it }
     return presets.firstOrNull { it.id == presetId }
 }
 
 // ---------------------------------------------------------------- 层展示
 
-/** 层的兜底显示名：来源素材名优先，否则「类别 · 形态」。 */
+/** 层的兜底显示名：名称优先，否则「类别 · 族」。 */
 @Composable
 internal fun AlertLayer.displayName(): String {
     if (name.isNotBlank()) return name
-    val source = sourcePresetId?.let { builtinPresetNameRes(it) }
-    if (source != null) return stringResource(source)
-    val pattern = patternLabel()
-    return if (pattern == null) {
-        stringResource(kind.category.titleRes())
-    } else {
-        "${stringResource(kind.category.titleRes())} · $pattern"
-    }
+    return "${stringResource(family.category.titleRes())} · ${stringResource(family.labelRes())}"
 }
 
-/** 层参数里的形态名（用于编辑器行副标题）。 */
-@Composable
-internal fun AlertLayer.patternLabel(): String? = when (kind) {
-    AlertKind.Edge -> edge?.pattern?.labelRes()?.let { stringResource(it) }
-    AlertKind.Particle -> stringResource(R.string.float_ball_layer_particle_engine)
-    AlertKind.Ball -> ball?.pattern?.labelRes()?.let { stringResource(it) }
-    AlertKind.Capsule -> capsule?.pattern?.labelRes()?.let { stringResource(it) }
-    AlertKind.Screen -> screen?.pattern?.labelRes()?.let { stringResource(it) }
-    AlertKind.Reveal -> reveal?.pattern?.labelRes()?.let { stringResource(it) }
+/** 渲染器族的展示名。 */
+internal fun AlertFamily.labelRes(): Int = when (this) {
+    AlertFamily.Edge -> R.string.float_ball_layer_family_edge
+    AlertFamily.Ring -> R.string.float_ball_layer_family_ring
+    AlertFamily.Capsule -> R.string.float_ball_layer_family_capsule
+    AlertFamily.Wash -> R.string.float_ball_layer_family_wash
+    AlertFamily.Cover -> R.string.float_ball_layer_family_cover
+    AlertFamily.Particles -> R.string.float_ball_layer_family_particles
+    AlertFamily.Reveal -> R.string.float_ball_layer_family_reveal
 }
 
-internal fun EdgePattern.labelRes(): Int = when (this) {
-    EdgePattern.Glow -> R.string.float_ball_layer_edge_glow
-    EdgePattern.Flow -> R.string.float_ball_layer_edge_flow
-    EdgePattern.Ripple -> R.string.float_ball_layer_edge_ripple
-    EdgePattern.Fireworks -> R.string.float_ball_layer_edge_fireworks
-    EdgePattern.Blade -> R.string.float_ball_layer_edge_blade
-    EdgePattern.Comet -> R.string.float_ball_layer_edge_comet
-    EdgePattern.Ribbon -> R.string.float_ball_layer_edge_ribbon
-    EdgePattern.Lightning -> R.string.float_ball_layer_edge_lightning
+internal fun hunoia.luno.config.model.EdgeShape.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.EdgeShape.Breathing -> R.string.float_ball_layer_edge_breathing
+    hunoia.luno.config.model.EdgeShape.Sweep -> R.string.float_ball_layer_edge_sweep
+    hunoia.luno.config.model.EdgeShape.Wave -> R.string.float_ball_layer_edge_wave
+    hunoia.luno.config.model.EdgeShape.Lightning -> R.string.float_ball_layer_edge_lightning
 }
 
-internal fun BallPattern.labelRes(): Int = when (this) {
-    BallPattern.Ring -> R.string.float_ball_layer_ball_ring
-    BallPattern.Ripple -> R.string.float_ball_layer_ball_ripple
-    BallPattern.Burst -> R.string.float_ball_layer_ball_burst
-    BallPattern.Halo -> R.string.float_ball_layer_ball_halo
-    BallPattern.Shockwave -> R.string.float_ball_layer_ball_shockwave
-    BallPattern.Spiral -> R.string.float_ball_layer_ball_spiral
-    BallPattern.Orbit3D -> R.string.float_ball_layer_ball_orbit
+internal fun hunoia.luno.config.model.CapsuleShape.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.CapsuleShape.Sweep -> R.string.float_ball_layer_capsule_sweep
+    hunoia.luno.config.model.CapsuleShape.Pulse -> R.string.float_ball_layer_capsule_pulse
+    hunoia.luno.config.model.CapsuleShape.Flip -> R.string.float_ball_layer_capsule_flip
 }
 
-internal fun CapsulePattern.labelRes(): Int = when (this) {
-    CapsulePattern.Pulse -> R.string.float_ball_layer_capsule_pulse
-    CapsulePattern.Shimmer -> R.string.float_ball_layer_capsule_shimmer
-    CapsulePattern.BreathOutline -> R.string.float_ball_layer_capsule_breath
-    CapsulePattern.InnerSweep -> R.string.float_ball_layer_capsule_sweep
-    CapsulePattern.Flip3D -> R.string.float_ball_layer_capsule_flip
-    CapsulePattern.DualChase -> R.string.float_ball_layer_capsule_chase
+internal fun hunoia.luno.config.model.ParticleDirection.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.ParticleDirection.Fixed -> R.string.float_ball_layer_direction_fixed
+    hunoia.luno.config.model.ParticleDirection.Inward -> R.string.float_ball_layer_direction_inward
+    hunoia.luno.config.model.ParticleDirection.Outward -> R.string.float_ball_layer_direction_outward
+    hunoia.luno.config.model.ParticleDirection.Radial -> R.string.float_ball_layer_direction_radial
 }
 
-internal fun ScreenPattern.labelRes(): Int = when (this) {
-    ScreenPattern.Flash -> R.string.float_ball_layer_screen_flash
-    ScreenPattern.Vignette -> R.string.float_ball_layer_screen_vignette
-    ScreenPattern.ZoomPulse -> R.string.float_ball_layer_screen_zoom
-    ScreenPattern.CenterBlackout -> R.string.float_ball_layer_screen_blackout
-    ScreenPattern.CrtOff -> R.string.float_ball_layer_screen_crt_off
-    ScreenPattern.Shatter -> R.string.float_ball_layer_screen_shatter
-    ScreenPattern.Blinds -> R.string.float_ball_layer_screen_blinds
-    ScreenPattern.Iris -> R.string.float_ball_layer_screen_iris
+internal fun hunoia.luno.config.model.AlertRenderBackend.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.AlertRenderBackend.Auto -> R.string.float_ball_layer_backend_auto
+    hunoia.luno.config.model.AlertRenderBackend.Shader -> R.string.float_ball_layer_backend_shader
+    hunoia.luno.config.model.AlertRenderBackend.Cpu -> R.string.float_ball_layer_backend_cpu
+}
+
+internal fun hunoia.luno.config.model.BandPath.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.BandPath.Perimeter -> R.string.float_ball_layer_path_perimeter
+    hunoia.luno.config.model.BandPath.Vertical -> R.string.float_ball_layer_path_vertical
+    hunoia.luno.config.model.BandPath.Horizontal -> R.string.float_ball_layer_path_horizontal
+}
+
+internal fun hunoia.luno.config.model.RingStyle.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.RingStyle.Nested -> R.string.float_ball_layer_ring_nested
+    hunoia.luno.config.model.RingStyle.ThreeStroke -> R.string.float_ball_layer_ring_three
+    hunoia.luno.config.model.RingStyle.Halo -> R.string.float_ball_layer_ring_halo
+}
+
+internal fun hunoia.luno.config.model.WashShape.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.WashShape.Flat -> R.string.float_ball_layer_wash_flat
+    hunoia.luno.config.model.WashShape.Radial -> R.string.float_ball_layer_wash_radial
+    hunoia.luno.config.model.WashShape.Ring -> R.string.float_ball_layer_wash_ring
+}
+
+internal fun hunoia.luno.config.model.CoverMask.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.CoverMask.Circle -> R.string.float_ball_layer_cover_circle
+    hunoia.luno.config.model.CoverMask.Iris -> R.string.float_ball_layer_cover_iris
+    hunoia.luno.config.model.CoverMask.Slit -> R.string.float_ball_layer_cover_slit
+    hunoia.luno.config.model.CoverMask.Bands -> R.string.float_ball_layer_cover_bands
+    hunoia.luno.config.model.CoverMask.Shards -> R.string.float_ball_layer_cover_shards
 }
 
 internal fun hunoia.luno.config.model.SwipeIndicatorStyle.labelRes(): Int = when (this) {
@@ -320,7 +293,8 @@ internal fun AlertCategoryFilter(
 /**
  * 调色板单选下拉：预设级（组合调色板）/ 层级（颜色）共用。
  *
- * 第一项是“跟随”（预设级 = 跟随各层；层级 = 跟随预设），后面是素材库全部调色板。
+ * 第一项是“跟随”（预设级 = 跟随各层；层级 = 跟随预设），后面是素材库全部调色板，
+ * 每项带色条预览（[PaletteSwatchStrip]）。「跟随」项走纯文字，无色条。
  */
 @Composable
 internal fun AlertPaletteRow(
@@ -333,18 +307,62 @@ internal fun AlertPaletteRow(
 ) {
     val palettes = library.paletteChoices()
     val index = palettes.indexOfFirst { it.id == selectedId }
-    hunoia.luno.ui.component.row.LunoDropdownRow(
-        title = title,
-        options = listOf(followLabel) + palettes.map { it.name },
-        selectedIndex = if (index < 0) 0 else index + 1,
-        onSelect = { selected -> onSelect(if (selected == 0) null else palettes[selected - 1].id) },
-        shape = shape,
-    )
+    var expanded by remember { mutableStateOf(false) }
+    val currentName = if (index < 0) followLabel else palettes[index].name
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LunoSettingsRow(
+            title = title,
+            subtitle = currentName,
+            shape = shape,
+            trailing = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (index >= 0) {
+                        PaletteSwatchStrip(palettes[index])
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            onClick = { expanded = true },
+        )
+        Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+            LunoDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                LunoDropdownMenuItem(
+                    text = followLabel,
+                    selected = index < 0,
+                    onClick = {
+                        expanded = false
+                        onSelect(null)
+                    },
+                )
+                palettes.forEachIndexed { i, palette ->
+                    LunoDropdownMenuItem(
+                        text = palette.name,
+                        leadingIcon = { PaletteSwatchStrip(palette) },
+                        selected = i == index,
+                        onClick = {
+                            expanded = false
+                            onSelect(palette.id)
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** 预设卡片上的类别集合（按顺序去重）。 */
 internal fun AlertPreset.categories(): List<AlertLayerCategory> =
-    layers.map { it.kind.category }.distinct()
+    layers.map { it.family.category }.distinct()
 
 // ---------------------------------------------------------------- 落盘
 

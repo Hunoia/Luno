@@ -104,7 +104,7 @@ import hunoia.luno.config.model.RecognitionOutput
 import hunoia.luno.config.model.RecognitionSettings
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionTuning
-import hunoia.luno.ui.theme.toAlertFamily
+import hunoia.luno.ui.theme.toMotionFamily
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
@@ -867,7 +867,7 @@ class FloatBallService : Service() {
             library = library,
             intensityScale = actionAlert.intensityScale,
             speedScale = actionAlert.speedScale,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
         when (playAlertPlan(plan)) {
@@ -889,7 +889,13 @@ class FloatBallService : Service() {
         val actionFallbackId = settings.actionAlert.takeIf { it.enabled }
             ?.presetFor("accessibility.lockScreen", null)
         val fallback = config.presetId.isNullOrBlank() && actionFallbackId != null
-        val presetId = config.presetId ?: actionFallbackId
+        val libraryNow = settings.notificationCapsule.alertLibrary
+        val randomPick = if (config.enabled && config.randomize) {
+            AlertPlanFactory.randomPreset(libraryNow, Random.nextInt())
+        } else {
+            null
+        }
+        val presetId = randomPick?.id ?: config.presetId ?: actionFallbackId
         val enabled = config.enabled || fallback
         if (!enabled || presetId.isNullOrBlank()) {
             Log.i(TAG, "lock moment skipped enabled=${config.enabled} preset=$presetId")
@@ -906,7 +912,7 @@ class FloatBallService : Service() {
         } else {
             config.speedPercent
         }
-        val library = settings.notificationCapsule.alertLibrary
+        val library = libraryNow
         val preset = AlertPlanFactory.presets(library)[presetId]
         if (preset == null || !canDrawOverlays()) {
             Log.i(TAG, "lock moment unavailable preset=$presetId overlay=${canDrawOverlays()}")
@@ -920,7 +926,7 @@ class FloatBallService : Service() {
             library = library,
             intensityScale = intensityPercent / 100f,
             speedScale = speedPercent / 100f,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan().copy(
             closing = true,
@@ -971,7 +977,7 @@ class FloatBallService : Service() {
             library = library,
             intensityScale = config.intensityScale,
             speedScale = config.speedScale,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
         playAlertPlan(plan = plan, anchorProvider = { holder.anchor })
@@ -1001,7 +1007,7 @@ class FloatBallService : Service() {
             library = capsule.alertLibrary,
             appPackage = appPackage,
             content = content,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
     }
@@ -1115,7 +1121,6 @@ class FloatBallService : Service() {
             plan = plan,
             anchor = anchor,
             colorSpec = alertColorSpec(),
-            secondColor = ColorSpec.Unset,
             onFinished = { finishAlertPlayback(token) },
             anchorProvider = anchorProvider ?: { anchor },
         )
@@ -1154,7 +1159,7 @@ class FloatBallService : Service() {
             request = request,
             library = capsule.alertLibrary,
             appPackage = request.content?.iconPackage,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
             seed = request.seed ?: Random.nextInt(),
         ).toPlayPlan()
         if (plan.isEmpty) {
@@ -1225,7 +1230,7 @@ class FloatBallService : Service() {
                 // 动作动效有自己的强度 / 速度：试播按它播，不偷到达提示的旋钮。
                 intensityScale = intensityPercent?.div(100f) ?: alert.intensityScale,
                 speedScale = speedPercent?.div(100f) ?: alert.speedScale,
-                tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+                tierFor = { kind -> profile.speedOf(kind.toMotionFamily()).factor },
                 seed = Random.nextInt(),
             ).toPlayPlan()
         } else {

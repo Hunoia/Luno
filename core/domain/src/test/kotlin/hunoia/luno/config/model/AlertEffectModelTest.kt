@@ -7,49 +7,83 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 预设 / 层 schema：序列化往返、层自洽、组合约束与 v4 重置。 */
+/** 预设 / 层 schema：序列化往返、层自洽、组合约束与旧配置容错。 */
 class AlertEffectModelTest {
 
     private fun layer(
         id: String,
-        kind: AlertKind,
+        family: AlertFamily,
         enabled: Boolean = true,
         baseMillis: Int = 1000,
-    ): AlertLayer = when (kind) {
-        AlertKind.Particle -> AlertLayer(
+    ): AlertLayer = when (family) {
+        AlertFamily.Edge -> AlertLayer(
             id = id,
             enabled = enabled,
-            kind = kind,
+            family = family,
             timing = AlertTiming(baseMillis = baseMillis),
+            edge = EdgeParams(),
+        )
+        AlertFamily.Ring -> AlertLayer(id, enabled = enabled, family = family, ring = RingParams())
+        AlertFamily.Capsule ->
+            AlertLayer(id, enabled = enabled, family = family, capsule = CapsuleParams())
+        AlertFamily.Wash -> AlertLayer(id, enabled = enabled, family = family, wash = WashParams())
+        AlertFamily.Cover -> AlertLayer(id, enabled = enabled, family = family, cover = CoverParams())
+        AlertFamily.Particles -> AlertLayer(
+            id = id,
+            enabled = enabled,
+            family = family,
             particle = ParticleParams(),
         )
-        AlertKind.Edge -> AlertLayer(id, enabled = enabled, kind = kind, edge = EdgeParams())
-        AlertKind.Ball -> AlertLayer(id, enabled = enabled, kind = kind, ball = BallParams())
-        AlertKind.Capsule -> AlertLayer(id, enabled = enabled, kind = kind, capsule = CapsuleParams())
-        AlertKind.Screen -> AlertLayer(id, enabled = enabled, kind = kind, screen = ScreenParams())
-        AlertKind.Reveal -> AlertLayer(id, enabled = enabled, kind = kind, reveal = RevealParams())
+        AlertFamily.Reveal ->
+            AlertLayer(id, enabled = enabled, family = family, reveal = RevealParams())
     }
 
     @Test
-    fun `preset round trips with layers`() {
+    fun `preset round trips with new shape switches`() {
         val preset = AlertPreset(
             id = "custom_combo",
             name = "我的组合",
-            builtin = false,
+            kind = AlertPresetKind.Combo,
             paletteId = "builtin_palette_rainbow",
             layers = listOf(
                 AlertLayer(
-                    id = "l0",
-                    kind = AlertKind.Particle,
+                    id = "edge",
+                    family = AlertFamily.Edge,
                     timing = AlertTiming(baseMillis = 1200, cycles = 2, speedPercent = 90),
-                    color = AlertColorRef(colors = listOf(0xFFE53935.toInt(), 0xFF43A047.toInt())),
+                    opacity = 0.8f,
+                    edge = EdgeParams(
+                        shape = EdgeShape.Lightning,
+                        bolts = 5,
+                        boltWidthDp = 2.2f,
+                        boltReachPercent = 55,
+                    ),
+                ),
+                AlertLayer(
+                    id = "capsule",
+                    family = AlertFamily.Capsule,
+                    capsule = CapsuleParams(
+                        shape = CapsuleShape.Flip,
+                        flipDegrees = 270,
+                    ),
+                ),
+                AlertLayer(
+                    id = "particles",
+                    family = AlertFamily.Particles,
                     particle = ParticleParams(
-                        emitter = ParticleEmitter(count = 80, speed = 0.7f),
-                        motion = ParticleMotion(gravity = 1.2f, drag = 0.25f, wind = -0.2f),
+                        emitter = ParticleEmitter(
+                            area = ParticleArea.EdgePerimeter,
+                            count = 80,
+                            waves = 3,
+                            anchorPerWave = true,
+                            anchorCount = 3,
+                            directionMode = ParticleDirection.Inward,
+                            launchHeight = 0.5f,
+                        ),
                         look = ParticleLook(
                             shape = AlertParticleShape.Star,
-                            sizeDp = 4f,
-                            haloStyle = ParticleHaloStyle.Soft,
+                            sizeShrink = 0.4f,
+                            colorPerWave = true,
+                            alphaJitter = 0.3f,
                         ),
                     ),
                 ),
@@ -61,27 +95,43 @@ class AlertEffectModelTest {
         )
 
         assertEquals(preset, decoded)
-        val decodedLayer = decoded.layers.single()
-        assertEquals(AlertParticleShape.Star, decodedLayer.particle?.look?.shape)
-        assertEquals(ParticleHaloStyle.Soft, decodedLayer.particle?.look?.haloStyle)
-        assertEquals(2, decodedLayer.color.colors.size)
+        assertEquals(EdgeShape.Lightning, decoded.layers[0].edge?.shape)
+        assertEquals(5, decoded.layers[0].edge?.bolts)
+        assertEquals(CapsuleShape.Flip, decoded.layers[1].capsule?.shape)
+        assertEquals(270, decoded.layers[1].capsule?.flipDegrees)
+        val particle = decoded.layers[2].particle
+        assertTrue(particle?.emitter?.anchorPerWave == true)
+        assertEquals(3, particle?.emitter?.anchorCount)
+        assertEquals(ParticleDirection.Inward, particle?.emitter?.directionMode)
+        assertEquals(0.4f, particle?.look?.sizeShrink ?: 0f, 0.001f)
     }
 
     @Test
-    fun `layer matches kind only when exactly one matching block is present`() {
-        assertTrue(layer("a", AlertKind.Edge).matchesKind())
-        assertFalse(AlertLayer(id = "b", kind = AlertKind.Edge).matchesKind())
+    fun `layer matches family only when exactly one matching block is present`() {
+        assertTrue(layer("a", AlertFamily.Edge).matchesFamily())
+        assertFalse(AlertLayer(id = "b", family = AlertFamily.Edge).matchesFamily())
         assertFalse(
-            AlertLayer(id = "c", kind = AlertKind.Particle, edge = EdgeParams()).matchesKind(),
+            AlertLayer(id = "c", family = AlertFamily.Particles, edge = EdgeParams()).matchesFamily(),
         )
         assertFalse(
             AlertLayer(
                 id = "d",
-                kind = AlertKind.Particle,
+                family = AlertFamily.Particles,
                 particle = ParticleParams(),
                 edge = EdgeParams(),
-            ).matchesKind(),
+            ).matchesFamily(),
         )
+    }
+
+    @Test
+    fun `preset kind becomes combo once it holds more than one layer`() {
+        val multi = AlertPreset(
+            id = "p",
+            name = "P",
+            layers = listOf(layer("a", AlertFamily.Edge), layer("b", AlertFamily.Particles)),
+        )
+        assertEquals(AlertPresetKind.Combo, multi.resolvedKind)
+        assertEquals(AlertPresetKind.Single, AlertPreset(id = "s", name = "S").resolvedKind)
     }
 
     @Test
@@ -90,18 +140,18 @@ class AlertEffectModelTest {
             id = "p",
             name = "P",
             layers = listOf(
-                layer("1", AlertKind.Edge),
-                layer("2", AlertKind.Particle),
-                layer("3", AlertKind.Ball),
-                layer("4", AlertKind.Screen),
-                layer("5", AlertKind.Edge),
-                layer("6", AlertKind.Edge),
-                layer("7", AlertKind.Capsule),
-                layer("8", AlertKind.Capsule),
+                layer("1", AlertFamily.Edge),
+                layer("2", AlertFamily.Particles),
+                layer("3", AlertFamily.Ring),
+                layer("4", AlertFamily.Cover),
+                layer("5", AlertFamily.Edge),
+                layer("6", AlertFamily.Edge),
+                layer("7", AlertFamily.Edge),
+                layer("8", AlertFamily.Capsule),
             ),
         )
         val ids = preset.renderableLayers().map { it.id }
-        // 上限 5：前五层；第三层边只能有 2 层，所以第 6 层被丢。
+        // 上限 5 层、每类 3 层：前五层合法，第四层 Edge（第 4 条边类）被类别上限挤掉。
         assertEquals(listOf("1", "2", "3", "4", "5"), ids)
     }
 
@@ -111,13 +161,13 @@ class AlertEffectModelTest {
             id = "p",
             name = "P",
             layers = listOf(
-                layer("cap1", AlertKind.Capsule),
-                layer("cap2", AlertKind.Capsule),
-                layer("scr1", AlertKind.Screen),
-                layer("scr2", AlertKind.Screen),
-                layer("rev1", AlertKind.Reveal),
-                layer("rev2", AlertKind.Reveal),
-                layer("off", AlertKind.Particle, enabled = false),
+                layer("cap1", AlertFamily.Capsule),
+                layer("cap2", AlertFamily.Capsule),
+                layer("scr1", AlertFamily.Cover),
+                layer("scr2", AlertFamily.Wash),
+                layer("rev1", AlertFamily.Reveal),
+                layer("rev2", AlertFamily.Reveal),
+                layer("off", AlertFamily.Particles, enabled = false),
             ),
         )
         val ids = preset.renderableLayers().map { it.id }
@@ -131,15 +181,16 @@ class AlertEffectModelTest {
     @Test
     fun `disabled layers keep params but do not occupy the cap`() {
         val layers = listOf(
-            layer("a", AlertKind.Edge, enabled = false),
-            layer("b", AlertKind.Edge, enabled = false),
-            layer("c", AlertKind.Edge),
-            layer("d", AlertKind.Edge),
+            layer("a", AlertFamily.Edge, enabled = false),
+            layer("b", AlertFamily.Edge, enabled = false),
+            layer("c", AlertFamily.Edge),
+            layer("d", AlertFamily.Edge),
+            layer("e", AlertFamily.Edge),
         )
         val preset = AlertPreset(id = "p", name = "P", layers = layers)
-        assertEquals(listOf("c", "d"), preset.renderableLayers().map { it.id })
+        assertEquals(listOf("c", "d", "e"), preset.renderableLayers().map { it.id })
         assertTrue(preset.validate().isEmpty())
-        assertEquals(AlertLimit.TooManyInCategory, preset.addBlockedBy(AlertKind.Edge))
+        assertEquals(AlertLimit.TooManyInCategory, preset.addBlockedBy(AlertFamily.Edge))
     }
 
     @Test
@@ -150,7 +201,7 @@ class AlertEffectModelTest {
         val tooMany = AlertPreset(
             id = "p",
             name = "P",
-            layers = (1..11).map { layer("$it", AlertKind.Particle) },
+            layers = (1..11).map { layer("$it", AlertFamily.Particles) },
         )
         assertTrue(AlertLimit.TooManyStoredLayers in tooMany.validate())
     }
@@ -191,10 +242,11 @@ class AlertEffectModelTest {
               "notificationCapsule": {
                 "alert_v4": {
                   "enabled": true,
-                  "presetId": "builtin_particle_snow",
+                  "presetId": "user_a",
                   "intensityPercent": 120,
                   "speedPercent": 80,
-                  "readNotificationText": false
+                  "readNotificationText": false,
+                  "randomize": true
                 }
               }
             }
@@ -202,10 +254,11 @@ class AlertEffectModelTest {
         )
         val alert = decoded.notificationCapsule.alert
         assertTrue(alert.enabled)
-        assertEquals("builtin_particle_snow", alert.presetId)
+        assertEquals("user_a", alert.presetId)
         assertEquals(120, alert.intensityPercent)
         assertEquals(80, alert.speedPercent)
         assertFalse(alert.readNotificationText)
+        assertTrue(alert.randomize)
         assertEquals(1.2f, alert.intensityScale, 0.001f)
         assertEquals(0.8f, alert.speedScale, 0.001f)
     }

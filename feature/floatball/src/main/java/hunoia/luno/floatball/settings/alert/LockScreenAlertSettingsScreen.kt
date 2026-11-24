@@ -203,6 +203,17 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
                                 onClick = { showSheet = true },
                             )
                         }
+                        item { shape ->
+                            LunoSwitchRow(
+                                title = stringResource(R.string.lock_alert_randomize),
+                                subtitle = stringResource(R.string.lock_alert_randomize_hint),
+                                checked = alert.randomize,
+                                shape = shape,
+                                onCheckedChange = { checked ->
+                                    update { it.copy(randomize = checked) }
+                                },
+                            )
+                        }
                     },
                 )
             }

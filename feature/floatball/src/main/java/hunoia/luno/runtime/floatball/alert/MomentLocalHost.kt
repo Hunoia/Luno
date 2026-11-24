@@ -10,12 +10,11 @@ import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.AlertPlaybackPolicy
-import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.ui.theme.MotionTuning
-import hunoia.luno.ui.theme.toAlertFamily
+import hunoia.luno.ui.theme.toMotionFamily
 import kotlin.random.Random
 
 /**
@@ -54,7 +53,13 @@ internal object MomentLocalHost {
         val actionFallbackId = action.actionAlert.takeIf { it.enabled }
             ?.presetFor("accessibility.lockScreen", null)
         val fallback = config.presetId.isNullOrBlank() && actionFallbackId != null
-        val presetId = config.presetId ?: actionFallbackId
+        val libraryNow = action.notificationCapsule.alertLibrary
+        val randomPick = if (config.enabled && config.randomize) {
+            AlertPlanFactory.randomPreset(libraryNow, kotlin.random.Random.nextInt())
+        } else {
+            null
+        }
+        val presetId = randomPick?.id ?: config.presetId ?: actionFallbackId
         if ((!config.enabled && !fallback) || presetId.isNullOrBlank()) {
             Log.i(LockLogTag, "local lock skipped enabled=${config.enabled} preset=$presetId")
             return onFinished()
@@ -122,7 +127,7 @@ internal object MomentLocalHost {
             library = capsule.alertLibrary,
             intensityScale = intensityPercent / 100f,
             speedScale = speedPercent / 100f,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { category -> profile.speedOf(category.toMotionFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
         if (plan.stageLayers.isEmpty()) return null
@@ -164,7 +169,6 @@ internal object MomentLocalHost {
             plan = plan,
             anchor = provider(),
             colorSpec = TuneConfig.latestAction().floatBall.notificationCapsule.alert.color,
-            secondColor = ColorSpec.Unset,
             onFinished = {
                 val done = onFinished
                 onFinished = null

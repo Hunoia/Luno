@@ -3,7 +3,6 @@ package hunoia.luno.runtime.floatball.alert
 import android.content.Context
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.effect.AlertConcurrency
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
@@ -11,7 +10,7 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.ui.theme.MotionTuning
-import hunoia.luno.ui.theme.toAlertFamily
+import hunoia.luno.ui.theme.toMotionFamily
 import kotlin.random.Random
 
 /**
@@ -37,7 +36,7 @@ internal object AlertEffectLocalHost {
             request = request,
             library = settings.alertLibrary,
             appPackage = request.content?.iconPackage,
-            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            tierFor = { category -> profile.speedOf(category.toMotionFamily()).factor },
             seed = request.seed ?: Random.nextInt(),
         )
         val plan = renderPlan.toPlayPlan()
@@ -75,7 +74,6 @@ internal object AlertEffectLocalHost {
             plan = plan,
             anchor = anchor,
             colorSpec = settings.alert.color,
-            secondColor = ColorSpec.Unset,
             onFinished = {
                 val next = pending ?: return@show
                 pending = null

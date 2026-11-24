@@ -12,7 +12,7 @@ internal const val AlertLibraryImportMaxBytes = 2 * 1024 * 1024
 internal fun AlertLibrary.toExport(now: Long): AlertLibraryExport = AlertLibraryExport(
     exportedAt = now,
     palettes = palettes,
-    presets = presets.filter { !it.builtin },
+    presets = presets,
 )
 
 /**
@@ -55,7 +55,6 @@ internal fun AlertLibrary.mergeImport(export: AlertLibraryExport): AlertLibrary?
         preset.copy(
             id = "user_${UUID.randomUUID()}",
             name = name,
-            builtin = false,
             paletteId = preset.paletteId?.let { paletteIdMap[it] ?: it },
             layers = mappedLayers,
         )

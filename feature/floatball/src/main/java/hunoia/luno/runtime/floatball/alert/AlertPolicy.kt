@@ -1,112 +1,36 @@
 package hunoia.luno.runtime.floatball.alert
 
-import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.AlertPlaybackPolicy
+import hunoia.luno.config.model.BandPath
+import hunoia.luno.config.model.CapsuleShape
+import hunoia.luno.config.model.CoverMask
+import hunoia.luno.config.model.EdgeShape
+import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealDirection
+import hunoia.luno.config.model.RingStyle
+import hunoia.luno.config.model.WashShape
 
 /**
- * 渲染层的样式族（**不落盘**）：只用于渲染分派与种子。
- *
- * 配置（v4）已改为「预设组合层」，预设参数直接写进各类 `*Spec`；
- * 这里的枚举只是渲染端的绘制器选择器，和设置页 / 备份无关。
+ * 渲染层的绘制器（**不落盘**）：v6 起与配置里的 [hunoia.luno.config.model.AlertFamily]
+ * 一一对应；屏缘 / 胶囊的形态切换是族内参数，不改变这里的枚举。
  */
-sealed interface AlertRenderStyle {
-    val category: AlertRenderCategory
+enum class AlertRenderStyle(val category: AlertRenderCategory) {
+    Edge(AlertRenderCategory.Edge),
+    Ring(AlertRenderCategory.Anchor),
+    Capsule(AlertRenderCategory.Capsule),
+    Wash(AlertRenderCategory.Screen),
+    Cover(AlertRenderCategory.Screen),
+    Particles(AlertRenderCategory.Particle),
+    Reveal(AlertRenderCategory.Reveal),
+
+    ;
+
+    val isCapsuleHost: Boolean get() = category == AlertRenderCategory.Capsule
 }
 
 /** 渲染分派的大类。 */
 enum class AlertRenderCategory { Edge, Particle, Capsule, Anchor, Screen, Reveal }
-
-/** 屏缘绘制器。 */
-enum class EdgeAlertStyle : AlertRenderStyle {
-    EdgeGlow,
-    EdgeFlow,
-    EdgeRipple,
-    EdgeFireworks,
-    EdgeBladeRise,
-    Ribbon,
-    Lightning,
-    Comet,
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Edge
-}
-
-/** 粒子绘制器（统一引擎，参数来自 [ParticlesSpec]；枚举只决定种子与日志）。 */
-enum class ParticleAlertStyle : AlertRenderStyle {
-    TopRain,
-    BottomFountain,
-    Meteor,
-    Confetti,
-    Firefly,
-    Path,
-
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Particle
-}
-
-/** 胶囊窗自己的 Compose 层。 */
-enum class CapsuleAlertStyle : AlertRenderStyle {
-    Pulse,
-    Shimmer,
-    BreathOutline,
-    InnerSweep,
-    Flip3D,
-    DualChase,
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Capsule
-}
-
-/** 球锚点 / 全屏涟漪。 */
-enum class AnchorAlertStyle : AlertRenderStyle {
-    Ring,
-    Ripple,
-    BallBurst,
-    BallHalo,
-    Spiral,
-    Orbit3D,
-    Shockwave,
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Anchor
-}
-
-/** 舞台窗的全屏着色。 */
-enum class ScreenAlertStyle : AlertRenderStyle {
-    Flash,
-    Vignette,
-    ZoomPulse,
-
-    /** 固定黑、从中心圆形扩散盖满整屏（关闭屏幕动画）。 */
-    CenterBlackout,
-
-    /** 电视关闭：上下黑幕收拢成亮缝再收成点。 */
-    CrtOff,
-
-    /** 屏幕碎裂：裂纹闪光后黑色碎片压满整屏。 */
-    Shatter,
-
-    /** 百叶关闭：黑带交错合拢。 */
-    Blinds,
-
-    /** 圆瞳收束：圆形孔收到 0。 */
-    Iris,
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Screen
-}
-
-/** 揭示类：文字逐字 / 应用图标逐元素。 */
-enum class RevealAlertStyle : AlertRenderStyle {
-    Text,
-    Icon,
-    ;
-
-    override val category: AlertRenderCategory get() = AlertRenderCategory.Reveal
-}
 
 /**
  * 到达时机的环境快照：调用方在事件线程一次性采齐，不在 [shouldPlay] 里碰平台 API。
@@ -121,175 +45,100 @@ data class AlertEnvironment(
 )
 
 /**
- * 各样式的专属绘制参数：由播放计划构建（`AlertPlanFactory`）夹取归一化，
+ * 各族的专属绘制参数：由播放计划构建（`AlertPlanFactory`）夹取归一化，
  * 随计划下发给渲染层。渲染层只读计划不读配置。
  */
 sealed interface AlertEffectSpec
 
-/** 呼吸光：屏缘圆角（dp）与衰减硬度（指数，1 = 指数衰减）。 */
-data class EdgeGlowSpec(
+/**
+ * 屏缘光带：`shape` 决定当前形态（呼吸 / 滚动 / 波纹 / 雷电），
+ * 其余字段按形态取用；同一时刻只画一种。
+ */
+data class EdgeSpec(
+    val shape: EdgeShape,
+    val backend: hunoia.luno.config.model.AlertRenderBackend,
     val cornerRadiusDp: Int,
+    val depthDp: Float,
     val hardness: Float,
+    val breathAmount: Float,
+    val path: BandPath,
+    val travel: Float,
+    val headWidthDp: Float,
+    val tailLength: Float,
+    val tailFalloff: Float,
+    val tailAlpha: Float,
+    val headBoost: Float,
+    val noise: Float,
+    val dual: Boolean,
+    val reverse: Boolean,
+    val crests: Int,
+    val waveWidthDp: Float,
+    val bolts: Int,
+    val boltFlashes: Int,
+    val boltWindow: Float,
+    val boltWidthDp: Float,
+    val boltReachPercent: Int,
 ) : AlertEffectSpec
 
-/** 边缘流光：带数与拖尾宽度、刃感三件套（主带宽 / 深度硬度 / 拖尾浓度）、屏缘圆角。 */
-data class EdgeFlowSpec(
-    val dualBand: Boolean,
+/** 锚点环：描边层次 / 每循环环数 / 行程 / 描边宽度 / 光晕 / 锚点。 */
+data class RingSpec(
+    val style: RingStyle,
+    val ringsPerCycle: Int,
+    val travelPercent: Int,
+    val strokeWidthDp: Float,
+    val haloScale: Float,
+    val centerAtAnchor: Boolean,
+) : AlertEffectSpec
+
+/** 胶囊：`shape` 决定扫光 / 呼吸 / 翻转；其余字段按形态取用。 */
+data class CapsuleSpec(
+    val shape: CapsuleShape,
+    val strokeWidthDp: Float,
+    val fill: Boolean,
+    val heads: Int,
+    val bandWidth: Float,
+    val travel: Float,
     val trailScale: Float,
-    val dualColor: Boolean,
-    val coreBand: Float,
-    val hardness: Float,
     val trailAlpha: Float,
-    val cornerRadiusDp: Int,
+    val reverse: Boolean,
+    val glowLayers: Int,
+    val glowScale: Float,
+    val breatheScale: Float,
+    val flipDegrees: Int,
+) : AlertEffectSpec
+
+/** 全屏着色：形状 / 强度 / 缩放 / 柔化 / 是否呼吸。 */
+data class WashSpec(
+    val shape: WashShape,
+    val amplitude: Float,
+    val zoomPercent: Int,
+    val softness: Float,
+    val breath: Boolean,
+) : AlertEffectSpec
+
+/** 全屏覆盖：遮罩 / 强度 / 条数 / 片数 / 亮缝 / 描边 / 羽化 / 曲线。 */
+data class CoverSpec(
+    val mask: CoverMask,
+    val amplitude: Float,
+    val bands: Int,
+    val shards: Int,
+    val slitDp: Float,
+    val rimDp: Float,
+    val softness: Float,
+    val curve: Float,
 ) : AlertEffectSpec
 
 /**
  * 粒子参数：统一引擎直接消费层的发射器 / 运动方程 / 外观。
- * [params] 的时间字段（lifeShare）在渲染层按单循环时长换算。
+ * [params] 的时间字段（lifeShare / launchShare）在渲染层按单循环时长换算。
  */
 data class ParticlesSpec(
     val params: ParticleParams,
 ) : AlertEffectSpec
 
-/** 球光环：核描边宽度（dp）、每循环环数、光晕缩放（0 = 无光晕）。 */
-data class RingSpec(
-    val strokeWidthDp: Float,
-    val ringsPerCycle: Int,
-    val haloScale: Float,
-) : AlertEffectSpec
-
-/** 球心涟漪：核描边宽度（dp）、光晕强度、锚点是否通知球心、行程（屏高比例 100 = 到最远角）。 */
-data class RippleSpec(
-    val strokeWidthDp: Float,
-    val haloScale: Float,
-    val centerAtBall: Boolean,
-    val travelPercent: Int,
-) : AlertEffectSpec
-
-/** 胶囊脉冲：辉光宽度（dp）、光晕缩放。 */
-data class PulseSpec(
-    val glowWidthDp: Float,
-    val haloScale: Float,
-) : AlertEffectSpec
-
-/** 胶囊边框流光：描边宽度（dp）、拖尾宽度、拖尾浓度、反向扫动。 */
-data class ShimmerSpec(
-    val strokeWidthDp: Float,
-    val trailScale: Float,
-    val trailAlpha: Float,
-    val reverse: Boolean,
-) : AlertEffectSpec
-
-/** 边缘波纹：波峰数 + 屏缘圆角。 */
-data class EdgeRippleSpec(
-    val crestCount: Int,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
-/** 屏缘烟花：爆点数 + 粒径（dp）+ 屏缘圆角。 */
-data class EdgeFireworksSpec(
-    val burstCount: Int,
-    val particleSizeDp: Float,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
-/** 双刃上升：刃高（dp）。 */
-data class EdgeBladeRiseSpec(
-    val bladeHeightDp: Int,
-) : AlertEffectSpec
-
-/** 胶囊呼吸描边：描边宽度（dp）与呼吸缩放（1.0 = 0）。 */
-data class BreathOutlineSpec(
-    val strokeWidthDp: Float,
-    val breatheScale: Float,
-) : AlertEffectSpec
-
-/** 胶囊内部扫光：主带宽度（胶囊宽占比）与反向扫动。 */
-data class InnerSweepSpec(
-    val bandWidth: Float,
-    val reverse: Boolean,
-) : AlertEffectSpec
-
-/** 球心爆发：粒子数、粒径（dp）、迸射行程（dp）。 */
-data class BallBurstSpec(
-    val count: Int,
-    val particleSizeDp: Float,
-    val spreadDp: Float,
-) : AlertEffectSpec
-
-/** 球心光晕：半径（球径 %）与光晕强度缩放。 */
-data class BallHaloSpec(
-    val radiusPercent: Int,
-    val haloScale: Float,
-) : AlertEffectSpec
-
-/** 缎带：沿屏缘的多层柔光带（宽度 / 拖尾 / 屏缘圆角）。 */
-data class EdgeRibbonSpec(
-    val bandWidthDp: Float,
-    val trailScale: Float,
-    val trailAlpha: Float,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
-/** 闪电：沿屏缘随机落点的折线闪电（落点数 / 屏缘圆角 / 线宽）。 */
-data class EdgeLightningSpec(
-    val strikeCount: Int,
-    val cornerRadiusDp: Int,
-    val lineWidthDp: Float,
-) : AlertEffectSpec
-
-/**
- * 屏缘彗星：亮头 + 渐细拖尾的长条光带（不再用流光参数近似）。
- *
- * [tailFraction] 是拖尾占屏缘周长的比例（不是 dp）：换成 dp 后尾巴长度会随分辨率
- * 变化，在手机上只剩几个采样点、看起来只有头没有尾。
- */
-data class EdgeCometSpec(
-    val headWidthDp: Float,
-    val tailFraction: Float,
-    val tailAlpha: Float,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
-/** 球心冲击波：粗前沿快速外扩，只有一个环，没有涟漪的多重尾环。 */
-data class ShockwaveSpec(
-    val strokeWidthDp: Float,
-    val travelPercent: Int,
-) : AlertEffectSpec
-
-/** 球锚点螺旋：粒子数、粒径、行程（球径 %）与旋转圈数。 */
-data class BallSpiralSpec(
-    val count: Int,
-    val particleSizeDp: Float,
-    val travelPercent: Int,
-    val turns: Float,
-) : AlertEffectSpec
-
-/** 球锚点 3D 环绕：粒子数、粒径、轨道半径（球径 %）与倾角（0..1）。 */
-data class BallOrbit3DSpec(
-    val count: Int,
-    val particleSizeDp: Float,
-    val travelPercent: Int,
-    val tilt: Float,
-) : AlertEffectSpec
-
-/** 胶囊 3D 翻转：描边宽度与翻转角度。 */
-data class Flip3DSpec(
-    val strokeWidthDp: Float,
-    val flipDegrees: Int,
-) : AlertEffectSpec
-
-/** 胶囊双色追逐：描边宽度、主带宽度、拖尾与双色。 */
-data class DualChaseSpec(
-    val strokeWidthDp: Float,
-    val bandWidth: Float,
-    val trailScale: Float,
-    val trailAlpha: Float,
-) : AlertEffectSpec
-
 /** 揭示：文字 / 图标、错峰、缩放与揭示顺序（方向）；内容来自播放请求。 */
 data class RevealSpec(
-    val pattern: RevealAlertStyle,
+    val pattern: hunoia.luno.config.model.RevealPattern,
     val title: String,
     val body: String,
     val iconPackage: String?,
@@ -298,21 +147,9 @@ data class RevealSpec(
     val direction: RevealDirection,
 ) : AlertEffectSpec
 
-/** 全屏着色：形态 + 强度 + 缩放 / 柔化参数。 */
-data class ScreenSpec(
-    val pattern: ScreenAlertStyle,
-    val amplitude: Float,
-    val zoomPercent: Int,
-    val vignetteSoftness: Float,
-) : AlertEffectSpec
-
 /**
- * 一层的播放计划：渲染样式、循环数与单循环时长（已含档位与速度倍率），加两个
- * **按样式归一化**的旋钮与该样式的专属绘制参数（[spec]）。
- *
- * - [brightness] 0..1：映射为各效果的 alpha 峰值。
- * - [amount] 0..1：量旋钮归一化（光带宽度 / 扩散行程 / 主带宽）；
- *   脉冲 / 涟漪等无量旋钮恒 0.5。
+ * 一层的播放计划：绘制器、循环数、单循环时长（已含档位与速度倍率），
+ * 加透明度峰值与该族的专属绘制参数（[spec]）。
  */
 data class AlertLayerPlan(
     val style: AlertRenderStyle,
@@ -321,7 +158,6 @@ data class AlertLayerPlan(
     /** 单循环时长（ms）：预设基准 × 应用档位 ÷ 速度倍率。 */
     val cycleMillis: Int,
     val brightness: Float,
-    val amount: Float,
     val spec: AlertEffectSpec,
     /** 该层的调色板（null = 跟随动效回退颜色）。 */
     val palette: AlertPaletteSpec? = null,
@@ -357,11 +193,11 @@ data class AlertPlayPlan(
 
     /** 舞台层：画在全屏穿透窗上（边缘 / 粒子 / 球心 / 全屏着色）。 */
     val stageLayers: List<AlertLayerPlan>
-        get() = layers.filter { it.style.category != AlertRenderCategory.Capsule }
+        get() = layers.filter { !it.style.isCapsuleHost }
 
     /** 胶囊层：画在胶囊窗自己的 Compose 层。 */
     val capsuleLayers: List<AlertLayerPlan>
-        get() = layers.filter { it.style.category == AlertRenderCategory.Capsule }
+        get() = layers.filter { it.style.isCapsuleHost }
 
     val isEmpty: Boolean get() = layers.isEmpty()
 
@@ -386,11 +222,7 @@ fun shouldPlay(
     return true
 }
 
-/** 这份计划是否依赖胶囊的存在性：胶囊层要画在胶囊窗上；球心锚定的涟漪要胶囊矩形。 */
+/** 这份计划是否依赖胶囊的存在性：胶囊层要画在胶囊窗上；球锚定的环需要胶囊矩形。 */
 fun needsCapsule(plan: AlertPlayPlan): Boolean = plan.layers.any { layer ->
-    when (layer.style) {
-        // 胶囊层画在胶囊窗上；球体锚定的层全部需要胶囊矩形（球 / 胶囊收起圆）。
-        is CapsuleAlertStyle, is AnchorAlertStyle -> true
-        else -> false
-    }
+    layer.style.isCapsuleHost || layer.style.category == AlertRenderCategory.Anchor
 }

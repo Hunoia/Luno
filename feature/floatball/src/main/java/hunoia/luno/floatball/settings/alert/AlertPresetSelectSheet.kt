@@ -61,8 +61,7 @@ internal fun AlertPresetSelectSheet(
         (category == null || category in preset.categories()) &&
             (query.isBlank() || nameOf(preset).contains(query.trim(), ignoreCase = true))
     }
-    val mine = filtered.filter { !it.builtin }
-    val builtin = filtered.filter { it.builtin }
+    val mine = filtered
 
     LunoSheet(onDismissRequest = onDismiss) {
         Text(
@@ -106,17 +105,6 @@ internal fun AlertPresetSelectSheet(
                     )
                 }
                 mine.forEach { preset ->
-                    item { shape ->
-                        PresetChoiceRow(
-                            title = preset.displayName(),
-                            subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
-                            selected = preset.id == currentId,
-                            shape = shape,
-                            onClick = { onSelect(preset.id) },
-                        )
-                    }
-                }
-                builtin.forEach { preset ->
                     item { shape ->
                         PresetChoiceRow(
                             title = preset.displayName(),

@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,28 +36,38 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import hunoia.luno.config.model.AlertRenderBackend
+import hunoia.luno.config.model.EdgeShape
+import hunoia.luno.config.model.BandPath
 import hunoia.luno.config.model.ColorSpec
-import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.CoverMask
 import hunoia.luno.config.model.AlertParticleShape
+import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.RevealDirection
+import hunoia.luno.config.model.RevealPattern
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
+import hunoia.luno.config.model.RingStyle
+import hunoia.luno.config.model.WashShape
 import hunoia.luno.runtime.floatball.alert.engine.NormPoint
 import hunoia.luno.runtime.floatball.alert.engine.ParticleFrame
 import hunoia.luno.runtime.floatball.alert.engine.ParticleState
 import hunoia.luno.runtime.floatball.alert.engine.advanceParticle
 import hunoia.luno.runtime.floatball.alert.engine.noise01
+import hunoia.luno.runtime.floatball.alert.engine.spawnPoint
 import hunoia.luno.runtime.floatball.alert.engine.spawnParticle
 import hunoia.luno.runtime.floatball.alert.engine.varianceScale
 import hunoia.luno.ui.theme.toMarkColor
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.random.Random
 
@@ -83,13 +92,6 @@ private const val TAG = "AlertEffects"
  * 各样式的随机种子基值；实际种子 = 基值 xor `AlertPlayPlan.seed`。
  * 基值保证不同样式形态不同，播放种子保证每次到达形态不同（测试传固定 seed 复现）。
  */
-private const val RainSeed = 0x7A1A
-private const val FountainSeed = 0xF04A
-private const val MeteorSeed = 0x4E7E
-private const val ConfettiSeed = 0xC0FF
-private const val FireflySeed = 0xF1AE
-private const val FireworksSeed = 0xF1AE0
-private const val PathSeed = 0x9A7A
 private const val TwoPi = (Math.PI * 2.0).toFloat()
 
 /**
@@ -212,6 +214,9 @@ private const val EDGE_FLOW_SHADER = """
     uniform float coreSigma;
     uniform float trailSigma;
     uniform float trailAlpha;
+    uniform float tailPower;
+    uniform float headBoost;
+    uniform float trailDir;
     uniform float dualOffset;
     uniform float dualSecond;
     uniform float trailBack2;
@@ -243,9 +248,14 @@ private const val EDGE_FLOW_SHADER = """
 
         float aB = bandGlow(s, headPos, coreSigma);
         if (trailSigma > 0.0) {
-            aB += bandGlow(s, headPos - coreSigma * 2.0 - trailSigma, trailSigma) * trailAlpha;
+            float tail = bandGlow(
+                s,
+                headPos + trailDir * (coreSigma * 2.0 + trailSigma),
+                trailSigma
+            );
+            aB += pow(tail, max(tailPower, 0.5)) * trailAlpha;
         }
-        aB *= depth * intensity;
+        aB *= depth * intensity * (1.0 + headBoost * bandGlow(s, headPos, coreSigma));
         half4 cB = paletteCount > 1.5 ? paletteAt(headPos) : palette0;
         outRgb += cB.rgb * aB;
         outA += aB;
@@ -253,11 +263,12 @@ private const val EDGE_FLOW_SHADER = """
         if (dualOffset < 1.0) {
             float a2 = bandGlow(s, headPos2, coreSigma);
             if (trailSigma > 0.0) {
-                a2 += bandGlow(
+                float tail2 = bandGlow(
                     s,
                     headPos2 - trailBack2 * (coreSigma * 2.0 + trailSigma),
                     trailSigma
-                ) * trailAlpha;
+                );
+                a2 += pow(tail2, max(tailPower, 0.5)) * trailAlpha;
             }
             a2 *= depth * intensity;
             half4 c2 = paletteCount > 1.5
@@ -284,6 +295,7 @@ private const val EDGE_RIPPLE_SHADER = """
     uniform float sigma;
     uniform float headPos;
     uniform float bandWidth;
+    uniform float hardness;
     uniform float intensity;
     $PALETTE_DECL
     $PERIMETER_FN
@@ -295,7 +307,7 @@ private const val EDGE_RIPPLE_SHADER = """
         float dist = length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - cornerRadius;
         float inward = max(-dist, 0.0) / max(bandWidth, 1.0);
         float outward = max(dist, 0.0) / max(bandWidth * 0.5, 1.0);
-        float depth = exp(-pow(inward, 1.5)) * exp(-outward);
+        float depth = exp(-pow(inward, max(hardness, 0.5))) * exp(-outward);
         float len = 4.0 * (halfSize.x - cornerRadius) + 4.0 * (halfSize.y - cornerRadius) +
             6.2831853 * cornerRadius;
         float s = perimeterParam(p, halfSize, cornerRadius) / max(len, 1.0);
@@ -310,13 +322,11 @@ private const val EDGE_RIPPLE_SHADER = """
     }
 """
 
-/** 舞台层的总入口：按计划里的舞台层顺序绘制（胶囊层不在这里）。 */
 @Composable
 internal fun AlertStageLayers(
     plan: AlertPlayPlan,
     anchor: AlertAnchor,
     colorSpec: ColorSpec,
-    secondColorSpec: ColorSpec,
     clock: () -> Float,
     /** 当前锚点：静态播放返回固定值；触钮跟手时每帧读最新手指坐标。 */
     anchorProvider: () -> AlertAnchor = { anchor },
@@ -326,24 +336,13 @@ internal fun AlertStageLayers(
             key(layer.layerId ?: "${layer.presetId ?: layer.style}-$index") {
                 val palette = resolvePalette(layer, colorSpec)
                 val seed = plan.seed
-                when (val style = layer.style) {
-                    is EdgeAlertStyle -> when (style) {
-                        EdgeAlertStyle.EdgeGlow -> EdgeGlowLayer(layer, palette, clock)
-                        EdgeAlertStyle.EdgeFlow -> EdgeFlowLayer(
-                            layer = layer,
-                            palette = palette,
-                            secondColorSpec = secondColorSpec,
-                            clock = clock,
-                        )
-                        EdgeAlertStyle.EdgeRipple -> EdgeRippleLayer(layer, palette, clock)
-                        EdgeAlertStyle.EdgeFireworks -> EdgeFireworksLayer(layer, palette, clock, seed)
-                        EdgeAlertStyle.EdgeBladeRise -> EdgeBladeRiseLayer(layer, palette, clock)
-                        EdgeAlertStyle.Ribbon -> EdgeRibbonLayer(layer, palette, clock)
-                        EdgeAlertStyle.Lightning -> EdgeLightningLayer(layer, palette, clock, seed)
-                        EdgeAlertStyle.Comet -> EdgeCometLayer(layer, palette, clock)
-                    }
-
-                    is ParticleAlertStyle -> ParticleEngineLayer(
+                when (layer.style) {
+                    AlertRenderStyle.Edge -> EdgeLayer(layer, palette, clock, seed)
+                    AlertRenderStyle.Ring ->
+                        RingLayer(layer, anchor, palette, clock, anchorProvider)
+                    AlertRenderStyle.Wash -> WashLayer(layer, palette, clock)
+                    AlertRenderStyle.Cover -> CoverLayer(layer, palette, clock)
+                    AlertRenderStyle.Particles -> ParticleEngineLayer(
                         layer,
                         anchor,
                         palette,
@@ -351,29 +350,8 @@ internal fun AlertStageLayers(
                         seed,
                         anchorProvider,
                     )
-
-                    is AnchorAlertStyle -> when (style) {
-                        AnchorAlertStyle.Ring ->
-                            BallRingLayer(layer, anchor, palette, clock, anchorProvider)
-                        AnchorAlertStyle.Ripple ->
-                            FullRippleLayer(layer, anchor, palette, clock, anchorProvider)
-                        AnchorAlertStyle.BallBurst ->
-                            BallBurstLayer(layer, anchor, palette, clock, seed, anchorProvider)
-                        AnchorAlertStyle.BallHalo ->
-                            BallHaloLayer(layer, anchor, palette, clock, anchorProvider)
-                        AnchorAlertStyle.Spiral ->
-                            BallSpiralLayer(layer, anchor, palette, clock, anchorProvider)
-                        AnchorAlertStyle.Orbit3D ->
-                            BallOrbit3DLayer(layer, anchor, palette, clock, anchorProvider)
-                        AnchorAlertStyle.Shockwave ->
-                            BallShockwaveLayer(layer, anchor, palette, clock, anchorProvider)
-                    }
-
-                    is ScreenAlertStyle -> ScreenLayer(layer, palette, clock)
-
-                    is RevealAlertStyle -> RevealLayer(layer, palette, clock)
-
-                    is CapsuleAlertStyle -> Unit
+                    AlertRenderStyle.Reveal -> RevealLayer(layer, palette, clock)
+                    AlertRenderStyle.Capsule -> Unit
                 }
             }
         }
@@ -387,117 +365,6 @@ private fun resolvePalette(layer: AlertLayerPlan, colorSpec: ColorSpec): AlertPa
     return layer.palette?.toColors(fallback) ?: AlertPaletteColors(listOf(fallback), rainbow = false)
 }
 
-/**
- * 屏幕边缘呼吸光：alpha 按 sin 包络呼吸一圈，强度映射 alpha 峰值，光带宽度是用户旋钮。
- * 颜色按周长采样（多色 = 沿边缘渐变）。绘制走 [EDGE_GLOW_SHADER]，仅播放期每帧求值。
- */
-@Composable
-private fun EdgeGlowLayer(
-    layer: AlertLayerPlan,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-) {
-    val spec = layer.spec as EdgeGlowSpec
-    val peakAlpha = layer.brightness.lerpInRange(EdgeGlowTuning.PeakAlphaMin, EdgeGlowTuning.PeakAlphaMax)
-    val shader = remember { createShader(EDGE_GLOW_SHADER, "edgeGlow") }
-    val paint = remember { Paint() }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val activeShader = shader ?: return@Canvas
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val t = (now / layer.cycleMillis) % 1f
-        val intensity = peakAlpha * sin(Math.PI.toFloat() * t)
-        if (intensity <= 0.005f) return@Canvas
-        val falloffPx = layer.amount
-            .lerpInRange(
-                FloatBallDefaults.AlertEdgeGlowBandWidthDpMin.toFloat(),
-                FloatBallDefaults.AlertEdgeGlowBandWidthDpMax.toFloat(),
-            )
-            .dp.toPx()
-        activeShader.setFloatUniform("resolution", size.width, size.height)
-        activeShader.setFloatUniform("cornerRadius", spec.cornerRadiusDp.dp.toPx())
-        activeShader.setFloatUniform("falloff", falloffPx)
-        activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
-        activeShader.setFloatUniform("hardness", spec.hardness)
-        activeShader.setFloatUniform("intensity", intensity)
-        setPaletteUniforms(activeShader, palette)
-        paint.shader = activeShader
-        drawIntoCanvas { canvas ->
-            canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
-        }
-    }
-}
-
-/**
- * 屏幕边缘流光：亮带沿屏缘匀速环绕（每循环一圈），深度衰减口径与呼吸光一致。
- * 刃感 = 主带宽（`coreBand`）+ 深度硬度（`hardness`）+ 拖尾浓度（`trailAlpha`）三件套；
- * 双带时第二带反向行进。颜色按周长采样调色板（单色 + 双色回退 [secondColorSpec]）。
- */
-@Composable
-private fun EdgeFlowLayer(
-    layer: AlertLayerPlan,
-    palette: AlertPaletteColors,
-    secondColorSpec: ColorSpec,
-    clock: () -> Float,
-) {
-    val spec = layer.spec as EdgeFlowSpec
-    val secondAccent = if (secondColorSpec.isUnset) {
-        MaterialTheme.colorScheme.secondary
-    } else {
-        secondColorSpec.toMarkColor()
-    }
-    val peakAlpha = layer.brightness.lerpInRange(FlowTuning.PeakAlphaMin, FlowTuning.PeakAlphaMax)
-    val shader = remember { createShader(EDGE_FLOW_SHADER, "edgeFlow") }
-    val paint = remember { Paint() }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val activeShader = shader ?: return@Canvas
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-        val falloffPx = layer.amount
-            .lerpInRange(
-                FloatBallDefaults.AlertFlowBandWidthDpMin.toFloat(),
-                FloatBallDefaults.AlertFlowBandWidthDpMax.toFloat(),
-            )
-            .dp.toPx()
-        // 绕圈进度连续跨循环（不逐圈重起步）；匀速环绕，不做缓出（多圈会停顿）。
-        val headPos = (now / layer.cycleMillis) % 1f
-        // 双带相向：第二带从对侧起手、沿反方向走（文案口径）。
-        val headPos2 = if (spec.dualBand) (1.5f - headPos) % 1f else 0f
-        val trailSigma = spec.coreBand * spec.trailScale
-        activeShader.setFloatUniform("resolution", size.width, size.height)
-        activeShader.setFloatUniform("cornerRadius", spec.cornerRadiusDp.dp.toPx())
-        activeShader.setFloatUniform("falloff", falloffPx)
-        activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
-        activeShader.setFloatUniform("hardness", spec.hardness)
-        activeShader.setFloatUniform("intensity", peakAlpha * envelope)
-        activeShader.setFloatUniform("headPos", headPos)
-        activeShader.setFloatUniform("headPos2", headPos2)
-        activeShader.setFloatUniform("coreSigma", spec.coreBand)
-        activeShader.setFloatUniform("trailSigma", trailSigma)
-        activeShader.setFloatUniform("trailAlpha", spec.trailAlpha)
-        activeShader.setFloatUniform("dualOffset", if (spec.dualBand) 0.5f else 2f)
-        activeShader.setFloatUniform("dualSecond", if (spec.dualBand && spec.dualColor) 1f else 0f)
-        activeShader.setFloatUniform("trailBack2", if (spec.dualBand) -1f else 1f)
-        // 单色回退对：主色 + 次色（未选调色板且双色时）。
-        val accent = palette.colors[0]
-        activeShader.setColorUniform("color0", accent.copy(alpha = 1f).toArgb())
-        activeShader.setColorUniform("color1", secondAccent.copy(alpha = 1f).toArgb())
-        setPaletteUniforms(activeShader, palette)
-        paint.shader = activeShader
-        drawIntoCanvas { canvas ->
-            canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
-        }
-    }
-}
-
-/**
- * 粒子层（统一引擎）：把层的旋钮翻译成发射器 + 六族方程，逐帧积分后按形状绘制。
- *
- * 旧的五种手写循环收敛到这一层；样式差异只体现在参数（发射区域 / 方向 / 方程强度 / 形状）。
- * 种子来自播放计划，同种子同参数可复现；积分用 1/60 固定步长累积，避免帧率改变轨迹。
- */
 @Composable
 private fun ParticleEngineLayer(
     layer: AlertLayerPlan,
@@ -511,7 +378,6 @@ private fun ParticleEngineLayer(
     val params = spec.params
     val emitter = params.emitter
     val look = params.look
-    val style = layer.style as ParticleAlertStyle
     val image = rememberParticleImage(look, layer.appPackage)
     val textPaint = remember {
         Paint().apply {
@@ -520,12 +386,26 @@ private fun ParticleEngineLayer(
         }
     }
     val peakAlpha = look.alpha.coerceIn(0.05f, 1f)
-    val count = (emitter.count * layer.cycles).coerceIn(1, 600)
+    val waveCount = layer.cycles.coerceAtLeast(1)
+    val anchors = if (emitter.anchorPerWave) emitter.anchorCount.coerceIn(1, 8) else 1
+    val perWave = emitter.count.coerceAtLeast(1)
+    val clustersPerCycle = anchors * waveCount
+    val count = (perWave * clustersPerCycle).coerceIn(1, 600)
+    val perWaveClamped = (count / clustersPerCycle).coerceAtLeast(1)
     val cycleSeconds = layer.cycleMillis / 1000f
-    // 寿命 = 单循环 × 寿命占比；至少留 5% 做错峰，否则一循环内所有粒子同刻出发。
+    val launchShare = emitter.launchShare.coerceIn(0.05f, 0.9f)
+    val launch = emitter.launchHeight.coerceIn(0f, 0.9f)
+    // 寿命 = 单循环 × 寿命占比；升空形态要给上升留出时间，否则最后一波会被总时长截断。
+    val availableSeconds = if (launch > 0f) {
+        cycleSeconds * (1f - launchShare).coerceAtLeast(0.1f)
+    } else {
+        cycleSeconds
+    }
     val lifeSeconds = (cycleSeconds * emitter.lifeShare.coerceIn(0.05f, 0.95f))
-        .coerceIn(0.06f, cycleSeconds * 0.95f)
-    val spreadMs = (layer.cycleMillis - lifeSeconds * 1000f).coerceAtLeast(1f)
+        .coerceIn(0.06f, availableSeconds.coerceAtLeast(0.06f))
+    // 错峰窗口：delaySpread 是「可用窗口」的比例，0 = 同刻出发，1 = 铺满整个窗口。
+    val spreadMs = ((layer.cycleMillis - lifeSeconds * 1000f) *
+        emitter.delaySpread.coerceIn(0f, 1f)).coerceAtLeast(1f)
     val motion = params.motion
 
     // 坐标口径：x 归一化到 0..aspect（aspect = 宽 / 高），像素 = x × 屏高；
@@ -545,25 +425,77 @@ private fun ParticleEngineLayer(
         } else {
             null
         }
+        val screenCenter = NormPoint(aspect / 2f, 0.5f)
+        val focus = if (emitter.area == ParticleArea.Point ||
+            emitter.area == ParticleArea.BallRing
+        ) {
+            anchorNorm ?: screenCenter
+        } else {
+            screenCenter
+        }
 
         // 一次播放的粒子状态：初始位置 / 方向一次生成，之后按帧推进。
         val run = remember(layer, seed, aspect, anchorNorm) {
-            val random = Random((layer.presetId?.hashCode() ?: engineSeed(style)) xor seed)
-            val states = mutableListOf<ParticleState>()
+            val random = Random((layer.presetId?.hashCode() ?: emitter.area.hashCode()) xor seed)
+            val frame = ParticleFrame(aspect)
+            val states = ArrayList<ParticleState>(count)
             val sizeJitters = FloatArray(count)
             val alphaJitters = FloatArray(count)
-            repeat(count) { index ->
-                val base = spawnParticle(emitter, ParticleFrame(aspect), anchorNorm, random)
-                val wave = index / (count / layer.cycles).coerceAtLeast(1)
-                states += base.copy(
-                    life = lifeSeconds,
-                    delay = (wave * layer.cycleMillis + random.nextFloat() * spreadMs) / 1000f,
-                    seed = base.seed xor index,
-                )
-                sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
-                alphaJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
+            val waveOf = IntArray(count)
+            val rockets = mutableListOf<RocketRun>()
+            // 一簇一爆：每次波次共用一个锚点；烟花升空也必须先固定起点。
+            val clustered = emitter.anchorPerWave || launch > 0f
+            var index = 0
+            for (wave in 0 until waveCount) {
+                val waveStartMs = (wave * layer.cycleMillis).toFloat()
+                val burstMs = waveStartMs + if (launch > 0f) {
+                    launchShare * layer.cycleMillis.toFloat()
+                } else {
+                    0f
+                }
+                // 同一波次可以有多个锚点：每处各发射 count 颗，互相独立取色 / 升空。
+                for (anchorIndex in 0 until anchors) {
+                    val cluster = wave * anchors + anchorIndex
+                    val waveOrigin = if (clustered) {
+                        spawnPoint(emitter.area, frame, anchorNorm, random)
+                    } else {
+                        null
+                    }
+                    val burstOrigin = waveOrigin?.let {
+                        NormPoint(it.x, (it.y - launch).coerceIn(-0.2f, 1.2f))
+                    }
+                    if (waveOrigin != null && burstOrigin != null && launch > 0f) {
+                        rockets += RocketRun(
+                            start = waveOrigin,
+                            end = burstOrigin,
+                            startMillis = waveStartMs,
+                            endMillis = burstMs,
+                            colorIndex = cluster,
+                        )
+                    }
+                    repeat(perWaveClamped) {
+                        if (index >= count) return@repeat
+                        val base = spawnParticle(
+                            emitter = emitter,
+                            frame = frame,
+                            anchor = anchorNorm,
+                            random = random,
+                            origin = burstOrigin,
+                            center = focus,
+                        )
+                        states += base.copy(
+                            life = lifeSeconds,
+                            delay = (burstMs + random.nextFloat() * spreadMs) / 1000f,
+                            seed = base.seed xor index,
+                        )
+                        sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
+                        alphaJitters[index] = varianceScale(look.alphaJitter, random.nextFloat())
+                        waveOf[index] = cluster
+                        index++
+                    }
+                }
             }
-            ParticleRun(states, sizeJitters, alphaJitters)
+            ParticleRun(states, sizeJitters, alphaJitters, waveOf, rockets)
         }
 
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -597,11 +529,46 @@ private fun ParticleEngineLayer(
             // sizeDp 是外接盒边长（不是半径）：换形状时视觉大小一致。
             val peakSizePx = look.sizeDp.dp.toPx() / 2f
             val trailPx = look.trailDp.dp.toPx()
+            val shrink = look.sizeShrink.coerceIn(0f, 0.9f)
+            val fadeExp = look.fadeExp.coerceIn(0.5f, 4f)
+
+            // 升空烟花的火箭：本体是一条短拖尾 + 亮头，到顶点后由下面的粒子接棒。
+            run.rockets.forEach { rocket ->
+                if (now < rocket.startMillis || now > rocket.endMillis) return@forEach
+                val span = (rocket.endMillis - rocket.startMillis).coerceAtLeast(1f)
+                val progress = ((now - rocket.startMillis) / span).coerceIn(0f, 1f)
+                val ease = progress * progress
+                val x = rocket.start.x + (rocket.end.x - rocket.start.x) * ease
+                val y = rocket.start.y + (rocket.end.y - rocket.start.y) * ease
+                val center = Offset(
+                    (x + followDx) * size.height,
+                    (y + followDy) * size.height,
+                )
+                val dx = rocket.end.x - rocket.start.x
+                val dy = rocket.end.y - rocket.start.y
+                val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1e-3f)
+                val dir = Offset(dx / length, dy / length)
+                val rocketColor = palette.at(rocket.colorIndex)
+                val tail = maxOf(trailPx, RocketTrailDp.dp.toPx())
+                drawLine(
+                    color = rocketColor.copy(alpha = 0.65f * envelope),
+                    start = center - dir * tail,
+                    end = center,
+                    strokeWidth = maxOf(2.dp.toPx(), trailPx * 0.35f),
+                    cap = StrokeCap.Round,
+                )
+                drawCircle(
+                    color = rocketColor.copy(alpha = envelope),
+                    radius = 2.5.dp.toPx(),
+                    center = center,
+                )
+            }
+
             run.states.forEachIndexed { index, particle ->
                 val age = nowSeconds - particle.delay
                 if (age <= 0f) return@forEachIndexed
                 val progress = (age / lifeSeconds).coerceIn(0f, 1f)
-                var alpha = peakAlpha * (1f - progress).pow(ParticlesTuning.FadeExp) *
+                var alpha = peakAlpha * (1f - progress).pow(fadeExp) *
                     run.alphaJitters[index] * envelope
                 // 萤火一类的闪烁：每颗粒子用自己的相位明灭，不整层同步。
                 if (look.blink) {
@@ -612,39 +579,59 @@ private fun ParticleEngineLayer(
                     alpha *= (0.35f + 0.65f * pulse)
                 }
                 if (alpha <= 0.005f) return@forEachIndexed
-                val accent = palette.at(index)
+                val accent = if (look.colorPerWave) {
+                    palette.at(run.waveOf[index])
+                } else {
+                    palette.at(index)
+                }
                 val center = Offset(
                     (particle.x + followDx) * size.height,
                     (particle.y + followDy) * size.height,
                 )
-                val radius = peakSizePx * run.sizeJitters[index]
-                drawHalo(
-                    style = look.haloStyle,
-                    shape = look.shape,
-                    image = image,
-                    color = accent,
-                    center = center,
-                    radiusPx = radius,
-                    rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
-                    scale = look.haloScale,
-                    alpha = (alpha * look.haloAlpha).coerceIn(0f, 1f),
-                    textPaint = textPaint,
-                )
-                drawEngineShape(
-                    shape = look.shape,
-                    image = image,
-                    color = accent.copy(alpha = alpha),
-                    center = center,
-                    radiusPx = radius,
-                    rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
-                    vx = particle.vx,
-                    vy = particle.vy,
-                    trailPx = trailPx,
-                    trailAlpha = look.trailAlpha,
-                    tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
-                    text = look.text,
-                    textPaint = textPaint,
-                )
+                val radius = peakSizePx * run.sizeJitters[index] * (1f - shrink * progress)
+                if (radius <= 0.05f) return@forEachIndexed
+                // tilt：绕纵轴压扁；spin 为 0 时也由 tilt 驱动相位，否则翻面是死的。
+                val tilt = if (motion.tilt > 0f) {
+                    val c = kotlin.math.abs(
+                        kotlin.math.cos(Math.toRadians(particle.spinDeg.toDouble())),
+                    ).toFloat()
+                    1f - motion.tilt.coerceIn(0f, 1f) * (1f - c)
+                } else {
+                    1f
+                }
+                scale(
+                    scaleX = tilt,
+                    scaleY = 1f,
+                    pivot = center,
+                ) {
+                    drawHalo(
+                        style = look.haloStyle,
+                        shape = look.shape,
+                        image = image,
+                        color = accent,
+                        center = center,
+                        radiusPx = radius,
+                        rotationDeg = particle.spinDeg,
+                        scale = look.haloScale,
+                        alpha = (alpha * look.haloAlpha).coerceIn(0f, 1f),
+                        textPaint = textPaint,
+                    )
+                    drawEngineShape(
+                        shape = look.shape,
+                        image = image,
+                        color = accent.copy(alpha = alpha),
+                        center = center,
+                        radiusPx = radius,
+                        rotationDeg = particle.spinDeg,
+                        vx = particle.vx,
+                        vy = particle.vy,
+                        trailPx = trailPx,
+                        trailAlpha = look.trailAlpha,
+                        tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
+                        text = look.text,
+                        textPaint = textPaint,
+                    )
+                }
             }
             if (blendPaint != null) {
                 drawContext.canvas.restore()
@@ -653,11 +640,28 @@ private fun ParticleEngineLayer(
     }
 }
 
+/** 升空烟花的火箭拖尾最短长度（dp）；用户把 trailDp 调大时取更大值。 */
+private const val RocketTrailDp = 18f
+
+/** 一簇烟花的升空轨迹：起止点 + 起止时刻 + 取色序号。 */
+private class RocketRun(
+    val start: NormPoint,
+    val end: NormPoint,
+    val startMillis: Float,
+    val endMillis: Float,
+    val colorIndex: Int,
+)
+
+/** 引擎层需要的、随帧推进的状态（抖动数组与状态同序，避免逐帧再算随机）。 */
 /** 引擎层需要的、随帧推进的状态（抖动数组与状态同序，避免逐帧再算随机）。 */
 private class ParticleRun(
     val states: MutableList<ParticleState>,
     val sizeJitters: FloatArray,
     val alphaJitters: FloatArray,
+    /** 每颗粒子属于哪一波（烟花一簇一色用）。 */
+    val waveOf: IntArray,
+    /** 升空烟花的火箭轨迹；非升空形态为空。 */
+    val rockets: List<RocketRun>,
 ) {
     /** 上一次推进到的时间（ms）；由固定步长累积，重组不会重置。 */
     var lastMs: Float = 0f
@@ -690,14 +694,6 @@ private fun advanceRun(
     }
 }
 
-private fun engineSeed(style: ParticleAlertStyle): Int = when (style) {
-    ParticleAlertStyle.TopRain -> RainSeed
-    ParticleAlertStyle.BottomFountain -> FountainSeed
-    ParticleAlertStyle.Meteor -> MeteorSeed
-    ParticleAlertStyle.Confetti -> ConfettiSeed
-    ParticleAlertStyle.Firefly -> FireflySeed
-    ParticleAlertStyle.Path -> PathSeed
-}
 
 /**
  * 光晕：**不再画硬边大圆**。
@@ -785,6 +781,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
     text: String,
     textPaint: Paint,
 ) {
+    // 通用拖尾：所有形状都沿速度反方向拉一段，线形状下面会画更长的一条，这里跳过。
+    if (shape != AlertParticleShape.Line && trailPx > 0.5f) {
+        val len = kotlin.math.hypot(vx, vy)
+        if (len > 0.01f) {
+            val tail = Offset(
+                center.x - vx / len * trailPx,
+                center.y - vy / len * trailPx,
+            )
+            drawLine(
+                color = color.copy(alpha = color.alpha * trailAlpha.coerceIn(0f, 1f)),
+                start = tail,
+                end = center,
+                strokeWidth = (radiusPx * 0.9f).coerceAtLeast(1f),
+                cap = StrokeCap.Round,
+            )
+        }
+    }
     if (shape == AlertParticleShape.CustomImage || shape == AlertParticleShape.AppIcon || image != null) {
         drawMote(image = image, color = color, center = center, radiusPx = radiusPx, rotationDeg = rotationDeg, tint = tint)
         return
@@ -1013,7 +1026,7 @@ private fun RevealLayer(
         val stagger = spec.staggerPercent.coerceIn(0, 90) / 100f
         val cx = size.width / 2f
         when (spec.pattern) {
-            RevealAlertStyle.Icon -> {
+            RevealPattern.Icon -> {
                 val bitmap = icon ?: return@Canvas
                 val unit = size.minDimension * 0.14f
                 val pulse = spec.scaleFrom + (1f - spec.scaleFrom) * progress.coerceIn(0f, 1f)
@@ -1028,7 +1041,7 @@ private fun RevealLayer(
                     alpha = envelope,
                 )
             }
-            RevealAlertStyle.Text -> {
+            RevealPattern.Text -> {
                 val titleSize = size.minDimension * 0.052f
                 val bodySize = size.minDimension * 0.034f
                 titlePaint.textSize = titleSize
@@ -1132,47 +1145,31 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStaggeredLine(
 }
 
 /**
- * 全屏着色（舞台窗最上层之外的独立层）：闪光 / 暗角呼吸 / 缩放脉冲 / 关闭屏幕形态。
+ * 全屏着色（舞台窗）：平铺闪光 / 径向暗角 / 环形缩放脉冲。
  *
- * 效果窗是全屏穿透的，不能真的缩放其它内容；缩放脉冲用径向亮环模拟「向外顶一下」，
- * 观感与「屏幕像被轻推」一致，且不依赖任何应用内容。关闭屏幕类形态都利用这个穿透窗
- * 露出真实画面（亮缝 / 碎片间隙 / 圆孔），结束统一盖满黑。
+ * 效果窗是全屏穿透的，不能真的缩放其它内容；环形用径向亮环模拟「向外顶一下」，
+ * 观感与「屏幕像被轻推」一致，且不依赖任何应用内容。
  */
 @Composable
-private fun ScreenLayer(
+private fun WashLayer(
     layer: AlertLayerPlan,
     palette: AlertPaletteColors,
     clock: () -> Float,
 ) {
-    val spec = layer.spec as ScreenSpec
-    val amplitude = layer.brightness.coerceIn(0f, 1f)
+    val spec = layer.spec as WashSpec
     val accent = palette.at(0)
-    // 关闭屏幕形态自己会盖满全黑：不套尾部淡出，否则最后一帧又把黑幕淡回去（看着没全黑）。
-    // 预览 / 动作动效同样适用；窗口结束自然消失。
-    val holdsBlack = spec.pattern == ScreenAlertStyle.CenterBlackout ||
-        spec.pattern == ScreenAlertStyle.CrtOff ||
-        spec.pattern == ScreenAlertStyle.Shatter ||
-        spec.pattern == ScreenAlertStyle.Blinds ||
-        spec.pattern == ScreenAlertStyle.Iris
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        val envelope = if (holdsBlack) 1f
-        else envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val t = (now / layer.cycleMillis) % 1f
-        when (spec.pattern) {
-            ScreenAlertStyle.Flash -> {
-                val wave = sin(Math.PI.toFloat() * t).coerceAtLeast(0f)
-                val alpha = amplitude * wave * envelope * 0.8f
-                if (alpha > 0.003f) {
-                    drawRect(color = accent.copy(alpha = alpha))
-                }
-            }
-            ScreenAlertStyle.Vignette -> {
-                val breath = 0.5f + 0.5f * sin(2f * Math.PI.toFloat() * t)
-                val alpha = amplitude * (0.35f + 0.65f * breath) * envelope
-                val soft = spec.vignetteSoftness.coerceIn(0.05f, 1f)
+        val wave = if (spec.breath) sin(PI.toFloat() * t).coerceAtLeast(0f) else 1f - t
+        val alpha = (layer.brightness * wave * envelope).coerceIn(0f, 1f)
+        if (alpha <= 0.003f) return@Canvas
+        when (spec.shape) {
+            WashShape.Flat -> drawRect(color = accent.copy(alpha = alpha * 0.8f))
+            WashShape.Radial -> {
+                val soft = spec.softness.coerceIn(0.05f, 1f)
                 val fadeIn = 1f - soft * 0.75f
                 val radius = maxOf(size.width, size.height) * 0.78f
                 drawRect(
@@ -1187,23 +1184,10 @@ private fun ScreenLayer(
                     ),
                 )
             }
-            ScreenAlertStyle.CenterBlackout ->
-                drawCenterBlackout(t, amplitude, spec.vignetteSoftness, envelope)
-            ScreenAlertStyle.CrtOff -> drawCrtOff(t, amplitude)
-            ScreenAlertStyle.Shatter -> drawShatter(
-                t,
-                amplitude,
-                accent,
-                spec.vignetteSoftness,
-                layer.presetId?.hashCode() ?: 0x5A7E,
-            )
-            ScreenAlertStyle.Blinds -> drawBlinds(t, amplitude)
-            ScreenAlertStyle.Iris -> drawIris(t, amplitude, accent, spec.vignetteSoftness)
-            ScreenAlertStyle.ZoomPulse -> {
-                val scale = 1f +
-                    spec.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
-                val alpha = amplitude * (1f - t).pow(1.4f) * envelope
+            WashShape.Ring -> {
+                val scale = 1f + spec.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
                 val radius = maxOf(size.width, size.height) * 0.42f * scale
+                val center = Offset(size.width / 2f, size.height / 2f)
                 drawCircle(
                     brush = Brush.radialGradient(
                         colorStops = arrayOf(
@@ -1212,32 +1196,68 @@ private fun ScreenLayer(
                             0.92f to accent.copy(alpha = alpha),
                             1f to accent.copy(alpha = 0f),
                         ),
-                        center = Offset(size.width / 2f, size.height / 2f),
+                        center = center,
                         radius = radius,
                     ),
                     radius = radius,
-                    center = Offset(size.width / 2f, size.height / 2f),
+                    center = center,
                 )
             }
         }
     }
 }
 
-/** 中心黑幕：实心圆扩散；半径覆盖后直接铺满黑，四个角不会再透。 */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCenterBlackout(
+/**
+ * 全屏覆盖（关闭屏幕的遮罩形态）：圆盘 / 圆瞳 / 中间亮缝 / 百叶 / 碎片。
+ *
+ * 五种遮罩共用一套时序；形状参数（条数 / 片数 / 亮缝 / 边缘）全在 [CoverSpec] 里。
+ * 这一类**不套尾部淡出**：最后必须真的盖满黑，否者锁屏前会“亮一下”。
+ */
+@Composable
+private fun CoverLayer(
+    layer: AlertLayerPlan,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as CoverSpec
+    val accent = palette.at(0)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        val amplitude = (spec.amplitude * layer.brightness).coerceIn(0f, 1f)
+        when (spec.mask) {
+            CoverMask.Circle -> drawCoverCircle(t, amplitude, spec.curve, spec.softness)
+            CoverMask.Iris -> drawCoverIris(t, amplitude, spec.curve, spec.rimDp, accent)
+            CoverMask.Slit -> drawCoverSlit(t, amplitude, spec.curve, spec.slitDp)
+            CoverMask.Bands -> drawCoverBands(t, amplitude, spec.curve, spec.bands)
+            CoverMask.Shards -> drawCoverShards(
+                t,
+                amplitude,
+                accent,
+                spec.softness,
+                spec.shards,
+                layer.presetId?.hashCode() ?: 0x5A7E,
+            )
+        }
+    }
+}
+
+/** 圆盘扩散：半径覆盖后直接铺满黑，四角不再透。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCoverCircle(
     t: Float,
     amplitude: Float,
+    curve: Float,
     softness: Float,
-    envelope: Float,
 ) {
-    val cover = t.easedOut(2.2f)
+    val cover = t.easedOut(curve.coerceIn(1f, 4f))
     val center = Offset(size.width / 2f, size.height / 2f)
-    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f)
+    val farthest = hypot(size.width / 2f, size.height / 2f)
     val radius = farthest * cover
-    val alpha = (amplitude * (0.35f + 0.65f * cover) * envelope).coerceIn(0f, 1f)
+    val alpha = (amplitude * (0.35f + 0.65f * cover)).coerceIn(0f, 1f)
     if (alpha <= 0.004f) return
     if (cover >= 0.995f || radius >= farthest - 0.5f) {
-        drawRect(color = Color.Black.copy(alpha = (amplitude * envelope).coerceIn(0f, 1f)))
+        drawRect(color = Color.Black.copy(alpha = amplitude.coerceIn(0f, 1f)))
         return
     }
     val soft = softness.coerceIn(0.02f, 1f)
@@ -1259,13 +1279,48 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCenterBlackout(
     )
 }
 
-/** 电视关闭：上下黑幕夹住一条亮缝，缝收窄到 0 后只留中心光点。 */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCrtOff(
+/** 圆瞳收束：黑色遮罩留圆形透明孔，孔径收到 0；边缘强调色描边。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCoverIris(
     t: Float,
     amplitude: Float,
+    curve: Float,
+    rimDp: Float,
+    accent: Color,
+) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val farthest = hypot(size.width / 2f, size.height / 2f)
+    val radius = farthest * (1f - t.easedOut(curve.coerceIn(1f, 4f))).pow(1.4f)
+    val alpha = amplitude.coerceIn(0f, 1f)
+    if (radius <= 0.5f) {
+        drawRect(color = Color.Black.copy(alpha = alpha))
+        return
+    }
+    val path = Path().apply {
+        fillType = PathFillType.EvenOdd
+        addRect(Rect(0f, 0f, size.width, size.height))
+        addOval(Rect(center.x - radius, center.y - radius, center.x + radius, center.y + radius))
+    }
+    drawPath(path = path, color = Color.Black.copy(alpha = alpha))
+    val rimAlpha = ((1f - t) * 0.8f).coerceIn(0f, 1f)
+    if (rimAlpha > 0.01f && rimDp > 0f) {
+        drawCircle(
+            color = accent.copy(alpha = rimAlpha),
+            radius = radius,
+            center = center,
+            style = Stroke(width = rimDp.dp.toPx()),
+        )
+    }
+}
+
+/** 中间亮缝：上下黑幕夹住一条亮缝，缝收窄到 0 后只留中心光点。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCoverSlit(
+    t: Float,
+    amplitude: Float,
+    curve: Float,
+    slitDp: Float,
 ) {
     val centerY = size.height / 2f
-    val open = (1f - t).coerceIn(0f, 1f)
+    val open = (1f - t.easedOut(curve.coerceIn(1f, 4f))).coerceIn(0f, 1f)
     val gap = (size.height / 2f) * open * open
     val coverAlpha = amplitude.coerceIn(0f, 1f)
     if (gap > 0.5f) {
@@ -1288,7 +1343,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCrtOff(
     val lineIn = (t / 0.08f).coerceIn(0f, 1f)
     val lineAlpha = (lineIn * (1f - t).pow(1.5f)).coerceIn(0f, 1f)
     if (lineAlpha > 0.01f) {
-        val thickness = (2f + 8f * open).dp.toPx()
+        val thickness = (slitDp * (0.2f + 0.8f * open)).dp.toPx()
         drawRect(
             color = Color.White.copy(alpha = lineAlpha * 0.9f),
             topLeft = Offset(0f, centerY - thickness / 2f),
@@ -1314,90 +1369,19 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCrtOff(
     }
 }
 
-/** 屏幕碎裂：先放射裂纹，再让黑色碎片从中心压满整屏。 */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawShatter(
+/** 百叶：奇偶条带从上下两端交错合拢。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCoverBands(
     t: Float,
     amplitude: Float,
-    accent: Color,
-    softness: Float,
-    seed: Int,
+    curve: Float,
+    count: Int,
 ) {
-    val center = Offset(size.width / 2f, size.height / 2f)
-    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f) * 1.15f
-    val random = Random(seed)
-    val shardCount = 16
-    val angles = FloatArray(shardCount + 1) { index ->
-        val base = index.toFloat() / shardCount * TwoPi
-        if (index == 0 || index == shardCount) base
-        else base + (random.nextFloat() - 0.5f) * 0.2f
-    }
-    val crackAlpha = (1f - t / 0.5f).coerceIn(0f, 1f)
-    if (crackAlpha > 0.01f) {
-        for (index in 0..shardCount) {
-            val angle = angles[index]
-            val length = farthest * (0.35f + 0.65f * (t / 0.3f).coerceIn(0f, 1f))
-            drawLine(
-                color = Color.White.copy(alpha = crackAlpha * 0.7f),
-                start = center,
-                end = Offset(
-                    center.x + kotlin.math.cos(angle) * length,
-                    center.y + kotlin.math.sin(angle) * length,
-                ),
-                strokeWidth = 1.5.dp.toPx(),
-            )
-        }
-    }
-    val shardProgress = ((t - 0.2f) / 0.8f).coerceIn(0f, 1f).easedOut(2f)
-    val scale = 0.12f + 1.03f * shardProgress
-    for (index in 0 until shardCount) {
-        val a0 = angles[index]
-        val a1 = angles[index + 1]
-        val path = Path().apply {
-            moveTo(center.x, center.y)
-            lineTo(
-                center.x + kotlin.math.cos(a0) * farthest * scale,
-                center.y + kotlin.math.sin(a0) * farthest * scale,
-            )
-            lineTo(
-                center.x + kotlin.math.cos(a1) * farthest * scale,
-                center.y + kotlin.math.sin(a1) * farthest * scale,
-            )
-            close()
-        }
-        drawPath(path = path, color = Color.Black.copy(alpha = amplitude))
-    }
-    if (t >= 0.985f) {
-        drawRect(color = Color.Black.copy(alpha = amplitude))
-    } else {
-        // 碎片缝里的裂纹收尾：靠近尾声时用强调色描边，碎裂感更明确。
-        val edgeAlpha = (1f - shardProgress) * (0.2f + softness.coerceIn(0f, 1f) * 0.5f)
-        if (edgeAlpha > 0.01f) {
-            for (index in 0 until shardCount) {
-                val angle = angles[index]
-                drawLine(
-                    color = accent.copy(alpha = edgeAlpha),
-                    start = center,
-                    end = Offset(
-                        center.x + kotlin.math.cos(angle) * farthest * scale,
-                        center.y + kotlin.math.sin(angle) * farthest * scale,
-                    ),
-                    strokeWidth = 1f,
-                )
-            }
-        }
-    }
-}
-
-/** 百叶关闭：奇偶条带从上下两端交错合拢。 */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlinds(
-    t: Float,
-    amplitude: Float,
-) {
-    val bands = 7
+    val bands = count.coerceIn(3, 15)
     val bandHeight = size.height / bands
     val alpha = amplitude.coerceIn(0f, 1f)
+    val ease = curve.coerceIn(1f, 4f)
     for (index in 0 until bands) {
-        val local = ((t - index * 0.045f) / 0.68f).coerceIn(0f, 1f).easedOut(2f)
+        val local = ((t - index * 0.045f) / 0.68f).coerceIn(0f, 1f).easedOut(ease)
         val height = bandHeight * local
         if (height <= 0f) continue
         val top = if (index % 2 == 0) {
@@ -1416,164 +1400,419 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlinds(
     }
 }
 
-/** 圆瞳收束：黑色遮罩留圆形透明孔，孔径收到 0。 */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawIris(
+/** 碎片：先放射裂纹，再让黑色碎片从中心压满整屏。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCoverShards(
     t: Float,
     amplitude: Float,
     accent: Color,
     softness: Float,
+    count: Int,
+    seed: Int,
 ) {
     val center = Offset(size.width / 2f, size.height / 2f)
-    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f)
-    val radius = farthest * (1f - t).pow(1.4f)
-    val alpha = amplitude.coerceIn(0f, 1f)
-    if (radius <= 0.5f) {
-        drawRect(color = Color.Black.copy(alpha = alpha))
-        return
+    val farthest = hypot(size.width / 2f, size.height / 2f) * 1.15f
+    val random = Random(seed)
+    val shardCount = count.coerceIn(6, 30)
+    val angles = FloatArray(shardCount + 1) { index ->
+        val base = index.toFloat() / shardCount * TwoPi
+        if (index == 0 || index == shardCount) base
+        else base + (random.nextFloat() - 0.5f) * 0.2f
     }
-    val path = Path().apply {
-        fillType = PathFillType.EvenOdd
-        addRect(Rect(0f, 0f, size.width, size.height))
-        addOval(
-            Rect(
-                center.x - radius,
-                center.y - radius,
-                center.x + radius,
-                center.y + radius,
-            ),
-        )
+    val crackAlpha = (1f - t / 0.5f).coerceIn(0f, 1f)
+    if (crackAlpha > 0.01f) {
+        for (index in 0..shardCount) {
+            val angle = angles[index]
+            val length = farthest * (0.35f + 0.65f * (t / 0.3f).coerceIn(0f, 1f))
+            drawLine(
+                color = Color.White.copy(alpha = crackAlpha * 0.7f),
+                start = center,
+                end = Offset(
+                    center.x + cos(angle) * length,
+                    center.y + sin(angle) * length,
+                ),
+                strokeWidth = 1.5.dp.toPx(),
+            )
+        }
     }
-    drawPath(path = path, color = Color.Black.copy(alpha = alpha))
-    val soft = softness.coerceIn(0f, 1f)
-    val rimAlpha = ((1f - t) * (0.35f + soft * 0.55f)).coerceIn(0f, 1f)
-    if (rimAlpha > 0.01f) {
-        drawCircle(
-            color = accent.copy(alpha = rimAlpha),
-            radius = radius,
-            center = center,
-            style = Stroke(width = (1f + soft * 3f).dp.toPx()),
-        )
+    val shardProgress = ((t - 0.2f) / 0.8f).coerceIn(0f, 1f).easedOut(2f)
+    val scale = 0.12f + 1.03f * shardProgress
+    for (index in 0 until shardCount) {
+        val a0 = angles[index]
+        val a1 = angles[index + 1]
+        val path = Path().apply {
+            moveTo(center.x, center.y)
+            lineTo(center.x + cos(a0) * farthest * scale, center.y + sin(a0) * farthest * scale)
+            lineTo(center.x + cos(a1) * farthest * scale, center.y + sin(a1) * farthest * scale)
+            close()
+        }
+        drawPath(path = path, color = Color.Black.copy(alpha = amplitude))
+    }
+    if (t >= 0.985f) {
+        drawRect(color = Color.Black.copy(alpha = amplitude))
+    } else {
+        val edgeAlpha = (1f - shardProgress) * (0.2f + softness.coerceIn(0f, 1f) * 0.5f)
+        if (edgeAlpha > 0.01f) {
+            for (index in 0 until shardCount) {
+                val angle = angles[index]
+                drawLine(
+                    color = accent.copy(alpha = edgeAlpha),
+                    start = center,
+                    end = Offset(
+                        center.x + cos(angle) * farthest * scale,
+                        center.y + sin(angle) * farthest * scale,
+                    ),
+                    strokeWidth = 1f,
+                )
+            }
+        }
     }
 }
 
 /**
- * 缎带：沿屏缘环行的宽柔光带，带高斯边缘与可调拖尾；颜色沿周长采样。
- * 与流光的区别是「带宽 / 柔和度」优先，头部没有锐利主带。
+ * 屏缘族：`EdgeSpec.shape` 决定当前形态，同一时刻只画一种（不叠加）。
  */
 @Composable
-private fun EdgeRibbonLayer(
+private fun EdgeLayer(
     layer: AlertLayerPlan,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    seed: Int,
 ) {
-    val spec = layer.spec as EdgeRibbonSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeGlowTuning.PeakAlphaMin,
-        EdgeGlowTuning.PeakAlphaMax,
-    )
+    val spec = layer.spec as EdgeSpec
+    when (spec.shape) {
+        EdgeShape.Breathing -> EdgeBreathingLayer(layer, spec, palette, clock)
+        EdgeShape.Sweep -> EdgeSweepLayer(layer, spec, palette, clock)
+        EdgeShape.Wave -> EdgeWaveLayer(layer, spec, palette, clock)
+        EdgeShape.Lightning -> EdgeLightningLayer(layer, spec, palette, clock, seed)
+    }
+}
+
+/**
+ * 呼吸光：整圈只做亮度呼吸，不移动。AGSL 距离场保证圆角处连续；
+ * CPU 回退沿周长分段描边，不会退化成点阵。
+ */
+@Composable
+private fun EdgeBreathingLayer(
+    layer: AlertLayerPlan,
+    spec: EdgeSpec,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val shader = remember(spec.backend) {
+        if (spec.backend == AlertRenderBackend.Cpu) {
+            null
+        } else {
+            createShader(EDGE_GLOW_SHADER, "edgeBreath")
+        }
+    }
+    val paint = remember { Paint() }
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         if (envelope <= 0.005f) return@Canvas
         val t = (now / layer.cycleMillis) % 1f
-        val head = t.easedOut(2f)
-        val inset = EdgeFrameTuning.InsetDp.dp.toPx()
-        val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
-        val bandPx = spec.bandWidthDp.dp.toPx()
-        val band = (bandPx / maxOf(size.width, size.height)).coerceIn(0.01f, 0.25f)
-        val tail = (band * spec.trailScale).coerceIn(0f, 0.9f)
-        val samples = 180
-        for (i in 0 until samples) {
-            val f = i.toFloat() / samples
-            val d = perimeterDist(f, head)
-            // 头部高斯带 + 后方拖尾（沿行进方向衰减）。
-            val forward = if (d <= band) 1f - (d / band) else 0f
-            val back = if (d <= band + tail && d >= band) {
-                (1f - (d - band) / tail) * spec.trailAlpha
-            } else {
-                0f
+        val wave = sin(PI.toFloat() * t).coerceAtLeast(0f)
+        val pulse = 1f - spec.breathAmount + spec.breathAmount * wave
+        val intensity = (layer.brightness * pulse * envelope).coerceIn(0f, 1f)
+        if (intensity <= 0.003f) return@Canvas
+        val cornerPx = spec.cornerRadiusDp.dp.toPx()
+        val depthPx = spec.depthDp.dp.toPx()
+        val activeShader = shader
+        if (activeShader != null) {
+            activeShader.setFloatUniform("resolution", size.width, size.height)
+            activeShader.setFloatUniform("cornerRadius", cornerPx)
+            activeShader.setFloatUniform("falloff", depthPx)
+            activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
+            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("intensity", intensity)
+            setPaletteUniforms(activeShader, palette)
+            paint.shader = activeShader
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
             }
-            val strength = minOf(1f, forward + back)
-            if (strength <= 0.01f) continue
-            drawCircle(
-                color = palette.sample(f),
-                alpha = peakAlpha * strength * envelope,
-                radius = (bandPx * 0.65f).coerceAtLeast(1f),
-                center = perim.point(f),
+            return@Canvas
+        }
+        // CPU 回退：整圈均匀亮度，按周长取色；描边宽度 = 发光深度。
+        val perimeter = EdgePerimeter(size, depthPx * 0.5f, cornerPx)
+        val samples = 240
+        for (index in 0 until samples) {
+            val f = index.toFloat() / samples
+            val a = perimeter.point(f)
+            val b = perimeter.point((index + 1).toFloat() / samples)
+            drawLine(
+                color = palette.sample(f).copy(alpha = intensity),
+                start = a,
+                end = b,
+                strokeWidth = depthPx,
+                cap = StrokeCap.Round,
             )
         }
     }
 }
 
 /**
- * 屏缘彗星：一个亮头 + 沿行进反方向的渐细拖尾，长度与头宽独立可调。
- * 与流光的区别是「拖尾长、头锐、无第二带」，不是同一形态换参数。
+ * 滚动光带：头 + 拖尾沿路径移动。圆角矩形周长优先走 AGSL 距离场；
+ * 竖 / 横路径、强制 CPU 或噪声放电时走分段描边（圆头相接，不出现圆球串）。
  */
 @Composable
-private fun EdgeCometLayer(
+private fun EdgeSweepLayer(
     layer: AlertLayerPlan,
+    spec: EdgeSpec,
     palette: AlertPaletteColors,
     clock: () -> Float,
 ) {
-    val spec = layer.spec as EdgeCometSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeGlowTuning.PeakAlphaMin,
-        EdgeGlowTuning.PeakAlphaMax,
-    )
+    val shader = remember(spec.backend) {
+        if (spec.backend == AlertRenderBackend.Cpu) {
+            null
+        } else {
+            createShader(EDGE_FLOW_SHADER, "edgeSweep")
+        }
+    }
+    val paint = remember { Paint() }
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
+        // 滚动形态不套整体淡入淡出：那会被读成「呼吸」，与用户的形态切换冲突。
+        val envelope = 1f
+        val t = (now / layer.cycleMillis) % 1f
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
-        val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
-        val head = ((now / layer.cycleMillis) % 1f).easedOut(1.6f)
-        val tailFrac = spec.tailFraction.coerceIn(0.02f, 0.45f)
-        val headWidth = spec.headWidthDp.dp.toPx()
+        val depthPx = spec.depthDp.dp.toPx()
+        val cornerPx = spec.cornerRadiusDp.dp.toPx()
+        val perimeter = if (spec.path == BandPath.Perimeter) {
+            EdgePerimeter(size, inset, cornerPx)
+        } else {
+            null
+        }
+        val shaderGeometry = perimeter != null && spec.noise <= 0.001f
+        val activeShader = shader
+        if (activeShader != null && shaderGeometry && perimeter != null) {
+            val intensity = (layer.brightness * envelope).coerceIn(0f, 1f)
+            if (intensity <= 0.003f) return@Canvas
+            val pathLength = perimeter.length.coerceAtLeast(1f)
+            val headFrac = (spec.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.25f)
+            val moved = (t * spec.travel.coerceIn(0f, 1f)) % 1f
+            val pos = if (spec.reverse) 1f - moved else moved
+            activeShader.setFloatUniform("resolution", size.width, size.height)
+            activeShader.setFloatUniform("cornerRadius", cornerPx)
+            activeShader.setFloatUniform("falloff", depthPx)
+            activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
+            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("intensity", intensity)
+            activeShader.setFloatUniform("headPos", pos)
+            activeShader.setFloatUniform("headPos2", if (spec.dual) (1.5f - pos) % 1f else 0f)
+            activeShader.setFloatUniform("coreSigma", headFrac)
+            activeShader.setFloatUniform("trailSigma", spec.tailLength)
+            activeShader.setFloatUniform("trailAlpha", spec.tailAlpha)
+            activeShader.setFloatUniform("tailPower", spec.tailFalloff)
+            activeShader.setFloatUniform("headBoost", spec.headBoost)
+            activeShader.setFloatUniform("trailDir", if (spec.reverse) 1f else -1f)
+            activeShader.setFloatUniform("dualOffset", if (spec.dual) 0.5f else 2f)
+            activeShader.setFloatUniform("dualSecond", 0f)
+            activeShader.setFloatUniform("trailBack2", -1f)
+            val accent = palette.colors[0]
+            val second = palette.colors.getOrElse(1) { accent }
+            activeShader.setColorUniform("color0", accent.copy(alpha = 1f).toArgb())
+            activeShader.setColorUniform("color1", second.copy(alpha = 1f).toArgb())
+            setPaletteUniforms(activeShader, palette)
+            paint.shader = activeShader
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
+            }
+            return@Canvas
+        }
+
+        // CPU 回退 / 非圆角矩形路径：沿路径逐段描边，圆头相接，避免变成圆球串。
+        val samples = if (perimeter != null) 240 else 160
+        val pathLength = (perimeter?.length ?: maxOf(size.width, size.height)).coerceAtLeast(1f)
+        val headFrac = (spec.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.5f)
+        val movedHead = (t * spec.travel.coerceIn(0f, 1f)) % 1f
+        val head = if (spec.reverse) 1f - movedHead else movedHead
+        val sides = if (perimeter != null) 1 else 2
+        val strokeWidth = (depthPx * 0.9f).coerceAtLeast(1f)
+        val center = Offset(size.width / 2f, size.height / 2f)
+        for (side in 0 until sides) {
+            var previous: Offset? = null
+            var previousAlpha = 0f
+            var previousColor = palette.sample(0f)
+            for (index in 0..samples) {
+                val f = index.toFloat() / samples
+                val forward = bandProfile(headDelta(head, f, spec.reverse), headFrac, spec)
+                val second = if (spec.dual) {
+                    bandProfile(headDelta((head + 0.5f) % 1f, f, spec.reverse), headFrac, spec)
+                } else {
+                    0f
+                }
+                val alpha = (maxOf(forward, second) * layer.brightness * envelope)
+                    .coerceIn(0f, 1f)
+                val base = bandPoint(spec.path, f, size, inset, perimeter)
+                val mirrored = if (side == 0) base else mirrorBandPoint(base, spec.path, size)
+                val normal = when {
+                    perimeter != null -> {
+                        val dx = mirrored.x - center.x
+                        val dy = mirrored.y - center.y
+                        val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+                        Offset(dx / length, dy / length)
+                    }
+                    spec.path == BandPath.Vertical -> Offset(if (side == 0) 1f else -1f, 0f)
+                    else -> Offset(0f, if (side == 0) 1f else -1f)
+                }
+                val jitter = if (spec.noise > 0.001f) {
+                    sin(index * 1.7f + now * 0.06f) * depthPx * 0.9f * spec.noise
+                } else {
+                    0f
+                }
+                val point = mirrored + normal * jitter
+                val color = palette.sample(f)
+                if (previous != null && previousAlpha > 0.008f && alpha > 0.008f) {
+                    val segmentAlpha = minOf(previousAlpha, alpha)
+                    val blend = Color(
+                        red = (previousColor.red + color.red) / 2f,
+                        green = (previousColor.green + color.green) / 2f,
+                        blue = (previousColor.blue + color.blue) / 2f,
+                        alpha = segmentAlpha,
+                    )
+                    drawLine(
+                        color = blend,
+                        start = previous,
+                        end = point,
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                previous = point
+                previousAlpha = alpha
+                previousColor = color
+            }
+        }
+    }
+}
+
+/** 路径采样：周长 / 左竖线 / 上横线；竖横线的另一半由 [mirrorBandPoint] 镜像。 */
+private fun bandPoint(
+    path: BandPath,
+    fraction: Float,
+    size: Size,
+    inset: Float,
+    perimeter: EdgePerimeter?,
+): Offset = when (path) {
+    BandPath.Perimeter -> perimeter?.point(fraction) ?: Offset.Zero
+    BandPath.Vertical -> Offset(inset, inset + fraction * (size.height - inset * 2f))
+    BandPath.Horizontal -> Offset(inset + fraction * (size.width - inset * 2f), inset)
+}
+
+/** 竖 / 横路径的对面镜像点。 */
+private fun mirrorBandPoint(point: Offset, path: BandPath, size: Size): Offset = when (path) {
+    BandPath.Perimeter -> point
+    BandPath.Vertical -> Offset(size.width - point.x, point.y)
+    BandPath.Horizontal -> Offset(point.x, size.height - point.y)
+}
+
+/** 路径上的「离头部多远」（0 = 头部，越大越靠后）。 */
+private fun headDelta(head: Float, fraction: Float, reverse: Boolean): Float {
+    val signed = if (reverse) fraction - head else head - fraction
+    return ((signed % 1f) + 1f) % 1f
+}
+
+/** 头部 + 拖尾的强度剖面：头亮、尾按 falloff 衰减。 */
+private fun bandProfile(delta: Float, headFrac: Float, spec: EdgeSpec): Float {
+    if (delta < headFrac) {
+        val k = 1f - delta / headFrac
+        return (0.72f + 0.28f * k) * (1f + spec.headBoost * k).coerceAtMost(1.6f)
+    }
+    val tail = spec.tailLength.coerceIn(0f, 0.9f)
+    if (tail <= 0.001f) return 0f
+    val behind = delta - headFrac
+    if (behind >= tail) return 0f
+    val k = 1f - behind / tail
+    return spec.tailAlpha * k.pow(spec.tailFalloff.coerceIn(0.5f, 4f))
+}
+
+/**
+ * 屏缘波纹：等距波峰沿周长起伏。优先走 AGSL 距离场，CPU 回退按波峰高斯采样。
+ */
+@Composable
+private fun EdgeWaveLayer(
+    layer: AlertLayerPlan,
+    spec: EdgeSpec,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val shader = remember(spec.backend) {
+        if (spec.backend == AlertRenderBackend.Cpu) {
+            null
+        } else {
+            createShader(EDGE_RIPPLE_SHADER, "edgeWave")
+        }
+    }
+    val paint = remember { Paint() }
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        // 波纹同样不套整体淡入淡出，避免与「呼吸」混淆。
+        val envelope = 1f
+        val inset = EdgeFrameTuning.InsetDp.dp.toPx()
+        val cornerPx = spec.cornerRadiusDp.dp.toPx()
+        val depthPx = spec.depthDp.dp.toPx()
+        val waveWidthPx = spec.waveWidthDp.dp.toPx()
+        val perimeter = EdgePerimeter(size, inset, cornerPx)
+        val crests = spec.crests.coerceIn(2, 6)
+        val travel = (now / layer.cycleMillis) % 1f
+        val activeShader = shader
+        if (activeShader != null) {
+            val sigma = (waveWidthPx / perimeter.length.coerceAtLeast(1f)).coerceIn(0.004f, 0.2f)
+            activeShader.setFloatUniform("resolution", size.width, size.height)
+            activeShader.setFloatUniform("cornerRadius", cornerPx)
+            activeShader.setFloatUniform("inset", inset)
+            activeShader.setFloatUniform("crestCount", crests.toFloat())
+            activeShader.setFloatUniform("sigma", sigma)
+            activeShader.setFloatUniform("headPos", travel)
+            activeShader.setFloatUniform("bandWidth", depthPx)
+            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("intensity", layer.brightness * envelope)
+            setPaletteUniforms(activeShader, palette)
+            paint.shader = activeShader
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
+            }
+            return@Canvas
+        }
+        // CPU 回退：波峰高斯采样；半径随采样间距放大，避免小深度时出现断点。
         val samples = 360
-        for (i in 0 until samples) {
-            val f = i.toFloat() / samples
-            // 行进方向为正：delta = 头部已经走过该点的周长比例。
-            val delta = ((head - f) % 1f + 1f) % 1f
-            if (delta > tailFrac) continue
-            val k = 1f - delta / tailFrac
-            val alpha = peakAlpha * k.pow(1.7f) * spec.tailAlpha * envelope
-            if (alpha <= 0.01f) continue
+        val spacing = perimeter.length / samples
+        val radius = maxOf(depthPx * 0.55f, spacing * 0.7f)
+        val sigma = (waveWidthPx / perimeter.length.coerceAtLeast(1f)).coerceIn(0.002f, 0.2f)
+        for (index in 0 until samples) {
+            val f = index.toFloat() / samples
+            val x = (f - travel) * crests
+            val nearest = kotlin.math.round(x)
+            val distance = kotlin.math.abs(x - nearest) / crests
+            val sn = distance / sigma
+            val wave = kotlin.math.exp(-0.5f * sn.pow(spec.hardness))
+            val alpha = (layer.brightness * wave * envelope).coerceIn(0f, 1f)
+            if (alpha <= 0.004f) continue
             drawCircle(
-                color = palette.sample(f),
-                alpha = alpha,
-                radius = headWidth * (0.3f + 0.7f * k) / 2f,
-                center = perim.point(f),
+                color = palette.sample(f).copy(alpha = alpha),
+                radius = radius,
+                center = perimeter.point(f),
             )
         }
-        // 头部额外提亮一层，避免长拖尾把「头」读没了。
-        val headPoint = perim.point(head)
-        drawCircle(
-            color = palette.sample(head),
-            alpha = (peakAlpha * envelope).coerceIn(0f, 1f),
-            radius = headWidth * 0.8f,
-            center = headPoint,
-        )
     }
 }
 
 /**
- * 闪电：沿屏缘随机落点的折线放电，向屏幕内短促炸开；每一道有自己的闪断窗口。
+ * 屏缘雷电：多道独立落点的折线放电，向屏幕内短促炸开；每一道有自己的闪断窗口。
  * 顶点抖动由播放种子决定，同种子可复现。
  */
 @Composable
 private fun EdgeLightningLayer(
     layer: AlertLayerPlan,
+    spec: EdgeSpec,
     palette: AlertPaletteColors,
     clock: () -> Float,
     seed: Int,
 ) {
-    val spec = layer.spec as EdgeLightningSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeRippleTuning.PeakAlphaMin,
-        EdgeRippleTuning.PeakAlphaMax,
-    )
+    if (spec.bolts <= 0) return
     val path = remember { androidx.compose.ui.graphics.Path() }
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
@@ -1582,222 +1821,57 @@ private fun EdgeLightningLayer(
         if (envelope <= 0.005f) return@Canvas
         val t = (now / layer.cycleMillis) % 1f
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
-        val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
+        val perimeter = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
         val center = Offset(size.width / 2f, size.height / 2f)
-        val strikeWindow = 0.34f
-        repeat(spec.strikeCount) { strike ->
-            val local = ((t * spec.strikeCount - strike) % 1f + 1f) % 1f
-            if (local > strikeWindow) return@repeat
-            val flash = 1f - local / strikeWindow
-            val alpha = peakAlpha * flash * envelope
+        val flashes = spec.boltFlashes.coerceIn(1, 8)
+        val boltsPerFlash = spec.bolts.coerceIn(1, 8)
+        val window = spec.boltWindow.coerceIn(0.05f, 0.9f)
+        val reach = spec.boltReachPercent.coerceIn(10, 90) / 100f
+        val steps = 7
+        // 闪断次数（flashes）与每次的道数（bolts）分开：调道数不再连带改频率。
+        repeat(flashes) { flash ->
+            val local = ((t * flashes - flash) % 1f + 1f) % 1f
+            if (local > window) return@repeat
+            val fade = 1f - local / window
+            val alpha = (layer.brightness * fade * envelope).coerceIn(0f, 1f)
             if (alpha <= 0.01f) return@repeat
-            val anchor = ((seed * 0.0001f + strike * 0.37f) % 1f + 1f) % 1f
-            val start = perim.point(anchor)
-            path.reset()
-            path.moveTo(start.x, start.y)
-            val steps = 7
-            var px = start.x
-            var py = start.y
-            for (step in 1..steps) {
-                val f = step.toFloat() / steps
-                val tx = start.x + (center.x - start.x) * f * 0.38f
-                val ty = start.y + (center.y - start.y) * f * 0.38f
-                val jitter = (noise01(seed + strike * 97, step * 1.7f) - 0.5f)
-                val dx = (center.x - start.x) / maxOf(1f, kotlin.math.hypot(center.x - start.x, center.y - start.y))
-                val dy = (center.y - start.y) / maxOf(1f, kotlin.math.hypot(center.x - start.x, center.y - start.y))
-                px = tx - dy * jitter * size.minDimension * 0.045f
-                py = ty + dx * jitter * size.minDimension * 0.045f
-                path.lineTo(px, py)
-            }
-            val color = palette.sample(anchor)
-            drawPath(
-                path = path,
-                color = color.copy(alpha = alpha * 0.35f),
-                style = Stroke(width = spec.lineWidthDp.dp.toPx() * 3.2f),
-            )
-            drawPath(
-                path = path,
-                color = color.copy(alpha = alpha),
-                style = Stroke(width = spec.lineWidthDp.dp.toPx(), cap = StrokeCap.Round),
-            )
-        }
-    }
-}
-
-/**
- * 球锚点螺旋：粒子从球环出发，一边绕球一边向内卷吸，尽头淡出。
- * 角度与半径都按单循环进度解析计算，不逐帧积分。
- */
-@Composable
-private fun BallSpiralLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as BallSpiralSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        BallBurstTuning.PeakAlphaMin,
-        BallBurstTuning.PeakAlphaMax,
-    )
-    val phases = remember(layer) {
-        Random(0x5A17 xor (layer.presetId?.hashCode() ?: 0)).let { random ->
-            List(spec.count) {
-                SpiralParticle(
-                    phase = random.nextFloat(),
-                    speed = 0.7f + random.nextFloat() * 0.6f,
-                    colorIndex = it,
+            repeat(boltsPerFlash) { bolt ->
+                val anchor = ((seed * 0.0001f + flash * 0.37f + bolt * 0.11f) % 1f + 1f) % 1f
+                val start = perimeter.point(anchor)
+                path.reset()
+                path.moveTo(start.x, start.y)
+                var px = start.x
+                var py = start.y
+                val dx = center.x - start.x
+                val dy = center.y - start.y
+                val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+                for (step in 1..steps) {
+                    val f = step.toFloat() / steps
+                    val tx = start.x + dx * f * reach
+                    val ty = start.y + dy * f * reach
+                    val jitter = noise01(seed + flash * 97 + bolt * 131, step * 1.7f) - 0.5f
+                    px = tx - (dy / length) * jitter * size.minDimension * 0.045f
+                    py = ty + (dx / length) * jitter * size.minDimension * 0.045f
+                    path.lineTo(px, py)
+                }
+                val color = palette.sample(anchor)
+                drawPath(
+                    path = path,
+                    color = color.copy(alpha = alpha * 0.35f),
+                    style = Stroke(width = spec.boltWidthDp.dp.toPx() * 3.2f),
+                )
+                drawPath(
+                    path = path,
+                    color = color.copy(alpha = alpha),
+                    style = Stroke(width = spec.boltWidthDp.dp.toPx(), cap = StrokeCap.Round),
                 )
             }
         }
     }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val liveAnchor = anchorProvider()
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val baseRadius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-        val t = (now / layer.cycleMillis) % 1f
-        for (particle in phases) {
-            val local = ((t * particle.speed + particle.phase) % 1f + 1f) % 1f
-            val radius = baseRadius * (1f - 0.75f * local)
-            val angle = particle.phase * TwoPi + local * spec.turns * TwoPi
-            val x = center.x + cos(angle) * radius
-            val y = center.y + sin(angle) * radius
-            val tailX = center.x + cos(angle - 0.35f) * (radius + baseRadius * 0.06f)
-            val tailY = center.y + sin(angle - 0.35f) * (radius + baseRadius * 0.06f)
-            val alpha = peakAlpha * (1f - local).pow(1.2f) * envelope
-            drawLine(
-                color = palette.at(particle.colorIndex),
-                start = Offset(tailX, tailY),
-                end = Offset(x, y),
-                strokeWidth = spec.particleSizeDp.dp.toPx(),
-                cap = StrokeCap.Round,
-                alpha = alpha,
-            )
-        }
-    }
 }
 
-/**
- * 球锚点 3D 环绕：粒子在倾斜椭圆轨道上运行，深度用尺寸 / alpha 模拟透视假 3D。
- */
 @Composable
-private fun BallOrbit3DLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as BallOrbit3DSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        BallBurstTuning.PeakAlphaMin,
-        BallBurstTuning.PeakAlphaMax,
-    )
-    val phases = remember(layer) {
-        Random(0x3D0B xor (layer.presetId?.hashCode() ?: 0)).let { random ->
-            List(spec.count) {
-                OrbitParticle3D(
-                    phase = random.nextFloat(),
-                    speed = 0.6f + random.nextFloat() * 0.5f,
-                    colorIndex = it,
-                )
-            }
-        }
-    }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val liveAnchor = anchorProvider()
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val radius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-        val t = (now / layer.cycleMillis) % 1f
-        for (particle in phases) {
-            val angle = (t * particle.speed + particle.phase) % 1f * TwoPi
-            val depth = sin(angle)
-            val y = center.y + depth * radius * spec.tilt
-            val x = center.x + cos(angle) * radius
-            val size = spec.particleSizeDp.dp.toPx() * (0.7f + 0.5f * (depth + 1f) / 2f)
-            val alpha = peakAlpha * (0.4f + 0.6f * (depth + 1f) / 2f) * envelope
-            drawCircle(
-                color = palette.at(particle.colorIndex),
-                alpha = alpha,
-                radius = size,
-                center = Offset(x, y),
-            )
-        }
-    }
-}
-
-/**
- * 球心冲击波：单环快速外扩，前沿粗、内侧渐隐；不画涟漪的多重尾环。
- */
-@Composable
-private fun BallShockwaveLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as ShockwaveSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        BallBurstTuning.PeakAlphaMin,
-        BallBurstTuning.PeakAlphaMax,
-    )
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val liveAnchor = anchorProvider()
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val maxRadius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-        val t = (now / layer.cycleMillis) % 1f
-        val progress = t.easedOut(2.4f)
-        val radius = (maxRadius * progress).coerceAtLeast(1f)
-        val alpha = (peakAlpha * (1f - progress).pow(1.1f) * envelope).coerceIn(0f, 1f)
-        if (alpha <= 0.01f) return@Canvas
-        val stroke = spec.strokeWidthDp.dp.toPx()
-        val color = palette.at(0)
-        // 三层同心描边：前沿亮、外侧柔、内侧收，读作「一堵墙推出去」。
-        drawCircle(
-            color = color,
-            alpha = alpha * 0.35f,
-            radius = radius,
-            center = center,
-            style = Stroke(width = stroke * 3.4f),
-        )
-        drawCircle(
-            color = color,
-            alpha = alpha,
-            radius = radius,
-            center = center,
-            style = Stroke(width = stroke * 1.4f),
-        )
-        drawCircle(
-            color = color,
-            alpha = alpha * 0.5f,
-            radius = (radius - stroke * 1.2f).coerceAtLeast(0f),
-            center = center,
-            style = Stroke(width = stroke * 0.8f),
-        )
-    }
-}
-
-/**
- * 球光环扩散（雷达 ping）：从胶囊收起圆的边缘向外**减速扩张**并淡出的圆环；
- * 核环 + 宽光晕双描边；每循环发 [RingSpec.ringsPerCycle] 圈错峰重叠。
- * 颜色按角度采样调色板。
- */
-@Composable
-private fun BallRingLayer(
+private fun RingLayer(
     layer: AlertLayerPlan,
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
@@ -1805,123 +1879,91 @@ private fun BallRingLayer(
     anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as RingSpec
-    val peakAlpha = layer.brightness.lerpInRange(RingTuning.PeakAlphaMin, RingTuning.PeakAlphaMax)
-    val strokeWidthDp = spec.strokeWidthDp.toFloat()
-    val ringsPerCycle = spec.ringsPerCycle
-    val haloScale = spec.haloScale
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        val liveAnchor = anchorProvider()
-        val travelPx = ringTravelPx(liveAnchor.capsulePx, layer.amount).toFloat()
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val startRadius = liveAnchor.capsulePx / 2f * 0.9f
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val totalRings = layer.cycles * ringsPerCycle
-        val strokePx = strokeWidthDp.dp.toPx()
-        val haloPx = strokePx * RingTuning.HaloStrokeScale * haloScale
-        val haloAlphaFraction = RingTuning.HaloAlphaFraction * haloScale
-        for (index in 0 until totalRings) {
-            val offset = index * (layer.cycleMillis.toFloat() / ringsPerCycle)
-            val progress = (now - offset) / layer.cycleMillis
-            if (progress <= 0f || progress >= 1f) continue
-            val alpha = peakAlpha * (1f - progress).pow(RingTuning.FadeExp) * envelope
-            if (alpha <= 0.005f) continue
-            val radius = startRadius + travelPx * progress.easedOut(RingTuning.EaseExp)
-            val accent = palette.at(index)
-            if (haloPx > 0f && haloAlphaFraction > 0f) {
-                drawCircle(
-                    color = accent,
-                    alpha = alpha * haloAlphaFraction,
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = haloPx, cap = StrokeCap.Round),
-                )
-            }
-            drawCircle(
-                color = accent,
-                alpha = alpha,
-                radius = radius,
-                center = center,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
-        }
-    }
-}
-
-/**
- * 全屏涟漪：从锚点（通知球心 / 屏幕中心，[RippleSpec.centerAtBall]）向外减速扩张、
- * 抵达屏缘并淡出的水波纹；每循环一道波，核环 + 宽光晕双描边。
- * 颜色按角度采样调色板。
- */
-@Composable
-private fun FullRippleLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as RippleSpec
-    val peakAlpha = layer.brightness.lerpInRange(RippleTuning.PeakAlphaMin, RippleTuning.PeakAlphaMax)
-    val strokeWidthDp = spec.strokeWidthDp.toFloat()
+    val peak = layer.brightness
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val liveAnchor = anchorProvider()
-        val center = if (spec.centerAtBall) {
-            Offset(liveAnchor.centerX, liveAnchor.centerY)
+        if (envelope <= 0.005f) return@Canvas
+        val live = anchorProvider()
+        val center = if (spec.centerAtAnchor) {
+            Offset(live.centerX, live.centerY)
         } else {
             Offset(size.width / 2f, size.height / 2f)
         }
-        val startRadius = if (spec.centerAtBall) liveAnchor.capsulePx / 2f * 0.9f else 0f
-        val farthest = maxOf(
-            (Offset.Zero - center).getDistance(),
-            (Offset(size.width, 0f) - center).getDistance(),
-            (Offset(0f, size.height) - center).getDistance(),
-            (Offset(size.width, size.height) - center).getDistance(),
-        )
-        // 行程旋钮：100% = 到屏幕最远角；<100 收成局部涟漪，>100 提前出屏。
-        val travelPx = (farthest - startRadius).coerceAtLeast(0f) *
-            (spec.travelPercent / 100f)
-        val strokePx = strokeWidthDp.dp.toPx()
-        val haloScale = spec.haloScale.coerceIn(0f, 2f)
-        val haloPx = strokePx * RippleTuning.HaloStrokeScale * haloScale
-        val haloAlphaFraction = RippleTuning.HaloAlphaFraction * haloScale
-        for (index in 0 until layer.cycles) {
-            val progress = (now - index * layer.cycleMillis) / layer.cycleMillis
+        val startRadius = if (spec.centerAtAnchor) live.capsulePx / 2f * 0.9f else 0f
+        val travelPx = live.capsulePx * spec.travelPercent.coerceIn(0, 300) / 100f
+        val strokePx = spec.strokeWidthDp.dp.toPx()
+        val haloPx = strokePx * 3.4f * spec.haloScale
+        val totalRings = (layer.cycles * spec.ringsPerCycle).coerceAtLeast(1)
+        val ringOffsetMillis = layer.cycleMillis.toFloat() / spec.ringsPerCycle.coerceAtLeast(1)
+        for (index in 0 until totalRings) {
+            val progress = (now - index * ringOffsetMillis) / layer.cycleMillis
             if (progress <= 0f || progress >= 1f) continue
-            val alpha = peakAlpha * (1f - progress).pow(RippleTuning.FadeExp) * envelope
+            val alpha = (peak * (1f - progress).pow(1.35f) * envelope).coerceIn(0f, 1f)
             if (alpha <= 0.005f) continue
-            val radius = startRadius + travelPx * progress.easedOut(RippleTuning.EaseExp)
-            val accent = palette.at(index)
-            if (haloPx > 0f && haloAlphaFraction > 0f) {
-                drawCircle(
-                    color = accent,
-                    alpha = alpha * haloAlphaFraction,
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = haloPx, cap = StrokeCap.Round),
-                )
+            val radius = (startRadius + travelPx * progress.easedOut(2f)).coerceAtLeast(1f)
+            val color = palette.at(index)
+            when (spec.style) {
+                RingStyle.Nested -> {
+                    if (haloPx > 0f && spec.haloScale > 0f) {
+                        drawCircle(
+                            color = color.copy(alpha = alpha * 0.3f),
+                            radius = radius,
+                            center = center,
+                            style = Stroke(width = haloPx, cap = StrokeCap.Round),
+                        )
+                    }
+                    drawCircle(
+                        color = color.copy(alpha = alpha),
+                        radius = radius,
+                        center = center,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                    )
+                }
+                RingStyle.ThreeStroke -> {
+                    drawCircle(
+                        color = color.copy(alpha = alpha * 0.35f),
+                        radius = radius,
+                        center = center,
+                        style = Stroke(width = strokePx * 3.4f),
+                    )
+                    drawCircle(
+                        color = color.copy(alpha = alpha),
+                        radius = radius,
+                        center = center,
+                        style = Stroke(width = strokePx * 1.4f),
+                    )
+                    drawCircle(
+                        color = color.copy(alpha = alpha * 0.5f),
+                        radius = (radius - strokePx * 1.2f).coerceAtLeast(0f),
+                        center = center,
+                        style = Stroke(width = strokePx * 0.8f),
+                    )
+                }
+                RingStyle.Halo -> {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0f to color.copy(alpha = 0f),
+                                0.62f to color.copy(alpha = 0f),
+                                0.82f to color.copy(alpha = alpha * 0.75f),
+                                1f to color.copy(alpha = 0f),
+                            ),
+                            center = center,
+                            radius = radius * (1f + spec.haloScale).coerceAtLeast(1.05f),
+                        ),
+                        radius = radius * (1f + spec.haloScale).coerceAtLeast(1.05f),
+                        center = center,
+                    )
+                }
             }
-            drawCircle(
-                color = accent,
-                alpha = alpha,
-                radius = radius,
-                center = center,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
         }
     }
 }
 
-/**
- * 圆角矩形周长的采样器：沿屏缘（内缩 [inset]）均匀取点，顺时针、顶缘左端为 0。
- * 各边缘效果共用，把「沿边缘」效果画在屏缘而不是屏幕中心。
- */
 private class EdgePerimeter(
-    private val size: androidx.compose.ui.geometry.Size,
+    private val size: Size,
     private val inset: Float,
     cornerRadius: Float,
 ) {
@@ -1930,10 +1972,10 @@ private class EdgePerimeter(
     private val r = cornerRadius.coerceAtMost(minOf(w, h) / 2f)
     private val sx = (w / 2f - r).coerceAtLeast(0f)
     private val sy = (h / 2f - r).coerceAtLeast(0f)
-    private val arc = (Math.PI.toFloat() / 2f) * r
-    private val total: Float = 4f * sx + 4f * sy + 2f * Math.PI.toFloat() * r
+    private val arc = (PI.toFloat() / 2f) * r
+    private val total: Float = 4f * sx + 4f * sy + 2f * PI.toFloat() * r
 
-    /** 周长（px），彗星拖尾按它折算长度比例。 */
+    /** 周长（px），拖尾长度按它折算比例。 */
     val length: Float get() = total
 
     fun point(fraction: Float): Offset {
@@ -1947,7 +1989,7 @@ private class EdgePerimeter(
         if (d < seg0) return Offset(left + r + d, top)
         d -= seg0
         if (d < arc) {
-            val a = -Math.PI.toFloat() / 2f + d / arc * (Math.PI.toFloat() / 2f)
+            val a = -PI.toFloat() / 2f + d / arc * (PI.toFloat() / 2f)
             return Offset(right - r + r * cos(a), top + r + r * sin(a))
         }
         d -= arc
@@ -1955,7 +1997,7 @@ private class EdgePerimeter(
         if (d < seg2) return Offset(right, top + r + d)
         d -= seg2
         if (d < arc) {
-            val a = d / arc * (Math.PI.toFloat() / 2f)
+            val a = d / arc * (PI.toFloat() / 2f)
             return Offset(right - r + r * cos(a), bottom - r + r * sin(a))
         }
         d -= arc
@@ -1963,14 +2005,14 @@ private class EdgePerimeter(
         if (d < seg4) return Offset(right - r - d, bottom)
         d -= seg4
         if (d < arc) {
-            val a = Math.PI.toFloat() / 2f + d / arc * (Math.PI.toFloat() / 2f)
+            val a = PI.toFloat() / 2f + d / arc * (PI.toFloat() / 2f)
             return Offset(left + r + r * cos(a), bottom - r + r * sin(a))
         }
         d -= arc
         val seg6 = 2f * sy
         if (d < seg6) return Offset(left, bottom - r - d)
         d -= seg6
-        val a = Math.PI.toFloat() + (d / arc).coerceIn(0f, 1f) * (Math.PI.toFloat() / 2f)
+        val a = PI.toFloat() + (d / arc).coerceIn(0f, 1f) * (PI.toFloat() / 2f)
         return Offset(left + r + r * cos(a), top + r + r * sin(a))
     }
 }
@@ -1979,359 +2021,6 @@ private class EdgePerimeter(
 private fun perimeterDist(a: Float, b: Float): Float {
     val d = kotlin.math.abs(a - b) % 1f
     return minOf(d, 1f - d)
-}
-
-/**
- * 边缘波纹：多道波峰沿屏缘匀速环行。主体走 AGSL 连续距离场（波峰间距均分、
- * 共速环行，[EdgeRippleSpec.crestCount] 个）；shader 编译失败时回退沿周长采样点阵。
- */
-@Composable
-private fun EdgeRippleLayer(
-    layer: AlertLayerPlan,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-) {
-    val spec = layer.spec as EdgeRippleSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeRippleTuning.PeakAlphaMin,
-        EdgeRippleTuning.PeakAlphaMax,
-    )
-    val sizeDp = layer.amount
-        .lerpInRange(
-            FloatBallDefaults.AlertEdgeRippleSizeDpMin.toFloat(),
-            FloatBallDefaults.AlertEdgeRippleSizeDpMax.toFloat(),
-        )
-    // 波纹主体走 AGSL（连续距离场，无采样步进）；编译失败时回退 CPU 点阵。
-    val shader = remember { createShader(EDGE_RIPPLE_SHADER, "edgeRipple") }
-    val paint = remember { Paint() }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-        val crests = spec.crestCount
-        val travel = (now / layer.cycleMillis) % 1f
-        val insetPx = EdgeFrameTuning.InsetDp.dp.toPx()
-        if (shader != null) {
-            val sigma = (EdgeRippleTuning.Sigma * (sizeDp / 6f)).coerceIn(0.01f, 0.12f)
-            shader.setFloatUniform("resolution", size.width, size.height)
-            shader.setFloatUniform("cornerRadius", spec.cornerRadiusDp.dp.toPx())
-            shader.setFloatUniform("inset", insetPx)
-            shader.setFloatUniform("crestCount", crests.toFloat())
-            shader.setFloatUniform("sigma", sigma)
-            shader.setFloatUniform("headPos", travel)
-            shader.setFloatUniform("bandWidth", sizeDp.dp.toPx())
-            shader.setFloatUniform("intensity", peakAlpha * envelope)
-            setPaletteUniforms(shader, palette)
-            paint.shader = shader
-            drawIntoCanvas { canvas ->
-                canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint)
-            }
-            return@Canvas
-        }
-        // CPU 回退：沿周长采样，取各波峰的高斯贡献（sigma 与 shader 同口径）。
-        val perim = EdgePerimeter(size, insetPx, spec.cornerRadiusDp.dp.toPx())
-        val sizeR = sizeDp.dp.toPx()
-        val sigma = (EdgeRippleTuning.Sigma * (sizeDp / 6f)).coerceIn(0.01f, 0.12f)
-        val samples = EdgeRippleTuning.FallbackSamples
-        for (i in 0 until samples) {
-            val f = i.toFloat() / samples
-            var wave = 0f
-            for (c in 0 until crests) {
-                val crestPos = (c.toFloat() / crests + travel) % 1f
-                val dist = perimeterDist(f, crestPos)
-                wave = maxOf(wave, exp(-dist * dist / (2f * sigma * sigma)))
-            }
-            if (wave <= 0.01f) continue
-            val alpha = peakAlpha * wave * envelope
-            val radius = sizeR * (0.5f + 0.5f * wave)
-            drawCircle(
-                color = palette.sample(f),
-                alpha = alpha,
-                radius = radius,
-                center = perim.point(f),
-            )
-        }
-    }
-}
-
-/**
- * 屏缘烟花：随机锚点（种子固定）各发一簇粒子向内迸射，随行程减速并淡出。
- * 行程由 [layer.amount] 映射；每循环一簇，簇间错峰。
- */
-@Composable
-private fun EdgeFireworksLayer(
-    layer: AlertLayerPlan,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    seed: Int,
-) {
-    val spec = layer.spec as EdgeFireworksSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeFireworksTuning.PeakAlphaMin,
-        EdgeFireworksTuning.PeakAlphaMax,
-    )
-    val particles = remember(layer, seed) {
-        val random = Random(FireworksSeed xor seed)
-        val perBurst = EdgeFireworksTuning.PerBurst
-        List(spec.burstCount) { b ->
-            val anchor = random.nextFloat()
-            List(perBurst) { i ->
-                val angle = Math.PI.toFloat() * (0.75f + 1.5f * (i.toFloat() / (perBurst - 1))) +
-                    (random.nextFloat() - 0.5f) * EdgeFireworksTuning.AngleJitter
-                BurstParticle(
-                    anchor = anchor,
-                    angle = angle,
-                    speed = EdgeFireworksTuning.SpeedMin +
-                        random.nextFloat() *
-                        (EdgeFireworksTuning.SpeedMax - EdgeFireworksTuning.SpeedMin),
-                    delay = b * (1f / spec.burstCount) * EdgeFireworksTuning.DelaySpread +
-                        random.nextFloat() * EdgeFireworksTuning.DelayJitter,
-                    radiusDp = spec.particleSizeDp * (EdgeFireworksTuning.RadiusMinScale +
-                        random.nextFloat() *
-                        (EdgeFireworksTuning.RadiusMaxScale - EdgeFireworksTuning.RadiusMinScale)),
-                    colorIndex = b * perBurst + i,
-                )
-            }
-        }.flatten()
-    }
-    val spreadPx = layer.amount
-        .lerpInRange(
-            FloatBallDefaults.AlertEdgeFireworksSpreadDpMin.toFloat(),
-            FloatBallDefaults.AlertEdgeFireworksSpreadDpMax.toFloat(),
-        )
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val perim = EdgePerimeter(size, EdgeFrameTuning.InsetDp.dp.toPx(), spec.cornerRadiusDp.dp.toPx())
-        val travelPx = spreadPx.dp.toPx()
-        for (p in particles) {
-            val progress = (now / layer.cycleMillis - p.delay) % 1f
-            if (progress <= 0f || progress >= 1f) continue
-            val ease = progress.easedOut(EdgeFireworksTuning.EaseExp)
-            val alpha = peakAlpha * (1f - progress) * envelope
-            if (alpha <= 0.005f) continue
-            val anchorP = perim.point(p.anchor)
-            val dir = Offset(cos(p.angle), sin(p.angle))
-            val center = Offset(
-                anchorP.x + dir.x * travelPx * ease * p.speed,
-                anchorP.y + dir.y * travelPx * ease * p.speed,
-            )
-            drawCircle(
-                color = palette.at(p.colorIndex),
-                alpha = alpha,
-                radius = p.radiusDp.dp.toPx() * (1f - EdgeFireworksTuning.SizeShrink * progress),
-                center = center,
-            )
-        }
-    }
-}
-
-/** 屏缘烟花的一颗粒子：锚点（周长分数）、迸射角、速率、延迟、半径、取色序号。 */
-private data class BurstParticle(
-    val anchor: Float,
-    val angle: Float,
-    val speed: Float,
-    val delay: Float,
-    val radiusDp: Float,
-    val colorIndex: Int,
-)
-
-/**
- * 双刃上升：左右两缘各一道竖直亮刃自下而上反复扫过，刃尖在上、尾迹向下渐隐。
- * 刃宽由 [layer.amount] 映射；扫动位置按循环推进（连续跨循环）。
- */
-@Composable
-private fun EdgeBladeRiseLayer(
-    layer: AlertLayerPlan,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-) {
-    val spec = layer.spec as EdgeBladeRiseSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        EdgeBladeTuning.PeakAlphaMin,
-        EdgeBladeTuning.PeakAlphaMax,
-    )
-    val bladeWidth = layer.amount
-        .lerpInRange(
-            FloatBallDefaults.AlertEdgeBladeWidthDpMin.toFloat(),
-            FloatBallDefaults.AlertEdgeBladeWidthDpMax.toFloat(),
-        )
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val progress = (now / layer.cycleMillis) % 1f
-        val bladeW = bladeWidth.dp.toPx()
-        val bladeH = spec.bladeHeightDp.dp.toPx()
-        val headY = progress * (size.height + bladeH) - bladeH / 2f
-        // 每侧一道刃：顶部最亮（刃尖），向下线性衰减到尾迹。
-        for (side in intArrayOf(0, 1)) {
-            val x = if (side == 0) bladeW / 2f else size.width - bladeW / 2f
-            val steps = EdgeBladeTuning.Steps
-            for (i in 0 until steps) {
-                val dy = -bladeH / 2f + bladeH * (i.toFloat() / steps)
-                val y = headY + dy
-                if (y < 0f || y > size.height) continue
-                val fall = 1f - (i.toFloat() / steps)
-                val alpha = peakAlpha * fall.pow(EdgeBladeTuning.FadeExp) * envelope
-                if (alpha <= 0.005f) continue
-                val f = y / size.height
-                drawCircle(
-                    color = palette.sample(f),
-                    alpha = alpha,
-                    radius = bladeW *
-                        (EdgeBladeTuning.RadiusScale +
-                            EdgeBladeTuning.RadiusFallScale * fall),
-                    center = Offset(x, y),
-                )
-            }
-        }
-    }
-}
-
-/**
- * 球心爆发：从胶囊球心向外径向迸射的粒子爆，减速扩张 + 淡出。
- * 每循环一次；行程由 [layer.amount] 映射；颜色按粒子序号采样。
- */
-@Composable
-private fun BallBurstLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    seed: Int,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as BallBurstSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        BallBurstTuning.PeakAlphaMin,
-        BallBurstTuning.PeakAlphaMax,
-    )
-    val particles = remember(layer, seed) {
-        val random = Random(0xB0A5 xor seed)
-        List(spec.count) { index ->
-            val angle = random.nextFloat() * 2f * Math.PI.toFloat()
-            BallBurstParticle(
-                angle = angle,
-                speed = BallBurstTuning.SpeedMin +
-                    random.nextFloat() *
-                    (BallBurstTuning.SpeedMax - BallBurstTuning.SpeedMin),
-                radiusDp = spec.particleSizeDp * (BallBurstTuning.RadiusMinScale +
-                    random.nextFloat() *
-                    (BallBurstTuning.RadiusMaxScale - BallBurstTuning.RadiusMinScale)),
-                colorIndex = index,
-            )
-        }
-    }
-    val spreadPx = layer.amount
-        .lerpInRange(
-            FloatBallDefaults.AlertBallBurstSpreadDpMin.toFloat(),
-            FloatBallDefaults.AlertBallBurstSpreadDpMax.toFloat(),
-        )
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val progress = (now / layer.cycleMillis) % 1f
-        if (progress <= 0f || progress >= 1f) return@Canvas
-        val liveAnchor = anchorProvider()
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val travelPx = spreadPx.dp.toPx()
-        val ease = progress.easedOut(BallBurstTuning.EaseExp)
-        for (p in particles) {
-            val alpha = peakAlpha * (1f - progress) * envelope
-            if (alpha <= 0.005f) continue
-            val dir = Offset(cos(p.angle), sin(p.angle))
-            val c = Offset(
-                center.x + dir.x * travelPx * ease * p.speed,
-                center.y + dir.y * travelPx * ease * p.speed,
-            )
-            drawCircle(
-                color = palette.at(p.colorIndex),
-                alpha = alpha,
-                radius = p.radiusDp.dp.toPx() * (1f - BallBurstTuning.SizeShrink * progress),
-                center = c,
-            )
-        }
-    }
-}
-
-/** 螺旋粒子：相位、速度、取色序号。 */
-private data class SpiralParticle(
-    val phase: Float,
-    val speed: Float,
-    val colorIndex: Int,
-)
-
-/** 3D 环绕粒子：相位、速度、取色序号。 */
-private data class OrbitParticle3D(
-    val phase: Float,
-    val speed: Float,
-    val colorIndex: Int,
-)
-
-/** 球心爆发的一颗粒子：迸射角、速率、半径、取色序号。 */
-private data class BallBurstParticle(
-    val angle: Float,
-    val speed: Float,
-    val radiusDp: Float,
-    val colorIndex: Int,
-)
-
-/**
- * 球心光晕：胶囊球心处的柔和径向辉光，随呼吸明灭并轻微缩放。
- * 半径由 [layer.amount]（球径 %）映射；光晕强度走 [BallHaloSpec.haloScale]。
- */
-@Composable
-private fun BallHaloLayer(
-    layer: AlertLayerPlan,
-    anchor: AlertAnchor,
-    palette: AlertPaletteColors,
-    clock: () -> Float,
-    anchorProvider: () -> AlertAnchor,
-) {
-    val spec = layer.spec as BallHaloSpec
-    val peakAlpha = layer.brightness.lerpInRange(
-        BallHaloTuning.PeakAlphaMin,
-        BallHaloTuning.PeakAlphaMax,
-    )
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        val liveAnchor = anchorProvider()
-        val baseRadius = liveAnchor.capsulePx / 2f * (spec.radiusPercent / 100f)
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        val t = (now / layer.cycleMillis) % 1f
-        val breath = 0.5f + 0.5f * sin(2f * Math.PI.toFloat() * t)
-        val radius = (baseRadius *
-            (BallHaloTuning.RadiusMinScale + BallHaloTuning.RadiusBreathScale * breath))
-            .coerceAtLeast(1f)
-        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
-        val peak = peakAlpha * (BallHaloTuning.AlphaFloor +
-            BallHaloTuning.AlphaBreath * breath) * envelope
-        val haloScale = spec.haloScale.coerceIn(0.2f, 2f)
-        // 多色：首 / 中 / 尾三色做径向 stop（单色退化为同色，与旧观感一致）。
-        val ring = palette.colors
-        val inner = ring.first()
-        val mid = if (ring.size > 1) ring[ring.size / 2] else inner
-        val outerStop = if (ring.size > 2) ring.last() else mid
-        // 柔和径向辉光：中心亮 → 边缘透明，避免硬边圆盘。
-        drawCircle(
-            brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                colors = listOf(
-                    inner.copy(alpha = peak),
-                    mid.copy(alpha = peak * BallHaloTuning.MidAlphaFraction),
-                    outerStop.copy(alpha = 0f),
-                ),
-                center = center,
-                radius = radius * haloScale,
-            ),
-            radius = radius * haloScale,
-            center = center,
-        )
-    }
 }
 
 /**

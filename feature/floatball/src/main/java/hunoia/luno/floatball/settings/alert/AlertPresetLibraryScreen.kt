@@ -59,14 +59,13 @@ fun AlertPresetLibraryScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var busy by remember { mutableStateOf(false) }
-    var builtinExpanded by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val library = editor.library
     var categoryFilter by remember { mutableStateOf<AlertLayerCategory?>(null) }
     val mine = library.userPresets()
         .filter { categoryFilter == null || categoryFilter in it.categories() }
-    val builtin = library.pickerPresets().filter { it.builtin }
-        .filter { categoryFilter == null || categoryFilter in it.categories() }
+    val singles = mine.filter { it.resolvedKind == hunoia.luno.config.model.AlertPresetKind.Single }
+    val combos = mine.filter { it.resolvedKind == hunoia.luno.config.model.AlertPresetKind.Combo }
 
     fun toast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
@@ -221,24 +220,47 @@ fun AlertPresetLibraryScreen(
                 onSelect = { categoryFilter = it },
             )
         }
-        if (mine.isNotEmpty() || library.userPresets().isEmpty()) {
-            item(key = "mine") {
+        item(key = "singles") {
+            LunoGroup(
+                title = stringResource(R.string.float_ball_preset_group_single),
+                subtitle = stringResource(R.string.float_ball_preset_group_single_hint),
+                badgeText = "${singles.size}",
+            ) {
+                val rows = segmentedRows {
+                    if (singles.isEmpty()) {
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_preset_empty),
+                                subtitle = stringResource(R.string.float_ball_preset_empty_hint),
+                                shape = shape,
+                            )
+                        }
+                    }
+                    singles.forEach { preset ->
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = preset.displayName(),
+                                subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
+                                shape = shape,
+                                leading = { PresetSwatch(library.swatchFor(preset)) },
+                                enabled = !busy,
+                                onClick = { onEditPreset(preset.id) },
+                            )
+                        }
+                    }
+                }
+                SegmentedRows(rows)
+            }
+        }
+        if (combos.isNotEmpty()) {
+            item(key = "combos") {
                 LunoGroup(
-                    title = stringResource(R.string.float_ball_preset_group_mine),
-                    subtitle = stringResource(R.string.float_ball_preset_group_mine_hint),
-                    badgeText = "${mine.size}",
+                    title = stringResource(R.string.float_ball_preset_group_combo),
+                    subtitle = stringResource(R.string.float_ball_preset_group_combo_hint),
+                    badgeText = "${combos.size}",
                 ) {
                     val rows = segmentedRows {
-                        if (mine.isEmpty()) {
-                            item { shape ->
-                                LunoSettingsRow(
-                                    title = stringResource(R.string.float_ball_preset_empty),
-                                    subtitle = stringResource(R.string.float_ball_preset_empty_hint),
-                                    shape = shape,
-                                )
-                            }
-                        }
-                        mine.forEach { preset ->
+                        combos.forEach { preset ->
                             item { shape ->
                                 LunoSettingsRow(
                                     title = preset.displayName(),
@@ -247,34 +269,6 @@ fun AlertPresetLibraryScreen(
                                     leading = { PresetSwatch(library.swatchFor(preset)) },
                                     enabled = !busy,
                                     onClick = { onEditPreset(preset.id) },
-                                )
-                            }
-                        }
-                    }
-                    SegmentedRows(rows)
-                }
-            }
-        }
-        item(key = "builtin") {
-            LunoGroup(
-                title = stringResource(R.string.float_ball_preset_group_builtin),
-                subtitle = stringResource(R.string.float_ball_preset_group_builtin_edit_hint),
-                badgeText = "${builtin.size}",
-                collapsible = true,
-                expanded = builtinExpanded,
-                onToggle = { builtinExpanded = !builtinExpanded },
-            ) {
-                if (builtinExpanded) {
-                    val rows = segmentedRows {
-                        builtin.forEach { preset ->
-                            item { shape ->
-                                LunoSettingsRow(
-                                    title = preset.displayName(),
-                                    subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
-                                    shape = shape,
-                                    leading = { PresetSwatch(library.swatchFor(preset)) },
-                                    enabled = !busy,
-                                    onClick = { copyAndEdit(preset) },
                                 )
                             }
                         }

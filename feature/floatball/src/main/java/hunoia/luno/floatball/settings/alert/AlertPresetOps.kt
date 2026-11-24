@@ -1,23 +1,25 @@
 package hunoia.luno.floatball.settings.alert
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLibrary
 import hunoia.luno.config.model.AlertLimit
-import hunoia.luno.config.model.allPalettes
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.config.model.AlertPresetKind
 import hunoia.luno.config.model.AlertTiming
-import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.CoverParams
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealParams
-import hunoia.luno.config.model.ScreenParams
+import hunoia.luno.config.model.RingParams
+import hunoia.luno.config.model.WashParams
+import hunoia.luno.config.model.allPalettes
 import java.util.UUID
 
 /**
@@ -29,7 +31,10 @@ import java.util.UUID
 
 /** 把 [layer] 追加到预设末尾（调用方负责先判 [AlertPreset.addBlockedBy]）。 */
 internal fun AlertPreset.withAddedLayer(layer: AlertLayer): AlertPreset =
-    copy(layers = layers + layer)
+    copy(
+        layers = layers + layer,
+        kind = if (layers.isEmpty()) AlertPresetKind.Single else AlertPresetKind.Combo,
+    )
 
 /** 替换同 id 的层；id 不存在时原样返回（不偷偷追加）。 */
 internal fun AlertPreset.withReplacedLayer(layer: AlertLayer): AlertPreset =
@@ -53,10 +58,9 @@ internal fun AlertPreset.withMovedLayer(layerId: String, delta: Int): AlertPrese
 /** 复制一层（新 id，名称加「副本」后缀由 UI 负责传递）。 */
 internal fun AlertLayer.duplicated(): AlertLayer = copy(id = newLayerId())
 
-/** 复制内置素材 / 他人的预设为用户预设（新 id，内置位清除）。 */
+/** 复制他人预设为自己的预设（新 id、新层 id）。 */
 internal fun AlertPreset.asUserCopy(newId: String = newUserPresetId()): AlertPreset = copy(
     id = newId,
-    builtin = false,
     layers = layers.map { it.copy(id = newLayerId(), enabled = true) },
 )
 
@@ -66,34 +70,33 @@ internal fun newUserPresetId(): String = "user_${UUID.randomUUID()}"
 internal fun newUserPreset(name: String): AlertPreset = AlertPreset(
     id = newUserPresetId(),
     name = name,
-    builtin = false,
-    layers = listOf(blankLayer(AlertKind.Particle, newLayerId())),
+    kind = AlertPresetKind.Single,
+    layers = listOf(blankLayer(AlertFamily.Edge, newLayerId())),
 )
 
-/** 空白层：按 kind 给一份能直接播的默认参数（不是全零，否则加完像没加）。 */
-internal fun blankLayer(kind: AlertKind, id: String = newLayerId()): AlertLayer {
+/** 空白层：按族给一份能直接播的默认参数（不是全零，否则加完像没加）。 */
+internal fun blankLayer(family: AlertFamily, id: String = newLayerId()): AlertLayer {
     val base = AlertLayer(
         id = id,
         enabled = true,
-        kind = kind,
+        family = family,
         timing = AlertTiming(baseMillis = 1000),
         color = AlertColorRef(),
     )
-    return when (kind) {
-        AlertKind.Edge -> base.copy(
-            edge = EdgeParams(),
-        )
-        AlertKind.Particle -> base.copy(
+    return when (family) {
+        AlertFamily.Edge -> base.copy(edge = EdgeParams())
+        AlertFamily.Ring -> base.copy(ring = RingParams())
+        AlertFamily.Capsule -> base.copy(capsule = CapsuleParams())
+        AlertFamily.Wash -> base.copy(wash = WashParams())
+        AlertFamily.Cover -> base.copy(cover = CoverParams())
+        AlertFamily.Particles -> base.copy(
             particle = ParticleParams(
                 emitter = ParticleEmitter(count = 40),
                 motion = ParticleMotion(),
                 look = ParticleLook(),
             ),
         )
-        AlertKind.Ball -> base.copy(ball = BallParams())
-        AlertKind.Capsule -> base.copy(capsule = CapsuleParams())
-        AlertKind.Screen -> base.copy(screen = ScreenParams())
-        AlertKind.Reveal -> base.copy(reveal = RevealParams())
+        AlertFamily.Reveal -> base.copy(reveal = RevealParams())
     }
 }
 
@@ -102,7 +105,8 @@ internal fun AlertLibrary.paletteChoices(): List<hunoia.luno.config.model.AlertP
     allPalettes()
 
 /** 该预设还能不能再加一层；不能时返回原因（UI 显示禁用状态）。 */
-internal fun AlertPreset.addBlockedReason(kind: AlertKind): AlertLimit? = addBlockedBy(kind)
+internal fun AlertPreset.addBlockedReason(family: AlertFamily): AlertLimit? =
+    addBlockedBy(family)
 
 /** 重名避让：base、base (2)、base (3)…（素材库 / 导入共用）。 */
 internal fun uniquePresetName(base: String, existing: Collection<String>): String {

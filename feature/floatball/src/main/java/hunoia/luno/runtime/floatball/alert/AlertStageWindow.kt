@@ -85,7 +85,6 @@ internal class AlertStageWindow(private val context: Context) {
         plan: AlertPlayPlan,
         anchor: AlertAnchor,
         colorSpec: ColorSpec,
-        secondColor: ColorSpec = ColorSpec.Unset,
         onFinished: () -> Unit,
         /** 当前锚点提供者：默认恒为 [anchor]；触钮跟手时由调用方喂最新手指坐标。 */
         anchorProvider: () -> AlertAnchor = { anchor },
@@ -119,7 +118,6 @@ internal class AlertStageWindow(private val context: Context) {
                 plan = plan,
                 anchor = anchor,
                 colorSpec = colorSpec,
-                secondColor = secondColor,
                 onFinished = {
                     mainHandler.post {
                         // 普通动效先摘窗再回调：回调可能立刻排队下一条，窗口必须先空出来。
@@ -221,7 +219,6 @@ private fun AlertStageContent(
     plan: AlertPlayPlan,
     anchor: AlertAnchor,
     colorSpec: ColorSpec,
-    secondColor: ColorSpec,
     onFinished: () -> Unit,
     anchorProvider: () -> AlertAnchor,
 ) {
@@ -253,7 +250,6 @@ private fun AlertStageContent(
                 plan = plan,
                 anchor = anchor,
                 colorSpec = colorSpec,
-                secondColorSpec = secondColor,
                 clock = { clock.value },
                 anchorProvider = anchorProvider,
             )

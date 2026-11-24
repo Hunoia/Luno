@@ -318,7 +318,7 @@ data class NotificationCapsuleSettings(
  *
  * **打开开关但没选预设 = 不播**：设置页显示空状态并引导去选，不伪装成已生效。
  * 预设内部可以组合多层（见 [AlertPreset.layers]），层级上限与同类上限由
- * [AlertLimits] 统一约束，宿主由层自己的 [AlertKind] 决定。
+ * [AlertLimits] 统一约束，宿主由层自己的 [AlertFamily] 决定。
  *
  * **挂载键是 `alert_v4`**：v4 删除五槽位与槽位覆盖，旧 `alert_v3` 子树整块被严格 JSON 的
  * `ignoreUnknownKeys` 跳过（动作面板 / 悬浮球 / 识别器不受影响）。
@@ -329,8 +329,10 @@ data class NotificationCapsuleSettings(
 data class NotificationAlertSettings(
     /** 到达提示总开关；默认关。 */
     val enabled: Boolean = false,
-    /** 当前选中的预设（内置或素材库）；null = 未选，不播。 */
+    /** 当前选中的预设（素材库）；null = 未选，不播。 */
     val presetId: String? = null,
+    /** 随机预设：每次播放从素材库里随机挑一个（忽略 [presetId]）。 */
+    val randomize: Boolean = false,
     /** 全局强度（50–200，UI 下限）：只乘 alpha，不改尺寸 / 粒子数。 */
     val intensityPercent: Int = 100,
     /** 全局速度（25–400）：只缩放单循环与总时长，不改层数 / 粒子数。 */

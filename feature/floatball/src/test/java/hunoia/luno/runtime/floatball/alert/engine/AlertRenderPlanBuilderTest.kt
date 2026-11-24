@@ -1,16 +1,16 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.AlertTiming
 import hunoia.luno.config.model.CapsuleParams
+import hunoia.luno.config.model.CoverParams
 import hunoia.luno.config.model.EdgeParams
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleParams
-import hunoia.luno.config.model.ScreenParams
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -22,49 +22,23 @@ class AlertRenderPlanBuilderTest {
 
     private fun layer(
         id: String,
-        kind: AlertKind,
+        family: AlertFamily,
         baseMillis: Int = 1000,
         cycles: Int = 2,
         speedPercent: Int = 100,
         count: Int = 40,
-    ): AlertLayer = when (kind) {
-        AlertKind.Particle -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            particle = ParticleParams(emitter = ParticleEmitter(count = count)),
-        )
-        AlertKind.Edge -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            edge = EdgeParams(),
-        )
-        AlertKind.Ball -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            ball = hunoia.luno.config.model.BallParams(),
-        )
-        AlertKind.Capsule -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            capsule = CapsuleParams(),
-        )
-        AlertKind.Screen -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            screen = ScreenParams(),
-        )
-        AlertKind.Reveal -> AlertLayer(
-            id = id,
-            kind = kind,
-            timing = AlertTiming(baseMillis, cycles, speedPercent),
-            reveal = hunoia.luno.config.model.RevealParams(),
-        )
-    }
+        opacity: Float = 1f,
+    ): AlertLayer = AlertLayer(
+        id = id,
+        family = family,
+        opacity = opacity,
+        timing = AlertTiming(baseMillis, cycles, speedPercent),
+        edge = EdgeParams().takeIf { family == AlertFamily.Edge },
+        capsule = CapsuleParams().takeIf { family == AlertFamily.Capsule },
+        cover = CoverParams().takeIf { family == AlertFamily.Cover },
+        particle = ParticleParams(emitter = ParticleEmitter(count = count))
+            .takeIf { family == AlertFamily.Particles },
+    )
 
     private val palette = AlertPaletteSpec(colors = listOf(0xFFE53935.toInt()))
 
@@ -74,9 +48,9 @@ class AlertRenderPlanBuilderTest {
             id = "p",
             name = "P",
             layers = listOf(
-                layer("a", AlertKind.Particle),
-                layer("b", AlertKind.Capsule, baseMillis = 800, cycles = 1),
-                layer("c", AlertKind.Screen, baseMillis = 600, cycles = 1),
+                layer("a", AlertFamily.Particles),
+                layer("b", AlertFamily.Capsule, baseMillis = 800, cycles = 1),
+                layer("c", AlertFamily.Cover, baseMillis = 600, cycles = 1),
             ),
         )
         val plan = AlertRenderPlanBuilder.build(
@@ -92,7 +66,7 @@ class AlertRenderPlanBuilderTest {
 
         assertEquals(3, plan.layers.size)
         val particle = plan.layers[0]
-        assertEquals(AlertKind.Particle, particle.kind)
+        assertEquals(AlertFamily.Particles, particle.family)
         assertEquals(750, particle.cycleMillis) // 1000 × 1.5 ÷ 2
         assertEquals(2, particle.cycles)
         assertEquals(1500, particle.totalMillis)
@@ -111,7 +85,7 @@ class AlertRenderPlanBuilderTest {
         val preset = AlertPreset(
             id = "p",
             name = "P",
-            layers = listOf(layer("a", AlertKind.Edge)),
+            layers = listOf(layer("a", AlertFamily.Edge)),
         )
         val plan = AlertRenderPlanBuilder.build(
             preset = preset,
@@ -123,6 +97,21 @@ class AlertRenderPlanBuilderTest {
         val layer = plan.layers.single()
         assertEquals(2f, layer.intensity, 0.001f)
         assertEquals(250, layer.cycleMillis) // 1000 ÷ 4
+    }
+
+    @Test
+    fun `layer opacity is carried but clamped`() {
+        val preset = AlertPreset(
+            id = "p",
+            name = "P",
+            layers = listOf(layer("a", AlertFamily.Edge, opacity = 3f)),
+        )
+        val layer = AlertRenderPlanBuilder.build(
+            preset = preset,
+            presetId = preset.id,
+            paletteFor = { null },
+        ).layers.single()
+        assertEquals(1f, layer.opacity, 0.001f)
     }
 
     @Test
@@ -149,18 +138,33 @@ class AlertRenderPlanBuilderTest {
         val preset = AlertPreset(
             id = "p",
             name = "P",
-            layers = listOf(layer("s", AlertKind.Screen)),
+            layers = listOf(layer("s", AlertFamily.Cover)),
         )
         val layer = AlertRenderPlanBuilder.build(
             preset = preset,
             presetId = preset.id,
             paletteFor = { palette },
         ).layers.single()
-        assertEquals(AlertKind.Screen, layer.kind)
-        assertTrue(layer.screen != null)
+        assertEquals(AlertFamily.Cover, layer.family)
+        assertTrue(layer.cover != null)
         assertNull(layer.particle)
         assertNull(layer.edge)
         assertNull(layer.capsule)
+    }
+
+    @Test
+    fun `missing params drop the layer instead of crashing`() {
+        val preset = AlertPreset(
+            id = "p",
+            name = "P",
+            layers = listOf(AlertLayer(id = "x", family = AlertFamily.Edge)),
+        )
+        val plan = AlertRenderPlanBuilder.build(
+            preset = preset,
+            presetId = preset.id,
+            paletteFor = { null },
+        ).toPlayPlan()
+        assertTrue(plan.layers.isEmpty())
     }
 
     @Test
@@ -170,7 +174,7 @@ class AlertRenderPlanBuilderTest {
             id = "p",
             name = "P",
             paletteId = "shared",
-            layers = listOf(layer("a", AlertKind.Edge).copy(color = AlertColorRef())),
+            layers = listOf(layer("a", AlertFamily.Edge).copy(color = AlertColorRef())),
         )
         AlertRenderPlanBuilder.build(
             preset = preset,
@@ -186,8 +190,8 @@ class AlertRenderPlanBuilderTest {
             id = "p",
             name = "P",
             layers = listOf(
-                layer("a", AlertKind.Particle, count = 400),
-                layer("b", AlertKind.Particle, count = 400),
+                layer("a", AlertFamily.Particles, count = 400),
+                layer("b", AlertFamily.Particles, count = 400),
             ),
         )
         val plan = AlertRenderPlanBuilder.build(
@@ -209,12 +213,12 @@ class AlertRenderPlanBuilderTest {
             layers = listOf(
                 AlertLayer(
                     id = "a",
-                    kind = AlertKind.Particle,
+                    family = AlertFamily.Particles,
                     particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
                 ),
                 AlertLayer(
                     id = "b",
-                    kind = AlertKind.Particle,
+                    family = AlertFamily.Particles,
                     particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
                 ),
             ),
@@ -229,11 +233,39 @@ class AlertRenderPlanBuilderTest {
     }
 
     @Test
+    fun `particle budget counts anchors per wave`() {
+        val preset = AlertPreset(
+            id = "p",
+            name = "P",
+            layers = listOf(
+                AlertLayer(
+                    id = "a",
+                    family = AlertFamily.Particles,
+                    particle = ParticleParams(
+                        emitter = ParticleEmitter(
+                            count = 100,
+                            waves = 2,
+                            anchorPerWave = true,
+                            anchorCount = 4,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val plan = AlertRenderPlanBuilder.build(
+            preset = preset,
+            presetId = preset.id,
+            paletteFor = { null },
+        )
+        assertEquals(75, plan.layers.single().particle?.emitter?.count)
+    }
+
+    @Test
     fun `layer speed percent divides its own cycle`() {
         val preset = AlertPreset(
             id = "p",
             name = "P",
-            layers = listOf(layer("a", AlertKind.Edge, baseMillis = 1000, speedPercent = 200)),
+            layers = listOf(layer("a", AlertFamily.Edge, baseMillis = 1000, speedPercent = 200)),
         )
         val layer = AlertRenderPlanBuilder.build(
             preset = preset,

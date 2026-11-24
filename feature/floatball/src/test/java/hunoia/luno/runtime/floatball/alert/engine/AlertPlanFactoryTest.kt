@@ -1,26 +1,35 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertHost
-import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLibrary
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPalette
 import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.config.model.AlertRenderBackend
 import hunoia.luno.config.model.AlertTiming
-import hunoia.luno.config.model.BallParams
+import hunoia.luno.config.model.CapsuleParams
+import hunoia.luno.config.model.CapsuleShape
+import hunoia.luno.config.model.CoverParams
 import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.EdgeShape
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleDirection
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleParams
+import hunoia.luno.config.model.RevealParams
+import hunoia.luno.config.model.RingParams
+import hunoia.luno.config.model.WashParams
+import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectRequest
-import hunoia.luno.runtime.floatball.alert.AnchorAlertStyle
-import hunoia.luno.runtime.floatball.alert.CapsuleAlertStyle
-import hunoia.luno.runtime.floatball.alert.EdgeAlertStyle
-import hunoia.luno.runtime.floatball.alert.ParticleAlertStyle
-import hunoia.luno.runtime.floatball.alert.ScreenAlertStyle
+import hunoia.luno.runtime.floatball.alert.AlertRenderStyle
+import hunoia.luno.runtime.floatball.alert.CapsuleSpec
+import hunoia.luno.runtime.floatball.alert.EdgeSpec
+import hunoia.luno.runtime.floatball.alert.ParticlesSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -31,70 +40,42 @@ class AlertPlanFactoryTest {
 
     private fun layer(
         id: String,
-        kind: AlertKind,
+        family: AlertFamily,
         enabled: Boolean = true,
         baseMillis: Int = 1000,
         count: Int = 40,
-    ): AlertLayer = when (kind) {
-        AlertKind.Particle -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            particle = ParticleParams(emitter = ParticleEmitter(count = count)),
-        )
-        AlertKind.Edge -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            edge = EdgeParams(),
-        )
-        AlertKind.Ball -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            ball = BallParams(),
-        )
-        AlertKind.Capsule -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            capsule = hunoia.luno.config.model.CapsuleParams(),
-        )
-        AlertKind.Screen -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            screen = hunoia.luno.config.model.ScreenParams(),
-        )
-        AlertKind.Reveal -> AlertLayer(
-            id = id,
-            enabled = enabled,
-            kind = kind,
-            timing = AlertTiming(baseMillis = baseMillis),
-            reveal = hunoia.luno.config.model.RevealParams(),
-        )
-    }
+    ): AlertLayer = AlertLayer(
+        id = id,
+        enabled = enabled,
+        family = family,
+        timing = AlertTiming(baseMillis = baseMillis),
+        edge = EdgeParams().takeIf { family == AlertFamily.Edge },
+        ring = RingParams().takeIf { family == AlertFamily.Ring },
+        capsule = CapsuleParams().takeIf { family == AlertFamily.Capsule },
+        wash = WashParams().takeIf { family == AlertFamily.Wash },
+        cover = CoverParams().takeIf { family == AlertFamily.Cover },
+        particle = ParticleParams(emitter = ParticleEmitter(count = count))
+            .takeIf { family == AlertFamily.Particles },
+        reveal = RevealParams().takeIf { family == AlertFamily.Reveal },
+    )
 
     private fun preset(
         id: String = "p",
-        vararg kinds: AlertKind,
+        vararg families: AlertFamily,
     ): AlertPreset = AlertPreset(
         id = id,
         name = id,
-        builtin = false,
-        layers = kinds.mapIndexed { index, kind -> layer("l$index", kind) },
+        layers = families.mapIndexed { index, family -> layer("l$index", family) },
     )
 
     private val library = AlertLibrary(
         palettes = listOf(
             AlertPalette(id = "custom_p", name = "P", colors = listOf(0xFF00FF00.toInt())),
         ),
-        presets = listOf(preset("combo", AlertKind.Edge, AlertKind.Particle, AlertKind.Ball)),
+        presets = listOf(
+            preset("combo", AlertFamily.Edge, AlertFamily.Particles, AlertFamily.Ring),
+            preset("other", AlertFamily.Cover),
+        ),
     )
 
     @Test
@@ -151,12 +132,23 @@ class AlertPlanFactoryTest {
     }
 
     @Test
+    fun `layer opacity multiplies the playback brightness`() {
+        val preset = AlertPreset(
+            id = "dim",
+            name = "dim",
+            layers = listOf(layer("l0", AlertFamily.Edge).copy(opacity = 0.5f)),
+        )
+        val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
+        assertEquals(0.275f, plan.stageLayers.single().brightness, 0.001f)
+    }
+
+    @Test
     fun `preset palette overrides layer color`() {
         val preset = AlertPreset(
             id = "pal",
             name = "pal",
             paletteId = "custom_p",
-            layers = listOf(layer("l0", AlertKind.Edge).copy(color = AlertColorRef())),
+            layers = listOf(layer("l0", AlertFamily.Edge).copy(color = AlertColorRef())),
         )
         val plan = AlertPlanFactory.buildFromPreset(
             preset = preset,
@@ -172,12 +164,132 @@ class AlertPlanFactoryTest {
     }
 
     @Test
-    fun `capsule layers are separated from stage layers`() {
-        val preset = preset("cap", AlertKind.Capsule, AlertKind.Edge)
+    fun `capsule families are separated from stage layers`() {
+        // 胶囊窗一次只能画一层：第二个胶囊层被上限丢掉，舞台层不受影响。
+        val preset = preset("cap", AlertFamily.Capsule, AlertFamily.Edge, AlertFamily.Ring)
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
-        assertEquals(1, plan.capsuleLayers.size)
-        assertEquals(CapsuleAlertStyle.Pulse, plan.capsuleLayers.single().style)
-        assertEquals(EdgeAlertStyle.EdgeGlow, plan.stageLayers.single().style)
+        assertEquals(listOf(AlertRenderStyle.Capsule), plan.capsuleLayers.map { it.style })
+        assertEquals(
+            listOf(AlertRenderStyle.Edge, AlertRenderStyle.Ring),
+            plan.stageLayers.map { it.style },
+        )
+    }
+
+    @Test
+    fun `every family maps to its own renderer`() {
+        AlertFamily.entries.forEach { family ->
+            val preset = preset(family.name.lowercase(), family)
+            val plan = AlertPlanFactory.buildFromPreset(
+                preset = preset,
+                presetId = preset.id,
+                library = library,
+                // 揭示层需要内容才会出计划。
+                content = AlertContent(title = "t", body = "b"),
+            ).toPlayPlan()
+            assertEquals(family.name, family.toRenderStyle().name)
+            assertTrue("$family produced no layer", plan.layers.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `edge and capsule shapes ride their specs`() {
+        val preset = AlertPreset(
+            id = "shapes",
+            name = "shapes",
+            layers = listOf(
+                layer("e", AlertFamily.Edge).copy(
+                    edge = EdgeParams(
+                        shape = EdgeShape.Lightning,
+                        bolts = 4,
+                        boltFlashes = 2,
+                        boltWindow = 0.5f,
+                        boltReachPercent = 60,
+                        waveWidthDp = 12f,
+                    ),
+                ),
+                layer("c", AlertFamily.Capsule).copy(
+                    capsule = CapsuleParams(shape = CapsuleShape.Sweep, fill = true),
+                ),
+            ),
+        )
+        val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
+        val edge = plan.stageLayers.single().spec as EdgeSpec
+        assertEquals(EdgeShape.Lightning, edge.shape)
+        assertEquals(4, edge.bolts)
+        assertEquals(2, edge.boltFlashes)
+        assertEquals(0.5f, edge.boltWindow, 0.001f)
+        assertEquals(60, edge.boltReachPercent)
+        assertEquals(12f, edge.waveWidthDp, 0.001f)
+        val capsule = plan.capsuleLayers.single().spec as CapsuleSpec
+        assertEquals(CapsuleShape.Sweep, capsule.shape)
+        assertTrue(capsule.fill)
+    }
+
+    @Test
+    fun `renderer backend rides the edge spec`() {
+        val preset = AlertPreset(
+            id = "backend",
+            name = "backend",
+            layers = listOf(
+                layer("b", AlertFamily.Edge).copy(
+                    edge = EdgeParams(backend = AlertRenderBackend.Cpu),
+                ),
+            ),
+        )
+        val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
+        assertEquals(
+            AlertRenderBackend.Cpu,
+            (plan.stageLayers.single().spec as EdgeSpec).backend,
+        )
+    }
+
+    @Test
+    fun `firework burst fields ride the particle spec`() {
+        val preset = AlertPreset(
+            id = "fw",
+            name = "fw",
+            layers = listOf(
+                layer("p", AlertFamily.Particles).copy(
+                    particle = ParticleParams(
+                        emitter = ParticleEmitter(
+                            area = ParticleArea.EdgePerimeter,
+                            anchorPerWave = true,
+                            anchorCount = 3,
+                            directionMode = ParticleDirection.Inward,
+                            launchHeight = 0.55f,
+                            launchShare = 0.4f,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
+        val spec = plan.stageLayers.single().spec as ParticlesSpec
+        assertTrue(spec.params.emitter.anchorPerWave)
+        assertEquals(3, spec.params.emitter.anchorCount)
+        assertEquals(ParticleDirection.Inward, spec.params.emitter.directionMode)
+        assertEquals(0.55f, spec.params.emitter.launchHeight, 0.001f)
+        assertEquals(0.4f, spec.params.emitter.launchShare, 0.001f)
+    }
+
+    @Test
+    fun `random mode picks one of the library presets`() {
+        val settings = NotificationAlertSettings(enabled = true, randomize = true)
+        val picks = (0 until 20).map { seed ->
+            AlertPlanFactory.build(settings, library, seed = seed).layers.firstOrNull()?.presetId
+        }.toSet()
+        assertTrue(picks.all { it != null })
+        assertEquals(setOf("combo", "other"), picks)
+    }
+
+    @Test
+    fun `random mode with an empty library plays nothing`() {
+        val plan = AlertPlanFactory.build(
+            NotificationAlertSettings(enabled = true, randomize = true),
+            AlertLibrary(),
+            seed = 3,
+        )
+        assertTrue(plan.isEmpty)
     }
 
     @Test
@@ -195,7 +307,7 @@ class AlertPlanFactoryTest {
         val preset = AlertPreset(
             id = "off",
             name = "off",
-            layers = listOf(layer("l0", AlertKind.Edge, enabled = false)),
+            layers = listOf(layer("l0", AlertFamily.Edge, enabled = false)),
         )
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library)
         assertTrue(plan.isEmpty)
@@ -226,19 +338,22 @@ class AlertPlanFactoryTest {
             id = "budget",
             name = "budget",
             layers = listOf(
-                layer("a", AlertKind.Particle, count = 400),
-                layer("b", AlertKind.Particle, count = 400),
+                layer("a", AlertFamily.Particles, count = 400),
+                layer("b", AlertFamily.Particles, count = 400),
             ),
         )
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library)
-        assertEquals(AlertLimits.ParticleBudget, plan.layers.sumOf { it.particle?.emitter?.count ?: 0 })
+        assertEquals(
+            AlertLimits.ParticleBudget,
+            plan.layers.sumOf { it.particle?.emitter?.count ?: 0 },
+        )
         assertEquals(400, plan.layers[0].particle?.emitter?.count)
         assertEquals(200, plan.layers[1].particle?.emitter?.count)
     }
 
     @Test
     fun `setting order is preserved and onlyLayer filters a preview`() {
-        val preset = preset("two", AlertKind.Edge, AlertKind.Ball)
+        val preset = preset("two", AlertFamily.Edge, AlertFamily.Ring)
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library)
         assertEquals("l1", plan.onlyLayer("l1").layers.single().layerId)
         assertEquals(2, plan.onlyLayer(null).layers.size)
@@ -246,99 +361,15 @@ class AlertPlanFactoryTest {
 
     @Test
     fun `preset playback policy rides the plan`() {
-        val preset = preset("policy", AlertKind.Edge).copy(playbackPolicy = AlertPlaybackPolicy.Queue)
+        val preset = preset("policy", AlertFamily.Edge)
+            .copy(playbackPolicy = AlertPlaybackPolicy.Queue)
         val stage = AlertPlanFactory.buildFromPreset(preset, preset.id, library)
         assertEquals(AlertPlaybackPolicy.Queue, stage.playbackPolicy)
         assertEquals(AlertPlaybackPolicy.Queue, stage.toPlayPlan().playbackPolicy)
-        // 未声明策略的旧预设 → 跳过（与 v4 原有「在播不播」一致）。
         assertEquals(
             AlertPlaybackPolicy.Skip,
-            AlertPlanFactory.buildFromPreset(preset("plain", AlertKind.Edge), "plain", library)
+            AlertPlanFactory.buildFromPreset(preset("plain", AlertFamily.Edge), "plain", library)
                 .playbackPolicy,
-        )
-    }
-
-    @Test
-    fun `builtin ball and screen presets map to their own renderers`() {
-        assertEquals(
-            AnchorAlertStyle.Ring,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_ball_ring"),
-                "builtin_ball_ring",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            AnchorAlertStyle.Orbit3D,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_ball_orbit"),
-                "builtin_ball_orbit",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.Vignette,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_vignette"),
-                "builtin_screen_vignette",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.CenterBlackout,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_blackout"),
-                "builtin_screen_blackout",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.CrtOff,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_crt_off"),
-                "builtin_screen_crt_off",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.Shatter,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_shatter"),
-                "builtin_screen_shatter",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.Blinds,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_blinds"),
-                "builtin_screen_blinds",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ScreenAlertStyle.Iris,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_iris"),
-                "builtin_screen_iris",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            ParticleAlertStyle.TopRain,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_particle_rain"),
-                "builtin_particle_rain",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
-        )
-        assertEquals(
-            EdgeAlertStyle.Comet,
-            AlertPlanFactory.buildFromPreset(
-                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_edge_comet"),
-                "builtin_edge_comet",
-                library,
-            ).toPlayPlan().stageLayers.single().style,
         )
     }
 }

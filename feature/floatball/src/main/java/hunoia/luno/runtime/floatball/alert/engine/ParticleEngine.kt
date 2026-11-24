@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleDirection
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticlePath
@@ -68,38 +69,73 @@ private const val VarianceAmplitude = 0.4f
 private const val EdgeMargin = 0.06f
 
 /**
- * 生成一颗粒子：位置按 [ParticleEmitter.area] 取，方向/散开/初速按发射器参数。
- * [anchor] 只对 Point / BallRing 有意义；缺省回落屏幕中心。
+ * 生成一个出生点：位置按 [ParticleEmitter.area] 取；[anchor] 只对 Point / BallRing 有意义。
+ *
+ * 烟花用「每次波次取一个出生点」把一簇粒子聚在同一锚点上，所以渲染层直接调用它，
+ * 再把结果作为 [spawnParticle] 的 `origin` 传回去。
+ */
+internal fun spawnPoint(
+    area: ParticleArea,
+    frame: ParticleFrame,
+    anchor: NormPoint?,
+    random: Random,
+): NormPoint {
+    val center = anchor ?: NormPoint(frame.aspect / 2f, 0.5f)
+    return when (area) {
+        ParticleArea.TopEdge -> NormPoint(random.nextFloat() * frame.aspect, -EdgeMargin)
+        ParticleArea.BottomEdge -> NormPoint(random.nextFloat() * frame.aspect, 1f + EdgeMargin)
+        ParticleArea.ScreenRect ->
+            NormPoint(random.nextFloat() * frame.aspect, random.nextFloat())
+        ParticleArea.EdgePerimeter -> perimeterPoint(frame, random)
+        ParticleArea.Point -> center
+        ParticleArea.BallRing -> {
+            val angle = random.nextFloat() * TwoPi
+            val radius = 0.05f + random.nextFloat() * 0.06f
+            NormPoint(center.x + cos(angle) * radius, center.y + sin(angle) * radius)
+        }
+    }
+}
+
+/**
+ * 生成一颗粒子：位置按 [ParticleEmitter.area]（或显式 [origin]）取，
+ * 方向按 [ParticleEmitter.directionMode] + 散开角，初速按 [ParticleEmitter.speed]。
+ *
+ * 烟花先升空再爆时，渲染层传 `origin = 顶点`、`center = 屏幕中心`，
+ * 并把 `delay` 设成爆发时刻；引擎本身不需要知道「升空」这件事。
  */
 internal fun spawnParticle(
     emitter: ParticleEmitter,
     frame: ParticleFrame,
     anchor: NormPoint?,
     random: Random,
+    origin: NormPoint? = null,
+    center: NormPoint? = null,
 ): ParticleState {
     val seed = random.nextInt()
-    val center = anchor ?: NormPoint(frame.aspect / 2f, 0.5f)
-    val (x, y) = when (emitter.area) {
-        ParticleArea.TopEdge -> random.nextFloat() * frame.aspect to -EdgeMargin
-        ParticleArea.BottomEdge -> random.nextFloat() * frame.aspect to 1f + EdgeMargin
-        ParticleArea.ScreenRect -> random.nextFloat() * frame.aspect to random.nextFloat()
-        ParticleArea.EdgePerimeter -> perimeterPoint(frame, random)
-        ParticleArea.Point -> center.x to center.y
-        ParticleArea.BallRing -> {
-            val angle = random.nextFloat() * TwoPi
-            val radius = 0.05f + random.nextFloat() * 0.06f
-            center.x + cos(angle) * radius to center.y + sin(angle) * radius
-        }
+    val screenCenter = NormPoint(frame.aspect / 2f, 0.5f)
+    val focus = center ?: anchor ?: screenCenter
+    val point = origin ?: spawnPoint(emitter.area, frame, anchor, random)
+    val base = when (emitter.directionMode) {
+        ParticleDirection.Fixed -> Math.toRadians(emitter.directionDeg.toDouble())
+        ParticleDirection.Inward -> Math.atan2(
+            (focus.y - point.y).toDouble(),
+            (focus.x - point.x).toDouble(),
+        )
+        ParticleDirection.Outward -> Math.atan2(
+            (point.y - focus.y).toDouble(),
+            (point.x - focus.x).toDouble(),
+        )
+        ParticleDirection.Radial -> Double.NaN
     }
-    val angle = Math.toRadians(
-        (
-            emitter.directionDeg + (random.nextFloat() - 0.5f) * emitter.spreadDeg
-            ).toDouble(),
-    )
+    val angle = if (base.isNaN()) {
+        random.nextFloat() * TwoPi
+    } else {
+        (base + (random.nextFloat() - 0.5f) * Math.toRadians(emitter.spreadDeg.toDouble())).toFloat()
+    }
     val speed = emitter.speed * (1f + (random.nextFloat() * 2f - 1f) * emitter.speedJitter)
     return ParticleState(
-        x = x,
-        y = y,
+        x = point.x,
+        y = point.y,
         vx = (cos(angle) * speed).toFloat(),
         vy = (sin(angle) * speed).toFloat(),
         age = 0f,
@@ -128,6 +164,8 @@ internal fun advanceParticle(
     if (dt <= 0f) return state
     val age = state.age + dt
     val progress = if (state.life <= 0f) 1f else (age / state.life).coerceIn(0f, 1f)
+    // tilt 单独打开时也要让 spinDeg 走起来，否则 3D 翻面没有相位。
+    val spinRate = maxOf(motion.spin, motion.tilt)
 
     val path = motion.path
     if (path != null) {
@@ -145,7 +183,7 @@ internal fun advanceParticle(
             x = pos.x,
             y = pos.y,
             age = age,
-            spinDeg = state.spinDeg + motion.spin * SpinDegPerSecond * dt,
+            spinDeg = state.spinDeg + spinRate * SpinDegPerSecond * dt,
             entered = state.entered || isInside(state.x, state.y, frame.aspect) ||
                 isInside(pos.x, pos.y, frame.aspect),
         )
@@ -250,7 +288,7 @@ internal fun advanceParticle(
         vx = vx,
         vy = vy,
         age = age,
-        spinDeg = state.spinDeg + motion.spin * SpinDegPerSecond * dt,
+        spinDeg = state.spinDeg + spinRate * SpinDegPerSecond * dt,
         entered = entered,
     )
 }
@@ -334,13 +372,13 @@ private fun directionOf(state: ParticleState): NormPoint {
     return NormPoint(state.vx / len, state.vy / len)
 }
 
-private fun perimeterPoint(frame: ParticleFrame, random: Random): Pair<Float, Float> {
+private fun perimeterPoint(frame: ParticleFrame, random: Random): NormPoint {
     val side = random.nextInt(4)
     return when (side) {
-        0 -> random.nextFloat() * frame.aspect to -EdgeMargin
-        1 -> random.nextFloat() * frame.aspect to 1f + EdgeMargin
-        2 -> -EdgeMargin to random.nextFloat()
-        else -> frame.aspect + EdgeMargin to random.nextFloat()
+        0 -> NormPoint(random.nextFloat() * frame.aspect, -EdgeMargin)
+        1 -> NormPoint(random.nextFloat() * frame.aspect, 1f + EdgeMargin)
+        2 -> NormPoint(-EdgeMargin, random.nextFloat())
+        else -> NormPoint(frame.aspect + EdgeMargin, random.nextFloat())
     }
 }
 

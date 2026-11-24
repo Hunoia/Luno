@@ -14,6 +14,8 @@ import kotlinx.serialization.Serializable
 data class MomentAlertSettings(
     val enabled: Boolean = false,
     val presetId: String? = null,
+    /** 随机预设：每次播放从素材库里随机挑一个（忽略 [presetId]）。 */
+    val randomize: Boolean = false,
     val intensityPercent: Int = 100,
     val speedPercent: Int = 100,
 ) {
@@ -26,7 +28,7 @@ data class MomentAlertSettings(
     val speedScale: Float
         get() = speedPercent.coerceIn(AlertLimits.SpeedMin, AlertLimits.SpeedMax) / 100f
 
-    val playable: Boolean get() = enabled && !presetId.isNullOrBlank()
+    val playable: Boolean get() = enabled && (randomize || !presetId.isNullOrBlank())
 
     fun withoutPreset(presetId: String): MomentAlertSettings =
         if (this.presetId == presetId) copy(presetId = null) else this

@@ -134,7 +134,7 @@ fun AlertPresetEditorScreen(
 
     fun toggleLayer(layer: AlertLayer, enabled: Boolean) {
         if (enabled) {
-            val blocked = current.addBlockedBy(layer.kind, addingStored = false)
+            val blocked = current.addBlockedBy(layer.family, addingStored = false)
             if (blocked != null) {
                 Toast.makeText(
                     context,
@@ -329,7 +329,7 @@ fun AlertPresetEditorScreen(
                         LunoSettingsRow(
                             title = "#${index + 1}  ${layer.displayName()}",
                             subtitle = buildString {
-                                append(layer.patternLabel().orEmpty())
+                                append(context.getString(layer.family.labelRes()))
                                 if (!layer.enabled) {
                                     append("  ")
                                     append(context.getString(R.string.float_ball_preset_layer_off))

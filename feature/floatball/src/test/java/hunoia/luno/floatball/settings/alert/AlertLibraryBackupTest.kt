@@ -1,7 +1,7 @@
 package hunoia.luno.floatball.settings.alert
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLibrary
 import hunoia.luno.config.model.AlertLibraryExport
@@ -25,7 +25,7 @@ class AlertLibraryBackupTest {
             layers = listOf(
                 AlertLayer(
                     id = "$id-l0",
-                    kind = AlertKind.Edge,
+                    family = AlertFamily.Edge,
                     color = AlertColorRef(paletteId = paletteId),
                     edge = EdgeParams(),
                 ),
@@ -33,10 +33,9 @@ class AlertLibraryBackupTest {
         )
 
     @Test
-    fun `export only carries user presets`() {
+    fun `export carries every preset`() {
         val library = AlertLibrary(
             presets = listOf(
-                preset("builtin_x", "内置").copy(builtin = true),
                 preset("user_a", "我的"),
             ),
         )
@@ -79,7 +78,6 @@ class AlertLibraryBackupTest {
         assertEquals(merged.palettes[1].id, remapped.layers.single().color.paletteId)
         val other = merged.presets.first { it.name == "另一个" }
         assertEquals("新色", merged.palettes.first { it.id == other.paletteId }.name)
-        assertTrue(merged.presets.none { it.builtin })
     }
 
     @Test

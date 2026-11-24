@@ -1,7 +1,7 @@
 package hunoia.luno.ui.theme
 
 import hunoia.luno.config.model.MotionSpeed
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayerCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,12 +59,11 @@ class MotionProfileTest {
 
     @Test
     fun `到达提示层类别与家族一一映射`() {
-        assertEquals(MotionFamily.AlertEdge, AlertKind.Edge.toAlertFamily())
-        assertEquals(MotionFamily.AlertParticle, AlertKind.Particle.toAlertFamily())
-        assertEquals(MotionFamily.AlertParticle, AlertKind.Reveal.toAlertFamily())
-        assertEquals(MotionFamily.AlertAnchor, AlertKind.Ball.toAlertFamily())
-        assertEquals(MotionFamily.AlertAnchor, AlertKind.Capsule.toAlertFamily())
-        assertEquals(MotionFamily.AlertAnchor, AlertKind.Screen.toAlertFamily())
+        assertEquals(MotionFamily.AlertEdge, AlertLayerCategory.Edge.toMotionFamily())
+        assertEquals(MotionFamily.AlertParticle, AlertLayerCategory.Particle.toMotionFamily())
+        assertEquals(MotionFamily.AlertParticle, AlertLayerCategory.Reveal.toMotionFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertLayerCategory.Ball.toMotionFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertLayerCategory.Screen.toMotionFamily())
     }
 
     @Test

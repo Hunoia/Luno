@@ -1,7 +1,7 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibrary
 import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
@@ -11,29 +11,36 @@ import hunoia.luno.core.effect.AlertConcurrency
 import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
-import hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets
 import hunoia.luno.runtime.floatball.alert.toSpec
+import kotlin.random.Random
 
 /**
  * 配置 → 渲染计划：**一个预设 → 各启用层** → [AlertRenderPlan]。
  *
  * 纯 JVM，可单测；不弹窗、不读渲染状态。通知到达、试播、外部调用、编辑器试播共用这一条路径：
  * 调用侧只负责给出 `appPackage / anchor / 档位`，其余都在这里决定。
+ *
+ * v5 起没有内置素材：可播的只有素材库里的用户预设。
  */
 internal object AlertPlanFactory {
 
-    /** 当前可用的全部预设：内置 + 素材库用户预设（同 id 时用户预设覆盖内置）。 */
+    /** 当前可用的全部预设：素材库里带层的用户预设。 */
     fun presets(library: AlertLibrary): Map<String, AlertPreset> {
         val map = LinkedHashMap<String, AlertPreset>()
-        BuiltinAlertPresets.all.forEach { map[it.id] = it }
-        // 旧格式（v3 variants）解出来是空层预设：不展示、不播放，等用户重新保存。
         library.presets.filter { it.layers.isNotEmpty() }.forEach { map[it.id] = it }
         return map
     }
 
-    /** 可供选择 / 编辑的预设（内置单层素材 + 用户单层 / 组合）。 */
+    /** 可供选择 / 编辑的预设。 */
     fun presetsForPicker(library: AlertLibrary): List<AlertPreset> =
         presets(library).values.filter { it.layers.isNotEmpty() }
+
+    /** 随机挑一个预设（「随机预设」模式）：池为空返回 null = 本次不播。 */
+    fun randomPreset(library: AlertLibrary, seed: Int = Random.nextInt()): AlertPreset? {
+        val pool = presetsForPicker(library)
+        if (pool.isEmpty()) return null
+        return pool[Random(seed).nextInt(pool.size)]
+    }
 
     /**
      * 当前配置 → 渲染计划：总开关关闭 / 未选预设时返回空计划。
@@ -45,13 +52,18 @@ internal object AlertPlanFactory {
         library: AlertLibrary,
         appPackage: String? = null,
         content: AlertContent? = null,
-        tierFor: (AlertKind) -> Float = { 1f },
+        tierFor: (AlertLayerCategory) -> Float = { 1f },
         seed: Int = 0,
     ): AlertRenderPlan {
         if (!alert.enabled) return AlertRenderPlan(layers = emptyList(), seed = seed)
-        val presetId = alert.presetId ?: return AlertRenderPlan(layers = emptyList(), seed = seed)
+        val preset = if (alert.randomize) {
+            randomPreset(library, seed)
+        } else {
+            alert.presetId?.let { presets(library)[it] }
+        }
+        val presetId = preset?.id ?: alert.presetId ?: ""
         return buildFromPreset(
-            preset = presets(library)[presetId],
+            preset = preset,
             presetId = presetId,
             library = library,
             appPackage = appPackage,
@@ -68,7 +80,7 @@ internal object AlertPlanFactory {
         request: AlertEffectRequest,
         library: AlertLibrary,
         appPackage: String? = null,
-        tierFor: (AlertKind) -> Float = { 1f },
+        tierFor: (AlertLayerCategory) -> Float = { 1f },
         seed: Int = request.seed ?: 0,
     ): AlertRenderPlan = buildFromPreset(
         preset = presets(library)[request.presetId],
@@ -97,7 +109,7 @@ internal object AlertPlanFactory {
         content: AlertContent? = null,
         intensityScale: Float = 1f,
         speedScale: Float = 1f,
-        tierFor: (AlertKind) -> Float = { 1f },
+        tierFor: (AlertLayerCategory) -> Float = { 1f },
         seed: Int = 0,
         playbackPolicy: AlertPlaybackPolicy = preset?.playbackPolicy ?: AlertPlaybackPolicy.Skip,
     ): AlertRenderPlan = AlertRenderPlanBuilder.build(

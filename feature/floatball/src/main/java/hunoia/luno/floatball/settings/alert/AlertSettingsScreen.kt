@@ -47,7 +47,7 @@ fun AlertSettingsScreen(
     val alert = editor.alert
     val library = editor.library
     val selected = alert.selectedPreset(library)
-    val playable = alert.enabled && selected != null
+    val playable = alert.enabled && (alert.randomize || selected != null)
 
     fun toast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
@@ -121,6 +121,17 @@ fun AlertSettingsScreen(
                         },
                         shape = shape,
                         onClick = { showPresetSheet = true },
+                    )
+                }
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_alert_randomize),
+                        subtitle = stringResource(R.string.float_ball_alert_randomize_hint),
+                        checked = alert.randomize,
+                        shape = shape,
+                        onCheckedChange = { checked ->
+                            editor.update { it.copy(randomize = checked) }
+                        },
                     )
                 }
                 item { shape ->

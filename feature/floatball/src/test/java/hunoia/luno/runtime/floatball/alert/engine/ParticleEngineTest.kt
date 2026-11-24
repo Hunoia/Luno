@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleDirection
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticlePath
@@ -178,5 +179,77 @@ class ParticleEngineTest {
         assertEquals(1f, tiltScale(180f), 0.001f)
         assertTrue(tiltScale(90f) >= 0.15f)
         assertTrue(tiltScale(270f) >= 0.15f)
+    }
+
+    @Test
+    fun `inward direction points at the screen center`() {
+        val p = spawnParticle(
+            ParticleEmitter(
+                area = ParticleArea.EdgePerimeter,
+                directionMode = ParticleDirection.Inward,
+                spreadDeg = 0f,
+                speed = 1f,
+                speedJitter = 0f,
+            ),
+            frame,
+            anchor = null,
+            random = Random(2),
+            origin = NormPoint(0.25f, 0f),
+            center = NormPoint(0.25f, 0.5f),
+        )
+        assertTrue("从顶缘向内应向下", p.vy > 0.5f)
+        assertEquals(0f, p.vx, 0.05f)
+    }
+
+    @Test
+    fun `radial direction ignores the spread and covers all quadrants`() {
+        val random = Random(9)
+        val vx = mutableListOf<Float>()
+        val vy = mutableListOf<Float>()
+        repeat(40) {
+            val p = spawnParticle(
+                ParticleEmitter(
+                    area = ParticleArea.Point,
+                    directionMode = ParticleDirection.Radial,
+                    spreadDeg = 0f,
+                    speed = 1f,
+                    speedJitter = 0f,
+                ),
+                frame,
+                anchor = NormPoint(0.25f, 0.5f),
+                random = random,
+                origin = NormPoint(0.25f, 0.5f),
+            )
+            vx += p.vx
+            vy += p.vy
+        }
+        assertTrue("应有向右", vx.any { it > 0.3f })
+        assertTrue("应有向左", vx.any { it < -0.3f })
+        assertTrue("应有向下", vy.any { it > 0.3f })
+        assertTrue("应有向上", vy.any { it < -0.3f })
+    }
+
+    @Test
+    fun `explicit origin overrides the emitter area`() {
+        val p = spawnParticle(
+            ParticleEmitter(area = ParticleArea.TopEdge, count = 1),
+            frame,
+            anchor = null,
+            random = Random(3),
+            origin = NormPoint(0.1f, 0.2f),
+        )
+        assertEquals(0.1f, p.x, 0.001f)
+        assertEquals(0.2f, p.y, 0.001f)
+    }
+
+    @Test
+    fun `tilt alone advances the flip phase`() {
+        val start = state(0.2f, 0.5f)
+        val end = step(
+            start,
+            ParticleMotion(gravity = 0f, drag = 0f, sway = 0f, spin = 0f, tilt = 1f),
+            seconds = 0.2f,
+        )
+        assertTrue("tilt 打开时 spinDeg 应推进", end.spinDeg > 1f)
     }
 }

@@ -1,17 +1,20 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
+import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertHost
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPlaybackPolicy
 import hunoia.luno.config.model.AlertPreset
-import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.CoverParams
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealParams
-import hunoia.luno.config.model.ScreenParams
+import hunoia.luno.config.model.RingParams
+import hunoia.luno.config.model.WashParams
+import hunoia.luno.config.model.category
 import hunoia.luno.config.model.host
 import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
@@ -27,18 +30,21 @@ data class AlertRenderLayer(
     /** 预设内稳定的层 id（渲染 key 用；不再用列表序号）。 */
     val layerId: String? = null,
     val host: AlertHost,
-    val kind: AlertKind,
+    val family: AlertFamily,
     val cycleMillis: Int,
     val cycles: Int,
     /** 全局强度倍率（1 = 预设原样，0..2）；各组渲染器再映射到自己的 alpha 区间。 */
     val intensity: Float = 1f,
+    /** 层自己的不透明度（0..1）：所有族通用，乘进最终 alpha。 */
+    val opacity: Float = 1f,
     val palette: AlertPaletteSpec? = null,
     val appPackage: String? = null,
-    val particle: ParticleParams? = null,
     val edge: EdgeParams? = null,
-    val ball: BallParams? = null,
+    val ring: RingParams? = null,
     val capsule: CapsuleParams? = null,
-    val screen: ScreenParams? = null,
+    val wash: WashParams? = null,
+    val cover: CoverParams? = null,
+    val particle: ParticleParams? = null,
     val reveal: RevealParams? = null,
 ) {
     val totalMillis: Int get() = cycleMillis * cycles
@@ -97,7 +103,7 @@ object AlertRenderPlanBuilder {
         appPackage: String? = null,
         intensityScale: Float = 1f,
         speedScale: Float = 1f,
-        tierForKind: (AlertKind) -> Float = { 1f },
+        tierForKind: (AlertLayerCategory) -> Float = { 1f },
         seed: Int = 0,
         content: AlertContent? = null,
         playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
@@ -114,7 +120,7 @@ object AlertRenderPlanBuilder {
         val globalSpeed = speedScale.coerceIn(0.25f, 4f)
         val globalIntensity = intensityScale.coerceIn(0f, 2f)
         val rendered = preset.renderableLayers().mapNotNull { layer ->
-            val tier = tierForKind(layer.kind).coerceAtLeast(0.01f)
+            val tier = tierForKind(layer.family.category).coerceAtLeast(0.01f)
             val layerSpeed = layer.timing.speedPercent.coerceIn(
                 AlertLimits.SpeedMin,
                 300,
@@ -127,19 +133,21 @@ object AlertRenderPlanBuilder {
             AlertRenderLayer(
                 presetId = preset.id,
                 layerId = layer.id,
-                host = layer.kind.host,
-                kind = layer.kind,
+                host = layer.family.host,
+                family = layer.family,
                 cycleMillis = cycle,
                 cycles = layer.timing.cycles.coerceIn(1, 20),
                 intensity = globalIntensity,
+                opacity = layer.opacity.coerceIn(0f, 1f),
                 palette = paletteFor(color),
                 appPackage = appPackage,
-                particle = layer.particle.takeIf { layer.kind == AlertKind.Particle },
-                edge = layer.edge.takeIf { layer.kind == AlertKind.Edge },
-                ball = layer.ball.takeIf { layer.kind == AlertKind.Ball },
-                capsule = layer.capsule.takeIf { layer.kind == AlertKind.Capsule },
-                screen = layer.screen.takeIf { layer.kind == AlertKind.Screen },
-                reveal = layer.reveal.takeIf { layer.kind == AlertKind.Reveal },
+                edge = layer.edge,
+                ring = layer.ring,
+                capsule = layer.capsule,
+                wash = layer.wash,
+                cover = layer.cover,
+                particle = layer.particle,
+                reveal = layer.reveal,
             )
         }
         if (rendered.isEmpty()) {
@@ -174,20 +182,32 @@ object AlertRenderPlanBuilder {
         return layers.mapNotNull { layer ->
             val params = layer.particle ?: return@mapNotNull layer
             val waves = params.emitter.waves.coerceAtLeast(1)
-            val requested = params.emitter.count.coerceAtLeast(0) * waves
+            val anchors = if (params.emitter.anchorPerWave) {
+                params.emitter.anchorCount.coerceIn(1, 8)
+            } else {
+                1
+            }
+            val requested = params.emitter.count.coerceAtLeast(0) * waves * anchors
             val allowed = requested.coerceAtMost(remaining)
             remaining -= allowed
             if (allowed <= 0) {
                 null
             } else {
-                val perWave = (allowed / waves).coerceAtLeast(1)
-                layer.copy(particle = params.copy(emitter = params.emitter.copy(count = perWave)))
+                val perWave = allowed / (waves * anchors)
+                if (perWave <= 0) {
+                    null
+                } else {
+                    layer.copy(particle = params.copy(emitter = params.emitter.copy(count = perWave)))
+                }
             }
         }
     }
 
     private fun AlertRenderLayer.particleTotalCount(): Int {
         val emitter = particle?.emitter ?: return 0
-        return emitter.count.coerceAtLeast(0) * emitter.waves.coerceAtLeast(1)
+        val anchors = if (emitter.anchorPerWave) emitter.anchorCount.coerceIn(1, 8) else 1
+        return emitter.count.coerceAtLeast(0) *
+            emitter.waves.coerceAtLeast(1) *
+            anchors
     }
 }

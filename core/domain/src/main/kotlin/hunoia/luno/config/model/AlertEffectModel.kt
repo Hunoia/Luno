@@ -4,23 +4,24 @@ import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
 
 /**
- * 到达提示动效 v4 的预设 / 素材库模型。
+ * 到达提示动效 v6 的预设 / 素材库模型。
  *
- * 与 v3 的关系：
- * - **预设 = 1–5 个层**：一个预设可以只做单类动画，也可以组合多类（受 [AlertLimits] 约束）；
- * - **层**声明自己的 [AlertKind]（宿主由 kind 推导），不再有「一个预设多宿主变体」；
- * - **设置页只选一个预设**：五槽位删除，槽位概念降级为层类别（[AlertLayerCategory]）；
- * - 内置预设全部是单层素材，组合只由用户拼装（[AlertLibrary.presets]）。
+ * v5 的 10 个渲染器族收敛为 **7 个**：同一宿主、且一次只能画一层的形态合并成
+ * 一个族，族内用 `shape` 单选项切换形态；族与族之间才是「层」。
  *
- * 本文件只放可序列化 schema 与约束；内置预设是代码常量，放在功能模块。
+ * - 屏缘（[AlertFamily.Edge]）：呼吸 / 滚动 / 波纹 / 雷电，四选一；
+ * - 胶囊（[AlertFamily.Capsule]）：扫光 / 呼吸 / 翻转，三选一；
+ * - 其余：锚点环 / 全屏着色 / 全屏覆盖 / 粒子 / 揭示。
+ *
+ * 形态切换只改参数，不新增绘制器；每个形态的参数都在同一个块里，切回去不会丢。
  */
 
-/** 层类别：设置页 / 编辑器的分组口径；[AlertKind.Capsule] 与球体同属 [Ball]。 */
+/** 层类别：设置页 / 编辑器的分组口径；胶囊与球体同属 [Ball]。 */
 @Serializable
 @Keep
 enum class AlertLayerCategory { Edge, Particle, Ball, Screen, Reveal }
 
-/** 效果宿主：决定绘制面与几何来源。由 [AlertKind] 唯一推导，不单独存储。 */
+/** 效果宿主：决定绘制面与几何来源。由 [AlertFamily] 唯一推导，不单独存储。 */
 @Serializable
 @Keep
 enum class AlertHost {
@@ -40,10 +41,33 @@ enum class AlertHost {
     Screen,
 }
 
-/** 效果类型：决定使用哪个参数块与渲染管线。 */
+/**
+ * 渲染器族（= 唯一选择绘制管线的单位）。
+ *
+ * - [Edge]：屏缘光带。`EdgeParams.shape` 在呼吸 / 滚动 / 波纹 / 雷电之间切换；
+ *   四种形态共用圆角矩形周长几何与调色板，但同一时刻只画一种，不叠加。
+ * - [Ring]：锚点扩张描边环（嵌套 / 三描边 / 光晕）。
+ * - [Capsule]：胶囊轮廓。`CapsuleParams.shape` 在扫光 / 呼吸 / 翻转之间切换。
+ * - [Wash]：全屏着色（平铺 / 径向 / 环形）。
+ * - [Cover]：全屏覆盖（圆 / 圆瞳 / 亮缝 / 百叶 / 碎片）。
+ * - [Particles]：统一粒子引擎（雨 / 喷泉 / 流星 / 彩带 / 萤火 / 烟花 / 球心爆）。
+ * - [Reveal]：文字 / 图标揭示。
+ */
 @Serializable
 @Keep
-enum class AlertKind { Particle, Edge, Ball, Capsule, Screen, Reveal }
+enum class AlertFamily {
+    Edge,
+    Ring,
+    Capsule,
+    Wash,
+    Cover,
+    Particles,
+    Reveal,
+    ;
+
+    /** 胶囊窗一次只能画一层。 */
+    val isCapsuleHost: Boolean get() = this == Capsule
+}
 
 /**
  * 预设自带的播放冲突策略：已有动效在播时如何处理本次播放。
@@ -64,24 +88,29 @@ enum class AlertPlaybackPolicy {
     Queue,
 }
 
+/** 预设分类：单层素材 / 组合。编辑器与素材库按它分区，不再靠层数推断。 */
+@Serializable
+@Keep
+enum class AlertPresetKind { Single, Combo }
+
 /** 层的类别（揭示单列一类；胶囊与球体同属球体类）。 */
-val AlertKind.category: AlertLayerCategory
+val AlertFamily.category: AlertLayerCategory
     get() = when (this) {
-        AlertKind.Edge -> AlertLayerCategory.Edge
-        AlertKind.Particle -> AlertLayerCategory.Particle
-        AlertKind.Ball, AlertKind.Capsule -> AlertLayerCategory.Ball
-        AlertKind.Screen -> AlertLayerCategory.Screen
-        AlertKind.Reveal -> AlertLayerCategory.Reveal
+        AlertFamily.Edge -> AlertLayerCategory.Edge
+        AlertFamily.Particles -> AlertLayerCategory.Particle
+        AlertFamily.Ring, AlertFamily.Capsule -> AlertLayerCategory.Ball
+        AlertFamily.Wash, AlertFamily.Cover -> AlertLayerCategory.Screen
+        AlertFamily.Reveal -> AlertLayerCategory.Reveal
     }
 
 /** 层的绘制宿主。 */
-val AlertKind.host: AlertHost
+val AlertFamily.host: AlertHost
     get() = when (this) {
-        AlertKind.Edge -> AlertHost.Edge
-        AlertKind.Particle, AlertKind.Reveal -> AlertHost.Stage
-        AlertKind.Ball -> AlertHost.Ball
-        AlertKind.Capsule -> AlertHost.Capsule
-        AlertKind.Screen -> AlertHost.Screen
+        AlertFamily.Edge -> AlertHost.Edge
+        AlertFamily.Ring -> AlertHost.Ball
+        AlertFamily.Capsule -> AlertHost.Capsule
+        AlertFamily.Wash, AlertFamily.Cover -> AlertHost.Screen
+        AlertFamily.Particles, AlertFamily.Reveal -> AlertHost.Stage
     }
 
 /**
@@ -93,12 +122,12 @@ val AlertKind.host: AlertHost
 object AlertLimits {
     const val MaxEnabledLayers = 5
     const val MaxStoredLayers = 10
-    const val MaxPerCategory = 2
+    const val MaxPerCategory = 3
     const val MaxCapsuleLayers = 1
     const val MaxScreenLayers = 1
     const val MaxRevealLayers = 1
 
-    /** 跨层共享的粒子总预算；按层顺序分配，按 `count × waves` 计（不是每层 600）。 */
+    /** 跨层共享的粒子总预算；按层顺序分配，按 `count × waves × anchorCount` 计（不是每层 600）。 */
     const val ParticleBudget = 600
 
     /** UI 下限取 50：0 会让效果完全不可见（外部请求仍可用 0..2 的倍率）。 */
@@ -158,8 +187,8 @@ data class AlertLibrary(
 /**
  * 预设：名称 + 1–[AlertLimits.MaxEnabledLayers] 个层。
  *
- * 内置预设是代码常量（全部单层、只读）；用户预设存在 [AlertLibrary.presets]，
- * 单层素材与组合共用同一类型，靠 [builtin] 与 [layers] 数量在 UI 上分组。
+ * v6 起只有用户预设（内置素材删除）：[kind] 显式区分单层素材与组合，
+ * 播放时也可由调用端随机挑一个（见设置里的「随机预设」）。
  *
  * [paletteId] 是组合级调色板：设了就覆盖所有层自己的颜色引用，避免 5 层各带一套色。
  */
@@ -168,21 +197,27 @@ data class AlertLibrary(
 data class AlertPreset(
     val id: String,
     val name: String,
-    /** true = 代码内置（只读）；false = 用户预设（可编辑 / 删除）。 */
-    val builtin: Boolean = false,
+    val kind: AlertPresetKind = AlertPresetKind.Single,
     val paletteId: String? = null,
     val layers: List<AlertLayer> = emptyList(),
     /**
      * 播放冲突策略：有动效在播时怎么办。
      *
-     * 策略归预设所有、调用方不判（到达提示 / 动作动效 / 试播三条路径共用）；
-     * 旧预设没有该字段，默认「跳过」= 与 v4 原有行为一致。
+     * 策略归预设所有、调用方不判（到达提示 / 动作动效 / 试播三条路径共用）。
      */
     val playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
 ) {
     val enabledLayers: List<AlertLayer> get() = layers.filter { it.enabled }
 
     val enabledLayerCount: Int get() = layers.count { it.enabled }
+
+    /** 实际分类：单层预设若被加了第二层，按组合算（避免编辑器忘了翻 kind）。 */
+    val resolvedKind: AlertPresetKind
+        get() = if (kind == AlertPresetKind.Combo || layers.size > 1) {
+            AlertPresetKind.Combo
+        } else {
+            AlertPresetKind.Single
+        }
 
     /** 真实可渲染的层（顺序 = 绘制顺序，已套用全部上限）。 */
     fun renderableLayers(): List<AlertLayer> {
@@ -194,23 +229,23 @@ data class AlertPreset(
         layers.forEach { layer ->
             if (!layer.enabled) return@forEach
             if (result.size >= AlertLimits.MaxEnabledLayers) return@forEach
-            val category = layer.kind.category
+            val category = layer.family.category
             val used = perCategory[category] ?: 0
             if (used >= AlertLimits.MaxPerCategory) return@forEach
-            when (layer.kind) {
-                AlertKind.Capsule -> {
+            when (layer.family.host) {
+                AlertHost.Capsule -> {
                     if (capsule >= AlertLimits.MaxCapsuleLayers) return@forEach
                     capsule++
                 }
-                AlertKind.Screen -> {
+                AlertHost.Screen -> {
                     if (screen >= AlertLimits.MaxScreenLayers) return@forEach
                     screen++
                 }
-                AlertKind.Reveal -> {
-                    if (reveal >= AlertLimits.MaxRevealLayers) return@forEach
-                    reveal++
-                }
                 else -> Unit
+            }
+            if (layer.family == AlertFamily.Reveal) {
+                if (reveal >= AlertLimits.MaxRevealLayers) return@forEach
+                reveal++
             }
             perCategory[category] = used + 1
             result += layer
@@ -227,69 +262,75 @@ data class AlertPreset(
             issues += AlertLimit.TooManyEnabledLayers
         }
         val enabled = enabledLayers
-        val perCategory = enabled.groupingBy { it.kind.category }.eachCount()
+        val perCategory = enabled.groupingBy { it.family.category }.eachCount()
         if (perCategory.values.any { it > AlertLimits.MaxPerCategory }) {
             issues += AlertLimit.TooManyInCategory
         }
-        if (enabled.count { it.kind == AlertKind.Capsule } > AlertLimits.MaxCapsuleLayers) {
+        if (enabled.count { it.family.host == AlertHost.Capsule } > AlertLimits.MaxCapsuleLayers) {
             issues += AlertLimit.TooManyCapsuleLayers
         }
-        if (enabled.count { it.kind == AlertKind.Screen } > AlertLimits.MaxScreenLayers) {
+        if (enabled.count { it.family.host == AlertHost.Screen } > AlertLimits.MaxScreenLayers) {
             issues += AlertLimit.TooManyScreenLayers
         }
-        if (enabled.count { it.kind == AlertKind.Reveal } > AlertLimits.MaxRevealLayers) {
+        if (enabled.count { it.family == AlertFamily.Reveal } > AlertLimits.MaxRevealLayers) {
             issues += AlertLimit.TooManyRevealLayers
         }
-        if (enabled.any { !it.matchesKind() }) issues += AlertLimit.MissingParams
+        if (enabled.any { !it.matchesFamily() }) issues += AlertLimit.MissingParams
         return issues
     }
 
     /**
-     * 能否再启用一个 [kind] 的层。
+     * 能否再启用一个 [family] 的层。
      *
      * 返回 null = 可以；否则返回阻断原因（编辑器禁用「添加」并显示原因）。
      * [addingStored] 为 true 时同时检查总存储层数（新建层）；仅切换启用状态时传 false。
      */
-    fun addBlockedBy(kind: AlertKind, addingStored: Boolean = true): AlertLimit? {
+    fun addBlockedBy(family: AlertFamily, addingStored: Boolean = true): AlertLimit? {
         if (addingStored && layers.size >= AlertLimits.MaxStoredLayers) {
             return AlertLimit.TooManyStoredLayers
         }
         val enabled = enabledLayers
         if (enabled.size >= AlertLimits.MaxEnabledLayers) return AlertLimit.TooManyEnabledLayers
-        val category = kind.category
-        if (enabled.count { it.kind.category == category } >= AlertLimits.MaxPerCategory) {
+        val category = family.category
+        if (enabled.count { it.family.category == category } >= AlertLimits.MaxPerCategory) {
             return AlertLimit.TooManyInCategory
         }
-        return when (kind) {
-            AlertKind.Capsule ->
-                if (enabled.count { it.kind == AlertKind.Capsule } >= AlertLimits.MaxCapsuleLayers) {
+        return when (family.host) {
+            AlertHost.Capsule ->
+                if (enabled.count { it.family.host == AlertHost.Capsule } >=
+                    AlertLimits.MaxCapsuleLayers
+                ) {
                     AlertLimit.TooManyCapsuleLayers
                 } else {
                     null
                 }
-            AlertKind.Screen ->
-                if (enabled.count { it.kind == AlertKind.Screen } >= AlertLimits.MaxScreenLayers) {
+            AlertHost.Screen ->
+                if (enabled.count { it.family.host == AlertHost.Screen } >=
+                    AlertLimits.MaxScreenLayers
+                ) {
                     AlertLimit.TooManyScreenLayers
                 } else {
                     null
                 }
-            AlertKind.Reveal ->
-                if (enabled.count { it.kind == AlertKind.Reveal } >= AlertLimits.MaxRevealLayers) {
+            else ->
+                if (family == AlertFamily.Reveal &&
+                    enabled.count { it.family == AlertFamily.Reveal } >=
+                    AlertLimits.MaxRevealLayers
+                ) {
                     AlertLimit.TooManyRevealLayers
                 } else {
                     null
                 }
-            else -> null
         }
     }
 }
 
 /**
- * 一个层：类型 + 参数块 + 时序 + 颜色。
+ * 一个层：族 + 参数块 + 时序 + 颜色。
  *
  * [id] 在预设内稳定，渲染层 key 用它（不再用列表序号）；[name] 只用于编辑器列表；
- * [sourcePresetId] 记录快照来源（内置素材 id），仅展示，播放不依赖。
- * 参数块恰好一个非空，见 [matchesKind]。
+ * [sourcePresetId] 记录快照来源（旧的素材 id），仅展示，播放不依赖。
+ * 参数块恰好一个非空，见 [matchesFamily]；[opacity] 是所有族通用的存在感旋钮。
  */
 @Serializable
 @Keep
@@ -297,32 +338,239 @@ data class AlertLayer(
     val id: String,
     val name: String = "",
     val enabled: Boolean = true,
-    val kind: AlertKind = AlertKind.Particle,
+    val family: AlertFamily = AlertFamily.Particles,
     val timing: AlertTiming = AlertTiming(),
     val color: AlertColorRef = AlertColorRef(),
+    val opacity: Float = 1f,
     val sourcePresetId: String? = null,
-    val particle: ParticleParams? = null,
     val edge: EdgeParams? = null,
-    val ball: BallParams? = null,
+    val ring: RingParams? = null,
     val capsule: CapsuleParams? = null,
-    val screen: ScreenParams? = null,
+    val wash: WashParams? = null,
+    val cover: CoverParams? = null,
+    val particle: ParticleParams? = null,
     val reveal: RevealParams? = null,
-)
+) {
+    /** 该层当前使用的参数块（不需要知道族就能遍历 / 复制）。 */
+    fun hasParams(): Boolean = paramsPresent().size == 1
 
-/** 校验层自洽：只有 [AlertLayer.kind] 对应的参数块非空（其余必须为空）。 */
-fun AlertLayer.matchesKind(): Boolean {
-    val blocks = listOfNotNull(
-        particle?.let { AlertKind.Particle },
-        edge?.let { AlertKind.Edge },
-        ball?.let { AlertKind.Ball },
-        capsule?.let { AlertKind.Capsule },
-        screen?.let { AlertKind.Screen },
-        reveal?.let { AlertKind.Reveal },
+    private fun paramsPresent(): List<AlertFamily> = listOfNotNull(
+        edge?.let { AlertFamily.Edge },
+        ring?.let { AlertFamily.Ring },
+        capsule?.let { AlertFamily.Capsule },
+        wash?.let { AlertFamily.Wash },
+        cover?.let { AlertFamily.Cover },
+        particle?.let { AlertFamily.Particles },
+        reveal?.let { AlertFamily.Reveal },
     )
-    return blocks.size == 1 && blocks.single() == kind
 }
 
-// ---------------------------------------------------------------- 粒子类
+/** 校验层自洽：只有 [AlertLayer.family] 对应的参数块非空（其余必须为空）。 */
+fun AlertLayer.matchesFamily(): Boolean {
+    val blocks = listOfNotNull(
+        edge?.let { AlertFamily.Edge },
+        ring?.let { AlertFamily.Ring },
+        capsule?.let { AlertFamily.Capsule },
+        wash?.let { AlertFamily.Wash },
+        cover?.let { AlertFamily.Cover },
+        particle?.let { AlertFamily.Particles },
+        reveal?.let { AlertFamily.Reveal },
+    )
+    return blocks.size == 1 && blocks.single() == family
+}
+
+// ---------------------------------------------------------------- 屏缘
+
+/** 光带路径：圆角矩形周长 / 左右两条竖线 / 上下两条横线。 */
+@Serializable
+@Keep
+enum class BandPath { Perimeter, Vertical, Horizontal }
+
+/**
+ * 绘制后端：AGSL 着色器优先（平滑距离场），CPU 分段描边兜底，也可手动指定。
+ *
+ * [Auto] = 支持的几何走着色器、其余走 CPU；[Shader] = 强制着色器（不支持的几何仍回退）；
+ * [Cpu] = 强制 CPU（对比观感 / 规避个别设备的着色器问题）。
+ */
+@Serializable
+@Keep
+enum class AlertRenderBackend { Auto, Shader, Cpu }
+
+/**
+ * 屏缘形态（单选项，决定当前画哪一种，不叠加）：
+ *
+ * - [Breathing]：整圈呼吸光，不移动；
+ * - [Sweep]：沿路径扫动的光带，头 + 拖尾；
+ * - [Wave]：等距波峰沿周长起伏；
+ * - [Lightning]：多道独立落点的折线放电。
+ */
+@Serializable
+@Keep
+enum class EdgeShape { Breathing, Sweep, Wave, Lightning }
+
+/**
+ * 屏缘参数：四种形态共用一个块，`shape` 选当前生效的那一组。
+ *
+ * - 呼吸：[depthDp] / [hardness] / [breathAmount]；
+ * - 滚动：[path] / [travel] / [headWidthDp] / [depthDp] / [hardness] / 拖尾 / 双带 / 反向 / [noise]；
+ * - 波纹：[crests] / [depthDp] / [hardness]；
+ * - 雷电：[boltFlashes] / [bolts] / [boltWindow] / [boltWidthDp] / [boltReachPercent]。
+ *
+ * 切换形态不会清掉其它形态的参数，切回去原样恢复。
+ */
+@Serializable
+@Keep
+data class EdgeParams(
+    val shape: EdgeShape = EdgeShape.Sweep,
+    val backend: AlertRenderBackend = AlertRenderBackend.Auto,
+    val cornerRadiusDp: Int = 24,
+    /** 呼吸 / 滚动 / 波纹共用的发光深度（dp）。 */
+    val depthDp: Float = 14f,
+    /** 呼吸 / 滚动 / 波纹共用的边缘硬度（1 = 柔，4 = 锐）。 */
+    val hardness: Float = 2f,
+    /** 呼吸幅度：0 = 常亮，1 = 从全灭到全亮。 */
+    val breathAmount: Float = 1f,
+    /** 滚动形态的路径。 */
+    val path: BandPath = BandPath.Perimeter,
+    /** 每循环走完整条路径的比例（0 = 不动，1 = 走一圈）。 */
+    val travel: Float = 1f,
+    /** 头部沿路径方向的宽度（dp）。 */
+    val headWidthDp: Float = 12f,
+    val tailLength: Float = 0.3f,
+    val tailFalloff: Float = 2f,
+    val tailAlpha: Float = 0.5f,
+    val headBoost: Float = 0.5f,
+    /** 0 = 平滑带，1 = 折线抖动（滚动形态专用；独立放电请用 [bolts]）。 */
+    val noise: Float = 0f,
+    val dual: Boolean = false,
+    val reverse: Boolean = false,
+    /** 波纹形态的波峰数。 */
+    val crests: Int = 3,
+    /** 波纹沿周长方向的波峰宽度（dp）。 */
+    val waveWidthDp: Float = 10f,
+    /** 雷电形态每次闪断的放电道数（0 = 关闭）。 */
+    val bolts: Int = 1,
+    /** 雷电形态每循环闪断几次。 */
+    val boltFlashes: Int = 3,
+    /** 单次闪断的可见窗口（占单循环比例）。 */
+    val boltWindow: Float = 0.34f,
+    val boltWidthDp: Float = 1.5f,
+    /** 雷电向屏幕内延伸的行程（屏高百分比）。 */
+    val boltReachPercent: Int = 38,
+)
+
+// ---------------------------------------------------------------- 锚点环
+
+/** 环的描边层次：单环 + 光晕 / 三层嵌套描边 / 纯光晕。 */
+@Serializable
+@Keep
+enum class RingStyle { Nested, ThreeStroke, Halo }
+
+/** 锚点扩张环：环形 / 冲击波 / 光晕 / 涟漪共用。 */
+@Serializable
+@Keep
+data class RingParams(
+    val style: RingStyle = RingStyle.Nested,
+    val ringsPerCycle: Int = 1,
+    /** 扩张行程（球径 %）；0 = 原地呼吸光晕。 */
+    val travelPercent: Int = 95,
+    val strokeWidthDp: Float = 3f,
+    val haloScale: Float = 1f,
+    /** true = 围绕锚点；false = 屏幕中心。 */
+    val centerAtAnchor: Boolean = true,
+)
+
+// ---------------------------------------------------------------- 胶囊
+
+/**
+ * 胶囊形态（单选项）：
+ *
+ * - [Sweep]：轮廓扫光（描边 / 行内填充，单头 / 双头）；
+ * - [Pulse]：描边呼吸（辉光层数 + 呼吸缩放）；
+ * - [Flip]：3D 翻转。
+ */
+@Serializable
+@Keep
+enum class CapsuleShape { Sweep, Pulse, Flip }
+
+/**
+ * 胶囊参数：三种形态共用一个块，`shape` 选当前生效的那一组。
+ *
+ * [strokeWidthDp] 是三种形态共用的核心描边宽度；扫光的 [fill] 打开后
+ * 不再沿轮廓扫，而是在每一行内部横向扫过。
+ */
+@Serializable
+@Keep
+data class CapsuleParams(
+    val shape: CapsuleShape = CapsuleShape.Sweep,
+    val strokeWidthDp: Float = 1.5f,
+    /** 扫光：true = 行内填充，false = 沿轮廓。 */
+    val fill: Boolean = false,
+    val heads: Int = 1,
+    /** 主带宽度（胶囊宽占比，5–90）。 */
+    val bandPercent: Int = 25,
+    /** 每循环扫过的比例（0 = 停住，1 = 扫一圈）。 */
+    val travel: Float = 1f,
+    val trailScale: Float = 2f,
+    val trailAlpha: Float = 0.4f,
+    val reverse: Boolean = false,
+    /** 呼吸：辉光层数（0–2）。 */
+    val glowLayers: Int = 2,
+    val glowScale: Float = 1f,
+    val breatheScale: Float = 1f,
+    /** 翻转：0 = 不翻；90–360 = 单循环翻转角度。 */
+    val flipDegrees: Int = 180,
+)
+
+// ---------------------------------------------------------------- 全屏
+
+/** 全屏着色形状：平铺 / 径向暗角 / 向外扩散的环。 */
+@Serializable
+@Keep
+enum class WashShape { Flat, Radial, Ring }
+
+/**
+ * 全屏着色：平铺（闪光）/ 径向（暗角）/ 环形（缩放脉冲）。
+ *
+ * [breath] 为 true 时按正弦呼吸，否则只做一次淡出。
+ */
+@Serializable
+@Keep
+data class WashParams(
+    val shape: WashShape = WashShape.Flat,
+    val amplitude: Float = 0.6f,
+    val zoomPercent: Int = 8,
+    val softness: Float = 0.5f,
+    val breath: Boolean = true,
+)
+
+/** 全屏覆盖的遮罩形状：圆盘 / 圆瞳 / 中间亮缝 / 百叶 / 碎片。 */
+@Serializable
+@Keep
+enum class CoverMask { Circle, Iris, Slit, Bands, Shards }
+
+/**
+ * 全屏覆盖：五种遮罩共用一套时序。
+ *
+ * - [mask] 选择几何；[amplitude] 是最终不透明度（关闭屏幕一般 1）；
+ * - [bands] / [shards] 是百叶条数与碎片数；
+ * - [slitDp] 是电视关闭的最大亮缝厚度；[rimDp] 是圆瞳边缘描边宽度；
+ * - [softness] 边缘羽化；[curve] 是覆盖进度曲线指数（越大越后段发力）。
+ */
+@Serializable
+@Keep
+data class CoverParams(
+    val mask: CoverMask = CoverMask.Circle,
+    val amplitude: Float = 1f,
+    val bands: Int = 7,
+    val shards: Int = 16,
+    val slitDp: Float = 10f,
+    val rimDp: Float = 2f,
+    val softness: Float = 0.5f,
+    val curve: Float = 2f,
+)
+
+// ---------------------------------------------------------------- 粒子
 
 /** 粒子类的完整参数：发射器 + 运动方程 + 外观。 */
 @Serializable
@@ -339,10 +587,29 @@ data class ParticleParams(
 enum class ParticleArea { TopEdge, BottomEdge, ScreenRect, EdgePerimeter, Point, BallRing }
 
 /**
+ * 发射方向：
+ *
+ * - [Fixed]：按 [ParticleEmitter.directionDeg]；
+ * - [Inward]：从出生点指向屏幕中心（屏缘烟花靠它往屏幕内炸）；
+ * - [Outward]：背离屏幕中心；
+ * - [Radial]：360° 均匀（升空烟花 / 球心爆发）。
+ */
+@Serializable
+@Keep
+enum class ParticleDirection { Fixed, Inward, Outward, Radial }
+
+/**
  * 发射器：数量、方向/散开、初速与错峰。
  *
  * [directionDeg] 以屏幕坐标系为准（90 = 向下，270 = 向上）；
  * [speed] 是屏高/秒的归一化初速，[speedJitter] 是 ± 比例。
+ *
+ * 烟花相关：
+ * - [anchorPerWave]：每次波次共用一个随机锚点（一簇一爆），而不是每颗粒子各取一点；
+ * - [anchorCount]：每次波次同时用几个锚点（多处同时炸）；每个锚点各发射 [count] 颗；
+ * - [launchHeight]：0 = 原地爆；>0 = 先向上飞这段屏高，再在顶点爆开；
+ * - [launchShare]：升空占单次波次的比例（0.1–0.9）；
+ * - [delaySpread]：错峰窗口占「单循环减寿命」的比例（0 = 同刻出发，1 = 铺满）。
  */
 @Serializable
 @Keep
@@ -350,10 +617,16 @@ data class ParticleEmitter(
     val area: ParticleArea = ParticleArea.TopEdge,
     val count: Int = 60,
     val waves: Int = 1,
+    val anchorPerWave: Boolean = false,
+    /** 每次波次的锚点数（1–8）；`anchorPerWave` 打开时生效，每个锚点各发射 `count` 颗。 */
+    val anchorCount: Int = 1,
+    val directionMode: ParticleDirection = ParticleDirection.Fixed,
     val directionDeg: Float = 90f,
     val spreadDeg: Float = 30f,
     val speed: Float = 0.6f,
     val speedJitter: Float = 0.2f,
+    val launchHeight: Float = 0f,
+    val launchShare: Float = 0.45f,
     val delaySpread: Float = 0.6f,
     val lifeShare: Float = 0.65f,
 )
@@ -366,12 +639,12 @@ enum class ParticlePath { Bezier, Arc, Sine, ZigZag }
 /**
  * 运动方程族（组合式）：所有参数都归一化，渲染层按屏幕尺寸换算。
  *
- * - [gravity] 0 = 无重力，1 = 真重力，2–3 更强；
+ * - [gravity] 0 = 无重力，1 = 真重力，2–3 更强；负值 = 向上（气泡 / 升腾）；
  * - [drag] 0..1（终端速度曲线）；[wind] -1..1（负左正右）；
  * - [turbulence] / [brownian] 0..1（curl 噪声 / 随机游走强度）；
  * - [orbit] / [spiral] 0..1（绕锚点环行 / 向内卷吸）；[attract] 0..1；
  * - [sway] 振幅（屏宽比例）、[swayCycles] 单次寿命内的正弦周期；
- * - [spin] / [tilt] 0..1（自转 / 3D 翻面幅度）；[bounce] 0..1（边界反弹）。
+ * - [spin] 0..2（自转速度）、[tilt] 0..1（3D 翻面幅度）；[bounce] 0..1（边界反弹）。
  */
 @Serializable
 @Keep
@@ -438,16 +711,24 @@ data class ParticleLook(
     val sizeDp: Float = 3f,
     val sizeJitter: Float = 0.2f,
     val alpha: Float = 0.8f,
+    /** 透明度抖动（0 = 每颗粒子一样亮，1 = 最暗到全亮）。 */
+    val alphaJitter: Float = 0.15f,
     val haloStyle: ParticleHaloStyle = ParticleHaloStyle.Off,
     val haloAlpha: Float = 0.35f,
     val haloScale: Float = 1.8f,
+    /** 拖尾长度（dp）；对**所有形状**生效，Line 形状会额外拉长。 */
     val trailDp: Float = 0f,
     val trailAlpha: Float = 0.5f,
-    /** 闪烁：每颗粒子用自己的相位明灭（萤火 / 星点）。 */
+    /** 闪烁：每颗粒子用自己的相位明灭（萤火 / 星点 / 烟花余烬）。 */
     val blink: Boolean = false,
     /** 单次寿命内的闪烁周期数。 */
     val blinkCycles: Float = 2f,
-    val rotate: Boolean = false,
+    /** 尺寸随寿命收缩的比例（0 = 不缩，0.8 = 末帧只剩 20%）。 */
+    val sizeShrink: Float = 0f,
+    /** 淡出曲线指数：1 = 线性，>1 = 后段更快消失。 */
+    val fadeExp: Float = 1.5f,
+    /** 一簇一色：同一次波次（烟花 / 球心爆）共用一个调色板颜色。 */
+    val colorPerWave: Boolean = false,
     val blendAdd: Boolean = false,
     /**
      * 自定义图片的**文件名**（位于 [ImageDirName] 目录下）；空 = 回落圆点。
@@ -465,114 +746,7 @@ data class ParticleLook(
     }
 }
 
-// ---------------------------------------------------------------- 屏缘类
-
-/** 屏缘族的具体形态。 */
-@Serializable
-@Keep
-enum class EdgePattern { Glow, Flow, Ripple, Fireworks, Blade, Comet, Ribbon, Lightning }
-
-/**
- * 屏缘参数：光带宽度 / 圆角 / 衰减硬度是所有形态的公共轴；
- * 双带 / 拖尾只对流光与彗星有效，波峰数只对波纹有效，刃高只对双刃有效，
- * 落点数对烟花与闪电有效。
- */
-@Serializable
-@Keep
-data class EdgeParams(
-    val pattern: EdgePattern = EdgePattern.Glow,
-    val bandWidthDp: Float = 12f,
-    val cornerRadiusDp: Int = 24,
-    val hardness: Float = 2f,
-    val dualBand: Boolean = false,
-    val trailScale: Float = 2f,
-    val trailAlpha: Float = 0.4f,
-    val crests: Int = 3,
-    val bladeHeightDp: Int = 120,
-    val strikeCount: Int = 1,
-)
-
-// ---------------------------------------------------------------- 球体类
-
-/** 球 / 胶囊锚定的形态。 */
-@Serializable
-@Keep
-enum class BallPattern { Ring, Ripple, Burst, Halo, Shockwave, Spiral, Orbit3D }
-
-/** 球体参数：行程 / 描边 / 每循环环数 / 光晕强度；[centerAtBall] 只对涟漪有效。 */
-@Serializable
-@Keep
-data class BallParams(
-    val pattern: BallPattern = BallPattern.Ring,
-    val travelPercent: Int = 95,
-    val strokeWidthDp: Float = 3f,
-    val ringsPerCycle: Int = 1,
-    val haloScale: Float = 1f,
-    val centerAtBall: Boolean = true,
-    val particleCount: Int = 18,
-    val particleSizeDp: Float = 4f,
-)
-
-// ---------------------------------------------------------------- 胶囊类
-
-/** 胶囊本体形态。 */
-@Serializable
-@Keep
-enum class CapsulePattern { Pulse, Shimmer, BreathOutline, InnerSweep, Flip3D, DualChase }
-
-/** 胶囊参数：描边宽度 / 主带宽度 / 拖尾 / 扫动方向 / 翻转幅度。 */
-@Serializable
-@Keep
-data class CapsuleParams(
-    val pattern: CapsulePattern = CapsulePattern.Pulse,
-    val strokeWidthDp: Float = 1.5f,
-    val bandWidthPercent: Int = 25,
-    val trailScale: Float = 2f,
-    val trailAlpha: Float = 0.4f,
-    val reverse: Boolean = false,
-    val flipDegrees: Int = 180,
-)
-
-// ---------------------------------------------------------------- 全屏氛围 / 揭示
-
-/** 全屏着色形态。 */
-@Serializable
-@Keep
-enum class ScreenPattern {
-    Flash,
-    Vignette,
-    ZoomPulse,
-    CenterBlackout,
-
-    /** 电视关闭：上下黑幕向中间收拢，露出最后一条亮缝再收成点。 */
-    CrtOff,
-
-    /** 屏幕碎裂：裂纹闪光后黑色碎片压满整屏。 */
-    Shatter,
-
-    /** 百叶关闭：多条黑带交错合拢。 */
-    Blinds,
-
-    /** 圆瞳收束：黑色遮罩的圆形孔收到 0。 */
-    Iris,
-    }
-
-/**
- * 屏幕着色参数：强度 / 缩放幅度 / 颜色；[r,g,b,a] 跟随颜色引用时不填。
- *
- * [CenterBlackout] 固定黑、从屏幕中心圆形扩散盖满整屏（关闭屏幕动画），
- * 不用调色板；[amplitude] 是最终不透明度，[vignetteSoftness] 是黑幕边缘羽化。
- * [CrtOff] / [Shatter] / [Blinds] / [Iris] 是关闭屏幕的四种形态：都会在结束时盖满全黑，
- * 编辑器里同样只暴露强度 / 羽化（CrtOff 的亮缝固定用白色）。
- */
-@Serializable
-@Keep
-data class ScreenParams(
-    val pattern: ScreenPattern = ScreenPattern.Flash,
-    val amplitude: Float = 0.6f,
-    val zoomPercent: Int = 8,
-    val vignetteSoftness: Float = 0.5f,
-)
+// ---------------------------------------------------------------- 揭示
 
 /** 揭示形态：文字逐字 / 图标逐元素。 */
 @Serializable
@@ -596,11 +770,12 @@ data class RevealParams(
 @Serializable
 @Keep
 enum class RevealDirection { LeftToRight, RightToLeft, TopToBottom, BottomToTop }
+
 /**
  * 动效素材的专用导出格式（预设 + 调色板）。
  *
  * 与整机备份分开：整机备份是整域覆盖，这里是往素材库里**合并**。
- * 内置预设不进导出；导入的预设一律按用户预设落库（内置只读，不能从外部塞进来）。
+ * 导入的预设一律按用户预设落库（内置只读，不能从外部塞进来）。
  */
 @Serializable
 @Keep
@@ -612,5 +787,5 @@ data class AlertLibraryExport(
     val presets: List<AlertPreset> = emptyList(),
 )
 
-/** 当前导出格式版本（v4 = 组合层模型）。 */
-const val AlertLibraryExportVersion: Int = 4
+/** 当前导出格式版本（v6 = 7 个渲染器族 + 形态切换）。 */
+const val AlertLibraryExportVersion: Int = 6

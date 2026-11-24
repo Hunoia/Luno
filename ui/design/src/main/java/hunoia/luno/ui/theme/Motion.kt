@@ -8,7 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.MotionSpeed
 import hunoia.luno.config.model.MotionTuningSettings
 import kotlin.math.roundToInt
@@ -42,7 +42,7 @@ enum class MotionFamily(val baseMillis: Int) {
      * 通知胶囊到达提示动效：**按层类别一个家族**（屏缘 / 粒子与揭示 / 球体与全屏），
      * 全部走浮窗档位。单循环基准（呼吸一圈 / 一波粒子 / 一次扫光…）由预设层的
      * `AlertTiming.baseMillis` 承载，**不再由家族承载**——家族只负责「这一层该用哪档速度」
-     * （见 ui-guidelines §2.4）。类别 → 家族的唯一映射见 [AlertKind.toAlertFamily]。
+     * （见 ui-guidelines §2.4）。类别 → 家族的唯一映射见 [AlertLayerCategory.toMotionFamily]。
      */
     AlertEdge(1400),
 
@@ -134,8 +134,8 @@ fun <T> MotionSpec.tween(): TweenSpec<T> = tween(durationMillis, easing = easing
  * 到达提示层 → 动效家族的唯一映射（每类一个家族，只承载档位）。
  * 单循环基准在层的 `AlertTiming.baseMillis`，不在这里。
  */
-fun AlertKind.toAlertFamily(): MotionFamily = when (this) {
-    AlertKind.Edge -> MotionFamily.AlertEdge
-    AlertKind.Particle, AlertKind.Reveal -> MotionFamily.AlertParticle
-    AlertKind.Ball, AlertKind.Capsule, AlertKind.Screen -> MotionFamily.AlertAnchor
+fun AlertLayerCategory.toMotionFamily(): MotionFamily = when (this) {
+    AlertLayerCategory.Edge -> MotionFamily.AlertEdge
+    AlertLayerCategory.Particle, AlertLayerCategory.Reveal -> MotionFamily.AlertParticle
+    AlertLayerCategory.Ball, AlertLayerCategory.Screen -> MotionFamily.AlertAnchor
 }
