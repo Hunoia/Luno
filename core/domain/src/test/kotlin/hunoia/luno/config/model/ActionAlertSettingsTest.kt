@@ -1,5 +1,6 @@
 package hunoia.luno.config.model
 
+import hunoia.luno.config.defaults.GestureSettingsDefaults
 import hunoia.luno.core.domain.JsonSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -67,6 +68,56 @@ class ActionAlertSettingsTest {
 
         val preset = JsonSerializer.decodeFromString<AlertPreset>("""{"id":"p","name":"n"}""")
         assertEquals(AlertPlaybackPolicy.Skip, preset.playbackPolicy)
+    }
+
+    @Test
+    fun `lock and touch button moments default off and clean by preset`() {
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>("{}")
+        assertFalse(decoded.lockAlert.enabled)
+        assertFalse(decoded.buttonAlert.enabled)
+        assertNull(decoded.lockAlert.presetId)
+        assertTrue(decoded.buttonAlert.bindings.isEmpty())
+
+        val lock = MomentAlertSettings(enabled = true, presetId = "p1")
+        assertTrue(lock.playable)
+        assertNull(lock.withoutPreset("p1").presetId)
+
+        val touch = TouchButtonAlertSettings(enabled = true)
+            .withBinding("b1", "p1")
+            .withBinding("b2", "p1")
+            .withBinding("b1", null)
+        assertEquals(null, touch.presetFor("b1"))
+        assertEquals("p1", touch.presetFor("b2"))
+        assertTrue(touch.withoutPreset("p1").bindings.isEmpty())
+        assertTrue(touch.retainButtons(setOf("b2")).bindings.keys == setOf("b2"))
+    }
+
+    @Test
+    fun `swipe indicator defaults are off and clamped`() {
+        val settings = GestureSettings()
+        assertFalse(settings.swipeIndicator.enabled)
+        assertTrue(settings.swipeIndicator.followButtonColor)
+        assertEquals(
+            GestureSettingsDefaults.SwipeIndicatorSizePercent,
+            settings.swipeIndicator.effectiveSizePercent,
+        )
+        assertEquals(75, SwipeIndicator(sizePercent = 0).effectiveSizePercent)
+        assertEquals(150, SwipeIndicator(sizePercent = 999).effectiveSizePercent)
+        assertEquals(SwipeIndicatorStyle.Pill, settings.swipeIndicator.style)
+        assertEquals(0, settings.swipeIndicator.effectiveStrokeWidthDp)
+        assertEquals(6, SwipeIndicator(strokeWidthDp = 999).effectiveStrokeWidthDp)
+        assertEquals(
+            GestureSettingsDefaults.SwipeIndicatorMaxDragDp,
+            settings.swipeIndicator.effectiveMaxDragDp,
+        )
+        assertEquals(24, SwipeIndicator(maxDragDp = 0).effectiveMaxDragDp)
+        assertEquals(120, SwipeIndicator(maxDragDp = 999).effectiveMaxDragDp)
+        assertEquals(
+            SwipeIndicatorStyle.Wave,
+            JsonSerializer.decodeFromString<GestureSettings>(
+                """{"swipeIndicator":{"enabled":true,"style":"Wave"}}""",
+            ).swipeIndicator.style,
+        )
     }
 
     @Test

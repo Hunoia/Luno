@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -42,6 +44,7 @@ import hunoia.luno.gesture.settings.GestureActionTarget
 fun GestureButtonSettingsScreen(
     onBack: () -> Unit,
     onNavToActionSelect: (GestureActionTarget) -> Unit = {},
+    onNavToButtonAlert: (String) -> Unit = {},
     vm: GestureButtonSettingsVM = viewModel()
 ) {
     var showVibrationSettings by remember { mutableStateOf(false) }
@@ -119,6 +122,17 @@ fun GestureButtonSettingsScreen(
                         if (gestureButton != null) {
                             fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
                                 vm.setExpandedActionGroup(if (expanded) group else null)
+                            }
+                            item {
+                                LunoGroup(title = stringResource(R.string.gesture_effect_group)) {
+                                    LunoSettingsRow(
+                                        title = stringResource(R.string.gesture_button_alert_row),
+                                        subtitle = stringResource(R.string.gesture_button_alert_row_hint),
+                                        icon = Icons.Default.PlayArrow,
+                                        shape = LargeShape,
+                                        onClick = { onNavToButtonAlert(gestureButton.id) },
+                                    )
+                                }
                             }
                             item {
                                 LunoGroup(

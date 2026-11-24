@@ -106,8 +106,13 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.QuickPanel -> withShellFallback(controller.quickPanel()) {
                 hunoia.luno.shizuku.ShizukuInputInjection.expandQuickSettings()
             }
-            is Action.LockScreen -> withShellFallback(controller.lockScreen()) {
-                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_SLEEP)
+            is Action.LockScreen -> {
+                // 先播到压黑（最长 2.3s，失败/未配置立即返回）再真正锁屏；
+                // 返回时黑幕仍保持在屏，息屏广播会拆除，避免动画先摘窗造成的亮帧。
+                context.surfaces.playScreenOffEffect()
+                withShellFallback(controller.lockScreen()) {
+                    hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_SLEEP)
+                }
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

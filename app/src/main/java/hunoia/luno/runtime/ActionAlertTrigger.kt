@@ -19,6 +19,12 @@ internal object ActionAlertTrigger {
     fun observe(settlement: ExecuteSettlement) {
         if (!settlement.succeeded) return
         val stored = settlement.request.stored
+        // 锁屏动作的动效归「锁屏动画」页：动作动效在锁屏后才触发，看不见还会白播一次。
+        // 即使锁屏动画未单独配置，锁屏时刻也会回退使用动作动效里的锁屏绑定（见 playLockMoment），
+        // 所以这里无条件跳过，避免锁屏前播一次、锁屏后再白播一次。
+        if (stored.typeId == "accessibility.lockScreen") {
+            return
+        }
         val entryId = stored.libraryEntryId()
         val typeId = if (entryId == null) stored.typeId else null
         FloatBallCommand.playActionAlert?.invoke(typeId, entryId)

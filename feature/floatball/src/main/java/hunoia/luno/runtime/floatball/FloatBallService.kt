@@ -322,11 +322,21 @@ class FloatBallService : Service() {
     /** 只有胶囊层的计划没有舞台窗回调，用计时兜底触发「播完起下一条」。 */
     private var playbackFinishJob: Job? = null
 
-    /** 一次待播：计划 + 外部请求 id（外部 API 取消待播时按 id 匹配）+ 起播后的清理动作。 */
+    /** 一次播放结束后的回调（锁屏等待用；每次起播覆盖，播完/被停都只调一次）。 */
+    private var playbackFinishedCallback: (() -> Unit)? = null
+
+    /** 触钮跟手的当前锚点：舞台每帧绘制时读它，不用 Compose 状态也能跟手。 */
+    private class AnchorHolder(@Volatile var anchor: AlertAnchor)
+
+    private var touchAnchor: AnchorHolder? = null
+
+    /** 一次待播：计划 + 外部请求 id + 起播清理 + 锚点提供者 + 播完回调。 */
     private class PendingPlay(
         val plan: AlertPlayPlan,
         val effectId: String?,
         val onStarted: () -> Unit,
+        val anchorProvider: (() -> AlertAnchor)?,
+        val onFinished: (() -> Unit)?,
     )
 
     // ---- 跟随持机手（三球各自独立） ----
@@ -408,6 +418,9 @@ class FloatBallService : Service() {
         FloatBallCommand.requestFollowHandSwap = followHandBroadcast
         FloatBallCommand.toggleScreenHide = ::toggleScreenHide
         FloatBallCommand.playActionAlert = ::onActionSettled
+        FloatBallCommand.playLockMoment = ::playLockMoment
+        FloatBallCommand.playTouchMoment = ::playTouchMoment
+        FloatBallCommand.moveTouchMoment = ::moveTouchMoment
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
         hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
@@ -551,6 +564,9 @@ class FloatBallService : Service() {
         FloatBallCommand.requestFollowHandSwap = null
         FloatBallCommand.toggleScreenHide = null
         FloatBallCommand.playActionAlert = null
+        FloatBallCommand.playLockMoment = null
+        FloatBallCommand.playTouchMoment = null
+        FloatBallCommand.moveTouchMoment = null
         followHandRetryJob?.cancel()
         followHandRetryJob = null
         pendingFollowHandSide = null
@@ -861,6 +877,110 @@ class FloatBallService : Service() {
         }
     }
 
+    /**
+     * 锁屏前的关闭动画：读 `lockAlert`，压黑 / 被停 / 播不出都会回调一次 [onFinished]。
+     *
+     * 调用方的等待上限（2.3s）在 `AlertMoments` 里；这里只负责起播与压黑回调。
+     */
+    private fun playLockMoment(onFinished: () -> Unit) {
+        val config = settings.lockAlert
+        // 兼容旧配置：用户在「动作动效」里给 accessibility.lockScreen 绑过预设时，
+        // 那个绑定在锁屏后播放（看不见），这里把它当作锁屏关闭动画的来源。
+        val actionFallbackId = settings.actionAlert.takeIf { it.enabled }
+            ?.presetFor("accessibility.lockScreen", null)
+        val fallback = config.presetId.isNullOrBlank() && actionFallbackId != null
+        val presetId = config.presetId ?: actionFallbackId
+        val enabled = config.enabled || fallback
+        if (!enabled || presetId.isNullOrBlank()) {
+            Log.i(TAG, "lock moment skipped enabled=${config.enabled} preset=$presetId")
+            onFinished()
+            return
+        }
+        val intensityPercent = if (fallback) {
+            settings.actionAlert.intensityPercent
+        } else {
+            config.intensityPercent
+        }
+        val speedPercent = if (fallback) {
+            settings.actionAlert.speedPercent
+        } else {
+            config.speedPercent
+        }
+        val library = settings.notificationCapsule.alertLibrary
+        val preset = AlertPlanFactory.presets(library)[presetId]
+        if (preset == null || !canDrawOverlays()) {
+            Log.i(TAG, "lock moment unavailable preset=$presetId overlay=${canDrawOverlays()}")
+            onFinished()
+            return
+        }
+        val profile = MotionTuning.profile
+        val plan = AlertPlanFactory.buildFromPreset(
+            preset = preset,
+            presetId = presetId,
+            library = library,
+            intensityScale = intensityPercent / 100f,
+            speedScale = speedPercent / 100f,
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            seed = Random.nextInt(),
+        ).toPlayPlan().copy(
+            closing = true,
+            // 锁屏是前台动作：不排在到达动效后面，避免等待被排队拖到超时。
+            playbackPolicy = AlertPlaybackPolicy.Replace,
+        )
+        pendingPlay?.onFinished?.invoke()
+        pendingPlay = null
+        // 只有胶囊层的预设画不到舞台：锁屏没有黑幕可保持，直接锁屏（不假装播过）。
+        if (plan.stageLayers.isEmpty()) {
+            Log.i(TAG, "lock moment has no stage layer preset=$presetId")
+            onFinished()
+            return
+        }
+        Log.i(
+            TAG,
+            "lock moment start preset=$presetId layers=${plan.stageLayers.size} " +
+                "duration=${plan.durationMillis} closing=${plan.closing}",
+        )
+        val outcome = playAlertPlan(
+            plan = plan,
+            anchorProvider = {
+                AlertAnchor(
+                    centerX = DensityProvider.screenWidthPx / 2f,
+                    centerY = DensityProvider.screenHeightPx / 2f,
+                    capsulePx = 0,
+                )
+            },
+            onFinished = onFinished,
+        )
+        if (outcome != PlayOutcome.Played && outcome != PlayOutcome.Queued) onFinished()
+    }
+
+    /** 触钮按下：按 `buttonAlert.bindings[buttonId]` 播一份，锚点跟手指。 */
+    private fun playTouchMoment(buttonId: String, x: Float, y: Float) {
+        val config = settings.buttonAlert
+        if (!config.enabled) return
+        val presetId = config.presetFor(buttonId) ?: return
+        val library = settings.notificationCapsule.alertLibrary
+        val preset = AlertPlanFactory.presets(library)[presetId] ?: return
+        if (!canDrawOverlays()) return
+        val holder = AnchorHolder(AlertAnchor(centerX = x, centerY = y, capsulePx = 0))
+        touchAnchor = holder
+        val profile = MotionTuning.profile
+        val plan = AlertPlanFactory.buildFromPreset(
+            preset = preset,
+            presetId = presetId,
+            library = library,
+            intensityScale = config.intensityScale,
+            speedScale = config.speedScale,
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+            seed = Random.nextInt(),
+        ).toPlayPlan()
+        playAlertPlan(plan = plan, anchorProvider = { holder.anchor })
+    }
+
+    private fun moveTouchMoment(x: Float, y: Float) {
+        touchAnchor?.anchor = AlertAnchor(centerX = x, centerY = y, capsulePx = 0)
+    }
+
     /** 任一到达动效在播：舞台窗或胶囊窗自己那层。 */
     private fun isAlertPlaying(): Boolean =
         alertStage.isShowing ||
@@ -922,6 +1042,8 @@ class FloatBallService : Service() {
         plan: AlertPlayPlan,
         effectId: String? = null,
         onStarted: () -> Unit = {},
+        anchorProvider: (() -> AlertAnchor)? = null,
+        onFinished: (() -> Unit)? = null,
     ): PlayOutcome {
         if (plan.isEmpty) return PlayOutcome.Empty
         if (isAlertPlaying()) {
@@ -933,13 +1055,13 @@ class FloatBallService : Service() {
                 }
                 AlertPlaybackPolicy.Queue -> {
                     if (pendingPlay != null) return PlayOutcome.Busy
-                    pendingPlay = PendingPlay(plan, effectId, onStarted)
+                    pendingPlay = PendingPlay(plan, effectId, onStarted, anchorProvider, onFinished)
                     Log.i(TAG, "alert queued id=$effectId")
                     return PlayOutcome.Queued
                 }
             }
         }
-        return if (startAlertPlan(plan, effectId, onStarted)) {
+        return if (startAlertPlan(plan, effectId, onStarted, anchorProvider, onFinished)) {
             PlayOutcome.Played
         } else {
             PlayOutcome.Failed
@@ -951,8 +1073,11 @@ class FloatBallService : Service() {
         plan: AlertPlayPlan,
         effectId: String?,
         onStarted: () -> Unit,
+        anchorProvider: (() -> AlertAnchor)?,
+        onFinished: (() -> Unit)?,
     ): Boolean {
         val token = ++playbackSeq
+        playbackFinishedCallback = onFinished
         val slot = if (this::notificationSlot.isInitialized) notificationSlot else null
         val capsuleLayer = plan.capsuleLayers.firstOrNull()
         val capsuleHost = slot?.takeIf { it.showing }
@@ -992,6 +1117,7 @@ class FloatBallService : Service() {
             colorSpec = alertColorSpec(),
             secondColor = ColorSpec.Unset,
             onFinished = { finishAlertPlayback(token) },
+            anchorProvider = anchorProvider ?: { anchor },
         )
         if (!shown) {
             finishAlertPlayback(token)
@@ -1006,9 +1132,12 @@ class FloatBallService : Service() {
         playbackFinishJob?.cancel()
         playbackFinishJob = null
         activeEffectId = null
+        val finished = playbackFinishedCallback
+        playbackFinishedCallback = null
+        finished?.invoke()
         val next = pendingPlay ?: return
         pendingPlay = null
-        startAlertPlan(next.plan, next.effectId, next.onStarted)
+        startAlertPlan(next.plan, next.effectId, next.onStarted, next.anchorProvider, next.onFinished)
     }
 
     /**
@@ -1147,9 +1276,14 @@ class FloatBallService : Service() {
     /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
     private fun stopArrivalAlerts() {
         activeEffectId = null
+        pendingPlay?.onFinished?.invoke()
         pendingPlay = null
         playbackFinishJob?.cancel()
         playbackFinishJob = null
+        touchAnchor = null
+        val finished = playbackFinishedCallback
+        playbackFinishedCallback = null
+        finished?.invoke()
         if (this::notificationSlot.isInitialized) {
             notificationSlot.window.cancelArrivalAlert()
         }

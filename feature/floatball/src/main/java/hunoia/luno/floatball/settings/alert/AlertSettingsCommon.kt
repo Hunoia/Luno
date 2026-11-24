@@ -34,6 +34,7 @@ import hunoia.luno.config.model.ScreenPattern
 import hunoia.luno.config.model.category
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
+import hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets
 import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -76,6 +77,14 @@ internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     "builtin_ball_ring" -> R.string.float_ball_preset_ball_ring
     "builtin_ball_burst" -> R.string.float_ball_preset_ball_burst
     "builtin_capsule_pulse" -> R.string.float_ball_preset_capsule_pulse
+    "builtin_screen_blackout" -> R.string.float_ball_preset_screen_blackout
+    "builtin_screen_crt_off" -> R.string.float_ball_preset_screen_crt_off
+    "builtin_screen_shatter" -> R.string.float_ball_preset_screen_shatter
+    "builtin_screen_blinds" -> R.string.float_ball_preset_screen_blinds
+    "builtin_screen_iris" -> R.string.float_ball_preset_screen_iris
+    "builtin_ball_ripple" -> R.string.float_ball_preset_ball_ripple
+    "builtin_particle_point_burst" -> R.string.float_ball_preset_particle_point_burst
+    "builtin_particle_spark" -> R.string.float_ball_preset_particle_spark
     "builtin_screen_flash" -> R.string.float_ball_preset_screen_flash
     "builtin_screen_vignette" -> R.string.float_ball_preset_screen_vignette
     "builtin_path_comet" -> R.string.float_ball_preset_path_comet
@@ -103,14 +112,16 @@ internal fun AlertPreset.displayName(): String {
     return name.takeIf { it.isNotBlank() } ?: stringResource(R.string.float_ball_preset_unnamed)
 }
 
-/** 预设总层数展示：单层 = 素材，多层 = 组合。 */
+/** 预设总层数展示：0 层 = 待补素材的空草稿，1 层 = 素材，多层 = 组合。 */
 @Composable
-internal fun AlertPreset.layerSummary(): String =
-    if (layers.size <= 1) {
-        stringResource(R.string.float_ball_preset_layers_one)
-    } else {
-        stringResource(R.string.float_ball_preset_layers_many, layers.size)
-    }
+internal fun AlertPreset.layerSummary(): String = when (layers.size) {
+    0 -> stringResource(R.string.float_ball_preset_layers_zero)
+    1 -> stringResource(R.string.float_ball_preset_layers_one)
+    else -> stringResource(R.string.float_ball_preset_layers_many, layers.size)
+}
+
+/** 空预设不能试播：播放端会解析成空计划，这里给 UI 一个统一判断。 */
+internal fun AlertPreset.isPlayable(): Boolean = layers.isNotEmpty()
 
 /** 当前选中的预设（未选 / 已被删 → null）。 */
 internal fun NotificationAlertSettings.selectedPreset(library: AlertLibrary): AlertPreset? {
@@ -125,8 +136,17 @@ internal fun AlertLibrary.pickerPresets(): List<AlertPreset> =
 /** 用户预设（素材库里的非内置项）。 */
 internal fun AlertLibrary.userPresets(): List<AlertPreset> = presets.filter { !it.builtin }
 
-internal fun AlertLibrary.presetById(id: String?): AlertPreset? =
-    id?.let { AlertPlanFactory.presets(this)[it] }
+/**
+ * 编辑 / 校验用查找：**包含空层预设**。
+ *
+ * 播放与选择器必须走 [pickerPresets]（过滤空层）；但删光层的预设仍是可编辑草稿，
+ * 若这里也过滤，编辑页会拿到 null 立刻 `onGone()` 弹回，用户看到的就是“点击没反应”。
+ */
+internal fun AlertLibrary.presetById(id: String?): AlertPreset? {
+    val presetId = id ?: return null
+    BuiltinAlertPresets.all.firstOrNull { it.id == presetId }?.let { return it }
+    return presets.firstOrNull { it.id == presetId }
+}
 
 // ---------------------------------------------------------------- 层展示
 
@@ -189,6 +209,24 @@ internal fun ScreenPattern.labelRes(): Int = when (this) {
     ScreenPattern.Flash -> R.string.float_ball_layer_screen_flash
     ScreenPattern.Vignette -> R.string.float_ball_layer_screen_vignette
     ScreenPattern.ZoomPulse -> R.string.float_ball_layer_screen_zoom
+    ScreenPattern.CenterBlackout -> R.string.float_ball_layer_screen_blackout
+    ScreenPattern.CrtOff -> R.string.float_ball_layer_screen_crt_off
+    ScreenPattern.Shatter -> R.string.float_ball_layer_screen_shatter
+    ScreenPattern.Blinds -> R.string.float_ball_layer_screen_blinds
+    ScreenPattern.Iris -> R.string.float_ball_layer_screen_iris
+}
+
+internal fun hunoia.luno.config.model.SwipeIndicatorStyle.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.SwipeIndicatorStyle.Pill ->
+        R.string.swipe_indicator_style_pill
+    hunoia.luno.config.model.SwipeIndicatorStyle.Droplet ->
+        R.string.swipe_indicator_style_droplet
+    hunoia.luno.config.model.SwipeIndicatorStyle.Wave ->
+        R.string.swipe_indicator_style_wave
+    hunoia.luno.config.model.SwipeIndicatorStyle.Glow ->
+        R.string.swipe_indicator_style_glow
+    hunoia.luno.config.model.SwipeIndicatorStyle.Ripple ->
+        R.string.swipe_indicator_style_ripple
 }
 
 internal fun RevealPattern.labelRes(): Int = when (this) {

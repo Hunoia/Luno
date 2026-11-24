@@ -20,8 +20,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -314,6 +318,8 @@ internal fun AlertStageLayers(
     colorSpec: ColorSpec,
     secondColorSpec: ColorSpec,
     clock: () -> Float,
+    /** 当前锚点：静态播放返回固定值；触钮跟手时每帧读最新手指坐标。 */
+    anchorProvider: () -> AlertAnchor = { anchor },
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         plan.stageLayers.forEachIndexed { index, layer ->
@@ -337,16 +343,30 @@ internal fun AlertStageLayers(
                         EdgeAlertStyle.Comet -> EdgeCometLayer(layer, palette, clock)
                     }
 
-                    is ParticleAlertStyle -> ParticleEngineLayer(layer, anchor, palette, clock, seed)
+                    is ParticleAlertStyle -> ParticleEngineLayer(
+                        layer,
+                        anchor,
+                        palette,
+                        clock,
+                        seed,
+                        anchorProvider,
+                    )
 
                     is AnchorAlertStyle -> when (style) {
-                        AnchorAlertStyle.Ring -> BallRingLayer(layer, anchor, palette, clock)
-                        AnchorAlertStyle.Ripple -> FullRippleLayer(layer, anchor, palette, clock)
-                        AnchorAlertStyle.BallBurst -> BallBurstLayer(layer, anchor, palette, clock, seed)
-                        AnchorAlertStyle.BallHalo -> BallHaloLayer(layer, anchor, palette, clock)
-                        AnchorAlertStyle.Spiral -> BallSpiralLayer(layer, anchor, palette, clock)
-                        AnchorAlertStyle.Orbit3D -> BallOrbit3DLayer(layer, anchor, palette, clock)
-                        AnchorAlertStyle.Shockwave -> BallShockwaveLayer(layer, anchor, palette, clock)
+                        AnchorAlertStyle.Ring ->
+                            BallRingLayer(layer, anchor, palette, clock, anchorProvider)
+                        AnchorAlertStyle.Ripple ->
+                            FullRippleLayer(layer, anchor, palette, clock, anchorProvider)
+                        AnchorAlertStyle.BallBurst ->
+                            BallBurstLayer(layer, anchor, palette, clock, seed, anchorProvider)
+                        AnchorAlertStyle.BallHalo ->
+                            BallHaloLayer(layer, anchor, palette, clock, anchorProvider)
+                        AnchorAlertStyle.Spiral ->
+                            BallSpiralLayer(layer, anchor, palette, clock, anchorProvider)
+                        AnchorAlertStyle.Orbit3D ->
+                            BallOrbit3DLayer(layer, anchor, palette, clock, anchorProvider)
+                        AnchorAlertStyle.Shockwave ->
+                            BallShockwaveLayer(layer, anchor, palette, clock, anchorProvider)
                     }
 
                     is ScreenAlertStyle -> ScreenLayer(layer, palette, clock)
@@ -485,6 +505,7 @@ private fun ParticleEngineLayer(
     palette: AlertPaletteColors,
     clock: () -> Float,
     seed: Int,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as ParticlesSpec
     val params = spec.params
@@ -515,6 +536,7 @@ private fun ParticleEngineLayer(
         } else {
             1f
         }
+        // 出生点只取起播瞬间的锚点：跟手是**整体平移**，不能重建粒子状态（否则每帧闪）。
         val anchorNorm = if (constraints.maxHeight > 0) {
             NormPoint(
                 anchor.centerX / constraints.maxHeight,
@@ -567,6 +589,10 @@ private fun ParticleEngineLayer(
                     blendPaint,
                 )
             }
+            // 跟手平移：当前锚点 - 起播锚点；只用屏幕高度归一化，口径与粒子引擎一致。
+            val currentAnchor = anchorProvider()
+            val followDx = (currentAnchor.centerX - anchor.centerX) / size.height
+            val followDy = (currentAnchor.centerY - anchor.centerY) / size.height
             val nowSeconds = now / 1000f
             // sizeDp 是外接盒边长（不是半径）：换形状时视觉大小一致。
             val peakSizePx = look.sizeDp.dp.toPx() / 2f
@@ -587,7 +613,10 @@ private fun ParticleEngineLayer(
                 }
                 if (alpha <= 0.005f) return@forEachIndexed
                 val accent = palette.at(index)
-                val center = Offset(particle.x * size.height, particle.y * size.height)
+                val center = Offset(
+                    (particle.x + followDx) * size.height,
+                    (particle.y + followDy) * size.height,
+                )
                 val radius = peakSizePx * run.sizeJitters[index]
                 drawHalo(
                     style = look.haloStyle,
@@ -1103,10 +1132,11 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStaggeredLine(
 }
 
 /**
- * 全屏着色（舞台窗最上层之外的独立层）：闪光 / 暗角呼吸 / 缩放脉冲。
+ * 全屏着色（舞台窗最上层之外的独立层）：闪光 / 暗角呼吸 / 缩放脉冲 / 关闭屏幕形态。
  *
  * 效果窗是全屏穿透的，不能真的缩放其它内容；缩放脉冲用径向亮环模拟「向外顶一下」，
- * 观感与「屏幕像被轻推」一致，且不依赖任何应用内容。
+ * 观感与「屏幕像被轻推」一致，且不依赖任何应用内容。关闭屏幕类形态都利用这个穿透窗
+ * 露出真实画面（亮缝 / 碎片间隙 / 圆孔），结束统一盖满黑。
  */
 @Composable
 private fun ScreenLayer(
@@ -1117,10 +1147,18 @@ private fun ScreenLayer(
     val spec = layer.spec as ScreenSpec
     val amplitude = layer.brightness.coerceIn(0f, 1f)
     val accent = palette.at(0)
+    // 关闭屏幕形态自己会盖满全黑：不套尾部淡出，否则最后一帧又把黑幕淡回去（看着没全黑）。
+    // 预览 / 动作动效同样适用；窗口结束自然消失。
+    val holdsBlack = spec.pattern == ScreenAlertStyle.CenterBlackout ||
+        spec.pattern == ScreenAlertStyle.CrtOff ||
+        spec.pattern == ScreenAlertStyle.Shatter ||
+        spec.pattern == ScreenAlertStyle.Blinds ||
+        spec.pattern == ScreenAlertStyle.Iris
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        val envelope = if (holdsBlack) 1f
+        else envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         if (envelope <= 0.005f) return@Canvas
         val t = (now / layer.cycleMillis) % 1f
         when (spec.pattern) {
@@ -1149,6 +1187,18 @@ private fun ScreenLayer(
                     ),
                 )
             }
+            ScreenAlertStyle.CenterBlackout ->
+                drawCenterBlackout(t, amplitude, spec.vignetteSoftness, envelope)
+            ScreenAlertStyle.CrtOff -> drawCrtOff(t, amplitude)
+            ScreenAlertStyle.Shatter -> drawShatter(
+                t,
+                amplitude,
+                accent,
+                spec.vignetteSoftness,
+                layer.presetId?.hashCode() ?: 0x5A7E,
+            )
+            ScreenAlertStyle.Blinds -> drawBlinds(t, amplitude)
+            ScreenAlertStyle.Iris -> drawIris(t, amplitude, accent, spec.vignetteSoftness)
             ScreenAlertStyle.ZoomPulse -> {
                 val scale = 1f +
                     spec.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
@@ -1170,6 +1220,239 @@ private fun ScreenLayer(
                 )
             }
         }
+    }
+}
+
+/** 中心黑幕：实心圆扩散；半径覆盖后直接铺满黑，四个角不会再透。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCenterBlackout(
+    t: Float,
+    amplitude: Float,
+    softness: Float,
+    envelope: Float,
+) {
+    val cover = t.easedOut(2.2f)
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f)
+    val radius = farthest * cover
+    val alpha = (amplitude * (0.35f + 0.65f * cover) * envelope).coerceIn(0f, 1f)
+    if (alpha <= 0.004f) return
+    if (cover >= 0.995f || radius >= farthest - 0.5f) {
+        drawRect(color = Color.Black.copy(alpha = (amplitude * envelope).coerceIn(0f, 1f)))
+        return
+    }
+    val soft = softness.coerceIn(0.02f, 1f)
+    val feather = (radius * soft * 0.28f).coerceAtLeast(1f)
+    val outer = (radius + feather).coerceAtLeast(1f)
+    val solidStop = (radius / outer).coerceIn(0f, 1f)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colorStops = arrayOf(
+                0f to Color.Black.copy(alpha = alpha),
+                solidStop to Color.Black.copy(alpha = alpha),
+                1f to Color.Black.copy(alpha = 0f),
+            ),
+            center = center,
+            radius = outer,
+        ),
+        radius = outer,
+        center = center,
+    )
+}
+
+/** 电视关闭：上下黑幕夹住一条亮缝，缝收窄到 0 后只留中心光点。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCrtOff(
+    t: Float,
+    amplitude: Float,
+) {
+    val centerY = size.height / 2f
+    val open = (1f - t).coerceIn(0f, 1f)
+    val gap = (size.height / 2f) * open * open
+    val coverAlpha = amplitude.coerceIn(0f, 1f)
+    if (gap > 0.5f) {
+        val topHeight = (centerY - gap).coerceAtLeast(0f)
+        val bottomTop = (centerY + gap).coerceAtMost(size.height)
+        drawRect(
+            color = Color.Black.copy(alpha = coverAlpha),
+            topLeft = Offset.Zero,
+            size = Size(size.width, topHeight),
+        )
+        drawRect(
+            color = Color.Black.copy(alpha = coverAlpha),
+            topLeft = Offset(0f, bottomTop),
+            size = Size(size.width, (size.height - bottomTop).coerceAtLeast(0f)),
+        )
+    } else {
+        drawRect(color = Color.Black.copy(alpha = coverAlpha))
+    }
+    // 亮缝快速出现再逐渐收细；关到底时换成中心光点，避免最后一帧只剩纯黑。
+    val lineIn = (t / 0.08f).coerceIn(0f, 1f)
+    val lineAlpha = (lineIn * (1f - t).pow(1.5f)).coerceIn(0f, 1f)
+    if (lineAlpha > 0.01f) {
+        val thickness = (2f + 8f * open).dp.toPx()
+        drawRect(
+            color = Color.White.copy(alpha = lineAlpha * 0.9f),
+            topLeft = Offset(0f, centerY - thickness / 2f),
+            size = Size(size.width, thickness),
+        )
+    }
+    val dot = ((t - 0.72f) / 0.28f).coerceIn(0f, 1f)
+    if (dot > 0f) {
+        val dotAlpha = (1f - dot) * 0.85f
+        val dotRadius = (2f + 8f * (1f - dot)).dp.toPx()
+        drawCircle(
+            brush = Brush.radialGradient(
+                colorStops = arrayOf(
+                    0f to Color.White.copy(alpha = dotAlpha),
+                    1f to Color.White.copy(alpha = 0f),
+                ),
+                center = Offset(size.width / 2f, centerY),
+                radius = dotRadius,
+            ),
+            radius = dotRadius,
+            center = Offset(size.width / 2f, centerY),
+        )
+    }
+}
+
+/** 屏幕碎裂：先放射裂纹，再让黑色碎片从中心压满整屏。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawShatter(
+    t: Float,
+    amplitude: Float,
+    accent: Color,
+    softness: Float,
+    seed: Int,
+) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f) * 1.15f
+    val random = Random(seed)
+    val shardCount = 16
+    val angles = FloatArray(shardCount + 1) { index ->
+        val base = index.toFloat() / shardCount * TwoPi
+        if (index == 0 || index == shardCount) base
+        else base + (random.nextFloat() - 0.5f) * 0.2f
+    }
+    val crackAlpha = (1f - t / 0.5f).coerceIn(0f, 1f)
+    if (crackAlpha > 0.01f) {
+        for (index in 0..shardCount) {
+            val angle = angles[index]
+            val length = farthest * (0.35f + 0.65f * (t / 0.3f).coerceIn(0f, 1f))
+            drawLine(
+                color = Color.White.copy(alpha = crackAlpha * 0.7f),
+                start = center,
+                end = Offset(
+                    center.x + kotlin.math.cos(angle) * length,
+                    center.y + kotlin.math.sin(angle) * length,
+                ),
+                strokeWidth = 1.5.dp.toPx(),
+            )
+        }
+    }
+    val shardProgress = ((t - 0.2f) / 0.8f).coerceIn(0f, 1f).easedOut(2f)
+    val scale = 0.12f + 1.03f * shardProgress
+    for (index in 0 until shardCount) {
+        val a0 = angles[index]
+        val a1 = angles[index + 1]
+        val path = Path().apply {
+            moveTo(center.x, center.y)
+            lineTo(
+                center.x + kotlin.math.cos(a0) * farthest * scale,
+                center.y + kotlin.math.sin(a0) * farthest * scale,
+            )
+            lineTo(
+                center.x + kotlin.math.cos(a1) * farthest * scale,
+                center.y + kotlin.math.sin(a1) * farthest * scale,
+            )
+            close()
+        }
+        drawPath(path = path, color = Color.Black.copy(alpha = amplitude))
+    }
+    if (t >= 0.985f) {
+        drawRect(color = Color.Black.copy(alpha = amplitude))
+    } else {
+        // 碎片缝里的裂纹收尾：靠近尾声时用强调色描边，碎裂感更明确。
+        val edgeAlpha = (1f - shardProgress) * (0.2f + softness.coerceIn(0f, 1f) * 0.5f)
+        if (edgeAlpha > 0.01f) {
+            for (index in 0 until shardCount) {
+                val angle = angles[index]
+                drawLine(
+                    color = accent.copy(alpha = edgeAlpha),
+                    start = center,
+                    end = Offset(
+                        center.x + kotlin.math.cos(angle) * farthest * scale,
+                        center.y + kotlin.math.sin(angle) * farthest * scale,
+                    ),
+                    strokeWidth = 1f,
+                )
+            }
+        }
+    }
+}
+
+/** 百叶关闭：奇偶条带从上下两端交错合拢。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlinds(
+    t: Float,
+    amplitude: Float,
+) {
+    val bands = 7
+    val bandHeight = size.height / bands
+    val alpha = amplitude.coerceIn(0f, 1f)
+    for (index in 0 until bands) {
+        val local = ((t - index * 0.045f) / 0.68f).coerceIn(0f, 1f).easedOut(2f)
+        val height = bandHeight * local
+        if (height <= 0f) continue
+        val top = if (index % 2 == 0) {
+            index * bandHeight
+        } else {
+            (index + 1) * bandHeight - height
+        }
+        drawRect(
+            color = Color.Black.copy(alpha = alpha),
+            topLeft = Offset(0f, top),
+            size = Size(size.width, height),
+        )
+    }
+    if (t >= 0.985f) {
+        drawRect(color = Color.Black.copy(alpha = alpha))
+    }
+}
+
+/** 圆瞳收束：黑色遮罩留圆形透明孔，孔径收到 0。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawIris(
+    t: Float,
+    amplitude: Float,
+    accent: Color,
+    softness: Float,
+) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val farthest = kotlin.math.hypot(size.width / 2f, size.height / 2f)
+    val radius = farthest * (1f - t).pow(1.4f)
+    val alpha = amplitude.coerceIn(0f, 1f)
+    if (radius <= 0.5f) {
+        drawRect(color = Color.Black.copy(alpha = alpha))
+        return
+    }
+    val path = Path().apply {
+        fillType = PathFillType.EvenOdd
+        addRect(Rect(0f, 0f, size.width, size.height))
+        addOval(
+            Rect(
+                center.x - radius,
+                center.y - radius,
+                center.x + radius,
+                center.y + radius,
+            ),
+        )
+    }
+    drawPath(path = path, color = Color.Black.copy(alpha = alpha))
+    val soft = softness.coerceIn(0f, 1f)
+    val rimAlpha = ((1f - t) * (0.35f + soft * 0.55f)).coerceIn(0f, 1f)
+    if (rimAlpha > 0.01f) {
+        drawCircle(
+            color = accent.copy(alpha = rimAlpha),
+            radius = radius,
+            center = center,
+            style = Stroke(width = (1f + soft * 3f).dp.toPx()),
+        )
     }
 }
 
@@ -1351,6 +1634,7 @@ private fun BallSpiralLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as BallSpiralSpec
     val peakAlpha = layer.brightness.lerpInRange(
@@ -1368,9 +1652,10 @@ private fun BallSpiralLayer(
             }
         }
     }
-    val center = Offset(anchor.centerX, anchor.centerY)
-    val baseRadius = anchor.capsulePx / 2f * (spec.travelPercent / 100f)
     Canvas(modifier = Modifier.fillMaxSize()) {
+        val liveAnchor = anchorProvider()
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
+        val baseRadius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
@@ -1406,6 +1691,7 @@ private fun BallOrbit3DLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as BallOrbit3DSpec
     val peakAlpha = layer.brightness.lerpInRange(
@@ -1423,9 +1709,10 @@ private fun BallOrbit3DLayer(
             }
         }
     }
-    val center = Offset(anchor.centerX, anchor.centerY)
-    val radius = anchor.capsulePx / 2f * (spec.travelPercent / 100f)
     Canvas(modifier = Modifier.fillMaxSize()) {
+        val liveAnchor = anchorProvider()
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
+        val radius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
@@ -1457,15 +1744,17 @@ private fun BallShockwaveLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as ShockwaveSpec
     val peakAlpha = layer.brightness.lerpInRange(
         BallBurstTuning.PeakAlphaMin,
         BallBurstTuning.PeakAlphaMax,
     )
-    val center = Offset(anchor.centerX, anchor.centerY)
-    val maxRadius = anchor.capsulePx / 2f * (spec.travelPercent / 100f)
     Canvas(modifier = Modifier.fillMaxSize()) {
+        val liveAnchor = anchorProvider()
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
+        val maxRadius = liveAnchor.capsulePx / 2f * (spec.travelPercent / 100f)
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
@@ -1513,17 +1802,19 @@ private fun BallRingLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as RingSpec
     val peakAlpha = layer.brightness.lerpInRange(RingTuning.PeakAlphaMin, RingTuning.PeakAlphaMax)
     val strokeWidthDp = spec.strokeWidthDp.toFloat()
     val ringsPerCycle = spec.ringsPerCycle
     val haloScale = spec.haloScale
-    val travelPx = ringTravelPx(anchor.capsulePx, layer.amount).toFloat()
-    val center = Offset(anchor.centerX, anchor.centerY)
-    val startRadius = anchor.capsulePx / 2f * 0.9f
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
+        val liveAnchor = anchorProvider()
+        val travelPx = ringTravelPx(liveAnchor.capsulePx, layer.amount).toFloat()
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
+        val startRadius = liveAnchor.capsulePx / 2f * 0.9f
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val totalRings = layer.cycles * ringsPerCycle
@@ -1569,6 +1860,7 @@ private fun FullRippleLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as RippleSpec
     val peakAlpha = layer.brightness.lerpInRange(RippleTuning.PeakAlphaMin, RippleTuning.PeakAlphaMax)
@@ -1577,12 +1869,13 @@ private fun FullRippleLayer(
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        val liveAnchor = anchorProvider()
         val center = if (spec.centerAtBall) {
-            Offset(anchor.centerX, anchor.centerY)
+            Offset(liveAnchor.centerX, liveAnchor.centerY)
         } else {
             Offset(size.width / 2f, size.height / 2f)
         }
-        val startRadius = if (spec.centerAtBall) anchor.capsulePx / 2f * 0.9f else 0f
+        val startRadius = if (spec.centerAtBall) liveAnchor.capsulePx / 2f * 0.9f else 0f
         val farthest = maxOf(
             (Offset.Zero - center).getDistance(),
             (Offset(size.width, 0f) - center).getDistance(),
@@ -1909,6 +2202,7 @@ private fun BallBurstLayer(
     palette: AlertPaletteColors,
     clock: () -> Float,
     seed: Int,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as BallBurstSpec
     val peakAlpha = layer.brightness.lerpInRange(
@@ -1942,7 +2236,8 @@ private fun BallBurstLayer(
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val progress = (now / layer.cycleMillis) % 1f
         if (progress <= 0f || progress >= 1f) return@Canvas
-        val center = Offset(anchor.centerX, anchor.centerY)
+        val liveAnchor = anchorProvider()
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
         val travelPx = spreadPx.dp.toPx()
         val ease = progress.easedOut(BallBurstTuning.EaseExp)
         for (p in particles) {
@@ -1995,15 +2290,17 @@ private fun BallHaloLayer(
     anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
+    anchorProvider: () -> AlertAnchor,
 ) {
     val spec = layer.spec as BallHaloSpec
     val peakAlpha = layer.brightness.lerpInRange(
         BallHaloTuning.PeakAlphaMin,
         BallHaloTuning.PeakAlphaMax,
     )
-    val baseRadius = anchor.capsulePx / 2f * (spec.radiusPercent / 100f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
+        val liveAnchor = anchorProvider()
+        val baseRadius = liveAnchor.capsulePx / 2f * (spec.radiusPercent / 100f)
         if (now >= layer.totalMillis) return@Canvas
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         val t = (now / layer.cycleMillis) % 1f
@@ -2011,7 +2308,7 @@ private fun BallHaloLayer(
         val radius = (baseRadius *
             (BallHaloTuning.RadiusMinScale + BallHaloTuning.RadiusBreathScale * breath))
             .coerceAtLeast(1f)
-        val center = Offset(anchor.centerX, anchor.centerY)
+        val center = Offset(liveAnchor.centerX, liveAnchor.centerY)
         val peak = peakAlpha * (BallHaloTuning.AlphaFloor +
             BallHaloTuning.AlphaBreath * breath) * envelope
         val haloScale = spec.haloScale.coerceIn(0.2f, 2f)

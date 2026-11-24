@@ -83,6 +83,8 @@ import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
 import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
 import hunoia.luno.ui.navigation.FloatBallActionAlert
+import hunoia.luno.ui.navigation.FloatBallButtonAlert
+import hunoia.luno.ui.navigation.FloatBallLockAlert
 import hunoia.luno.ui.navigation.FloatBallAlert
 import hunoia.luno.ui.navigation.FloatBallAlertPresetLibrary
 import hunoia.luno.ui.navigation.FloatBallAlertPresetEditor
@@ -101,6 +103,8 @@ import hunoia.luno.floatball.settings.alert.AlertPresetEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerAddScreen
 import hunoia.luno.floatball.settings.alert.ActionAlertSettingsScreen
+import hunoia.luno.floatball.settings.alert.LockScreenAlertSettingsScreen
+import hunoia.luno.floatball.settings.alert.TouchButtonAlertSettingsScreen
 import hunoia.luno.floatball.settings.alert.AlertSettingsScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteManagerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteEditScreen
@@ -292,6 +296,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionAlert = {
                             navController.navigate(FloatBallActionAlert)
                         },
+                        onNavToLockAlert = { navController.navigate(FloatBallLockAlert) },
+                        onNavToButtonAlert = { navController.navigate(FloatBallButtonAlert()) },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
@@ -360,6 +366,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<GestureButtonSettings> {
                     GestureButtonSettingsScreen(
                         onBack = { navController.navigateUp() },
+                        onNavToButtonAlert = { buttonId ->
+                            navController.navigate(FloatBallButtonAlert(buttonId))
+                        },
                         onNavToActionSelect = { target ->
                             navController.navigate(
                                 ActionSelect(
@@ -532,6 +541,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<FloatBallActionAlert> {
                     ActionAlertSettingsScreen(
                         onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<FloatBallLockAlert> {
+                    LockScreenAlertSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<FloatBallButtonAlert> { entry ->
+                    val route = entry.toRoute<FloatBallButtonAlert>()
+                    TouchButtonAlertSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        focusButtonId = route.buttonId,
                     )
                 }
                 myComposable<FloatBallAlert> {

@@ -800,8 +800,13 @@ class GestureCoordinator(
      */
     private var pointerCursorHosted = false
 
+    /** 触钮滑动指示条是否在屏：主 overlay 需要临时全屏。 */
+    private var swipeIndicatorHosted = false
+
     private fun syncMainOverlayFullscreen() {
-        mainOverlayController.setPanelVisible(actionPanelFullscreen || pointerCursorHosted)
+        mainOverlayController.setPanelVisible(
+            actionPanelFullscreen || pointerCursorHosted || swipeIndicatorHosted,
+        )
     }
 
     /** 动作面板的 Shown/Dismissed 是否由「visible」路径补发（触钮直发路径）。 */
@@ -826,6 +831,17 @@ class GestureCoordinator(
     private val motionEventInput: hunoia.luno.gesture.touchsource.MotionEventInputSource
         get() = motionEventInputRef ?: hunoia.luno.gesture.touchsource.MotionEventInputSource(
             pipeline = gesturePipeline,
+            onButtonDown = { buttonId, x, y ->
+                hunoia.luno.runtime.floatball.alert.AlertMoments.playTouch(
+                    host.context,
+                    buttonId,
+                    x,
+                    y,
+                )
+            },
+            onButtonMove = { x, y ->
+                hunoia.luno.runtime.floatball.alert.AlertMoments.moveTouch(x, y)
+            },
         ).also { motionEventInputRef = it }
 
     private var shizukuTouchInputRef: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource? = null
@@ -958,6 +974,12 @@ class GestureCoordinator(
                     }
                 }
             }
+        }
+
+        override fun onSwipeIndicatorVisibilityChanged(visible: Boolean) {
+            if (swipeIndicatorHosted == visible) return
+            swipeIndicatorHosted = visible
+            syncMainOverlayFullscreen()
         }
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {
@@ -1553,6 +1575,10 @@ class GestureCoordinator(
         hunoia.luno.runtime.overlay.GestureOverlayView(
             pipeline = gesturePipeline,
             settingsState = runtimeSettingsStore.state,
+            onSwipeIndicatorVisibilityChanged = { visible ->
+                swipeIndicatorHosted = visible
+                syncMainOverlayFullscreen()
+            },
         )
     }
 }

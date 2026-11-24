@@ -1,5 +1,8 @@
 package hunoia.luno.runtime.gesturepanel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import android.os.SystemClock
@@ -96,7 +99,8 @@ class GestureSessionPipeline(
 
     val currentSettings: GesturePipelineSettings get() = settings
 
-    var sideGestureState: GestureState = createGestureState(initial)
+    // 指示条在 composition 里读这个引用；配置重建会话时也要触发重组。
+    var sideGestureState: GestureState by mutableStateOf(createGestureState(initial))
         private set
 
     var subGestureState: SubGestureState = createSubGestureState(initial)

@@ -30,6 +30,18 @@ object FloatBallCommand {
     var playActionAlert: ((typeId: String?, entryId: String?) -> Unit)? = null
 
     /**
+     * 锁屏前的关闭动画：播完 / 被停 / 播不出都会回调一次。
+     * 服务未运行时为 null，调用方直接锁屏（不等待）。
+     */
+    var playLockMoment: ((onFinished: () -> Unit) -> Unit)? = null
+
+    /** 触钮按下动效：按 [buttonId] 的绑定起播，锚点 = 手指坐标。 */
+    var playTouchMoment: ((buttonId: String, x: Float, y: Float) -> Unit)? = null
+
+    /** 按住拖动时更新当前触钮动效的锚点。 */
+    var moveTouchMoment: ((x: Float, y: Float) -> Unit)? = null
+
+    /**
      * 界面级临时隐藏悬浮球的 toggle（动作 `internal.hideFloatBall`）：可见 → 记录当前
      * 界面进入隐藏；隐藏中 → 立即恢复。前台离开 / 锁屏的清槽由服务自己随运行态做。
      * 球未运行时为 null，调用方静默跳过（动作照常返回成功）。

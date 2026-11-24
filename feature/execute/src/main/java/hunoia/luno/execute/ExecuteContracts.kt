@@ -53,6 +53,13 @@ interface SurfaceHost {
     /** 按全局「手势工具」里的时长临时隐藏指定触钮。 */
     fun hideTriggerButton(buttonId: String)
 
+    /**
+     * 锁屏前的关闭动画：有配置时等它压到全黑（实现侧自带上限），否则立即返回。
+     * 返回时黑幕仍在屏上，宿主随后调用锁屏；息屏广播负责拆除。
+     * 默认空实现：不支持动效的宿主（测试 / 精简上下文）不引入等待。
+     */
+    suspend fun playScreenOffEffect() = Unit
+
     /** 界面级临时隐藏悬浮球（toggle）：再次触发立即恢复；前台离开 / 锁屏由球服务随运行态清。 */
     fun toggleFloatBallHide()
 

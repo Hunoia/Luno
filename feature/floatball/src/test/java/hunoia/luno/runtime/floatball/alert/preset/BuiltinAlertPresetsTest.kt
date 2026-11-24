@@ -24,7 +24,7 @@ class BuiltinAlertPresetsTest {
     @Test
     fun `registry size matches the declared count`() {
         assertEquals(BuiltinAlertPresets.Count, presets.size)
-        assertEquals(18, presets.size)
+        assertEquals(26, presets.size)
     }
 
     @Test
@@ -103,12 +103,16 @@ class BuiltinAlertPresetsTest {
         assertEquals(edge.size, edge.toSet().size)
         val ball = presets.filter { it.layers.single().kind == AlertKind.Ball }
             .map { it.layers.single().ball!!.pattern }
-        assertEquals(3, ball.size)
+        assertEquals(4, ball.size)
         assertEquals(ball.size, ball.toSet().size)
         assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Orbit3D))
         val capsule = presets.filter { it.layers.single().kind == AlertKind.Capsule }
             .map { it.layers.single().capsule!!.pattern }
         assertEquals(3, capsule.size)
         assertEquals(capsule.size, capsule.toSet().size)
+        val screen = presets.filter { it.layers.single().kind == AlertKind.Screen }
+            .map { it.layers.single().screen!!.pattern }
+        assertEquals(7, screen.size)
+        assertEquals(screen.size, screen.toSet().size)
     }
 }

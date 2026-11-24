@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 fun GestureOverlayView(
     pipeline: GestureSessionPipeline,
     settingsState: StateFlow<SettingsState>,
+    onSwipeIndicatorVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     var lastWallpaperChangeMs by remember { mutableStateOf(0L) }
     SubscribeEvent(eventClass = WallpaperChangedEvent::class) {
@@ -51,6 +52,8 @@ fun GestureOverlayView(
                 SideGestureContainer(
                     pipeline = pipeline,
                     modifier = Modifier.matchParentSize(),
+                    swipeIndicator = state.gestureSettings.swipeIndicator,
+                    onSwipeIndicatorVisibilityChanged = onSwipeIndicatorVisibilityChanged,
                 )
             }
         }

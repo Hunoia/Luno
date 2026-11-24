@@ -157,7 +157,15 @@ fun AlertPresetEditorScreen(
         floatingContent = {
             LunoFab(
                 onClick = {
-                    facades.system.previewFloatBallAlertPreset(context, current)
+                    if (current.isPlayable()) {
+                        facades.system.previewFloatBallAlertPreset(context, current)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.float_ball_preset_empty_preview),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 },
                 icon = Icons.Default.PlayArrow,
                 contentDescription = stringResource(R.string.float_ball_preset_preview),
@@ -205,13 +213,21 @@ fun AlertPresetEditorScreen(
                             if (editor.alert.presetId == current.id) {
                                 editor.commitAlert { it.copy(presetId = null) }
                             }
-                            // 动作动效的绑定一并清掉：删了预设还留着悬空引用只会静默不播。
+                            // 所有指向它的时刻绑定一并清掉：删了预设还留悬空引用只会静默不播。
                             val ball = TuneConfig.latestAction().floatBall
-                            if (current.id in ball.actionAlert.bindings.values) {
+                            val referenced = current.id in ball.actionAlert.bindings.values ||
+                                ball.lockAlert.presetId == current.id ||
+                                current.id in ball.buttonAlert.bindings.values
+                            if (referenced) {
                                 TuneConfig.updateAction { config ->
+                                    val floatBall = config.floatBall
                                     config.copy(
-                                        floatBall = config.floatBall.copy(
-                                            actionAlert = config.floatBall.actionAlert
+                                        floatBall = floatBall.copy(
+                                            actionAlert = floatBall.actionAlert
+                                                .withoutPreset(current.id),
+                                            lockAlert = floatBall.lockAlert
+                                                .withoutPreset(current.id),
+                                            buttonAlert = floatBall.buttonAlert
                                                 .withoutPreset(current.id),
                                         ),
                                     )

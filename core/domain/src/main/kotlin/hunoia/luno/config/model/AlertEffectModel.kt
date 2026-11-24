@@ -538,9 +538,33 @@ data class CapsuleParams(
 /** 全屏着色形态。 */
 @Serializable
 @Keep
-enum class ScreenPattern { Flash, Vignette, ZoomPulse }
+enum class ScreenPattern {
+    Flash,
+    Vignette,
+    ZoomPulse,
+    CenterBlackout,
 
-/** 屏幕着色参数：强度 / 缩放幅度 / 颜色；[r,g,b,a] 跟随颜色引用时不填。 */
+    /** 电视关闭：上下黑幕向中间收拢，露出最后一条亮缝再收成点。 */
+    CrtOff,
+
+    /** 屏幕碎裂：裂纹闪光后黑色碎片压满整屏。 */
+    Shatter,
+
+    /** 百叶关闭：多条黑带交错合拢。 */
+    Blinds,
+
+    /** 圆瞳收束：黑色遮罩的圆形孔收到 0。 */
+    Iris,
+    }
+
+/**
+ * 屏幕着色参数：强度 / 缩放幅度 / 颜色；[r,g,b,a] 跟随颜色引用时不填。
+ *
+ * [CenterBlackout] 固定黑、从屏幕中心圆形扩散盖满整屏（关闭屏幕动画），
+ * 不用调色板；[amplitude] 是最终不透明度，[vignetteSoftness] 是黑幕边缘羽化。
+ * [CrtOff] / [Shatter] / [Blinds] / [Iris] 是关闭屏幕的四种形态：都会在结束时盖满全黑，
+ * 编辑器里同样只暴露强度 / 羽化（CrtOff 的亮缝固定用白色）。
+ */
 @Serializable
 @Keep
 data class ScreenParams(

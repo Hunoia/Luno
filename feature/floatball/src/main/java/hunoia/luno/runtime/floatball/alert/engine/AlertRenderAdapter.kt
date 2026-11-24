@@ -325,6 +325,11 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 ScreenPattern.Flash -> ScreenAlertStyle.Flash
                 ScreenPattern.Vignette -> ScreenAlertStyle.Vignette
                 ScreenPattern.ZoomPulse -> ScreenAlertStyle.ZoomPulse
+                ScreenPattern.CenterBlackout -> ScreenAlertStyle.CenterBlackout
+                ScreenPattern.CrtOff -> ScreenAlertStyle.CrtOff
+                ScreenPattern.Shatter -> ScreenAlertStyle.Shatter
+                ScreenPattern.Blinds -> ScreenAlertStyle.Blinds
+                ScreenPattern.Iris -> ScreenAlertStyle.Iris
             }
             AlertLayerPlan(
                 style = style,

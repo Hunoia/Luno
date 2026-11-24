@@ -285,6 +285,46 @@ class AlertPlanFactoryTest {
             ).toPlayPlan().stageLayers.single().style,
         )
         assertEquals(
+            ScreenAlertStyle.CenterBlackout,
+            AlertPlanFactory.buildFromPreset(
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_blackout"),
+                "builtin_screen_blackout",
+                library,
+            ).toPlayPlan().stageLayers.single().style,
+        )
+        assertEquals(
+            ScreenAlertStyle.CrtOff,
+            AlertPlanFactory.buildFromPreset(
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_crt_off"),
+                "builtin_screen_crt_off",
+                library,
+            ).toPlayPlan().stageLayers.single().style,
+        )
+        assertEquals(
+            ScreenAlertStyle.Shatter,
+            AlertPlanFactory.buildFromPreset(
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_shatter"),
+                "builtin_screen_shatter",
+                library,
+            ).toPlayPlan().stageLayers.single().style,
+        )
+        assertEquals(
+            ScreenAlertStyle.Blinds,
+            AlertPlanFactory.buildFromPreset(
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_blinds"),
+                "builtin_screen_blinds",
+                library,
+            ).toPlayPlan().stageLayers.single().style,
+        )
+        assertEquals(
+            ScreenAlertStyle.Iris,
+            AlertPlanFactory.buildFromPreset(
+                hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_screen_iris"),
+                "builtin_screen_iris",
+                library,
+            ).toPlayPlan().stageLayers.single().style,
+        )
+        assertEquals(
             ParticleAlertStyle.TopRain,
             AlertPlanFactory.buildFromPreset(
                 hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets.find("builtin_particle_rain"),

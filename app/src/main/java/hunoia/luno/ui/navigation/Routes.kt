@@ -211,6 +211,16 @@ data object FloatBallAlert
 @Serializable
 data object FloatBallActionAlert
 
+/** 锁屏动画：执行锁屏前先播预设，播完再锁屏。 */
+@Keep
+@Serializable
+data object FloatBallLockAlert
+
+/** 触钮动画：预设动效绑定 + 滑动指示；可带 buttonId 定位。 */
+@Keep
+@Serializable
+data class FloatBallButtonAlert(val buttonId: String? = null)
+
 /** 到达提示·预设库（设置页根目录独立入口）：素材 / 组合 / 导入导出。 */
 @Keep
 @Serializable

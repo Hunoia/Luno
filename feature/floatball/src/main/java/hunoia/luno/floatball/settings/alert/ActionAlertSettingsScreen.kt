@@ -117,6 +117,8 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
 
     val pickerDefinitions = remember {
         ActionDefinitions.pickerDefinitions()
+            // 锁屏动效归「锁屏动画」页：动作动效在锁屏后才触发，绑在这里也看不见。
+            .filter { it.typeId != "accessibility.lockScreen" }
             .filter { it.category != ActionCategory.NONE }
             .sortedWith(
                 compareBy(
@@ -317,6 +319,7 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
 
             ActionAlertTab.Library -> {
                 val filtered = entries.filter { entry ->
+                    if (entry.typeId == "accessibility.lockScreen") return@filter false
                     val def = ActionDefinitions.byTypeId(entry.typeId)
                     val name = entry.displayTitle(def)
                     matches(name, entry.typeId)

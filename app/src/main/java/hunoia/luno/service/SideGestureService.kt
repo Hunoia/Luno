@@ -371,6 +371,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        hunoia.luno.runtime.overlay.AccessibilityOverlayHost.attach(this)
         ensureReportViewIds()
         if (!speechReceiverRegistered) {
             registerReceiver(
@@ -533,6 +534,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             speechReceiverRegistered = false
         }
         super.onDestroy()
+        hunoia.luno.runtime.overlay.AccessibilityOverlayHost.detach()
         if (current === this) currentRef = null
         ClipboardCapture.stop()
         disabledPackageEnabler.release()

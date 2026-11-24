@@ -79,6 +79,21 @@ enum class ScreenAlertStyle : AlertRenderStyle {
     Flash,
     Vignette,
     ZoomPulse,
+
+    /** 固定黑、从中心圆形扩散盖满整屏（关闭屏幕动画）。 */
+    CenterBlackout,
+
+    /** 电视关闭：上下黑幕收拢成亮缝再收成点。 */
+    CrtOff,
+
+    /** 屏幕碎裂：裂纹闪光后黑色碎片压满整屏。 */
+    Shatter,
+
+    /** 百叶关闭：黑带交错合拢。 */
+    Blinds,
+
+    /** 圆瞳收束：圆形孔收到 0。 */
+    Iris,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Screen
@@ -331,6 +346,11 @@ data class AlertPlayPlan(
     val seed: Int = 0,
     /** 预设自带的冲突策略：播放端统一执行，调用方不判「在播就不播」。 */
     val playbackPolicy: AlertPlaybackPolicy = AlertPlaybackPolicy.Skip,
+    /**
+     * 关闭屏幕时刻：播到「全黑可锁」为止，窗口保持黑屏不摘，等真正息屏再拆。
+     * 只影响舞台收尾与黑幕类形态的尾部淡出，不影响普通到达 / 动作动效。
+     */
+    val closing: Boolean = false,
 ) {
 
     val durationMillis: Int get() = layers.maxOfOrNull { it.totalMillis } ?: 0

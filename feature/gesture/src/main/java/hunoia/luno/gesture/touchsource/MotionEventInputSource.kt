@@ -21,6 +21,10 @@ import hunoia.luno.runtime.gesturepanel.GestureSessionPipeline
 class MotionEventInputSource(
     private val pipeline: GestureSessionPipeline,
     private val timeProvider: () -> Long = SystemClock::uptimeMillis,
+    /** 触钮按下（窗口身份 + 原始坐标）：触摸动效的起播点。 */
+    private val onButtonDown: ((buttonId: String, x: Float, y: Float) -> Unit)? = null,
+    /** 触钮按住拖动：用于让跟手动效实时改锚点。 */
+    private val onButtonMove: ((x: Float, y: Float) -> Unit)? = null,
 ) {
 
     private var listener: OnMotionEventListener? = null
@@ -32,6 +36,9 @@ class MotionEventInputSource(
 
     /** 本次会话是否由本来源起（自家瞬态窗的事件不得污染进行中的触钮会话）。 */
     private var ownsSession = false
+
+    /** 本次会话是否来自触钮窗（瞬态窗也会 ownsSession，但不应触发触钮动效）。 */
+    private var buttonSession = false
 
     /** 上一次会话事件的时间：判定旧会话是否已经失联（UP/CANCEL 丢失）。 */
     private var lastEventAtMs = 0L
@@ -114,9 +121,11 @@ class MotionEventInputSource(
             pipeline.onCancel()
         }
         ownsSession = true
+        buttonSession = true
         activePointerId = event.getPointerId(0)
         lastEventAtMs = timeProvider()
         pipeline.onDown(point, source)
+        onButtonDown?.invoke(source.buttonId, point.x, point.y)
     }
 
     private fun onMove(event: MotionEvent) {
@@ -128,6 +137,7 @@ class MotionEventInputSource(
         lastX = point.x
         lastY = point.y
         lastEventAtMs = timeProvider()
+        if (buttonSession) onButtonMove?.invoke(point.x, point.y)
         pipeline.onMove(delta)
     }
 
@@ -136,6 +146,7 @@ class MotionEventInputSource(
         lastY = Float.NaN
         lastEventAtMs = 0L
         activePointerId = MotionEvent.INVALID_POINTER_ID
+        buttonSession = false
     }
 
     private companion object {

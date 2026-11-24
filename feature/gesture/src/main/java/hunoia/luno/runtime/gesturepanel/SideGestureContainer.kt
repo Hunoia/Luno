@@ -18,6 +18,8 @@ import kotlinx.coroutines.delay
 fun SideGestureContainer(
     pipeline: GestureSessionPipeline,
     modifier: Modifier = Modifier,
+    swipeIndicator: hunoia.luno.config.model.SwipeIndicator = hunoia.luno.config.model.SwipeIndicator(),
+    onSwipeIndicatorVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val actionPanelState = pipeline.actionPanelState
     val pointer = pipeline.pointer
@@ -39,6 +41,12 @@ fun SideGestureContainer(
             clickPulseKey = pointer.clickPulseKey,
         )
     }
+
+    TouchSwipeIndicator(
+        pipeline = pipeline,
+        indicator = swipeIndicator,
+        onVisibilityChanged = onSwipeIndicatorVisibilityChanged,
+    )
 
     Box(modifier = modifier) {
         ActionPanelMenu(

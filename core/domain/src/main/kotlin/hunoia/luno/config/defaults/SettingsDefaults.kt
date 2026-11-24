@@ -43,6 +43,20 @@ object GestureSettingsDefaults {
     const val PointerFollowOffsetMaxRatio = 1f
     const val PointerCursorSizeDp = 28
     const val PointerCursorAlpha = 0.9f
+
+    /** 触钮滑动指示条：默认关；尺寸是外接盒（宽度 = 短边，长度 = 长边）。 */
+    const val SwipeIndicatorEnabled = false
+    /** 整体大小（%）：缩放基准半径与凸起深度。 */
+    const val SwipeIndicatorSizePercent = 100
+    const val SwipeIndicatorSizeMinPercent = 75
+    const val SwipeIndicatorSizeMaxPercent = 150
+    /** 描边宽度（dp），0 = 不描边（默认纯胶体）。 */
+    const val SwipeIndicatorStrokeMinDp = 0
+    const val SwipeIndicatorStrokeMaxDp = 6
+    /** DOWN 点 → 手指的最大参与位移（dp）；超出后凸起量不再变化。 */
+    const val SwipeIndicatorMaxDragDp = 60
+    const val SwipeIndicatorMaxDragMinDp = 24
+    const val SwipeIndicatorMaxDragMaxDp = 120
 }
 
 object InitialSettingsDefaults {

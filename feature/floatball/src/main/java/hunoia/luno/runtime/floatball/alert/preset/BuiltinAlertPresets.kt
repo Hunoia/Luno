@@ -285,6 +285,111 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
+            id = "builtin_screen_blackout",
+            name = "中心黑幕",
+            layer = screen(
+                pattern = ScreenPattern.CenterBlackout,
+                amplitude = 1f,
+                vignetteSoftness = 0.45f,
+                timing = AlertTiming(baseMillis = 700),
+            ),
+        ),
+        preset(
+            id = "builtin_screen_crt_off",
+            name = "电视关闭",
+            layer = screen(
+                pattern = ScreenPattern.CrtOff,
+                amplitude = 1f,
+                vignetteSoftness = 0.4f,
+                timing = AlertTiming(baseMillis = 1100),
+            ),
+        ),
+        preset(
+            id = "builtin_screen_shatter",
+            name = "屏幕碎裂",
+            layer = screen(
+                pattern = ScreenPattern.Shatter,
+                amplitude = 1f,
+                vignetteSoftness = 0.5f,
+                timing = AlertTiming(baseMillis = 1000),
+            ),
+        ),
+        preset(
+            id = "builtin_screen_blinds",
+            name = "百叶关闭",
+            layer = screen(
+                pattern = ScreenPattern.Blinds,
+                amplitude = 1f,
+                vignetteSoftness = 0.5f,
+                timing = AlertTiming(baseMillis = 1000),
+            ),
+        ),
+        preset(
+            id = "builtin_screen_iris",
+            name = "圆瞳收束",
+            layer = screen(
+                pattern = ScreenPattern.Iris,
+                amplitude = 1f,
+                vignetteSoftness = 0.5f,
+                timing = AlertTiming(baseMillis = 900),
+            ),
+        ),
+        preset(
+            id = "builtin_ball_ripple",
+            name = "涟漪扩散",
+            layer = ball(
+                pattern = BallPattern.Ripple,
+                travelPercent = 140,
+                strokeWidthDp = 2f,
+                centerAtBall = true,
+                timing = AlertTiming(baseMillis = 900),
+            ),
+        ),
+        preset(
+            id = "builtin_particle_point_burst",
+            name = "点爆发",
+            layer = particle(
+                emitter = ParticleEmitter(
+                    area = ParticleArea.Point,
+                    count = 24,
+                    directionDeg = 0f,
+                    spreadDeg = 360f,
+                    speed = 0.9f,
+                    speedJitter = 0.4f,
+                    lifeShare = 0.7f,
+                ),
+                motion = ParticleMotion(gravity = 0.35f, drag = 0.45f),
+                look = ParticleLook(shape = AlertParticleShape.Star, sizeDp = 5f),
+                color = AlertColorRef(),
+                timing = AlertTiming(baseMillis = 900),
+            ),
+        ),
+        preset(
+            id = "builtin_particle_spark",
+            name = "火花喷发",
+            layer = particle(
+                emitter = ParticleEmitter(
+                    area = ParticleArea.Point,
+                    count = 20,
+                    directionDeg = 0f,
+                    spreadDeg = 360f,
+                    speed = 1.7f,
+                    speedJitter = 0.35f,
+                    lifeShare = 0.6f,
+                ),
+                motion = ParticleMotion(gravity = 1.4f, drag = 0.15f),
+                look = ParticleLook(
+                    shape = AlertParticleShape.Line,
+                    sizeDp = 4f,
+                    trailDp = 36f,
+                    trailAlpha = 0.55f,
+                    blendAdd = true,
+                ),
+                color = AlertColorRef(),
+                timing = AlertTiming(baseMillis = 800),
+            ),
+        ),
+        preset(
             id = "builtin_reveal_text",
             name = "文字揭示",
             layer = reveal(
@@ -303,7 +408,7 @@ internal object BuiltinAlertPresets {
     )
 
     /** 内置总数（门禁测试用）。 */
-    const val Count: Int = 18
+    const val Count: Int = 26
 
     fun find(id: String): AlertPreset? = all.firstOrNull { it.id == id }
 

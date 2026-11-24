@@ -328,17 +328,23 @@ fun AlertLayerEditorScreen(
                             shape = shape,
                         )
                     }
-                    item { shape ->
-                        AlertPaletteRow(
-                            title = stringResource(R.string.float_ball_layer_color),
-                            library = editor.library,
-                            selectedId = layer.color.paletteId,
-                            followLabel = stringResource(R.string.float_ball_layer_color_follow),
-                            shape = shape,
-                            onSelect = { id ->
-                                update { it.copy(color = layer.color.copy(paletteId = id)) }
-                            },
-                        )
+                    // 纯黑形态不消费调色板，不给颜色入口，避免“调了色却不生效”。
+                    val blackout = layer.screen?.pattern == ScreenPattern.CenterBlackout ||
+                        layer.screen?.pattern == ScreenPattern.CrtOff ||
+                        layer.screen?.pattern == ScreenPattern.Blinds
+                    if (!blackout) {
+                        item { shape ->
+                            AlertPaletteRow(
+                                title = stringResource(R.string.float_ball_layer_color),
+                                library = editor.library,
+                                selectedId = layer.color.paletteId,
+                                followLabel = stringResource(R.string.float_ball_layer_color_follow),
+                                shape = shape,
+                                onSelect = { id ->
+                                    update { it.copy(color = layer.color.copy(paletteId = id)) }
+                                },
+                            )
+                        }
                     }
                 }
                 SegmentedRows(rows)
@@ -1413,7 +1419,11 @@ private fun ScreenParamsBlock(
                     )
                 }
             }
-            if (params.pattern == ScreenPattern.Vignette) {
+            if (params.pattern == ScreenPattern.Vignette ||
+                params.pattern == ScreenPattern.CenterBlackout ||
+                params.pattern == ScreenPattern.Iris ||
+                params.pattern == ScreenPattern.Shatter
+            ) {
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_vignette_softness),

@@ -67,9 +67,11 @@ class GestureState(
     var actionDirection: Int by mutableStateOf(0)
         private set
 
-    var origin = Offset.Unspecified
+    // 指示条 / 跟手反馈在 composition 里直接读这两个坐标：必须是可观察状态，
+    // 否则 MOVE 只改普通字段，指示条永远不会重组（表现为“开了但看不到”）。
+    var origin: Offset by mutableStateOf(Offset.Unspecified)
         private set
-    var finger = Offset.Unspecified
+    var finger: Offset by mutableStateOf(Offset.Unspecified)
         private set
 
     var onResolved: (GestureResolvedActions) -> Unit = {}

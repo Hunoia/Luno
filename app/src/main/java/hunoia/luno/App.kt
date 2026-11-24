@@ -152,6 +152,24 @@ class App : Application(), SingletonImageLoader.Factory {
         // 直接依赖会成环，经 :core:runtime 的钩子注入。
         hunoia.luno.runtime.maintenance.PanelMaintenance.cleanupOrphanResources = {
             hunoia.luno.gridpanel.PanelResources.cleanup()
+            // 删掉的触钮不再保留动效绑定：绑定按 buttonId 存，孤儿只会让页面多一行死配置。
+            // 用挂起读取拿落盘后的真实快照：latest* 兜底缓存不一定已跟上这次删除。
+            val buttonIds = hunoia.luno.domain.gesture.GestureConfig.getButtons()
+                .map { it.id }
+                .toSet()
+            run {
+                val current = hunoia.luno.domain.tune.TuneConfig.getAction()
+                    .floatBall.buttonAlert
+                if (current.bindings.keys.all { it in buttonIds }) return@run
+                hunoia.luno.domain.tune.TuneConfig.updateAction { config ->
+                    config.copy(
+                        floatBall = config.floatBall.copy(
+                            buttonAlert = config.floatBall.buttonAlert.retainButtons(buttonIds),
+                        ),
+                    )
+                }
+                hunoia.luno.domain.tune.TuneConfig.syncActionSnapshot()
+            }
         }
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)

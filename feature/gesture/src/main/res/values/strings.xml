@@ -191,4 +191,7 @@
     <!-- 子手势被引用但已禁用 / 已删：触发时说清楚，而不是静默无反应 -->
     <string name="sub_gesture_disabled_toast">子手势「%1$s」已禁用</string>
     <string name="sub_gesture_missing_toast">子手势已不存在</string>
+    <string name="gesture_effect_group">动效</string>
+    <string name="gesture_button_alert_row">触摸动画</string>
+    <string name="gesture_button_alert_row_hint">按下动效与滑动指示</string>
 </resources>

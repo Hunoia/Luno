@@ -23,6 +23,12 @@ interface GestureOverlayCallbacks {
     fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, subGesture: hunoia.luno.config.model.SubGesture?)
     fun onActionPanelOverlayChanged(show: Boolean)
 
+    /**
+     * 触钮滑动指示条是否占用主 overlay（显示期间需要全屏 buffer）。
+     * 默认空实现：其余宿主不关心这条视觉反馈。
+     */
+    fun onSwipeIndicatorVisibilityChanged(visible: Boolean) {}
+
     /** 请求挂上全屏音量触摸窗：滑动（非停留）手势触发，把调节区扩到全屏，触发的那次拖动结束后任意位置再拖仍能调节。 */
     fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig)
 

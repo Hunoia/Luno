@@ -149,6 +149,10 @@ data class FloatBallSettings(
     val customIconPauseWhenIdle: Boolean = false,
     /** 动作触发动效：每种动作 / 每个动作库条目绑一份预设，执行成功后播（默认关）。 */
     val actionAlert: ActionAlertSettings = ActionAlertSettings(),
+    /** 锁屏动画：执行锁屏前先播完（最长 1.2s）再锁屏（默认关）。 */
+    val lockAlert: MomentAlertSettings = MomentAlertSettings(),
+    /** 触钮动效：按下即播，每个触钮单独绑预设（默认关）。 */
+    val buttonAlert: TouchButtonAlertSettings = TouchButtonAlertSettings(),
 ) {
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait

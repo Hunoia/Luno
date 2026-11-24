@@ -181,4 +181,7 @@
     <!-- Sub-gesture referenced but disabled / deleted: say so instead of silently doing nothing -->
     <string name="sub_gesture_disabled_toast">Sub-gesture "%1$s" is disabled</string>
     <string name="sub_gesture_missing_toast">Sub-gesture no longer exists</string>
+    <string name="gesture_effect_group">Effects</string>
+    <string name="gesture_button_alert_row">Touch animation</string>
+    <string name="gesture_button_alert_row_hint">Press effect and swipe indicator</string>
 </resources>

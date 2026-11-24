@@ -28,6 +28,11 @@ internal abstract class SurfaceHostBridge(
         hunoia.luno.quickaccess.QuickSearchActivity.start(context)
     }
 
+    /** 锁屏动画：配置关 / 播不出时立即返回；上限由 AlertMoments 兜底。 */
+    override suspend fun playScreenOffEffect() {
+        hunoia.luno.runtime.floatball.alert.AlertMoments.playScreenOff(context)
+    }
+
     override fun showSpeechRecognition(): Boolean {
         hunoia.luno.quickaccess.SpeechRecognitionActivity.start(context)
         return true
