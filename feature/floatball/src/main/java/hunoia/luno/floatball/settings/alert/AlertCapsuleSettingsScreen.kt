@@ -7,9 +7,13 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.BreathOutlineAlertSettings
 import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.InnerSweepAlertSettings
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.PulseAlertSettings
+import hunoia.luno.config.model.ShimmerAlertSettings
 import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -20,6 +24,7 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
+import java.util.Locale
 
 /**
  * 到达提示·胶囊本体类设置页：类目开关、类内单选样式（描边脉冲 / 边框流光 /
@@ -195,6 +200,23 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                         updateAlert {
                                             it.copy(capsule = it.capsule.copy(
                                                 shimmer = it.capsule.shimmer.copy(bandWidth = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_stroke_width),
+                                    value = s.strokeWidthTenths,
+                                    range = FloatBallDefaults.AlertShimmerStrokeWidthTenthsMin..
+                                        FloatBallDefaults.AlertShimmerStrokeWidthTenthsMax,
+                                    display = { String.format(Locale.ROOT, "%.1f dp", it / 10f) },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert {
+                                            it.copy(capsule = it.capsule.copy(
+                                                shimmer = it.capsule.shimmer.copy(strokeWidthTenths = v),
                                             ))
                                         }
                                     },
@@ -381,6 +403,26 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                                 onSpeed = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(speed = v))) } },
                                 onBrightness = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(brightness = v))) } },
                                 onCycles = { v -> updateAlert { it.copy(capsule = it.capsule.copy(innerSweep = it.capsule.innerSweep.copy(cycles = v))) } },
+                            )
+                        }
+                    }
+                    AlertResetStyleRow {
+                        updateAlert {
+                            it.copy(
+                                capsule = when (it.capsule.style) {
+                                    CapsuleAlertStyle.Pulse -> it.capsule.copy(
+                                        pulse = PulseAlertSettings(),
+                                    )
+                                    CapsuleAlertStyle.Shimmer -> it.capsule.copy(
+                                        shimmer = ShimmerAlertSettings(),
+                                    )
+                                    CapsuleAlertStyle.BreathOutline -> it.capsule.copy(
+                                        breathOutline = BreathOutlineAlertSettings(),
+                                    )
+                                    CapsuleAlertStyle.InnerSweep -> it.capsule.copy(
+                                        innerSweep = InnerSweepAlertSettings(),
+                                    )
+                                },
                             )
                         }
                     }

@@ -8,8 +8,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AnchorAlertStyle
+import hunoia.luno.config.model.BallBurstAlertSettings
+import hunoia.luno.config.model.BallHaloAlertSettings
 import hunoia.luno.config.model.FloatBallDefaults
+import hunoia.luno.config.model.FullRippleAlertSettings
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.RingAlertSettings
 import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -421,6 +425,26 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                                 onSpeed = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(speed = v))) } },
                                 onBrightness = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(brightness = v))) } },
                                 onCycles = { v -> updateAlert { it.copy(anchor = it.anchor.copy(ballHalo = it.anchor.ballHalo.copy(cycles = v))) } },
+                            )
+                        }
+                    }
+                    AlertResetStyleRow {
+                        updateAlert {
+                            it.copy(
+                                anchor = when (it.anchor.style) {
+                                    AnchorAlertStyle.Ring -> it.anchor.copy(
+                                        ring = RingAlertSettings(),
+                                    )
+                                    AnchorAlertStyle.Ripple -> it.anchor.copy(
+                                        fullRipple = FullRippleAlertSettings(),
+                                    )
+                                    AnchorAlertStyle.BallBurst -> it.anchor.copy(
+                                        ballBurst = BallBurstAlertSettings(),
+                                    )
+                                    AnchorAlertStyle.BallHalo -> it.anchor.copy(
+                                        ballHalo = BallHaloAlertSettings(),
+                                    )
+                                },
                             )
                         }
                     }

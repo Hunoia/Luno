@@ -2,7 +2,9 @@ package hunoia.luno.config.model
 
 import hunoia.luno.core.domain.JsonSerializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 悬浮球设置：三球落点、容量拆分，以及旧剪贴板球坐标的推导。 */
@@ -162,5 +164,53 @@ class FloatBallSettingsTest {
             ResultCapsuleSettings(rowLongPress = CapsuleGestureBehavior.MENU).rowLongPressBehavior,
         )
         assertEquals(CapsuleGestureBehavior.NONE, ResultCapsuleSettings().ballLongPressBehavior)
+    }
+
+    @Test
+    fun `old alert key with removed style is skipped and resets only the alert subtree`() {
+        // 旧键 alert 里含已删除的 EdgeBlink：严格 JSON 不能因此整份解析失败。
+        // alert_v2 是唯一挂载键，旧键整块被 ignoreUnknownKeys 跳过 → 动效回落默认（四类全关）。
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            """
+            {
+              "notificationCapsule": {
+                "enabled": true,
+                "alert": {
+                  "enabled": true,
+                  "edge": { "enabled": true, "style": "EdgeBlink" },
+                  "particle": { "enabled": true, "style": "Snowflake" }
+                }
+              }
+            }
+            """,
+        )
+        val alert = decoded.notificationCapsule.alert
+        assertFalse(alert.edge.enabled)
+        assertFalse(alert.particle.enabled)
+        assertEquals(EdgeAlertStyle.EdgeGlow, alert.edge.style)
+        assertEquals(ParticleAlertStyle.TopRain, alert.particle.style)
+        // 胶囊自身的其它字段照常解码。
+        assertTrue(decoded.notificationCapsule.enabled)
+    }
+
+    @Test
+    fun `alert v2 key decodes the new shape`() {
+        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+            """
+            {
+              "notificationCapsule": {
+                "alert_v2": {
+                  "edge": { "enabled": true, "style": "EdgeRipple" },
+                  "particle": { "enabled": true, "style": "Confetti" }
+                }
+              }
+            }
+            """,
+        )
+        val alert = decoded.notificationCapsule.alert
+        assertTrue(alert.edge.enabled)
+        assertEquals(EdgeAlertStyle.EdgeRipple, alert.edge.style)
+        assertTrue(alert.particle.enabled)
+        assertEquals(ParticleAlertStyle.Confetti, alert.particle.style)
     }
 }

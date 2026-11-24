@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.withContext
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
@@ -154,17 +156,21 @@ private fun AlertStageContent(
     onFinished: () -> Unit,
 ) {
     SideGestureTheme {
+        // 到达提示是产品决策：系统「移除动画」也照播（动画协程上下文显式固定 1f，
+        // 覆盖 Recomposer 注入的 MotionDurationScale），否则 scale=0 时 tween 会瞬间结束。
         // 一个共享时钟：所有层只在绘制阶段读它（只重绘不重组）。
         val clock = remember(plan) { Animatable(0f) }
         LaunchedEffect(plan) {
-            clock.snapTo(0f)
-            clock.animateTo(
-                targetValue = plan.durationMillis.toFloat(),
-                animationSpec = tween(
-                    durationMillis = plan.durationMillis,
-                    easing = LinearEasing,
-                ),
-            )
+            withContext(FixedMotionDurationScale) {
+                clock.snapTo(0f)
+                clock.animateTo(
+                    targetValue = plan.durationMillis.toFloat(),
+                    animationSpec = tween(
+                        durationMillis = plan.durationMillis,
+                        easing = LinearEasing,
+                    ),
+                )
+            }
             withFrameNanos { }
             onFinished()
         }
@@ -178,4 +184,9 @@ private fun AlertStageContent(
             )
         }
     }
+}
+
+/** 到达提示固定 1f 的系统动画缩放（舞台窗与胶囊窗共用；见 [AlertStageContent] 的注释）。 */
+internal object FixedMotionDurationScale : MotionDurationScale {
+    override val scaleFactor: Float get() = 1f
 }

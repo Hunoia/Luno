@@ -2,6 +2,7 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.core.domain.StoredAction
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -261,7 +262,8 @@ data class NotificationCapsuleSettings(
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
     val dismissSuppressMs: Long = FloatBallDefaults.CapsuleDismissSuppressMs,
-    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（默认关）。 */
+    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（四类各自开关，默认全关）。 */
+    @SerialName("alert_v2")
     val alert: NotificationAlertSettings = NotificationAlertSettings(),
     /** 存储原值，读请走 [ballLongPressBehavior]。 */
     val ballLongPress: CapsuleGestureBehavior = CapsuleGestureBehavior.NONE,
@@ -300,14 +302,14 @@ data class NotificationCapsuleSettings(
 /**
  * 到达提示动效的四个类目（需求确认口径：分类开关，跨类可同时播放）。
  *
- * 类目内**单选一个样式**，类目间可叠加；四类全关 = 不播（总开关只是总闸）。
+ * 类目内**单选一个样式**，类目间可叠加；四类全关 = 不播（没有总开关，四类开关就是唯一入口）。
  * [Capsule] 画在胶囊窗自己的 Compose 层，其余三类画在全屏舞台窗。
  */
 enum class AlertCategory {
-    /** 屏幕边缘类：呼吸光 / 流光 / 波纹 / 闪点 / 烟花 / 回旋 / 双刃。 */
+    /** 屏幕边缘类：呼吸光 / 流光 / 波纹 / 烟花 / 双刃上升。 */
     Edge,
 
-    /** 粒子类：雨 / 喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火。 */
+    /** 粒子类：雨 / 喷泉 / 流星 / 彩带 / 萤火。 */
     Particle,
 
     /** 胶囊本体类：脉冲 / 边框流光 / 呼吸描边 / 内部扫光。 */
@@ -337,17 +339,11 @@ enum class EdgeAlertStyle : AlertStyleId {
     /** 屏幕边缘流光：亮带沿屏缘环绕（单/双带 + 拖尾 + 刃感 + 双色可设）。 */
     EdgeFlow,
 
-    /** 波纹：多道波峰沿屏缘匀速环行（波峰数可调，柔和扩散）。 */
+    /** 波纹：多道波峰沿屏缘匀速环行（AGSL 距离场，波峰数可调）。 */
     EdgeRipple,
-
-    /** 闪点：沿屏缘随机位置定点闪烁的亮点。 */
-    EdgeBlink,
 
     /** 屏缘烟花：在屏缘随机锚点向内迸发的小型粒子烟花。 */
     EdgeFireworks,
-
-    /** 回旋：一簇光点绕屏缘环行并同步内外漂移，形成回旋纹理。 */
-    EdgeSwirl,
 
     /** 双刃上升：左右两缘各一道竖直亮刃自下而上反复扫过。 */
     EdgeBladeRise,
@@ -369,20 +365,8 @@ enum class ParticleAlertStyle : AlertStyleId {
     /** 流星：带拖尾的亮点斜向下划过。 */
     Meteor,
 
-    /** 彩带：彩色小片翻转飘落。 */
+    /** 彩带：彩色小片翻转飘落（3D 翻面）。 */
     Confetti,
-
-    /** 雪花：小而慢的六向漂移下落。 */
-    Snowflake,
-
-    /** 花瓣：带自转的宽片缓落。 */
-    Petal,
-
-    /** 气泡：从底缘上浮并左右摇摆。 */
-    Bubble,
-
-    /** 星火迸发：从屏幕下部随机锚点斜向迸射的星火。 */
-    Spark,
 
     /** 萤火：散布全屏、随机漂移与明灭的萤光点。 */
     Firefly,
@@ -436,14 +420,19 @@ enum class AnchorAlertStyle : AlertStyleId {
  * 的时机播放，播完自动停；熄屏 / 锁屏 / 勿扰不播。[playOnEveryNotification] 打开后
  * 胶囊已可见的新通知也播（在播时跳过：不排队、不打断）。
  *
+ * **没有总开关**：四类目各自的 `enabled` 是唯一入口，四类全关 = 不播。
+ *
  * 参数按**类目**分块（[edge] / [particle] / [capsule] / [anchor]），类目内各样式的旋钮
  * 各自存一份（粒子类另有共享的通用旋钮，见 ui-guidelines §2.4 例外）。
  * [color] 是动效的独立颜色项，[ColorSpec.isUnset] 时跟随主题主色（与胶囊解耦悬浮球）。
+ *
+ * **挂载键是 `alert_v2`**：删样式枚举会让严格 JSON 解析整份失败，所以挂载键从 `alert`
+ * 改为 `alert_v2`，旧键整块跳过（动效设置与自定义调色板一次性清空；动作面板 / 悬浮球 /
+ * 识别器不受影响）。详见 `docs/archive.md`。
  */
 @Serializable
 @Keep
 data class NotificationAlertSettings(
-    val enabled: Boolean = FloatBallDefaults.AlertEnabled,
     /** 胶囊已可见时的新通知也播；有动画在播就不播（不排队、不打断）。 */
     val playOnEveryNotification: Boolean = false,
     /**
@@ -468,16 +457,14 @@ data class NotificationAlertSettings(
 @Serializable
 @Keep
 data class EdgeAlertSettings(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val style: EdgeAlertStyle = EdgeAlertStyle.EdgeGlow,
     /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
     val paletteId: String? = null,
     val edgeGlow: EdgeGlowAlertSettings = EdgeGlowAlertSettings(),
     val edgeFlow: EdgeFlowAlertSettings = EdgeFlowAlertSettings(),
     val edgeRipple: EdgeRippleAlertSettings = EdgeRippleAlertSettings(),
-    val edgeBlink: EdgeBlinkAlertSettings = EdgeBlinkAlertSettings(),
     val edgeFireworks: EdgeFireworksAlertSettings = EdgeFireworksAlertSettings(),
-    val edgeSwirl: EdgeSwirlAlertSettings = EdgeSwirlAlertSettings(),
     val edgeBladeRise: EdgeBladeRiseAlertSettings = EdgeBladeRiseAlertSettings(),
 )
 
@@ -485,7 +472,7 @@ data class EdgeAlertSettings(
 @Serializable
 @Keep
 data class ParticleAlertSettings(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val style: ParticleAlertStyle = ParticleAlertStyle.TopRain,
     /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
     val paletteId: String? = null,
@@ -498,7 +485,7 @@ data class ParticleAlertSettings(
 @Serializable
 @Keep
 data class CapsuleAlertSettings(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val style: CapsuleAlertStyle = CapsuleAlertStyle.Pulse,
     /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
     val paletteId: String? = null,
@@ -512,7 +499,7 @@ data class CapsuleAlertSettings(
 @Serializable
 @Keep
 data class AnchorAlertSettings(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val style: AnchorAlertStyle = AnchorAlertStyle.Ring,
     /** 调色板 id；null = 跟随 [NotificationAlertSettings.color] 纯色。 */
     val paletteId: String? = null,
@@ -566,7 +553,10 @@ data class EdgeFlowAlertSettings(
     val secondColor: ColorSpec = ColorSpec.Unset,
 )
 
-/** 粒子类共享旋钮：粒子数量、亮度、波次、速度、大小、下落行程；摆幅 / 重力 / 散开 / 拖尾是运动差异项。 */
+/**
+ * 粒子类共享旋钮：数量 / 亮度 / 波次 / 速度 / 大小 / 行程 / 风 / 阻力 / 方差；
+ * 摆幅 / 重力 / 散开 / 拖尾是运动差异项（按所选运动显隐）。
+ */
 @Serializable
 @Keep
 data class ParticlesAlertSettings(
@@ -576,16 +566,25 @@ data class ParticlesAlertSettings(
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
     /** 粒子大小（%）：缩放基准粒径。 */
     val sizeScale: Int = FloatBallDefaults.AlertParticlesSizeScale,
-    /** 摆动幅度（%）：缩放基准横摆幅；仅顶部雨读取（其余运动用各自曲线常量）。 */
+    /** 摆动幅度（%）：缩放基准横摆幅；顶部雨 / 彩带 / 萤火读取。 */
     val swayScale: Int = FloatBallDefaults.AlertParticlesSwayScale,
-    /** 重力强度（指数）：1 = 匀速，2 = 真重力，3 = 更强的加速；仅顶部雨 / 星火读取。 */
+    /** 重力强度（指数）：1 = 匀速，2 = 真重力，3 = 更强的加速；顶部雨 / 彩带读取。 */
     val gravity: Int = FloatBallDefaults.AlertParticlesGravity,
-    /** 散开幅度（%）：缩放横向 / 径向散开基准；仅底部喷泉 / 星火读取（其余运动固定散开）。 */
+    /** 散开幅度（%）：缩放径向散开基准；仅底部喷泉读取。 */
     val spreadScale: Int = FloatBallDefaults.AlertParticlesSpreadScale,
     /** 拖尾长度（dp）：流星拖尾；仅流星读取。 */
     val tailLengthDp: Int = FloatBallDefaults.AlertParticlesTailLengthDp,
-    /** 下落行程（dp）：顶部条窗高度与粒子下落距离同源。 */
-    val travelDp: Int = FloatBallDefaults.AlertParticlesTravelDp,
+    /**
+     * 行程（屏高 %）：各运动按自己的基准系数换算（喷泉 0.45×、流星 1.2×…）。
+     * 萤火是原地漂移，无行程，滑杆对萤火隐藏。
+     */
+    val travelPercent: Int = FloatBallDefaults.AlertParticlesTravelPercent,
+    /** 风（有符号 %）：-100 = 向左，+100 = 向右；全部运动读取。 */
+    val wind: Int = FloatBallDefaults.AlertParticlesWind,
+    /** 阻力（%）：0 = 无阻尼，100 = 最强阻尼；全部运动读取。 */
+    val drag: Int = FloatBallDefaults.AlertParticlesDrag,
+    /** 粒度方差（%）：单颗粒子尺寸 / alpha 的随机抖动幅度；全部运动读取。 */
+    val variance: Int = FloatBallDefaults.AlertParticlesVariance,
 )
 
 /** 球光环扩散的专属旋钮：扩散行程（球径 %）、亮度、圈数、速度、描边宽度、每波环数、光晕强度。 */
@@ -631,11 +630,13 @@ data class FullRippleAlertSettings(
     val centerAtBall: Boolean = true,
 )
 
-/** 胶囊边框流光的专属旋钮：主带宽度（%）、亮度、扫过次数、速度、拖尾宽度、拖尾浓度、反向扫动。 */
+/** 胶囊边框流光的专属旋钮：主带宽度（%）、描边宽度、亮度、扫过次数、速度、拖尾宽度、拖尾浓度、反向扫动。 */
 @Serializable
 @Keep
 data class ShimmerAlertSettings(
     val bandWidth: Int = FloatBallDefaults.AlertShimmerBandWidth,
+    /** 描边宽度（0.1dp 存储：15 = 1.5dp）。与脉冲 / 呼吸描边同口径。 */
+    val strokeWidthTenths: Int = FloatBallDefaults.AlertShimmerStrokeWidthTenths,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
@@ -660,19 +661,6 @@ data class EdgeRippleAlertSettings(
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
 )
 
-/** 边缘闪点的专属旋钮：亮点数、大小、屏缘圆角、亮度、圈数、速度。 */
-@Serializable
-@Keep
-data class EdgeBlinkAlertSettings(
-    val points: Int = FloatBallDefaults.AlertEdgeBlinkPoints,
-    val sizeDp: Int = FloatBallDefaults.AlertEdgeBlinkSizeDp,
-    /** 屏缘圆角半径（dp）：采样沿屏缘走的圆角。 */
-    val cornerRadiusDp: Int = FloatBallDefaults.AlertEdgeGlowCornerDp,
-    val brightness: Int = FloatBallDefaults.AlertBrightness,
-    val cycles: Int = FloatBallDefaults.AlertCycles,
-    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
-)
-
 /** 屏缘烟花的专属旋钮：爆点数、大小、迸射行程、屏缘圆角、亮度、圈数、速度。 */
 @Serializable
 @Keep
@@ -687,27 +675,12 @@ data class EdgeFireworksAlertSettings(
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
 )
 
-/** 边缘回旋的专属旋钮：光点数、径向半径、屏缘圆角、亮度、圈数、速度。 */
-@Serializable
-@Keep
-data class EdgeSwirlAlertSettings(
-    val points: Int = FloatBallDefaults.AlertEdgeSwirlPoints,
-    val radiusDp: Int = FloatBallDefaults.AlertEdgeSwirlRadiusDp,
-    /** 屏缘圆角半径（dp）：光点绕屏缘环行的圆角。 */
-    val cornerRadiusDp: Int = FloatBallDefaults.AlertEdgeGlowCornerDp,
-    val brightness: Int = FloatBallDefaults.AlertBrightness,
-    val cycles: Int = FloatBallDefaults.AlertCycles,
-    val speed: Int = FloatBallDefaults.AlertSpeedPercent,
-)
-
-/** 双刃上升的专属旋钮：刃宽、刃高、屏缘圆角、亮度、圈数、速度。 */
+/** 双刃上升的专属旋钮：刃宽、刃高、亮度、圈数、速度。 */
 @Serializable
 @Keep
 data class EdgeBladeRiseAlertSettings(
     val bladeWidthDp: Int = FloatBallDefaults.AlertEdgeBladeWidthDp,
     val bladeHeightDp: Int = FloatBallDefaults.AlertEdgeBladeHeightDp,
-    /** 屏缘圆角半径（dp）：竖直亮刃沿屏缘贴合的圆角。 */
-    val cornerRadiusDp: Int = FloatBallDefaults.AlertEdgeGlowCornerDp,
     val brightness: Int = FloatBallDefaults.AlertBrightness,
     val cycles: Int = FloatBallDefaults.AlertCycles,
     val speed: Int = FloatBallDefaults.AlertSpeedPercent,
@@ -775,6 +748,12 @@ data class ParticleShapeSettings(
      * 文件名在文件不在时也只是回落圆点。旧数据里的绝对路径由渲染端兼容解析。
      */
     val customImage: String = "",
+    /**
+     * 自定义图片是否跟随动效调色板染色（默认关 = 保留原图颜色）。
+     *
+     * App 图标形状永远保留品牌原色，不受此开关影响。
+     */
+    val tintImage: Boolean = false,
 ) {
     companion object {
         /** 自定义形状图片目录（`filesDir` 下）：选择页写入、渲染端读取共用。 */
@@ -949,8 +928,7 @@ object FloatBallDefaults {
     /** 通知胶囊：「只显示胶囊」开关默认值（关：系统通知照常显示在通知栏）。 */
     const val CapsuleHideSystemNotification = false
 
-    /** 到达提示动效：默认关（老用户升级零感知），开启后默认边缘呼吸光。 */
-    const val AlertEnabled = false
+    /** 到达提示动效：没有总开关；四类目各自 `enabled` 默认关（用户逐类打开）。 */
 
     /** 到达提示动效通用旋钮默认值与滑杆上下限：亮度（%）、播放次数、播放速度（%）。 */
     const val AlertBrightness = 60
@@ -1019,7 +997,7 @@ object FloatBallDefaults {
     const val AlertParticlesGravityMin = 1
     const val AlertParticlesGravityMax = 3
 
-    /** 粒子类·散开幅度（%）：默认 100，滑杆 0–200（底部喷泉 / 星火的横向与径向散开基准）。 */
+    /** 粒子类·散开幅度（%）：默认 100，滑杆 0–200（底部喷泉的径向散开基准）。 */
     const val AlertParticlesSpreadScale = 100
     const val AlertParticlesSpreadScaleMin = 0
     const val AlertParticlesSpreadScaleMax = 200
@@ -1029,9 +1007,25 @@ object FloatBallDefaults {
     const val AlertParticlesTailLengthDpMin = 16
     const val AlertParticlesTailLengthDpMax = 96
 
-    const val AlertParticlesTravelDp = 200
-    const val AlertParticlesTravelDpMin = 100
-    const val AlertParticlesTravelDpMax = 800
+    /** 粒子类·行程（屏高 %）：默认 100，滑杆 10–200；各运动内部再乘自己的基准系数。 */
+    const val AlertParticlesTravelPercent = 100
+    const val AlertParticlesTravelPercentMin = 10
+    const val AlertParticlesTravelPercentMax = 200
+
+    /** 粒子类·风（有符号 %）：默认 0，滑杆 -100–100（负左正右）；全部运动读取。 */
+    const val AlertParticlesWind = 0
+    const val AlertParticlesWindMin = -100
+    const val AlertParticlesWindMax = 100
+
+    /** 粒子类·阻力（%）：默认 30，滑杆 0–100；0 = 无阻尼，100 = 最强阻尼。 */
+    const val AlertParticlesDrag = 30
+    const val AlertParticlesDragMin = 0
+    const val AlertParticlesDragMax = 100
+
+    /** 粒子类·粒度方差（%）：默认 30，滑杆 0–100；单颗粒子尺寸 / alpha 的随机抖动。 */
+    const val AlertParticlesVariance = 30
+    const val AlertParticlesVarianceMin = 0
+    const val AlertParticlesVarianceMax = 100
 
     /** 到达提示·球光环：扩散行程默认值与滑杆上下限（球径 %）。 */
     const val AlertRingTravel = 95
@@ -1065,6 +1059,10 @@ object FloatBallDefaults {
     const val AlertShimmerBandWidth = 25
     const val AlertShimmerBandWidthMin = 10
     const val AlertShimmerBandWidthMax = 60
+    /** 描边宽度（0.1dp 存储）：默认 15 = 1.5dp，滑杆 5–40（同脉冲 / 呼吸描边）。 */
+    const val AlertShimmerStrokeWidthTenths = 15
+    const val AlertShimmerStrokeWidthTenthsMin = 5
+    const val AlertShimmerStrokeWidthTenthsMax = 40
     const val AlertShimmerTrailScale = 200
     const val AlertShimmerTrailScaleMin = 0
     const val AlertShimmerTrailScaleMax = 300
@@ -1082,14 +1080,6 @@ object FloatBallDefaults {
     const val AlertEdgeRippleSizeDpMin = 2
     const val AlertEdgeRippleSizeDpMax = 20
 
-    /** 到达提示·边缘闪点：亮点数默认值与滑杆上下限、大小（dp）。 */
-    const val AlertEdgeBlinkPoints = 8
-    const val AlertEdgeBlinkPointsMin = 4
-    const val AlertEdgeBlinkPointsMax = 20
-    const val AlertEdgeBlinkSizeDp = 4
-    const val AlertEdgeBlinkSizeDpMin = 2
-    const val AlertEdgeBlinkSizeDpMax = 12
-
     /** 到达提示·屏缘烟花：爆点数默认值与滑杆上下限、粒径（dp）、迸射行程（dp）。 */
     const val AlertEdgeFireworksBursts = 3
     const val AlertEdgeFireworksBurstsMin = 1
@@ -1100,14 +1090,6 @@ object FloatBallDefaults {
     const val AlertEdgeFireworksSpreadDp = 140
     const val AlertEdgeFireworksSpreadDpMin = 60
     const val AlertEdgeFireworksSpreadDpMax = 320
-
-    /** 到达提示·边缘回旋：光点数默认值与滑杆上下限、径向半径（dp）。 */
-    const val AlertEdgeSwirlPoints = 6
-    const val AlertEdgeSwirlPointsMin = 3
-    const val AlertEdgeSwirlPointsMax = 12
-    const val AlertEdgeSwirlRadiusDp = 6
-    const val AlertEdgeSwirlRadiusDpMin = 2
-    const val AlertEdgeSwirlRadiusDpMax = 24
 
     /** 到达提示·双刃上升：刃宽（dp）与刃高（dp）默认值与滑杆上下限。 */
     const val AlertEdgeBladeWidthDp = 4

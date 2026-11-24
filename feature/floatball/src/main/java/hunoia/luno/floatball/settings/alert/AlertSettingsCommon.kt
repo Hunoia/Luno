@@ -1,5 +1,7 @@
 package hunoia.luno.floatball.settings.alert
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import hunoia.luno.config.model.ParticleAlertStyle
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedGroupScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -56,18 +59,12 @@ internal fun AlertStyleId.labelRes(): Int = when (this) {
     EdgeAlertStyle.EdgeGlow -> R.string.float_ball_capsule_alert_effect_edge_glow
     EdgeAlertStyle.EdgeFlow -> R.string.float_ball_capsule_alert_effect_edge_flow
     EdgeAlertStyle.EdgeRipple -> R.string.float_ball_capsule_alert_effect_edge_ripple
-    EdgeAlertStyle.EdgeBlink -> R.string.float_ball_capsule_alert_effect_edge_blink
     EdgeAlertStyle.EdgeFireworks -> R.string.float_ball_capsule_alert_effect_edge_fireworks
-    EdgeAlertStyle.EdgeSwirl -> R.string.float_ball_capsule_alert_effect_edge_swirl
     EdgeAlertStyle.EdgeBladeRise -> R.string.float_ball_capsule_alert_effect_edge_blade_rise
     ParticleAlertStyle.TopRain -> R.string.float_ball_capsule_alert_effect_particles
     ParticleAlertStyle.BottomFountain -> R.string.float_ball_capsule_alert_effect_particle_fountain
     ParticleAlertStyle.Meteor -> R.string.float_ball_capsule_alert_effect_particle_meteor
     ParticleAlertStyle.Confetti -> R.string.float_ball_capsule_alert_effect_particle_confetti
-    ParticleAlertStyle.Snowflake -> R.string.float_ball_capsule_alert_effect_particle_snowflake
-    ParticleAlertStyle.Petal -> R.string.float_ball_capsule_alert_effect_particle_petal
-    ParticleAlertStyle.Bubble -> R.string.float_ball_capsule_alert_effect_particle_bubble
-    ParticleAlertStyle.Spark -> R.string.float_ball_capsule_alert_effect_particle_spark
     ParticleAlertStyle.Firefly -> R.string.float_ball_capsule_alert_effect_particle_firefly
     CapsuleAlertStyle.Pulse -> R.string.float_ball_capsule_alert_effect_pulse
     CapsuleAlertStyle.Shimmer -> R.string.float_ball_capsule_alert_effect_shimmer
@@ -238,6 +235,23 @@ internal fun SegmentedGroupScope.AlertSpeedBrightnessCycles(
             display = { "${it.toInt()} ×" },
             shape = shape,
             onCommit = onCycles,
+        )
+    }
+}
+
+/**
+ * 每样式旋钮区的最后一行：把当前样式的旋钮恢复默认。
+ * 只重置样式自己的设置块，不动调色板、开关、形状与图片引用（副标题写清楚）。
+ */
+@Composable
+internal fun SegmentedGroupScope.AlertResetStyleRow(onClick: () -> Unit) {
+    item { shape ->
+        LunoSettingsRow(
+            title = stringResource(R.string.float_ball_capsule_alert_reset_style),
+            subtitle = stringResource(R.string.float_ball_capsule_alert_reset_style_subtitle),
+            icon = Icons.Default.Refresh,
+            shape = shape,
+            onClick = onClick,
         )
     }
 }

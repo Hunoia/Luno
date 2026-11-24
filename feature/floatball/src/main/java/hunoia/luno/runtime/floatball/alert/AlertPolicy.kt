@@ -63,16 +63,26 @@ data class EdgeFlowSpec(
     val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
-/** 粒子类共享旋钮的规格：大小缩放、摆幅缩放、重力指数、散开幅度、流星拖尾、下落行程（dp）+ 形状。 */
+/**
+ * 粒子类共享旋钮的规格：大小 / 摆幅 / 重力 / 散开 / 拖尾 / 行程（屏高占比）
+ * + 风、阻力、粒度方差 + 形状。
+ *
+ * [travelPercent] 0.1..2.0（屏高倍数）：各运动内部再乘自己的基准系数，见渲染层。
+ * [wind] -1..1（负左正右）；[drag] 0..1（0 = 无阻尼）；[variance] 0..1（尺寸 / alpha 抖动）。
+ */
 data class ParticlesSpec(
     val sizeScale: Float,
     val swayScale: Float,
     val gravityExp: Float,
     val spreadScale: Float = 1f,
     val tailLengthDp: Int = FloatBallDefaults.AlertParticlesTailLengthDp,
-    val travelDp: Int,
+    val travelPercent: Float,
+    val wind: Float,
+    val drag: Float,
+    val variance: Float,
     val shape: hunoia.luno.config.model.ParticleShape = hunoia.luno.config.model.ParticleShape.Dot,
     val customImage: String = "",
+    val tintImage: Boolean = false,
 ) : AlertEffectSpec
 
 /** 球光环：核描边宽度（dp）、每循环环数、光晕缩放（0 = 无光晕）。 */
@@ -95,8 +105,9 @@ data class PulseSpec(
     val haloScale: Float,
 ) : AlertEffectSpec
 
-/** 胶囊边框流光：拖尾宽度（主带倍数，0 = 无拖尾）、拖尾浓度（0..1）、反向扫动。 */
+/** 胶囊边框流光：描边宽度（dp）、拖尾宽度（主带倍数，0 = 无拖尾）、拖尾浓度（0..1）、反向扫动。 */
 data class ShimmerSpec(
+    val strokeWidthDp: Float,
     val trailScale: Float,
     val trailAlpha: Float,
     val reverse: Boolean,
@@ -108,12 +119,6 @@ data class EdgeRippleSpec(
     val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
-/** 边缘闪点：定点闪烁的亮点数（种子固定）+ 屏缘圆角；大小是主量旋钮（amount 映射）。 */
-data class EdgeBlinkSpec(
-    val pointCount: Int,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
 /** 屏缘烟花：随机锚点爆点数 + 粒径（dp，次级）+ 屏缘圆角；行程是主量旋钮（amount 映射）。 */
 data class EdgeFireworksSpec(
     val burstCount: Int,
@@ -121,16 +126,9 @@ data class EdgeFireworksSpec(
     val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
-/** 边缘回旋：光点数（同簇绕缘）+ 屏缘圆角；径向半径是主量旋钮（amount 映射）。 */
-data class EdgeSwirlSpec(
-    val pointCount: Int,
-    val cornerRadiusDp: Int,
-) : AlertEffectSpec
-
-/** 双刃上升：刃宽是主量旋钮（amount 映射）+ 刃高（dp，竖直亮刃的纵向长度）+ 屏缘圆角。 */
+/** 双刃上升：刃宽是主量旋钮（amount 映射）+ 刃高（dp，竖直亮刃的纵向长度）。 */
 data class EdgeBladeRiseSpec(
     val bladeHeightDp: Int,
-    val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
 /** 胶囊呼吸描边：描边宽度（dp）与呼吸缩放（‰，1.0 = 0）。 */
@@ -188,9 +186,15 @@ data class AlertLayerPlan(
  * 一次播放的完整计划：四类目各自的一层（类内单选样式，跨类可叠加）。
  *
  * [durationMillis] = 各层 [AlertLayerPlan.totalMillis] 的最大值——组合动效同时起手、
- * 最长的那类播完就整体收场（不把短层强行拉长）。
+ * 最长的那类播完就整体收场（不把短层强行拉长；也不设总时长上限，尊重用户配置）。
+ *
+ * [seed] 是本次播放的随机种子：同一份配置每次到达的粒子分布不同，
+ * 测试 / 预览可传固定值复现。
  */
-data class AlertPlayPlan(val layers: List<AlertLayerPlan>) {
+data class AlertPlayPlan(
+    val layers: List<AlertLayerPlan>,
+    val seed: Int = 0,
+) {
 
     val durationMillis: Int get() = layers.maxOfOrNull { it.totalMillis } ?: 0
 
@@ -206,11 +210,12 @@ data class AlertPlayPlan(val layers: List<AlertLayerPlan>) {
 
     /** 只保留一个类目（试播单类用）；[category] 为 null 时原样返回。 */
     fun onlyCategory(category: AlertCategory?): AlertPlayPlan =
-        if (category == null) this else AlertPlayPlan(layers.filter { it.style.category == category })
+        if (category == null) this
+        else copy(layers = layers.filter { it.style.category == category })
 }
 
 /**
- * 是否播放：总开关 + 黑名单 + 场景抑制，全部通过才播。
+ * 是否播放：黑名单 + 场景抑制，全部通过才播（没有总开关，四类全关时 [buildPlan] 为空）。
  *
  * [packageName] 是本次到达通知的来源包（试播等无来源场景传 null，不参与黑名单判定）。
  */
@@ -219,7 +224,6 @@ fun shouldPlay(
     env: AlertEnvironment,
     packageName: String? = null,
 ): Boolean {
-    if (!alert.enabled) return false
     if (packageName != null && packageName in alert.appBlocklist) return false
     if (!env.screenOn) return false
     if (env.keyguardLocked) return false
@@ -282,12 +286,14 @@ private fun LayerInputs.toLayer(
 
 /**
  * 当前配置 → 分层播放计划：只收集开启的类目，类内按所选样式取旋钮。
- * [tierFactor] 由服务按 `MotionFamily` 档位传入（纯 JVM 不依赖 ui:design）。
+ * [tierFactor] 由服务按 `MotionFamily` 档位传入（纯 JVM 不依赖 ui:design）；
+ * [seed] 是本次播放的随机种子（服务传 nonce，测试传固定值）。
  */
 fun buildPlan(
     alert: NotificationAlertSettings,
     tierFactor: (AlertStyleId) -> Float,
     appPackage: String? = null,
+    seed: Int = 0,
 ): AlertPlayPlan {
     val layers = buildList {
         if (alert.edge.enabled) add(buildEdgeLayer(alert, tierFactor, appPackage))
@@ -295,7 +301,7 @@ fun buildPlan(
         if (alert.capsule.enabled) add(buildCapsuleLayer(alert, tierFactor, appPackage))
         if (alert.anchor.enabled) add(buildAnchorLayer(alert, tierFactor, appPackage))
     }
-    return AlertPlayPlan(layers)
+    return AlertPlayPlan(layers = layers, seed = seed)
 }
 
 private fun buildEdgeLayer(
@@ -369,24 +375,6 @@ private fun buildEdgeLayer(
             ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
         }
 
-        EdgeAlertStyle.EdgeBlink -> {
-            val s = settings.edgeBlink
-            LayerInputs(
-                cycles = s.cycles,
-                brightness = s.brightness,
-                amount = s.sizeDp,
-                amountMin = d.AlertEdgeBlinkSizeDpMin,
-                amountMax = d.AlertEdgeBlinkSizeDpMax,
-                speed = s.speed,
-                spec = EdgeBlinkSpec(
-                    pointCount = s.points
-                        .coerceIn(d.AlertEdgeBlinkPointsMin, d.AlertEdgeBlinkPointsMax),
-                    cornerRadiusDp = s.cornerRadiusDp
-                        .coerceIn(d.AlertEdgeGlowCornerDpMin, d.AlertEdgeGlowCornerDpMax),
-                ),
-            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
-        }
-
         EdgeAlertStyle.EdgeFireworks -> {
             val s = settings.edgeFireworks
             LayerInputs(
@@ -407,24 +395,6 @@ private fun buildEdgeLayer(
             ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
         }
 
-        EdgeAlertStyle.EdgeSwirl -> {
-            val s = settings.edgeSwirl
-            LayerInputs(
-                cycles = s.cycles,
-                brightness = s.brightness,
-                amount = s.radiusDp,
-                amountMin = d.AlertEdgeSwirlRadiusDpMin,
-                amountMax = d.AlertEdgeSwirlRadiusDpMax,
-                speed = s.speed,
-                spec = EdgeSwirlSpec(
-                    pointCount = s.points
-                        .coerceIn(d.AlertEdgeSwirlPointsMin, d.AlertEdgeSwirlPointsMax),
-                    cornerRadiusDp = s.cornerRadiusDp
-                        .coerceIn(d.AlertEdgeGlowCornerDpMin, d.AlertEdgeGlowCornerDpMax),
-                ),
-            ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
-        }
-
         EdgeAlertStyle.EdgeBladeRise -> {
             val s = settings.edgeBladeRise
             LayerInputs(
@@ -437,8 +407,6 @@ private fun buildEdgeLayer(
                 spec = EdgeBladeRiseSpec(
                     bladeHeightDp = s.bladeHeightDp
                         .coerceIn(d.AlertEdgeBladeHeightDpMin, d.AlertEdgeBladeHeightDpMax),
-                    cornerRadiusDp = s.cornerRadiusDp
-                        .coerceIn(d.AlertEdgeGlowCornerDpMin, d.AlertEdgeGlowCornerDpMax),
                 ),
             ).toLayer(style, tierFactor).copy(palette = alert.paletteFor(AlertCategory.Edge)?.toSpec(), appPackage = appPackage)
         }
@@ -452,7 +420,7 @@ private fun buildParticleLayer(
 ): AlertLayerPlan {
     val settings = alert.particle
     val d = FloatBallDefaults
-    // 粒子类旋钮按类目共享（数量 / 大小 / 行程 / 速度 / 亮度 / 波次），
+    // 粒子类旋钮按类目共享（数量 / 大小 / 行程 / 速度 / 亮度 / 波次 / 风 / 阻力 / 方差），
     // 所有运动复用同一份 ParticlesSpec；差异只在渲染层（Tuning 常量）。
     // 摆幅 / 重力 / 散开 / 拖尾是运动差异项：设置页按所选运动显隐，这里照常透传（未用运动自会忽略）。
     val s = settings.particles
@@ -474,10 +442,18 @@ private fun buildParticleLayer(
                 .coerceIn(d.AlertParticlesSpreadScaleMin, d.AlertParticlesSpreadScaleMax) / 100f,
             tailLengthDp = s.tailLengthDp
                 .coerceIn(d.AlertParticlesTailLengthDpMin, d.AlertParticlesTailLengthDpMax),
-            travelDp = s.travelDp
-                .coerceIn(d.AlertParticlesTravelDpMin, d.AlertParticlesTravelDpMax),
+            travelPercent = s.travelPercent
+                .coerceIn(d.AlertParticlesTravelPercentMin, d.AlertParticlesTravelPercentMax) /
+                100f,
+            wind = s.wind
+                .coerceIn(d.AlertParticlesWindMin, d.AlertParticlesWindMax) / 100f,
+            drag = s.drag
+                .coerceIn(d.AlertParticlesDragMin, d.AlertParticlesDragMax) / 100f,
+            variance = s.variance
+                .coerceIn(d.AlertParticlesVarianceMin, d.AlertParticlesVarianceMax) / 100f,
             shape = settings.shape.shape,
             customImage = settings.shape.customImage,
+            tintImage = settings.shape.tintImage,
         ),
     )
     return when (settings.style) {
@@ -485,10 +461,6 @@ private fun buildParticleLayer(
         ParticleAlertStyle.BottomFountain,
         ParticleAlertStyle.Meteor,
         ParticleAlertStyle.Confetti,
-        ParticleAlertStyle.Snowflake,
-        ParticleAlertStyle.Petal,
-        ParticleAlertStyle.Bubble,
-        ParticleAlertStyle.Spark,
         ParticleAlertStyle.Firefly,
         -> inputs.toLayer(settings.style, tierFactor)
             .copy(palette = alert.paletteFor(AlertCategory.Particle)?.toSpec(), appPackage = appPackage)
@@ -531,6 +503,11 @@ private fun buildCapsuleLayer(
                 amountMax = d.AlertShimmerBandWidthMax,
                 speed = s.speed,
                 spec = ShimmerSpec(
+                    strokeWidthDp = s.strokeWidthTenths
+                        .coerceIn(
+                            d.AlertShimmerStrokeWidthTenthsMin,
+                            d.AlertShimmerStrokeWidthTenthsMax,
+                        ) / 10f,
                     trailScale = s.trailScale
                         .coerceIn(d.AlertShimmerTrailScaleMin, d.AlertShimmerTrailScaleMax) / 100f,
                     trailAlpha = s.trailAlpha

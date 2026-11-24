@@ -2,11 +2,15 @@ package hunoia.luno.runtime.floatball.alert
 
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AlertStyleId
+import hunoia.luno.config.model.AnchorAlertSettings
 import hunoia.luno.config.model.AnchorAlertStyle
+import hunoia.luno.config.model.CapsuleAlertSettings
 import hunoia.luno.config.model.CapsuleAlertStyle
+import hunoia.luno.config.model.EdgeAlertSettings
 import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.ParticleAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,7 +27,12 @@ import org.junit.Test
  */
 class AlertPolicyTest {
 
-    private val enabled = NotificationAlertSettings(enabled = true)
+    private val enabled = NotificationAlertSettings(
+        edge = EdgeAlertSettings(enabled = true),
+        particle = ParticleAlertSettings(enabled = true),
+        capsule = CapsuleAlertSettings(enabled = true),
+        anchor = AnchorAlertSettings(enabled = true),
+    )
 
     private val standard: (AlertStyleId) -> Float = { 1f }
 
@@ -38,8 +47,11 @@ class AlertPolicyTest {
     )
 
     @Test
-    fun `disabled alert never plays`() {
-        assertFalse(shouldPlay(NotificationAlertSettings(enabled = false), env()))
+    fun `no master switch and all categories default off`() {
+        // 四类默认全关：没有总开关，四类开关是唯一入口；空计划 = 不播。
+        val plan = buildPlan(NotificationAlertSettings(), standard)
+        assertTrue(plan.isEmpty)
+        assertEquals(0, plan.durationMillis)
     }
 
     @Test
@@ -181,14 +193,17 @@ class AlertPolicyTest {
         assertEquals(FloatBallDefaults.AlertBrightnessMin / 100f, layer.brightness, 0.001f)
         assertEquals(FloatBallDefaults.AlertCyclesMax, layer.cycles)
         assertEquals(alertStyleBaseMillis(ParticleAlertStyle.TopRain), layer.cycleMillis)
-        // 专属 spec：默认形状参数（大小 / 摆幅缩放 100%，真重力，行程 200dp；散开 100%、拖尾默认）。
+        // 专属 spec：默认形状参数（大小 / 摆幅缩放 100%，真重力，行程 100% 屏高；风 0、阻力 30%、方差 30%）。
         val spec = layer.spec as ParticlesSpec
         assertEquals(1f, spec.sizeScale, 0.001f)
         assertEquals(1f, spec.swayScale, 0.001f)
         assertEquals(2f, spec.gravityExp, 0.001f)
         assertEquals(1f, spec.spreadScale, 0.001f)
         assertEquals(FloatBallDefaults.AlertParticlesTailLengthDp, spec.tailLengthDp)
-        assertEquals(200, spec.travelDp)
+        assertEquals(1f, spec.travelPercent, 0.001f)
+        assertEquals(0f, spec.wind, 0.001f)
+        assertEquals(FloatBallDefaults.AlertParticlesDrag / 100f, spec.drag, 0.001f)
+        assertEquals(FloatBallDefaults.AlertParticlesVariance / 100f, spec.variance, 0.001f)
     }
 
     @Test
@@ -350,6 +365,31 @@ class AlertPolicyTest {
         assertTrue(ringTravelPx(ballPx, 0f) <= ringTravelPx(ballPx, 0.5f))
         assertTrue(ringTravelPx(ballPx, 0.5f) <= ringTravelPx(ballPx, 1f))
         assertEquals(0, ringTravelPx(0, 1f))
+    }
+
+    @Test
+    fun `plan carries the per play seed through onlyCategory`() {
+        val plan = buildPlan(enabled, standard, seed = 0x1234)
+        assertEquals(0x1234, plan.seed)
+        assertEquals(0x1234, plan.onlyCategory(AlertCategory.Edge).seed)
+    }
+
+    @Test
+    fun `shimmer plan carries stroke width knob`() {
+        val plan = buildPlan(
+            enabled.copy(
+                edge = enabled.edge.copy(enabled = false),
+                particle = enabled.particle.copy(enabled = false),
+                capsule = enabled.capsule.copy(
+                    style = CapsuleAlertStyle.Shimmer,
+                    shimmer = enabled.capsule.shimmer.copy(strokeWidthTenths = 25),
+                ),
+                anchor = enabled.anchor.copy(enabled = false),
+            ),
+            standard,
+        )
+        val spec = plan.layers.single().spec as ShimmerSpec
+        assertEquals(2.5f, spec.strokeWidthDp, 0.001f)
     }
 
     @Test

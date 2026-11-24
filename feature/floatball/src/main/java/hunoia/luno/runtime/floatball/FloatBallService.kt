@@ -116,6 +116,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -725,7 +726,6 @@ class FloatBallService : Service() {
         if (slot.source != BallSource.NOTIFICATION) return
         if (!slot.showing) return
         val alert = settings.notificationCapsule.alert
-        if (!alert.enabled) return
         if (wasShowing && !alert.playOnEveryNotification) return
         if (isAlertPlaying()) return
         val pkg = (slot.state.items.firstOrNull() as? NotificationItem)?.packageName
@@ -748,11 +748,19 @@ class FloatBallService : Service() {
         alertStage.isShowing ||
             (this::notificationSlot.isInitialized && notificationSlot.window.isAlertPlaying())
 
-    /** 当前配置 → 分层播放计划：各层单循环 = 样式基准 × 档位 ÷ 速度（由 buildPlan 折算）。 */
+    /**
+     * 当前配置 → 分层播放计划：各层单循环 = 样式基准 × 档位 ÷ 速度（由 buildPlan 折算）。
+     * 种子每次播放重新取：同一份配置的粒子分布不会一模一样。
+     */
     private fun buildAlertPlan(appPackage: String? = null): AlertPlayPlan {
         val alert = settings.notificationCapsule.alert
         val profile = MotionTuning.profile
-        return buildPlan(alert, { style -> profile.speedOf(style.category.toAlertFamily()).factor }, appPackage)
+        return buildPlan(
+            alert = alert,
+            tierFactor = { style -> profile.speedOf(style.category.toAlertFamily()).factor },
+            appPackage = appPackage,
+            seed = Random.nextInt(),
+        )
     }
 
     /** 到达动效统一用动效独立颜色：未设置时渲染端回落主题主色（与胶囊 / 悬浮球解耦）。 */
@@ -810,7 +818,7 @@ class FloatBallService : Service() {
     /**
      * 试播：按当前配置立即播一次（设置页入口）。
      *
-     * 用户显式点击即授权，忽略总开关与熄屏 / 锁屏 / 勿扰闸；[category] 非空时只播该类。
+     * 用户显式点击即授权，忽略熄屏 / 锁屏 / 勿扰闸；没有总开关，四类全关时试播会提示无可用样式；[category] 非空时只播该类。
      * 依赖胶囊的计划（胶囊层 / 球心锚定）在胶囊未显示时先拉起演示胶囊再播。
      * 播不出来一定给一句原因（Toast），不再静默失败。
      */

@@ -16,6 +16,7 @@ import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleAlertStyle
 import hunoia.luno.config.model.ParticleShape
 import hunoia.luno.config.model.ParticleShapeSettings
+import hunoia.luno.config.model.ParticlesAlertSettings
 import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
@@ -32,12 +33,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 到达提示·粒子类设置页：类目开关、类内单选运动（雨 / 喷泉 / 流星 / 彩带 / 雪花 /
- * 花瓣 / 气泡 / 星火 / 萤火）与旋钮。
+ * 到达提示·粒子类设置页：类目开关、类内单选运动（雨 / 喷泉 / 流星 / 彩带 / 萤火）与旋钮。
  *
- * 粒子类的旋钮按**类目共享**（数量 / 大小 / 行程 / 速度 / 亮度 / 波次），
- * 只有运动差异项按所选运动显隐：摆幅仅顶部雨、重力仅顶部雨 / 星火、
- * 散开仅喷泉 / 星火、拖尾仅流星；
+ * 粒子类的旋钮按**类目共享**（数量 / 大小 / 行程 / 速度 / 亮度 / 波次 / 风 / 阻力 / 方差），
+ * 只有运动差异项按所选运动显隐：摆幅（雨 / 彩带 / 萤火）、重力（雨 / 彩带）、
+ * 散开（喷泉）、拖尾（流星）；行程仅萤火不显示（原地漂移）。
  * 形状对全部运动生效（每运动都接 `drawMote`）。这是 ui-guidelines §2.4
  * 里「每效果各存一组」的例外。
  */
@@ -183,6 +183,21 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                             onClick = { pickImage.launch("image/*") },
                         )
                     }
+                    item { shape ->
+                        LunoSwitchRow(
+                            title = stringResource(R.string.float_ball_capsule_alert_particle_tint_image),
+                            subtitle = stringResource(R.string.float_ball_capsule_alert_particle_tint_image_subtitle),
+                            checked = settings.shape.tintImage,
+                            onCheckedChange = { checked ->
+                                updateAlert {
+                                    it.copy(particle = it.particle.copy(
+                                        shape = it.particle.shape.copy(tintImage = checked),
+                                    ))
+                                }
+                            },
+                            shape = shape,
+                        )
+                    }
                 }
             }
         }
@@ -227,9 +242,13 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                                 },
                             )
                         }
-                        // 运动差异项按所选运动显隐：摆幅仅顶部雨、重力仅顶部雨/星火/喷泉、
-                        // 散开仅喷泉/星火、拖尾仅流星；对当前运动无效的旋钮不显示，避免「设了没反应」。
-                        if (settings.style == ParticleAlertStyle.TopRain) {
+                        // 运动差异项按所选运动显隐：摆幅（雨 / 彩带 / 萤火）、重力（雨 / 彩带）、
+                        // 散开（喷泉）、拖尾（流星）；行程仅萤火不显示（原地漂移）。
+                        // 风 / 阻力 / 方差对全部运动生效，始终显示。
+                        if (settings.style == ParticleAlertStyle.TopRain ||
+                            settings.style == ParticleAlertStyle.Confetti ||
+                            settings.style == ParticleAlertStyle.Firefly
+                        ) {
                             item { shape ->
                                 AlertKnobSlider(
                                     label = stringResource(R.string.float_ball_capsule_alert_particle_sway),
@@ -249,7 +268,7 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                             }
                         }
                         if (settings.style == ParticleAlertStyle.TopRain ||
-                            settings.style == ParticleAlertStyle.Spark
+                            settings.style == ParticleAlertStyle.Confetti
                         ) {
                             item { shape ->
                                 AlertKnobSlider(
@@ -269,10 +288,8 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                                 )
                             }
                         }
-                        // 散开幅度只对底部喷泉 / 星火生效（横向 / 径向散开基准）；拖尾长度只对流星。
-                        if (settings.style == ParticleAlertStyle.Spark ||
-                            settings.style == ParticleAlertStyle.BottomFountain
-                        ) {
+                        // 散开幅度只对底部喷泉生效；拖尾长度只对流星。
+                        if (settings.style == ParticleAlertStyle.BottomFountain) {
                             item { shape ->
                                 AlertKnobSlider(
                                     label = stringResource(R.string.float_ball_capsule_alert_particle_spread),
@@ -310,18 +327,72 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                                 )
                             }
                         }
+                        if (settings.style != ParticleAlertStyle.Firefly) {
+                            item { shape ->
+                                AlertKnobSlider(
+                                    label = stringResource(R.string.float_ball_capsule_alert_particle_travel),
+                                    value = s.travelPercent,
+                                    range = FloatBallDefaults.AlertParticlesTravelPercentMin..
+                                        FloatBallDefaults.AlertParticlesTravelPercentMax,
+                                    display = { "${it.toInt()}%" },
+                                    shape = shape,
+                                    onCommit = { v ->
+                                        updateAlert {
+                                            it.copy(particle = it.particle.copy(
+                                                particles = it.particle.particles.copy(travelPercent = v),
+                                            ))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        // 共享物理项：风（有符号）、阻力、粒度方差。
                         item { shape ->
                             AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_particle_travel),
-                                value = s.travelDp,
-                                range = FloatBallDefaults.AlertParticlesTravelDpMin..
-                                    FloatBallDefaults.AlertParticlesTravelDpMax,
-                                display = { "${it.toInt()} dp" },
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_wind),
+                                value = s.wind,
+                                range = FloatBallDefaults.AlertParticlesWindMin..
+                                    FloatBallDefaults.AlertParticlesWindMax,
+                                display = { "${it.toInt()}%" },
                                 shape = shape,
                                 onCommit = { v ->
                                     updateAlert {
                                         it.copy(particle = it.particle.copy(
-                                            particles = it.particle.particles.copy(travelDp = v),
+                                            particles = it.particle.particles.copy(wind = v),
+                                        ))
+                                    }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_drag),
+                                value = s.drag,
+                                range = FloatBallDefaults.AlertParticlesDragMin..
+                                    FloatBallDefaults.AlertParticlesDragMax,
+                                display = { "${it.toInt()}%" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert {
+                                        it.copy(particle = it.particle.copy(
+                                            particles = it.particle.particles.copy(drag = v),
+                                        ))
+                                    }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_capsule_alert_particle_variance),
+                                value = s.variance,
+                                range = FloatBallDefaults.AlertParticlesVarianceMin..
+                                    FloatBallDefaults.AlertParticlesVarianceMax,
+                                display = { "${it.toInt()}%" },
+                                shape = shape,
+                                onCommit = { v ->
+                                    updateAlert {
+                                        it.copy(particle = it.particle.copy(
+                                            particles = it.particle.particles.copy(variance = v),
                                         ))
                                     }
                                 },
@@ -377,6 +448,11 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                                     }
                                 },
                             )
+                        }
+                    }
+                    AlertResetStyleRow {
+                        updateAlert {
+                            it.copy(particle = it.particle.copy(particles = ParticlesAlertSettings()))
                         }
                     }
                     item { shape ->

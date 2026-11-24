@@ -43,23 +43,15 @@
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
 
     <string name="float_ball_capsule_alert_group">到达提示动效</string>
-    <string name="float_ball_capsule_alert_enabled">新通知提示动效</string>
-    <string name="float_ball_capsule_alert_enabled_subtitle">新通知把胶囊拉起时播放一次</string>
     <string name="float_ball_capsule_alert_effect_edge_glow">屏幕边缘呼吸光</string>
     <string name="float_ball_capsule_alert_effect_edge_flow">屏幕边缘流光</string>
     <string name="float_ball_capsule_alert_effect_edge_ripple">边缘波纹</string>
-    <string name="float_ball_capsule_alert_effect_edge_blink">边缘闪点</string>
     <string name="float_ball_capsule_alert_effect_edge_fireworks">屏缘烟花</string>
-    <string name="float_ball_capsule_alert_effect_edge_swirl">边缘回旋</string>
     <string name="float_ball_capsule_alert_effect_edge_blade_rise">双刃上升</string>
     <string name="float_ball_capsule_alert_effect_particles">顶部粒子掉落</string>
     <string name="float_ball_capsule_alert_effect_particle_fountain">底部喷泉</string>
     <string name="float_ball_capsule_alert_effect_particle_meteor">流星</string>
     <string name="float_ball_capsule_alert_effect_particle_confetti">彩带</string>
-    <string name="float_ball_capsule_alert_effect_particle_snowflake">雪花</string>
-    <string name="float_ball_capsule_alert_effect_particle_petal">花瓣</string>
-    <string name="float_ball_capsule_alert_effect_particle_bubble">气泡</string>
-    <string name="float_ball_capsule_alert_effect_particle_spark">星火迸发</string>
     <string name="float_ball_capsule_alert_effect_particle_firefly">萤火</string>
     <string name="float_ball_capsule_alert_effect_pulse">胶囊本体脉冲</string>
     <string name="float_ball_capsule_alert_effect_breath_outline">呼吸描边</string>
@@ -70,11 +62,8 @@
     <string name="float_ball_capsule_alert_effect_ball_halo">球心光晕</string>
     <string name="float_ball_capsule_alert_effect_shimmer">胶囊边框流光</string>
     <string name="float_ball_capsule_alert_edge_ripple_crests">波峰数</string>
-    <string name="float_ball_capsule_alert_edge_blink_points">亮点数</string>
     <string name="float_ball_capsule_alert_edge_fireworks_bursts">爆点数</string>
     <string name="float_ball_capsule_alert_edge_fireworks_spread">迸射行程</string>
-    <string name="float_ball_capsule_alert_edge_swirl_points">光点数</string>
-    <string name="float_ball_capsule_alert_edge_swirl_radius">径向半径</string>
     <string name="float_ball_capsule_alert_edge_blade_width">刃宽</string>
     <string name="float_ball_capsule_alert_edge_blade_height">刃高</string>
     <string name="float_ball_capsule_alert_breath_stroke_width">描边宽度</string>
@@ -111,7 +100,14 @@
     <string name="float_ball_capsule_alert_particle_gravity">重力强度</string>
     <string name="float_ball_capsule_alert_particle_spread">散开幅度</string>
     <string name="float_ball_capsule_alert_particle_tail">拖尾长度</string>
-    <string name="float_ball_capsule_alert_particle_travel">下落行程</string>
+    <string name="float_ball_capsule_alert_particle_travel">行程（屏高 %）</string>
+    <string name="float_ball_capsule_alert_particle_wind">风（负=左 / 正=右）</string>
+    <string name="float_ball_capsule_alert_particle_drag">阻力</string>
+    <string name="float_ball_capsule_alert_particle_variance">粒度方差</string>
+    <string name="float_ball_capsule_alert_particle_tint_image">自定义图跟随调色板</string>
+    <string name="float_ball_capsule_alert_particle_tint_image_subtitle">应用图标始终保留品牌原色</string>
+    <string name="float_ball_capsule_alert_reset_style">恢复该样式默认</string>
+    <string name="float_ball_capsule_alert_reset_style_subtitle">只重置当前样式的旋钮，不改调色板与图片</string>
     <string name="float_ball_capsule_alert_travel">扩散行程</string>
     <string name="float_ball_capsule_alert_stroke_width">描边宽度</string>
     <string name="float_ball_capsule_alert_rings_per_cycle">每波光环数</string>
@@ -135,9 +131,9 @@
     <string name="float_ball_capsule_alert_category_enabled">启用该类动效</string>
     <string name="float_ball_capsule_alert_category_enabled_subtitle">关闭后该类不参与播放，其余类照常</string>
     <string name="float_ball_capsule_alert_category_edge">边缘</string>
-    <string name="float_ball_capsule_alert_category_edge_hint">沿屏幕边缘的光效：呼吸光 / 流光 / 波纹 / 闪点 / 烟花 / 回旋 / 双刃</string>
+    <string name="float_ball_capsule_alert_category_edge_hint">沿屏幕边缘的光效：呼吸光 / 流光 / 波纹 / 烟花 / 双刃上升</string>
     <string name="float_ball_capsule_alert_category_particle">粒子</string>
-    <string name="float_ball_capsule_alert_category_particle_hint">粒子运动：雨 / 喷泉 / 流星 / 彩带 / 雪花 / 花瓣 / 气泡 / 星火 / 萤火</string>
+    <string name="float_ball_capsule_alert_category_particle_hint">粒子运动：雨 / 喷泉 / 流星 / 彩带 / 萤火</string>
     <string name="float_ball_capsule_alert_category_capsule">胶囊</string>
     <string name="float_ball_capsule_alert_category_capsule_hint">画在通知胶囊本身上的描边 / 扫光效果</string>
     <string name="float_ball_capsule_alert_category_anchor">球心·全屏</string>

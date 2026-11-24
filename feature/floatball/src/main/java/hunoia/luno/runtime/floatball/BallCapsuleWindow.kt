@@ -91,9 +91,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -126,6 +129,7 @@ import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.alert.AlertEnvelopeShare
+import hunoia.luno.runtime.floatball.alert.FixedMotionDurationScale
 import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
 import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
@@ -2738,6 +2742,7 @@ internal class BallCapsuleWindow(
             }
             // 到达提示动效（本体脉冲 / 边框流光）：铺满全窗、可越入余量，不挡触摸与内容。
             arrivalAlert?.let { layer ->
+                // 与舞台窗同口径：系统移除动画也照播（动画协程上下文固定 1f）。
                 CapsuleArrivalOverlay(
                     layer = layer,
                     colorSpec = arrivalColorSpec,
@@ -2794,12 +2799,21 @@ internal class BallCapsuleWindow(
             }
         }
         val elapsed = remember { Animatable(0f) }
+        // 沿轮廓扫光：每行缓存 PathMeasure（轮廓不变），绘制期只取子段。
+        val rowMeasures = remember(rowPaths) {
+            rowPaths.map { path ->
+                path?.let { PathMeasure().apply { setPath(it, false) } }
+            }
+        }
+        val scratchPath = remember { Path() }
         LaunchedEffect(layer) {
-            elapsed.snapTo(0f)
-            elapsed.animateTo(
-                layer.totalMillis.toFloat(),
-                tween(durationMillis = layer.totalMillis, easing = LinearEasing),
-            )
+            withContext(FixedMotionDurationScale) {
+                elapsed.snapTo(0f)
+                elapsed.animateTo(
+                    layer.totalMillis.toFloat(),
+                    tween(durationMillis = layer.totalMillis, easing = LinearEasing),
+                )
+            }
             withFrameNanos { }
             arrivalAlert = null
         }
@@ -2852,74 +2866,69 @@ internal class BallCapsuleWindow(
                     }
                 }
 
-                // 边框流光：主亮带缓出扫过描边，后随更宽更暗的拖尾（先画拖尾再画主带）。
+                // 边框流光：主亮带缓出扫过轮廓，后随更宽更暗的拖尾（先画拖尾再画主带）。
                 // 拖尾在行进方向后方（反向扫动时在主带右侧）；拖尾 0 = 无拖尾。
-                // 渐变 stop 必须严格递增：可见跨度不足时跳过该带，峰值点强制落在带内。
+                // 用 PathMeasure 子段沿轮廓绘制：左右圆弧也吃光，不再是整行水平渐变。
                 CapsuleAlertStyle.Shimmer -> {
                     val spec = layer.spec as ShimmerSpec
-                    val peak = layer.brightness.lerpInRange(ShimmerTuning.PeakAlphaMin, ShimmerTuning.PeakAlphaMax) * envelope
+                    val peak = layer.brightness.lerpInRange(
+                        ShimmerTuning.PeakAlphaMin,
+                        ShimmerTuning.PeakAlphaMax,
+                    ) * envelope
                     val eased = t.easedOut(ShimmerTuning.SweepEaseExp)
                     val pos = if (spec.reverse) 1f - eased else eased
                     val band = layer.amount.lerpInRange(
                         FloatBallDefaults.AlertShimmerBandWidthMin / 100f,
                         FloatBallDefaults.AlertShimmerBandWidthMax / 100f,
                     )
-                    val trailSpan = band * spec.trailScale
-                    val mainStart = (pos - band / 2f).coerceIn(0f, 1f)
-                    val mainEnd = (pos + band / 2f).coerceIn(0f, 1f)
-                    val mainSpan = mainEnd - mainStart
-                    val peakPos = if (mainSpan > 0f) {
-                        mainStart + mainSpan * ((pos - mainStart) / mainSpan).coerceIn(0.15f, 0.85f)
-                    } else {
-                        mainStart
-                    }
-                    // 主带颜色按进度采样（多色 = 扫过的颜色会变）；拖尾用行进方向后方的颜色。
-                    val bandColor = palette.sample(pos)
-                    val mainBrush = Brush.horizontalGradient(
-                        mainStart to bandColor.copy(alpha = 0f),
-                        peakPos to bandColor.copy(alpha = peak),
-                        mainEnd to bandColor.copy(alpha = 0f),
+                    val stroke = Stroke(
+                        width = spec.strokeWidthDp.dp.toPx(),
+                        cap = StrokeCap.Round,
                     )
-                    val trailBrush = if (spec.reverse) {
-                        val trailEnd = (mainEnd + trailSpan).coerceIn(0f, 1f)
-                        val span = trailEnd - mainEnd
-                        if (span > 0.01f) {
-                            val trailColor = palette.sample((mainEnd + trailEnd) / 2f)
-                            Brush.horizontalGradient(
-                                mainEnd to trailColor.copy(alpha = 0f),
-                                mainEnd + span / 2f to trailColor.copy(
-                                    alpha = peak * spec.trailAlpha,
-                                ),
-                                trailEnd to trailColor.copy(alpha = 0f),
-                            )
-                        } else {
-                            null
-                        }
-                    } else {
-                        val trailStart = (mainStart - trailSpan).coerceIn(0f, 1f)
-                        val span = mainStart - trailStart
-                        if (span > 0.01f) {
-                            val trailColor = palette.sample((trailStart + mainStart) / 2f)
-                            Brush.horizontalGradient(
-                                trailStart to trailColor.copy(alpha = 0f),
-                                trailStart + span / 2f to trailColor.copy(
-                                    alpha = peak * spec.trailAlpha,
-                                ),
-                                mainStart to trailColor.copy(alpha = 0f),
-                            )
-                        } else {
-                            null
-                        }
-                    }
-                    val stroke = Stroke(width = 1.5.dp.toPx())
                     for (index in 0 until rows) {
-                        val path = rowPaths.getOrNull(index) ?: continue
+                        val measure = rowMeasures.getOrNull(index) ?: continue
+                        val length = measure.length
+                        if (length <= 1f) continue
                         translate(
                             left = rowLeft(index),
                             top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
                         ) {
-                            trailBrush?.let { drawPath(path = path, brush = it, style = stroke) }
-                            if (mainSpan > 0.01f) drawPath(path = path, brush = mainBrush, style = stroke)
+                            val centerDist = pos * length
+                            // 主带长度按「胶囊宽 %」换算，保持与旧滑杆文案一致；
+                            // 沿周长取子段，所以转角处也有光。
+                            val bandPx = band * rowWidths[index].toFloat()
+                            val halfSpan = bandPx / 2f
+                            drawPerimeterBand(
+                                measure = measure,
+                                length = length,
+                                centerDistance = centerDist,
+                                halfSpan = halfSpan,
+                                palette = palette,
+                                peakAlpha = peak,
+                                stroke = stroke,
+                                scratch = scratchPath,
+                                slices = ShimmerTuning.BandSlices,
+                            )
+                            if (spec.trailScale > 0f && spec.trailAlpha > 0f) {
+                                val trailSpan = bandPx * spec.trailScale
+                                // 拖尾在行进方向后方：正向在左，反向在右。
+                                val trailCenter = if (spec.reverse) {
+                                    centerDist + halfSpan + trailSpan / 2f
+                                } else {
+                                    centerDist - halfSpan - trailSpan / 2f
+                                }
+                                drawPerimeterBand(
+                                    measure = measure,
+                                    length = length,
+                                    centerDistance = trailCenter,
+                                    halfSpan = trailSpan / 2f,
+                                    palette = palette,
+                                    peakAlpha = peak * spec.trailAlpha,
+                                    stroke = stroke,
+                                    scratch = scratchPath,
+                                    slices = ShimmerTuning.TrailSlices,
+                                )
+                            }
                         }
                     }
                 }
@@ -2964,7 +2973,7 @@ internal class BallCapsuleWindow(
                         InnerSweepTuning.PeakAlphaMin,
                         InnerSweepTuning.PeakAlphaMax,
                     ) * envelope
-                    val eased = t.easedOut(1.2f)
+                    val eased = t.easedOut(InnerSweepTuning.SweepEaseExp)
                     val pos = if (spec.reverse) 1f - eased else eased
                     val band = spec.bandWidth.coerceIn(0.05f, 0.9f)
                     val start = (pos - band / 2f).coerceIn(0f, 1f)
@@ -2989,6 +2998,46 @@ internal class BallCapsuleWindow(
 
                 else -> Unit
             }
+        }
+    }
+
+    /**
+     * 沿路径绘制一段「带峰值」的扫光：按 [slices] 取子路径，颜色按中点周长位置采样，
+     * alpha 用三角包络（中心最亮、两端为 0）。
+     *
+     * 用 PathMeasure 子段而不是整行水平渐变：胶囊左右圆弧也吃光，与「边框流光」文案一致；
+     * 多色调色板沿轮廓变化，而不是整行一个颜色。
+     */
+    private fun DrawScope.drawPerimeterBand(
+        measure: PathMeasure,
+        length: Float,
+        centerDistance: Float,
+        halfSpan: Float,
+        palette: AlertPaletteColors,
+        peakAlpha: Float,
+        stroke: Stroke,
+        scratch: Path,
+        slices: Int,
+    ) {
+        if (halfSpan <= 0f || peakAlpha <= 0f || slices <= 0) return
+        val start = (centerDistance - halfSpan).coerceAtLeast(0f)
+        val end = (centerDistance + halfSpan).coerceAtMost(length)
+        if (end - start < 1f) return
+        val step = (end - start) / slices
+        for (i in 0 until slices) {
+            val a = start + step * i
+            val b = (a + step).coerceAtMost(end)
+            if (b - a < 0.5f) continue
+            val mid = (a + b) / 2f
+            val weight = 1f - (abs(mid - centerDistance) / halfSpan).coerceIn(0f, 1f)
+            if (weight <= 0.05f) continue
+            scratch.rewind()
+            if (!measure.getSegment(a, b, scratch, true)) continue
+            drawPath(
+                path = scratch,
+                color = palette.sample(mid / length).copy(alpha = peakAlpha * weight),
+                style = stroke,
+            )
         }
     }
 

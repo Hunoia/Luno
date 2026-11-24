@@ -85,6 +85,59 @@ internal object ParticlesTuning {
 
     /** 随机横向漂移（宽度占比，居中 ± 一半）。 */
     const val DriftNorm = 0.06f
+
+    /**
+     * 共享物理映射（风 / 阻力 / 方差）：滑杆归一化值 → 曲线系数。
+     * 三个旋钮对全部运动生效，映射口径只在这里定义。
+     */
+    const val WindAccelNorm = 0.25f
+    const val DragMaxExp = 3f
+    const val VarianceAmplitude = 0.4f
+
+    /** 行程基准系数：滑杆（屏高 %）在各自运动里的换算比例。 */
+    const val TravelBasisRain = 1f
+    const val TravelBasisFountain = 0.45f
+    const val TravelBasisMeteor = 1.2f
+    const val TravelBasisConfetti = 1f
+
+    /** 喷泉：横向初速、上升速度区间、二次弧高倍率、alpha 衰减。 */
+    const val FountainSideVx = 0.15f
+    const val FountainRiseMin = 0.5f
+    const val FountainRiseMax = 1.1f
+    const val FountainHeightScale = 2.2f
+    const val FountainFade = 0.3f
+
+    /** 流星：速度区间与尾迹 alpha。 */
+    const val MeteorVxMin = 0.2f
+    const val MeteorVxMax = 0.45f
+    const val MeteorVyMin = 0.6f
+    const val MeteorVyMax = 1.1f
+    const val MeteorTailAlpha = 0.5f
+
+    /** 彩带：横摆幅度 / 周期、3D 翻面的单循环翻面次数。 */
+    const val ConfettiSwayNorm = 0.04f
+    const val ConfettiSwayCycles = 1.5f
+    const val ConfettiFlipCycles = 2f
+    const val ConfettiMinFlipScale = 0.15f
+
+    /** 萤火：明灭周期、漂移抖动幅度与横向 / 纵向周期、整体亮度与光晕。 */
+    const val FireflyBlinkCycles = 3f
+    const val FireflyDriftJitterNorm = 0.01f
+    const val FireflyDriftCyclesX = 6f
+    const val FireflyDriftCyclesY = 5f
+    const val FireflyAlphaFade = 0.2f
+    const val FireflyPeakScale = 0.9f
+    const val FireflyHaloScale = 2.2f
+    const val FireflyHaloAlphaFraction = 0.3f
+
+    /** 彩带：单颗粒子的基准半径（dp）。 */
+    const val ConfettiRadiusMinDp = 2f
+    const val ConfettiRadiusMaxDp = 5f
+
+    /** 流星：单颗粒子的基准半径上限（dp）与起始纵向范围。 */
+    const val MeteorRadiusExtraDp = 2.5f
+    const val MeteorStartYMin = -0.05f
+    const val MeteorStartYRange = 0.3f
 }
 
 /**
@@ -156,54 +209,82 @@ internal object ShimmerTuning {
     /** 主带 alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.9f
+
+    /** 沿轮廓扫光的分段数：主带 / 拖尾各按小段绘制（沿线渐变，不掉角）。 */
+    const val BandSlices = 12
+    const val TrailSlices = 8
 }
 
 /**
- * 边缘波纹 / 闪点 / 烟花 / 回旋 / 双刃的亮度映射区间。
+ * 边缘波纹（AGSL + CPU 回退）：波峰数、屏缘圆角、亮度。
  *
- * 与 [EdgeGlowTuning] / [FlowTuning] 同族的口径：亮度旋钮只映射 alpha 峰值，形状常量
- * 各效果独立；不要在绘制函数里内联区间——区间是调校参数，属于本文件。
+ * 波纹的波峰宽度用 `sigma`（周长占比）；CPU 回退沿周长采样，shader 用连续距离场。
  */
 internal object EdgeRippleTuning {
     const val PeakAlphaMin = 0.30f
     const val PeakAlphaMax = 0.80f
+
+    /** 波峰宽度（归一化周长）：越小越尖，越大越柔。 */
+    const val Sigma = 0.03f
+
+    /** CPU 回退的沿周长采样数（shader 不用）。 */
+    const val FallbackSamples = 96
 }
 
-internal object EdgeBlinkTuning {
-    const val PeakAlphaMin = 0.30f
-    const val PeakAlphaMax = 0.85f
-}
-
+/** 屏缘烟花：爆点内粒子数、延迟摊开、缓出与粒径抖动（行程与爆点数是旋钮）。 */
 internal object EdgeFireworksTuning {
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.90f
+    const val PerBurst = 9
+    const val DelaySpread = 0.5f
+    const val DelayJitter = 0.1f
+    const val AngleJitter = 0.4f
+    const val SpeedMin = 0.5f
+    const val SpeedMax = 1.1f
+    const val RadiusMinScale = 0.7f
+    const val RadiusMaxScale = 1.3f
+    const val EaseExp = 1.6f
+    const val SizeShrink = 0.4f
 }
 
-internal object EdgeSwirlTuning {
-    const val PeakAlphaMin = 0.30f
-    const val PeakAlphaMax = 0.85f
-}
-
+/** 双刃上升：亮刃的分段数、半径随尾迹的收缩、亮度衰减指数。 */
 internal object EdgeBladeTuning {
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.90f
+    const val Steps = 24
+    const val RadiusScale = 0.5f
+    const val RadiusFallScale = 0.3f
+    const val FadeExp = 2f
 }
 
-/** 球心爆发 / 球心光晕的亮度映射区间（形状与行程是各自旋钮）。 */
+/** 球心爆发：速度区间、缓出、粒径抖动与收缩。 */
 internal object BallBurstTuning {
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.90f
+    const val SpeedMin = 0.55f
+    const val SpeedMax = 1.15f
+    const val RadiusMinScale = 0.7f
+    const val RadiusMaxScale = 1.3f
+    const val EaseExp = 1.5f
+    const val SizeShrink = 0.5f
 }
 
+/** 球心光晕：呼吸缩放区间、中心亮到边缘透明的三档 alpha 比例。 */
 internal object BallHaloTuning {
     const val PeakAlphaMin = 0.20f
     const val PeakAlphaMax = 0.70f
+    const val RadiusMinScale = 0.85f
+    const val RadiusBreathScale = 0.3f
+    const val AlphaFloor = 0.4f
+    const val AlphaBreath = 0.6f
+    const val MidAlphaFraction = 0.35f
 }
 
-/** 胶囊内部扫光的亮度映射区间（主带宽度与方向是旋钮，画在胶囊窗 Compose 层）。 */
+/** 胶囊内部扫光的亮度映射区间与扫动缓出（主带宽度与方向是旋钮）。 */
 internal object InnerSweepTuning {
     const val PeakAlphaMin = 0.25f
     const val PeakAlphaMax = 0.70f
+    const val SweepEaseExp = 1.2f
 }
 
 /** 胶囊呼吸描边的亮度映射区间（描边宽度与呼吸缩放是旋钮）。 */
@@ -242,19 +323,13 @@ internal fun alertStyleBaseMillis(style: AlertStyleId): Int = when (style) {
     EdgeAlertStyle.EdgeGlow -> 1400
     EdgeAlertStyle.EdgeFlow -> 1600
     EdgeAlertStyle.EdgeRipple -> 1300
-    EdgeAlertStyle.EdgeBlink -> 1200
     EdgeAlertStyle.EdgeFireworks -> 1400
-    EdgeAlertStyle.EdgeSwirl -> 1300
     EdgeAlertStyle.EdgeBladeRise -> 1100
     // 粒子类（一波粒子从顶缘落到淡出）
     ParticleAlertStyle.TopRain -> 1000
     ParticleAlertStyle.BottomFountain -> 1100
     ParticleAlertStyle.Meteor -> 900
     ParticleAlertStyle.Confetti -> 1200
-    ParticleAlertStyle.Snowflake -> 1400
-    ParticleAlertStyle.Petal -> 1300
-    ParticleAlertStyle.Bubble -> 1200
-    ParticleAlertStyle.Spark -> 800
     ParticleAlertStyle.Firefly -> 1500
     // 胶囊本体类
     CapsuleAlertStyle.Pulse -> 1000

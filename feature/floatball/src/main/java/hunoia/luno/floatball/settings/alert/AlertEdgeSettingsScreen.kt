@@ -20,6 +20,11 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.EdgeAlertStyle
+import hunoia.luno.config.model.EdgeBladeRiseAlertSettings
+import hunoia.luno.config.model.EdgeFireworksAlertSettings
+import hunoia.luno.config.model.EdgeFlowAlertSettings
+import hunoia.luno.config.model.EdgeGlowAlertSettings
+import hunoia.luno.config.model.EdgeRippleAlertSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.paletteFor
@@ -38,8 +43,8 @@ import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 
 /**
- * 到达提示·边缘类设置页：类目开关、类内单选样式（呼吸光 / 流光 / 波纹 / 闪点 /
- * 烟花 / 回旋 / 双刃）与各自旋钮。
+ * 到达提示·边缘类设置页：类目开关、类内单选样式（呼吸光 / 流光 / 波纹 / 烟花 /
+ * 双刃上升）与各自旋钮。
  *
  * 行形状全部由 [LunoSegmentedGroup] 自动算（不再手数行数）；旋钮松手才落盘。
  * 「试播该分类」只播这一类，失败原因由服务侧 Toast 反馈。
@@ -510,54 +515,7 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
                             onCycles = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeRipple = it.edge.edgeRipple.copy(cycles = v))) } },
                         )
                     }
-                    EdgeAlertStyle.EdgeBlink -> {
-                        val s = settings.edgeBlink
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_edge_blink_points),
-                                value = s.points,
-                                range = FloatBallDefaults.AlertEdgeBlinkPointsMin..
-                                    FloatBallDefaults.AlertEdgeBlinkPointsMax,
-                                display = { "${it.toInt()}" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(points = v))) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_particle_size),
-                                value = s.sizeDp,
-                                range = FloatBallDefaults.AlertEdgeBlinkSizeDpMin..
-                                    FloatBallDefaults.AlertEdgeBlinkSizeDpMax,
-                                display = { "${it.toInt()} dp" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(sizeDp = v))) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_corner_radius),
-                                value = s.cornerRadiusDp,
-                                range = FloatBallDefaults.AlertEdgeGlowCornerDpMin..
-                                    FloatBallDefaults.AlertEdgeGlowCornerDpMax,
-                                display = { "${it.toInt()} dp" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(cornerRadiusDp = v))) }
-                                },
-                            )
-                        }
-                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                            onSpeed = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(speed = v))) } },
-                            onBrightness = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(brightness = v))) } },
-                            onCycles = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBlink = it.edge.edgeBlink.copy(cycles = v))) } },
-                        )
-                    }
-                    EdgeAlertStyle.EdgeFireworks -> {
+EdgeAlertStyle.EdgeFireworks -> {
                         val s = settings.edgeFireworks
                         item { shape ->
                             AlertKnobSlider(
@@ -617,54 +575,7 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
                             onCycles = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeFireworks = it.edge.edgeFireworks.copy(cycles = v))) } },
                         )
                     }
-                    EdgeAlertStyle.EdgeSwirl -> {
-                        val s = settings.edgeSwirl
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_edge_swirl_points),
-                                value = s.points,
-                                range = FloatBallDefaults.AlertEdgeSwirlPointsMin..
-                                    FloatBallDefaults.AlertEdgeSwirlPointsMax,
-                                display = { "${it.toInt()}" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(points = v))) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_edge_swirl_radius),
-                                value = s.radiusDp,
-                                range = FloatBallDefaults.AlertEdgeSwirlRadiusDpMin..
-                                    FloatBallDefaults.AlertEdgeSwirlRadiusDpMax,
-                                display = { "${it.toInt()} dp" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(radiusDp = v))) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_corner_radius),
-                                value = s.cornerRadiusDp,
-                                range = FloatBallDefaults.AlertEdgeGlowCornerDpMin..
-                                    FloatBallDefaults.AlertEdgeGlowCornerDpMax,
-                                display = { "${it.toInt()} dp" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(cornerRadiusDp = v))) }
-                                },
-                            )
-                        }
-                        AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
-                            onSpeed = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(speed = v))) } },
-                            onBrightness = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(brightness = v))) } },
-                            onCycles = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeSwirl = it.edge.edgeSwirl.copy(cycles = v))) } },
-                        )
-                    }
-                    EdgeAlertStyle.EdgeBladeRise -> {
+EdgeAlertStyle.EdgeBladeRise -> {
                         val s = settings.edgeBladeRise
                         item { shape ->
                             AlertKnobSlider(
@@ -692,25 +603,35 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
                                 },
                             )
                         }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_capsule_alert_corner_radius),
-                                value = s.cornerRadiusDp,
-                                range = FloatBallDefaults.AlertEdgeGlowCornerDpMin..
-                                    FloatBallDefaults.AlertEdgeGlowCornerDpMax,
-                                display = { "${it.toInt()} dp" },
-                                shape = shape,
-                                onCommit = { v ->
-                                    updateAlert { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(cornerRadiusDp = v))) }
-                                },
-                            )
-                        }
                         AlertSpeedBrightnessCycles(s.speed, s.brightness, s.cycles,
                             onSpeed = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(speed = v))) } },
                             onBrightness = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(brightness = v))) } },
                             onCycles = { v -> updateAlert { it.copy(edge = it.edge.copy(edgeBladeRise = it.edge.edgeBladeRise.copy(cycles = v))) } },
                         )
                     }
+                    }
+                    AlertResetStyleRow {
+                        updateAlert {
+                            it.copy(
+                                edge = when (it.edge.style) {
+                                    EdgeAlertStyle.EdgeGlow -> it.edge.copy(
+                                        edgeGlow = EdgeGlowAlertSettings(),
+                                    )
+                                    EdgeAlertStyle.EdgeFlow -> it.edge.copy(
+                                        edgeFlow = EdgeFlowAlertSettings(),
+                                    )
+                                    EdgeAlertStyle.EdgeRipple -> it.edge.copy(
+                                        edgeRipple = EdgeRippleAlertSettings(),
+                                    )
+                                    EdgeAlertStyle.EdgeFireworks -> it.edge.copy(
+                                        edgeFireworks = EdgeFireworksAlertSettings(),
+                                    )
+                                    EdgeAlertStyle.EdgeBladeRise -> it.edge.copy(
+                                        edgeBladeRise = EdgeBladeRiseAlertSettings(),
+                                    )
+                                },
+                            )
+                        }
                     }
                     item { shape ->
                         LunoSettingsRow(

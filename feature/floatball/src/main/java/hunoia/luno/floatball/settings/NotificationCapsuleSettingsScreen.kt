@@ -573,7 +573,7 @@ fun NotificationCapsuleSettingsScreen(
             }
         }
 
-        // 到达提示动效：只在胶囊开启时有意义；默认关（老用户升级零感知）。
+        // 到达提示动效：只在胶囊开启时有意义；四类各自开关、默认全关（`alert_v2` 一次性重置）。
         if (capsule.enabled) {
             item(key = "alert") {
                 val alert = capsule.alert
@@ -589,105 +589,93 @@ fun NotificationCapsuleSettingsScreen(
                 }
                 LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
                     LunoSegmentedGroup {
+                        // 没有总开关：下面四类各自开关；四类全关 = 不播。
+                        // 「每次新通知都播」是唯一的行为开关（在播时仍不排队、不打断）。
                         item { shape ->
                             LunoSwitchRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_enabled),
-                                subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
-                                checked = alert.enabled,
+                                title = stringResource(R.string.float_ball_capsule_alert_play_every),
+                                subtitle = stringResource(R.string.float_ball_capsule_alert_play_every_subtitle),
+                                checked = alert.playOnEveryNotification,
                                 onCheckedChange = { checked ->
-                                    updateAlert { it.copy(enabled = checked) }
+                                    updateAlert { it.copy(playOnEveryNotification = checked) }
                                 },
                                 shape = shape,
                             )
                         }
-                        if (alert.enabled) {
-                            // 「每次新通知都播」+ 在播不播：总开关之外唯一的行为开关。
-                            item { shape ->
-                                LunoSwitchRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_play_every),
-                                    subtitle = stringResource(R.string.float_ball_capsule_alert_play_every_subtitle),
-                                    checked = alert.playOnEveryNotification,
-                                    onCheckedChange = { checked ->
-                                        updateAlert { it.copy(playOnEveryNotification = checked) }
+                        // 动效独立颜色（与胶囊 / 悬浮球解耦；未设置时跟随主题主色）。
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_capsule_alert_color),
+                                icon = Icons.Default.Palette,
+                                subtitle = stringResource(
+                                    if (alert.color.isUnset) {
+                                        R.string.float_ball_capsule_color_default
+                                    } else {
+                                        R.string.float_ball_capsule_color_custom
                                     },
-                                    shape = shape,
-                                )
-                            }
-                            // 动效独立颜色（与胶囊 / 悬浮球解耦；未设置时跟随主题主色）。
-                            item { shape ->
-                                LunoSettingsRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_color),
-                                    icon = Icons.Default.Palette,
-                                    subtitle = stringResource(
-                                        if (alert.color.isUnset) {
-                                            R.string.float_ball_capsule_color_default
-                                        } else {
-                                            R.string.float_ball_capsule_color_custom
-                                        },
-                                    ),
-                                    shape = shape,
-                                    leading = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(MarkColorSize)
-                                                .background(
-                                                    color = if (alert.color.isUnset) {
-                                                        scheme.primary
-                                                    } else {
-                                                        alert.color.toMarkColor()
-                                                    },
-                                                    shape = CircleShape,
-                                                ),
-                                        )
-                                    },
-                                    onClick = { showAlertColorPicker = true },
-                                )
-                            }
-                            // 四类目入口：每类独立二级页（类内单选样式，跨类可叠加）。
-                            AlertCategory.entries.forEach { category ->
-                                item { shape ->
-                                    LunoSettingsRow(
-                                        title = stringResource(category.titleRes()),
-                                        subtitle = stringResource(
-                                            if (alert.categoryEnabled(category)) {
-                                                alert.styleOf(category).labelRes()
-                                            } else {
-                                                R.string.float_ball_capsule_alert_category_disabled
-                                            },
-                                        ),
-                                        shape = shape,
-                                        onClick = when (category) {
-                                            AlertCategory.Edge -> onNavToAlertEdge
-                                            AlertCategory.Particle -> onNavToAlertParticle
-                                            AlertCategory.Capsule -> onNavToAlertCapsule
-                                            AlertCategory.Anchor -> onNavToAlertAnchor
-                                        },
+                                ),
+                                shape = shape,
+                                leading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(MarkColorSize)
+                                            .background(
+                                                color = if (alert.color.isUnset) {
+                                                    scheme.primary
+                                                } else {
+                                                    alert.color.toMarkColor()
+                                                },
+                                                shape = CircleShape,
+                                            ),
                                     )
-                                }
-                            }
-                            // 动效黑名单：不复用通知胶囊黑名单（这些通知照常显示，只是不播动效）。
+                                },
+                                onClick = { showAlertColorPicker = true },
+                            )
+                        }
+                        // 四类目入口：每类独立二级页（类内单选样式，跨类可叠加）。
+                        AlertCategory.entries.forEach { category ->
                             item { shape ->
                                 LunoSettingsRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_blocklist),
-                                    icon = Icons.Default.Block,
+                                    title = stringResource(category.titleRes()),
                                     subtitle = stringResource(
-                                        R.string.float_ball_capsule_alert_blocklist_count,
-                                        alert.appBlocklist.size,
+                                        if (alert.categoryEnabled(category)) {
+                                            alert.styleOf(category).labelRes()
+                                        } else {
+                                            R.string.float_ball_capsule_alert_category_disabled
+                                        },
                                     ),
                                     shape = shape,
-                                    onClick = onNavToAlertBlocklist,
+                                    onClick = when (category) {
+                                        AlertCategory.Edge -> onNavToAlertEdge
+                                        AlertCategory.Particle -> onNavToAlertParticle
+                                        AlertCategory.Capsule -> onNavToAlertCapsule
+                                        AlertCategory.Anchor -> onNavToAlertAnchor
+                                    },
                                 )
                             }
-                            // 全部试播：按当前四类配置一起播一次（失败原因由服务侧 Toast 反馈）。
-                            item { shape ->
-                                LunoSettingsRow(
-                                    title = stringResource(R.string.float_ball_capsule_alert_preview_all),
-                                    subtitle = stringResource(R.string.float_ball_capsule_alert_preview_all_subtitle),
-                                    icon = Icons.Default.PlayArrow,
-                                    shape = shape,
-                                    onClick = { facades.system.previewFloatBallAlert(context) },
-                                )
-                            }
+                        }
+                        // 动效黑名单：不复用通知胶囊黑名单（这些通知照常显示，只是不播动效）。
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_capsule_alert_blocklist),
+                                icon = Icons.Default.Block,
+                                subtitle = stringResource(
+                                    R.string.float_ball_capsule_alert_blocklist_count,
+                                    alert.appBlocklist.size,
+                                ),
+                                shape = shape,
+                                onClick = onNavToAlertBlocklist,
+                            )
+                        }
+                        // 全部试播：按当前四类配置一起播一次（失败原因由服务侧 Toast 反馈）。
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_capsule_alert_preview_all),
+                                subtitle = stringResource(R.string.float_ball_capsule_alert_preview_all_subtitle),
+                                icon = Icons.Default.PlayArrow,
+                                shape = shape,
+                                onClick = { facades.system.previewFloatBallAlert(context) },
+                            )
                         }
                     }
                 }

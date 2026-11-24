@@ -54,25 +54,17 @@
     <string name="float_ball_capsule_suppress_duration">Pause duration</string>
 
     <string name="float_ball_capsule_alert_group">Arrival alert</string>
-    <string name="float_ball_capsule_alert_enabled">Alert on new notification</string>
-    <string name="float_ball_capsule_alert_enabled_subtitle">Plays once when a new notification raises the capsule</string>
     <string name="float_ball_capsule_alert_effect_edge_glow">Edge breathing glow</string>
     <string name="float_ball_capsule_alert_effect_particles">Top particle fall</string>
     <string name="float_ball_capsule_alert_effect_pulse">Capsule pulse</string>
     <string name="float_ball_capsule_alert_effect_ring">Ball halo ring</string>
     <string name="float_ball_capsule_alert_effect_edge_flow">Edge light flow</string>
     <string name="float_ball_capsule_alert_effect_edge_ripple">Edge ripple</string>
-    <string name="float_ball_capsule_alert_effect_edge_blink">Edge blink</string>
     <string name="float_ball_capsule_alert_effect_edge_fireworks">Edge fireworks</string>
-    <string name="float_ball_capsule_alert_effect_edge_swirl">Edge swirl</string>
     <string name="float_ball_capsule_alert_effect_edge_blade_rise">Blade rise</string>
     <string name="float_ball_capsule_alert_effect_particle_fountain">Bottom fountain</string>
     <string name="float_ball_capsule_alert_effect_particle_meteor">Meteor</string>
     <string name="float_ball_capsule_alert_effect_particle_confetti">Confetti</string>
-    <string name="float_ball_capsule_alert_effect_particle_snowflake">Snowflake</string>
-    <string name="float_ball_capsule_alert_effect_particle_petal">Petal</string>
-    <string name="float_ball_capsule_alert_effect_particle_bubble">Bubble</string>
-    <string name="float_ball_capsule_alert_effect_particle_spark">Spark burst</string>
     <string name="float_ball_capsule_alert_effect_particle_firefly">Firefly</string>
     <string name="float_ball_capsule_alert_effect_breath_outline">Breath outline</string>
     <string name="float_ball_capsule_alert_effect_inner_sweep">Inner sweep</string>
@@ -80,11 +72,8 @@
     <string name="float_ball_capsule_alert_effect_ball_burst">Ball burst</string>
     <string name="float_ball_capsule_alert_effect_ball_halo">Ball halo</string>
     <string name="float_ball_capsule_alert_edge_ripple_crests">Wave crests</string>
-    <string name="float_ball_capsule_alert_edge_blink_points">Flash points</string>
     <string name="float_ball_capsule_alert_edge_fireworks_bursts">Bursts</string>
     <string name="float_ball_capsule_alert_edge_fireworks_spread">Burst spread</string>
-    <string name="float_ball_capsule_alert_edge_swirl_points">Swirl points</string>
-    <string name="float_ball_capsule_alert_edge_swirl_radius">Swirl radius</string>
     <string name="float_ball_capsule_alert_edge_blade_width">Blade width</string>
     <string name="float_ball_capsule_alert_edge_blade_height">Blade height</string>
     <string name="float_ball_capsule_alert_breath_stroke_width">Outline width</string>
@@ -117,7 +106,14 @@
     <string name="float_ball_capsule_alert_particle_gravity">Gravity strength</string>
     <string name="float_ball_capsule_alert_particle_spread">Spread amount</string>
     <string name="float_ball_capsule_alert_particle_tail">Tail length</string>
-    <string name="float_ball_capsule_alert_particle_travel">Fall distance</string>
+    <string name="float_ball_capsule_alert_particle_travel">Travel (screen %)</string>
+    <string name="float_ball_capsule_alert_particle_wind">Wind (negative = left)</string>
+    <string name="float_ball_capsule_alert_particle_drag">Drag</string>
+    <string name="float_ball_capsule_alert_particle_variance">Particle variance</string>
+    <string name="float_ball_capsule_alert_particle_tint_image">Tint custom image with palette</string>
+    <string name="float_ball_capsule_alert_particle_tint_image_subtitle">App icons always keep their brand colors</string>
+    <string name="float_ball_capsule_alert_reset_style">Reset this style</string>
+    <string name="float_ball_capsule_alert_reset_style_subtitle">Only resets knobs for this style, not the palette or image</string>
     <string name="float_ball_capsule_alert_stroke_width">Stroke width</string>
     <string name="float_ball_capsule_alert_rings_per_cycle">Rings per wave</string>
     <string name="float_ball_capsule_alert_halo">Halo strength</string>
@@ -166,9 +162,9 @@
     <string name="float_ball_capsule_alert_category_enabled">Enable this category</string>
     <string name="float_ball_capsule_alert_category_enabled_subtitle">When off, this category is skipped; the others still play</string>
     <string name="float_ball_capsule_alert_category_edge">Edge</string>
-    <string name="float_ball_capsule_alert_category_edge_hint">Light along the screen edge: glow / flow / ripple / blink / fireworks / swirl / blades</string>
+    <string name="float_ball_capsule_alert_category_edge_hint">Light along the screen edge: glow / flow / ripple / fireworks / blades</string>
     <string name="float_ball_capsule_alert_category_particle">Particles</string>
-    <string name="float_ball_capsule_alert_category_particle_hint">Particle motion: rain / fountain / meteor / confetti / snow / petal / bubble / spark / firefly</string>
+    <string name="float_ball_capsule_alert_category_particle_hint">Particle motion: rain / fountain / meteor / confetti / firefly</string>
     <string name="float_ball_capsule_alert_category_capsule">Capsule</string>
     <string name="float_ball_capsule_alert_category_capsule_hint">Outline and sweep effects drawn on the capsule itself</string>
     <string name="float_ball_capsule_alert_category_anchor">Ball &amp; full screen</string>
