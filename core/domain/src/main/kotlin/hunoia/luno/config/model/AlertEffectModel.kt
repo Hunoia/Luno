@@ -13,7 +13,13 @@ import kotlinx.serialization.Serializable
  * - 胶囊（[AlertFamily.Capsule]）：扫光 / 呼吸 / 翻转，三选一；
  * - 其余：锚点环 / 全屏着色 / 全屏覆盖 / 粒子 / 揭示。
  *
- * 形态切换只改参数，不新增绘制器；每个形态的参数都在同一个块里，切回去不会丢。
+ * 参数分三层，**参数只在用它的那一层出现**：
+ * - 通用（[AlertLayer]）：启用 / 类别 / 透明度 / 配色 / 时序，所有族同一套；
+ * - 族级：本族所有形态真正共用的少量旋钮（如屏缘的后端与圆角）；
+ * - 形态级：每个形态一份独立 data class，切走保留、切回原样。
+ *
+ * 形态切换只改参数，不新增绘制器；族群与形态都不存在「调这个那个失效」的
+ * 共享字段——互斥参数被拆成了各形态自己的字段或可空子对象。
  */
 
 /** 层类别：设置页 / 编辑器的分组口径；胶囊与球体同属 [Ball]。 */
@@ -127,8 +133,11 @@ object AlertLimits {
     const val MaxScreenLayers = 1
     const val MaxRevealLayers = 1
 
-    /** 跨层共享的粒子总预算；按层顺序分配，按 `count × waves × anchorCount` 计（不是每层 600）。 */
+    /** 跨层共享的粒子总预算；按层顺序分配，按 `count × cycles × anchors` 计（不是每层 600）。 */
     const val ParticleBudget = 600
+
+    /** 层延迟上限（ms）：通用时序旋钮，避免透明窗挂太久。 */
+    const val MaxDelayMillis = 3000
 
     /** UI 下限取 50：0 会让效果完全不可见（外部请求仍可用 0..2 的倍率）。 */
     const val IntensityMin = 50
@@ -153,9 +162,10 @@ enum class AlertLimit {
 }
 
 /**
- * 时序：单循环基准 + 循环次数 + 预设自带的相对速度（100 = 基准）。
+ * 时序：单循环基准 + 循环次数 + 预设自带的相对速度（100 = 基准）+ 层延迟。
  *
  * 全局速度（设置页）在计划构建时再乘一次；这里存的是预设作者的意图。
+ * [delayMillis] 是相对播放起点的偏移：组合里靠它做先后节奏，所有族通用。
  */
 @Serializable
 @Keep
@@ -163,6 +173,7 @@ data class AlertTiming(
     val baseMillis: Int = 1000,
     val cycles: Int = 1,
     val speedPercent: Int = 100,
+    val delayMillis: Int = 0,
 )
 
 /**
@@ -409,14 +420,8 @@ enum class AlertRenderBackend { Auto, Shader, Cpu }
 enum class EdgeShape { Breathing, Sweep, Wave, Lightning }
 
 /**
- * 屏缘参数：四种形态共用一个块，`shape` 选当前生效的那一组。
- *
- * - 呼吸：[depthDp] / [hardness] / [breathAmount]；
- * - 滚动：[path] / [travel] / [headWidthDp] / [depthDp] / [hardness] / 拖尾 / 双带 / 反向 / [noise]；
- * - 波纹：[crests] / [depthDp] / [hardness]；
- * - 雷电：[boltFlashes] / [bolts] / [boltWindow] / [boltWidthDp] / [boltReachPercent]。
- *
- * 切换形态不会清掉其它形态的参数，切回去原样恢复。
+ * 屏缘族参数：族级只有「绘制后端 + 圆角」真正四形态共用；
+ * 每个形态一份独立参数块，切换形态不串值，也不存在共享字段的失效问题。
  */
 @Serializable
 @Keep
@@ -424,39 +429,73 @@ data class EdgeParams(
     val shape: EdgeShape = EdgeShape.Sweep,
     val backend: AlertRenderBackend = AlertRenderBackend.Auto,
     val cornerRadiusDp: Int = 24,
-    /** 呼吸 / 滚动 / 波纹共用的发光深度（dp）。 */
+    val breathing: EdgeBreathing = EdgeBreathing(),
+    val sweep: EdgeSweep = EdgeSweep(),
+    val wave: EdgeWave = EdgeWave(),
+    val lightning: EdgeLightning = EdgeLightning(),
+)
+
+/** 呼吸：整圈亮度脉冲，不移动。 */
+@Serializable
+@Keep
+data class EdgeBreathing(
+    /** 发光深度（dp）。 */
     val depthDp: Float = 14f,
-    /** 呼吸 / 滚动 / 波纹共用的边缘硬度（1 = 柔，4 = 锐）。 */
+    /** 边缘硬度（1 = 柔，4 = 锐）。 */
     val hardness: Float = 2f,
     /** 呼吸幅度：0 = 常亮，1 = 从全灭到全亮。 */
     val breathAmount: Float = 1f,
-    /** 滚动形态的路径。 */
+)
+
+/** 滚动光带：头 + 单侧拖尾沿路径移动。 */
+@Serializable
+@Keep
+data class EdgeSweep(
     val path: BandPath = BandPath.Perimeter,
     /** 每循环走完整条路径的比例（0 = 不动，1 = 走一圈）。 */
     val travel: Float = 1f,
+    /** 光带宽度（dp）。 */
+    val depthDp: Float = 14f,
+    val hardness: Float = 2f,
     /** 头部沿路径方向的宽度（dp）。 */
     val headWidthDp: Float = 12f,
-    val tailLength: Float = 0.3f,
+    /** 拖尾占整条路径的百分比（0–60，单侧弧长，超出即截断）。 */
+    val tailPercent: Int = 15,
     val tailFalloff: Float = 2f,
     val tailAlpha: Float = 0.5f,
     val headBoost: Float = 0.5f,
-    /** 0 = 平滑带，1 = 折线抖动（滚动形态专用；独立放电请用 [bolts]）。 */
+    /** 0 = 平滑带，1 = 折线抖动。 */
     val noise: Float = 0f,
     val dual: Boolean = false,
     val reverse: Boolean = false,
-    /** 波纹形态的波峰数。 */
+)
+
+/** 波纹：等距波峰沿周长起伏。 */
+@Serializable
+@Keep
+data class EdgeWave(
     val crests: Int = 3,
-    /** 波纹沿周长方向的波峰宽度（dp）。 */
+    /** 单个波峰沿周长方向的宽度（dp）。 */
     val waveWidthDp: Float = 10f,
-    /** 雷电形态每次闪断的放电道数（0 = 关闭）。 */
+    /** 每循环行进的比例（0 = 原地起伏）。 */
+    val travel: Float = 1f,
+    val depthDp: Float = 14f,
+    val hardness: Float = 2f,
+)
+
+/** 雷电：闪断次数与每次道数分开，落点每循环重掷。 */
+@Serializable
+@Keep
+data class EdgeLightning(
+    /** 每循环闪断几次。 */
+    val flashes: Int = 3,
+    /** 每次闪断画几道独立折线。 */
     val bolts: Int = 1,
-    /** 雷电形态每循环闪断几次。 */
-    val boltFlashes: Int = 3,
     /** 单次闪断的可见窗口（占单循环比例）。 */
-    val boltWindow: Float = 0.34f,
-    val boltWidthDp: Float = 1.5f,
-    /** 雷电向屏幕内延伸的行程（屏高百分比）。 */
-    val boltReachPercent: Int = 38,
+    val window: Float = 0.34f,
+    val widthDp: Float = 1.5f,
+    /** 向屏幕内延伸的行程（屏高百分比）。 */
+    val reachPercent: Int = 38,
 )
 
 // ---------------------------------------------------------------- 锚点环
@@ -466,19 +505,34 @@ data class EdgeParams(
 @Keep
 enum class RingStyle { Nested, ThreeStroke, Halo }
 
-/** 锚点扩张环：环形 / 冲击波 / 光晕 / 涟漪共用。 */
+/**
+ * 锚点环：三种描边层次共用「环数 / 行程 / 描边宽度 / 锚点」，
+ * 每层需要的额外参数各自一份。
+ */
 @Serializable
 @Keep
 data class RingParams(
     val style: RingStyle = RingStyle.Nested,
+    /** true = 围绕锚点；false = 屏幕中心。 */
+    val centerAtAnchor: Boolean = true,
+    val strokeWidthDp: Float = 3f,
+    /** 每循环环数。 */
     val ringsPerCycle: Int = 1,
     /** 扩张行程（球径 %）；0 = 原地呼吸光晕。 */
     val travelPercent: Int = 95,
-    val strokeWidthDp: Float = 3f,
-    val haloScale: Float = 1f,
-    /** true = 围绕锚点；false = 屏幕中心。 */
-    val centerAtAnchor: Boolean = true,
+    val nested: RingNested = RingNested(),
+    val halo: RingHalo = RingHalo(),
 )
+
+/** 嵌套描边：主环 + 外圈柔光。 */
+@Serializable
+@Keep
+data class RingNested(val haloScale: Float = 1f)
+
+/** 纯光晕：扩散半径倍数。 */
+@Serializable
+@Keep
+data class RingHalo(val haloScale: Float = 1.4f)
 
 // ---------------------------------------------------------------- 胶囊
 
@@ -494,17 +548,23 @@ data class RingParams(
 enum class CapsuleShape { Sweep, Pulse, Flip }
 
 /**
- * 胶囊参数：三种形态共用一个块，`shape` 选当前生效的那一组。
- *
- * [strokeWidthDp] 是三种形态共用的核心描边宽度；扫光的 [fill] 打开后
- * 不再沿轮廓扫，而是在每一行内部横向扫过。
+ * 胶囊族参数：三种形态各自一份，切换不串值。
  */
 @Serializable
 @Keep
 data class CapsuleParams(
     val shape: CapsuleShape = CapsuleShape.Sweep,
+    val sweep: CapsuleSweep = CapsuleSweep(),
+    val pulse: CapsulePulse = CapsulePulse(),
+    val flip: CapsuleFlip = CapsuleFlip(),
+)
+
+/** 扫光：沿轮廓或行内填充。 */
+@Serializable
+@Keep
+data class CapsuleSweep(
     val strokeWidthDp: Float = 1.5f,
-    /** 扫光：true = 行内填充，false = 沿轮廓。 */
+    /** true = 行内填充，false = 沿轮廓。 */
     val fill: Boolean = false,
     val heads: Int = 1,
     /** 主带宽度（胶囊宽占比，5–90）。 */
@@ -514,12 +574,26 @@ data class CapsuleParams(
     val trailScale: Float = 2f,
     val trailAlpha: Float = 0.4f,
     val reverse: Boolean = false,
-    /** 呼吸：辉光层数（0–2）。 */
+)
+
+/** 描边呼吸：辉光层数 + 呼吸缩放。 */
+@Serializable
+@Keep
+data class CapsulePulse(
+    val strokeWidthDp: Float = 1.5f,
+    /** 辉光层数（0–2）。 */
     val glowLayers: Int = 2,
     val glowScale: Float = 1f,
     val breatheScale: Float = 1f,
-    /** 翻转：0 = 不翻；90–360 = 单循环翻转角度。 */
-    val flipDegrees: Int = 180,
+)
+
+/** 3D 翻转。 */
+@Serializable
+@Keep
+data class CapsuleFlip(
+    val strokeWidthDp: Float = 1.5f,
+    /** 0 = 不翻；90–360 = 单循环翻转角度。 */
+    val degrees: Int = 180,
 )
 
 // ---------------------------------------------------------------- 全屏
@@ -530,19 +604,29 @@ data class CapsuleParams(
 enum class WashShape { Flat, Radial, Ring }
 
 /**
- * 全屏着色：平铺（闪光）/ 径向（暗角）/ 环形（缩放脉冲）。
- *
- * [breath] 为 true 时按正弦呼吸，否则只做一次淡出。
+ * 全屏着色：三种造型共用「强度 / 是否呼吸」，各自的几何参数分开。
  */
 @Serializable
 @Keep
 data class WashParams(
     val shape: WashShape = WashShape.Flat,
+    /** 峰值不透明度。 */
     val amplitude: Float = 0.6f,
-    val zoomPercent: Int = 8,
-    val softness: Float = 0.5f,
+    /** true = 正弦呼吸，false = 单次淡出。 */
     val breath: Boolean = true,
+    val radial: WashRadial = WashRadial(),
+    val ring: WashRing = WashRing(),
 )
+
+/** 径向暗角：羽化。 */
+@Serializable
+@Keep
+data class WashRadial(val softness: Float = 0.5f)
+
+/** 环形脉冲：扩散缩放。 */
+@Serializable
+@Keep
+data class WashRing(val zoomPercent: Int = 8)
 
 /** 全屏覆盖的遮罩形状：圆盘 / 圆瞳 / 中间亮缝 / 百叶 / 碎片。 */
 @Serializable
@@ -550,33 +634,57 @@ data class WashParams(
 enum class CoverMask { Circle, Iris, Slit, Bands, Shards }
 
 /**
- * 全屏覆盖：五种遮罩共用一套时序。
- *
- * - [mask] 选择几何；[amplitude] 是最终不透明度（关闭屏幕一般 1）；
- * - [bands] / [shards] 是百叶条数与碎片数；
- * - [slitDp] 是电视关闭的最大亮缝厚度；[rimDp] 是圆瞳边缘描边宽度；
- * - [softness] 边缘羽化；[curve] 是覆盖进度曲线指数（越大越后段发力）。
+ * 全屏覆盖：五种遮罩共用时序与曲线，几何参数各自一份。
  */
 @Serializable
 @Keep
 data class CoverParams(
     val mask: CoverMask = CoverMask.Circle,
+    /** 最终不透明度（关闭屏幕一般 1）。 */
     val amplitude: Float = 1f,
-    val bands: Int = 7,
-    val shards: Int = 16,
-    val slitDp: Float = 10f,
-    val rimDp: Float = 2f,
-    val softness: Float = 0.5f,
+    /** 覆盖进度曲线指数（越大越后段发力）。 */
     val curve: Float = 2f,
+    val circle: CoverCircle = CoverCircle(),
+    val iris: CoverIris = CoverIris(),
+    val slit: CoverSlit = CoverSlit(),
+    val bands: CoverBands = CoverBands(),
+    val shards: CoverShards = CoverShards(),
 )
+
+/** 圆盘：边缘羽化。 */
+@Serializable
+@Keep
+data class CoverCircle(val softness: Float = 0.5f)
+
+/** 圆瞳：边缘描边宽度。 */
+@Serializable
+@Keep
+data class CoverIris(val rimDp: Float = 2f)
+
+/** 电视关闭：最大亮缝厚度。 */
+@Serializable
+@Keep
+data class CoverSlit(val slitDp: Float = 10f)
+
+/** 百叶：条数。 */
+@Serializable
+@Keep
+data class CoverBands(val count: Int = 7)
+
+/** 碎片：片数与羽化。 */
+@Serializable
+@Keep
+data class CoverShards(val count: Int = 16, val softness: Float = 0.5f)
 
 // ---------------------------------------------------------------- 粒子
 
-/** 粒子类的完整参数：发射器 + 运动方程 + 外观。 */
+/** 粒子类的完整参数：发射器 + 锚点簇 + 运动方程 + 外观。 */
 @Serializable
 @Keep
 data class ParticleParams(
     val emitter: ParticleEmitter = ParticleEmitter(),
+    /** 锚点簇：null = 每颗粒子各取一点、原地爆（雨 / 喷泉 / 萤火）。 */
+    val cluster: ParticleCluster? = null,
     val motion: ParticleMotion = ParticleMotion(),
     val look: ParticleLook = ParticleLook(),
 )
@@ -592,63 +700,103 @@ enum class ParticleArea { TopEdge, BottomEdge, ScreenRect, EdgePerimeter, Point,
  * - [Fixed]：按 [ParticleEmitter.directionDeg]；
  * - [Inward]：从出生点指向屏幕中心（屏缘烟花靠它往屏幕内炸）；
  * - [Outward]：背离屏幕中心；
- * - [Radial]：360° 均匀（升空烟花 / 球心爆发）。
+ * - [Radial]：360° 均匀（升空烟花 / 球心爆发），不使用方向角。
  */
 @Serializable
 @Keep
 enum class ParticleDirection { Fixed, Inward, Outward, Radial }
 
+/** 单循环内的发射方式。 */
+@Serializable
+@Keep
+enum class ParticleEmission {
+    /** 爆发：一拍发出（烟花 / 球心爆）。 */
+    Burst,
+
+    /** 连续：铺满整段循环，短寿命首尾相接（雨 / 雪 / 星尘）。 */
+    Stream,
+}
+
 /**
- * 发射器：数量、方向/散开、初速与错峰。
+ * 发射器：数量、方向/散开、初速与错峰。所有字段对每种发射方式都有效。
  *
- * [directionDeg] 以屏幕坐标系为准（90 = 向下，270 = 向上）；
- * [speed] 是屏高/秒的归一化初速，[speedJitter] 是 ± 比例。
- *
- * 烟花相关：
- * - [anchorPerWave]：每次波次共用一个随机锚点（一簇一爆），而不是每颗粒子各取一点；
- * - [anchorCount]：每次波次同时用几个锚点（多处同时炸）；每个锚点各发射 [count] 颗；
- * - [launchHeight]：0 = 原地爆；>0 = 先向上飞这段屏高，再在顶点爆开；
- * - [launchShare]：升空占单次波次的比例（0.1–0.9）；
- * - [delaySpread]：错峰窗口占「单循环减寿命」的比例（0 = 同刻出发，1 = 铺满）。
+ * [delaySpread]：Burst 是「单循环减寿命」的比例（0 = 同刻出发，1 = 铺满）；
+ * Stream 是整段循环的比例（1 = 整段均匀发射）。
  */
 @Serializable
 @Keep
 data class ParticleEmitter(
     val area: ParticleArea = ParticleArea.TopEdge,
     val count: Int = 60,
-    val waves: Int = 1,
-    val anchorPerWave: Boolean = false,
-    /** 每次波次的锚点数（1–8）；`anchorPerWave` 打开时生效，每个锚点各发射 `count` 颗。 */
-    val anchorCount: Int = 1,
-    val directionMode: ParticleDirection = ParticleDirection.Fixed,
+    val emission: ParticleEmission = ParticleEmission.Burst,
+    val direction: ParticleDirection = ParticleDirection.Fixed,
+    /** 方向角（屏幕系，90 = 向下）；仅 [ParticleDirection.Fixed] 使用。 */
     val directionDeg: Float = 90f,
+    /** 散开角（度）；[ParticleDirection.Radial] 固定 360°，不使用。 */
     val spreadDeg: Float = 30f,
     val speed: Float = 0.6f,
     val speedJitter: Float = 0.2f,
-    val launchHeight: Float = 0f,
-    val launchShare: Float = 0.45f,
     val delaySpread: Float = 0.6f,
     val lifeShare: Float = 0.65f,
 )
 
-/** 运动路径族的预置形状（需要更多控制时由 motion 参数叠加）。 */
+/**
+ * 锚点簇：一次波次共用一个随机锚点（而不是每颗各取一点）。
+ *
+ * [anchors] 是每次波次同时用几个锚点，每个锚点各发射 [count] 颗；
+ * [launchHeight] > 0 时先升空到顶点再爆（真烟花）。
+ */
+@Serializable
+@Keep
+data class ParticleCluster(
+    /** 每次波次的锚点数（1–8）。 */
+    val anchors: Int = 1,
+    /** 0 = 原地爆；>0 = 先向上飞这段屏高再爆。 */
+    val launchHeight: Float = 0f,
+    /** 升空占单次波次的比例（0.1–0.9）。 */
+    val launchShare: Float = 0.45f,
+)
+
+/** 运动方程族：自由积分 / 预置路径。 */
+@Serializable
+@Keep
+enum class ParticleMotionMode { Free, Path }
+
+/** 运动路径族的预置形状。 */
 @Serializable
 @Keep
 enum class ParticlePath { Bezier, Arc, Sine, ZigZag }
 
 /**
- * 运动方程族（组合式）：所有参数都归一化，渲染层按屏幕尺寸换算。
+ * 运动：自转 / 3D 翻面两种模式都生效；其余按 [mode] 各取一份。
+ *
+ * [free] 是「重力 + 阻力 + 风 + 噪声 + 轨道」的组合式方程；
+ * [path] 会接管位置，所以两种模式互斥、只画当前模式那组旋钮。
+ */
+@Serializable
+@Keep
+data class ParticleMotion(
+    val mode: ParticleMotionMode = ParticleMotionMode.Free,
+    /** 自转速度（0–2）。 */
+    val spin: Float = 0f,
+    /** 3D 翻面幅度（0–1）。 */
+    val tilt: Float = 0f,
+    val free: ParticleFreeMotion = ParticleFreeMotion(),
+    val path: ParticlePathMotion = ParticlePathMotion(),
+)
+
+/**
+ * 自由运动：所有参数都归一化，渲染层按屏幕尺寸换算。
  *
  * - [gravity] 0 = 无重力，1 = 真重力，2–3 更强；负值 = 向上（气泡 / 升腾）；
  * - [drag] 0..1（终端速度曲线）；[wind] -1..1（负左正右）；
  * - [turbulence] / [brownian] 0..1（curl 噪声 / 随机游走强度）；
  * - [orbit] / [spiral] 0..1（绕锚点环行 / 向内卷吸）；[attract] 0..1；
- * - [sway] 振幅（屏宽比例）、[swayCycles] 单次寿命内的正弦周期；
- * - [spin] 0..2（自转速度）、[tilt] 0..1（3D 翻面幅度）；[bounce] 0..1（边界反弹）。
+ * - [sway] 振幅（屏宽比例）、[swayCycles] 单次寿命内的正弦周期；[bounce] 0..1（边界反弹）。
  */
 @Serializable
 @Keep
-data class ParticleMotion(
+data class ParticleFreeMotion(
     val gravity: Float = 1f,
     val drag: Float = 0.3f,
     val wind: Float = 0f,
@@ -658,11 +806,16 @@ data class ParticleMotion(
     val spiral: Float = 0f,
     val sway: Float = 0.2f,
     val swayCycles: Float = 1.5f,
-    val spin: Float = 0f,
-    val tilt: Float = 0f,
-    val path: ParticlePath? = null,
     val attract: Float = 0f,
     val bounce: Float = 0f,
+)
+
+/** 预置路径：形状 + 行程缩放（乘在「初速 × 寿命」上）。 */
+@Serializable
+@Keep
+data class ParticlePathMotion(
+    val shape: ParticlePath = ParticlePath.Bezier,
+    val travelScale: Float = 0.4f,
 )
 
 /** 粒子形状全集（图片 / 图标 / Emoji / 文字由渲染层决定加载方式）。 */
@@ -787,5 +940,5 @@ data class AlertLibraryExport(
     val presets: List<AlertPreset> = emptyList(),
 )
 
-/** 当前导出格式版本（v6 = 7 个渲染器族 + 形态切换）。 */
-const val AlertLibraryExportVersion: Int = 6
+/** 当前导出格式版本（v7 = 三层参数：通用 / 族 / 形态）。 */
+const val AlertLibraryExportVersion: Int = 7

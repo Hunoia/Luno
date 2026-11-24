@@ -14,7 +14,12 @@ import hunoia.luno.config.model.AlertTiming
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.CapsuleShape
 import hunoia.luno.config.model.CoverParams
+import hunoia.luno.config.model.EdgeLightning
 import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.EdgeSweep
+import hunoia.luno.config.model.EdgeWave
+import hunoia.luno.config.model.CapsuleSweep
+import hunoia.luno.config.model.ParticleCluster
 import hunoia.luno.config.model.EdgeShape
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleArea
@@ -200,29 +205,36 @@ class AlertPlanFactoryTest {
                 layer("e", AlertFamily.Edge).copy(
                     edge = EdgeParams(
                         shape = EdgeShape.Lightning,
-                        bolts = 4,
-                        boltFlashes = 2,
-                        boltWindow = 0.5f,
-                        boltReachPercent = 60,
-                        waveWidthDp = 12f,
+                        lightning = EdgeLightning(
+                            bolts = 4,
+                            flashes = 2,
+                            window = 0.5f,
+                            reachPercent = 60,
+                        ),
+                        wave = EdgeWave(waveWidthDp = 12f),
+                        sweep = EdgeSweep(tailPercent = 20),
                     ),
                 ),
                 layer("c", AlertFamily.Capsule).copy(
-                    capsule = CapsuleParams(shape = CapsuleShape.Sweep, fill = true),
+                    capsule = CapsuleParams(
+                        shape = CapsuleShape.Sweep,
+                        sweep = CapsuleSweep(fill = true),
+                    ),
                 ),
             ),
         )
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
         val edge = plan.stageLayers.single().spec as EdgeSpec
         assertEquals(EdgeShape.Lightning, edge.shape)
-        assertEquals(4, edge.bolts)
-        assertEquals(2, edge.boltFlashes)
-        assertEquals(0.5f, edge.boltWindow, 0.001f)
-        assertEquals(60, edge.boltReachPercent)
-        assertEquals(12f, edge.waveWidthDp, 0.001f)
+        assertEquals(4, edge.lightning.bolts)
+        assertEquals(2, edge.lightning.flashes)
+        assertEquals(0.5f, edge.lightning.window, 0.001f)
+        assertEquals(60, edge.lightning.reachPercent)
+        assertEquals(12f, edge.wave.waveWidthDp, 0.001f)
+        assertEquals(20, edge.sweep.tailPercent)
         val capsule = plan.capsuleLayers.single().spec as CapsuleSpec
         assertEquals(CapsuleShape.Sweep, capsule.shape)
-        assertTrue(capsule.fill)
+        assertTrue(capsule.sweep.fill)
     }
 
     @Test
@@ -253,9 +265,10 @@ class AlertPlanFactoryTest {
                     particle = ParticleParams(
                         emitter = ParticleEmitter(
                             area = ParticleArea.EdgePerimeter,
-                            anchorPerWave = true,
-                            anchorCount = 3,
-                            directionMode = ParticleDirection.Inward,
+                            direction = ParticleDirection.Inward,
+                        ),
+                        cluster = ParticleCluster(
+                            anchors = 3,
                             launchHeight = 0.55f,
                             launchShare = 0.4f,
                         ),
@@ -265,11 +278,29 @@ class AlertPlanFactoryTest {
         )
         val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
         val spec = plan.stageLayers.single().spec as ParticlesSpec
-        assertTrue(spec.params.emitter.anchorPerWave)
-        assertEquals(3, spec.params.emitter.anchorCount)
-        assertEquals(ParticleDirection.Inward, spec.params.emitter.directionMode)
-        assertEquals(0.55f, spec.params.emitter.launchHeight, 0.001f)
-        assertEquals(0.4f, spec.params.emitter.launchShare, 0.001f)
+        assertEquals(3, spec.params.cluster?.anchors)
+        assertEquals(ParticleDirection.Inward, spec.params.emitter.direction)
+        assertEquals(0.55f, spec.params.cluster?.launchHeight ?: 0f, 0.001f)
+        assertEquals(0.4f, spec.params.cluster?.launchShare ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun `layer delay rides startAt and extends the plan duration`() {
+        val preset = AlertPreset(
+            id = "delay",
+            name = "delay",
+            layers = listOf(
+                layer("a", AlertFamily.Edge, baseMillis = 1000),
+                layer("b", AlertFamily.Edge, baseMillis = 1000).copy(
+                    timing = AlertTiming(baseMillis = 1000, delayMillis = 500),
+                ),
+            ),
+        )
+        val plan = AlertPlanFactory.buildFromPreset(preset, preset.id, library).toPlayPlan()
+        val delayed = plan.stageLayers.single { it.layerId == "b" }
+        assertEquals(500, delayed.startAt)
+        assertEquals(1500, plan.durationMillis)
+        assertEquals(0, plan.stageLayers.single { it.layerId == "a" }.startAt)
     }
 
     @Test

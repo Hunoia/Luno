@@ -3,6 +3,7 @@ package hunoia.luno.runtime.floatball.alert.engine
 import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleDirection
 import hunoia.luno.config.model.ParticleEmitter
+import hunoia.luno.config.model.ParticleFreeMotion
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticlePath
 import kotlin.math.abs
@@ -37,7 +38,7 @@ class ParticleEngineTest {
     @Test
     fun `gravity pulls particles down`() {
         val start = state(0.2f, 0.1f)
-        val end = step(start, ParticleMotion(gravity = 1f, drag = 0f, sway = 0f), seconds = 0.5f)
+        val end = step(start, ParticleMotion(free = ParticleFreeMotion(gravity = 1f, drag = 0f, sway = 0f)), seconds = 0.5f)
         assertTrue("应向下移动", end.y > start.y)
         assertTrue("速度应向下", end.vy > 0f)
         assertEquals(0.2f, end.x, 0.02f)
@@ -45,8 +46,8 @@ class ParticleEngineTest {
 
     @Test
     fun `drag reduces terminal speed`() {
-        val motionFree = ParticleMotion(gravity = 1f, drag = 0f, sway = 0f)
-        val motionDrag = ParticleMotion(gravity = 1f, drag = 0.6f, sway = 0f)
+        val motionFree = ParticleMotion(free = ParticleFreeMotion(gravity = 1f, drag = 0f, sway = 0f))
+        val motionDrag = ParticleMotion(free = ParticleFreeMotion(gravity = 1f, drag = 0.6f, sway = 0f))
         val a = step(state(0.25f, 0.2f), motionFree, seconds = 0.8f)
         val b = step(state(0.25f, 0.2f), motionDrag, seconds = 0.8f)
         assertTrue("有阻力时速度更小", b.vy < a.vy)
@@ -55,8 +56,8 @@ class ParticleEngineTest {
 
     @Test
     fun `wind pushes horizontally in both directions`() {
-        val right = step(state(0.25f, 0.5f), ParticleMotion(gravity = 0f, sway = 0f, wind = 0.8f), 0.5f)
-        val left = step(state(0.25f, 0.5f), ParticleMotion(gravity = 0f, sway = 0f, wind = -0.8f), 0.5f)
+        val right = step(state(0.25f, 0.5f), ParticleMotion(free = ParticleFreeMotion(gravity = 0f, sway = 0f, wind = 0.8f)), 0.5f)
+        val left = step(state(0.25f, 0.5f), ParticleMotion(free = ParticleFreeMotion(gravity = 0f, sway = 0f, wind = -0.8f)), 0.5f)
         assertTrue("正风向右", right.x > 0.25f)
         assertTrue("负风向左", left.x < 0.25f)
     }
@@ -66,7 +67,7 @@ class ParticleEngineTest {
         val start = state(0.45f, 0.5f)
         val orbit = step(
             start,
-            ParticleMotion(gravity = 0f, drag = 0f, sway = 0f, orbit = 1f),
+            ParticleMotion(free = ParticleFreeMotion(gravity = 0f, drag = 0f, sway = 0f, orbit = 1f)),
             seconds = 0.4f,
         )
         val radiusOrbit = hypot(orbit.x - anchor.x, orbit.y - anchor.y)
@@ -74,7 +75,7 @@ class ParticleEngineTest {
 
         val spiral = step(
             start,
-            ParticleMotion(gravity = 0f, drag = 0f, sway = 0f, spiral = 1f),
+            ParticleMotion(free = ParticleFreeMotion(gravity = 0f, drag = 0f, sway = 0f, spiral = 1f)),
             seconds = 0.6f,
         )
         val radiusSpiral = hypot(spiral.x - anchor.x, spiral.y - anchor.y)
@@ -86,7 +87,7 @@ class ParticleEngineTest {
         val start = state(0.25f, 0.98f, vy = 1.2f)
         val end = step(
             start,
-            ParticleMotion(gravity = 1f, drag = 0f, sway = 0f, bounce = 0.6f),
+            ParticleMotion(free = ParticleFreeMotion(gravity = 1f, drag = 0f, sway = 0f, bounce = 0.6f)),
             seconds = 0.3f,
             frames = 12,
         )
@@ -132,7 +133,7 @@ class ParticleEngineTest {
     fun `bounce does not trap particles spawned below the screen`() {
         // 底部喷泉回归：出生点 y = 1.06（屏外）+ bounce 不能把粒子钉在底边。
         var s = state(0.25f, 1.06f, vy = -2.2f)
-        val motion = ParticleMotion(gravity = 2f, drag = 0.2f, sway = 0f, bounce = 0.2f)
+        val motion = ParticleMotion(free = ParticleFreeMotion(gravity = 2f, drag = 0.2f, sway = 0f, bounce = 0.2f))
         repeat(24) { s = advanceParticle(s, 1f / 60f, motion, frame, anchor) }
         assertTrue("应抬进屏幕", s.y < 1f)
         assertTrue("仍在向上", s.vy < 0f)
@@ -186,7 +187,7 @@ class ParticleEngineTest {
         val p = spawnParticle(
             ParticleEmitter(
                 area = ParticleArea.EdgePerimeter,
-                directionMode = ParticleDirection.Inward,
+                direction = ParticleDirection.Inward,
                 spreadDeg = 0f,
                 speed = 1f,
                 speedJitter = 0f,
@@ -210,7 +211,7 @@ class ParticleEngineTest {
             val p = spawnParticle(
                 ParticleEmitter(
                     area = ParticleArea.Point,
-                    directionMode = ParticleDirection.Radial,
+                    direction = ParticleDirection.Radial,
                     spreadDeg = 0f,
                     speed = 1f,
                     speedJitter = 0f,
@@ -247,7 +248,7 @@ class ParticleEngineTest {
         val start = state(0.2f, 0.5f)
         val end = step(
             start,
-            ParticleMotion(gravity = 0f, drag = 0f, sway = 0f, spin = 0f, tilt = 1f),
+            ParticleMotion(free = ParticleFreeMotion(gravity = 0f, drag = 0f, sway = 0f), spin = 0f, tilt = 1f),
             seconds = 0.2f,
         )
         assertTrue("tilt 打开时 spinDeg 应推进", end.spinDeg > 1f)

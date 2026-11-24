@@ -245,7 +245,6 @@
     <string name="float_ball_layer_area_point">Single point</string>
     <string name="float_ball_layer_area_ball">Ball ring</string>
     <string name="float_ball_layer_count">Particles</string>
-    <string name="float_ball_layer_waves">Waves</string>
     <string name="float_ball_layer_direction">Direction (deg)</string>
     <string name="float_ball_layer_spread">Spread</string>
     <string name="float_ball_layer_speed">Speed</string>
@@ -265,7 +264,6 @@
     <string name="float_ball_layer_motion_bounce">Bounce</string>
     <string name="float_ball_layer_motion_attract">Attract</string>
     <string name="float_ball_layer_motion_path">Path</string>
-    <string name="float_ball_layer_path_none">None</string>
     <string name="float_ball_layer_path_bezier">Bezier</string>
     <string name="float_ball_layer_path_arc">Arc</string>
     <string name="float_ball_layer_path_sine">Sine</string>
@@ -311,12 +309,10 @@
     <string name="float_ball_layer_travel">Travel</string>
     <string name="float_ball_layer_stroke">Stroke</string>
     <string name="float_ball_layer_rings">Rings per cycle</string>
-    <string name="float_ball_layer_band_width_percent">Band width</string>
     <string name="float_ball_layer_flip_degrees">Flip angle</string>
     <string name="float_ball_layer_reverse">Reverse</string>
     <string name="float_ball_layer_amplitude">Amplitude</string>
     <string name="float_ball_layer_zoom">Zoom amount</string>
-    <string name="float_ball_layer_vignette_softness">Vignette softness</string>
     <string name="float_ball_layer_stagger">Stagger</string>
     <string name="float_ball_layer_scale_from">Start scale</string>
     <string name="float_ball_layer_reveal_direction">Reveal direction</string>
@@ -344,7 +340,6 @@
     <string name="float_ball_preset_add_full">10 layers max; delete one first</string>
     <string name="float_ball_preset_toggle_blocked">%1$s; turn another layer off first</string>
     <string name="float_ball_alert_filter_all">All</string>
-    <string name="float_ball_layer_group_appearance_hint">Shows only parameters used by the current pattern; other values are kept</string>
     <string name="float_ball_alert_settings_title">Arrival effect</string>
     <string name="float_ball_alert_summary_off">Off</string>
     <string name="float_ball_alert_preview_none">Choose a preset first</string>
@@ -454,7 +449,6 @@
     <string name="float_ball_layer_head_boost">Head boost</string>
     <string name="float_ball_layer_noise">Noise / arc</string>
     <string name="float_ball_layer_dual">Dual band</string>
-    <string name="float_ball_layer_ring_style">Ring style</string>
     <string name="float_ball_layer_ring_nested">Core + halo</string>
     <string name="float_ball_layer_ring_three">Triple stroke</string>
     <string name="float_ball_layer_ring_halo">Soft halo</string>
@@ -462,13 +456,9 @@
     <string name="float_ball_layer_heads">Heads</string>
     <string name="float_ball_layer_glow_layers">Glow layers</string>
     <string name="float_ball_layer_glow_scale">Glow scale</string>
-    <string name="float_ball_layer_breathe">Breath amount</string>
-    <string name="float_ball_layer_wash_shape">Wash shape</string>
     <string name="float_ball_layer_wash_flat">Flat</string>
     <string name="float_ball_layer_wash_radial">Radial</string>
     <string name="float_ball_layer_wash_ring">Ring</string>
-    <string name="float_ball_layer_wash_breath">Breathing</string>
-    <string name="float_ball_layer_cover_mask">Mask</string>
     <string name="float_ball_layer_cover_circle">Disc</string>
     <string name="float_ball_layer_cover_iris">Iris</string>
     <string name="float_ball_layer_cover_slit">Center slit</string>
@@ -507,9 +497,6 @@
     <string name="float_ball_layer_breath_amount">Breath amount</string>
     <string name="float_ball_layer_bolts">Bolts per flash</string>
     <string name="float_ball_layer_bolt_reach">Inward reach</string>
-    <string name="float_ball_layer_fill">Fill inside</string>
-    <string name="float_ball_layer_anchor_per_wave">One anchor per burst</string>
-    <string name="float_ball_layer_anchor_per_wave_hint">Cluster each burst (fireworks / ball burst); off = per particle</string>
     <string name="float_ball_layer_direction_mode">Burst direction</string>
     <string name="float_ball_layer_launch_height">Launch height</string>
     <string name="float_ball_layer_launch_share">Launch share</string>
@@ -533,4 +520,27 @@
     <string name="float_ball_layer_wave_width">Crest width</string>
     <string name="float_ball_layer_bolt_flashes">Flashes</string>
     <string name="float_ball_layer_bolt_window">Flash window</string>
+    <string name="float_ball_layer_group_family">Family</string>
+    <string name="float_ball_layer_group_form_params">Form parameters</string>
+    <string name="float_ball_layer_group_form_hint">Only the current form is shown; other forms keep their values</string>
+    <string name="float_ball_layer_form">Form</string>
+    <string name="float_ball_layer_emission">Emission</string>
+    <string name="float_ball_layer_emission_burst">Burst</string>
+    <string name="float_ball_layer_emission_stream">Stream</string>
+    <string name="float_ball_layer_cluster">Anchor cluster</string>
+    <string name="float_ball_layer_cluster_hint">One anchor per burst; off = each particle picks its own point</string>
+    <string name="float_ball_layer_cluster_on">Share one anchor per burst</string>
+    <string name="float_ball_layer_motion_free">Free</string>
+    <string name="float_ball_layer_motion_path_mode">Path</string>
+    <string name="float_ball_layer_path_form">Path shape</string>
+    <string name="float_ball_layer_path_travel">Travel scale</string>
+    <string name="float_ball_layer_quick_shapes_action">Quick shape</string>
+    <string name="float_ball_layer_quick_pick">Choose a recipe</string>
+    <string name="float_ball_layer_travel_percent">Travel</string>
+    <string name="float_ball_layer_capsule_fill">Fill inside</string>
+    <string name="float_ball_layer_band">Band width</string>
+    <string name="float_ball_layer_breath_scale">Breath scale</string>
+    <string name="float_ball_layer_breath">Breath</string>
+    <string name="float_ball_layer_softness">Softness</string>
+    <string name="float_ball_layer_delay">Layer delay</string>
 </resources>

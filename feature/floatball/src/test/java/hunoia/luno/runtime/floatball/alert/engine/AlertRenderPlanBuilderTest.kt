@@ -9,6 +9,7 @@ import hunoia.luno.config.model.AlertTiming
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.CoverParams
 import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.ParticleCluster
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
@@ -190,8 +191,8 @@ class AlertRenderPlanBuilderTest {
             id = "p",
             name = "P",
             layers = listOf(
-                layer("a", AlertFamily.Particles, count = 400),
-                layer("b", AlertFamily.Particles, count = 400),
+                layer("a", AlertFamily.Particles, count = 400, cycles = 1),
+                layer("b", AlertFamily.Particles, count = 400, cycles = 1),
             ),
         )
         val plan = AlertRenderPlanBuilder.build(
@@ -205,8 +206,8 @@ class AlertRenderPlanBuilderTest {
     }
 
     @Test
-    fun `particle budget counts waves not just per-spawn count`() {
-        // 渲染端每波都会再乘一份 count，预算必须按 count × waves 算，否则实际粒子数翻倍。
+    fun `particle budget counts cycles not just per-spawn count`() {
+        // 渲染端每个循环都会再乘一份 count，预算必须按 count × cycles 算。
         val preset = AlertPreset(
             id = "p",
             name = "P",
@@ -214,12 +215,14 @@ class AlertRenderPlanBuilderTest {
                 AlertLayer(
                     id = "a",
                     family = AlertFamily.Particles,
-                    particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
+                    timing = AlertTiming(cycles = 2),
+                    particle = ParticleParams(emitter = ParticleEmitter(count = 300)),
                 ),
                 AlertLayer(
                     id = "b",
                     family = AlertFamily.Particles,
-                    particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
+                    timing = AlertTiming(cycles = 2),
+                    particle = ParticleParams(emitter = ParticleEmitter(count = 300)),
                 ),
             ),
         )
@@ -241,13 +244,10 @@ class AlertRenderPlanBuilderTest {
                 AlertLayer(
                     id = "a",
                     family = AlertFamily.Particles,
+                    timing = AlertTiming(cycles = 2),
                     particle = ParticleParams(
-                        emitter = ParticleEmitter(
-                            count = 100,
-                            waves = 2,
-                            anchorPerWave = true,
-                            anchorCount = 4,
-                        ),
+                        emitter = ParticleEmitter(count = 100),
+                        cluster = ParticleCluster(anchors = 4),
                     ),
                 ),
             ),

@@ -246,7 +246,6 @@
     <string name="float_ball_layer_area_point">单点</string>
     <string name="float_ball_layer_area_ball">球环</string>
     <string name="float_ball_layer_count">粒子数</string>
-    <string name="float_ball_layer_waves">波次</string>
     <string name="float_ball_layer_direction">方向（度）</string>
     <string name="float_ball_layer_spread">散开角</string>
     <string name="float_ball_layer_speed">初速</string>
@@ -266,7 +265,6 @@
     <string name="float_ball_layer_motion_bounce">反弹</string>
     <string name="float_ball_layer_motion_attract">吸引</string>
     <string name="float_ball_layer_motion_path">轨迹</string>
-    <string name="float_ball_layer_path_none">无</string>
     <string name="float_ball_layer_path_bezier">贝塞尔</string>
     <string name="float_ball_layer_path_arc">弧线</string>
     <string name="float_ball_layer_path_sine">正弦</string>
@@ -312,12 +310,10 @@
     <string name="float_ball_layer_travel">行程</string>
     <string name="float_ball_layer_stroke">描边</string>
     <string name="float_ball_layer_rings">每循环环数</string>
-    <string name="float_ball_layer_band_width_percent">主带宽度</string>
     <string name="float_ball_layer_flip_degrees">翻转角度</string>
     <string name="float_ball_layer_reverse">反向</string>
     <string name="float_ball_layer_amplitude">强度</string>
     <string name="float_ball_layer_zoom">缩放幅度</string>
-    <string name="float_ball_layer_vignette_softness">暗角柔和</string>
     <string name="float_ball_layer_stagger">逐字错峰</string>
     <string name="float_ball_layer_scale_from">起始缩放</string>
     <string name="float_ball_layer_reveal_direction">揭示方向</string>
@@ -345,7 +341,6 @@
     <string name="float_ball_preset_add_full">已达 10 层上限，先删一层</string>
     <string name="float_ball_preset_toggle_blocked">%1$s，先关掉其它层</string>
     <string name="float_ball_alert_filter_all">全部</string>
-    <string name="float_ball_layer_group_appearance_hint">只显示当前形态用到的参数；切换形态后旧值保留</string>
     <string name="float_ball_alert_settings_title">到达提示动效</string>
     <string name="float_ball_alert_summary_off">已关闭</string>
     <string name="float_ball_alert_preview_none">先选择一个预设</string>
@@ -455,7 +450,6 @@
     <string name="float_ball_layer_head_boost">头部提亮</string>
     <string name="float_ball_layer_noise">噪声 / 放电</string>
     <string name="float_ball_layer_dual">双带</string>
-    <string name="float_ball_layer_ring_style">环样式</string>
     <string name="float_ball_layer_ring_nested">核环 + 光晕</string>
     <string name="float_ball_layer_ring_three">三重描边</string>
     <string name="float_ball_layer_ring_halo">纯柔光</string>
@@ -463,13 +457,9 @@
     <string name="float_ball_layer_heads">光头数</string>
     <string name="float_ball_layer_glow_layers">辉光层数</string>
     <string name="float_ball_layer_glow_scale">辉光缩放</string>
-    <string name="float_ball_layer_breathe">呼吸幅度</string>
-    <string name="float_ball_layer_wash_shape">着色形状</string>
     <string name="float_ball_layer_wash_flat">平铺</string>
     <string name="float_ball_layer_wash_radial">径向</string>
     <string name="float_ball_layer_wash_ring">环形</string>
-    <string name="float_ball_layer_wash_breath">呼吸</string>
-    <string name="float_ball_layer_cover_mask">覆盖形状</string>
     <string name="float_ball_layer_cover_circle">圆盘</string>
     <string name="float_ball_layer_cover_iris">圆瞳</string>
     <string name="float_ball_layer_cover_slit">中间亮缝</string>
@@ -508,9 +498,6 @@
     <string name="float_ball_layer_breath_amount">呼吸幅度</string>
     <string name="float_ball_layer_bolts">每次放电道数</string>
     <string name="float_ball_layer_bolt_reach">向内行程</string>
-    <string name="float_ball_layer_fill">行内填充</string>
-    <string name="float_ball_layer_anchor_per_wave">每次爆发共用一个锚点</string>
-    <string name="float_ball_layer_anchor_per_wave_hint">一簇一爆（烟花 / 球心爆）；关闭则每颗粒子各自取点</string>
     <string name="float_ball_layer_direction_mode">爆发方向</string>
     <string name="float_ball_layer_launch_height">升空高度</string>
     <string name="float_ball_layer_launch_share">升空占单次爆发</string>
@@ -534,4 +521,27 @@
     <string name="float_ball_layer_wave_width">波峰宽度</string>
     <string name="float_ball_layer_bolt_flashes">闪断次数</string>
     <string name="float_ball_layer_bolt_window">单次闪断时长</string>
+    <string name="float_ball_layer_group_family">族参数</string>
+    <string name="float_ball_layer_group_form_params">形态参数</string>
+    <string name="float_ball_layer_group_form_hint">只显示当前形态用到的参数；切换形态后旧值保留</string>
+    <string name="float_ball_layer_form">形态</string>
+    <string name="float_ball_layer_emission">发射方式</string>
+    <string name="float_ball_layer_emission_burst">爆发</string>
+    <string name="float_ball_layer_emission_stream">连续</string>
+    <string name="float_ball_layer_cluster">锚点簇</string>
+    <string name="float_ball_layer_cluster_hint">一簇一爆；关闭后每颗粒子各自取点</string>
+    <string name="float_ball_layer_cluster_on">每次爆发共用一个锚点</string>
+    <string name="float_ball_layer_motion_free">自由</string>
+    <string name="float_ball_layer_motion_path_mode">路径</string>
+    <string name="float_ball_layer_path_form">路径形状</string>
+    <string name="float_ball_layer_path_travel">行程缩放</string>
+    <string name="float_ball_layer_quick_shapes_action">快速形状</string>
+    <string name="float_ball_layer_quick_pick">选择配方</string>
+    <string name="float_ball_layer_travel_percent">扩张行程</string>
+    <string name="float_ball_layer_capsule_fill">行内填充</string>
+    <string name="float_ball_layer_band">主带宽度</string>
+    <string name="float_ball_layer_breath_scale">呼吸缩放</string>
+    <string name="float_ball_layer_breath">呼吸</string>
+    <string name="float_ball_layer_softness">羽化</string>
+    <string name="float_ball_layer_delay">层延迟</string>
 </resources>

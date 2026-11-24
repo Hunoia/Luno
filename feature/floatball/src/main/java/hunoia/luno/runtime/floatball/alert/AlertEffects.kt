@@ -21,12 +21,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -40,9 +42,11 @@ import hunoia.luno.config.model.AlertRenderBackend
 import hunoia.luno.config.model.EdgeShape
 import hunoia.luno.config.model.BandPath
 import hunoia.luno.config.model.ColorSpec
+import hunoia.luno.config.model.EdgeSweep
 import hunoia.luno.config.model.CoverMask
 import hunoia.luno.config.model.AlertParticleShape
 import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleEmission
 import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.RevealDirection
 import hunoia.luno.config.model.RevealPattern
@@ -212,14 +216,13 @@ private const val EDGE_FLOW_SHADER = """
     uniform float headPos;
     uniform float headPos2;
     uniform float coreSigma;
-    uniform float trailSigma;
+    uniform float tailAmount;
     uniform float trailAlpha;
     uniform float tailPower;
     uniform float headBoost;
     uniform float trailDir;
     uniform float dualOffset;
-    uniform float dualSecond;
-    uniform float trailBack2;
+    uniform float noiseAmount;
     layout(color) uniform half4 color0;
     layout(color) uniform half4 color1;
     $PALETTE_DECL
@@ -232,48 +235,52 @@ private const val EDGE_FLOW_SHADER = """
         return exp(-0.5 * sn * sn);
     }
 
+    // 单侧拖尾：只覆盖头后方 tailAmount 的弧长，超出即 0。
+    // 与 CPU 端 bandProfile 同口径——不再用高斯 sigma，避免拖尾绕整圈成一圈常亮光。
+    float bandTail(float s, float head, float dir, float amount, float power, float alpha) {
+        if (amount <= 0.0001) return 0.0;
+        float back = fract((s - head) * dir + 1.0);
+        if (back >= amount) return 0.0;
+        float k = 1.0 - back / amount;
+        return pow(k, max(power, 0.5)) * alpha;
+    }
+
+    float hash1(float n) {
+        return fract(sin(n * 12.9898) * 43758.5453);
+    }
+
     half4 main(float2 fragCoord) {
         float2 halfSize = resolution * 0.5;
         float2 p = fragCoord - halfSize;
         float2 q = abs(p) - (halfSize - float2(cornerRadius));
         float dist = length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - cornerRadius;
-        float inward = max(-dist, 0.0) / falloff;
-        float outward = max(dist, 0.0) / outerFalloff;
-        float depth = exp(-pow(inward, hardness)) * exp(-outward);
         float len = 4.0 * (halfSize.x - cornerRadius) + 4.0 * (halfSize.y - cornerRadius) +
             6.2831853 * cornerRadius;
         float s = perimeterParam(p, halfSize, cornerRadius) / max(len, 1.0);
+        // 噪声按弧长分段抖动：shader 不再因为 noise 被整体降级到 CPU。
+        if (noiseAmount > 0.001) {
+            float n = hash1(floor(s * 48.0)) - 0.5;
+            dist += n * noiseAmount * falloff * 1.8;
+        }
+        float inward = max(-dist, 0.0) / max(falloff, 1.0);
+        float outward = max(dist, 0.0) / max(outerFalloff, 1.0);
+        float depth = exp(-pow(inward, max(hardness, 0.5))) * exp(-outward);
         float3 outRgb = float3(0.0);
         float outA = 0.0;
 
-        float aB = bandGlow(s, headPos, coreSigma);
-        if (trailSigma > 0.0) {
-            float tail = bandGlow(
-                s,
-                headPos + trailDir * (coreSigma * 2.0 + trailSigma),
-                trailSigma
-            );
-            aB += pow(tail, max(tailPower, 0.5)) * trailAlpha;
-        }
-        aB *= depth * intensity * (1.0 + headBoost * bandGlow(s, headPos, coreSigma));
+        float head = bandGlow(s, headPos, coreSigma);
+        float aB = (head + bandTail(s, headPos, trailDir, tailAmount, tailPower, trailAlpha)) *
+            depth * intensity * (1.0 + headBoost * head);
         half4 cB = paletteCount > 1.5 ? paletteAt(headPos) : palette0;
         outRgb += cB.rgb * aB;
         outA += aB;
 
         if (dualOffset < 1.0) {
-            float a2 = bandGlow(s, headPos2, coreSigma);
-            if (trailSigma > 0.0) {
-                float tail2 = bandGlow(
-                    s,
-                    headPos2 - trailBack2 * (coreSigma * 2.0 + trailSigma),
-                    trailSigma
-                );
-                a2 += pow(tail2, max(tailPower, 0.5)) * trailAlpha;
-            }
-            a2 *= depth * intensity;
-            half4 c2 = paletteCount > 1.5
-                ? paletteAt(headPos2)
-                : (dualSecond > 0.5 ? color1 : palette0);
+            float head2 = bandGlow(s, headPos2, coreSigma);
+            float a2 =
+                (head2 + bandTail(s, headPos2, -trailDir, tailAmount, tailPower, trailAlpha)) *
+                depth * intensity;
+            half4 c2 = paletteCount > 1.5 ? paletteAt(headPos2) : palette0;
             outRgb += c2.rgb * a2;
             outA += a2;
         }
@@ -336,25 +343,56 @@ internal fun AlertStageLayers(
             key(layer.layerId ?: "${layer.presetId ?: layer.style}-$index") {
                 val palette = resolvePalette(layer, colorSpec)
                 val seed = plan.seed
-                when (layer.style) {
-                    AlertRenderStyle.Edge -> EdgeLayer(layer, palette, clock, seed)
-                    AlertRenderStyle.Ring ->
-                        RingLayer(layer, anchor, palette, clock, anchorProvider)
-                    AlertRenderStyle.Wash -> WashLayer(layer, palette, clock)
-                    AlertRenderStyle.Cover -> CoverLayer(layer, palette, clock)
-                    AlertRenderStyle.Particles -> ParticleEngineLayer(
-                        layer,
-                        anchor,
-                        palette,
-                        clock,
-                        seed,
-                        anchorProvider,
-                    )
-                    AlertRenderStyle.Reveal -> RevealLayer(layer, palette, clock)
-                    AlertRenderStyle.Capsule -> Unit
+                // 层内时钟：延迟期内为负，靠 LayerDelayGate 在绘制期整体挡住。
+                val layerClock = { clock() - layer.startAt }
+                LayerDelayGate(startAt = layer.startAt, clock = clock) {
+                    when (layer.style) {
+                        AlertRenderStyle.Edge -> EdgeLayer(layer, palette, layerClock, seed)
+                        AlertRenderStyle.Ring ->
+                            RingLayer(layer, anchor, palette, layerClock, anchorProvider)
+                        AlertRenderStyle.Wash -> WashLayer(layer, palette, layerClock)
+                        AlertRenderStyle.Cover -> CoverLayer(layer, palette, layerClock)
+                        AlertRenderStyle.Particles -> ParticleEngineLayer(
+                            layer,
+                            anchor,
+                            palette,
+                            layerClock,
+                            seed,
+                            anchorProvider,
+                        )
+                        AlertRenderStyle.Reveal -> RevealLayer(layer, palette, layerClock)
+                        AlertRenderStyle.Capsule -> Unit
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * 层延迟门：只在**绘制期**读共享时钟，延迟未到时整层不画。
+ *
+ * 在组合期读时钟会让整个舞台每帧重组（这个文件的前提是「只重绘不重组」）；
+ * drawWithContent 里的状态读取只失效绘制阶段。
+ */
+@Composable
+private fun LayerDelayGate(
+    startAt: Int,
+    clock: () -> Float,
+    content: @Composable () -> Unit,
+) {
+    if (startAt <= 0) {
+        content()
+        return
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawWithContent {
+                if (clock() >= startAt) drawContent()
+            },
+    ) {
+        content()
     }
 }
 
@@ -387,14 +425,16 @@ private fun ParticleEngineLayer(
     }
     val peakAlpha = look.alpha.coerceIn(0.05f, 1f)
     val waveCount = layer.cycles.coerceAtLeast(1)
-    val anchors = if (emitter.anchorPerWave) emitter.anchorCount.coerceIn(1, 8) else 1
+    val cluster = params.cluster
+    val anchors = cluster?.anchors?.coerceIn(1, 8) ?: 1
+    val launch = cluster?.launchHeight?.coerceIn(0f, 0.9f) ?: 0f
+    val launchShare = cluster?.launchShare?.coerceIn(0.05f, 0.9f) ?: 0.45f
     val perWave = emitter.count.coerceAtLeast(1)
     val clustersPerCycle = anchors * waveCount
     val count = (perWave * clustersPerCycle).coerceIn(1, 600)
     val perWaveClamped = (count / clustersPerCycle).coerceAtLeast(1)
     val cycleSeconds = layer.cycleMillis / 1000f
-    val launchShare = emitter.launchShare.coerceIn(0.05f, 0.9f)
-    val launch = emitter.launchHeight.coerceIn(0f, 0.9f)
+    val stream = emitter.emission == ParticleEmission.Stream
     // 寿命 = 单循环 × 寿命占比；升空形态要给上升留出时间，否则最后一波会被总时长截断。
     val availableSeconds = if (launch > 0f) {
         cycleSeconds * (1f - launchShare).coerceAtLeast(0.1f)
@@ -403,9 +443,13 @@ private fun ParticleEngineLayer(
     }
     val lifeSeconds = (cycleSeconds * emitter.lifeShare.coerceIn(0.05f, 0.95f))
         .coerceIn(0.06f, availableSeconds.coerceAtLeast(0.06f))
-    // 错峰窗口：delaySpread 是「可用窗口」的比例，0 = 同刻出发，1 = 铺满整个窗口。
-    val spreadMs = ((layer.cycleMillis - lifeSeconds * 1000f) *
-        emitter.delaySpread.coerceIn(0f, 1f)).coerceAtLeast(1f)
+    // 错峰窗口：爆发 = 「单循环减寿命」的比例；连续 = 整段循环的比例（雨丝首尾相接）。
+    val spreadMs = if (stream) {
+        (layer.cycleMillis * emitter.delaySpread.coerceIn(0f, 1f)).coerceAtLeast(1f)
+    } else {
+        ((layer.cycleMillis - lifeSeconds * 1000f) *
+            emitter.delaySpread.coerceIn(0f, 1f)).coerceAtLeast(1f)
+    }
     val motion = params.motion
 
     // 坐标口径：x 归一化到 0..aspect（aspect = 宽 / 高），像素 = x × 屏高；
@@ -444,7 +488,7 @@ private fun ParticleEngineLayer(
             val waveOf = IntArray(count)
             val rockets = mutableListOf<RocketRun>()
             // 一簇一爆：每次波次共用一个锚点；烟花升空也必须先固定起点。
-            val clustered = emitter.anchorPerWave || launch > 0f
+            val clustered = cluster != null
             var index = 0
             for (wave in 0 until waveCount) {
                 val waveStartMs = (wave * layer.cycleMillis).toFloat()
@@ -455,7 +499,7 @@ private fun ParticleEngineLayer(
                 }
                 // 同一波次可以有多个锚点：每处各发射 count 颗，互相独立取色 / 升空。
                 for (anchorIndex in 0 until anchors) {
-                    val cluster = wave * anchors + anchorIndex
+                    val clusterIndex = wave * anchors + anchorIndex
                     val waveOrigin = if (clustered) {
                         spawnPoint(emitter.area, frame, anchorNorm, random)
                     } else {
@@ -470,7 +514,7 @@ private fun ParticleEngineLayer(
                             end = burstOrigin,
                             startMillis = waveStartMs,
                             endMillis = burstMs,
-                            colorIndex = cluster,
+                            colorIndex = clusterIndex,
                         )
                     }
                     repeat(perWaveClamped) {
@@ -490,7 +534,7 @@ private fun ParticleEngineLayer(
                         )
                         sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
                         alphaJitters[index] = varianceScale(look.alphaJitter, random.nextFloat())
-                        waveOf[index] = cluster
+                        waveOf[index] = clusterIndex
                         index++
                     }
                 }
@@ -1169,7 +1213,7 @@ private fun WashLayer(
         when (spec.shape) {
             WashShape.Flat -> drawRect(color = accent.copy(alpha = alpha * 0.8f))
             WashShape.Radial -> {
-                val soft = spec.softness.coerceIn(0.05f, 1f)
+                val soft = spec.radial.softness.coerceIn(0.05f, 1f)
                 val fadeIn = 1f - soft * 0.75f
                 val radius = maxOf(size.width, size.height) * 0.78f
                 drawRect(
@@ -1185,7 +1229,7 @@ private fun WashLayer(
                 )
             }
             WashShape.Ring -> {
-                val scale = 1f + spec.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
+                val scale = 1f + spec.ring.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
                 val radius = maxOf(size.width, size.height) * 0.42f * scale
                 val center = Offset(size.width / 2f, size.height / 2f)
                 drawCircle(
@@ -1227,16 +1271,16 @@ private fun CoverLayer(
         val t = (now / layer.cycleMillis) % 1f
         val amplitude = (spec.amplitude * layer.brightness).coerceIn(0f, 1f)
         when (spec.mask) {
-            CoverMask.Circle -> drawCoverCircle(t, amplitude, spec.curve, spec.softness)
-            CoverMask.Iris -> drawCoverIris(t, amplitude, spec.curve, spec.rimDp, accent)
-            CoverMask.Slit -> drawCoverSlit(t, amplitude, spec.curve, spec.slitDp)
-            CoverMask.Bands -> drawCoverBands(t, amplitude, spec.curve, spec.bands)
+            CoverMask.Circle -> drawCoverCircle(t, amplitude, spec.curve, spec.circle.softness)
+            CoverMask.Iris -> drawCoverIris(t, amplitude, spec.curve, spec.iris.rimDp, accent)
+            CoverMask.Slit -> drawCoverSlit(t, amplitude, spec.curve, spec.slit.slitDp)
+            CoverMask.Bands -> drawCoverBands(t, amplitude, spec.curve, spec.bands.count)
             CoverMask.Shards -> drawCoverShards(
                 t,
                 amplitude,
                 accent,
-                spec.softness,
-                spec.shards,
+                spec.shards.softness,
+                spec.shards.count,
                 layer.presetId?.hashCode() ?: 0x5A7E,
             )
         }
@@ -1498,6 +1542,7 @@ private fun EdgeBreathingLayer(
     palette: AlertPaletteColors,
     clock: () -> Float,
 ) {
+    val form = spec.breathing
     val shader = remember(spec.backend) {
         if (spec.backend == AlertRenderBackend.Cpu) {
             null
@@ -1513,18 +1558,18 @@ private fun EdgeBreathingLayer(
         if (envelope <= 0.005f) return@Canvas
         val t = (now / layer.cycleMillis) % 1f
         val wave = sin(PI.toFloat() * t).coerceAtLeast(0f)
-        val pulse = 1f - spec.breathAmount + spec.breathAmount * wave
+        val pulse = 1f - form.breathAmount + form.breathAmount * wave
         val intensity = (layer.brightness * pulse * envelope).coerceIn(0f, 1f)
         if (intensity <= 0.003f) return@Canvas
         val cornerPx = spec.cornerRadiusDp.dp.toPx()
-        val depthPx = spec.depthDp.dp.toPx()
+        val depthPx = form.depthDp.dp.toPx()
         val activeShader = shader
         if (activeShader != null) {
             activeShader.setFloatUniform("resolution", size.width, size.height)
             activeShader.setFloatUniform("cornerRadius", cornerPx)
             activeShader.setFloatUniform("falloff", depthPx)
             activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
-            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("hardness", form.hardness)
             activeShader.setFloatUniform("intensity", intensity)
             setPaletteUniforms(activeShader, palette)
             paint.shader = activeShader
@@ -1540,20 +1585,24 @@ private fun EdgeBreathingLayer(
             val f = index.toFloat() / samples
             val a = perimeter.point(f)
             val b = perimeter.point((index + 1).toFloat() / samples)
-            drawLine(
-                color = palette.sample(f).copy(alpha = intensity),
+            drawSoftLine(
                 start = a,
                 end = b,
-                strokeWidth = depthPx,
-                cap = StrokeCap.Round,
+                color = palette.sample(f),
+                alpha = intensity,
+                widthPx = depthPx,
+                hardness = form.hardness,
             )
         }
     }
 }
 
 /**
- * 滚动光带：头 + 拖尾沿路径移动。圆角矩形周长优先走 AGSL 距离场；
- * 竖 / 横路径、强制 CPU 或噪声放电时走分段描边（圆头相接，不出现圆球串）。
+ * 滚动光带：头 + 单侧拖尾沿路径移动。圆角矩形周长优先走 AGSL 距离场；
+ * 竖 / 横路径或强制 CPU 时走分段描边（圆头相接，不出现圆球串）。
+ *
+ * 拖尾是**弧长**而不是高斯 sigma：旧实现用一个 sigma 0.3 的独立高斯当拖尾，
+ * 在 [0,1] 周长上几乎铺满整圈，读起来就是「一圈呼吸光」。
  */
 @Composable
 private fun EdgeSweepLayer(
@@ -1562,6 +1611,7 @@ private fun EdgeSweepLayer(
     palette: AlertPaletteColors,
     clock: () -> Float,
 ) {
+    val form = spec.sweep
     val shader = remember(spec.backend) {
         if (spec.backend == AlertRenderBackend.Cpu) {
             null
@@ -1573,43 +1623,42 @@ private fun EdgeSweepLayer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
         if (now >= layer.totalMillis) return@Canvas
-        // 滚动形态不套整体淡入淡出：那会被读成「呼吸」，与用户的形态切换冲突。
+        // 滚动形态不套整体淡入淡出：那会被读成「呼吸」，与形态切换冲突。
         val envelope = 1f
         val t = (now / layer.cycleMillis) % 1f
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
-        val depthPx = spec.depthDp.dp.toPx()
+        val depthPx = form.depthDp.dp.toPx()
         val cornerPx = spec.cornerRadiusDp.dp.toPx()
-        val perimeter = if (spec.path == BandPath.Perimeter) {
+        val perimeter = if (form.path == BandPath.Perimeter) {
             EdgePerimeter(size, inset, cornerPx)
         } else {
             null
         }
-        val shaderGeometry = perimeter != null && spec.noise <= 0.001f
+        val shaderGeometry = perimeter != null
         val activeShader = shader
         if (activeShader != null && shaderGeometry && perimeter != null) {
             val intensity = (layer.brightness * envelope).coerceIn(0f, 1f)
             if (intensity <= 0.003f) return@Canvas
             val pathLength = perimeter.length.coerceAtLeast(1f)
-            val headFrac = (spec.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.25f)
-            val moved = (t * spec.travel.coerceIn(0f, 1f)) % 1f
-            val pos = if (spec.reverse) 1f - moved else moved
+            val headFrac = (form.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.25f)
+            val moved = (t * form.travel.coerceIn(0f, 1f)) % 1f
+            val pos = if (form.reverse) 1f - moved else moved
             activeShader.setFloatUniform("resolution", size.width, size.height)
             activeShader.setFloatUniform("cornerRadius", cornerPx)
             activeShader.setFloatUniform("falloff", depthPx)
             activeShader.setFloatUniform("outerFalloff", EdgeGlowTuning.OuterFalloffDp.dp.toPx())
-            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("hardness", form.hardness)
             activeShader.setFloatUniform("intensity", intensity)
             activeShader.setFloatUniform("headPos", pos)
-            activeShader.setFloatUniform("headPos2", if (spec.dual) (1.5f - pos) % 1f else 0f)
+            activeShader.setFloatUniform("headPos2", if (form.dual) (1.5f - pos) % 1f else 0f)
             activeShader.setFloatUniform("coreSigma", headFrac)
-            activeShader.setFloatUniform("trailSigma", spec.tailLength)
-            activeShader.setFloatUniform("trailAlpha", spec.tailAlpha)
-            activeShader.setFloatUniform("tailPower", spec.tailFalloff)
-            activeShader.setFloatUniform("headBoost", spec.headBoost)
-            activeShader.setFloatUniform("trailDir", if (spec.reverse) 1f else -1f)
-            activeShader.setFloatUniform("dualOffset", if (spec.dual) 0.5f else 2f)
-            activeShader.setFloatUniform("dualSecond", 0f)
-            activeShader.setFloatUniform("trailBack2", -1f)
+            activeShader.setFloatUniform("tailAmount", form.tailPercent.coerceIn(0, 60) / 100f)
+            activeShader.setFloatUniform("trailAlpha", form.tailAlpha)
+            activeShader.setFloatUniform("tailPower", form.tailFalloff)
+            activeShader.setFloatUniform("headBoost", form.headBoost)
+            activeShader.setFloatUniform("trailDir", if (form.reverse) 1f else -1f)
+            activeShader.setFloatUniform("dualOffset", if (form.dual) 0.5f else 2f)
+            activeShader.setFloatUniform("noiseAmount", form.noise)
             val accent = palette.colors[0]
             val second = palette.colors.getOrElse(1) { accent }
             activeShader.setColorUniform("color0", accent.copy(alpha = 1f).toArgb())
@@ -1625,9 +1674,9 @@ private fun EdgeSweepLayer(
         // CPU 回退 / 非圆角矩形路径：沿路径逐段描边，圆头相接，避免变成圆球串。
         val samples = if (perimeter != null) 240 else 160
         val pathLength = (perimeter?.length ?: maxOf(size.width, size.height)).coerceAtLeast(1f)
-        val headFrac = (spec.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.5f)
-        val movedHead = (t * spec.travel.coerceIn(0f, 1f)) % 1f
-        val head = if (spec.reverse) 1f - movedHead else movedHead
+        val headFrac = (form.headWidthDp.dp.toPx() / pathLength).coerceIn(0.004f, 0.5f)
+        val movedHead = (t * form.travel.coerceIn(0f, 1f)) % 1f
+        val head = if (form.reverse) 1f - movedHead else movedHead
         val sides = if (perimeter != null) 1 else 2
         val strokeWidth = (depthPx * 0.9f).coerceAtLeast(1f)
         val center = Offset(size.width / 2f, size.height / 2f)
@@ -1637,16 +1686,16 @@ private fun EdgeSweepLayer(
             var previousColor = palette.sample(0f)
             for (index in 0..samples) {
                 val f = index.toFloat() / samples
-                val forward = bandProfile(headDelta(head, f, spec.reverse), headFrac, spec)
-                val second = if (spec.dual) {
-                    bandProfile(headDelta((head + 0.5f) % 1f, f, spec.reverse), headFrac, spec)
+                val forward = bandProfile(headDelta(head, f, form.reverse), headFrac, form)
+                val second = if (form.dual) {
+                    bandProfile(headDelta((head + 0.5f) % 1f, f, form.reverse), headFrac, form)
                 } else {
                     0f
                 }
                 val alpha = (maxOf(forward, second) * layer.brightness * envelope)
                     .coerceIn(0f, 1f)
-                val base = bandPoint(spec.path, f, size, inset, perimeter)
-                val mirrored = if (side == 0) base else mirrorBandPoint(base, spec.path, size)
+                val base = bandPoint(form.path, f, size, inset, perimeter)
+                val mirrored = if (side == 0) base else mirrorBandPoint(base, form.path, size)
                 val normal = when {
                     perimeter != null -> {
                         val dx = mirrored.x - center.x
@@ -1654,11 +1703,11 @@ private fun EdgeSweepLayer(
                         val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
                         Offset(dx / length, dy / length)
                     }
-                    spec.path == BandPath.Vertical -> Offset(if (side == 0) 1f else -1f, 0f)
+                    form.path == BandPath.Vertical -> Offset(if (side == 0) 1f else -1f, 0f)
                     else -> Offset(0f, if (side == 0) 1f else -1f)
                 }
-                val jitter = if (spec.noise > 0.001f) {
-                    sin(index * 1.7f + now * 0.06f) * depthPx * 0.9f * spec.noise
+                val jitter = if (form.noise > 0.001f) {
+                    sin(index * 1.7f + now * 0.06f) * depthPx * 0.9f * form.noise
                 } else {
                     0f
                 }
@@ -1672,12 +1721,13 @@ private fun EdgeSweepLayer(
                         blue = (previousColor.blue + color.blue) / 2f,
                         alpha = segmentAlpha,
                     )
-                    drawLine(
-                        color = blend,
+                    drawSoftLine(
                         start = previous,
                         end = point,
-                        strokeWidth = strokeWidth,
-                        cap = StrokeCap.Round,
+                        color = blend,
+                        alpha = segmentAlpha,
+                        widthPx = strokeWidth,
+                        hardness = form.hardness,
                     )
                 }
                 previous = point
@@ -1701,31 +1751,77 @@ private fun bandPoint(
     BandPath.Horizontal -> Offset(inset + fraction * (size.width - inset * 2f), inset)
 }
 
-/** 竖 / 横路径的对面镜像点。 */
 private fun mirrorBandPoint(point: Offset, path: BandPath, size: Size): Offset = when (path) {
     BandPath.Perimeter -> point
     BandPath.Vertical -> Offset(size.width - point.x, point.y)
     BandPath.Horizontal -> Offset(point.x, size.height - point.y)
 }
 
-/** 路径上的「离头部多远」（0 = 头部，越大越靠后）。 */
+/** 沿拖尾方向、头部后方的弧长距离（0 = 头部所在点）。 */
 private fun headDelta(head: Float, fraction: Float, reverse: Boolean): Float {
     val signed = if (reverse) fraction - head else head - fraction
     return ((signed % 1f) + 1f) % 1f
 }
 
-/** 头部 + 拖尾的强度剖面：头亮、尾按 falloff 衰减。 */
-private fun bandProfile(delta: Float, headFrac: Float, spec: EdgeSpec): Float {
+/**
+ * 光带剖面：头部 + 单侧拖尾。
+ *
+ * [form] 的 `tailPercent` 是**弧长**（0–60% 周长），超出即 0——与 AGSL 着色器同口径。
+ * 旧实现把它当高斯 sigma，在整圈上铺出一层常亮底光，读起来就是「一圈呼吸光」。
+ */
+internal fun bandProfile(delta: Float, headFrac: Float, form: EdgeSweep): Float {
     if (delta < headFrac) {
         val k = 1f - delta / headFrac
-        return (0.72f + 0.28f * k) * (1f + spec.headBoost * k).coerceAtMost(1.6f)
+        return (0.72f + 0.28f * k) * (1f + form.headBoost * k).coerceAtMost(1.6f)
     }
-    val tail = spec.tailLength.coerceIn(0f, 0.9f)
+    val tail = form.tailPercent.coerceIn(0, 60) / 100f
     if (tail <= 0.001f) return 0f
     val behind = delta - headFrac
     if (behind >= tail) return 0f
     val k = 1f - behind / tail
-    return spec.tailAlpha * k.pow(spec.tailFalloff.coerceIn(0.5f, 4f))
+    return form.tailAlpha * k.pow(form.tailFalloff.coerceIn(0.5f, 4f))
+}
+
+/**
+ * CPU 描边也吃 [hardness]：硬度越低向外多铺两层柔光。
+ *
+ * 着色器用 `exp(-pow(inward, hardness))` 做径向衰减，CPU 单条描边做不到，
+ * 于是用「主描边 + 两层半透明外扩」近似；否则同一层换后端会换观感。
+ */
+private fun DrawScope.drawSoftLine(
+    start: Offset,
+    end: Offset,
+    color: Color,
+    alpha: Float,
+    widthPx: Float,
+    hardness: Float,
+) {
+    val a = alpha.coerceIn(0f, 1f)
+    if (a <= 0.004f) return
+    val width = widthPx.coerceAtLeast(1f)
+    drawLine(
+        color = color.copy(alpha = a),
+        start = start,
+        end = end,
+        strokeWidth = width,
+        cap = StrokeCap.Round,
+    )
+    val soft = ((4f - hardness.coerceIn(1f, 4f)) / 3f).coerceIn(0f, 1f)
+    if (soft <= 0.01f) return
+    drawLine(
+        color = color.copy(alpha = a * 0.3f * soft),
+        start = start,
+        end = end,
+        strokeWidth = width * 1.9f,
+        cap = StrokeCap.Round,
+    )
+    drawLine(
+        color = color.copy(alpha = a * 0.14f * soft),
+        start = start,
+        end = end,
+        strokeWidth = width * 2.9f,
+        cap = StrokeCap.Round,
+    )
 }
 
 /**
@@ -1738,6 +1834,7 @@ private fun EdgeWaveLayer(
     palette: AlertPaletteColors,
     clock: () -> Float,
 ) {
+    val form = spec.wave
     val shader = remember(spec.backend) {
         if (spec.backend == AlertRenderBackend.Cpu) {
             null
@@ -1753,11 +1850,12 @@ private fun EdgeWaveLayer(
         val envelope = 1f
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
         val cornerPx = spec.cornerRadiusDp.dp.toPx()
-        val depthPx = spec.depthDp.dp.toPx()
-        val waveWidthPx = spec.waveWidthDp.dp.toPx()
+        val depthPx = form.depthDp.dp.toPx()
+        val waveWidthPx = form.waveWidthDp.dp.toPx()
         val perimeter = EdgePerimeter(size, inset, cornerPx)
-        val crests = spec.crests.coerceIn(2, 6)
-        val travel = (now / layer.cycleMillis) % 1f
+        val crests = form.crests.coerceIn(2, 6)
+        // travel = 每循环行进的比例：0 = 原地起伏，1 = 走一整圈。
+        val travel = ((now / layer.cycleMillis) * form.travel.coerceIn(0f, 1f)) % 1f
         val activeShader = shader
         if (activeShader != null) {
             val sigma = (waveWidthPx / perimeter.length.coerceAtLeast(1f)).coerceIn(0.004f, 0.2f)
@@ -1768,7 +1866,7 @@ private fun EdgeWaveLayer(
             activeShader.setFloatUniform("sigma", sigma)
             activeShader.setFloatUniform("headPos", travel)
             activeShader.setFloatUniform("bandWidth", depthPx)
-            activeShader.setFloatUniform("hardness", spec.hardness)
+            activeShader.setFloatUniform("hardness", form.hardness)
             activeShader.setFloatUniform("intensity", layer.brightness * envelope)
             setPaletteUniforms(activeShader, palette)
             paint.shader = activeShader
@@ -1788,21 +1886,26 @@ private fun EdgeWaveLayer(
             val nearest = kotlin.math.round(x)
             val distance = kotlin.math.abs(x - nearest) / crests
             val sn = distance / sigma
-            val wave = kotlin.math.exp(-0.5f * sn.pow(spec.hardness))
+            val wave = kotlin.math.exp(-0.5f * sn.pow(form.hardness))
             val alpha = (layer.brightness * wave * envelope).coerceIn(0f, 1f)
             if (alpha <= 0.004f) continue
-            drawCircle(
-                color = palette.sample(f).copy(alpha = alpha),
-                radius = radius,
-                center = perimeter.point(f),
+            drawSoftLine(
+                start = perimeter.point(f),
+                end = perimeter.point(f),
+                color = palette.sample(f),
+                alpha = alpha,
+                widthPx = radius * 2f,
+                hardness = form.hardness,
             )
         }
     }
 }
 
 /**
- * 屏缘雷电：多道独立落点的折线放电，向屏幕内短促炸开；每一道有自己的闪断窗口。
- * 顶点抖动由播放种子决定，同种子可复现。
+ * 屏缘雷电：多道独立落点的折线放电，向屏幕内短促炸开。
+ *
+ * 落点按 `(播放种子, 循环序号, 闪断序号, 道序号)` 哈希：每次播放、每个循环、
+ * 每一道都重新掷点，不再出现「转一圈回到老地方」。顶点抖动同种子可复现。
  */
 @Composable
 private fun EdgeLightningLayer(
@@ -1812,7 +1915,8 @@ private fun EdgeLightningLayer(
     clock: () -> Float,
     seed: Int,
 ) {
-    if (spec.bolts <= 0) return
+    val form = spec.lightning
+    if (form.bolts <= 0) return
     val path = remember { androidx.compose.ui.graphics.Path() }
     Canvas(modifier = Modifier.fillMaxSize()) {
         val now = clock()
@@ -1820,14 +1924,16 @@ private fun EdgeLightningLayer(
         val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
         if (envelope <= 0.005f) return@Canvas
         val t = (now / layer.cycleMillis) % 1f
+        val cycleIndex = (now / layer.cycleMillis).toInt()
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
         val perimeter = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
         val center = Offset(size.width / 2f, size.height / 2f)
-        val flashes = spec.boltFlashes.coerceIn(1, 8)
-        val boltsPerFlash = spec.bolts.coerceIn(1, 8)
-        val window = spec.boltWindow.coerceIn(0.05f, 0.9f)
-        val reach = spec.boltReachPercent.coerceIn(10, 90) / 100f
+        val flashes = form.flashes.coerceIn(1, 8)
+        val boltsPerFlash = form.bolts.coerceIn(1, 8)
+        val window = form.window.coerceIn(0.05f, 0.9f)
+        val reach = form.reachPercent.coerceIn(10, 90) / 100f
         val steps = 7
+        val cycleTag = cycleIndex * 0x9E3779B1.toInt()
         // 闪断次数（flashes）与每次的道数（bolts）分开：调道数不再连带改频率。
         repeat(flashes) { flash ->
             val local = ((t * flashes - flash) % 1f + 1f) % 1f
@@ -1836,7 +1942,8 @@ private fun EdgeLightningLayer(
             val alpha = (layer.brightness * fade * envelope).coerceIn(0f, 1f)
             if (alpha <= 0.01f) return@repeat
             repeat(boltsPerFlash) { bolt ->
-                val anchor = ((seed * 0.0001f + flash * 0.37f + bolt * 0.11f) % 1f + 1f) % 1f
+                val boltTag = flash * 0x85EBCA6B.toInt() xor bolt * 0xC2B2AE35.toInt()
+                val anchor = noise01(seed xor cycleTag xor boltTag, 0.5f)
                 val start = perimeter.point(anchor)
                 path.reset()
                 path.moveTo(start.x, start.y)
@@ -1849,7 +1956,10 @@ private fun EdgeLightningLayer(
                     val f = step.toFloat() / steps
                     val tx = start.x + dx * f * reach
                     val ty = start.y + dy * f * reach
-                    val jitter = noise01(seed + flash * 97 + bolt * 131, step * 1.7f) - 0.5f
+                    val jitter = noise01(
+                        seed xor cycleTag xor boltTag xor (step * 0x27D4EB2F),
+                        step * 1.7f,
+                    ) - 0.5f
                     px = tx - (dy / length) * jitter * size.minDimension * 0.045f
                     py = ty + (dx / length) * jitter * size.minDimension * 0.045f
                     path.lineTo(px, py)
@@ -1858,12 +1968,12 @@ private fun EdgeLightningLayer(
                 drawPath(
                     path = path,
                     color = color.copy(alpha = alpha * 0.35f),
-                    style = Stroke(width = spec.boltWidthDp.dp.toPx() * 3.2f),
+                    style = Stroke(width = form.widthDp.dp.toPx() * 3.2f),
                 )
                 drawPath(
                     path = path,
                     color = color.copy(alpha = alpha),
-                    style = Stroke(width = spec.boltWidthDp.dp.toPx(), cap = StrokeCap.Round),
+                    style = Stroke(width = form.widthDp.dp.toPx(), cap = StrokeCap.Round),
                 )
             }
         }
@@ -1894,7 +2004,7 @@ private fun RingLayer(
         val startRadius = if (spec.centerAtAnchor) live.capsulePx / 2f * 0.9f else 0f
         val travelPx = live.capsulePx * spec.travelPercent.coerceIn(0, 300) / 100f
         val strokePx = spec.strokeWidthDp.dp.toPx()
-        val haloPx = strokePx * 3.4f * spec.haloScale
+        val nestedHalo = if (spec.nested.haloScale > 0f) strokePx * 3.4f * spec.nested.haloScale else 0f
         val totalRings = (layer.cycles * spec.ringsPerCycle).coerceAtLeast(1)
         val ringOffsetMillis = layer.cycleMillis.toFloat() / spec.ringsPerCycle.coerceAtLeast(1)
         for (index in 0 until totalRings) {
@@ -1906,12 +2016,12 @@ private fun RingLayer(
             val color = palette.at(index)
             when (spec.style) {
                 RingStyle.Nested -> {
-                    if (haloPx > 0f && spec.haloScale > 0f) {
+                    if (nestedHalo > 0f) {
                         drawCircle(
                             color = color.copy(alpha = alpha * 0.3f),
                             radius = radius,
                             center = center,
-                            style = Stroke(width = haloPx, cap = StrokeCap.Round),
+                            style = Stroke(width = nestedHalo, cap = StrokeCap.Round),
                         )
                     }
                     drawCircle(
@@ -1951,9 +2061,9 @@ private fun RingLayer(
                                 1f to color.copy(alpha = 0f),
                             ),
                             center = center,
-                            radius = radius * (1f + spec.haloScale).coerceAtLeast(1.05f),
+                            radius = radius * (1f + spec.halo.haloScale).coerceAtLeast(1.05f),
                         ),
-                        radius = radius * (1f + spec.haloScale).coerceAtLeast(1.05f),
+                        radius = radius * (1f + spec.halo.haloScale).coerceAtLeast(1.05f),
                         center = center,
                     )
                 }

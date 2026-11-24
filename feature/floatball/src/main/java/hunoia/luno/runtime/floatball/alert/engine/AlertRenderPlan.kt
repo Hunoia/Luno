@@ -33,6 +33,8 @@ data class AlertRenderLayer(
     val family: AlertFamily,
     val cycleMillis: Int,
     val cycles: Int,
+    /** 相对播放起点的延迟（ms）；层与层之间靠它错开。 */
+    val startAt: Int = 0,
     /** 全局强度倍率（1 = 预设原样，0..2）；各组渲染器再映射到自己的 alpha 区间。 */
     val intensity: Float = 1f,
     /** 层自己的不透明度（0..1）：所有族通用，乘进最终 alpha。 */
@@ -48,6 +50,8 @@ data class AlertRenderLayer(
     val reveal: RevealParams? = null,
 ) {
     val totalMillis: Int get() = cycleMillis * cycles
+
+    val endMillis: Int get() = startAt + totalMillis
 }
 
 /**
@@ -67,7 +71,7 @@ data class AlertRenderPlan(
 ) {
     val isEmpty: Boolean get() = layers.isEmpty()
 
-    val durationMillis: Int get() = layers.maxOfOrNull { it.totalMillis } ?: 0
+    val durationMillis: Int get() = layers.maxOfOrNull { it.endMillis } ?: 0
 
     /** 舞台窗层（除胶囊宿主外的全部）。 */
     val stageLayers: List<AlertRenderLayer>
@@ -137,6 +141,7 @@ object AlertRenderPlanBuilder {
                 family = layer.family,
                 cycleMillis = cycle,
                 cycles = layer.timing.cycles.coerceIn(1, 20),
+                startAt = layer.timing.delayMillis.coerceIn(0, AlertLimits.MaxDelayMillis),
                 intensity = globalIntensity,
                 opacity = layer.opacity.coerceIn(0f, 1f),
                 palette = paletteFor(color),
@@ -172,7 +177,8 @@ object AlertRenderPlanBuilder {
      * 跨层粒子总预算：按层顺序分配，超出截断（后面的层拿剩余额度，最少 0 = 丢弃）。
      *
      * 不是每层 600——5 层各带 600 会直接压垮帧率。
-     * 预算按**实际粒子数**算：`count × waves`（渲染端每波都会再乘一份 count）。
+     * 预算按**实际粒子数**算：`count × cycles × anchors`（渲染端每个循环、每个锚点
+     * 都会再乘一份 count）。
      */
     private fun applyParticleBudget(layers: List<AlertRenderLayer>): List<AlertRenderLayer> {
         if (layers.sumOf { it.particleTotalCount() } <= AlertLimits.ParticleBudget) {
@@ -181,33 +187,31 @@ object AlertRenderPlanBuilder {
         var remaining = AlertLimits.ParticleBudget
         return layers.mapNotNull { layer ->
             val params = layer.particle ?: return@mapNotNull layer
-            val waves = params.emitter.waves.coerceAtLeast(1)
-            val anchors = if (params.emitter.anchorPerWave) {
-                params.emitter.anchorCount.coerceIn(1, 8)
-            } else {
-                1
-            }
-            val requested = params.emitter.count.coerceAtLeast(0) * waves * anchors
+            val clusters = layer.particleCycles * layer.particleAnchors
+            val requested = params.emitter.count.coerceAtLeast(0) * clusters
             val allowed = requested.coerceAtMost(remaining)
             remaining -= allowed
             if (allowed <= 0) {
                 null
             } else {
-                val perWave = allowed / (waves * anchors)
-                if (perWave <= 0) {
+                val perBurst = allowed / clusters
+                if (perBurst <= 0) {
                     null
                 } else {
-                    layer.copy(particle = params.copy(emitter = params.emitter.copy(count = perWave)))
+                    layer.copy(particle = params.copy(emitter = params.emitter.copy(count = perBurst)))
                 }
             }
         }
     }
 
+    /** 渲染端每个循环会再乘一份 count：循环数 × 锚点数。 */
+    private val AlertRenderLayer.particleCycles: Int get() = cycles.coerceAtLeast(1)
+
+    private val AlertRenderLayer.particleAnchors: Int
+        get() = particle?.cluster?.anchors?.coerceIn(1, 8) ?: 1
+
     private fun AlertRenderLayer.particleTotalCount(): Int {
         val emitter = particle?.emitter ?: return 0
-        val anchors = if (emitter.anchorPerWave) emitter.anchorCount.coerceIn(1, 8) else 1
-        return emitter.count.coerceAtLeast(0) *
-            emitter.waves.coerceAtLeast(1) *
-            anchors
+        return emitter.count.coerceAtLeast(0) * particleCycles * particleAnchors
     }
 }

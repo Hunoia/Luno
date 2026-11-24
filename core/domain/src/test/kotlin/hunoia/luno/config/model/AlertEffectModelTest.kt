@@ -53,9 +53,12 @@ class AlertEffectModelTest {
                     opacity = 0.8f,
                     edge = EdgeParams(
                         shape = EdgeShape.Lightning,
-                        bolts = 5,
-                        boltWidthDp = 2.2f,
-                        boltReachPercent = 55,
+                        lightning = EdgeLightning(
+                            bolts = 5,
+                            widthDp = 2.2f,
+                            reachPercent = 55,
+                        ),
+                        sweep = EdgeSweep(tailPercent = 22),
                     ),
                 ),
                 AlertLayer(
@@ -63,7 +66,7 @@ class AlertEffectModelTest {
                     family = AlertFamily.Capsule,
                     capsule = CapsuleParams(
                         shape = CapsuleShape.Flip,
-                        flipDegrees = 270,
+                        flip = CapsuleFlip(degrees = 270),
                     ),
                 ),
                 AlertLayer(
@@ -73,12 +76,10 @@ class AlertEffectModelTest {
                         emitter = ParticleEmitter(
                             area = ParticleArea.EdgePerimeter,
                             count = 80,
-                            waves = 3,
-                            anchorPerWave = true,
-                            anchorCount = 3,
-                            directionMode = ParticleDirection.Inward,
-                            launchHeight = 0.5f,
+                            emission = ParticleEmission.Stream,
+                            direction = ParticleDirection.Inward,
                         ),
+                        cluster = ParticleCluster(anchors = 3, launchHeight = 0.5f),
                         look = ParticleLook(
                             shape = AlertParticleShape.Star,
                             sizeShrink = 0.4f,
@@ -96,13 +97,15 @@ class AlertEffectModelTest {
 
         assertEquals(preset, decoded)
         assertEquals(EdgeShape.Lightning, decoded.layers[0].edge?.shape)
-        assertEquals(5, decoded.layers[0].edge?.bolts)
+        assertEquals(5, decoded.layers[0].edge?.lightning?.bolts)
+        assertEquals(22, decoded.layers[0].edge?.sweep?.tailPercent)
         assertEquals(CapsuleShape.Flip, decoded.layers[1].capsule?.shape)
-        assertEquals(270, decoded.layers[1].capsule?.flipDegrees)
+        assertEquals(270, decoded.layers[1].capsule?.flip?.degrees)
         val particle = decoded.layers[2].particle
-        assertTrue(particle?.emitter?.anchorPerWave == true)
-        assertEquals(3, particle?.emitter?.anchorCount)
-        assertEquals(ParticleDirection.Inward, particle?.emitter?.directionMode)
+        assertEquals(ParticleEmission.Stream, particle?.emitter?.emission)
+        assertEquals(3, particle?.cluster?.anchors)
+        assertEquals(0.5f, particle?.cluster?.launchHeight ?: 0f, 0.001f)
+        assertEquals(ParticleDirection.Inward, particle?.emitter?.direction)
         assertEquals(0.4f, particle?.look?.sizeShrink ?: 0f, 0.001f)
     }
 

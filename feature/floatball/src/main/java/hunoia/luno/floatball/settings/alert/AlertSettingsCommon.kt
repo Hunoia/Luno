@@ -169,6 +169,16 @@ internal fun hunoia.luno.config.model.BandPath.labelRes(): Int = when (this) {
     hunoia.luno.config.model.BandPath.Horizontal -> R.string.float_ball_layer_path_horizontal
 }
 
+internal fun hunoia.luno.config.model.ParticleEmission.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.ParticleEmission.Burst -> R.string.float_ball_layer_emission_burst
+    hunoia.luno.config.model.ParticleEmission.Stream -> R.string.float_ball_layer_emission_stream
+}
+
+internal fun hunoia.luno.config.model.ParticleMotionMode.labelRes(): Int = when (this) {
+    hunoia.luno.config.model.ParticleMotionMode.Free -> R.string.float_ball_layer_motion_free
+    hunoia.luno.config.model.ParticleMotionMode.Path -> R.string.float_ball_layer_motion_path_mode
+}
+
 internal fun hunoia.luno.config.model.RingStyle.labelRes(): Int = when (this) {
     hunoia.luno.config.model.RingStyle.Nested -> R.string.float_ball_layer_ring_nested
     hunoia.luno.config.model.RingStyle.ThreeStroke -> R.string.float_ball_layer_ring_three

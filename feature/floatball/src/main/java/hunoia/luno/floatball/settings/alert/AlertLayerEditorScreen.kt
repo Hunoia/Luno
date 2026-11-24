@@ -11,12 +11,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,23 +21,38 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
+import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertParticleShape
 import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.config.model.AlertRenderBackend
+import hunoia.luno.config.model.BandPath
+import hunoia.luno.config.model.CapsuleParams
+import hunoia.luno.config.model.CapsuleShape
+import hunoia.luno.config.model.CoverMask
+import hunoia.luno.config.model.CoverParams
+import hunoia.luno.config.model.EdgeParams
+import hunoia.luno.config.model.EdgeShape
 import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleCluster
+import hunoia.luno.config.model.ParticleDirection
+import hunoia.luno.config.model.ParticleEmission
 import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.ParticleLook
+import hunoia.luno.config.model.ParticleMotionMode
+import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.ParticlePath
 import hunoia.luno.config.model.RevealDirection
 import hunoia.luno.config.model.RevealPattern
+import hunoia.luno.config.model.RingParams
+import hunoia.luno.config.model.RingStyle
+import hunoia.luno.config.model.WashParams
+import hunoia.luno.config.model.WashShape
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.LunoFab
-import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -344,18 +354,28 @@ fun AlertLayerEditorScreen(
                             },
                         )
                     }
-                    if (layer.family != hunoia.luno.config.model.AlertFamily.Particles) {
-                        item { shape ->
-                            LayerIntSlider(
-                                label = stringResource(R.string.float_ball_layer_cycles),
-                                value = layer.timing.cycles,
-                                range = 1..10,
-                                shape = shape,
-                                onCommit = { value ->
-                                    update { it.copy(timing = it.timing.copy(cycles = value)) }
-                                },
-                            )
-                        }
+                    item { shape ->
+                        LayerIntSlider(
+                            label = stringResource(R.string.float_ball_layer_cycles),
+                            value = layer.timing.cycles,
+                            range = 1..10,
+                            shape = shape,
+                            onCommit = { value ->
+                                update { it.copy(timing = it.timing.copy(cycles = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerIntSlider(
+                            label = stringResource(R.string.float_ball_layer_delay),
+                            value = layer.timing.delayMillis,
+                            range = 0..AlertLimits.MaxDelayMillis,
+                            suffix = " ms",
+                            shape = shape,
+                            onCommit = { value ->
+                                update { it.copy(timing = it.timing.copy(delayMillis = value)) }
+                            },
+                        )
                     }
                     item { shape ->
                         LayerIntSlider(
@@ -473,33 +493,44 @@ private fun LayerAdvancedParams(
                             )
                         }
                     }
-                    item { shape ->
-                        LayerFloatSlider(
-                            label = stringResource(R.string.float_ball_layer_motion_bounce),
-                            value = params.motion.bounce,
-                            range = 0f..1f,
-                            decimals = 2,
-                            shape = shape,
-                            onCommit = { value ->
-                                onUpdate(
-                                    layer.withMotion(params.motion.copy(bounce = value)),
-                                )
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LayerFloatSlider(
-                            label = stringResource(R.string.float_ball_layer_motion_attract),
-                            value = params.motion.attract,
-                            range = 0f..1f,
-                            decimals = 2,
-                            shape = shape,
-                            onCommit = { value ->
-                                onUpdate(
-                                    layer.withMotion(params.motion.copy(attract = value)),
-                                )
-                            },
-                        )
+                    // 路径模式接管位置：自由积分的吸引 / 反弹不再生效，不摆出来。
+                    if (params.motion.mode == ParticleMotionMode.Free) {
+                        item { shape ->
+                            LayerFloatSlider(
+                                label = stringResource(R.string.float_ball_layer_motion_bounce),
+                                value = params.motion.free.bounce,
+                                range = 0f..1f,
+                                decimals = 2,
+                                shape = shape,
+                                onCommit = { value ->
+                                    onUpdate(
+                                        layer.withMotion(
+                                            params.motion.copy(
+                                                free = params.motion.free.copy(bounce = value),
+                                            ),
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                        item { shape ->
+                            LayerFloatSlider(
+                                label = stringResource(R.string.float_ball_layer_motion_attract),
+                                value = params.motion.free.attract,
+                                range = 0f..1f,
+                                decimals = 2,
+                                shape = shape,
+                                onCommit = { value ->
+                                    onUpdate(
+                                        layer.withMotion(
+                                            params.motion.copy(
+                                                free = params.motion.free.copy(attract = value),
+                                            ),
+                                        ),
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
                 hunoia.luno.config.model.AlertFamily.Edge,
@@ -540,57 +571,33 @@ private fun LayerAdvancedParams(
     }
 }
 
-/** 形态切换：一排单选 chip，选中的那个就是当前绘制形态（不叠加）。 */
-@Composable
-private fun <T> ShapeChips(
-    options: List<T>,
-    selected: T,
-    label: (T) -> Int,
-    onSelect: (T) -> Unit,
-) {
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(options.size) { index ->
-            val option = options[index]
-            PressFilterChip(
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                label = { Text(stringResource(label(option))) },
-            )
-        }
-    }
-}
-
+/** 族级 + 形态级两层：族参数所有形态共用，形态参数只渲染当前那一份。 */
 @Composable
 private fun EdgeParamsBlock(
     layer: AlertLayer,
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.edge ?: return
-    fun set(transform: (hunoia.luno.config.model.EdgeParams) -> hunoia.luno.config.model.EdgeParams) =
-        onUpdate(layer.copy(edge = transform(params)))
-    LunoGroup(
-        title = stringResource(R.string.float_ball_layer_group_appearance),
-        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
-    ) {
+    fun set(transform: (EdgeParams) -> EdgeParams) = onUpdate(layer.copy(edge = transform(params)))
+
+    LunoGroup(title = stringResource(R.string.float_ball_layer_group_family)) {
         val rows = segmentedRows {
-            item {
-                ShapeChips(
-                    options = hunoia.luno.config.model.EdgeShape.entries,
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_form),
+                    options = EdgeShape.entries,
                     selected = params.shape,
-                    label = { it.labelRes() },
+                    shape = shape,
+                    optionLabel = { stringResource(it.labelRes()) },
                     onSelect = { value -> set { it.copy(shape = value) } },
                 )
             }
-            if (params.shape != hunoia.luno.config.model.EdgeShape.Lightning) {
+            // 雷电是纯 CPU 折线，没有着色器路径：后端旋钮对它无意义，不摆出来。
+            if (params.shape != EdgeShape.Lightning) {
                 item { shape ->
                     LayerDropdownRow(
                         title = stringResource(R.string.float_ball_layer_backend),
-                        options = hunoia.luno.config.model.AlertRenderBackend.entries,
+                        options = AlertRenderBackend.entries,
                         selected = params.backend,
                         shape = shape,
                         optionLabel = { stringResource(it.labelRes()) },
@@ -608,246 +615,314 @@ private fun EdgeParamsBlock(
                     onCommit = { value -> set { it.copy(cornerRadiusDp = value.roundToInt()) } },
                 )
             }
+        }
+        SegmentedRows(rows)
+    }
+
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_form_params),
+        subtitle = stringResource(R.string.float_ball_layer_group_form_hint),
+    ) {
+        val rows = segmentedRows {
             when (params.shape) {
-                hunoia.luno.config.model.EdgeShape.Breathing -> {
+                EdgeShape.Breathing -> {
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_depth),
-                            value = params.depthDp,
+                            value = params.breathing.depthDp,
                             range = 2f..64f,
                             decimals = 1,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(depthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(breathing = it.breathing.copy(depthDp = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
-                            value = params.hardness,
+                            value = params.breathing.hardness,
                             range = 1f..4f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(hardness = value) } },
+                            onCommit = { value ->
+                                set { it.copy(breathing = it.breathing.copy(hardness = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_breath_amount),
-                            value = params.breathAmount,
+                            value = params.breathing.breathAmount,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(breathAmount = value) } },
+                            onCommit = { value ->
+                                set { it.copy(breathing = it.breathing.copy(breathAmount = value)) }
+                            },
                         )
                     }
                 }
-                hunoia.luno.config.model.EdgeShape.Sweep -> {
+                EdgeShape.Sweep -> {
                     item { shape ->
                         LayerDropdownRow(
                             title = stringResource(R.string.float_ball_layer_path),
-                            options = hunoia.luno.config.model.BandPath.entries,
-                            selected = params.path,
+                            options = BandPath.entries,
+                            selected = params.sweep.path,
                             shape = shape,
                             optionLabel = { stringResource(it.labelRes()) },
-                            onSelect = { path -> set { it.copy(path = path) } },
+                            onSelect = { path ->
+                                set { it.copy(sweep = it.sweep.copy(path = path)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_travel),
-                            value = params.travel,
+                            value = params.sweep.travel,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(travel = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(travel = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_head_width),
-                            value = params.headWidthDp,
+                            value = params.sweep.headWidthDp,
                             range = 2f..48f,
                             decimals = 1,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(headWidthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(headWidthDp = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_depth),
-                            value = params.depthDp,
+                            value = params.sweep.depthDp,
                             range = 2f..64f,
                             decimals = 1,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(depthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(depthDp = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
-                            value = params.hardness,
+                            value = params.sweep.hardness,
                             range = 1f..4f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(hardness = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(hardness = value)) }
+                            },
                         )
                     }
                     item { shape ->
-                        LayerFloatSlider(
+                        LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_tail_length),
-                            value = params.tailLength,
-                            range = 0f..0.9f,
-                            decimals = 2,
+                            value = params.sweep.tailPercent,
+                            range = 0..60,
+                            suffix = "%",
                             shape = shape,
-                            display = { value -> "${(value * 100).roundToInt()}%" },
-                            onCommit = { value -> set { it.copy(tailLength = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(tailPercent = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_tail_falloff),
-                            value = params.tailFalloff,
+                            value = params.sweep.tailFalloff,
                             range = 0.5f..4f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(tailFalloff = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(tailFalloff = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_tail_alpha),
-                            value = params.tailAlpha,
+                            value = params.sweep.tailAlpha,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(tailAlpha = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(tailAlpha = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_head_boost),
-                            value = params.headBoost,
+                            value = params.sweep.headBoost,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(headBoost = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(headBoost = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_noise),
-                            value = params.noise,
+                            value = params.sweep.noise,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(noise = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(noise = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LunoSwitchRow(
                             title = stringResource(R.string.float_ball_layer_dual),
-                            checked = params.dual,
+                            checked = params.sweep.dual,
                             shape = shape,
-                            onCheckedChange = { checked -> set { it.copy(dual = checked) } },
+                            onCheckedChange = { checked ->
+                                set { it.copy(sweep = it.sweep.copy(dual = checked)) }
+                            },
                         )
                     }
                     item { shape ->
                         LunoSwitchRow(
                             title = stringResource(R.string.float_ball_layer_reverse),
-                            checked = params.reverse,
+                            checked = params.sweep.reverse,
                             shape = shape,
-                            onCheckedChange = { checked -> set { it.copy(reverse = checked) } },
+                            onCheckedChange = { checked ->
+                                set { it.copy(sweep = it.sweep.copy(reverse = checked)) }
+                            },
                         )
                     }
                 }
-                hunoia.luno.config.model.EdgeShape.Wave -> {
+                EdgeShape.Wave -> {
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_crests),
-                            value = params.crests,
+                            value = params.wave.crests,
                             range = 2..6,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(crests = value) } },
-                        )
-                    }
-                    item { shape ->
-                        LayerFloatSlider(
-                            label = stringResource(R.string.float_ball_layer_depth),
-                            value = params.depthDp,
-                            range = 2f..64f,
-                            decimals = 1,
-                            shape = shape,
-                            onCommit = { value -> set { it.copy(depthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(wave = it.wave.copy(crests = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_wave_width),
-                            value = params.waveWidthDp,
+                            value = params.wave.waveWidthDp,
                             range = 2f..64f,
                             decimals = 1,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(waveWidthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(wave = it.wave.copy(waveWidthDp = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_travel),
+                            value = params.wave.travel,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(wave = it.wave.copy(travel = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_depth),
+                            value = params.wave.depthDp,
+                            range = 2f..64f,
+                            decimals = 1,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(wave = it.wave.copy(depthDp = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
-                            value = params.hardness,
+                            value = params.wave.hardness,
                             range = 1f..4f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(hardness = value) } },
+                            onCommit = { value ->
+                                set { it.copy(wave = it.wave.copy(hardness = value)) }
+                            },
                         )
                     }
                 }
-                hunoia.luno.config.model.EdgeShape.Lightning -> {
+                EdgeShape.Lightning -> {
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_bolt_flashes),
-                            value = params.boltFlashes,
+                            value = params.lightning.flashes,
                             range = 1..8,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(boltFlashes = value) } },
+                            onCommit = { value ->
+                                set { it.copy(lightning = it.lightning.copy(flashes = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_bolts),
-                            value = params.bolts,
+                            value = params.lightning.bolts,
                             range = 1..8,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(bolts = value) } },
+                            onCommit = { value ->
+                                set { it.copy(lightning = it.lightning.copy(bolts = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_bolt_window),
-                            value = params.boltWindow,
+                            value = params.lightning.window,
                             range = 0.05f..0.9f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(boltWindow = value) } },
+                            onCommit = { value ->
+                                set { it.copy(lightning = it.lightning.copy(window = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_stroke),
-                            value = params.boltWidthDp,
+                            value = params.lightning.widthDp,
                             range = 0.5f..6f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(boltWidthDp = value) } },
+                            onCommit = { value ->
+                                set { it.copy(lightning = it.lightning.copy(widthDp = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_bolt_reach),
-                            value = params.boltReachPercent,
+                            value = params.lightning.reachPercent,
                             range = 10..90,
                             suffix = "%",
                             shape = shape,
-                            onCommit = { value -> set { it.copy(boltReachPercent = value) } },
+                            onCommit = { value ->
+                                set { it.copy(lightning = it.lightning.copy(reachPercent = value)) }
+                            },
                         )
                     }
                 }
@@ -857,20 +932,35 @@ private fun EdgeParamsBlock(
     }
 }
 
-
 @Composable
 private fun ParticleParamsBlock(
     layer: AlertLayer,
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.particle ?: return
-    fun set(transform: (hunoia.luno.config.model.ParticleParams) -> hunoia.luno.config.model.ParticleParams) =
+    fun set(transform: (ParticleParams) -> ParticleParams) =
         onUpdate(layer.copy(particle = transform(params)))
+
     LunoGroup(
         title = stringResource(R.string.float_ball_layer_quick_shapes),
         subtitle = stringResource(R.string.float_ball_layer_quick_shapes_hint),
     ) {
-        ParticleQuickShapes { picked -> onUpdate(layer.copy(particle = picked)) }
+        val rows = segmentedRows {
+            item { shape ->
+                ParticleQuickShapeRow(shape = shape) { picked, timing ->
+                    onUpdate(
+                        layer.copy(
+                            particle = picked,
+                            timing = layer.timing.copy(
+                                baseMillis = timing.baseMillis ?: layer.timing.baseMillis,
+                                cycles = timing.cycles ?: layer.timing.cycles,
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+        SegmentedRows(rows)
     }
     LunoGroup(
         title = stringResource(R.string.float_ball_layer_group_emitter),
@@ -889,38 +979,14 @@ private fun ParticleParamsBlock(
                 )
             }
             item { shape ->
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_anchor_per_wave),
-                    subtitle = stringResource(R.string.float_ball_layer_anchor_per_wave_hint),
-                    checked = params.emitter.anchorPerWave,
-                    shape = shape,
-                    onCheckedChange = { checked ->
-                        set { it.copy(emitter = it.emitter.copy(anchorPerWave = checked)) }
-                    },
-                )
-            }
-            if (params.emitter.anchorPerWave) {
-                item { shape ->
-                    LayerIntSlider(
-                        label = stringResource(R.string.float_ball_layer_anchor_count),
-                        value = params.emitter.anchorCount,
-                        range = 1..8,
-                        shape = shape,
-                        onCommit = { value ->
-                            set { it.copy(emitter = it.emitter.copy(anchorCount = value)) }
-                        },
-                    )
-                }
-            }
-            item { shape ->
                 LayerDropdownRow(
-                    title = stringResource(R.string.float_ball_layer_direction_mode),
-                    options = hunoia.luno.config.model.ParticleDirection.entries,
-                    selected = params.emitter.directionMode,
+                    title = stringResource(R.string.float_ball_layer_emission),
+                    options = ParticleEmission.entries,
+                    selected = params.emitter.emission,
                     shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { mode ->
-                        set { it.copy(emitter = it.emitter.copy(directionMode = mode)) }
+                    onSelect = { emission ->
+                        set { it.copy(emitter = it.emitter.copy(emission = emission)) }
                     },
                 )
             }
@@ -934,41 +1000,18 @@ private fun ParticleParamsBlock(
                 )
             }
             item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_waves),
-                    value = params.emitter.waves,
-                    range = 1..6,
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_direction_mode),
+                    options = ParticleDirection.entries,
+                    selected = params.emitter.direction,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(emitter = it.emitter.copy(waves = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_launch_height),
-                    value = params.emitter.launchHeight,
-                    range = 0f..0.9f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value ->
-                        set { it.copy(emitter = it.emitter.copy(launchHeight = value)) }
+                    optionLabel = { stringResource(it.labelRes()) },
+                    onSelect = { mode ->
+                        set { it.copy(emitter = it.emitter.copy(direction = mode)) }
                     },
                 )
             }
-            if (params.emitter.launchHeight > 0.001f) {
-                item { shape ->
-                    LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_launch_share),
-                        value = params.emitter.launchShare,
-                        range = 0.1f..0.9f,
-                        decimals = 2,
-                        shape = shape,
-                        onCommit = { value ->
-                            set { it.copy(emitter = it.emitter.copy(launchShare = value)) }
-                        },
-                    )
-                }
-            }
-            if (params.emitter.directionMode == hunoia.luno.config.model.ParticleDirection.Fixed) {
+            if (params.emitter.direction == ParticleDirection.Fixed) {
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_direction),
@@ -983,7 +1026,7 @@ private fun ParticleParamsBlock(
                     )
                 }
             }
-            if (params.emitter.directionMode != hunoia.luno.config.model.ParticleDirection.Radial) {
+            if (params.emitter.direction != ParticleDirection.Radial) {
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_spread),
@@ -1014,7 +1057,9 @@ private fun ParticleParamsBlock(
                     range = 0f..1f,
                     decimals = 2,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(emitter = it.emitter.copy(speedJitter = value)) } },
+                    onCommit = { value ->
+                        set { it.copy(emitter = it.emitter.copy(speedJitter = value)) }
+                    },
                 )
             }
             item { shape ->
@@ -1024,7 +1069,9 @@ private fun ParticleParamsBlock(
                     range = 0f..1f,
                     decimals = 2,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(emitter = it.emitter.copy(delaySpread = value)) } },
+                    onCommit = { value ->
+                        set { it.copy(emitter = it.emitter.copy(delaySpread = value)) }
+                    },
                 )
             }
             item { shape ->
@@ -1034,8 +1081,73 @@ private fun ParticleParamsBlock(
                     range = 0.1f..1f,
                     decimals = 2,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(emitter = it.emitter.copy(lifeShare = value)) } },
+                    onCommit = { value ->
+                        set { it.copy(emitter = it.emitter.copy(lifeShare = value)) }
+                    },
                 )
+            }
+        }
+        SegmentedRows(rows)
+    }
+    // 锚点簇：关闭时整组参数不存在（不是「调了没用」的死值）。
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_cluster),
+        subtitle = stringResource(R.string.float_ball_layer_cluster_hint),
+    ) {
+        val rows = segmentedRows {
+            item { shape ->
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_layer_cluster_on),
+                    checked = params.cluster != null,
+                    shape = shape,
+                    onCheckedChange = { checked ->
+                        set {
+                            it.copy(
+                                cluster = if (checked) ParticleCluster() else null,
+                            )
+                        }
+                    },
+                )
+            }
+            val cluster = params.cluster
+            if (cluster != null) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_anchor_count),
+                        value = cluster.anchors,
+                        range = 1..8,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(cluster = it.cluster?.copy(anchors = value)) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_launch_height),
+                        value = cluster.launchHeight,
+                        range = 0f..0.9f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(cluster = it.cluster?.copy(launchHeight = value)) }
+                        },
+                    )
+                }
+                if (cluster.launchHeight > 0.001f) {
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_launch_share),
+                            value = cluster.launchShare,
+                            range = 0.1f..0.9f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(cluster = it.cluster?.copy(launchShare = value)) }
+                            },
+                        )
+                    }
+                }
             }
         }
         SegmentedRows(rows)
@@ -1045,95 +1157,18 @@ private fun ParticleParamsBlock(
     ) {
         val rows = segmentedRows {
             item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_gravity),
-                    value = params.motion.gravity,
-                    range = -3f..3f,
-                    decimals = 2,
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_motion_path),
+                    options = ParticleMotionMode.entries,
+                    selected = params.motion.mode,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(gravity = value)) } },
+                    optionLabel = { mode -> stringResource(mode.labelRes()) },
+                    onSelect = { mode ->
+                        set { it.copy(motion = it.motion.copy(mode = mode)) }
+                    },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_drag),
-                    value = params.motion.drag,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(drag = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_wind),
-                    value = params.motion.wind,
-                    range = -1f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(wind = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_turbulence),
-                    value = params.motion.turbulence,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(turbulence = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_brownian),
-                    value = params.motion.brownian,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(brownian = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_orbit),
-                    value = params.motion.orbit,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(orbit = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_spiral),
-                    value = params.motion.spiral,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(spiral = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_sway),
-                    value = params.motion.sway,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(sway = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_motion_sway_cycles),
-                    value = params.motion.swayCycles,
-                    range = 0.5f..4f,
-                    decimals = 1,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(swayCycles = value)) } },
-                )
-            }
+            // 自转 / 翻面两种模式都生效，始终可见。
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_motion_spin),
@@ -1141,7 +1176,9 @@ private fun ParticleParamsBlock(
                     range = 0f..2f,
                     decimals = 2,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(spin = value)) } },
+                    onCommit = { value ->
+                        set { it.copy(motion = it.motion.copy(spin = value)) }
+                    },
                 )
             }
             item { shape ->
@@ -1151,23 +1188,250 @@ private fun ParticleParamsBlock(
                     range = 0f..1f,
                     decimals = 2,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(motion = it.motion.copy(tilt = value)) } },
+                    onCommit = { value ->
+                        set { it.copy(motion = it.motion.copy(tilt = value)) }
+                    },
                 )
             }
-            item { shape ->
-                LayerDropdownRow(
-                    title = stringResource(R.string.float_ball_layer_motion_path),
-                    options = listOf<ParticlePath?>(null) + ParticlePath.entries,
-                    selected = params.motion.path,
-                    shape = shape,
-                    optionLabel = { path ->
-                        path?.labelRes()?.let { stringResource(it) }
-                            ?: stringResource(R.string.float_ball_layer_path_none)
-                    },
-                    onSelect = { path ->
-                        set { it.copy(motion = it.motion.copy(path = path)) }
-                    },
-                )
+            when (params.motion.mode) {
+                ParticleMotionMode.Free -> {
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_gravity),
+                            value = params.motion.free.gravity,
+                            range = -3f..3f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(gravity = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_drag),
+                            value = params.motion.free.drag,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(drag = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_wind),
+                            value = params.motion.free.wind,
+                            range = -1f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(wind = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_turbulence),
+                            value = params.motion.free.turbulence,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(turbulence = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_brownian),
+                            value = params.motion.free.brownian,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(brownian = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_orbit),
+                            value = params.motion.free.orbit,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(orbit = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_spiral),
+                            value = params.motion.free.spiral,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(spiral = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_sway),
+                            value = params.motion.free.sway,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(sway = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_sway_cycles),
+                            value = params.motion.free.swayCycles,
+                            range = 0.5f..4f,
+                            decimals = 1,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(swayCycles = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_attract),
+                            value = params.motion.free.attract,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(attract = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_motion_bounce),
+                            value = params.motion.free.bounce,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            free = it.motion.free.copy(bounce = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+                ParticleMotionMode.Path -> {
+                    item { shape ->
+                        LayerDropdownRow(
+                            title = stringResource(R.string.float_ball_layer_path_form),
+                            options = ParticlePath.entries,
+                            selected = params.motion.path.shape,
+                            shape = shape,
+                            optionLabel = { stringResource(it.labelRes()) },
+                            onSelect = { path ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            path = it.motion.path.copy(shape = path),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_path_travel),
+                            value = params.motion.path.travelScale,
+                            range = 0.2f..2.5f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set {
+                                    it.copy(
+                                        motion = it.motion.copy(
+                                            path = it.motion.path.copy(travelScale = value),
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
         SegmentedRows(rows)
@@ -1387,21 +1651,36 @@ private fun RingParamsBlock(
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.ring ?: return
-    fun set(transform: (hunoia.luno.config.model.RingParams) -> hunoia.luno.config.model.RingParams) =
-        onUpdate(layer.copy(ring = transform(params)))
-    LunoGroup(
-        title = stringResource(R.string.float_ball_layer_group_appearance),
-        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
-    ) {
+    fun set(transform: (RingParams) -> RingParams) = onUpdate(layer.copy(ring = transform(params)))
+
+    LunoGroup(title = stringResource(R.string.float_ball_layer_group_family)) {
         val rows = segmentedRows {
             item { shape ->
                 LayerDropdownRow(
-                    title = stringResource(R.string.float_ball_layer_ring_style),
-                    options = hunoia.luno.config.model.RingStyle.entries,
+                    title = stringResource(R.string.float_ball_layer_form),
+                    options = RingStyle.entries,
                     selected = params.style,
                     shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
                     onSelect = { style -> set { it.copy(style = style) } },
+                )
+            }
+            item { shape ->
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_layer_center_at_anchor),
+                    checked = params.centerAtAnchor,
+                    shape = shape,
+                    onCheckedChange = { checked -> set { it.copy(centerAtAnchor = checked) } },
+                )
+            }
+            item { shape ->
+                LayerFloatSlider(
+                    label = stringResource(R.string.float_ball_layer_stroke),
+                    value = params.strokeWidthDp,
+                    range = 1f..12f,
+                    decimals = 1,
+                    shape = shape,
+                    onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
                 )
             }
             item { shape ->
@@ -1415,7 +1694,7 @@ private fun RingParamsBlock(
             }
             item { shape ->
                 LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_travel),
+                    label = stringResource(R.string.float_ball_layer_travel_percent),
                     value = params.travelPercent,
                     range = 0..300,
                     suffix = "%",
@@ -1423,36 +1702,42 @@ private fun RingParamsBlock(
                     onCommit = { value -> set { it.copy(travelPercent = value) } },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_stroke),
-                    value = params.strokeWidthDp,
-                    range = 1f..12f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_halo_scale),
-                    value = params.haloScale,
-                    range = 0f..2f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(haloScale = value) } },
-                )
-            }
-            item { shape ->
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_center_at_anchor),
-                    checked = params.centerAtAnchor,
-                    shape = shape,
-                    onCheckedChange = { checked -> set { it.copy(centerAtAnchor = checked) } },
-                )
-            }
         }
         SegmentedRows(rows)
+    }
+    // 三层描边没有额外参数：形态参数组只在有参数时出现，不留空组。
+    if (params.style != RingStyle.ThreeStroke) {
+        LunoGroup(
+            title = stringResource(R.string.float_ball_layer_group_form_params),
+            subtitle = stringResource(R.string.float_ball_layer_group_form_hint),
+        ) {
+            val rows = segmentedRows {
+                item { shape ->
+                    val halo = if (params.style == RingStyle.Halo) {
+                        params.halo.haloScale
+                    } else {
+                        params.nested.haloScale
+                    }
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_halo_scale),
+                        value = halo,
+                        range = 0f..3f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value ->
+                            set {
+                                if (it.style == RingStyle.Halo) {
+                                    it.copy(halo = it.halo.copy(haloScale = value))
+                                } else {
+                                    it.copy(nested = it.nested.copy(haloScale = value))
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+            SegmentedRows(rows)
+        }
     }
 }
 
@@ -1462,146 +1747,195 @@ private fun CapsuleParamsBlock(
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.capsule ?: return
-    fun set(
-        transform: (hunoia.luno.config.model.CapsuleParams) -> hunoia.luno.config.model.CapsuleParams,
-    ) = onUpdate(layer.copy(capsule = transform(params)))
-    LunoGroup(
-        title = stringResource(R.string.float_ball_layer_group_appearance),
-        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
-    ) {
+    fun set(transform: (CapsuleParams) -> CapsuleParams) =
+        onUpdate(layer.copy(capsule = transform(params)))
+
+    LunoGroup(title = stringResource(R.string.float_ball_layer_group_family)) {
         val rows = segmentedRows {
-            item {
-                ShapeChips(
-                    options = hunoia.luno.config.model.CapsuleShape.entries,
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_form),
+                    options = CapsuleShape.entries,
                     selected = params.shape,
-                    label = { it.labelRes() },
+                    shape = shape,
+                    optionLabel = { stringResource(it.labelRes()) },
                     onSelect = { value -> set { it.copy(shape = value) } },
                 )
             }
-            if (params.shape != hunoia.luno.config.model.CapsuleShape.Sweep || !params.fill) {
-                item { shape ->
-                    LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_stroke),
-                        value = params.strokeWidthDp,
-                        range = 0.5f..6f,
-                        decimals = 2,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
-                    )
-                }
-            }
+        }
+        SegmentedRows(rows)
+    }
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_form_params),
+        subtitle = stringResource(R.string.float_ball_layer_group_form_hint),
+    ) {
+        val rows = segmentedRows {
             when (params.shape) {
-                hunoia.luno.config.model.CapsuleShape.Sweep -> {
+                CapsuleShape.Sweep -> {
                     item { shape ->
-                        LunoSwitchRow(
-                            title = stringResource(R.string.float_ball_layer_fill),
-                            checked = params.fill,
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_stroke),
+                            value = params.sweep.strokeWidthDp,
+                            range = 0.5f..6f,
+                            decimals = 2,
                             shape = shape,
-                            onCheckedChange = { checked -> set { it.copy(fill = checked) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(strokeWidthDp = value)) }
+                            },
                         )
                     }
-                    if (!params.fill) {
-                        item { shape ->
-                            LayerIntSlider(
-                                label = stringResource(R.string.float_ball_layer_heads),
-                                value = params.heads,
-                                range = 1..2,
-                                shape = shape,
-                                onCommit = { value -> set { it.copy(heads = value) } },
-                            )
-                        }
+                    item { shape ->
+                        LunoSwitchRow(
+                            title = stringResource(R.string.float_ball_layer_capsule_fill),
+                            checked = params.sweep.fill,
+                            shape = shape,
+                            onCheckedChange = { checked ->
+                                set { it.copy(sweep = it.sweep.copy(fill = checked)) }
+                            },
+                        )
                     }
                     item { shape ->
                         LayerIntSlider(
-                            label = stringResource(R.string.float_ball_layer_band_width_percent),
-                            value = params.bandPercent,
+                            label = stringResource(R.string.float_ball_layer_heads),
+                            value = params.sweep.heads,
+                            range = 1..2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(heads = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerIntSlider(
+                            label = stringResource(R.string.float_ball_layer_band),
+                            value = params.sweep.bandPercent,
                             range = 5..90,
                             suffix = "%",
                             shape = shape,
-                            onCommit = { value -> set { it.copy(bandPercent = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(bandPercent = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_travel),
-                            value = params.travel,
+                            value = params.sweep.travel,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(travel = value) } },
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(travel = value)) }
+                            },
                         )
                     }
-                    if (!params.fill) {
-                        item { shape ->
-                            LayerFloatSlider(
-                                label = stringResource(R.string.float_ball_layer_trail_scale),
-                                value = params.trailScale,
-                                range = 0f..4f,
-                                decimals = 2,
-                                shape = shape,
-                                onCommit = { value -> set { it.copy(trailScale = value) } },
-                            )
-                        }
-                        item { shape ->
-                            LayerFloatSlider(
-                                label = stringResource(R.string.float_ball_layer_trail_alpha),
-                                value = params.trailAlpha,
-                                range = 0f..1f,
-                                decimals = 2,
-                                shape = shape,
-                                onCommit = { value -> set { it.copy(trailAlpha = value) } },
-                            )
-                        }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_trail_scale),
+                            value = params.sweep.trailScale,
+                            range = 0f..4f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(trailScale = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_trail_alpha),
+                            value = params.sweep.trailAlpha,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(sweep = it.sweep.copy(trailAlpha = value)) }
+                            },
+                        )
                     }
                     item { shape ->
                         LunoSwitchRow(
                             title = stringResource(R.string.float_ball_layer_reverse),
-                            checked = params.reverse,
+                            checked = params.sweep.reverse,
                             shape = shape,
-                            onCheckedChange = { checked -> set { it.copy(reverse = checked) } },
+                            onCheckedChange = { checked ->
+                                set { it.copy(sweep = it.sweep.copy(reverse = checked)) }
+                            },
                         )
                     }
                 }
-                hunoia.luno.config.model.CapsuleShape.Pulse -> {
+                CapsuleShape.Pulse -> {
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_stroke),
+                            value = params.pulse.strokeWidthDp,
+                            range = 0.5f..6f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(pulse = it.pulse.copy(strokeWidthDp = value)) }
+                            },
+                        )
+                    }
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_glow_layers),
-                            value = params.glowLayers,
+                            value = params.pulse.glowLayers,
                             range = 0..2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(glowLayers = value) } },
+                            onCommit = { value ->
+                                set { it.copy(pulse = it.pulse.copy(glowLayers = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_glow_scale),
-                            value = params.glowScale,
+                            value = params.pulse.glowScale,
                             range = 0f..2f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(glowScale = value) } },
+                            onCommit = { value ->
+                                set { it.copy(pulse = it.pulse.copy(glowScale = value)) }
+                            },
                         )
                     }
                     item { shape ->
                         LayerFloatSlider(
-                            label = stringResource(R.string.float_ball_layer_breathe),
-                            value = params.breatheScale,
+                            label = stringResource(R.string.float_ball_layer_breath_scale),
+                            value = params.pulse.breatheScale,
                             range = 0f..1f,
                             decimals = 2,
                             shape = shape,
-                            onCommit = { value -> set { it.copy(breatheScale = value) } },
+                            onCommit = { value ->
+                                set { it.copy(pulse = it.pulse.copy(breatheScale = value)) }
+                            },
                         )
                     }
                 }
-                hunoia.luno.config.model.CapsuleShape.Flip -> {
+                CapsuleShape.Flip -> {
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_stroke),
+                            value = params.flip.strokeWidthDp,
+                            range = 0.5f..6f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(flip = it.flip.copy(strokeWidthDp = value)) }
+                            },
+                        )
+                    }
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_flip_degrees),
-                            value = params.flipDegrees,
-                            range = 90..360,
+                            value = params.flip.degrees,
+                            range = 0..360,
                             suffix = "°",
                             shape = shape,
-                            onCommit = { value -> set { it.copy(flipDegrees = value) } },
+                            onCommit = { value ->
+                                set { it.copy(flip = it.flip.copy(degrees = value)) }
+                            },
                         )
                     }
                 }
@@ -1617,21 +1951,18 @@ private fun WashParamsBlock(
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.wash ?: return
-    fun set(transform: (hunoia.luno.config.model.WashParams) -> hunoia.luno.config.model.WashParams) =
-        onUpdate(layer.copy(wash = transform(params)))
-    LunoGroup(
-        title = stringResource(R.string.float_ball_layer_group_appearance),
-        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
-    ) {
+    fun set(transform: (WashParams) -> WashParams) = onUpdate(layer.copy(wash = transform(params)))
+
+    LunoGroup(title = stringResource(R.string.float_ball_layer_group_family)) {
         val rows = segmentedRows {
             item { shape ->
                 LayerDropdownRow(
-                    title = stringResource(R.string.float_ball_layer_wash_shape),
-                    options = hunoia.luno.config.model.WashShape.entries,
+                    title = stringResource(R.string.float_ball_layer_form),
+                    options = WashShape.entries,
                     selected = params.shape,
                     shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { shapeValue -> set { it.copy(shape = shapeValue) } },
+                    onSelect = { value -> set { it.copy(shape = value) } },
                 )
             }
             item { shape ->
@@ -1644,33 +1975,9 @@ private fun WashParamsBlock(
                     onCommit = { value -> set { it.copy(amplitude = value) } },
                 )
             }
-            if (params.shape == hunoia.luno.config.model.WashShape.Ring) {
-                item { shape ->
-                    LayerIntSlider(
-                        label = stringResource(R.string.float_ball_layer_zoom),
-                        value = params.zoomPercent,
-                        range = 0..40,
-                        suffix = "%",
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(zoomPercent = value) } },
-                    )
-                }
-            }
-            if (params.shape != hunoia.luno.config.model.WashShape.Flat) {
-                item { shape ->
-                    LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_vignette_softness),
-                        value = params.softness,
-                        range = 0f..1f,
-                        decimals = 2,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(softness = value) } },
-                    )
-                }
-            }
             item { shape ->
                 LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_wash_breath),
+                    title = stringResource(R.string.float_ball_layer_breath),
                     checked = params.breath,
                     shape = shape,
                     onCheckedChange = { checked -> set { it.copy(breath = checked) } },
@@ -1678,6 +1985,43 @@ private fun WashParamsBlock(
             }
         }
         SegmentedRows(rows)
+    }
+    if (params.shape != WashShape.Flat) {
+        LunoGroup(
+            title = stringResource(R.string.float_ball_layer_group_form_params),
+            subtitle = stringResource(R.string.float_ball_layer_group_form_hint),
+        ) {
+            val rows = segmentedRows {
+                if (params.shape == WashShape.Radial) {
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_softness),
+                            value = params.radial.softness,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(radial = it.radial.copy(softness = value)) }
+                            },
+                        )
+                    }
+                } else {
+                    item { shape ->
+                        LayerIntSlider(
+                            label = stringResource(R.string.float_ball_layer_zoom),
+                            value = params.ring.zoomPercent,
+                            range = 0..40,
+                            suffix = "%",
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(ring = it.ring.copy(zoomPercent = value)) }
+                            },
+                        )
+                    }
+                }
+            }
+            SegmentedRows(rows)
+        }
     }
 }
 
@@ -1687,21 +2031,18 @@ private fun CoverParamsBlock(
     onUpdate: (AlertLayer) -> Unit,
 ) {
     val params = layer.cover ?: return
-    fun set(transform: (hunoia.luno.config.model.CoverParams) -> hunoia.luno.config.model.CoverParams) =
-        onUpdate(layer.copy(cover = transform(params)))
-    LunoGroup(
-        title = stringResource(R.string.float_ball_layer_group_appearance),
-        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
-    ) {
+    fun set(transform: (CoverParams) -> CoverParams) = onUpdate(layer.copy(cover = transform(params)))
+
+    LunoGroup(title = stringResource(R.string.float_ball_layer_group_family)) {
         val rows = segmentedRows {
             item { shape ->
                 LayerDropdownRow(
-                    title = stringResource(R.string.float_ball_layer_cover_mask),
-                    options = hunoia.luno.config.model.CoverMask.entries,
+                    title = stringResource(R.string.float_ball_layer_form),
+                    options = CoverMask.entries,
                     selected = params.mask,
                     shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { mask -> set { it.copy(mask = mask) } },
+                    onSelect = { value -> set { it.copy(mask = value) } },
                 )
             }
             item { shape ->
@@ -1714,82 +2055,103 @@ private fun CoverParamsBlock(
                     onCommit = { value -> set { it.copy(amplitude = value) } },
                 )
             }
-            if (params.mask == hunoia.luno.config.model.CoverMask.Bands) {
-                item { shape ->
-                    LayerIntSlider(
-                        label = stringResource(R.string.float_ball_layer_bands),
-                        value = params.bands,
-                        range = 3..15,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(bands = value) } },
-                    )
-                }
+            item { shape ->
+                LayerFloatSlider(
+                    label = stringResource(R.string.float_ball_layer_curve),
+                    value = params.curve,
+                    range = 1f..4f,
+                    decimals = 2,
+                    shape = shape,
+                    onCommit = { value -> set { it.copy(curve = value) } },
+                )
             }
-            if (params.mask == hunoia.luno.config.model.CoverMask.Shards) {
-                item { shape ->
-                    LayerIntSlider(
-                        label = stringResource(R.string.float_ball_layer_shards),
-                        value = params.shards,
-                        range = 6..30,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(shards = value) } },
-                    )
-                }
-            }
-            if (params.mask == hunoia.luno.config.model.CoverMask.Slit) {
-                item { shape ->
+        }
+        SegmentedRows(rows)
+    }
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_form_params),
+        subtitle = stringResource(R.string.float_ball_layer_group_form_hint),
+    ) {
+        val rows = segmentedRows {
+            when (params.mask) {
+                CoverMask.Circle -> item { shape ->
                     LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_slit),
-                        value = params.slitDp,
-                        range = 2f..24f,
-                        decimals = 1,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(slitDp = value) } },
-                    )
-                }
-            }
-            if (params.mask == hunoia.luno.config.model.CoverMask.Iris) {
-                item { shape ->
-                    LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_rim),
-                        value = params.rimDp,
-                        range = 0f..6f,
-                        decimals = 1,
-                        shape = shape,
-                        onCommit = { value -> set { it.copy(rimDp = value) } },
-                    )
-                }
-            }
-            if (params.mask == hunoia.luno.config.model.CoverMask.Circle ||
-                params.mask == hunoia.luno.config.model.CoverMask.Shards
-            ) {
-                item { shape ->
-                    LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_vignette_softness),
-                        value = params.softness,
+                        label = stringResource(R.string.float_ball_layer_softness),
+                        value = params.circle.softness,
                         range = 0f..1f,
                         decimals = 2,
                         shape = shape,
-                        onCommit = { value -> set { it.copy(softness = value) } },
+                        onCommit = { value ->
+                            set { it.copy(circle = it.circle.copy(softness = value)) }
+                        },
                     )
                 }
-            }
-            if (params.mask != hunoia.luno.config.model.CoverMask.Shards) {
-                item { shape ->
+                CoverMask.Iris -> item { shape ->
                     LayerFloatSlider(
-                        label = stringResource(R.string.float_ball_layer_curve),
-                        value = params.curve,
-                        range = 1f..4f,
-                        decimals = 2,
+                        label = stringResource(R.string.float_ball_layer_rim),
+                        value = params.iris.rimDp,
+                        range = 0f..6f,
+                        decimals = 1,
                         shape = shape,
-                        onCommit = { value -> set { it.copy(curve = value) } },
+                        onCommit = { value ->
+                            set { it.copy(iris = it.iris.copy(rimDp = value)) }
+                        },
                     )
+                }
+                CoverMask.Slit -> item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_slit),
+                        value = params.slit.slitDp,
+                        range = 2f..24f,
+                        decimals = 1,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(slit = it.slit.copy(slitDp = value)) }
+                        },
+                    )
+                }
+                CoverMask.Bands -> item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_bands),
+                        value = params.bands.count,
+                        range = 3..15,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(bands = it.bands.copy(count = value)) }
+                        },
+                    )
+                }
+                CoverMask.Shards -> {
+                    item { shape ->
+                        LayerIntSlider(
+                            label = stringResource(R.string.float_ball_layer_shards),
+                            value = params.shards.count,
+                            range = 6..30,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(shards = it.shards.copy(count = value)) }
+                            },
+                        )
+                    }
+                    item { shape ->
+                        LayerFloatSlider(
+                            label = stringResource(R.string.float_ball_layer_softness),
+                            value = params.shards.softness,
+                            range = 0f..1f,
+                            decimals = 2,
+                            shape = shape,
+                            onCommit = { value ->
+                                set { it.copy(shards = it.shards.copy(softness = value)) }
+                            },
+                        )
+                    }
                 }
             }
         }
         SegmentedRows(rows)
     }
 }
+
 @Composable
 private fun RevealParamsBlock(
     layer: AlertLayer,

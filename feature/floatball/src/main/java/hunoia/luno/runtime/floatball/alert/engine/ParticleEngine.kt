@@ -4,6 +4,7 @@ import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleDirection
 import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleMotion
+import hunoia.luno.config.model.ParticleMotionMode
 import hunoia.luno.config.model.ParticlePath
 import kotlin.math.abs
 import kotlin.math.cos
@@ -98,7 +99,7 @@ internal fun spawnPoint(
 
 /**
  * 生成一颗粒子：位置按 [ParticleEmitter.area]（或显式 [origin]）取，
- * 方向按 [ParticleEmitter.directionMode] + 散开角，初速按 [ParticleEmitter.speed]。
+ * 方向按 [ParticleEmitter.direction] + 散开角，初速按 [ParticleEmitter.speed]。
  *
  * 烟花先升空再爆时，渲染层传 `origin = 顶点`、`center = 屏幕中心`，
  * 并把 `delay` 设成爆发时刻；引擎本身不需要知道「升空」这件事。
@@ -115,7 +116,7 @@ internal fun spawnParticle(
     val screenCenter = NormPoint(frame.aspect / 2f, 0.5f)
     val focus = center ?: anchor ?: screenCenter
     val point = origin ?: spawnPoint(emitter.area, frame, anchor, random)
-    val base = when (emitter.directionMode) {
+    val base = when (emitter.direction) {
         ParticleDirection.Fixed -> Math.toRadians(emitter.directionDeg.toDouble())
         ParticleDirection.Inward -> Math.atan2(
             (focus.y - point.y).toDouble(),
@@ -140,7 +141,8 @@ internal fun spawnParticle(
         vy = (sin(angle) * speed).toFloat(),
         age = 0f,
         life = 1f,
-        delay = random.nextFloat() * emitter.delaySpread,
+        // 延迟由渲染层按「发射方式 + 循环」统一算，这里不掺一份（旧实现会被整段覆盖）。
+        delay = 0f,
         spinDeg = 0f,
         phase = random.nextFloat() * TwoPi,
         seed = seed,
@@ -167,12 +169,12 @@ internal fun advanceParticle(
     // tilt 单独打开时也要让 spinDeg 走起来，否则 3D 翻面没有相位。
     val spinRate = maxOf(motion.spin, motion.tilt)
 
-    val path = motion.path
-    if (path != null) {
-        // 路径族的行程由「初速 × 寿命」决定：速度旋钮对路径也有意义。
-        val travel = (hypot(state.vx, state.vy) * state.life).coerceIn(0.2f, 2.5f)
+    if (motion.mode == ParticleMotionMode.Path) {
+        // 路径族的行程由「初速 × 寿命 × 行程缩放」决定：速度旋钮对路径也有意义。
+        val travel = (hypot(state.vx, state.vy) * state.life * motion.path.travelScale)
+            .coerceIn(0.05f, 3.5f)
         val pos = pathPosition(
-            path = path,
+            path = motion.path.shape,
             progress = progress,
             start = NormPoint(state.x, state.y),
             direction = directionOf(state),
@@ -189,6 +191,7 @@ internal fun advanceParticle(
         )
     }
 
+    val free = motion.free
     val center = anchor ?: NormPoint(frame.aspect / 2f, 0.5f)
     var x = state.x
     var y = state.y
@@ -196,10 +199,10 @@ internal fun advanceParticle(
     var vy = state.vy
 
     // 轨道：绕锚点旋转（同时旋转位置与速度，半径保持不变）。
-    if (motion.orbit > 0f) {
+    if (free.orbit > 0f) {
         val dx = x - center.x
         val dy = y - center.y
-        val omega = motion.orbit * OrbitRate * TwoPi * dt
+        val omega = free.orbit * OrbitRate * TwoPi * dt
         val cs = cos(omega)
         val sn = sin(omega)
         x = center.x + dx * cs - dy * sn
@@ -211,50 +214,50 @@ internal fun advanceParticle(
     }
 
     // 螺旋：向锚点收拢（与轨道叠加时形成卷吸）。
-    if (motion.spiral > 0f) {
+    if (free.spiral > 0f) {
         val dx = center.x - x
         val dy = center.y - y
         val dist = max(hypot(dx, dy), 1e-4f)
-        val step = motion.spiral * SpiralRate * dt
+        val step = free.spiral * SpiralRate * dt
         x += dx / dist * step
         y += dy / dist * step
     }
 
     // 吸引：朝锚点加速。
-    if (motion.attract > 0f) {
+    if (free.attract > 0f) {
         val dx = center.x - x
         val dy = center.y - y
         val dist = max(hypot(dx, dy), 1e-4f)
-        vx += dx / dist * motion.attract * AttractAccel * dt
-        vy += dy / dist * motion.attract * AttractAccel * dt
+        vx += dx / dist * free.attract * AttractAccel * dt
+        vy += dy / dist * free.attract * AttractAccel * dt
     }
 
     // 弹道：重力 + 阻力（终端速度）。
-    vy += motion.gravity * GravityAccel * dt
-    if (motion.drag > 0f) {
-        val damp = exp(-motion.drag * DragRate * dt)
+    vy += free.gravity * GravityAccel * dt
+    if (free.drag > 0f) {
+        val damp = exp(-free.drag * DragRate * dt)
         vx *= damp
         vy *= damp
     }
 
     // 风湍：水平风 + 湍流 / 布朗（哈希噪声，可复现）。
-    vx += motion.wind * WindAccel * dt
-    if (motion.turbulence > 0f) {
-        vx += (noise01(state.seed, age * 2.1f) - 0.5f) * motion.turbulence * TurbulenceAccel * dt
+    vx += free.wind * WindAccel * dt
+    if (free.turbulence > 0f) {
+        vx += (noise01(state.seed, age * 2.1f) - 0.5f) * free.turbulence * TurbulenceAccel * dt
         vy += (noise01(state.seed xor 0x5F37, age * 1.7f) - 0.5f) *
-            motion.turbulence * TurbulenceAccel * dt
+            free.turbulence * TurbulenceAccel * dt
     }
-    if (motion.brownian > 0f) {
+    if (free.brownian > 0f) {
         vx += (noise01(state.seed xor 0x2C1B, age * 7.3f) - 0.5f) *
-            motion.brownian * BrownianAccel * dt
+            free.brownian * BrownianAccel * dt
         vy += (noise01(state.seed xor 0x71A9, age * 6.1f) - 0.5f) *
-            motion.brownian * BrownianAccel * dt
+            free.brownian * BrownianAccel * dt
     }
 
     // 摆动：与寿命绑定的正弦加速度（幅度按屏高归一化）。
-    if (motion.sway > 0f) {
-        vx += cos(TwoPi * motion.swayCycles * progress + state.phase) *
-            motion.sway * SwayAccel * dt
+    if (free.sway > 0f) {
+        vx += cos(TwoPi * free.swayCycles * progress + state.phase) *
+            free.sway * SwayAccel * dt
     }
 
     x += vx * dt
@@ -265,20 +268,20 @@ internal fun advanceParticle(
     // 出生点可能在屏外，也可能一帧就跨过边界（大 dt）：前后两处都要认。
     val entered = state.entered || isInside(state.x, state.y, frame.aspect) ||
         isInside(x, y, frame.aspect)
-    if (motion.bounce > 0f && entered) {
+    if (free.bounce > 0f && entered) {
         if (x < 0f) {
             x = 0f
-            vx = -vx * motion.bounce
+            vx = -vx * free.bounce
         } else if (x > frame.aspect) {
             x = frame.aspect
-            vx = -vx * motion.bounce
+            vx = -vx * free.bounce
         }
         if (y < 0f) {
             y = 0f
-            vy = -vy * motion.bounce
+            vy = -vy * free.bounce
         } else if (y > 1f) {
             y = 1f
-            vy = -vy * motion.bounce
+            vy = -vy * free.bounce
         }
     }
 

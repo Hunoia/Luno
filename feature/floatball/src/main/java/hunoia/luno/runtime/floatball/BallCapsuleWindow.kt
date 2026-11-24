@@ -152,6 +152,7 @@ import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.MotionFamily
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.motionMillis
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
@@ -2899,6 +2900,8 @@ internal class BallCapsuleWindow(
         val scratchPath = remember { Path() }
         LaunchedEffect(layer) {
             withContext(FixedMotionDurationScale) {
+                // 层延迟：窗口可以先挂好（透明），到点再起手。
+                if (layer.startAt > 0) delay(layer.startAt.toLong())
                 elapsed.snapTo(0f)
                 elapsed.animateTo(
                     layer.totalMillis.toFloat(),
@@ -2921,6 +2924,9 @@ internal class BallCapsuleWindow(
             }
             val topOrigin = glowMarginPx.toFloat()
             val spec = layer.spec as CapsuleSpec
+            val sweep = spec.sweep
+            val pulse = spec.pulse
+            val flip = spec.flip
             when (spec.shape) {
                 // 描边呼吸：辉光层数 + 呼吸缩放是旋钮。
                 AlertCapsuleShape.Pulse -> {
@@ -2930,12 +2936,12 @@ internal class BallCapsuleWindow(
                     )
                     val breathe = sin(PI.toFloat() * t)
                     val peak = (RowBorderAlpha + boost * breathe).coerceAtMost(1f) * envelope
-                    val corePx = spec.strokeWidthDp.dp.toPx()
+                    val corePx = pulse.strokeWidthDp.dp.toPx()
                     val glow = listOf(
                         PulseTuning.GlowWidthScale2 to PulseTuning.GlowAlphaFraction2,
                         PulseTuning.GlowWidthScale1 to PulseTuning.GlowAlphaFraction1,
-                    ).take(spec.glowLayers.coerceIn(0, 2))
-                    val scaleFactor = 1f + spec.breatheScale.coerceIn(0f, 1f) * breathe
+                    ).take(pulse.glowLayers.coerceIn(0, 2))
+                    val scaleFactor = 1f + pulse.breatheScale.coerceIn(0f, 1f) * breathe
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
                         translate(
@@ -2944,8 +2950,8 @@ internal class BallCapsuleWindow(
                         ) {
                             val rowColor = palette.at(index)
                             for ((widthScale, alphaFraction) in glow) {
-                                val width = corePx * widthScale * spec.glowScale
-                                val alpha = peak * alphaFraction * spec.glowScale
+                                val width = corePx * widthScale * pulse.glowScale
+                                val alpha = peak * alphaFraction * pulse.glowScale
                                 if (width > 0f && alpha > 0f) {
                                     drawPath(
                                         path = path,
@@ -2975,11 +2981,11 @@ internal class BallCapsuleWindow(
                         ShimmerTuning.PeakAlphaMin,
                         ShimmerTuning.PeakAlphaMax,
                     )
-                    val eased = ((t * spec.travel.coerceIn(0f, 1f)) % 1f)
+                    val eased = ((t * sweep.travel.coerceIn(0f, 1f)) % 1f)
                         .easedOut(ShimmerTuning.SweepEaseExp)
-                    if (spec.fill) {
-                        val pos = if (spec.reverse) 1f - eased else eased
-                        val band = spec.bandWidth.coerceIn(0.05f, 0.9f)
+                    if (sweep.fill) {
+                        val pos = if (sweep.reverse) 1f - eased else eased
+                        val band = sweep.bandPercent.coerceIn(5, 90) / 100f
                         val start = (pos - band / 2f).coerceIn(0f, 1f)
                         val end = (pos + band / 2f).coerceIn(0f, 1f)
                         val span = (end - start).coerceAtLeast(0.001f)
@@ -3000,12 +3006,12 @@ internal class BallCapsuleWindow(
                             }
                         }
                     } else {
-                        val heads = spec.heads.coerceIn(1, 2)
+                        val heads = sweep.heads.coerceIn(1, 2)
                         val stroke = Stroke(
-                            width = spec.strokeWidthDp.dp.toPx(),
+                            width = sweep.strokeWidthDp.dp.toPx(),
                             cap = StrokeCap.Round,
                         )
-                        val direction = if (spec.reverse) -1f else 1f
+                        val direction = if (sweep.reverse) -1f else 1f
                         for (index in 0 until rows) {
                             val measure = rowMeasures.getOrNull(index) ?: continue
                             val length = measure.length
@@ -3014,13 +3020,13 @@ internal class BallCapsuleWindow(
                                 left = rowLeft(index),
                                 top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
                             ) {
-                                val bandPx = spec.bandWidth.coerceIn(0.05f, 0.9f) *
+                                val bandPx = (sweep.bandPercent.coerceIn(5, 90) / 100f) *
                                     rowWidths[index].toFloat()
                                 val halfSpan = bandPx / 2f
                                 for (head in 0 until heads) {
                                     val centerDist = (if (head == 0) eased else 1f - eased) * length
-                                    if (spec.trailScale > 0f && spec.trailAlpha > 0f) {
-                                        val trailSpan = bandPx * spec.trailScale
+                                    if (sweep.trailScale > 0f && sweep.trailAlpha > 0f) {
+                                        val trailSpan = bandPx * sweep.trailScale
                                         drawPerimeterBand(
                                             measure = measure,
                                             length = length,
@@ -3028,7 +3034,7 @@ internal class BallCapsuleWindow(
                                                 direction * (halfSpan + trailSpan / 2f),
                                             halfSpan = trailSpan / 2f,
                                             palette = palette,
-                                            peakAlpha = peak * spec.trailAlpha,
+                                            peakAlpha = peak * sweep.trailAlpha,
                                             stroke = stroke,
                                             scratch = scratchPath,
                                             slices = ShimmerTuning.TrailSlices,
@@ -3057,11 +3063,11 @@ internal class BallCapsuleWindow(
                         PulseTuning.BoostMin,
                         PulseTuning.BoostMax,
                     )
-                    val angle = PI.toFloat() * t * (spec.flipDegrees / 180f)
+                    val angle = PI.toFloat() * t * (flip.degrees / 180f)
                     val scaleX = abs(cos(angle)).coerceAtLeast(0.05f)
                     val alpha = (RowBorderAlpha + boost * sin(PI.toFloat() * t))
                         .coerceAtMost(1f) * envelope
-                    val strokeW = spec.strokeWidthDp.dp.toPx()
+                    val strokeW = flip.strokeWidthDp.dp.toPx()
                     for (index in 0 until rows) {
                         val path = rowPaths.getOrNull(index) ?: continue
                         translate(

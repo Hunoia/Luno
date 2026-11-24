@@ -1,14 +1,30 @@
 package hunoia.luno.runtime.floatball.alert
 
 import hunoia.luno.config.model.AlertPlaybackPolicy
-import hunoia.luno.config.model.BandPath
+import hunoia.luno.config.model.AlertRenderBackend
+import hunoia.luno.config.model.CapsuleFlip
+import hunoia.luno.config.model.CapsulePulse
 import hunoia.luno.config.model.CapsuleShape
+import hunoia.luno.config.model.CapsuleSweep
+import hunoia.luno.config.model.CoverBands
+import hunoia.luno.config.model.CoverCircle
+import hunoia.luno.config.model.CoverIris
 import hunoia.luno.config.model.CoverMask
+import hunoia.luno.config.model.CoverShards
+import hunoia.luno.config.model.CoverSlit
+import hunoia.luno.config.model.EdgeBreathing
+import hunoia.luno.config.model.EdgeLightning
 import hunoia.luno.config.model.EdgeShape
+import hunoia.luno.config.model.EdgeSweep
+import hunoia.luno.config.model.EdgeWave
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealDirection
+import hunoia.luno.config.model.RingHalo
+import hunoia.luno.config.model.RingNested
 import hunoia.luno.config.model.RingStyle
+import hunoia.luno.config.model.WashRadial
+import hunoia.luno.config.model.WashRing
 import hunoia.luno.config.model.WashShape
 
 /**
@@ -51,81 +67,57 @@ data class AlertEnvironment(
 sealed interface AlertEffectSpec
 
 /**
- * 屏缘光带：`shape` 决定当前形态（呼吸 / 滚动 / 波纹 / 雷电），
- * 其余字段按形态取用；同一时刻只画一种。
+ * 屏缘：`shape` 决定当前形态，四个形态参数块各自独立；
+ * 族级只有后端与圆角。渲染层按 `shape` 只读对应那一块。
  */
 data class EdgeSpec(
     val shape: EdgeShape,
-    val backend: hunoia.luno.config.model.AlertRenderBackend,
+    val backend: AlertRenderBackend,
     val cornerRadiusDp: Int,
-    val depthDp: Float,
-    val hardness: Float,
-    val breathAmount: Float,
-    val path: BandPath,
-    val travel: Float,
-    val headWidthDp: Float,
-    val tailLength: Float,
-    val tailFalloff: Float,
-    val tailAlpha: Float,
-    val headBoost: Float,
-    val noise: Float,
-    val dual: Boolean,
-    val reverse: Boolean,
-    val crests: Int,
-    val waveWidthDp: Float,
-    val bolts: Int,
-    val boltFlashes: Int,
-    val boltWindow: Float,
-    val boltWidthDp: Float,
-    val boltReachPercent: Int,
+    val breathing: EdgeBreathing,
+    val sweep: EdgeSweep,
+    val wave: EdgeWave,
+    val lightning: EdgeLightning,
 ) : AlertEffectSpec
 
-/** 锚点环：描边层次 / 每循环环数 / 行程 / 描边宽度 / 光晕 / 锚点。 */
+/** 锚点环：三种层次共用环数 / 行程 / 描边，额外参数按层次各取一份。 */
 data class RingSpec(
     val style: RingStyle,
+    val centerAtAnchor: Boolean,
+    val strokeWidthDp: Float,
     val ringsPerCycle: Int,
     val travelPercent: Int,
-    val strokeWidthDp: Float,
-    val haloScale: Float,
-    val centerAtAnchor: Boolean,
+    val nested: RingNested,
+    val halo: RingHalo,
 ) : AlertEffectSpec
 
-/** 胶囊：`shape` 决定扫光 / 呼吸 / 翻转；其余字段按形态取用。 */
+/** 胶囊：`shape` 决定扫光 / 呼吸 / 翻转，参数块各自独立。 */
 data class CapsuleSpec(
     val shape: CapsuleShape,
-    val strokeWidthDp: Float,
-    val fill: Boolean,
-    val heads: Int,
-    val bandWidth: Float,
-    val travel: Float,
-    val trailScale: Float,
-    val trailAlpha: Float,
-    val reverse: Boolean,
-    val glowLayers: Int,
-    val glowScale: Float,
-    val breatheScale: Float,
-    val flipDegrees: Int,
+    val sweep: CapsuleSweep,
+    val pulse: CapsulePulse,
+    val flip: CapsuleFlip,
 ) : AlertEffectSpec
 
-/** 全屏着色：形状 / 强度 / 缩放 / 柔化 / 是否呼吸。 */
+/** 全屏着色：造型 + 强度 / 呼吸 + 造型自己的几何参数。 */
 data class WashSpec(
     val shape: WashShape,
     val amplitude: Float,
-    val zoomPercent: Int,
-    val softness: Float,
     val breath: Boolean,
+    val radial: WashRadial,
+    val ring: WashRing,
 ) : AlertEffectSpec
 
-/** 全屏覆盖：遮罩 / 强度 / 条数 / 片数 / 亮缝 / 描边 / 羽化 / 曲线。 */
+/** 全屏覆盖：遮罩 + 强度 / 曲线 + 遮罩自己的几何参数。 */
 data class CoverSpec(
     val mask: CoverMask,
     val amplitude: Float,
-    val bands: Int,
-    val shards: Int,
-    val slitDp: Float,
-    val rimDp: Float,
-    val softness: Float,
     val curve: Float,
+    val circle: CoverCircle,
+    val iris: CoverIris,
+    val slit: CoverSlit,
+    val bands: CoverBands,
+    val shards: CoverShards,
 ) : AlertEffectSpec
 
 /**
@@ -158,6 +150,8 @@ data class AlertLayerPlan(
     /** 单循环时长（ms）：预设基准 × 应用档位 ÷ 速度倍率。 */
     val cycleMillis: Int,
     val brightness: Float,
+    /** 相对播放起点的延迟（ms）：0 = 与其它层同时起手。 */
+    val startAt: Int = 0,
     val spec: AlertEffectSpec,
     /** 该层的调色板（null = 跟随动效回退颜色）。 */
     val palette: AlertPaletteSpec? = null,
@@ -169,13 +163,16 @@ data class AlertLayerPlan(
     val layerId: String? = null,
 ) {
     val totalMillis: Int get() = cycleMillis * cycles
+
+    /** 该层在整场里的收尾时刻（含延迟）。 */
+    val endMillis: Int get() = startAt + totalMillis
 }
 
 /**
  * 一次播放的完整计划：舞台层与胶囊层分开（渲染面不同）。
  *
- * [durationMillis] = 各层 [AlertLayerPlan.totalMillis] 的最大值——组合动效同时起手，
- * 最长的那层播完就整体收场；不设总时长上限。
+ * [durationMillis] = 各层 [AlertLayerPlan.endMillis] 的最大值——层可以有自己的
+ * 延迟，最晚收尾的那层决定整场时长；不设总时长上限。
  */
 data class AlertPlayPlan(
     val layers: List<AlertLayerPlan>,
@@ -189,7 +186,7 @@ data class AlertPlayPlan(
     val closing: Boolean = false,
 ) {
 
-    val durationMillis: Int get() = layers.maxOfOrNull { it.totalMillis } ?: 0
+    val durationMillis: Int get() = layers.maxOfOrNull { it.endMillis } ?: 0
 
     /** 舞台层：画在全屏穿透窗上（边缘 / 粒子 / 球心 / 全屏着色）。 */
     val stageLayers: List<AlertLayerPlan>
