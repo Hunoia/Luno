@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
+import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectHost
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.config.model.AlertHost
@@ -41,6 +42,7 @@ internal object AlertSlotPlanFactory {
         alert: NotificationAlertSettings,
         library: AlertLibrary,
         appPackage: String? = null,
+        content: AlertContent? = null,
         tierFor: (AlertSlot) -> Float = { 1f },
         seed: Int = 0,
     ): AlertRenderPlan {
@@ -73,6 +75,7 @@ internal object AlertSlotPlanFactory {
             paletteFor = paletteResolver(library),
             appPackage = appPackage,
             seed = seed,
+            content = content,
         )
     }
 
@@ -112,6 +115,7 @@ internal object AlertSlotPlanFactory {
             paletteFor = paletteResolver(library),
             appPackage = appPackage,
             seed = seed,
+            content = request.content,
         )
     }
 
@@ -142,11 +146,14 @@ internal object AlertSlotPlanFactory {
     fun presetsForSlot(slot: AlertSlot, library: AlertLibrary): List<AlertPreset> =
         presets(library).values.filter { preset ->
             preset.supports(slot) && when (slot) {
-                AlertSlot.Particle -> !preset.isTrajectory()
-                AlertSlot.Path -> preset.isTrajectory()
+                AlertSlot.Particle -> !preset.isTrajectory() || preset.hasReveal()
+                AlertSlot.Path -> preset.isTrajectory() || preset.hasReveal()
                 else -> true
             }
         }
+
+    private fun AlertPreset.hasReveal(): Boolean =
+        variants.any { it.kind == hunoia.luno.config.model.AlertKind.Reveal }
 
     private fun AlertPreset.isTrajectory(): Boolean {
         val motion = variants.firstOrNull()?.particle?.motion ?: return false

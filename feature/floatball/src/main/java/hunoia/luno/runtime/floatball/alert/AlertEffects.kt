@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +39,7 @@ import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.runtime.floatball.alert.engine.ParticleFrame
 import hunoia.luno.runtime.floatball.alert.engine.ParticleState
 import hunoia.luno.runtime.floatball.alert.engine.advanceParticle
+import hunoia.luno.runtime.floatball.alert.engine.noise01
 import hunoia.luno.runtime.floatball.alert.engine.spawnParticle
 import hunoia.luno.runtime.floatball.alert.engine.varianceScale
 import hunoia.luno.ui.theme.toMarkColor
@@ -79,6 +81,7 @@ private const val ConfettiSeed = 0xC0FF
 private const val FireflySeed = 0xF1AE
 private const val FireworksSeed = 0xF1AE0
 private const val PathSeed = 0x9A7A
+private const val TwoPi = (Math.PI * 2.0).toFloat()
 
 /**
  * 调色板 AGSL 声明与取色助手：`paletteCount` + 5 色。
@@ -324,6 +327,8 @@ internal fun AlertStageLayers(
                         EdgeAlertStyle.EdgeRipple -> EdgeRippleLayer(layer, palette, clock)
                         EdgeAlertStyle.EdgeFireworks -> EdgeFireworksLayer(layer, palette, clock, seed)
                         EdgeAlertStyle.EdgeBladeRise -> EdgeBladeRiseLayer(layer, palette, clock)
+                        EdgeAlertStyle.Ribbon -> EdgeRibbonLayer(layer, palette, clock)
+                        EdgeAlertStyle.Lightning -> EdgeLightningLayer(layer, palette, clock, seed)
                     }
 
                     is ParticleAlertStyle -> ParticleEngineLayer(layer, palette, clock, seed)
@@ -333,9 +338,13 @@ internal fun AlertStageLayers(
                         AnchorAlertStyle.Ripple -> FullRippleLayer(layer, anchor, palette, clock)
                         AnchorAlertStyle.BallBurst -> BallBurstLayer(layer, anchor, palette, clock, seed)
                         AnchorAlertStyle.BallHalo -> BallHaloLayer(layer, anchor, palette, clock)
+                        AnchorAlertStyle.Spiral -> BallSpiralLayer(layer, anchor, palette, clock)
+                        AnchorAlertStyle.Orbit3D -> BallOrbit3DLayer(layer, anchor, palette, clock)
                     }
 
                     is ScreenAlertStyle -> ScreenLayer(layer, palette, clock)
+
+                    is RevealAlertStyle -> RevealLayer(layer, palette, clock)
 
                     is CapsuleAlertStyle -> Unit
                 }
@@ -475,6 +484,12 @@ private fun ParticleEngineLayer(
     val look = params.look
     val style = layer.style as ParticleAlertStyle
     val image = rememberParticleImage(look, layer.appPackage)
+    val textPaint = remember {
+        Paint().apply {
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+    }
     val peakAlpha = look.alpha.coerceIn(0.05f, 1f)
     val count = (emitter.count * layer.cycles).coerceIn(1, 600)
     val cycleSeconds = layer.cycleMillis / 1000f
@@ -546,6 +561,8 @@ private fun ParticleEngineLayer(
                 vy = particle.vy,
                 trailPx = trailPx,
                 tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
+                text = look.text,
+                textPaint = textPaint,
             )
         }
     }
@@ -597,11 +614,11 @@ private fun engineSeed(style: ParticleAlertStyle): Int = when (style) {
     ParticleAlertStyle.Path -> PathSeed
 }
 
-/** 形状绘制：几何形状走 Path / 描边，图片 / 图标复用 [drawMote]；未实现形状回落圆点。 */
+/** 形状绘制：几何形状走 Path / 描边，图片 / 图标复用 [drawMote]，文字 / Emoji 走原生文本。 */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
     shape: AlertParticleShape,
     image: androidx.compose.ui.graphics.ImageBitmap?,
-    color: androidx.compose.ui.graphics.Color,
+    color: Color,
     center: Offset,
     radiusPx: Float,
     rotationDeg: Float,
@@ -609,6 +626,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
     vy: Float,
     trailPx: Float,
     tint: Boolean,
+    text: String,
+    textPaint: Paint,
 ) {
     if (shape == AlertParticleShape.CustomImage || shape == AlertParticleShape.AppIcon || image != null) {
         drawMote(image = image, color = color, center = center, radiusPx = radiusPx, rotationDeg = rotationDeg, tint = tint)
@@ -646,7 +665,104 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
                 cap = StrokeCap.Round,
             )
         }
+        AlertParticleShape.Heart -> rotate(rotationDeg, pivot = center) {
+            drawPath(heartPath(center, radiusPx), color)
+        }
+        AlertParticleShape.Petal -> rotate(rotationDeg, pivot = center) {
+            drawPath(petalPath(center, radiusPx), color)
+        }
+        AlertParticleShape.Leaf -> rotate(rotationDeg, pivot = center) {
+            drawPath(leafPath(center, radiusPx), color)
+            drawLine(
+                color = color.copy(alpha = color.alpha * 0.55f),
+                start = Offset(center.x, center.y - radiusPx),
+                end = Offset(center.x, center.y + radiusPx),
+                strokeWidth = (radiusPx * 0.08f).coerceAtLeast(0.8f),
+            )
+        }
+        AlertParticleShape.Snowflake -> drawSnowflake(center, radiusPx, rotationDeg, color)
+        AlertParticleShape.Emoji, AlertParticleShape.Text -> {
+            val content = text.trim()
+            if (content.isEmpty()) {
+                drawCircle(color = color, radius = radiusPx, center = center)
+            } else {
+                textPaint.color = color.toArgb()
+                textPaint.alpha = (color.alpha * 255f).toInt().coerceIn(0, 255)
+                textPaint.textSize = radiusPx * if (shape == AlertParticleShape.Emoji) 2.2f else 2.4f
+                val baseline = center.y - (textPaint.ascent() + textPaint.descent()) / 2f
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawText(content, center.x, baseline, textPaint)
+                }
+            }
+        }
         else -> drawCircle(color = color, radius = radiusPx, center = center)
+    }
+}
+
+/** 心形：两个三次贝塞尔花瓣拼成，底部尖角。 */
+private fun heartPath(center: Offset, radius: Float): androidx.compose.ui.graphics.Path =
+    androidx.compose.ui.graphics.Path().apply {
+        moveTo(center.x, center.y + radius * 0.85f)
+        cubicTo(
+            center.x - radius * 1.5f, center.y - radius * 0.2f,
+            center.x - radius * 0.65f, center.y - radius * 1.15f,
+            center.x, center.y - radius * 0.35f,
+        )
+        cubicTo(
+            center.x + radius * 0.65f, center.y - radius * 1.15f,
+            center.x + radius * 1.5f, center.y - radius * 0.2f,
+            center.x, center.y + radius * 0.85f,
+        )
+        close()
+    }
+
+/** 花瓣：上宽下尖的水滴形。 */
+private fun petalPath(center: Offset, radius: Float): androidx.compose.ui.graphics.Path =
+    androidx.compose.ui.graphics.Path().apply {
+        moveTo(center.x, center.y - radius)
+        quadraticBezierTo(center.x + radius, center.y - radius * 0.1f, center.x, center.y + radius)
+        quadraticBezierTo(center.x - radius, center.y - radius * 0.1f, center.x, center.y - radius)
+        close()
+    }
+
+/** 叶片：上下尖、左右鼓。 */
+private fun leafPath(center: Offset, radius: Float): androidx.compose.ui.graphics.Path =
+    androidx.compose.ui.graphics.Path().apply {
+        moveTo(center.x, center.y - radius)
+        quadraticBezierTo(center.x + radius * 0.85f, center.y, center.x, center.y + radius)
+        quadraticBezierTo(center.x - radius * 0.85f, center.y, center.x, center.y - radius)
+        close()
+    }
+
+/** 雪花：三条 60° 主轴 + 每轴 60% 处的两根短枝。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSnowflake(
+    center: Offset,
+    radius: Float,
+    rotationDeg: Float,
+    color: Color,
+) {
+    val stroke = (radius * 0.18f).coerceAtLeast(0.8f)
+    repeat(3) { axis ->
+        val angle = Math.toRadians((rotationDeg + axis * 60f).toDouble()).toFloat()
+        val dx = kotlin.math.cos(angle)
+        val dy = kotlin.math.sin(angle)
+        val end = Offset(center.x + dx * radius, center.y + dy * radius)
+        drawLine(color = color, start = center, end = end, strokeWidth = stroke, cap = StrokeCap.Round)
+        val branchAt = Offset(center.x + dx * radius * 0.62f, center.y + dy * radius * 0.62f)
+        for (sign in listOf(-1f, 1f)) {
+            val branchAngle = angle + sign * 0.55f
+            val branchEnd = Offset(
+                branchAt.x + kotlin.math.cos(branchAngle) * radius * 0.34f,
+                branchAt.y + kotlin.math.sin(branchAngle) * radius * 0.34f,
+            )
+            drawLine(
+                color = color,
+                start = branchAt,
+                end = branchEnd,
+                strokeWidth = stroke * 0.85f,
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 
@@ -689,6 +805,138 @@ private fun starPath(
     }
     path.close()
     return path
+}
+
+/**
+ * 揭示类：标题 / 正文逐字显现（或应用图标逐元素），首帧从 [RevealSpec.scaleFrom] 放大到 1。
+ * 内容来自播放请求（通知路径受「允许动效读取通知文字」控制），渲染层不落日志。
+ */
+@Composable
+private fun RevealLayer(
+    layer: AlertLayerPlan,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as RevealSpec
+    val icon = rememberRevealIcon(spec.iconPackage)
+    val titlePaint = remember {
+        Paint().apply {
+            isAntiAlias = true
+            textAlign = Paint.Align.LEFT
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+    }
+    val bodyPaint = remember {
+        Paint().apply {
+            isAntiAlias = true
+            textAlign = Paint.Align.LEFT
+        }
+    }
+    val accent = palette.at(0)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val progress = (now / layer.totalMillis).coerceIn(0f, 1f)
+        val stagger = spec.staggerPercent.coerceIn(0, 90) / 100f
+        val cx = size.width / 2f
+        when (spec.pattern) {
+            RevealAlertStyle.Icon -> {
+                val bitmap = icon ?: return@Canvas
+                val unit = size.minDimension * 0.14f
+                val pulse = spec.scaleFrom + (1f - spec.scaleFrom) * progress.coerceIn(0f, 1f)
+                val sizePx = unit * pulse
+                drawImage(
+                    image = bitmap,
+                    dstOffset = androidx.compose.ui.unit.IntOffset(
+                        (cx - sizePx / 2f).toInt(),
+                        (size.height * 0.35f - sizePx / 2f).toInt(),
+                    ),
+                    dstSize = androidx.compose.ui.unit.IntSize(sizePx.toInt(), sizePx.toInt()),
+                    alpha = envelope,
+                )
+            }
+            RevealAlertStyle.Text -> {
+                val titleSize = size.minDimension * 0.052f
+                val bodySize = size.minDimension * 0.034f
+                titlePaint.textSize = titleSize
+                titlePaint.color = accent.copy(alpha = envelope).toArgb()
+                bodyPaint.textSize = bodySize
+                bodyPaint.color = accent.copy(alpha = 0.85f * envelope).toArgb()
+                val titleWidth = titlePaint.measureText(spec.title)
+                val bodyWidth = bodyPaint.measureText(spec.body)
+                val titleBaseline = size.height * 0.44f
+                val bodyBaseline = titleBaseline + bodySize * 1.9f
+                if (spec.title.isNotEmpty()) {
+                    drawStaggeredLine(
+                        text = spec.title,
+                        paint = titlePaint,
+                        centerX = cx - titleWidth / 2f,
+                        baselineY = titleBaseline,
+                        progress = progress,
+                        stagger = stagger,
+                        scaleFrom = spec.scaleFrom,
+                        baseColor = accent,
+                        envelope = envelope,
+                    )
+                }
+                if (spec.body.isNotEmpty()) {
+                    drawStaggeredLine(
+                        text = spec.body,
+                        paint = bodyPaint,
+                        centerX = cx - bodyWidth / 2f,
+                        baselineY = bodyBaseline,
+                        progress = (progress - 0.18f).coerceAtLeast(0f) / 0.82f,
+                        stagger = stagger,
+                        scaleFrom = spec.scaleFrom,
+                        baseColor = accent.copy(alpha = 0.85f),
+                        envelope = envelope,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 逐字显现：每字按错峰进度给 alpha + 缩放；[progress] 0..1。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStaggeredLine(
+    text: String,
+    paint: Paint,
+    centerX: Float,
+    baselineY: Float,
+    progress: Float,
+    stagger: Float,
+    scaleFrom: Float,
+    baseColor: Color,
+    envelope: Float,
+) {
+    if (text.isEmpty()) return
+    val widths = FloatArray(text.length) { paint.measureText(text, it, it + 1) }
+    val total = widths.sum()
+    var x = centerX.coerceAtLeast(0f)
+    val charStagger = if (text.length > 1) stagger / (text.length - 1) else 0f
+    for (i in text.indices) {
+        val local = if (charStagger <= 0f) {
+            progress
+        } else {
+            ((progress - i * charStagger) / (1f - (text.length - 1) * charStagger)).coerceIn(0f, 1f)
+        }
+        if (local > 0f) {
+            val scale = scaleFrom + (1f - scaleFrom) * local
+            val color = baseColor.copy(alpha = baseColor.alpha * local * envelope)
+            paint.color = color.toArgb()
+            withTransform({
+                scale(scale, scale, Offset(x + widths[i] / 2f, baselineY))
+            }) {
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawText(text.substring(i, i + 1), x, baselineY, paint)
+                }
+            }
+        }
+        x += widths[i]
+        if (x > centerX + total + 1f) break
+    }
 }
 
 /**
@@ -758,6 +1006,229 @@ private fun ScreenLayer(
                     center = Offset(size.width / 2f, size.height / 2f),
                 )
             }
+        }
+    }
+}
+
+/**
+ * 缎带：沿屏缘环行的宽柔光带，带高斯边缘与可调拖尾；颜色沿周长采样。
+ * 与流光的区别是「带宽 / 柔和度」优先，头部没有锐利主带。
+ */
+@Composable
+private fun EdgeRibbonLayer(
+    layer: AlertLayerPlan,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as EdgeRibbonSpec
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeGlowTuning.PeakAlphaMin,
+        EdgeGlowTuning.PeakAlphaMax,
+    )
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        val head = t.easedOut(2f)
+        val inset = EdgeFrameTuning.InsetDp.dp.toPx()
+        val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
+        val bandPx = spec.bandWidthDp.dp.toPx()
+        val band = (bandPx / maxOf(size.width, size.height)).coerceIn(0.01f, 0.25f)
+        val tail = (band * spec.trailScale).coerceIn(0f, 0.9f)
+        val samples = 180
+        for (i in 0 until samples) {
+            val f = i.toFloat() / samples
+            val d = perimeterDist(f, head)
+            // 头部高斯带 + 后方拖尾（沿行进方向衰减）。
+            val forward = if (d <= band) 1f - (d / band) else 0f
+            val back = if (d <= band + tail && d >= band) {
+                (1f - (d - band) / tail) * spec.trailAlpha
+            } else {
+                0f
+            }
+            val strength = minOf(1f, forward + back)
+            if (strength <= 0.01f) continue
+            drawCircle(
+                color = palette.sample(f),
+                alpha = peakAlpha * strength * envelope,
+                radius = (bandPx * 0.65f).coerceAtLeast(1f),
+                center = perim.point(f),
+            )
+        }
+    }
+}
+
+/**
+ * 闪电：沿屏缘随机落点的折线放电，向屏幕内短促炸开；每一道有自己的闪断窗口。
+ * 顶点抖动由播放种子决定，同种子可复现。
+ */
+@Composable
+private fun EdgeLightningLayer(
+    layer: AlertLayerPlan,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+    seed: Int,
+) {
+    val spec = layer.spec as EdgeLightningSpec
+    val peakAlpha = layer.brightness.lerpInRange(
+        EdgeRippleTuning.PeakAlphaMin,
+        EdgeRippleTuning.PeakAlphaMax,
+    )
+    val path = remember { androidx.compose.ui.graphics.Path() }
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        val inset = EdgeFrameTuning.InsetDp.dp.toPx()
+        val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val strikeWindow = 0.34f
+        repeat(spec.strikeCount) { strike ->
+            val local = ((t * spec.strikeCount - strike) % 1f + 1f) % 1f
+            if (local > strikeWindow) return@repeat
+            val flash = 1f - local / strikeWindow
+            val alpha = peakAlpha * flash * envelope
+            if (alpha <= 0.01f) return@repeat
+            val anchor = ((seed * 0.0001f + strike * 0.37f) % 1f + 1f) % 1f
+            val start = perim.point(anchor)
+            path.reset()
+            path.moveTo(start.x, start.y)
+            val steps = 7
+            var px = start.x
+            var py = start.y
+            for (step in 1..steps) {
+                val f = step.toFloat() / steps
+                val tx = start.x + (center.x - start.x) * f * 0.38f
+                val ty = start.y + (center.y - start.y) * f * 0.38f
+                val jitter = (noise01(seed + strike * 97, step * 1.7f) - 0.5f)
+                val dx = (center.x - start.x) / maxOf(1f, kotlin.math.hypot(center.x - start.x, center.y - start.y))
+                val dy = (center.y - start.y) / maxOf(1f, kotlin.math.hypot(center.x - start.x, center.y - start.y))
+                px = tx - dy * jitter * size.minDimension * 0.045f
+                py = ty + dx * jitter * size.minDimension * 0.045f
+                path.lineTo(px, py)
+            }
+            val color = palette.sample(anchor)
+            drawPath(
+                path = path,
+                color = color.copy(alpha = alpha * 0.35f),
+                style = Stroke(width = spec.lineWidthDp.dp.toPx() * 3.2f),
+            )
+            drawPath(
+                path = path,
+                color = color.copy(alpha = alpha),
+                style = Stroke(width = spec.lineWidthDp.dp.toPx(), cap = StrokeCap.Round),
+            )
+        }
+    }
+}
+
+/**
+ * 球锚点螺旋：粒子从球环出发，一边绕球一边向内卷吸，尽头淡出。
+ * 角度与半径都按单循环进度解析计算，不逐帧积分。
+ */
+@Composable
+private fun BallSpiralLayer(
+    layer: AlertLayerPlan,
+    anchor: AlertAnchor,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as BallSpiralSpec
+    val peakAlpha = layer.brightness.lerpInRange(
+        BallBurstTuning.PeakAlphaMin,
+        BallBurstTuning.PeakAlphaMax,
+    )
+    val phases = remember(layer) {
+        Random(0x5A17 xor (layer.presetId?.hashCode() ?: 0)).let { random ->
+            List(spec.count) {
+                SpiralParticle(
+                    phase = random.nextFloat(),
+                    speed = 0.7f + random.nextFloat() * 0.6f,
+                    colorIndex = it,
+                )
+            }
+        }
+    }
+    val center = Offset(anchor.centerX, anchor.centerY)
+    val baseRadius = anchor.capsulePx / 2f * (spec.travelPercent / 100f)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        for (particle in phases) {
+            val local = ((t * particle.speed + particle.phase) % 1f + 1f) % 1f
+            val radius = baseRadius * (1f - 0.75f * local)
+            val angle = particle.phase * TwoPi + local * spec.turns * TwoPi
+            val x = center.x + cos(angle) * radius
+            val y = center.y + sin(angle) * radius
+            val tailX = center.x + cos(angle - 0.35f) * (radius + baseRadius * 0.06f)
+            val tailY = center.y + sin(angle - 0.35f) * (radius + baseRadius * 0.06f)
+            val alpha = peakAlpha * (1f - local).pow(1.2f) * envelope
+            drawLine(
+                color = palette.at(particle.colorIndex),
+                start = Offset(tailX, tailY),
+                end = Offset(x, y),
+                strokeWidth = spec.particleSizeDp.dp.toPx(),
+                cap = StrokeCap.Round,
+                alpha = alpha,
+            )
+        }
+    }
+}
+
+/**
+ * 球锚点 3D 环绕：粒子在倾斜椭圆轨道上运行，深度用尺寸 / alpha 模拟透视假 3D。
+ */
+@Composable
+private fun BallOrbit3DLayer(
+    layer: AlertLayerPlan,
+    anchor: AlertAnchor,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as BallOrbit3DSpec
+    val peakAlpha = layer.brightness.lerpInRange(
+        BallBurstTuning.PeakAlphaMin,
+        BallBurstTuning.PeakAlphaMax,
+    )
+    val phases = remember(layer) {
+        Random(0x3D0B xor (layer.presetId?.hashCode() ?: 0)).let { random ->
+            List(spec.count) {
+                OrbitParticle3D(
+                    phase = random.nextFloat(),
+                    speed = 0.6f + random.nextFloat() * 0.5f,
+                    colorIndex = it,
+                )
+            }
+        }
+    }
+    val center = Offset(anchor.centerX, anchor.centerY)
+    val radius = anchor.capsulePx / 2f * (spec.travelPercent / 100f)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        for (particle in phases) {
+            val angle = (t * particle.speed + particle.phase) % 1f * TwoPi
+            val depth = sin(angle)
+            val y = center.y + depth * radius * spec.tilt
+            val x = center.x + cos(angle) * radius
+            val size = spec.particleSizeDp.dp.toPx() * (0.7f + 0.5f * (depth + 1f) / 2f)
+            val alpha = peakAlpha * (0.4f + 0.6f * (depth + 1f) / 2f) * envelope
+            drawCircle(
+                color = palette.at(particle.colorIndex),
+                alpha = alpha,
+                radius = size,
+                center = Offset(x, y),
+            )
         }
     }
 }
@@ -1218,6 +1689,20 @@ private fun BallBurstLayer(
     }
 }
 
+/** 螺旋粒子：相位、速度、取色序号。 */
+private data class SpiralParticle(
+    val phase: Float,
+    val speed: Float,
+    val colorIndex: Int,
+)
+
+/** 3D 环绕粒子：相位、速度、取色序号。 */
+private data class OrbitParticle3D(
+    val phase: Float,
+    val speed: Float,
+    val colorIndex: Int,
+)
+
 /** 球心爆发的一颗粒子：迸射角、速率、半径、取色序号。 */
 private data class BallBurstParticle(
     val angle: Float,
@@ -1340,6 +1825,26 @@ private val particleImageCache = LruCache<String, androidx.compose.ui.graphics.I
 
 private fun particleImageKey(look: ParticleLook, appPackage: String?): String =
     "${look.shape}|${look.customImage}|${appPackage.orEmpty()}"
+
+/** 揭示图标：应用图标按 128px 解码并缓存（与粒子图标同一 LRU）。 */
+@Composable
+private fun rememberRevealIcon(appPackage: String?): androidx.compose.ui.graphics.ImageBitmap? {
+    val context = LocalContext.current
+    val key = "reveal|${appPackage.orEmpty()}"
+    var image by remember(key) { mutableStateOf(particleImageCache.get(key)) }
+    LaunchedEffect(key) {
+        if (appPackage == null) {
+            image = null
+            return@LaunchedEffect
+        }
+        val decoded = withContext(Dispatchers.IO) {
+            runCatching { decodeAppIcon(context, appPackage) }.getOrNull()
+        }
+        if (decoded != null) particleImageCache.put(key, decoded)
+        image = decoded
+    }
+    return image
+}
 
 /**
  * 粒子形状 → 位图：自定义图片 / 通知应用图标，**后台解码 + 降采样**，失败回落 null（圆点）。

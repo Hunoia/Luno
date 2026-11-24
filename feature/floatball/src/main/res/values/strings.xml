@@ -208,4 +208,15 @@
     <string name="float_ball_preset_path_comet">穿越彗星</string>
     <string name="float_ball_preset_path_orbit">轨道环绕</string>
     <string name="float_ball_preset_path_spiral">螺旋上升</string>
+
+    <string name="float_ball_preset_edge_ribbon">屏缘缎带</string>
+    <string name="float_ball_preset_edge_lightning">屏缘闪电</string>
+    <string name="float_ball_preset_ball_spiral">螺旋卷吸</string>
+    <string name="float_ball_preset_ball_orbit">3D 环绕</string>
+    <string name="float_ball_preset_capsule_flip">胶囊 3D 翻转</string>
+    <string name="float_ball_preset_capsule_chase">双色追逐</string>
+    <string name="float_ball_preset_particle_petals">花瓣飘落</string>
+    <string name="float_ball_preset_particle_snow">雪花</string>
+    <string name="float_ball_preset_reveal_text">文字揭示</string>
+    <string name="float_ball_preset_reveal_icon">图标揭示</string>
 </resources>

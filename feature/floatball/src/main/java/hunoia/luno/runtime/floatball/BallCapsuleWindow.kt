@@ -133,6 +133,8 @@ import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
 import hunoia.luno.runtime.floatball.alert.CapsuleAlertStyle
 import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
+import hunoia.luno.runtime.floatball.alert.DualChaseSpec
+import hunoia.luno.runtime.floatball.alert.Flip3DSpec
 import hunoia.luno.runtime.floatball.alert.BreathOutlineTuning
 import hunoia.luno.runtime.floatball.alert.InnerSweepSpec
 import hunoia.luno.runtime.floatball.alert.InnerSweepTuning
@@ -163,6 +165,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.cos
 import kotlin.math.sin
 
 /** 胶囊纵向落点（屏高归一）：胶囊自己的默认位置。 */
@@ -2992,6 +2995,119 @@ internal class BallCapsuleWindow(
                                 end * rowW to Color.Transparent,
                             )
                             drawPath(path = path, brush = brush)
+                        }
+                    }
+                }
+
+                // 3D 翻转：描边绕行中心横向压扁 / 展开，配合辉光呼吸。
+                CapsuleAlertStyle.Flip3D -> {
+                    val spec = layer.spec as Flip3DSpec
+                    val boost = layer.brightness.lerpInRange(
+                        PulseTuning.BoostMin,
+                        PulseTuning.BoostMax,
+                    )
+                    val angle = Math.PI.toFloat() * t * (spec.flipDegrees / 180f)
+                    val scaleX = kotlin.math.abs(cos(angle)).coerceAtLeast(0.05f)
+                    val alpha = (RowBorderAlpha + boost * sin(Math.PI.toFloat() * t))
+                        .coerceAtMost(1f) * envelope
+                    val strokeW = spec.strokeWidthDp.dp.toPx()
+                    for (index in 0 until rows) {
+                        val path = rowPaths.getOrNull(index) ?: continue
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
+                            scale(
+                                scaleX = scaleX,
+                                scaleY = 1f,
+                                pivot = Offset(rowWidths[index].toFloat() / 2f, rowHeightPx / 2f),
+                            ) {
+                                drawPath(
+                                    path = path,
+                                    color = palette.at(index).copy(alpha = alpha * 0.35f),
+                                    style = Stroke(width = strokeW * 3.2f),
+                                )
+                                drawPath(
+                                    path = path,
+                                    color = palette.at(index).copy(alpha = alpha),
+                                    style = Stroke(width = strokeW),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 双色追逐：两道亮带沿轮廓相向环行，各自带拖尾。
+                CapsuleAlertStyle.DualChase -> {
+                    val spec = layer.spec as DualChaseSpec
+                    val peak = layer.brightness.lerpInRange(
+                        ShimmerTuning.PeakAlphaMin,
+                        ShimmerTuning.PeakAlphaMax,
+                    ) * envelope
+                    val eased = t.easedOut(ShimmerTuning.SweepEaseExp)
+                    val stroke = Stroke(
+                        width = spec.strokeWidthDp.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    for (index in 0 until rows) {
+                        val measure = rowMeasures.getOrNull(index) ?: continue
+                        val length = measure.length
+                        if (length <= 1f) continue
+                        translate(
+                            left = rowLeft(index),
+                            top = topOrigin + index * (rowHeightPx + gapPx).toFloat() + offsetPx,
+                        ) {
+                            val bandPx = spec.bandWidth * rowWidths[index].toFloat()
+                            val halfSpan = bandPx / 2f
+                            val forward = eased * length
+                            val backward = (1f - eased) * length
+                            drawPerimeterBand(
+                                measure = measure,
+                                length = length,
+                                centerDistance = forward,
+                                halfSpan = halfSpan,
+                                palette = palette,
+                                peakAlpha = peak,
+                                stroke = stroke,
+                                scratch = scratchPath,
+                                slices = ShimmerTuning.BandSlices,
+                            )
+                            drawPerimeterBand(
+                                measure = measure,
+                                length = length,
+                                centerDistance = backward,
+                                halfSpan = halfSpan,
+                                palette = palette,
+                                peakAlpha = peak,
+                                stroke = stroke,
+                                scratch = scratchPath,
+                                slices = ShimmerTuning.BandSlices,
+                            )
+                            if (spec.trailScale > 0f && spec.trailAlpha > 0f) {
+                                val trailSpan = bandPx * spec.trailScale
+                                drawPerimeterBand(
+                                    measure = measure,
+                                    length = length,
+                                    centerDistance = forward - halfSpan - trailSpan / 2f,
+                                    halfSpan = trailSpan / 2f,
+                                    palette = palette,
+                                    peakAlpha = peak * spec.trailAlpha,
+                                    stroke = stroke,
+                                    scratch = scratchPath,
+                                    slices = ShimmerTuning.TrailSlices,
+                                )
+                                drawPerimeterBand(
+                                    measure = measure,
+                                    length = length,
+                                    centerDistance = backward + halfSpan + trailSpan / 2f,
+                                    halfSpan = trailSpan / 2f,
+                                    palette = palette,
+                                    peakAlpha = peak * spec.trailAlpha,
+                                    stroke = stroke,
+                                    scratch = scratchPath,
+                                    slices = ShimmerTuning.TrailSlices,
+                                )
+                            }
                         }
                     }
                 }

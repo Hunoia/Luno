@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
+import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertPreset
@@ -52,6 +53,8 @@ data class AlertRenderPlan(
     val layers: List<AlertRenderLayer>,
     val seed: Int = 0,
     val skipped: List<PresetResolveError> = emptyList(),
+    /** 揭示类内容（标题 / 正文 / 图标来源）；无揭示层时为 null。 */
+    val content: AlertContent? = null,
 ) {
     val isEmpty: Boolean get() = layers.isEmpty()
 
@@ -90,6 +93,7 @@ object AlertRenderPlanBuilder {
         appPackage: String? = null,
         tierFactor: Float = 1f,
         seed: Int = 0,
+        content: AlertContent? = null,
     ): AlertRenderPlan {
         val layers = mutableListOf<AlertRenderLayer>()
         val skipped = mutableListOf<PresetResolveError>()
@@ -128,6 +132,6 @@ object AlertRenderPlanBuilder {
                 }
             }
         }
-        return AlertRenderPlan(layers = layers, seed = seed, skipped = skipped)
+        return AlertRenderPlan(layers = layers, seed = seed, skipped = skipped, content = content)
     }
 }

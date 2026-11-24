@@ -75,6 +75,16 @@ internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     "builtin_path_comet" -> R.string.float_ball_preset_path_comet
     "builtin_path_orbit" -> R.string.float_ball_preset_path_orbit
     "builtin_path_spiral" -> R.string.float_ball_preset_path_spiral
+    "builtin_edge_ribbon" -> R.string.float_ball_preset_edge_ribbon
+    "builtin_edge_lightning" -> R.string.float_ball_preset_edge_lightning
+    "builtin_ball_spiral" -> R.string.float_ball_preset_ball_spiral
+    "builtin_ball_orbit" -> R.string.float_ball_preset_ball_orbit
+    "builtin_capsule_flip" -> R.string.float_ball_preset_capsule_flip
+    "builtin_capsule_chase" -> R.string.float_ball_preset_capsule_chase
+    "builtin_particle_petals" -> R.string.float_ball_preset_particle_petals
+    "builtin_particle_snow" -> R.string.float_ball_preset_particle_snow
+    "builtin_reveal_text" -> R.string.float_ball_preset_reveal_text
+    "builtin_reveal_icon" -> R.string.float_ball_preset_reveal_icon
     else -> null
 }
 

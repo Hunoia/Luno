@@ -64,6 +64,7 @@ import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.runtime.floatball.alert.needsCapsule
 import hunoia.luno.runtime.floatball.alert.shouldPlay
 import hunoia.luno.core.effect.AlertConcurrency
+import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.core.domain.JsonSerializer
@@ -760,7 +761,8 @@ class FloatBallService : Service() {
         val alert = settings.notificationCapsule.alert
         if (wasShowing && !alert.playOnEveryNotification) return
         if (isAlertPlaying()) return
-        val pkg = (slot.state.items.firstOrNull() as? NotificationItem)?.packageName
+        val item = slot.state.items.firstOrNull() as? NotificationItem
+        val pkg = item?.packageName
         val env = AlertEnvironment(
             screenOn = powerManager?.isInteractive == true,
             keyguardLocked = keyguardManager?.isKeyguardLocked == true,
@@ -772,7 +774,15 @@ class FloatBallService : Service() {
                 "dnd=${env.dndActive} blocked=${pkg != null && pkg in alert.appBlocklist}")
             return
         }
-        dispatchAlertPlan(slot, buildAlertPlan(pkg))
+        // 揭示类只拿标题 / 正文，且受「允许动效读取通知文字」控制；图标来源独立。
+        val content = item?.let {
+            AlertContent(
+                title = if (alert.readNotificationText) it.title.take(24) else null,
+                body = if (alert.readNotificationText) it.text.take(40) else null,
+                iconPackage = it.packageName,
+            )
+        }
+        dispatchAlertPlan(slot, buildAlertPlan(pkg, content))
     }
 
     /** 任一到达动效在播：舞台窗或胶囊窗自己那层。 */
@@ -784,13 +794,17 @@ class FloatBallService : Service() {
      * 当前配置 → 分层播放计划：各层单循环 = 样式基准 × 档位 ÷ 速度（由 buildPlan 折算）。
      * 种子每次播放重新取：同一份配置的粒子分布不会一模一样。
      */
-    private fun buildAlertPlan(appPackage: String? = null): AlertPlayPlan {
+    private fun buildAlertPlan(
+        appPackage: String? = null,
+        content: AlertContent? = null,
+    ): AlertPlayPlan {
         val capsule = settings.notificationCapsule
         val profile = MotionTuning.profile
         return AlertSlotPlanFactory.build(
             alert = capsule.alert,
             library = capsule.alertLibrary,
             appPackage = appPackage,
+            content = content,
             tierFor = { slot -> profile.speedOf(slot.toAlertFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
@@ -951,7 +965,20 @@ class FloatBallService : Service() {
             showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
             return
         }
-        val plan = buildAlertPlan().onlySlots(slot?.let { setOf(it) } ?: emptySet())
+        val alert = settings.notificationCapsule.alert
+        val demo = AlertContent(
+            title = if (alert.readNotificationText) {
+                getString(R.string.float_ball_capsule_alert_preview_title).take(24)
+            } else {
+                null
+            },
+            body = if (alert.readNotificationText) {
+                getString(R.string.float_ball_capsule_alert_preview_text).take(40)
+            } else {
+                null
+            },
+        )
+        val plan = buildAlertPlan(content = demo).onlySlots(slot?.let { setOf(it) } ?: emptySet())
         if (plan.isEmpty) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_none)
             return

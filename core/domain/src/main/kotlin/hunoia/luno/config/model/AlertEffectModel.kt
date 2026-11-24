@@ -98,11 +98,13 @@ fun AlertPreset.supports(slot: AlertSlot): Boolean = preferredHost(slot) != null
  */
 fun AlertPreset.preferredHost(slot: AlertSlot): AlertHost? {
     fun first(host: AlertHost) = variants.firstOrNull { it.host == host }?.host
+    // 揭示类不固定槽位：任何槽位都允许选中，绘制仍在舞台窗。
+    fun reveal() = variants.firstOrNull { it.kind == AlertKind.Reveal }?.host
     return when (slot) {
-        AlertSlot.Edge -> first(AlertHost.Edge)
+        AlertSlot.Edge -> first(AlertHost.Edge) ?: reveal()
         AlertSlot.Particle, AlertSlot.Path -> first(AlertHost.Stage)
-        AlertSlot.Ball -> first(AlertHost.Ball) ?: first(AlertHost.Capsule)
-        AlertSlot.Screen -> first(AlertHost.Screen)
+        AlertSlot.Ball -> first(AlertHost.Ball) ?: first(AlertHost.Capsule) ?: reveal()
+        AlertSlot.Screen -> first(AlertHost.Screen) ?: reveal()
     }
 }
 
@@ -303,6 +305,8 @@ data class ParticleLook(
     val customImage: String = "",
     /** 自定义图片是否跟随调色板染色（App 图标始终保留品牌原色）。 */
     val tintImage: Boolean = false,
+    /** [AlertParticleShape.Text] / [AlertParticleShape.Emoji] 的内容；空 = 回落圆点。 */
+    val text: String = "",
 ) {
     companion object {
         /** 自定义形状图片目录（`filesDir` 下）：选择页写入、渲染端读取共用。 */

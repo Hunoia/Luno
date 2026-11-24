@@ -207,4 +207,15 @@
     <string name="float_ball_preset_path_comet">Crossing comet</string>
     <string name="float_ball_preset_path_orbit">Orbit</string>
     <string name="float_ball_preset_path_spiral">Spiral rise</string>
+
+    <string name="float_ball_preset_edge_ribbon">Edge ribbon</string>
+    <string name="float_ball_preset_edge_lightning">Edge lightning</string>
+    <string name="float_ball_preset_ball_spiral">Spiral vortex</string>
+    <string name="float_ball_preset_ball_orbit">3D orbit</string>
+    <string name="float_ball_preset_capsule_flip">Capsule 3D flip</string>
+    <string name="float_ball_preset_capsule_chase">Dual chase</string>
+    <string name="float_ball_preset_particle_petals">Falling petals</string>
+    <string name="float_ball_preset_particle_snow">Snowflakes</string>
+    <string name="float_ball_preset_reveal_text">Text reveal</string>
+    <string name="float_ball_preset_reveal_icon">Icon reveal</string>
 </resources>

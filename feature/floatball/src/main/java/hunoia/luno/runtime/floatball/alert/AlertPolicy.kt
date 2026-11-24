@@ -15,7 +15,7 @@ sealed interface AlertRenderStyle {
 }
 
 /** 渲染分派的大类。 */
-enum class AlertRenderCategory { Edge, Particle, Capsule, Anchor, Screen }
+enum class AlertRenderCategory { Edge, Particle, Capsule, Anchor, Screen, Reveal }
 
 /** 屏缘绘制器。 */
 enum class EdgeAlertStyle : AlertRenderStyle {
@@ -24,6 +24,8 @@ enum class EdgeAlertStyle : AlertRenderStyle {
     EdgeRipple,
     EdgeFireworks,
     EdgeBladeRise,
+    Ribbon,
+    Lightning,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Edge
@@ -49,6 +51,8 @@ enum class CapsuleAlertStyle : AlertRenderStyle {
     Shimmer,
     BreathOutline,
     InnerSweep,
+    Flip3D,
+    DualChase,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Capsule
@@ -60,6 +64,8 @@ enum class AnchorAlertStyle : AlertRenderStyle {
     Ripple,
     BallBurst,
     BallHalo,
+    Spiral,
+    Orbit3D,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Anchor
@@ -73,6 +79,15 @@ enum class ScreenAlertStyle : AlertRenderStyle {
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Screen
+}
+
+/** 揭示类：文字逐字 / 应用图标逐元素。 */
+enum class RevealAlertStyle : AlertRenderStyle {
+    Text,
+    Icon,
+    ;
+
+    override val category: AlertRenderCategory get() = AlertRenderCategory.Reveal
 }
 
 /**
@@ -187,6 +202,61 @@ data class BallBurstSpec(
 data class BallHaloSpec(
     val radiusPercent: Int,
     val haloScale: Float,
+) : AlertEffectSpec
+
+/** 缎带：沿屏缘的多层柔光带（宽度 / 拖尾 / 屏缘圆角）。 */
+data class EdgeRibbonSpec(
+    val bandWidthDp: Float,
+    val trailScale: Float,
+    val trailAlpha: Float,
+    val cornerRadiusDp: Int,
+) : AlertEffectSpec
+
+/** 闪电：沿屏缘随机落点的折线闪电（落点数 / 屏缘圆角 / 线宽）。 */
+data class EdgeLightningSpec(
+    val strikeCount: Int,
+    val cornerRadiusDp: Int,
+    val lineWidthDp: Float,
+) : AlertEffectSpec
+
+/** 球锚点螺旋：粒子数、粒径、行程（球径 %）与旋转圈数。 */
+data class BallSpiralSpec(
+    val count: Int,
+    val particleSizeDp: Float,
+    val travelPercent: Int,
+    val turns: Float,
+) : AlertEffectSpec
+
+/** 球锚点 3D 环绕：粒子数、粒径、轨道半径（球径 %）与倾角（0..1）。 */
+data class BallOrbit3DSpec(
+    val count: Int,
+    val particleSizeDp: Float,
+    val travelPercent: Int,
+    val tilt: Float,
+) : AlertEffectSpec
+
+/** 胶囊 3D 翻转：描边宽度与翻转角度。 */
+data class Flip3DSpec(
+    val strokeWidthDp: Float,
+    val flipDegrees: Int,
+) : AlertEffectSpec
+
+/** 胶囊双色追逐：描边宽度、主带宽度、拖尾与双色。 */
+data class DualChaseSpec(
+    val strokeWidthDp: Float,
+    val bandWidth: Float,
+    val trailScale: Float,
+    val trailAlpha: Float,
+) : AlertEffectSpec
+
+/** 揭示：文字 / 图标、错峰、缩放与遮罩方向；内容来自播放请求。 */
+data class RevealSpec(
+    val pattern: RevealAlertStyle,
+    val title: String,
+    val body: String,
+    val iconPackage: String?,
+    val staggerPercent: Int,
+    val scaleFrom: Float,
 ) : AlertEffectSpec
 
 /** 全屏着色：形态 + 强度 + 缩放 / 柔化参数。 */

@@ -20,7 +20,7 @@ class BuiltinAlertPresetsTest {
     @Test
     fun `registry size matches the declared count`() {
         assertEquals(BuiltinAlertPresets.Count, presets.size)
-        assertEquals(20, presets.size)
+        assertEquals(30, presets.size)
     }
 
     @Test
@@ -85,6 +85,8 @@ class BuiltinAlertPresetsTest {
         assertTrue(shapes.contains(AlertParticleShape.Line))
         assertTrue(shapes.contains(AlertParticleShape.Square))
         assertTrue(shapes.contains(AlertParticleShape.Star))
+        assertTrue(shapes.contains(AlertParticleShape.Petal))
+        assertTrue(shapes.contains(AlertParticleShape.Snowflake))
     }
 
     private fun AlertHost.matches(kind: AlertKind): Boolean = when (this) {

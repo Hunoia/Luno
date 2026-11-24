@@ -19,6 +19,8 @@ import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.ParticlePath
+import hunoia.luno.config.model.RevealParams
+import hunoia.luno.config.model.RevealPattern
 import hunoia.luno.config.model.ScreenParams
 import hunoia.luno.config.model.ScreenPattern
 import hunoia.luno.config.model.matchesKind
@@ -362,10 +364,159 @@ internal object BuiltinAlertPresets {
                 timing = AlertTiming(baseMillis = 1300),
             ),
         ),
+
+        // ---------------------------------------------------------------- Step 2 新形态
+
+        preset(
+            id = "builtin_edge_ribbon",
+            name = "屏缘缎带",
+            variant = edge(
+                pattern = EdgePattern.Ribbon,
+                bandWidthDp = 22f,
+                trailScale = 3f,
+                trailAlpha = 0.55f,
+                timing = AlertTiming(baseMillis = 1500),
+            ),
+        ),
+        preset(
+            id = "builtin_edge_lightning",
+            name = "屏缘闪电",
+            variant = edge(
+                pattern = EdgePattern.Lightning,
+                bandWidthDp = 8f,
+                strikeCount = 2,
+                timing = AlertTiming(baseMillis = 800),
+            ),
+        ),
+        preset(
+            id = "builtin_ball_spiral",
+            name = "螺旋卷吸",
+            variant = ball(
+                pattern = BallPattern.Spiral,
+                travelPercent = 180,
+                particleCount = 36,
+                particleSizeDp = 3f,
+                ringsPerCycle = 2,
+                timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
+            id = "builtin_ball_orbit",
+            name = "3D 环绕",
+            variant = ball(
+                pattern = BallPattern.Orbit3D,
+                travelPercent = 150,
+                particleCount = 28,
+                particleSizeDp = 3.5f,
+                timing = AlertTiming(baseMillis = 1400),
+            ),
+        ),
+        preset(
+            id = "builtin_capsule_flip",
+            name = "胶囊 3D 翻转",
+            variant = capsule(
+                pattern = CapsulePattern.Flip3D,
+                strokeWidthDp = 1.5f,
+                flipDegrees = 180,
+                timing = AlertTiming(baseMillis = 1100),
+            ),
+        ),
+        preset(
+            id = "builtin_capsule_chase",
+            name = "双色追逐",
+            variant = capsule(
+                pattern = CapsulePattern.DualChase,
+                strokeWidthDp = 1.5f,
+                bandWidthPercent = 22,
+                trailScale = 2f,
+                trailAlpha = 0.4f,
+                timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
+            id = "builtin_particle_petals",
+            name = "花瓣飘落",
+            variant = particle(
+                emitter = ParticleEmitter(
+                    area = ParticleArea.TopEdge,
+                    count = 40,
+                    directionDeg = 90f,
+                    spreadDeg = 50f,
+                    speed = 0.35f,
+                    speedJitter = 0.45f,
+                    delaySpread = 0.8f,
+                ),
+                motion = ParticleMotion(
+                    gravity = 0.5f,
+                    drag = 0.45f,
+                    wind = 0.15f,
+                    sway = 0.5f,
+                    swayCycles = 2f,
+                    spin = 0.6f,
+                ),
+                look = ParticleLook(
+                    shape = AlertParticleShape.Petal,
+                    sizeDp = 6f,
+                    sizeJitter = 0.35f,
+                    alpha = 0.85f,
+                    rotate = true,
+                ),
+                color = AlertColorRef(),
+                timing = AlertTiming(baseMillis = 1500),
+            ),
+        ),
+        preset(
+            id = "builtin_particle_snow",
+            name = "雪花",
+            variant = particle(
+                emitter = ParticleEmitter(
+                    area = ParticleArea.TopEdge,
+                    count = 44,
+                    directionDeg = 90f,
+                    spreadDeg = 40f,
+                    speed = 0.3f,
+                    speedJitter = 0.35f,
+                    delaySpread = 0.9f,
+                ),
+                motion = ParticleMotion(
+                    gravity = 0.35f,
+                    drag = 0.5f,
+                    wind = -0.1f,
+                    sway = 0.35f,
+                    swayCycles = 1.5f,
+                    spin = 0.35f,
+                ),
+                look = ParticleLook(
+                    shape = AlertParticleShape.Snowflake,
+                    sizeDp = 5f,
+                    sizeJitter = 0.4f,
+                    alpha = 0.9f,
+                    halo = 0.25f,
+                ),
+                color = AlertColorRef(),
+                timing = AlertTiming(baseMillis = 1600),
+            ),
+        ),
+        preset(
+            id = "builtin_reveal_text",
+            name = "文字揭示",
+            variant = reveal(
+                pattern = RevealPattern.Text,
+                timing = AlertTiming(baseMillis = 900),
+            ),
+        ),
+        preset(
+            id = "builtin_reveal_icon",
+            name = "图标揭示",
+            variant = reveal(
+                pattern = RevealPattern.Icon,
+                timing = AlertTiming(baseMillis = 800),
+            ),
+        ),
     )
 
     /** 内置总数（门禁测试用）。 */
-    const val Count: Int = 20
+    const val Count: Int = 30
 
     fun find(id: String): AlertPreset? = all.firstOrNull { it.id == id }
 
@@ -390,6 +541,7 @@ internal object BuiltinAlertPresets {
         trailScale: Float = 2f,
         trailAlpha: Float = 0.4f,
         crests: Int = 3,
+        strikeCount: Int = 1,
         timing: AlertTiming,
     ): AlertVariant = AlertVariant(
         host = AlertHost.Edge,
@@ -404,6 +556,7 @@ internal object BuiltinAlertPresets {
             trailScale = trailScale,
             trailAlpha = trailAlpha,
             crests = crests,
+            strikeCount = strikeCount,
         ),
     )
 
@@ -429,6 +582,7 @@ internal object BuiltinAlertPresets {
         centerAtBall: Boolean = true,
         particleCount: Int = 18,
         particleSizeDp: Float = 4f,
+        ringsPerCycle: Int = 1,
         timing: AlertTiming,
     ): AlertVariant = AlertVariant(
         host = AlertHost.Ball,
@@ -443,19 +597,42 @@ internal object BuiltinAlertPresets {
             centerAtBall = centerAtBall,
             particleCount = particleCount,
             particleSizeDp = particleSizeDp,
+            ringsPerCycle = ringsPerCycle,
         ),
     )
 
     private fun capsule(
         pattern: CapsulePattern,
         strokeWidthDp: Float,
+        bandWidthPercent: Int = 25,
+        trailScale: Float = 2f,
+        trailAlpha: Float = 0.4f,
+        flipDegrees: Int = 180,
         timing: AlertTiming,
     ): AlertVariant = AlertVariant(
         host = AlertHost.Capsule,
         kind = AlertKind.Capsule,
         timing = timing,
         color = AlertColorRef(),
-        capsule = CapsuleParams(pattern = pattern, strokeWidthDp = strokeWidthDp),
+        capsule = CapsuleParams(
+            pattern = pattern,
+            strokeWidthDp = strokeWidthDp,
+            bandWidthPercent = bandWidthPercent,
+            trailScale = trailScale,
+            trailAlpha = trailAlpha,
+            flipDegrees = flipDegrees,
+        ),
+    )
+
+    private fun reveal(
+        pattern: RevealPattern,
+        timing: AlertTiming,
+    ): AlertVariant = AlertVariant(
+        host = AlertHost.Stage,
+        kind = AlertKind.Reveal,
+        timing = timing,
+        color = AlertColorRef(),
+        reveal = RevealParams(pattern = pattern),
     )
 
     private fun screen(
