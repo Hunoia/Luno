@@ -38,6 +38,13 @@ internal data class ParticleState(
     val spinDeg: Float,
     val phase: Float,
     val seed: Int,
+    /**
+     * 是否曾经进入过屏幕可视区。
+     *
+     * 底部 / 顶部 / 屏缘的出生点在可视区外（[EdgeMargin]），反弹只对入过屏的粒子生效，
+     * 否则第一帧就被夹回边界并反复反向，速度衰减到 0（底部喷泉曾经因此贴在底边一动不动）。
+     */
+    val entered: Boolean = false,
 ) {
     /** 寿命进度 0..1（延迟期内为负，渲染端自行跳过）。 */
     val progress: Float get() = if (life <= 0f) 1f else (age / life).coerceIn(0f, 1f)
@@ -101,6 +108,7 @@ internal fun spawnParticle(
         spinDeg = 0f,
         phase = random.nextFloat() * TwoPi,
         seed = seed,
+        entered = false,
     )
 }
 
@@ -123,11 +131,14 @@ internal fun advanceParticle(
 
     val path = motion.path
     if (path != null) {
+        // 路径族的行程由「初速 × 寿命」决定：速度旋钮对路径也有意义。
+        val travel = (hypot(state.vx, state.vy) * state.life).coerceIn(0.2f, 2.5f)
         val pos = pathPosition(
             path = path,
             progress = progress,
             start = NormPoint(state.x, state.y),
             direction = directionOf(state),
+            travel = travel,
             aspect = frame.aspect,
         )
         return state.copy(
@@ -135,6 +146,8 @@ internal fun advanceParticle(
             y = pos.y,
             age = age,
             spinDeg = state.spinDeg + motion.spin * SpinDegPerSecond * dt,
+            entered = state.entered || isInside(state.x, state.y, frame.aspect) ||
+                isInside(pos.x, pos.y, frame.aspect),
         )
     }
 
@@ -210,7 +223,11 @@ internal fun advanceParticle(
     y += vy * dt
 
     // 边界反弹：只有显式开启才拦截，否则允许飞出屏幕自然消失。
-    if (motion.bounce > 0f) {
+    // 出生点在屏外的粒子先入屏再参与反弹（否则会被夹在边界上反复反向、速度归零）。
+    // 出生点可能在屏外，也可能一帧就跨过边界（大 dt）：前后两处都要认。
+    val entered = state.entered || isInside(state.x, state.y, frame.aspect) ||
+        isInside(x, y, frame.aspect)
+    if (motion.bounce > 0f && entered) {
         if (x < 0f) {
             x = 0f
             vx = -vx * motion.bounce
@@ -234,24 +251,31 @@ internal fun advanceParticle(
         vy = vy,
         age = age,
         spinDeg = state.spinDeg + motion.spin * SpinDegPerSecond * dt,
+        entered = entered,
     )
 }
 
-/** 路径族：进度 → 位置（解析式，独立于速度积分）。 */
+/**
+ * 路径族：进度 → 位置（解析式，独立于速度积分）。
+ *
+ * [travel] 是整条路径的归一化行程（屏高比例），由初速 × 寿命给出，所以速度旋钮
+ * 对路径同样生效。Sine / ZigZag 只做横向摆动，纵向跟随 [direction] 的符号。
+ */
 internal fun pathPosition(
     path: ParticlePath,
     progress: Float,
     start: NormPoint,
     direction: NormPoint,
+    travel: Float,
     aspect: Float,
 ): NormPoint {
     val u = progress.coerceIn(0f, 1f)
-    val travel = 1.1f
     val lateral = 0.08f * aspect / 2f
+    val dirSign = if (direction.y < -0.01f) -1f else 1f
     return when (path) {
         ParticlePath.Sine -> NormPoint(
             x = start.x + sin(TwoPi * u * 2f) * lateral,
-            y = start.y + u * travel,
+            y = start.y + dirSign * u * travel,
         )
         ParticlePath.ZigZag -> {
             // 三角波：从 0 起、峰值 +lateral、回 0、再 -lateral，端点在中心线上。
@@ -262,7 +286,7 @@ internal fun pathPosition(
             val sign = if (seg.toInt() % 2 == 0) 1f else -1f
             NormPoint(
                 x = start.x + sign * tri * lateral * 0.8f,
-                y = start.y + u * travel,
+                y = start.y + dirSign * u * travel,
             )
         }
         ParticlePath.Arc -> NormPoint(
@@ -300,6 +324,10 @@ internal fun tiltScale(spinDeg: Float, minScale: Float = 0.15f): Float =
     abs(cos(Math.toRadians(spinDeg.toDouble()))).toFloat().coerceAtLeast(minScale)
 
 private const val TwoPi = (Math.PI * 2.0).toFloat()
+
+/** 是否在可视区（x 归一化到 0..aspect，y 0..1）。 */
+private fun isInside(x: Float, y: Float, aspect: Float): Boolean =
+    x >= 0f && x <= aspect && y >= 0f && y <= 1f
 
 private fun directionOf(state: ParticleState): NormPoint {
     val len = max(hypot(state.vx, state.vy), 1e-4f)

@@ -76,7 +76,7 @@ internal object BuiltinAlertPresets {
             name = "屏缘彗星",
             layer = edge(
                 pattern = EdgePattern.Comet,
-                bandWidthDp = 6f,
+                bandWidthDp = 10f,
                 trailScale = 3f,
                 trailAlpha = 0.55f,
                 timing = AlertTiming(baseMillis = 900),
@@ -108,13 +108,14 @@ internal object BuiltinAlertPresets {
             layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.BottomEdge,
-                    count = 46,
+                    count = 48,
                     directionDeg = 270f,
-                    spreadDeg = 22f,
-                    speed = 0.85f,
-                    speedJitter = 0.35f,
+                    spreadDeg = 20f,
+                    speed = 2.2f,
+                    speedJitter = 0.2f,
                 ),
-                motion = ParticleMotion(gravity = 2f, drag = 0.2f, bounce = 0.2f),
+                // 不设 bounce：喷泉落到屏幕外自然淡出；初速 2.2 才抬得起来（0.85 只露 4% 屏高）。
+                motion = ParticleMotion(gravity = 2f, drag = 0.2f),
                 look = ParticleLook(shape = AlertParticleShape.Dot),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1100),
@@ -132,7 +133,8 @@ internal object BuiltinAlertPresets {
                     speed = 1.3f,
                     speedJitter = 0.2f,
                 ),
-                motion = ParticleMotion(gravity = 0.2f, drag = 0.1f, path = ParticlePath.Sine),
+                // 不用 Sine 路径：它固定向下、会把 135° 吃掉；纯弹道才看得出斜落。
+                motion = ParticleMotion(gravity = 0.2f, drag = 0.1f),
                 look = ParticleLook(
                     shape = AlertParticleShape.Line,
                     trailDp = 48f,
@@ -215,7 +217,7 @@ internal object BuiltinAlertPresets {
         ),
         preset(
             id = "builtin_ball_ripple",
-            name = "全屏涟漪",
+            name = "球心涟漪",
             layer = ball(
                 pattern = BallPattern.Ripple,
                 travelPercent = 140,
@@ -344,10 +346,12 @@ internal object BuiltinAlertPresets {
         ),
         preset(
             id = "builtin_path_spiral",
-            name = "螺旋上升",
+            name = "螺旋收束",
             layer = particle(
                 emitter = ParticleEmitter(
-                    area = ParticleArea.Point,
+                    // Point 出生在屏幕正中心一点，spiral 只会把粒子吸成中心一团；
+                    // BallRing 给一圈初始半径，才读得出「收束」。
+                    area = ParticleArea.BallRing,
                     count = 30,
                     directionDeg = 270f,
                     spreadDeg = 60f,
@@ -393,6 +397,26 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
+            id = "builtin_edge_fireworks",
+            name = "屏缘烟花",
+            layer = edge(
+                pattern = EdgePattern.Fireworks,
+                bandWidthDp = 6f,
+                strikeCount = 3,
+                timing = AlertTiming(baseMillis = 1000),
+            ),
+        ),
+        preset(
+            id = "builtin_edge_blade",
+            name = "屏缘双刃",
+            layer = edge(
+                pattern = EdgePattern.Blade,
+                bandWidthDp = 14f,
+                bladeHeightDp = 160,
+                timing = AlertTiming(baseMillis = 1100),
+            ),
+        ),
+        preset(
             id = "builtin_ball_spiral",
             name = "螺旋卷吸",
             layer = ball(
@@ -416,6 +440,16 @@ internal object BuiltinAlertPresets {
             ),
         ),
         preset(
+            id = "builtin_ball_halo",
+            name = "球体光晕",
+            layer = ball(
+                pattern = BallPattern.Halo,
+                travelPercent = 110,
+                haloScale = 1.2f,
+                timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
             id = "builtin_capsule_flip",
             name = "胶囊 3D 翻转",
             layer = capsule(
@@ -435,6 +469,37 @@ internal object BuiltinAlertPresets {
                 trailScale = 2f,
                 trailAlpha = 0.4f,
                 timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
+            id = "builtin_capsule_shimmer",
+            name = "胶囊边框流光",
+            layer = capsule(
+                pattern = CapsulePattern.Shimmer,
+                strokeWidthDp = 2f,
+                bandWidthPercent = 30,
+                trailScale = 2.5f,
+                trailAlpha = 0.5f,
+                timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
+            id = "builtin_capsule_breath",
+            name = "胶囊呼吸描边",
+            layer = capsule(
+                pattern = CapsulePattern.BreathOutline,
+                strokeWidthDp = 2f,
+                timing = AlertTiming(baseMillis = 1200),
+            ),
+        ),
+        preset(
+            id = "builtin_capsule_sweep",
+            name = "胶囊内部扫光",
+            layer = capsule(
+                pattern = CapsulePattern.InnerSweep,
+                strokeWidthDp = 1.5f,
+                bandWidthPercent = 30,
+                timing = AlertTiming(baseMillis = 1100),
             ),
         ),
         preset(
@@ -519,7 +584,7 @@ internal object BuiltinAlertPresets {
     )
 
     /** 内置总数（门禁测试用）。 */
-    const val Count: Int = 30
+    const val Count: Int = 36
 
     fun find(id: String): AlertPreset? = all.firstOrNull { it.id == id }
 
@@ -551,6 +616,7 @@ internal object BuiltinAlertPresets {
         trailAlpha: Float = 0.4f,
         crests: Int = 3,
         strikeCount: Int = 1,
+        bladeHeightDp: Int = 120,
         timing: AlertTiming,
     ): AlertLayer = AlertLayer(
         id = "",
@@ -566,6 +632,7 @@ internal object BuiltinAlertPresets {
             trailAlpha = trailAlpha,
             crests = crests,
             strikeCount = strikeCount,
+            bladeHeightDp = bladeHeightDp,
         ),
     )
 

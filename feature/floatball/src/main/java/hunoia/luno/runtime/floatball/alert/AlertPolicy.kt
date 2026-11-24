@@ -2,6 +2,7 @@ package hunoia.luno.runtime.floatball.alert
 
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleParams
+import hunoia.luno.config.model.RevealDirection
 
 /**
  * 渲染层的样式族（**不落盘**）：只用于渲染分派与种子。
@@ -141,11 +142,12 @@ data class RingSpec(
     val haloScale: Float,
 ) : AlertEffectSpec
 
-/** 全屏涟漪：核描边宽度（dp）、光晕强度、锚点是否通知球心。 */
+/** 球心涟漪：核描边宽度（dp）、光晕强度、锚点是否通知球心、行程（屏高比例 100 = 到最远角）。 */
 data class RippleSpec(
     val strokeWidthDp: Float,
     val haloScale: Float,
     val centerAtBall: Boolean,
+    val travelPercent: Int,
 ) : AlertEffectSpec
 
 /** 胶囊脉冲：辉光宽度（dp）、光晕缩放。 */
@@ -220,10 +222,16 @@ data class EdgeLightningSpec(
     val lineWidthDp: Float,
 ) : AlertEffectSpec
 
-/** 屏缘彗星：亮头 + 渐细拖尾的长条光带（不再用流光参数近似）。 */
+/**
+ * 屏缘彗星：亮头 + 渐细拖尾的长条光带（不再用流光参数近似）。
+ *
+ * [tailFraction] 是拖尾占屏缘周长的比例（不是 dp）：换成 dp 后尾巴长度会随分辨率
+ * 变化，在手机上只剩几个采样点、看起来只有头没有尾。
+ */
 data class EdgeCometSpec(
     val headWidthDp: Float,
-    val tailLengthDp: Float,
+    val tailFraction: Float,
+    val tailAlpha: Float,
     val cornerRadiusDp: Int,
 ) : AlertEffectSpec
 
@@ -263,7 +271,7 @@ data class DualChaseSpec(
     val trailAlpha: Float,
 ) : AlertEffectSpec
 
-/** 揭示：文字 / 图标、错峰、缩放与遮罩方向；内容来自播放请求。 */
+/** 揭示：文字 / 图标、错峰、缩放与揭示顺序（方向）；内容来自播放请求。 */
 data class RevealSpec(
     val pattern: RevealAlertStyle,
     val title: String,
@@ -271,6 +279,7 @@ data class RevealSpec(
     val iconPackage: String?,
     val staggerPercent: Int,
     val scaleFrom: Float,
+    val direction: RevealDirection,
 ) : AlertEffectSpec
 
 /** 全屏着色：形态 + 强度 + 缩放 / 柔化参数。 */
@@ -339,7 +348,7 @@ data class AlertPlayPlan(
 }
 
 /**
- * 是否播放：黑名单 + 场景抑制，全部通过才播（没有总开关，五槽全关时计划为空）。
+ * 是否播放：黑名单 + 场景抑制，全部通过才播（总开关关闭 / 未选预设时计划为空）。
  * [packageName] 是本次到达通知的来源包（试播等无来源场景传 null，不参与黑名单判定）。
  */
 fun shouldPlay(

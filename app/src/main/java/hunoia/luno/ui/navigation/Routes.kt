@@ -201,10 +201,10 @@ data object FloatBallNotificationCapsule
 @Serializable
 data object FloatBallResultCapsule
 
-/** 到达提示·预设选择页（单选内置素材 + 我的组合）。 */
+/** 到达提示·动效设置页（开关 / 单选预设 / 强度速度 / 行为）。 */
 @Keep
 @Serializable
-data object FloatBallAlertPresetPicker
+data object FloatBallAlert
 
 /** 到达提示·预设库（设置页根目录独立入口）：素材 / 组合 / 导入导出。 */
 @Keep

@@ -79,10 +79,11 @@ object AlertLimits {
     const val MaxScreenLayers = 1
     const val MaxRevealLayers = 1
 
-    /** 跨层共享的粒子总预算；按各层请求量比例分配（不是每层 600）。 */
+    /** 跨层共享的粒子总预算；按层顺序分配，按 `count × waves` 计（不是每层 600）。 */
     const val ParticleBudget = 600
 
-    const val IntensityMin = 0
+    /** UI 下限取 50：0 会让效果完全不可见（外部请求仍可用 0..2 的倍率）。 */
+    const val IntensityMin = 50
     const val IntensityMax = 200
     const val SpeedMin = 25
     const val SpeedMax = 400
@@ -528,7 +529,7 @@ data class ScreenParams(
 @Keep
 enum class RevealPattern { Text, Icon }
 
-/** 揭示参数：错峰、缩放、遮罩方向；内容由播放请求的 payload 提供。 */
+/** 揭示参数：错峰、缩放、揭示方向（字符出现次序与标题/正文先后）；内容由播放请求提供。 */
 @Serializable
 @Keep
 data class RevealParams(
@@ -538,7 +539,10 @@ data class RevealParams(
     val maskDirection: RevealDirection = RevealDirection.LeftToRight,
 )
 
-/** 揭示遮罩方向。 */
+/**
+ * 揭示方向：[LeftToRight] / [RightToLeft] 决定逐字出现次序，
+ * [TopToBottom] / [BottomToTop] 决定标题与正文谁先出现。
+ */
 @Serializable
 @Keep
 enum class RevealDirection { LeftToRight, RightToLeft, TopToBottom, BottomToTop }

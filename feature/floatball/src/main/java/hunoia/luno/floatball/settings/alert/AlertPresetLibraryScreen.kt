@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,29 +23,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibraryExport
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.ListAddFab
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MarkColorSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 到达提示·预设库（设置页根目录独立入口）：内置单层素材 + 我的组合。
+ * 到达提示·预设库（设置根目录的总管理入口）。
  *
- * - 内置只读，点一下复制成用户预设再编辑（快照口径）；
- * - 我的预设可编辑 / 删除；
- * - 导出 / 导入只作用于「预设 + 调色板」，合并导入，不冲掉现有素材。
+ * - 我的预设：点行编辑；删除在预设编辑页的顶栏菜单里。
+ * - 内置素材：只读，点一下复制成用户预设再编辑（快照口径）；36 个默认收起。
+ * - 导入 / 导出收进顶栏菜单；新建走右下 FAB。
  */
 @Composable
 fun AlertPresetLibraryScreen(
@@ -54,15 +58,54 @@ fun AlertPresetLibraryScreen(
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val facades = LocalFacades.current
-    var deleting by remember { mutableStateOf<AlertPreset?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var builtinExpanded by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     val library = editor.library
+    var categoryFilter by remember { mutableStateOf<AlertLayerCategory?>(null) }
     val mine = library.userPresets()
+        .filter { categoryFilter == null || categoryFilter in it.categories() }
     val builtin = library.pickerPresets().filter { it.builtin }
+        .filter { categoryFilter == null || categoryFilter in it.categories() }
 
     fun toast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    fun createPreset() {
+        if (busy) return
+        busy = true
+        val name = uniquePresetName(
+            context.getString(R.string.float_ball_preset_default_name),
+            library.presets.map { it.name },
+        )
+        val preset = newUserPreset(name)
+        scope.launch {
+            editor.commitLibrary { it.copy(presets = it.presets + preset) }
+            busy = false
+            onEditPreset(preset.id)
+        }
+    }
+
+    fun copyAndEdit(preset: AlertPreset) {
+        if (busy) return
+        busy = true
+        val copied = preset.asUserCopy().let { copy ->
+            copy.copy(
+                name = uniquePresetName(
+                    context.getString(
+                        R.string.float_ball_preset_copy_name,
+                        preset.displayNameString(context),
+                    ),
+                    library.presets.map { it.name },
+                ),
+            )
+        }
+        scope.launch {
+            editor.commitLibrary { it.copy(presets = it.presets + copied) }
+            busy = false
+            onEditPreset(copied.id)
+        }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -124,167 +167,123 @@ fun AlertPresetLibraryScreen(
     LunoScreenLazy(
         title = stringResource(R.string.float_ball_preset_library_title),
         onBack = onBack,
-        dialogs = {
-            deleting?.let { preset ->
-                ConfirmDialog(
-                    title = stringResource(R.string.float_ball_preset_delete_confirm_title),
-                    text = stringResource(R.string.float_ball_preset_delete_confirm_text, preset.displayNameString(context)),
-                    destructive = true,
-                    onDismissRequest = { deleting = null },
-                    onConfirm = {
-                        deleting = null
-                        scope.launch {
-                            editor.commitLibrary { lib ->
-                                lib.copy(presets = lib.presets.filterNot { it.id == preset.id })
-                            }
-                            // 正在使用的预设被删：把选择清掉，避免设置页显示「已失效」。
-                            if (editor.alert.presetId == preset.id) {
-                                editor.commitAlert { it.copy(presetId = null) }
-                            }
-                        }
+        bottomContentPadding = FloatingContentBottom,
+        floatingContent = {
+            ListAddFab(
+                onClick = ::createPreset,
+                contentDescription = stringResource(R.string.float_ball_preset_new),
+            )
+        },
+        actions = {
+            PressIconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.float_ball_alert_more),
+                )
+            }
+            LunoDropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_preset_export),
+                    leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+                    enabled = !busy,
+                    onClick = {
+                        menuOpen = false
+                        exportLauncher.launch(
+                            "luno-alert-effects-${System.currentTimeMillis()}.json",
+                        )
+                    },
+                )
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_preset_import),
+                    leadingIcon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
+                    enabled = !busy,
+                    onClick = {
+                        menuOpen = false
+                        // 部分文件管理器把 .json 报成 octet-stream，只认 json 会选不到文件。
+                        importLauncher.launch(
+                            arrayOf(
+                                "application/json",
+                                "text/plain",
+                                "application/octet-stream",
+                            ),
+                        )
                     },
                 )
             }
         },
     ) {
-        item(key = "actions") {
-            LunoGroup(subtitle = stringResource(R.string.float_ball_preset_library_hint)) {
-                val rows = segmentedRows {
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_preset_new),
-                            subtitle = stringResource(R.string.float_ball_preset_new_subtitle),
-                            icon = Icons.Default.Add,
-                            shape = shape,
-                            enabled = !busy,
-                            onClick = {
-                                if (busy) return@LunoSettingsRow
-                                busy = true
-                                val name = uniquePresetName(
-                                    context.getString(R.string.float_ball_preset_default_name),
-                                    library.presets.map { it.name },
-                                )
-                                val preset = newUserPreset(name)
-                                scope.launch {
-                                    editor.commitLibrary { it.copy(presets = it.presets + preset) }
-                                    busy = false
-                                    onEditPreset(preset.id)
-                                }
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_preset_export),
-                            subtitle = stringResource(R.string.float_ball_preset_export_subtitle),
-                            shape = shape,
-                            enabled = !busy,
-                            onClick = {
-                                exportLauncher.launch(
-                                    "luno-alert-effects-${System.currentTimeMillis()}.json",
-                                )
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_preset_import),
-                            subtitle = stringResource(R.string.float_ball_preset_import_subtitle),
-                            shape = shape,
-                            enabled = !busy,
-                            onClick = { importLauncher.launch(arrayOf("application/json")) },
-                        )
-                    }
-                }
-                SegmentedRows(rows)
-            }
+        item(key = "filter") {
+            AlertCategoryFilter(
+                selected = categoryFilter,
+                onSelect = { categoryFilter = it },
+            )
         }
-        item(key = "mine") {
-            LunoGroup(
-                title = stringResource(R.string.float_ball_preset_group_mine),
-                subtitle = stringResource(R.string.float_ball_preset_group_mine_hint),
-            ) {
-                val rows = segmentedRows {
-                    if (mine.isEmpty()) {
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_preset_empty),
-                                subtitle = stringResource(R.string.float_ball_preset_empty_hint),
-                                shape = shape,
-                            )
+        if (mine.isNotEmpty() || library.userPresets().isEmpty()) {
+            item(key = "mine") {
+                LunoGroup(
+                    title = stringResource(R.string.float_ball_preset_group_mine),
+                    subtitle = stringResource(R.string.float_ball_preset_group_mine_hint),
+                    badgeText = "${mine.size}",
+                ) {
+                    val rows = segmentedRows {
+                        if (mine.isEmpty()) {
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.float_ball_preset_empty),
+                                    subtitle = stringResource(R.string.float_ball_preset_empty_hint),
+                                    shape = shape,
+                                )
+                            }
+                        }
+                        mine.forEach { preset ->
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = preset.displayName(),
+                                    subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
+                                    shape = shape,
+                                    leading = { PresetSwatch(library.swatchFor(preset)) },
+                                    enabled = !busy,
+                                    onClick = { onEditPreset(preset.id) },
+                                )
+                            }
                         }
                     }
-                    mine.forEach { preset ->
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = preset.displayName(),
-                                subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
-                                shape = shape,
-                                leading = { PresetSwatch(library.swatchFor(preset)) },
-                                trailing = {
-                                    LunoIconButton(
-                                        icon = Icons.Default.Delete,
-                                        contentDescription = stringResource(R.string.float_ball_preset_delete),
-                                        onClick = { deleting = preset },
-                                    )
-                                },
-                                onClick = { onEditPreset(preset.id) },
-                            )
-                        }
-                    }
+                    SegmentedRows(rows)
                 }
-                SegmentedRows(rows)
             }
         }
         item(key = "builtin") {
             LunoGroup(
                 title = stringResource(R.string.float_ball_preset_group_builtin),
                 subtitle = stringResource(R.string.float_ball_preset_group_builtin_edit_hint),
+                badgeText = "${builtin.size}",
+                collapsible = true,
+                expanded = builtinExpanded,
+                onToggle = { builtinExpanded = !builtinExpanded },
             ) {
-                val rows = segmentedRows {
-                    builtin.forEach { preset ->
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = preset.displayName(),
-                                subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
-                                shape = shape,
-                                leading = { PresetSwatch(library.swatchFor(preset)) },
-                                trailing = {
-                                    LunoIconButton(
-                                        icon = Icons.Default.PlayArrow,
-                                        contentDescription = stringResource(R.string.float_ball_preset_preview),
-                                        onClick = { facades.system.previewFloatBallAlertPreset(context, preset) },
-                                    )
-                                },
-                                onClick = {
-                                    if (busy) return@LunoSettingsRow
-                                    busy = true
-                                    val copy = preset.asUserCopy().let { copied ->
-                                        val name = uniquePresetName(
-                                            context.getString(
-                                                R.string.float_ball_preset_copy_name,
-                                                preset.displayNameString(context),
-                                            ),
-                                            library.presets.map { it.name },
-                                        )
-                                        copied.copy(name = name)
-                                    }
-                                    scope.launch {
-                                        editor.commitLibrary { it.copy(presets = it.presets + copy) }
-                                        busy = false
-                                        onEditPreset(copy.id)
-                                    }
-                                },
-                            )
+                if (builtinExpanded) {
+                    val rows = segmentedRows {
+                        builtin.forEach { preset ->
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = preset.displayName(),
+                                    subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
+                                    shape = shape,
+                                    leading = { PresetSwatch(library.swatchFor(preset)) },
+                                    enabled = !busy,
+                                    onClick = { copyAndEdit(preset) },
+                                )
+                            }
                         }
                     }
+                    SegmentedRows(rows)
                 }
-                SegmentedRows(rows)
             }
         }
     }
-
-
 }
 
 /** 预设卡片左侧的小色块（调色板首色）；没有颜色时用主题主色。 */
@@ -312,10 +311,4 @@ private fun hunoia.luno.config.model.AlertLibrary.swatchFor(
 internal fun AlertPreset.categorySummary(): String {
     val parts = categories().map { stringResource(it.titleRes()) }
     return parts.joinToString(" · ")
-}
-
-/** 非 Composable 场景（Toast / 对话框）里的展示名：内置走系统语言资源，用户预设用自身名称。 */
-internal fun AlertPreset.displayNameString(context: android.content.Context): String {
-    val res = builtinPresetNameRes(id)
-    return if (res != null) context.getString(res) else name.ifBlank { id }
 }

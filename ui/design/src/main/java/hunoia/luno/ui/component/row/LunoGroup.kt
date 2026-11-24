@@ -1,6 +1,20 @@
 package hunoia.luno.ui.component.row
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.rotate
+import hunoia.luno.ui.theme.MotionSubtle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -200,6 +214,9 @@ fun selectedSegmentedCorners(
  * [LunoGroupItem] / 行组件顶部的缩进分割线分隔。
  * 标题下第一项不是等高容器（如裸输入框）时，可传小一点的 [titleBottomSpacing]
  * 让视觉间距与其他组一致。
+ *
+ * [collapsible] 打开后组头整行可点，行尾箭头按 [MotionSubtle] 旋转，收起时内容不占高；
+ * 默认关闭，未声明的页面行为不变。
  */
 @Composable
 fun LunoGroup(
@@ -212,8 +229,16 @@ fun LunoGroup(
     badgeError: Boolean = false,
     /** 组头标题右侧的动作槽（如「+」按钮）。空组 / 无标题时不渲染。 */
     titleTrailing: @Composable () -> Unit = {},
+    collapsible: Boolean = false,
+    expanded: Boolean = true,
+    onToggle: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (collapsible && !expanded) 0f else if (collapsible) 180f else 0f,
+        animationSpec = tween(MotionSubtle),
+        label = "groupChevron",
+    )
     Column(modifier = modifier.fillMaxWidth()) {
         if (title.isNotEmpty()) {
             Row(
@@ -224,7 +249,8 @@ fun LunoGroup(
                         top = CardInnerSpacing,
                         bottom = titleBottomSpacing,
                     )
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .clickable(enabled = collapsible) { onToggle() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -237,6 +263,14 @@ fun LunoGroup(
                     SectionBadge(text = badgeText, error = badgeError)
                 }
                 titleTrailing()
+                if (collapsible) {
+                    Icon(
+                        imageVector = Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.rotate(chevronRotation),
+                    )
+                }
             }
         }
         if (subtitle.isNotEmpty()) {
@@ -247,22 +281,28 @@ fun LunoGroup(
                 modifier = Modifier.padding(GroupSubtitlePadding),
             )
         }
-        // 大卡分割线风格：整组一张大圆角卡片，行间由行组件顶部画分割线
-        // （LocalInDividedCard 让行忽略自身 shape/底色，由卡片统一托底）。
-        if (LocalListStyle.current == ListStyle.CardDivided) {
-            CompositionLocalProvider(LocalInDividedCard provides true) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(containerShape(ContainerRadius))
-                        .background(MaterialTheme.colorScheme.surfaceBright),
-                ) {
+        AnimatedVisibility(
+            visible = !collapsible || expanded,
+            enter = fadeIn(tween(MotionSubtle)) + expandVertically(tween(MotionSubtle)),
+            exit = fadeOut(tween(MotionSubtle)) + shrinkVertically(tween(MotionSubtle)),
+        ) {
+            // 大卡分割线风格：整组一张大圆角卡片，行间由行组件顶部画分割线
+            // （LocalInDividedCard 让行忽略自身 shape/底色，由卡片统一托底）。
+            if (LocalListStyle.current == ListStyle.CardDivided) {
+                CompositionLocalProvider(LocalInDividedCard provides true) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(containerShape(ContainerRadius))
+                            .background(MaterialTheme.colorScheme.surfaceBright),
+                    ) {
+                        content()
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(contentSpacing)) {
                     content()
                 }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(contentSpacing)) {
-                content()
             }
         }
     }

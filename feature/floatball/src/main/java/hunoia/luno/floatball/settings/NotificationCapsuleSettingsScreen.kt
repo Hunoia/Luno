@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,13 +31,11 @@ import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.floatball.settings.alert.AlertKnobSlider
 import hunoia.luno.floatball.settings.alert.displayName
 import hunoia.luno.floatball.settings.alert.selectedPreset
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -59,7 +55,7 @@ import kotlinx.coroutines.launch
 fun NotificationCapsuleSettingsScreen(
     onBack: () -> Unit,
     onNavToNotificationBlocklist: () -> Unit = {},
-    onNavToAlertPicker: () -> Unit = {},
+    onNavToAlert: () -> Unit = {},
     onNavToAlertBlocklist: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
@@ -552,111 +548,34 @@ fun NotificationCapsuleSettingsScreen(
             }
         }
 
-        // 到达提示动效（v4）：总开关 + 单选预设 + 全局强度 / 速度；组合层在预设里编辑。
+        // 到达提示动效：这里只留入口（开关 / 预设 / 全局旋钮在独立页）。
         if (capsule.enabled) {
             item(key = "alert") {
-                val alert = alertState
-                val selected = alert.selectedPreset(capsule.alertLibrary)
-                LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
-                    LunoSegmentedGroup {
-                        item { shape ->
-                            LunoSwitchRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_enabled),
-                                subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
-                                checked = alert.enabled,
-                                onCheckedChange = { checked ->
-                                    updateAlert { it.copy(enabled = checked) }
-                                },
-                                shape = shape,
-                            )
-                        }
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_alert_preset),
-                                subtitle = when {
-                                    selected != null -> selected.displayName()
-                                    alert.presetId == null ->
-                                        stringResource(R.string.float_ball_alert_preset_none)
-                                    else -> stringResource(R.string.float_ball_alert_preset_missing)
-                                },
-                                shape = shape,
-                                onClick = onNavToAlertPicker,
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_alert_intensity),
-                                value = alert.intensityPercent,
-                                range = AlertIntensityRange,
-                                display = { "${it.toInt()}%" },
-                                shape = shape,
-                                onCommit = { value ->
-                                    updateAlert { it.copy(intensityPercent = value) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            AlertKnobSlider(
-                                label = stringResource(R.string.float_ball_alert_speed),
-                                value = alert.speedPercent,
-                                range = AlertSpeedRange,
-                                display = { "${it.toInt()}%" },
-                                shape = shape,
-                                onCommit = { value ->
-                                    updateAlert { it.copy(speedPercent = value) }
-                                },
-                            )
-                        }
-                        item { shape ->
-                            LunoSwitchRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_play_every),
-                                subtitle = stringResource(R.string.float_ball_capsule_alert_play_every_subtitle),
-                                checked = alert.playOnEveryNotification,
-                                onCheckedChange = { checked ->
-                                    updateAlert { it.copy(playOnEveryNotification = checked) }
-                                },
-                                shape = shape,
-                            )
-                        }
-                        item { shape ->
-                            LunoSwitchRow(
-                                title = stringResource(R.string.float_ball_alert_read_text),
-                                subtitle = stringResource(R.string.float_ball_alert_read_text_subtitle),
-                                checked = alert.readNotificationText,
-                                onCheckedChange = { checked ->
-                                    updateAlert { it.copy(readNotificationText = checked) }
-                                },
-                                shape = shape,
-                            )
-                        }
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_blocklist),
-                                icon = Icons.Default.Block,
-                                subtitle = stringResource(
-                                    R.string.float_ball_capsule_alert_blocklist_count,
-                                    alert.appBlocklist.size,
-                                ),
-                                shape = shape,
-                                onClick = onNavToAlertBlocklist,
-                            )
-                        }
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_preview_all),
-                                subtitle = stringResource(R.string.float_ball_alert_preview_all_subtitle),
-                                icon = Icons.Default.PlayArrow,
-                                shape = shape,
-                                onClick = { facades.system.previewFloatBallAlert(context) },
-                            )
-                        }
-                    }
+                val selected = alertState.selectedPreset(capsule.alertLibrary)
+                LunoGroup {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_group),
+                        subtitle = when {
+                            !alertState.enabled ->
+                                stringResource(R.string.float_ball_alert_summary_off)
+                            selected != null -> selected.displayName()
+                            alertState.presetId == null ->
+                                stringResource(R.string.float_ball_alert_preset_none)
+                            else -> stringResource(R.string.float_ball_alert_preset_missing)
+                        },
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToAlert,
+                    )
                 }
             }
         }
     }
 }
 
-/** 到达提示全局强度 / 速度滑杆（强度 0 会让效果不可见，下限取 50）。 */
-private val AlertIntensityRange = 50..200
-private val AlertSpeedRange = 25..400
+/** 到达提示全局强度 / 速度滑杆（范围由 [AlertLimits] 统一给出）。 */
+private val AlertIntensityRange =
+    hunoia.luno.config.model.AlertLimits.IntensityMin..
+        hunoia.luno.config.model.AlertLimits.IntensityMax
+private val AlertSpeedRange =
+    hunoia.luno.config.model.AlertLimits.SpeedMin..
+        hunoia.luno.config.model.AlertLimits.SpeedMax

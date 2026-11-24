@@ -82,7 +82,7 @@ import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
 import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
-import hunoia.luno.ui.navigation.FloatBallAlertPresetPicker
+import hunoia.luno.ui.navigation.FloatBallAlert
 import hunoia.luno.ui.navigation.FloatBallAlertPresetLibrary
 import hunoia.luno.ui.navigation.FloatBallAlertPresetEditor
 import hunoia.luno.ui.navigation.FloatBallAlertLayerEditor
@@ -99,7 +99,7 @@ import hunoia.luno.floatball.settings.alert.AlertPresetLibraryScreen
 import hunoia.luno.floatball.settings.alert.AlertPresetEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerEditorScreen
 import hunoia.luno.floatball.settings.alert.AlertLayerAddScreen
-import hunoia.luno.floatball.settings.alert.AlertPresetPickerScreen
+import hunoia.luno.floatball.settings.alert.AlertSettingsScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteManagerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteEditScreen
 import hunoia.luno.floatball.settings.ResultCapsuleSettingsScreen
@@ -520,15 +520,15 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     NotificationCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
-                        onNavToAlertPicker = { navController.navigate(FloatBallAlertPresetPicker) },
+                        onNavToAlert = { navController.navigate(FloatBallAlert) },
                         onNavToAlertBlocklist = { navController.navigate(FloatBallAlertBlocklist) },
                     )
                 }
-                myComposable<FloatBallAlertPresetPicker> {
-                    AlertPresetPickerScreen(
+                myComposable<FloatBallAlert> {
+                    AlertSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToPresetLibrary = {
-                            navController.navigate(FloatBallAlertPresetLibrary)
+                        onNavToAlertBlocklist = {
+                            navController.navigate(FloatBallAlertBlocklist)
                         },
                     )
                 }

@@ -24,7 +24,7 @@ class BuiltinAlertPresetsTest {
     @Test
     fun `registry size matches the declared count`() {
         assertEquals(BuiltinAlertPresets.Count, presets.size)
-        assertEquals(30, presets.size)
+        assertEquals(36, presets.size)
     }
 
     @Test
@@ -100,13 +100,27 @@ class BuiltinAlertPresetsTest {
     fun `named forms map to distinct patterns`() {
         val edge = presets.filter { it.layers.single().kind == AlertKind.Edge }
             .map { it.layers.single().edge!!.pattern }
-        assertEquals(6, edge.toSet().size)
-        assertTrue(edge.contains(hunoia.luno.config.model.EdgePattern.Ribbon))
-        assertTrue(edge.contains(hunoia.luno.config.model.EdgePattern.Lightning))
+        assertEquals(8, edge.toSet().size)
         val ball = presets.filter { it.layers.single().kind == AlertKind.Ball }
             .map { it.layers.single().ball!!.pattern }
         assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Shockwave))
         assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Spiral))
         assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Orbit3D))
+        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Halo))
+        val capsule = presets.filter { it.layers.single().kind == AlertKind.Capsule }
+            .map { it.layers.single().capsule!!.pattern }
+        assertEquals(6, capsule.toSet().size)
+    }
+
+    @Test
+    fun `builtin materials cover every renderable shape`() {
+        val patterns = layers.mapNotNull { it.edge?.pattern }.toSet()
+        assertEquals(hunoia.luno.config.model.EdgePattern.entries.toSet(), patterns)
+        val ballPatterns = layers.mapNotNull { it.ball?.pattern }.toSet()
+        assertEquals(hunoia.luno.config.model.BallPattern.entries.toSet(), ballPatterns)
+        val capsulePatterns = layers.mapNotNull { it.capsule?.pattern }.toSet()
+        assertEquals(hunoia.luno.config.model.CapsulePattern.entries.toSet(), capsulePatterns)
+        val screenPatterns = layers.mapNotNull { it.screen?.pattern }.toSet()
+        assertEquals(hunoia.luno.config.model.ScreenPattern.entries.toSet(), screenPatterns)
     }
 }

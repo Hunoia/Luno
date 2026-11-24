@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertLayer
-import hunoia.luno.config.model.AlertLimit
 import hunoia.luno.config.model.category
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoGroup
@@ -62,7 +61,8 @@ fun AlertLayerAddScreen(
         item(key = "blank") {
             LunoGroup(subtitle = stringResource(R.string.float_ball_layer_add_blank_hint)) {
                 val rows = segmentedRows {
-                    AlertKind.entries.forEach { kind ->
+                    // 按类别顺序列（Ball 与 Capsule 同属球体类，放一起）。
+                    AlertKindOrder.forEach { kind ->
                         item { shape ->
                             val blocked = current.addBlockedBy(kind)
                             LunoSettingsRow(
@@ -92,7 +92,8 @@ fun AlertLayerAddScreen(
                             LunoSettingsRow(
                                 title = builtin.displayName(),
                                 subtitle = blocked?.let { context.getString(it.reasonRes()) }
-                                    ?: stringResource(layer.kind.category.titleRes()),
+                                    ?: (layer.patternLabel()
+                                        ?: stringResource(layer.kind.category.titleRes())),
                                 shape = shape,
                                 enabled = blocked == null,
                                 onClick = {
@@ -115,6 +116,16 @@ fun AlertLayerAddScreen(
     }
 }
 
+/** 添加层的排列顺序（按类别，球体与胶囊相邻）。 */
+private val AlertKindOrder = listOf(
+    AlertKind.Edge,
+    AlertKind.Particle,
+    AlertKind.Ball,
+    AlertKind.Capsule,
+    AlertKind.Screen,
+    AlertKind.Reveal,
+)
+
 /** 类别 → 层参数说明（空白层的副标题），按 kind 给出「它会画在哪」。 */
 private fun kindHint(kind: AlertKind): Int = when (kind) {
     AlertKind.Edge -> R.string.float_ball_layer_hint_edge
@@ -125,18 +136,13 @@ private fun kindHint(kind: AlertKind): Int = when (kind) {
     AlertKind.Reveal -> R.string.float_ball_layer_hint_reveal
 }
 
-/** 类别的中文名（拼进「添加 X 层」标题）。 */
+/** 单个形态的短名（拼进「添加空白 X 层」标题）；球体 / 胶囊不能用合并后的类别名。 */
 @Composable
-private fun kindLabel(kind: AlertKind): Int = kind.category.titleRes()
-
-/** 上限原因 → 提示文案。 */
-private fun AlertLimit.reasonRes(): Int = when (this) {
-    AlertLimit.TooManyEnabledLayers -> R.string.float_ball_preset_limit_layers
-    AlertLimit.TooManyStoredLayers -> R.string.float_ball_preset_limit_stored
-    AlertLimit.TooManyInCategory -> R.string.float_ball_preset_limit_category
-    AlertLimit.TooManyCapsuleLayers -> R.string.float_ball_preset_limit_capsule
-    AlertLimit.TooManyScreenLayers -> R.string.float_ball_preset_limit_screen
-    AlertLimit.TooManyRevealLayers -> R.string.float_ball_preset_limit_reveal
-    AlertLimit.EmptyPreset -> R.string.float_ball_preset_no_layer
-    AlertLimit.MissingParams -> R.string.float_ball_preset_limit_params
+private fun kindLabel(kind: AlertKind): Int = when (kind) {
+    AlertKind.Edge -> R.string.float_ball_layer_kind_edge
+    AlertKind.Particle -> R.string.float_ball_layer_kind_particle
+    AlertKind.Ball -> R.string.float_ball_layer_kind_ball
+    AlertKind.Capsule -> R.string.float_ball_layer_kind_capsule
+    AlertKind.Screen -> R.string.float_ball_layer_kind_screen
+    AlertKind.Reveal -> R.string.float_ball_layer_kind_reveal
 }

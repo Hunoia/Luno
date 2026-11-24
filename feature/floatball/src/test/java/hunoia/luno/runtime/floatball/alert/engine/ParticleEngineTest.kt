@@ -100,12 +100,42 @@ class ParticleEngineTest {
         val dir = NormPoint(0f, 1f)
         listOf(ParticlePath.Bezier, ParticlePath.Arc, ParticlePath.Sine, ParticlePath.ZigZag)
             .forEach { path ->
-                val begin = pathPosition(path, 0f, start, dir, frame.aspect)
+                val begin = pathPosition(path, 0f, start, dir, travel = 0.6f, aspect = frame.aspect)
                 assertEquals("$path 起点 x", start.x, begin.x, 0.001f)
                 assertEquals("$path 起点 y", start.y, begin.y, 0.001f)
-                val end = pathPosition(path, 1f, start, dir, frame.aspect)
+                val end = pathPosition(path, 1f, start, dir, travel = 0.6f, aspect = frame.aspect)
                 assertTrue("$path 终点应向下移动", end.y > start.y)
             }
+    }
+
+    @Test
+    fun `path travel follows speed so the speed knob is not dead`() {
+        val start = NormPoint(0.2f, 0.1f)
+        val dir = NormPoint(0f, 1f)
+        val slow = pathPosition(ParticlePath.Sine, 1f, start, dir, travel = 0.3f, aspect = 0.5f)
+        val fast = pathPosition(ParticlePath.Sine, 1f, start, dir, travel = 0.9f, aspect = 0.5f)
+        assertEquals(start.y + 0.3f, slow.y, 0.001f)
+        assertEquals(start.y + 0.9f, fast.y, 0.001f)
+    }
+
+    @Test
+    fun `path direction flips vertical travel for sine`() {
+        val start = NormPoint(0.2f, 0.5f)
+        val down = pathPosition(ParticlePath.Sine, 1f, start, NormPoint(0f, 1f), 0.4f, 0.5f)
+        val up = pathPosition(ParticlePath.Sine, 1f, start, NormPoint(0f, -1f), 0.4f, 0.5f)
+        assertTrue("向下路径向下", down.y > start.y)
+        assertTrue("向上路径向上", up.y < start.y)
+    }
+
+    @Test
+    fun `bounce does not trap particles spawned below the screen`() {
+        // 底部喷泉回归：出生点 y = 1.06（屏外）+ bounce 不能把粒子钉在底边。
+        var s = state(0.25f, 1.06f, vy = -2.2f)
+        val motion = ParticleMotion(gravity = 2f, drag = 0.2f, sway = 0f, bounce = 0.2f)
+        repeat(24) { s = advanceParticle(s, 1f / 60f, motion, frame, anchor) }
+        assertTrue("应抬进屏幕", s.y < 1f)
+        assertTrue("仍在向上", s.vy < 0f)
+        assertTrue("不应被夹在底边", s.y < 0.98f)
     }
 
     @Test

@@ -325,7 +325,7 @@ data class NotificationAlertSettings(
     val enabled: Boolean = false,
     /** 当前选中的预设（内置或素材库）；null = 未选，不播。 */
     val presetId: String? = null,
-    /** 全局强度（0–200）：只乘 alpha，不改尺寸 / 粒子数。 */
+    /** 全局强度（50–200，UI 下限）：只乘 alpha，不改尺寸 / 粒子数。 */
     val intensityPercent: Int = 100,
     /** 全局速度（25–400）：只缩放单循环与总时长，不改层数 / 粒子数。 */
     val speedPercent: Int = 100,

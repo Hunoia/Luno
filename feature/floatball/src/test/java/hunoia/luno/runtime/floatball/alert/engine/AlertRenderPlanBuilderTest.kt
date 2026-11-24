@@ -201,6 +201,34 @@ class AlertRenderPlanBuilderTest {
     }
 
     @Test
+    fun `particle budget counts waves not just per-spawn count`() {
+        // 渲染端每波都会再乘一份 count，预算必须按 count × waves 算，否则实际粒子数翻倍。
+        val preset = AlertPreset(
+            id = "p",
+            name = "P",
+            layers = listOf(
+                AlertLayer(
+                    id = "a",
+                    kind = AlertKind.Particle,
+                    particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
+                ),
+                AlertLayer(
+                    id = "b",
+                    kind = AlertKind.Particle,
+                    particle = ParticleParams(emitter = ParticleEmitter(count = 300, waves = 2)),
+                ),
+            ),
+        )
+        val plan = AlertRenderPlanBuilder.build(
+            preset = preset,
+            presetId = preset.id,
+            paletteFor = { null },
+        )
+        assertEquals(1, plan.layers.size)
+        assertEquals(300, plan.layers.single().particle?.emitter?.count)
+    }
+
+    @Test
     fun `layer speed percent divides its own cycle`() {
         val preset = AlertPreset(
             id = "p",

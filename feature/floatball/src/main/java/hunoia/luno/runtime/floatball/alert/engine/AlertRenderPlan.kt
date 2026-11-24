@@ -110,7 +110,10 @@ object AlertRenderPlanBuilder {
         val globalIntensity = intensityScale.coerceIn(0f, 2f)
         val rendered = preset.renderableLayers().mapNotNull { layer ->
             val tier = tierForKind(layer.kind).coerceAtLeast(0.01f)
-            val layerSpeed = layer.timing.speedPercent.coerceIn(10, 300) / 100f
+            val layerSpeed = layer.timing.speedPercent.coerceIn(
+                AlertLimits.SpeedMin,
+                300,
+            ) / 100f
             val effective = globalSpeed * layerSpeed
             val cycle = (layer.timing.baseMillis * tier / effective)
                 .roundToInt()
@@ -154,22 +157,30 @@ object AlertRenderPlanBuilder {
      * 跨层粒子总预算：按层顺序分配，超出截断（后面的层拿剩余额度，最少 0 = 丢弃）。
      *
      * 不是每层 600——5 层各带 600 会直接压垮帧率。
+     * 预算按**实际粒子数**算：`count × waves`（渲染端每波都会再乘一份 count）。
      */
     private fun applyParticleBudget(layers: List<AlertRenderLayer>): List<AlertRenderLayer> {
-        if (layers.sumOf { it.particle?.emitter?.count ?: 0 } <= AlertLimits.ParticleBudget) {
+        if (layers.sumOf { it.particleTotalCount() } <= AlertLimits.ParticleBudget) {
             return layers
         }
         var remaining = AlertLimits.ParticleBudget
         return layers.mapNotNull { layer ->
             val params = layer.particle ?: return@mapNotNull layer
-            val requested = params.emitter.count.coerceAtLeast(0)
+            val waves = params.emitter.waves.coerceAtLeast(1)
+            val requested = params.emitter.count.coerceAtLeast(0) * waves
             val allowed = requested.coerceAtMost(remaining)
             remaining -= allowed
             if (allowed <= 0) {
                 null
             } else {
-                layer.copy(particle = params.copy(emitter = params.emitter.copy(count = allowed)))
+                val perWave = (allowed / waves).coerceAtLeast(1)
+                layer.copy(particle = params.copy(emitter = params.emitter.copy(count = perWave)))
             }
         }
+    }
+
+    private fun AlertRenderLayer.particleTotalCount(): Int {
+        val emitter = particle?.emitter ?: return 0
+        return emitter.count.coerceAtLeast(0) * emitter.waves.coerceAtLeast(1)
     }
 }

@@ -1,0 +1,339 @@
+package hunoia.luno.floatball.settings.alert
+
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import hunoia.luno.config.model.AlertLayerCategory
+import hunoia.luno.config.model.AlertLibrary
+import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.config.model.AlertLimits
+import hunoia.luno.floatball.R
+import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
+import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.facade.LocalFacades
+import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.SegmentedGap
+import kotlinx.coroutines.launch
+
+/**
+ * 到达提示动效（消费方设置页）：开关 / 单选预设 / 全局强度与速度 / 行为。
+ *
+ * 预设库与调色板是**总设置与管理**，放在设置根目录；本页不重复它们的入口。
+ * 预设选择走底部 sheet（36 内置 + 我的，需要搜索），不在本页展开长列表。
+ * 试播为唯一主操作，固定右下 FAB：整页滚动时都能随时点。
+ */
+@Composable
+fun AlertSettingsScreen(
+    onBack: () -> Unit,
+    onNavToAlertBlocklist: () -> Unit,
+) {
+    val editor = rememberAlertEditor()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val facades = LocalFacades.current
+    var showPresetSheet by remember { mutableStateOf(false) }
+
+    val alert = editor.alert
+    val library = editor.library
+    val selected = alert.selectedPreset(library)
+    val playable = alert.enabled && selected != null
+
+    fun toast(text: String) {
+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    LunoScreenLazy(
+        title = stringResource(R.string.float_ball_alert_settings_title),
+        onBack = onBack,
+        bottomContentPadding = FloatingContentBottom,
+        floatingContent = {
+            LunoFab(
+                onClick = {
+                    if (playable) {
+                        facades.system.previewFloatBallAlert(context)
+                    } else {
+                        toast(
+                            context.getString(
+                                if (!alert.enabled) {
+                                    R.string.float_ball_alert_preview_disabled
+                                } else {
+                                    R.string.float_ball_alert_preview_none
+                                },
+                            ),
+                        )
+                    }
+                },
+                icon = Icons.Default.PlayArrow,
+                contentDescription = stringResource(R.string.float_ball_capsule_alert_preview_all),
+                containerColor = if (playable) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
+            )
+        },
+        sheets = {
+            if (showPresetSheet) {
+                AlertPresetSelectSheet(
+                    library = library,
+                    currentId = alert.presetId,
+                    onDismiss = { showPresetSheet = false },
+                    onSelect = { presetId ->
+                        showPresetSheet = false
+                        scope.launch { editor.commitAlert { it.copy(presetId = presetId) } }
+                    },
+                )
+            }
+        },
+    ) {
+        item(key = "alert") {
+            val rows = segmentedRows {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_enabled),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
+                        checked = alert.enabled,
+                        shape = shape,
+                        onCheckedChange = { checked ->
+                            editor.update { it.copy(enabled = checked) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_alert_preset),
+                        subtitle = when {
+                            selected != null -> selected.displayName()
+                            alert.presetId == null ->
+                                stringResource(R.string.float_ball_alert_preset_none)
+                            else -> stringResource(R.string.float_ball_alert_preset_missing)
+                        },
+                        shape = shape,
+                        onClick = { showPresetSheet = true },
+                    )
+                }
+                item { shape ->
+                    AlertKnobSlider(
+                        label = stringResource(R.string.float_ball_alert_intensity),
+                        value = alert.intensityPercent,
+                        range = AlertIntensityRange,
+                        display = { "${it.toInt()}%" },
+                        shape = shape,
+                        onCommit = { value ->
+                            editor.update { it.copy(intensityPercent = value) }
+                        },
+                    )
+                }
+                item { shape ->
+                    AlertKnobSlider(
+                        label = stringResource(R.string.float_ball_alert_speed),
+                        value = alert.speedPercent,
+                        range = AlertSpeedRange,
+                        display = { "${it.toInt()}%" },
+                        shape = shape,
+                        onCommit = { value ->
+                            editor.update { it.copy(speedPercent = value) }
+                        },
+                    )
+                }
+            }
+            LunoGroup(title = stringResource(R.string.float_ball_alert_basic_group)) {
+                SegmentedRows(rows)
+            }
+        }
+        item(key = "behavior") {
+            val rows = segmentedRows {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_play_every),
+                        subtitle = stringResource(R.string.float_ball_capsule_alert_play_every_subtitle),
+                        checked = alert.playOnEveryNotification,
+                        shape = shape,
+                        onCheckedChange = { checked ->
+                            editor.update { it.copy(playOnEveryNotification = checked) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_alert_read_text),
+                        subtitle = stringResource(R.string.float_ball_alert_read_text_subtitle),
+                        checked = alert.readNotificationText,
+                        shape = shape,
+                        onCheckedChange = { checked ->
+                            editor.update { it.copy(readNotificationText = checked) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_capsule_alert_blocklist),
+                        icon = Icons.Default.Block,
+                        subtitle = stringResource(
+                            R.string.float_ball_capsule_alert_blocklist_count,
+                            alert.appBlocklist.size,
+                        ),
+                        shape = shape,
+                        onClick = onNavToAlertBlocklist,
+                    )
+                }
+            }
+            LunoGroup(
+                title = stringResource(R.string.float_ball_alert_behavior_group),
+                subtitle = stringResource(R.string.float_ball_alert_behavior_hint),
+            ) {
+                SegmentedRows(rows)
+            }
+        }
+    }
+}
+
+/** 预设选择 sheet：搜索 + 单行可滚动类别筛选 + 单选（选中即落盘并关闭）。 */
+@Composable
+private fun AlertPresetSelectSheet(
+    library: AlertLibrary,
+    currentId: String?,
+    onDismiss: () -> Unit,
+    onSelect: (String?) -> Unit,
+) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf<AlertLayerCategory?>(null) }
+
+    val all = library.pickerPresets()
+    val nameOf: (AlertPreset) -> String = { it.displayNameString(context) }
+    val filtered = all.filter { preset ->
+        (category == null || category in preset.categories()) &&
+            (query.isBlank() || nameOf(preset).contains(query.trim(), ignoreCase = true))
+    }
+    val mine = filtered.filter { !it.builtin }
+    val builtin = filtered.filter { it.builtin }
+
+    LunoSheet(onDismissRequest = onDismiss) {
+        Text(
+            text = stringResource(R.string.float_ball_alert_preset_picker),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = CapsuleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                LunoSearchField(
+                    query = query,
+                    onQueryChange = { query = it },
+                    placeholder = stringResource(R.string.float_ball_alert_preset_search),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        AlertCategoryFilter(selected = category, onSelect = { category = it })
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+        ) {
+            val rows = segmentedRows {
+                item { shape ->
+                    PresetChoiceRow(
+                        title = stringResource(R.string.float_ball_alert_preset_none),
+                        subtitle = stringResource(R.string.float_ball_alert_preset_none_subtitle),
+                        selected = currentId == null,
+                        shape = shape,
+                        onClick = { onSelect(null) },
+                    )
+                }
+                mine.forEach { preset ->
+                    item { shape ->
+                        PresetChoiceRow(
+                            title = preset.displayName(),
+                            subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
+                            selected = preset.id == currentId,
+                            shape = shape,
+                            onClick = { onSelect(preset.id) },
+                        )
+                    }
+                }
+                builtin.forEach { preset ->
+                    item { shape ->
+                        PresetChoiceRow(
+                            title = preset.displayName(),
+                            subtitle = "${preset.layerSummary()}  ${preset.categorySummary()}",
+                            selected = preset.id == currentId,
+                            shape = shape,
+                            onClick = { onSelect(preset.id) },
+                        )
+                    }
+                }
+            }
+            SegmentedRows(rows)
+        }
+    }
+}
+
+@Composable
+private fun PresetChoiceRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    shape: Shape,
+    onClick: () -> Unit,
+) {
+    LunoSettingsRow(
+        title = title,
+        subtitle = subtitle,
+        shape = shape,
+        trailing = if (selected) {
+            { Icon(Icons.Default.Check, contentDescription = null) }
+        } else {
+            null
+        },
+        onClick = onClick,
+    )
+}
+
+private val AlertIntensityRange =
+    AlertLimits.IntensityMin..AlertLimits.IntensityMax
+private val AlertSpeedRange =
+    AlertLimits.SpeedMin..AlertLimits.SpeedMax

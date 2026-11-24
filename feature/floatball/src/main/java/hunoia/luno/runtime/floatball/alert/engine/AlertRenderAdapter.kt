@@ -60,7 +60,7 @@ internal fun AlertRenderPlan.toPlayPlan(): AlertPlayPlan {
 
 private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan? {
     val cycles = if (kind == AlertKind.Particle) {
-        // 粒子按发射器波次决定循环数；timing.cycles 仍可覆盖。
+        // 粒子层只有「波次」：编辑器里不再暴露 timing.cycles，避免两个循环旋钮。
         maxOf(particle?.emitter?.waves ?: 1, 1)
     } else {
         cycles.coerceAtLeast(1)
@@ -96,8 +96,9 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                     EdgeAlertStyle.Comet,
                     EdgeCometSpec(
                         headWidthDp = params.bandWidthDp.coerceIn(4f, 28f),
-                        tailLengthDp = (params.bandWidthDp * params.trailScale)
-                            .coerceIn(40f, 320f),
+                        // trailScale 3 ≈ 9% 周长；换分辨率不会改变观感。
+                        tailFraction = (params.trailScale * 0.03f).coerceIn(0.03f, 0.35f),
+                        tailAlpha = params.trailAlpha.coerceIn(0f, 1f),
                         cornerRadiusDp = params.cornerRadiusDp,
                     ),
                     norm(
@@ -203,6 +204,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                     strokeWidthDp = params.strokeWidthDp,
                     haloScale = params.haloScale,
                     centerAtBall = params.centerAtBall,
+                    travelPercent = params.travelPercent.coerceIn(40, 300),
                 )
                 AnchorAlertStyle.Shockwave -> ShockwaveSpec(
                     strokeWidthDp = params.strokeWidthDp.coerceIn(1f, 12f),
@@ -369,6 +371,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                         iconPackage = content?.iconPackage,
                         staggerPercent = params.staggerPercent,
                         scaleFrom = params.scaleFrom,
+                        direction = params.maskDirection,
                     ),
                     palette = palette,
                     appPackage = appPackage,

@@ -45,7 +45,7 @@
     <string name="float_ball_capsule_alert_group">到达提示动效</string>
     <string name="float_ball_capsule_alert_preview_title">试播演示</string>
     <string name="float_ball_capsule_alert_preview_text">到达提示动效演示通知</string>
-    <string name="float_ball_capsule_alert_preview_all">全部试播</string>
+    <string name="float_ball_capsule_alert_preview_all">试播一次</string>
     <string name="float_ball_capsule_alert_preview_no_overlay">缺少悬浮窗权限，无法播放动效</string>
     <string name="float_ball_capsule_alert_preview_no_capsule">请先启用通知胶囊</string>
     <string name="float_ball_capsule_alert_preview_busy">正在播放，稍后再试</string>
@@ -154,12 +154,11 @@
     <string name="web_card_copy_page_link">复制页面链接</string>
     <string name="web_card_share_page">分享页面</string>
 
-    <!-- 到达提示 v3：槽位 / 预设 / 覆盖 -->
+    <!-- 到达提示 v4：预设 / 组合层 / 强度速度 -->
     <string name="float_ball_alert_preset">预设</string>
     <string name="float_ball_alert_preset_picker">选择预设</string>
     <string name="float_ball_alert_intensity">强度</string>
     <string name="float_ball_alert_speed">速度</string>
-    <string name="float_ball_alert_preview_all_subtitle">按当前五槽配置一起播一次</string>
     <string name="float_ball_alert_read_text">允许动效读取通知文字</string>
     <string name="float_ball_alert_read_text_subtitle">仅用于揭示类预设；关闭后只播放几何 / 颜色效果</string>
     <string name="float_ball_preset_edge_glow">屏幕边缘呼吸光</string>
@@ -181,7 +180,7 @@
     <string name="float_ball_preset_screen_zoom">缩放脉冲</string>
     <string name="float_ball_preset_path_comet">穿越彗星</string>
     <string name="float_ball_preset_path_orbit">轨道环绕</string>
-    <string name="float_ball_preset_path_spiral">螺旋上升</string>
+    <string name="float_ball_preset_path_spiral">螺旋收束</string>
 
     <string name="float_ball_preset_edge_ribbon">屏缘缎带</string>
     <string name="float_ball_preset_edge_lightning">屏缘闪电</string>
@@ -198,9 +197,6 @@
     <string name="float_ball_alert_category_ball">球体与胶囊</string>
     <string name="float_ball_alert_category_screen">全屏</string>
     <string name="float_ball_alert_category_reveal">揭示</string>
-    <string name="float_ball_alert_preset_group_choice">选择</string>
-    <string name="float_ball_alert_preset_manage">管理预设库</string>
-    <string name="float_ball_alert_preset_manage_subtitle">新建组合、编辑层与备份</string>
     <string name="float_ball_alert_preset_missing">预设已失效</string>
     <string name="float_ball_alert_preset_none">未选择</string>
     <string name="float_ball_alert_preset_none_subtitle">不播放到达动效</string>
@@ -212,22 +208,17 @@
     <string name="float_ball_preset_group_mine">我的预设</string>
     <string name="float_ball_preset_group_mine_hint">单层素材与组合都在这里</string>
     <string name="float_ball_preset_group_builtin">内置素材</string>
-    <string name="float_ball_preset_group_builtin_hint">单层、可直接选用</string>
     <string name="float_ball_preset_group_builtin_edit_hint">点击复制成我的预设再编辑</string>
     <string name="float_ball_preset_library_title">预设库</string>
-    <string name="float_ball_preset_library_hint">组合 1–5 层，宿主由每一层自己决定</string>
     <string name="float_ball_preset_library_entry_hint">内置素材与我的组合</string>
     <string name="float_ball_preset_palette_entry_hint">内置与自定义调色板</string>
     <string name="float_ball_preset_new">新建预设</string>
-    <string name="float_ball_preset_new_subtitle">先建一个默认粒子层，再改成你要的</string>
     <string name="float_ball_preset_default_name">我的预设</string>
     <string name="float_ball_preset_copy_name">%1$s 副本</string>
     <string name="float_ball_preset_export">导出预设与调色板</string>
-    <string name="float_ball_preset_export_subtitle">生成 JSON 文件，可换机合并导入</string>
     <string name="float_ball_preset_export_done">已导出</string>
     <string name="float_ball_preset_export_failed">导出失败</string>
     <string name="float_ball_preset_import">导入预设与调色板</string>
-    <string name="float_ball_preset_import_subtitle">合并导入，重名自动加后缀</string>
     <string name="float_ball_preset_import_done">已导入 %1$d 个预设</string>
     <string name="float_ball_preset_import_failed">文件无法识别或版本过高</string>
     <string name="float_ball_preset_empty">还没有我的预设</string>
@@ -238,7 +229,6 @@
     <string name="float_ball_preset_editor_title">编辑预设</string>
     <string name="float_ball_preset_name">预设名称</string>
     <string name="float_ball_preset_preview">试播整份</string>
-    <string name="float_ball_preset_preview_hint">按当前编辑内容播放一次</string>
     <string name="float_ball_preset_layers_title">层</string>
     <string name="float_ball_preset_layers_hint">已启用 %1$d / %2$d 层，顺序即绘制顺序</string>
     <string name="float_ball_preset_no_layer">还没有层</string>
@@ -246,11 +236,8 @@
     <string name="float_ball_preset_add_layer">添加层</string>
     <string name="float_ball_preset_add_layer_hint">空白层或内置素材</string>
     <string name="float_ball_preset_delete">删除预设</string>
-    <string name="float_ball_preset_delete_subtitle">从素材库移除，不影响内置</string>
     <string name="float_ball_preset_delete_confirm_title">删除这个预设？</string>
     <string name="float_ball_preset_delete_confirm_text">「%1$s」及其所有层会被删除，无法撤销。</string>
-    <string name="float_ball_preset_done">完成</string>
-    <string name="float_ball_preset_autosave_hint">修改已即时保存</string>
     <string name="float_ball_preset_limit_layers">最多同时启用 5 层</string>
     <string name="float_ball_preset_limit_stored">最多存 10 层</string>
     <string name="float_ball_preset_limit_category">同类最多 2 层</string>
@@ -268,7 +255,6 @@
     <string name="float_ball_layer_enabled">启用这一层</string>
     <string name="float_ball_layer_enabled_subtitle">关闭后保留参数，不参与播放</string>
     <string name="float_ball_layer_preview">试播这一层</string>
-    <string name="float_ball_layer_preview_hint">只播这一层，忽略其它层</string>
     <string name="float_ball_layer_group_base">基础</string>
     <string name="float_ball_layer_group_base_hint">启用与单层试播</string>
     <string name="float_ball_layer_group_appearance">外观</string>
@@ -276,16 +262,11 @@
     <string name="float_ball_layer_group_motion">运动</string>
     <string name="float_ball_layer_group_look">形状与光效</string>
     <string name="float_ball_layer_group_timing">时序</string>
-    <string name="float_ball_layer_group_advanced">高级</string>
     <string name="float_ball_layer_group_advanced_fields">高级参数</string>
-    <string name="float_ball_layer_group_order">顺序与结构</string>
     <string name="float_ball_layer_color">颜色</string>
-    <string name="float_ball_layer_color_hint">留空跟随预设；设了就覆盖这一层的取色</string>
     <string name="float_ball_layer_base_millis">单循环时长</string>
     <string name="float_ball_layer_cycles">循环次数</string>
     <string name="float_ball_layer_layer_speed">本层速度</string>
-    <string name="float_ball_layer_show_advanced">显示高级参数</string>
-    <string name="float_ball_layer_show_advanced_hint">混合模式、翻面、吸引等冷门字段</string>
     <string name="float_ball_layer_pattern">形态</string>
     <string name="float_ball_layer_band_width">光带宽度</string>
     <string name="float_ball_layer_corner_radius">屏缘圆角</string>
@@ -321,7 +302,6 @@
     <string name="float_ball_layer_motion_sway">摇摆</string>
     <string name="float_ball_layer_motion_sway_cycles">摇摆周期</string>
     <string name="float_ball_layer_motion_spin">自转</string>
-    <string name="float_ball_layer_motion_tilt">翻面</string>
     <string name="float_ball_layer_motion_bounce">反弹</string>
     <string name="float_ball_layer_motion_attract">吸引</string>
     <string name="float_ball_layer_motion_path">轨迹</string>
@@ -383,7 +363,7 @@
     <string name="float_ball_layer_vignette_softness">暗角柔和</string>
     <string name="float_ball_layer_stagger">逐字错峰</string>
     <string name="float_ball_layer_scale_from">起始缩放</string>
-    <string name="float_ball_layer_reveal_direction">遮罩方向</string>
+    <string name="float_ball_layer_reveal_direction">揭示方向</string>
     <string name="float_ball_layer_direction_ltr">从左到右</string>
     <string name="float_ball_layer_direction_rtl">从右到左</string>
     <string name="float_ball_layer_direction_ttb">从上到下</string>
@@ -428,4 +408,34 @@
     <string name="float_ball_layer_reveal_text">文字揭示</string>
     <string name="float_ball_layer_reveal_icon">图标揭示</string>
     <string name="float_ball_layer_particle_engine">粒子引擎</string>
+    <string name="float_ball_preset_edge_fireworks">屏缘烟花</string>
+    <string name="float_ball_preset_edge_blade">屏缘双刃</string>
+    <string name="float_ball_preset_ball_halo">球体光晕</string>
+    <string name="float_ball_preset_capsule_shimmer">胶囊边框流光</string>
+    <string name="float_ball_preset_capsule_breath">胶囊呼吸描边</string>
+    <string name="float_ball_preset_capsule_sweep">胶囊内部扫光</string>
+    <string name="float_ball_layer_color_follow">跟随预设</string>
+    <string name="float_ball_layer_kind_edge">屏缘</string>
+    <string name="float_ball_layer_kind_particle">粒子</string>
+    <string name="float_ball_layer_kind_ball">球体</string>
+    <string name="float_ball_layer_kind_capsule">胶囊</string>
+    <string name="float_ball_layer_kind_screen">全屏</string>
+    <string name="float_ball_layer_kind_reveal">揭示</string>
+    <string name="float_ball_layer_preview_disabled">先启用这一层再试播</string>
+    <string name="float_ball_preset_add_full">已达 10 层上限，先删一层</string>
+    <string name="float_ball_preset_toggle_blocked">%1$s，先关掉其它层</string>
+    <string name="float_ball_alert_filter_all">全部</string>
+    <string name="float_ball_layer_group_appearance_hint">只显示当前形态用到的参数；切换形态后旧值保留</string>
+    <string name="float_ball_alert_settings_title">到达提示动效</string>
+    <string name="float_ball_alert_summary_off">已关闭</string>
+    <string name="float_ball_alert_preview_none">先选择一个预设</string>
+    <string name="float_ball_alert_preview_disabled">先打开到达提示动效</string>
+    <string name="float_ball_alert_behavior_group">行为</string>
+    <string name="float_ball_alert_behavior_hint">新通知到达时的播放条件</string>
+    <string name="float_ball_alert_preset_search">搜索预设</string>
+    <string name="float_ball_alert_more">更多</string>
+    <string name="float_ball_preset_layer_off">已停用</string>
+    <string name="float_ball_layer_edit_params">编辑参数</string>
+    <string name="float_ball_layer_edit_params_hint">形态 / 发射 / 运动 / 时序 / 高级</string>
+    <string name="float_ball_alert_basic_group">基础</string>
 </resources>

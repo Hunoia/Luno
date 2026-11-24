@@ -8,6 +8,7 @@ import android.util.Log
 import android.util.LruCache
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -36,8 +37,10 @@ import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.AlertParticleShape
 import hunoia.luno.config.model.ParticleHaloStyle
+import hunoia.luno.config.model.RevealDirection
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
+import hunoia.luno.runtime.floatball.alert.engine.NormPoint
 import hunoia.luno.runtime.floatball.alert.engine.ParticleFrame
 import hunoia.luno.runtime.floatball.alert.engine.ParticleState
 import hunoia.luno.runtime.floatball.alert.engine.advanceParticle
@@ -334,7 +337,7 @@ internal fun AlertStageLayers(
                         EdgeAlertStyle.Comet -> EdgeCometLayer(layer, palette, clock)
                     }
 
-                    is ParticleAlertStyle -> ParticleEngineLayer(layer, palette, clock, seed)
+                    is ParticleAlertStyle -> ParticleEngineLayer(layer, anchor, palette, clock, seed)
 
                     is AnchorAlertStyle -> when (style) {
                         AnchorAlertStyle.Ring -> BallRingLayer(layer, anchor, palette, clock)
@@ -478,6 +481,7 @@ private fun EdgeFlowLayer(
 @Composable
 private fun ParticleEngineLayer(
     layer: AlertLayerPlan,
+    anchor: AlertAnchor,
     palette: AlertPaletteColors,
     clock: () -> Float,
     seed: Int,
@@ -503,81 +507,119 @@ private fun ParticleEngineLayer(
     val spreadMs = (layer.cycleMillis - lifeSeconds * 1000f).coerceAtLeast(1f)
     val motion = params.motion
 
-    // 一次播放的粒子状态：初始位置 / 方向一次生成，之后按帧推进。
-    val run = remember(layer, seed) {
-        val random = Random((layer.presetId?.hashCode() ?: engineSeed(style)) xor seed)
-        val states = mutableListOf<ParticleState>()
-        val sizeJitters = FloatArray(count)
-        val alphaJitters = FloatArray(count)
-        repeat(count) { index ->
-            val base = spawnParticle(emitter, ParticleFrame(1f), null, random)
-            val wave = index / (count / layer.cycles).coerceAtLeast(1)
-            states += base.copy(
-                life = lifeSeconds,
-                delay = (wave * layer.cycleMillis + random.nextFloat() * spreadMs) / 1000f,
-                seed = base.seed xor index,
-            )
-            sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
-            alphaJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
+    // 坐标口径：x 归一化到 0..aspect（aspect = 宽 / 高），像素 = x × 屏高；
+    // 这样方向角才是真实角度（只按屏高缩放会在大屏上把 45° 拉成近 66°）。
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val aspect = if (constraints.maxHeight > 0) {
+            constraints.maxWidth.toFloat() / constraints.maxHeight.toFloat()
+        } else {
+            1f
         }
-        ParticleRun(states, sizeJitters, alphaJitters)
-    }
+        val anchorNorm = if (constraints.maxHeight > 0) {
+            NormPoint(
+                anchor.centerX / constraints.maxHeight,
+                anchor.centerY / constraints.maxHeight,
+            )
+        } else {
+            null
+        }
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val now = clock()
-        if (now >= layer.totalMillis) return@Canvas
-        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
-        if (envelope <= 0.005f) return@Canvas
-
-        val frame = ParticleFrame(aspect = 1f)
-        advanceRun(run, frame, motion, now)
-
-        val nowSeconds = now / 1000f
-        // sizeDp 是外接盒边长（不是半径）：换形状时视觉大小一致。
-        val peakSizePx = look.sizeDp.dp.toPx() / 2f
-        val trailPx = look.trailDp.dp.toPx()
-        run.states.forEachIndexed { index, particle ->
-            val age = nowSeconds - particle.delay
-            if (age <= 0f) return@forEachIndexed
-            val progress = (age / lifeSeconds).coerceIn(0f, 1f)
-            var alpha = peakAlpha * (1f - progress).pow(ParticlesTuning.FadeExp) *
-                run.alphaJitters[index] * envelope
-            // 萤火一类的闪烁：每颗粒子用自己的相位明灭，不整层同步。
-            if (look.blink) {
-                val phase = (particle.seed and 0xFF) / 255f * TwoPi
-                val pulse = kotlin.math.abs(kotlin.math.sin(progress * look.blinkCycles * TwoPi + phase))
-                alpha *= (0.35f + 0.65f * pulse)
+        // 一次播放的粒子状态：初始位置 / 方向一次生成，之后按帧推进。
+        val run = remember(layer, seed, aspect, anchorNorm) {
+            val random = Random((layer.presetId?.hashCode() ?: engineSeed(style)) xor seed)
+            val states = mutableListOf<ParticleState>()
+            val sizeJitters = FloatArray(count)
+            val alphaJitters = FloatArray(count)
+            repeat(count) { index ->
+                val base = spawnParticle(emitter, ParticleFrame(aspect), anchorNorm, random)
+                val wave = index / (count / layer.cycles).coerceAtLeast(1)
+                states += base.copy(
+                    life = lifeSeconds,
+                    delay = (wave * layer.cycleMillis + random.nextFloat() * spreadMs) / 1000f,
+                    seed = base.seed xor index,
+                )
+                sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
+                alphaJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
             }
-            if (alpha <= 0.005f) return@forEachIndexed
-            val accent = palette.at(index)
-            val center = Offset(particle.x * size.width, particle.y * size.height)
-            val radius = peakSizePx * run.sizeJitters[index]
-            drawHalo(
-                style = look.haloStyle,
-                shape = look.shape,
-                image = image,
-                color = accent,
-                center = center,
-                radiusPx = radius,
-                rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
-                scale = look.haloScale,
-                alpha = (alpha * look.haloAlpha).coerceIn(0f, 1f),
-                textPaint = textPaint,
-            )
-            drawEngineShape(
-                shape = look.shape,
-                image = image,
-                color = accent.copy(alpha = alpha),
-                center = center,
-                radiusPx = radius,
-                rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
-                vx = particle.vx,
-                vy = particle.vy,
-                trailPx = trailPx,
-                tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
-                text = look.text,
-                textPaint = textPaint,
-            )
+            ParticleRun(states, sizeJitters, alphaJitters)
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val now = clock()
+            if (now >= layer.totalMillis) return@Canvas
+            val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+            if (envelope <= 0.005f) return@Canvas
+
+            val frame = ParticleFrame(aspect = aspect)
+            advanceRun(run, frame, motion, now)
+
+            // 叠加混色：整层先开一个 Plus 混合的图层，暗背景上亮部更亮。
+            val blendPaint = if (look.blendAdd) {
+                androidx.compose.ui.graphics.Paint().apply {
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+                }
+            } else {
+                null
+            }
+            if (blendPaint != null) {
+                drawContext.canvas.saveLayer(
+                    androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
+                    blendPaint,
+                )
+            }
+            val nowSeconds = now / 1000f
+            // sizeDp 是外接盒边长（不是半径）：换形状时视觉大小一致。
+            val peakSizePx = look.sizeDp.dp.toPx() / 2f
+            val trailPx = look.trailDp.dp.toPx()
+            run.states.forEachIndexed { index, particle ->
+                val age = nowSeconds - particle.delay
+                if (age <= 0f) return@forEachIndexed
+                val progress = (age / lifeSeconds).coerceIn(0f, 1f)
+                var alpha = peakAlpha * (1f - progress).pow(ParticlesTuning.FadeExp) *
+                    run.alphaJitters[index] * envelope
+                // 萤火一类的闪烁：每颗粒子用自己的相位明灭，不整层同步。
+                if (look.blink) {
+                    val phase = (particle.seed and 0xFF) / 255f * TwoPi
+                    val pulse = kotlin.math.abs(
+                        kotlin.math.sin(progress * look.blinkCycles * TwoPi + phase),
+                    )
+                    alpha *= (0.35f + 0.65f * pulse)
+                }
+                if (alpha <= 0.005f) return@forEachIndexed
+                val accent = palette.at(index)
+                val center = Offset(particle.x * size.height, particle.y * size.height)
+                val radius = peakSizePx * run.sizeJitters[index]
+                drawHalo(
+                    style = look.haloStyle,
+                    shape = look.shape,
+                    image = image,
+                    color = accent,
+                    center = center,
+                    radiusPx = radius,
+                    rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
+                    scale = look.haloScale,
+                    alpha = (alpha * look.haloAlpha).coerceIn(0f, 1f),
+                    textPaint = textPaint,
+                )
+                drawEngineShape(
+                    shape = look.shape,
+                    image = image,
+                    color = accent.copy(alpha = alpha),
+                    center = center,
+                    radiusPx = radius,
+                    rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
+                    vx = particle.vx,
+                    vy = particle.vy,
+                    trailPx = trailPx,
+                    trailAlpha = look.trailAlpha,
+                    tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
+                    text = look.text,
+                    textPaint = textPaint,
+                )
+            }
+            if (blendPaint != null) {
+                drawContext.canvas.restore()
+            }
         }
     }
 }
@@ -709,6 +751,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
     vx: Float,
     vy: Float,
     trailPx: Float,
+    trailAlpha: Float = 0.5f,
     tint: Boolean,
     text: String,
     textPaint: Paint,
@@ -746,11 +789,21 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEngineShape(
             val length = maxOf(trailPx, radiusPx * 3f)
             val len = kotlin.math.hypot(vx, vy).coerceAtLeast(1e-3f)
             val end = Offset(center.x - vx / len * length, center.y - vy / len * length)
+            val head = Offset(center.x - vx / len * length * 0.28f, center.y - vy / len * length * 0.28f)
+            val stroke = (radiusPx * 0.6f).coerceAtLeast(1f)
+            // 拖尾透明度只影响尾巴，亮头保持住；否则调低就整条看不见。
             drawLine(
-                color = color,
+                color = color.copy(alpha = color.alpha * trailAlpha.coerceIn(0f, 1f)),
                 start = end,
                 end = center,
-                strokeWidth = (radiusPx * 0.6f).coerceAtLeast(1f),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                color = color,
+                start = head,
+                end = center,
+                strokeWidth = stroke,
                 cap = StrokeCap.Round,
             )
         }
@@ -957,17 +1010,33 @@ private fun RevealLayer(
                 val bodyWidth = bodyPaint.measureText(spec.body)
                 val titleBaseline = size.height * 0.44f
                 val bodyBaseline = titleBaseline + bodySize * 1.9f
+                // 揭示顺序：LTR / TTB = 标题先、正文后；RTL / BTT = 反向（逐字从右往左、
+                // 正文先）。四种方向都有可见差别，不做「选了没反应」的假旋钮。
+                val bodyFirst = spec.direction == RevealDirection.BottomToTop
+                val reverseChars = spec.direction == RevealDirection.RightToLeft ||
+                    spec.direction == RevealDirection.BottomToTop
+                val titleProgress = if (bodyFirst) {
+                    ((progress - 0.18f).coerceAtLeast(0f) / 0.82f)
+                } else {
+                    progress
+                }
+                val bodyProgress = if (bodyFirst) {
+                    progress
+                } else {
+                    ((progress - 0.18f).coerceAtLeast(0f) / 0.82f)
+                }
                 if (spec.title.isNotEmpty()) {
                     drawStaggeredLine(
                         text = spec.title,
                         paint = titlePaint,
                         centerX = cx - titleWidth / 2f,
                         baselineY = titleBaseline,
-                        progress = progress,
+                        progress = titleProgress,
                         stagger = stagger,
                         scaleFrom = spec.scaleFrom,
                         baseColor = accent,
                         envelope = envelope,
+                        reverse = reverseChars,
                     )
                 }
                 if (spec.body.isNotEmpty()) {
@@ -976,11 +1045,12 @@ private fun RevealLayer(
                         paint = bodyPaint,
                         centerX = cx - bodyWidth / 2f,
                         baselineY = bodyBaseline,
-                        progress = (progress - 0.18f).coerceAtLeast(0f) / 0.82f,
+                        progress = bodyProgress,
                         stagger = stagger,
                         scaleFrom = spec.scaleFrom,
                         baseColor = accent.copy(alpha = 0.85f),
                         envelope = envelope,
+                        reverse = reverseChars,
                     )
                 }
             }
@@ -999,6 +1069,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStaggeredLine(
     scaleFrom: Float,
     baseColor: Color,
     envelope: Float,
+    reverse: Boolean,
 ) {
     if (text.isEmpty()) return
     val widths = FloatArray(text.length) { paint.measureText(text, it, it + 1) }
@@ -1006,10 +1077,13 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawStaggeredLine(
     var x = centerX.coerceAtLeast(0f)
     val charStagger = if (text.length > 1) stagger / (text.length - 1) else 0f
     for (i in text.indices) {
+        // 字位仍按阅读顺序排布，只把「出现次序」反向。
+        val order = if (reverse) text.lastIndex - i else i
         val local = if (charStagger <= 0f) {
             progress
         } else {
-            ((progress - i * charStagger) / (1f - (text.length - 1) * charStagger)).coerceIn(0f, 1f)
+            ((progress - order * charStagger) /
+                (1f - (text.length - 1) * charStagger)).coerceIn(0f, 1f)
         }
         if (local > 0f) {
             val scale = scaleFrom + (1f - scaleFrom) * local
@@ -1172,17 +1246,16 @@ private fun EdgeCometLayer(
         val inset = EdgeFrameTuning.InsetDp.dp.toPx()
         val perim = EdgePerimeter(size, inset, spec.cornerRadiusDp.dp.toPx())
         val head = ((now / layer.cycleMillis) % 1f).easedOut(1.6f)
-        val tailFrac = (spec.tailLengthDp.dp.toPx() / perim.length.coerceAtLeast(1f))
-            .coerceIn(0.01f, 0.45f)
+        val tailFrac = spec.tailFraction.coerceIn(0.02f, 0.45f)
         val headWidth = spec.headWidthDp.dp.toPx()
-        val samples = 220
+        val samples = 360
         for (i in 0 until samples) {
             val f = i.toFloat() / samples
             // 行进方向为正：delta = 头部已经走过该点的周长比例。
             val delta = ((head - f) % 1f + 1f) % 1f
             if (delta > tailFrac) continue
             val k = 1f - delta / tailFrac
-            val alpha = peakAlpha * k.pow(1.7f) * envelope
+            val alpha = peakAlpha * k.pow(1.7f) * spec.tailAlpha * envelope
             if (alpha <= 0.01f) continue
             drawCircle(
                 color = palette.sample(f),
@@ -1516,7 +1589,9 @@ private fun FullRippleLayer(
             (Offset(0f, size.height) - center).getDistance(),
             (Offset(size.width, size.height) - center).getDistance(),
         )
-        val travelPx = (farthest - startRadius).coerceAtLeast(0f)
+        // 行程旋钮：100% = 到屏幕最远角；<100 收成局部涟漪，>100 提前出屏。
+        val travelPx = (farthest - startRadius).coerceAtLeast(0f) *
+            (spec.travelPercent / 100f)
         val strokePx = strokeWidthDp.dp.toPx()
         val haloScale = spec.haloScale.coerceIn(0f, 2f)
         val haloPx = strokePx * RippleTuning.HaloStrokeScale * haloScale

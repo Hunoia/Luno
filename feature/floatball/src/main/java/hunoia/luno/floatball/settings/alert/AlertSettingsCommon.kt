@@ -8,13 +8,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibrary
+import hunoia.luno.config.model.AlertLimit
 import hunoia.luno.config.model.AlertParticleShape
 import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleHaloStyle
@@ -75,6 +80,12 @@ internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     "builtin_path_spiral" -> R.string.float_ball_preset_path_spiral
     "builtin_edge_ribbon" -> R.string.float_ball_preset_edge_ribbon
     "builtin_edge_lightning" -> R.string.float_ball_preset_edge_lightning
+    "builtin_edge_fireworks" -> R.string.float_ball_preset_edge_fireworks
+    "builtin_edge_blade" -> R.string.float_ball_preset_edge_blade
+    "builtin_ball_halo" -> R.string.float_ball_preset_ball_halo
+    "builtin_capsule_shimmer" -> R.string.float_ball_preset_capsule_shimmer
+    "builtin_capsule_breath" -> R.string.float_ball_preset_capsule_breath
+    "builtin_capsule_sweep" -> R.string.float_ball_preset_capsule_sweep
     "builtin_ball_spiral" -> R.string.float_ball_preset_ball_spiral
     "builtin_ball_orbit" -> R.string.float_ball_preset_ball_orbit
     "builtin_capsule_flip" -> R.string.float_ball_preset_capsule_flip
@@ -84,6 +95,12 @@ internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     "builtin_reveal_text" -> R.string.float_ball_preset_reveal_text
     "builtin_reveal_icon" -> R.string.float_ball_preset_reveal_icon
     else -> null
+}
+
+/** 非 Composable 场景（搜索 / Toast / 对话框）里的展示名：内置走系统语言资源。 */
+internal fun AlertPreset.displayNameString(context: android.content.Context): String {
+    val res = builtinPresetNameRes(id)
+    return if (res != null) context.getString(res) else name.ifBlank { id }
 }
 
 /** 预设展示名（选择页 / 预设库 / 编辑共用）。 */
@@ -226,6 +243,73 @@ internal fun ParticleHaloStyle.labelRes(): Int = when (this) {
     ParticleHaloStyle.Off -> R.string.float_ball_layer_halo_off
     ParticleHaloStyle.Soft -> R.string.float_ball_layer_halo_soft
     ParticleHaloStyle.Shape -> R.string.float_ball_layer_halo_shape
+}
+
+/**
+ * 筛选器（预设选择 sheet / 预设库共用）：全部 + 五类，**单行横向滚动**。
+ *
+ * 这是“过滤器”而不是“设置值”，所以仍用 PressFilterChip（ui-guidelines §4.4）；
+ * 单行不换行，36 个素材按类别收窄时不会把标题区撑成两排。
+ */
+@Composable
+internal fun AlertCategoryFilter(
+    selected: AlertLayerCategory?,
+    onSelect: (AlertLayerCategory?) -> Unit,
+) {
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "all") {
+            hunoia.luno.ui.component.PressFilterChip(
+                selected = selected == null,
+                onClick = { onSelect(null) },
+                label = {
+                    androidx.compose.material3.Text(
+                        stringResource(R.string.float_ball_alert_filter_all),
+                    )
+                },
+            )
+        }
+        AlertLayerCategory.entries.forEach { category ->
+            item(key = category.name) {
+                hunoia.luno.ui.component.PressFilterChip(
+                    selected = selected == category,
+                    onClick = { onSelect(category) },
+                    label = {
+                        androidx.compose.material3.Text(stringResource(category.titleRes()))
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 调色板单选下拉：预设级（组合调色板）/ 层级（颜色）共用。
+ *
+ * 第一项是“跟随”（预设级 = 跟随各层；层级 = 跟随预设），后面是素材库全部调色板。
+ */
+@Composable
+internal fun AlertPaletteRow(
+    title: String,
+    library: AlertLibrary,
+    selectedId: String?,
+    followLabel: String,
+    shape: Shape,
+    onSelect: (String?) -> Unit,
+) {
+    val palettes = library.paletteChoices()
+    val index = palettes.indexOfFirst { it.id == selectedId }
+    hunoia.luno.ui.component.row.LunoDropdownRow(
+        title = title,
+        options = listOf(followLabel) + palettes.map { it.name },
+        selectedIndex = if (index < 0) 0 else index + 1,
+        onSelect = { selected -> onSelect(if (selected == 0) null else palettes[selected - 1].id) },
+        shape = shape,
+    )
 }
 
 /** 预设卡片上的类别集合（按顺序去重）。 */
@@ -395,3 +479,14 @@ internal fun AlertPreset.swatchColors(library: AlertLibrary, fallback: Color): L
 
 /** 编辑器里给新层用的稳定 id（时间戳 + 计数，避免同一预设内重复）。 */
 internal fun newLayerId(seed: Long = System.nanoTime()): String = "layer_$seed"
+/** 上限原因 → 提示文案（添加层 / 组合编辑器共用）。 */
+internal fun AlertLimit.reasonRes(): Int = when (this) {
+    AlertLimit.TooManyEnabledLayers -> R.string.float_ball_preset_limit_layers
+    AlertLimit.TooManyStoredLayers -> R.string.float_ball_preset_limit_stored
+    AlertLimit.TooManyInCategory -> R.string.float_ball_preset_limit_category
+    AlertLimit.TooManyCapsuleLayers -> R.string.float_ball_preset_limit_capsule
+    AlertLimit.TooManyScreenLayers -> R.string.float_ball_preset_limit_screen
+    AlertLimit.TooManyRevealLayers -> R.string.float_ball_preset_limit_reveal
+    AlertLimit.EmptyPreset -> R.string.float_ball_preset_no_layer
+    AlertLimit.MissingParams -> R.string.float_ball_preset_limit_params
+}

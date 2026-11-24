@@ -1,29 +1,20 @@
 package hunoia.luno.floatball.settings.alert
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Shape
+import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoDropdownRow
+import kotlin.math.roundToInt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.component.PressFilterChip
-import hunoia.luno.ui.component.input.LunoTextSlider
-import kotlin.math.roundToInt
 
 /**
- * 层编辑器的参数控件：浮点滑杆 / 整数滑杆 / 选项胶囊。
+ * 层编辑器的参数控件：浮点滑杆 / 整数滑杆 / 单选下拉。
  *
- * 滑杆拖动只改本地预览，松手一次性落盘（与设置页口径一致）；不做输入框，
- * 避免中文输入法与滑杆抢焦点。
+ * 滑杆拖动只改本地预览，松手一次性落盘（与设置页口径一致）；单选一律走
+ * [LunoDropdownRow]（ui-guidelines §4.4：设置值不用行内 chip），不再有 ChipSelector。
  */
 
 @Composable
@@ -33,6 +24,7 @@ internal fun LayerFloatSlider(
     range: ClosedFloatingPointRange<Float>,
     decimals: Int = 2,
     shape: Shape,
+    display: ((Float) -> String)? = null,
     onCommit: (Float) -> Unit,
 ) {
     var local by remember(value, range) { mutableFloatStateOf(value.coerceIn(range)) }
@@ -41,7 +33,7 @@ internal fun LayerFloatSlider(
         onValueChange = { local = it },
         onValueChangeFinished = { onCommit(local.coerceIn(range)) },
         text = label,
-        valueDisplay = { it.format(decimals) },
+        valueDisplay = { current -> display?.invoke(current) ?: current.format(decimals) },
         valueRange = range,
         shape = shape,
     )
@@ -68,45 +60,33 @@ internal fun LayerIntSlider(
     )
 }
 
-/** 选项胶囊（形态 / 区域 / 形状 / 方向）。 */
+/** 枚举 / 可空枚举的单选下拉：行尾显示当前值，点开菜单选。 */
 @Composable
-internal fun <T> ChipSelector(
-    label: String,
+internal fun <T> LayerDropdownRow(
+    title: String,
     options: List<T>,
     selected: T,
+    shape: Shape,
     optionLabel: @Composable (T) -> String,
     onSelect: (T) -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-    ) {
-        if (label.isNotBlank()) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            options.forEach { option ->
-                PressFilterChip(
-                    selected = option == selected,
-                    onClick = { onSelect(option) },
-                    label = { Text(optionLabel(option)) },
-                )
-            }
-        }
-    }
+    LunoDropdownRow(
+        title = title,
+        options = options.map { optionLabel(it) },
+        selectedIndex = options.indexOf(selected).coerceAtLeast(0),
+        onSelect = { index -> onSelect(options[index]) },
+        shape = shape,
+    )
 }
 
 private fun Float.format(decimals: Int): String = when (decimals) {
     0 -> roundToInt().toString()
     1 -> "%.1f".format(this)
     else -> "%.2f".format(this)
+}
+
+/** 屏幕坐标系的 8 方位箭头（0 = 右，90 = 下，270 = 上）。 */
+internal fun directionArrow(deg: Float): String {
+    val index = (((deg / 45f).roundToInt() % 8) + 8) % 8
+    return listOf("→", "↘", "↓", "↙", "←", "↖", "↑", "↗")[index]
 }

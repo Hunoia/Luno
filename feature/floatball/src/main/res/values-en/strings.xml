@@ -75,7 +75,7 @@
     <string name="float_ball_capsule_alert_palette_color_count">%1$d colors</string>
     <string name="float_ball_capsule_alert_palette_color_limit">Up to 5 colors, at least 1</string>
 
-    <string name="float_ball_capsule_alert_preview_all">Preview all</string>
+    <string name="float_ball_capsule_alert_preview_all">Preview once</string>
     <string name="float_ball_capsule_alert_preview_no_overlay">Overlay permission is required to play the alert</string>
     <string name="float_ball_capsule_alert_preview_no_capsule">Enable the notification capsule first</string>
     <string name="float_ball_capsule_alert_preview_busy">Already playing, try again shortly</string>
@@ -158,7 +158,6 @@
     <string name="float_ball_alert_preset_picker">Choose a preset</string>
     <string name="float_ball_alert_intensity">Intensity</string>
     <string name="float_ball_alert_speed">Speed</string>
-    <string name="float_ball_alert_preview_all_subtitle">Play all five slots once with the current settings</string>
     <string name="float_ball_alert_read_text">Let effects read notification text</string>
     <string name="float_ball_alert_read_text_subtitle">Only used by reveal presets; when off, only geometry / color effects play</string>
     <string name="float_ball_preset_edge_glow">Screen edge glow</string>
@@ -180,7 +179,7 @@
     <string name="float_ball_preset_screen_zoom">Zoom pulse</string>
     <string name="float_ball_preset_path_comet">Crossing comet</string>
     <string name="float_ball_preset_path_orbit">Orbit</string>
-    <string name="float_ball_preset_path_spiral">Spiral rise</string>
+    <string name="float_ball_preset_path_spiral">Spiral inward</string>
 
     <string name="float_ball_preset_edge_ribbon">Edge ribbon</string>
     <string name="float_ball_preset_edge_lightning">Edge lightning</string>
@@ -197,9 +196,6 @@
     <string name="float_ball_alert_category_ball">Ball &amp; capsule</string>
     <string name="float_ball_alert_category_screen">Full screen</string>
     <string name="float_ball_alert_category_reveal">Reveal</string>
-    <string name="float_ball_alert_preset_group_choice">Choose</string>
-    <string name="float_ball_alert_preset_manage">Manage presets</string>
-    <string name="float_ball_alert_preset_manage_subtitle">Build combos, edit layers, back up</string>
     <string name="float_ball_alert_preset_missing">Preset missing</string>
     <string name="float_ball_alert_preset_none">None</string>
     <string name="float_ball_alert_preset_none_subtitle">Do not play an arrival effect</string>
@@ -211,22 +207,17 @@
     <string name="float_ball_preset_group_mine">My presets</string>
     <string name="float_ball_preset_group_mine_hint">Single layers and combos</string>
     <string name="float_ball_preset_group_builtin">Built-in material</string>
-    <string name="float_ball_preset_group_builtin_hint">Single layers, ready to use</string>
     <string name="float_ball_preset_group_builtin_edit_hint">Tap to copy into My presets, then edit</string>
     <string name="float_ball_preset_library_title">Preset library</string>
-    <string name="float_ball_preset_library_hint">Combine 1–5 layers; each layer declares its own host</string>
     <string name="float_ball_preset_library_entry_hint">Built-in material and my combos</string>
     <string name="float_ball_preset_palette_entry_hint">Built-in and custom palettes</string>
     <string name="float_ball_preset_new">New preset</string>
-    <string name="float_ball_preset_new_subtitle">Starts with one particle layer</string>
     <string name="float_ball_preset_default_name">My preset</string>
     <string name="float_ball_preset_copy_name">%1$s copy</string>
     <string name="float_ball_preset_export">Export presets &amp; palettes</string>
-    <string name="float_ball_preset_export_subtitle">Writes a JSON file you can merge on another device</string>
     <string name="float_ball_preset_export_done">Exported</string>
     <string name="float_ball_preset_export_failed">Export failed</string>
     <string name="float_ball_preset_import">Import presets &amp; palettes</string>
-    <string name="float_ball_preset_import_subtitle">Merges; duplicate names get a suffix</string>
     <string name="float_ball_preset_import_done">Imported %1$d presets</string>
     <string name="float_ball_preset_import_failed">Unrecognized file or unsupported version</string>
     <string name="float_ball_preset_empty">No presets yet</string>
@@ -237,7 +228,6 @@
     <string name="float_ball_preset_editor_title">Edit preset</string>
     <string name="float_ball_preset_name">Preset name</string>
     <string name="float_ball_preset_preview">Preview combo</string>
-    <string name="float_ball_preset_preview_hint">Play the current edits once</string>
     <string name="float_ball_preset_layers_title">Layers</string>
     <string name="float_ball_preset_layers_hint">%1$d / %2$d enabled; list order is draw order</string>
     <string name="float_ball_preset_no_layer">No layers yet</string>
@@ -245,11 +235,8 @@
     <string name="float_ball_preset_add_layer">Add layer</string>
     <string name="float_ball_preset_add_layer_hint">Blank layer or built-in material</string>
     <string name="float_ball_preset_delete">Delete preset</string>
-    <string name="float_ball_preset_delete_subtitle">Removes it from the library; built-ins unaffected</string>
     <string name="float_ball_preset_delete_confirm_title">Delete this preset?</string>
     <string name="float_ball_preset_delete_confirm_text">“%1$s” and all its layers will be deleted. This cannot be undone.</string>
-    <string name="float_ball_preset_done">Done</string>
-    <string name="float_ball_preset_autosave_hint">Changes are saved as you edit</string>
     <string name="float_ball_preset_limit_layers">At most 5 enabled layers</string>
     <string name="float_ball_preset_limit_stored">At most 10 stored layers</string>
     <string name="float_ball_preset_limit_category">At most 2 layers per category</string>
@@ -267,7 +254,6 @@
     <string name="float_ball_layer_enabled">Enable this layer</string>
     <string name="float_ball_layer_enabled_subtitle">Parameters are kept but not played when off</string>
     <string name="float_ball_layer_preview">Preview this layer</string>
-    <string name="float_ball_layer_preview_hint">Plays only this layer</string>
     <string name="float_ball_layer_group_base">Basics</string>
     <string name="float_ball_layer_group_base_hint">Enable and single-layer preview</string>
     <string name="float_ball_layer_group_appearance">Appearance</string>
@@ -275,16 +261,11 @@
     <string name="float_ball_layer_group_motion">Motion</string>
     <string name="float_ball_layer_group_look">Shape &amp; glow</string>
     <string name="float_ball_layer_group_timing">Timing</string>
-    <string name="float_ball_layer_group_advanced">Advanced</string>
     <string name="float_ball_layer_group_advanced_fields">Advanced parameters</string>
-    <string name="float_ball_layer_group_order">Order &amp; structure</string>
     <string name="float_ball_layer_color">Color</string>
-    <string name="float_ball_layer_color_hint">Empty follows the preset; a palette overrides this layer</string>
     <string name="float_ball_layer_base_millis">Cycle duration</string>
     <string name="float_ball_layer_cycles">Cycles</string>
     <string name="float_ball_layer_layer_speed">Layer speed</string>
-    <string name="float_ball_layer_show_advanced">Show advanced</string>
-    <string name="float_ball_layer_show_advanced_hint">Blend mode, tilt, attraction and other rare fields</string>
     <string name="float_ball_layer_pattern">Pattern</string>
     <string name="float_ball_layer_band_width">Band width</string>
     <string name="float_ball_layer_corner_radius">Edge corner radius</string>
@@ -320,7 +301,6 @@
     <string name="float_ball_layer_motion_sway">Sway</string>
     <string name="float_ball_layer_motion_sway_cycles">Sway cycles</string>
     <string name="float_ball_layer_motion_spin">Spin</string>
-    <string name="float_ball_layer_motion_tilt">Tilt</string>
     <string name="float_ball_layer_motion_bounce">Bounce</string>
     <string name="float_ball_layer_motion_attract">Attract</string>
     <string name="float_ball_layer_motion_path">Path</string>
@@ -382,7 +362,7 @@
     <string name="float_ball_layer_vignette_softness">Vignette softness</string>
     <string name="float_ball_layer_stagger">Stagger</string>
     <string name="float_ball_layer_scale_from">Start scale</string>
-    <string name="float_ball_layer_reveal_direction">Mask direction</string>
+    <string name="float_ball_layer_reveal_direction">Reveal direction</string>
     <string name="float_ball_layer_direction_ltr">Left to right</string>
     <string name="float_ball_layer_direction_rtl">Right to left</string>
     <string name="float_ball_layer_direction_ttb">Top to bottom</string>
@@ -427,4 +407,34 @@
     <string name="float_ball_layer_reveal_text">Text reveal</string>
     <string name="float_ball_layer_reveal_icon">Icon reveal</string>
     <string name="float_ball_layer_particle_engine">Particle engine</string>
+    <string name="float_ball_preset_edge_fireworks">Edge fireworks</string>
+    <string name="float_ball_preset_edge_blade">Edge blades</string>
+    <string name="float_ball_preset_ball_halo">Ball halo</string>
+    <string name="float_ball_preset_capsule_shimmer">Capsule border shimmer</string>
+    <string name="float_ball_preset_capsule_breath">Capsule breathing outline</string>
+    <string name="float_ball_preset_capsule_sweep">Capsule inner sweep</string>
+    <string name="float_ball_layer_color_follow">Follow preset</string>
+    <string name="float_ball_layer_kind_edge">edge</string>
+    <string name="float_ball_layer_kind_particle">particle</string>
+    <string name="float_ball_layer_kind_ball">ball</string>
+    <string name="float_ball_layer_kind_capsule">capsule</string>
+    <string name="float_ball_layer_kind_screen">full-screen</string>
+    <string name="float_ball_layer_kind_reveal">reveal</string>
+    <string name="float_ball_layer_preview_disabled">Enable this layer first</string>
+    <string name="float_ball_preset_add_full">10 layers max; delete one first</string>
+    <string name="float_ball_preset_toggle_blocked">%1$s; turn another layer off first</string>
+    <string name="float_ball_alert_filter_all">All</string>
+    <string name="float_ball_layer_group_appearance_hint">Shows only parameters used by the current pattern; other values are kept</string>
+    <string name="float_ball_alert_settings_title">Arrival effect</string>
+    <string name="float_ball_alert_summary_off">Off</string>
+    <string name="float_ball_alert_preview_none">Choose a preset first</string>
+    <string name="float_ball_alert_preview_disabled">Turn the arrival effect on first</string>
+    <string name="float_ball_alert_behavior_group">Behavior</string>
+    <string name="float_ball_alert_behavior_hint">When a new notification arrives</string>
+    <string name="float_ball_alert_preset_search">Search presets</string>
+    <string name="float_ball_alert_more">More</string>
+    <string name="float_ball_preset_layer_off">off</string>
+    <string name="float_ball_layer_edit_params">Edit parameters</string>
+    <string name="float_ball_layer_edit_params_hint">Pattern / emitter / motion / timing / advanced</string>
+    <string name="float_ball_alert_basic_group">Basics</string>
 </resources>

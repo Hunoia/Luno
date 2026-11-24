@@ -1,18 +1,18 @@
 package hunoia.luno.floatball.settings.alert
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,8 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -41,7 +39,12 @@ import hunoia.luno.config.model.RevealDirection
 import hunoia.luno.config.model.RevealPattern
 import hunoia.luno.config.model.ScreenPattern
 import hunoia.luno.floatball.R
+import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.menu.LunoDropdownMenu
+import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
@@ -49,7 +52,8 @@ import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.FloatingContentBottom
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,6 +66,28 @@ import java.util.UUID
  * 改动立即落盘；「试播这一层」走服务侧同一条渲染路径，不写配置。
  * 结构操作（上移 / 下移 / 复制 / 删除）也在这里，顺序 = 绘制顺序。
  */
+/**
+ * 层编辑器的展开分组（单开）：基础 / 时序 / 形态参数 / 高级。
+ *
+ * 形态参数按 kind 不同，[Appearance] 是屏缘·球体·胶囊·全屏·揭示的公共外观组；
+ * 粒子另用 [Emitter] / [Motion] / [Look]。
+ */
+internal enum class LayerSection {
+    Base,
+    Timing,
+    Appearance,
+    Emitter,
+    Motion,
+    Look,
+    Advanced,
+}
+
+/**
+ * 单层编辑器：基础 / 时序 / 形态参数 / 高级，**全部字段可及**。
+ *
+ * 分组可展开（单开），默认打开外观（粒子为“形状与光效”）；参数改动立即落盘。
+ * 试播走右下 FAB（只播这一层）；上移 / 下移 / 复制 / 删除在本页顶栏。
+ */
 @Composable
 fun AlertLayerEditorScreen(
     presetId: String,
@@ -73,9 +99,9 @@ fun AlertLayerEditorScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val facades = LocalFacades.current
-    var deleting by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
-    var showAdvanced by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var nameDraft by remember(layerId) { mutableStateOf("") }
     val currentPreset = editor.library.presetById(presetId)
     val layer = currentPreset?.layers?.firstOrNull { it.id == layerId }
@@ -85,6 +111,12 @@ fun AlertLayerEditorScreen(
     }
     if (currentPreset == null || layer == null) return
     LaunchedEffect(layer.id) { nameDraft = layer.name }
+
+    var openSection by remember(layerId) {
+        mutableStateOf<LayerSection?>(
+            if (layer.kind == AlertKind.Particle) LayerSection.Look else LayerSection.Appearance,
+        )
+    }
 
     fun updatePreset(transform: (AlertPreset) -> AlertPreset) {
         scope.launch {
@@ -103,12 +135,6 @@ fun AlertLayerEditorScreen(
     }
 
     val pushLayer: (AlertLayer) -> Unit = { updated -> update { updated } }
-
-    fun commitName() {
-        val trimmed = nameDraft.trim()
-        if (trimmed == layer.name) return
-        update { it.copy(name = trimmed) }
-    }
 
     fun leave() {
         if (leaving) return
@@ -134,31 +160,120 @@ fun AlertLayerEditorScreen(
         }
     }
 
-    fun previewLayer(target: AlertLayer = layer) {
+    fun previewLayer() {
         facades.system.previewFloatBallAlertPreset(
             context,
-            currentPreset.withReplacedLayer(target),
-            target.id,
+            currentPreset.withReplacedLayer(layer),
+            layer.id,
         )
     }
+
+    fun toast(text: String) {
+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    val playable = layer.enabled
 
     LunoScreenLazy(
         title = stringResource(R.string.float_ball_layer_title),
         onBack = { leave() },
+        bottomContentPadding = FloatingContentBottom,
+        floatingContent = {
+            LunoFab(
+                onClick = {
+                    if (playable) {
+                        previewLayer()
+                    } else {
+                        toast(context.getString(R.string.float_ball_layer_preview_disabled))
+                    }
+                },
+                icon = Icons.Default.PlayArrow,
+                contentDescription = stringResource(R.string.float_ball_layer_preview),
+                containerColor = if (playable) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
+            )
+        },
+        actions = {
+            PressIconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.float_ball_alert_more),
+                )
+            }
+            LunoDropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_layer_move_up),
+                    leadingIcon = { Icon(Icons.Default.ArrowUpward, contentDescription = null) },
+                    enabled = currentPreset.layers.indexOfFirst { it.id == layer.id } > 0,
+                    onClick = {
+                        menuOpen = false
+                        updatePreset { it.withMovedLayer(layer.id, -1) }
+                    },
+                )
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_layer_move_down),
+                    leadingIcon = { Icon(Icons.Default.ArrowDownward, contentDescription = null) },
+                    enabled = currentPreset.layers.indexOfFirst { it.id == layer.id } <
+                        currentPreset.layers.lastIndex,
+                    onClick = {
+                        menuOpen = false
+                        updatePreset { it.withMovedLayer(layer.id, 1) }
+                    },
+                )
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_layer_duplicate),
+                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                    enabled = currentPreset.addBlockedBy(layer.kind, addingStored = true) == null,
+                    onClick = {
+                        menuOpen = false
+                        val blocked = currentPreset.addBlockedBy(layer.kind, addingStored = true)
+                        if (blocked != null) {
+                            toast(
+                                context.getString(
+                                    R.string.float_ball_preset_toggle_blocked,
+                                    context.getString(blocked.reasonRes()),
+                                ),
+                            )
+                            return@LunoDropdownMenuItem
+                        }
+                        updatePreset { it.withAddedLayer(layer.duplicated()) }
+                    },
+                )
+                LunoDropdownMenuItem(
+                    text = stringResource(R.string.float_ball_layer_delete),
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                    isError = true,
+                    onClick = {
+                        menuOpen = false
+                        confirmDelete = true
+                    },
+                )
+            }
+        },
         dialogs = {
-            if (deleting) {
+            if (confirmDelete) {
                 ConfirmDialog(
                     title = stringResource(R.string.float_ball_layer_delete_confirm_title),
                     text = stringResource(R.string.float_ball_layer_delete_confirm_text),
                     destructive = true,
-                    onDismissRequest = { deleting = false },
+                    onDismissRequest = { confirmDelete = false },
                     onConfirm = {
-                        deleting = false
+                        confirmDelete = false
                         leaving = true
                         scope.launch {
                             val next = currentPreset.withoutLayer(layer.id)
                             editor.commitLibrary { lib ->
-                                lib.copy(presets = lib.presets.map { if (it.id == next.id) next else it })
+                                lib.copy(
+                                    presets = lib.presets.map {
+                                        if (it.id == next.id) next else it
+                                    },
+                                )
                             }
                             onBack()
                         }
@@ -171,6 +286,11 @@ fun AlertLayerEditorScreen(
             LunoGroup(
                 title = stringResource(R.string.float_ball_layer_group_base),
                 subtitle = stringResource(R.string.float_ball_layer_group_base_hint),
+                collapsible = true,
+                expanded = openSection == LayerSection.Base,
+                onToggle = {
+                    openSection = if (openSection == LayerSection.Base) null else LayerSection.Base
+                },
             ) {
                 val rows = segmentedRows {
                     item { shape ->
@@ -185,21 +305,38 @@ fun AlertLayerEditorScreen(
                                         layer.kind,
                                         addingStored = false,
                                     )
-                                    if (blocked != null) return@LunoSwitchRow
+                                    if (blocked != null) {
+                                        toast(
+                                            context.getString(
+                                                R.string.float_ball_preset_toggle_blocked,
+                                                context.getString(blocked.reasonRes()),
+                                            ),
+                                        )
+                                        return@LunoSwitchRow
+                                    }
                                 }
                                 update { it.copy(enabled = checked) }
                             },
                         )
                     }
                     item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_layer_preview),
-                            subtitle = stringResource(R.string.float_ball_layer_preview_hint),
-                            icon = Icons.Default.PlayArrow,
+                        LunoInputRow(
+                            label = stringResource(R.string.float_ball_layer_name),
+                            value = nameDraft,
+                            onValueChange = { nameDraft = it.take(24) },
+                            placeholder = layer.patternLabel().orEmpty(),
                             shape = shape,
-                            onClick = {
-                                commitName()
-                                previewLayer()
+                        )
+                    }
+                    item { shape ->
+                        AlertPaletteRow(
+                            title = stringResource(R.string.float_ball_layer_color),
+                            library = editor.library,
+                            selectedId = layer.color.paletteId,
+                            followLabel = stringResource(R.string.float_ball_layer_color_follow),
+                            shape = shape,
+                            onSelect = { id ->
+                                update { it.copy(color = layer.color.copy(paletteId = id)) }
                             },
                         )
                     }
@@ -207,33 +344,15 @@ fun AlertLayerEditorScreen(
                 SegmentedRows(rows)
             }
         }
-        item(key = "name") {
-            OutlinedTextField(
-                value = nameDraft,
-                onValueChange = { nameDraft = it },
-                label = { Text(stringResource(R.string.float_ball_layer_name)) },
-                singleLine = true,
-                shape = LargeShape,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .onFocusChanged { if (!it.isFocused) commitName() },
-            )
-        }
-        item(key = "color") {
-            LunoGroup(
-                title = stringResource(R.string.float_ball_layer_color),
-                subtitle = stringResource(R.string.float_ball_layer_color_hint),
-            ) {
-                PaletteChips(
-                    library = editor.library,
-                    selected = layer.color.paletteId,
-                    onSelect = { id -> update { it.copy(color = layer.color.copy(paletteId = id)) } },
-                )
-            }
-        }
         item(key = "timing") {
-            LunoGroup(title = stringResource(R.string.float_ball_layer_group_timing)) {
+            LunoGroup(
+                title = stringResource(R.string.float_ball_layer_group_timing),
+                collapsible = true,
+                expanded = openSection == LayerSection.Timing,
+                onToggle = {
+                    openSection = if (openSection == LayerSection.Timing) null else LayerSection.Timing
+                },
+            ) {
                 val rows = segmentedRows {
                     item { shape ->
                         LayerIntSlider(
@@ -247,16 +366,18 @@ fun AlertLayerEditorScreen(
                             },
                         )
                     }
-                    item { shape ->
-                        LayerIntSlider(
-                            label = stringResource(R.string.float_ball_layer_cycles),
-                            value = layer.timing.cycles,
-                            range = 1..10,
-                            shape = shape,
-                            onCommit = { value ->
-                                update { it.copy(timing = it.timing.copy(cycles = value)) }
-                            },
-                        )
+                    if (layer.kind != AlertKind.Particle) {
+                        item { shape ->
+                            LayerIntSlider(
+                                label = stringResource(R.string.float_ball_layer_cycles),
+                                value = layer.timing.cycles,
+                                range = 1..10,
+                                shape = shape,
+                                onCommit = { value ->
+                                    update { it.copy(timing = it.timing.copy(cycles = value)) }
+                                },
+                            )
+                        }
                     }
                     item { shape ->
                         LayerIntSlider(
@@ -266,7 +387,9 @@ fun AlertLayerEditorScreen(
                             suffix = "%",
                             shape = shape,
                             onCommit = { value ->
-                                update { it.copy(timing = it.timing.copy(speedPercent = value)) }
+                                update {
+                                    it.copy(timing = it.timing.copy(speedPercent = value))
+                                }
                             },
                         )
                     }
@@ -275,105 +398,91 @@ fun AlertLayerEditorScreen(
             }
         }
         item(key = "params") {
-            LayerParams(layer = layer, onUpdate = pushLayer)
+            LayerParams(
+                layer = layer,
+                openSection = openSection,
+                onSection = { openSection = it },
+                onUpdate = pushLayer,
+            )
         }
         if (layer.kind == AlertKind.Particle || layer.kind == AlertKind.Reveal) {
             item(key = "advanced") {
-                LunoGroup(title = stringResource(R.string.float_ball_layer_group_advanced)) {
-                    val rows = segmentedRows {
-                        item { shape ->
-                            LunoSwitchRow(
-                                title = stringResource(R.string.float_ball_layer_show_advanced),
-                                subtitle = stringResource(R.string.float_ball_layer_show_advanced_hint),
-                                checked = showAdvanced,
-                                shape = shape,
-                                onCheckedChange = { showAdvanced = it },
-                            )
-                        }
-                    }
-                    SegmentedRows(rows)
-                }
-            }
-            if (showAdvanced) {
-                item(key = "advanced_params") {
-                    LayerAdvancedParams(layer = layer, onUpdate = pushLayer)
-                }
-            }
-        }
-        item(key = "order") {
-            LunoGroup(title = stringResource(R.string.float_ball_layer_group_order)) {
-                val index = currentPreset.layers.indexOfFirst { it.id == layer.id }
-                val rows = segmentedRows {
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_layer_move_up),
-                            icon = Icons.Default.ArrowUpward,
-                            shape = shape,
-                            enabled = index > 0,
-                            onClick = {
-                                updatePreset { it.withMovedLayer(layer.id, -1) }
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_layer_move_down),
-                            icon = Icons.Default.ArrowDownward,
-                            shape = shape,
-                            enabled = index >= 0 && index < currentPreset.layers.lastIndex,
-                            onClick = {
-                                updatePreset { it.withMovedLayer(layer.id, 1) }
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_layer_duplicate),
-                            icon = Icons.Default.ContentCopy,
-                            shape = shape,
-                            enabled = currentPreset.addBlockedBy(
-                                layer.kind,
-                                addingStored = true,
-                            ) == null,
-                            onClick = {
-                                updatePreset { it.withAddedLayer(layer.duplicated()) }
-                            },
-                        )
-                    }
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_layer_delete),
-                            icon = Icons.Default.Delete,
-                            shape = shape,
-                            onClick = { deleting = true },
-                        )
-                    }
-                }
-                SegmentedRows(rows)
+                LayerAdvancedParams(
+                    layer = layer,
+                    expanded = openSection == LayerSection.Advanced,
+                    onToggle = {
+                        openSection =
+                            if (openSection == LayerSection.Advanced) null else LayerSection.Advanced
+                    },
+                    onUpdate = pushLayer,
+                )
             }
         }
     }
-
-
 }
 
 /** 主参数区：按 kind 分派。 */
 @Composable
-private fun LayerParams(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun LayerParams(
+    layer: AlertLayer,
+    openSection: LayerSection?,
+    onSection: (LayerSection) -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     when (layer.kind) {
-        AlertKind.Edge -> EdgeParamsBlock(layer, onUpdate)
-        AlertKind.Particle -> ParticleParamsBlock(layer, onUpdate)
-        AlertKind.Ball -> BallParamsBlock(layer, onUpdate)
-        AlertKind.Capsule -> CapsuleParamsBlock(layer, onUpdate)
-        AlertKind.Screen -> ScreenParamsBlock(layer, onUpdate)
-        AlertKind.Reveal -> RevealParamsBlock(layer, onUpdate)
+        AlertKind.Edge -> EdgeParamsBlock(
+            layer = layer,
+            expanded = openSection == LayerSection.Appearance,
+            onToggle = { onSection(LayerSection.Appearance) },
+            onUpdate = onUpdate,
+        )
+        AlertKind.Particle -> ParticleParamsBlock(
+            layer = layer,
+            openSection = openSection,
+            onSection = onSection,
+            onUpdate = onUpdate,
+        )
+        AlertKind.Ball -> BallParamsBlock(
+            layer = layer,
+            expanded = openSection == LayerSection.Appearance,
+            onToggle = { onSection(LayerSection.Appearance) },
+            onUpdate = onUpdate,
+        )
+        AlertKind.Capsule -> CapsuleParamsBlock(
+            layer = layer,
+            expanded = openSection == LayerSection.Appearance,
+            onToggle = { onSection(LayerSection.Appearance) },
+            onUpdate = onUpdate,
+        )
+        AlertKind.Screen -> ScreenParamsBlock(
+            layer = layer,
+            expanded = openSection == LayerSection.Appearance,
+            onToggle = { onSection(LayerSection.Appearance) },
+            onUpdate = onUpdate,
+        )
+        AlertKind.Reveal -> RevealParamsBlock(
+            layer = layer,
+            expanded = openSection == LayerSection.Appearance,
+            onToggle = { onSection(LayerSection.Appearance) },
+            onUpdate = onUpdate,
+        )
     }
 }
 
 /** 高级区：冷门但真实存在的字段（混合模式 / 翻面 / 抖动 / 遮罩方向）。 */
 @Composable
-private fun LayerAdvancedParams(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_advanced_fields)) {
+private fun LayerAdvancedParams(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_advanced_fields),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
         val rows = segmentedRows {
             when (layer.kind) {
                 AlertKind.Particle -> {
@@ -405,20 +514,6 @@ private fun LayerAdvancedParams(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                                 },
                             )
                         }
-                    }
-                    item { shape ->
-                        LayerFloatSlider(
-                            label = stringResource(R.string.float_ball_layer_motion_tilt),
-                            value = params.motion.tilt,
-                            range = 0f..1f,
-                            decimals = 2,
-                            shape = shape,
-                            onCommit = { value ->
-                                onUpdate(
-                                    layer.withMotion(params.motion.copy(tilt = value)),
-                                )
-                            },
-                        )
                     }
                     item { shape ->
                         LayerFloatSlider(
@@ -455,11 +550,12 @@ private fun LayerAdvancedParams(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                 AlertKind.Edge -> Unit
                 AlertKind.Reveal -> {
                     val params = layer.reveal ?: return@segmentedRows
-                    item {
-                        ChipSelector(
-                            label = stringResource(R.string.float_ball_layer_reveal_direction),
+                    item { shape ->
+                        LayerDropdownRow(
+                            title = stringResource(R.string.float_ball_layer_reveal_direction),
                             options = RevealDirection.entries,
                             selected = params.maskDirection,
+                            shape = shape,
                             optionLabel = { direction ->
                                 when (direction) {
                                     RevealDirection.LeftToRight ->
@@ -485,19 +581,31 @@ private fun LayerAdvancedParams(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
 }
 
 @Composable
-private fun EdgeParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun EdgeParamsBlock(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.edge ?: return
     fun set(transform: (hunoia.luno.config.model.EdgeParams) -> hunoia.luno.config.model.EdgeParams) =
         onUpdate(layer.copy(edge = transform(params)))
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_appearance)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_appearance),
+        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_pattern),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_pattern),
                     options = EdgePattern.entries,
                     selected = params.pattern,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { pattern -> set { it.copy(pattern = pattern) } },
+                    onSelect = {pattern -> set { it.copy(pattern = pattern) } },
                 )
             }
             item { shape ->
@@ -510,81 +618,103 @@ private fun EdgeParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
                     onCommit = { value -> set { it.copy(bandWidthDp = value) } },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_corner_radius),
-                    value = params.cornerRadiusDp.toFloat(),
-                    range = 0f..80f,
-                    decimals = 0,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(cornerRadiusDp = value.toInt()) } },
+            if (params.pattern in setOf(
+                    EdgePattern.Glow, EdgePattern.Ripple, EdgePattern.Comet,
+                    EdgePattern.Ribbon, EdgePattern.Lightning,
                 )
+            ) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_corner_radius),
+                        value = params.cornerRadiusDp.toFloat(),
+                        range = 0f..80f,
+                        decimals = 0,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(cornerRadiusDp = value.toInt()) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_hardness),
-                    value = params.hardness,
-                    range = 1f..4f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(hardness = value) } },
-                )
+            if (params.pattern == EdgePattern.Glow || params.pattern == EdgePattern.Flow) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_hardness),
+                        value = params.hardness,
+                        range = 1f..4f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(hardness = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_scale),
-                    value = params.trailScale,
-                    range = 0f..4f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(trailScale = value) } },
-                )
+            if (params.pattern == EdgePattern.Flow || params.pattern == EdgePattern.Comet ||
+                params.pattern == EdgePattern.Ribbon
+            ) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_scale),
+                        value = params.trailScale,
+                        range = 0f..4f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(trailScale = value) } },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_alpha),
+                        value = params.trailAlpha,
+                        range = 0f..1f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(trailAlpha = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_alpha),
-                    value = params.trailAlpha,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(trailAlpha = value) } },
-                )
+            if (params.pattern == EdgePattern.Flow) {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_layer_dual_band),
+                        checked = params.dualBand,
+                        shape = shape,
+                        onCheckedChange = { checked -> set { it.copy(dualBand = checked) } },
+                    )
+                }
             }
-            item { shape ->
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_dual_band),
-                    checked = params.dualBand,
-                    shape = shape,
-                    onCheckedChange = { checked -> set { it.copy(dualBand = checked) } },
-                )
+            if (params.pattern == EdgePattern.Ripple) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_crests),
+                        value = params.crests,
+                        range = 2..6,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(crests = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_crests),
-                    value = params.crests,
-                    range = 2..6,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(crests = value) } },
-                )
+            if (params.pattern == EdgePattern.Blade) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_blade_height),
+                        value = params.bladeHeightDp,
+                        range = 40..360,
+                        suffix = " dp",
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(bladeHeightDp = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_blade_height),
-                    value = params.bladeHeightDp,
-                    range = 40..360,
-                    suffix = " dp",
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(bladeHeightDp = value) } },
-                )
-            }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_strikes),
-                    value = params.strikeCount,
-                    range = 1..4,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(strikeCount = value) } },
-                )
+            if (params.pattern == EdgePattern.Fireworks ||
+                params.pattern == EdgePattern.Lightning
+            ) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_strikes),
+                        value = params.strikeCount,
+                        range = 1..4,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(strikeCount = value) } },
+                    )
+                }
             }
         }
         SegmentedRows(rows)
@@ -592,19 +722,32 @@ private fun EdgeParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
 }
 
 @Composable
-private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun ParticleParamsBlock(
+    layer: AlertLayer,
+    openSection: LayerSection?,
+    onSection: (LayerSection) -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.particle ?: return
     fun set(transform: (hunoia.luno.config.model.ParticleParams) -> hunoia.luno.config.model.ParticleParams) =
         onUpdate(layer.copy(particle = transform(params)))
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_emitter)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_emitter),
+        collapsible = true,
+        expanded = openSection == LayerSection.Emitter,
+        onToggle = { onSection(LayerSection.Emitter) },
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_area),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_area),
                     options = ParticleArea.entries,
                     selected = params.emitter.area,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { area -> set { it.copy(emitter = it.emitter.copy(area = area)) } },
+                    onSelect = { area ->
+                        set { it.copy(emitter = it.emitter.copy(area = area)) }
+                    },
                 )
             }
             item { shape ->
@@ -632,7 +775,10 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                     range = 0f..360f,
                     decimals = 0,
                     shape = shape,
-                    onCommit = { value -> set { it.copy(emitter = it.emitter.copy(directionDeg = value)) } },
+                    display = { value -> "${value.roundToInt()}° ${directionArrow(value)}" },
+                    onCommit = { value ->
+                        set { it.copy(emitter = it.emitter.copy(directionDeg = value)) }
+                    },
                 )
             }
             item { shape ->
@@ -688,7 +834,12 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
         }
         SegmentedRows(rows)
     }
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_motion)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_motion),
+        collapsible = true,
+        expanded = openSection == LayerSection.Motion,
+        onToggle = { onSection(LayerSection.Motion) },
+    ) {
         val rows = segmentedRows {
             item { shape ->
                 LayerFloatSlider(
@@ -790,28 +941,37 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                     onCommit = { value -> set { it.copy(motion = it.motion.copy(spin = value)) } },
                 )
             }
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_motion_path),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_motion_path),
                     options = listOf<ParticlePath?>(null) + ParticlePath.entries,
                     selected = params.motion.path,
+                    shape = shape,
                     optionLabel = { path ->
                         path?.labelRes()?.let { stringResource(it) }
                             ?: stringResource(R.string.float_ball_layer_path_none)
                     },
-                    onSelect = { path -> set { it.copy(motion = it.motion.copy(path = path)) } },
+                    onSelect = { path ->
+                        set { it.copy(motion = it.motion.copy(path = path)) }
+                    },
                 )
             }
         }
         SegmentedRows(rows)
     }
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_look)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_look),
+        collapsible = true,
+        expanded = openSection == LayerSection.Look,
+        onToggle = { onSection(LayerSection.Look) },
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_shape),
+            item { rowShape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_shape),
                     options = AlertParticleShape.entries,
                     selected = params.look.shape,
+                    shape = rowShape,
                     optionLabel = { stringResource(it.labelRes()) },
                     onSelect = { shape ->
                         set { it.copy(look = it.look.copy(shape = shape)) }
@@ -830,14 +990,15 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
             if (params.look.shape == AlertParticleShape.Emoji ||
                 params.look.shape == AlertParticleShape.Text
             ) {
-                item {
+                item { shape ->
                     var text by remember(params.look.shape) {
                         mutableStateOf(params.look.text)
                     }
-                    TextFieldInline(
-                        value = text,
+                    LunoInputRow(
                         label = stringResource(R.string.float_ball_layer_text),
+                        value = text,
                         placeholder = stringResource(R.string.float_ball_layer_text_hint),
+                        shape = shape,
                         onValueChange = {
                             text = it.take(16)
                             set { current ->
@@ -877,54 +1038,70 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                     onCommit = { value -> set { it.copy(look = it.look.copy(alpha = value)) } },
                 )
             }
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_halo),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_halo),
                     options = ParticleHaloStyle.entries,
                     selected = params.look.haloStyle,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { style -> set { it.copy(look = it.look.copy(haloStyle = style)) } },
+                    onSelect = { style ->
+                        set { it.copy(look = it.look.copy(haloStyle = style)) }
+                    },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_halo_alpha),
-                    value = params.look.haloAlpha,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(look = it.look.copy(haloAlpha = value)) } },
-                )
+            if (params.look.haloStyle != ParticleHaloStyle.Off) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_halo_alpha),
+                        value = params.look.haloAlpha,
+                        range = 0f..1f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(look = it.look.copy(haloAlpha = value)) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_halo_scale),
+                        value = params.look.haloScale,
+                        range = 1f..4f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(look = it.look.copy(haloScale = value)) }
+                        },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_halo_scale),
-                    value = params.look.haloScale,
-                    range = 1f..4f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(look = it.look.copy(haloScale = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_length),
-                    value = params.look.trailDp,
-                    range = 0f..64f,
-                    decimals = 0,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(look = it.look.copy(trailDp = value)) } },
-                )
-            }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_alpha),
-                    value = params.look.trailAlpha,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(look = it.look.copy(trailAlpha = value)) } },
-                )
+            // 拖尾只有「线段」形状读（见 drawEngineShape）；其它形状放出来是死旋钮。
+            if (params.look.shape == AlertParticleShape.Line) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_length),
+                        value = params.look.trailDp,
+                        range = 0f..64f,
+                        decimals = 0,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(look = it.look.copy(trailDp = value)) }
+                        },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_alpha),
+                        value = params.look.trailAlpha,
+                        range = 0f..1f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(look = it.look.copy(trailAlpha = value)) }
+                        },
+                    )
+                }
             }
             item { shape ->
                 LunoSwitchRow(
@@ -946,15 +1123,19 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
                     },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_blink_cycles),
-                    value = params.look.blinkCycles,
-                    range = 0.5f..6f,
-                    decimals = 1,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(look = it.look.copy(blinkCycles = value)) } },
-                )
+            if (params.look.blink) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_blink_cycles),
+                        value = params.look.blinkCycles,
+                        range = 0.5f..6f,
+                        decimals = 1,
+                        shape = shape,
+                        onCommit = { value ->
+                            set { it.copy(look = it.look.copy(blinkCycles = value)) }
+                        },
+                    )
+                }
             }
         }
         SegmentedRows(rows)
@@ -962,19 +1143,31 @@ private fun ParticleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Uni
 }
 
 @Composable
-private fun BallParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun BallParamsBlock(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.ball ?: return
     fun set(transform: (hunoia.luno.config.model.BallParams) -> hunoia.luno.config.model.BallParams) =
         onUpdate(layer.copy(ball = transform(params)))
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_appearance)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_appearance),
+        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_pattern),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_pattern),
                     options = BallPattern.entries,
                     selected = params.pattern,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { pattern -> set { it.copy(pattern = pattern) } },
+                    onSelect = {pattern -> set { it.copy(pattern = pattern) } },
                 )
             }
             item { shape ->
@@ -987,61 +1180,77 @@ private fun BallParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
                     onCommit = { value -> set { it.copy(travelPercent = value) } },
                 )
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_stroke),
-                    value = params.strokeWidthDp,
-                    range = 1f..12f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
-                )
+            if (params.pattern == BallPattern.Ring || params.pattern == BallPattern.Ripple ||
+                params.pattern == BallPattern.Shockwave
+            ) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_stroke),
+                        value = params.strokeWidthDp,
+                        range = 1f..12f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_rings),
-                    value = params.ringsPerCycle,
-                    range = 1..4,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(ringsPerCycle = value) } },
-                )
+            if (params.pattern == BallPattern.Ring || params.pattern == BallPattern.Spiral) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_rings),
+                        value = params.ringsPerCycle,
+                        range = 1..4,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(ringsPerCycle = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_halo_scale),
-                    value = params.haloScale,
-                    range = 0.2f..2f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(haloScale = value) } },
-                )
+            if (params.pattern == BallPattern.Ring || params.pattern == BallPattern.Ripple ||
+                params.pattern == BallPattern.Halo
+            ) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_halo_scale),
+                        value = params.haloScale,
+                        range = 0.2f..2f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(haloScale = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_particle_count),
-                    value = params.particleCount,
-                    range = 8..80,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(particleCount = value) } },
-                )
+            if (params.pattern == BallPattern.Burst || params.pattern == BallPattern.Spiral ||
+                params.pattern == BallPattern.Orbit3D
+            ) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_particle_count),
+                        value = params.particleCount,
+                        range = 8..80,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(particleCount = value) } },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_particle_size),
+                        value = params.particleSizeDp,
+                        range = 1f..8f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(particleSizeDp = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_particle_size),
-                    value = params.particleSizeDp,
-                    range = 1f..8f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(particleSizeDp = value) } },
-                )
-            }
-            item { shape ->
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_center_at_ball),
-                    checked = params.centerAtBall,
-                    shape = shape,
-                    onCheckedChange = { checked -> set { it.copy(centerAtBall = checked) } },
-                )
+            if (params.pattern == BallPattern.Ripple) {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_layer_center_at_ball),
+                        checked = params.centerAtBall,
+                        shape = shape,
+                        onCheckedChange = { checked -> set { it.copy(centerAtBall = checked) } },
+                    )
+                }
             }
         }
         SegmentedRows(rows)
@@ -1049,19 +1258,31 @@ private fun BallParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
 }
 
 @Composable
-private fun CapsuleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun CapsuleParamsBlock(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.capsule ?: return
     fun set(transform: (hunoia.luno.config.model.CapsuleParams) -> hunoia.luno.config.model.CapsuleParams) =
         onUpdate(layer.copy(capsule = transform(params)))
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_appearance)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_appearance),
+        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_pattern),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_pattern),
                     options = CapsulePattern.entries,
                     selected = params.pattern,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { pattern -> set { it.copy(pattern = pattern) } },
+                    onSelect = {pattern -> set { it.copy(pattern = pattern) } },
                 )
             }
             item { shape ->
@@ -1074,53 +1295,68 @@ private fun CapsuleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit
                     onCommit = { value -> set { it.copy(strokeWidthDp = value) } },
                 )
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_band_width_percent),
-                    value = params.bandWidthPercent,
-                    range = 10..80,
-                    suffix = "%",
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(bandWidthPercent = value) } },
-                )
+            if (params.pattern == CapsulePattern.Shimmer ||
+                params.pattern == CapsulePattern.InnerSweep ||
+                params.pattern == CapsulePattern.DualChase
+            ) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_band_width_percent),
+                        value = params.bandWidthPercent,
+                        range = 10..80,
+                        suffix = "%",
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(bandWidthPercent = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_scale),
-                    value = params.trailScale,
-                    range = 0f..4f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(trailScale = value) } },
-                )
+            if (params.pattern == CapsulePattern.Shimmer ||
+                params.pattern == CapsulePattern.DualChase
+            ) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_scale),
+                        value = params.trailScale,
+                        range = 0f..4f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(trailScale = value) } },
+                    )
+                }
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_trail_alpha),
+                        value = params.trailAlpha,
+                        range = 0f..1f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(trailAlpha = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_trail_alpha),
-                    value = params.trailAlpha,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(trailAlpha = value) } },
-                )
+            if (params.pattern == CapsulePattern.Flip3D) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_flip_degrees),
+                        value = params.flipDegrees,
+                        range = 90..360,
+                        suffix = "°",
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(flipDegrees = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_flip_degrees),
-                    value = params.flipDegrees,
-                    range = 90..360,
-                    suffix = "°",
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(flipDegrees = value) } },
-                )
-            }
-            item { shape ->
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_layer_reverse),
-                    checked = params.reverse,
-                    shape = shape,
-                    onCheckedChange = { checked -> set { it.copy(reverse = checked) } },
-                )
+            if (params.pattern == CapsulePattern.Shimmer ||
+                params.pattern == CapsulePattern.InnerSweep
+            ) {
+                item { shape ->
+                    LunoSwitchRow(
+                        title = stringResource(R.string.float_ball_layer_reverse),
+                        checked = params.reverse,
+                        shape = shape,
+                        onCheckedChange = { checked -> set { it.copy(reverse = checked) } },
+                    )
+                }
             }
         }
         SegmentedRows(rows)
@@ -1128,19 +1364,31 @@ private fun CapsuleParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit
 }
 
 @Composable
-private fun ScreenParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun ScreenParamsBlock(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.screen ?: return
     fun set(transform: (hunoia.luno.config.model.ScreenParams) -> hunoia.luno.config.model.ScreenParams) =
         onUpdate(layer.copy(screen = transform(params)))
-    LunoGroup(title = stringResource(R.string.float_ball_layer_group_appearance)) {
+    LunoGroup(
+        title = stringResource(R.string.float_ball_layer_group_appearance),
+        subtitle = stringResource(R.string.float_ball_layer_group_appearance_hint),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
+    ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_pattern),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_pattern),
                     options = ScreenPattern.entries,
                     selected = params.pattern,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { pattern -> set { it.copy(pattern = pattern) } },
+                    onSelect = {pattern -> set { it.copy(pattern = pattern) } },
                 )
             }
             item { shape ->
@@ -1153,25 +1401,29 @@ private fun ScreenParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit)
                     onCommit = { value -> set { it.copy(amplitude = value) } },
                 )
             }
-            item { shape ->
-                LayerIntSlider(
-                    label = stringResource(R.string.float_ball_layer_zoom),
-                    value = params.zoomPercent,
-                    range = 0..20,
-                    suffix = "%",
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(zoomPercent = value) } },
-                )
+            if (params.pattern == ScreenPattern.ZoomPulse) {
+                item { shape ->
+                    LayerIntSlider(
+                        label = stringResource(R.string.float_ball_layer_zoom),
+                        value = params.zoomPercent,
+                        range = 0..20,
+                        suffix = "%",
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(zoomPercent = value) } },
+                    )
+                }
             }
-            item { shape ->
-                LayerFloatSlider(
-                    label = stringResource(R.string.float_ball_layer_vignette_softness),
-                    value = params.vignetteSoftness,
-                    range = 0f..1f,
-                    decimals = 2,
-                    shape = shape,
-                    onCommit = { value -> set { it.copy(vignetteSoftness = value) } },
-                )
+            if (params.pattern == ScreenPattern.Vignette) {
+                item { shape ->
+                    LayerFloatSlider(
+                        label = stringResource(R.string.float_ball_layer_vignette_softness),
+                        value = params.vignetteSoftness,
+                        range = 0f..1f,
+                        decimals = 2,
+                        shape = shape,
+                        onCommit = { value -> set { it.copy(vignetteSoftness = value) } },
+                    )
+                }
             }
         }
         SegmentedRows(rows)
@@ -1179,22 +1431,31 @@ private fun ScreenParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit)
 }
 
 @Composable
-private fun RevealParamsBlock(layer: AlertLayer, onUpdate: (AlertLayer) -> Unit) {
+private fun RevealParamsBlock(
+    layer: AlertLayer,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onUpdate: (AlertLayer) -> Unit,
+) {
     val params = layer.reveal ?: return
     fun set(transform: (hunoia.luno.config.model.RevealParams) -> hunoia.luno.config.model.RevealParams) =
         onUpdate(layer.copy(reveal = transform(params)))
     LunoGroup(
         title = stringResource(R.string.float_ball_layer_group_appearance),
         subtitle = stringResource(R.string.float_ball_layer_reveal_hint),
+        collapsible = true,
+        expanded = expanded,
+        onToggle = onToggle,
     ) {
         val rows = segmentedRows {
-            item {
-                ChipSelector(
-                    label = stringResource(R.string.float_ball_layer_pattern),
+            item { shape ->
+                LayerDropdownRow(
+                    title = stringResource(R.string.float_ball_layer_pattern),
                     options = RevealPattern.entries,
                     selected = params.pattern,
+                    shape = shape,
                     optionLabel = { stringResource(it.labelRes()) },
-                    onSelect = { pattern -> set { it.copy(pattern = pattern) } },
+                    onSelect = {pattern -> set { it.copy(pattern = pattern) } },
                 )
             }
             item { shape ->
@@ -1273,25 +1534,4 @@ private fun ParticleImageRow(
             onClick = { onLook(look.copy(customImage = "")) },
         )
     }
-}
-
-@Composable
-private fun TextFieldInline(
-    value: String,
-    label: String,
-    placeholder: String,
-    onValueChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        singleLine = true,
-        shape = LargeShape,
-        textStyle = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-    )
 }
