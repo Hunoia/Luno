@@ -1,7 +1,9 @@
 package hunoia.luno.facade
 
 import android.content.Context
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.core.effect.AlertEffectHandle
+import hunoia.luno.core.effect.AlertEffectRequest
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -22,9 +24,17 @@ interface SystemFacade {
 
     /**
      * 试播一次通知胶囊的到达提示动效（按当前落盘配置；服务没在跑时不播）。
-     * [category] 非空时只播该类（每类设置页的行内单播）；失败原因由服务侧 Toast 反馈。
+     * [slot] 非空时只播该槽（每槽设置页的行内单播）；失败原因由服务侧 Toast 反馈。
      */
-    fun previewFloatBallAlert(context: Context, category: AlertCategory? = null)
+    fun previewFloatBallAlert(context: Context, slot: AlertSlot? = null)
+
+    /**
+     * 播放一次通用效果（外部调用 / 试播共用）。
+     *
+     * 服务在跑 → 转发到 `:service`（Intent + JSON）；未在跑 → 由调用进程托管轻量效果窗
+     * （architecture §1.5 登记例外）。返回 null = 并发策略拒绝或不可用。
+     */
+    fun playAlertEffect(context: Context, request: AlertEffectRequest): AlertEffectHandle?
 
     /** 总闸重新打开后按落盘配置恢复悬浮球宿主（球 / 通知 / 剪贴板任一开启才拉起）。 */
     suspend fun restoreFloatBall(context: Context)

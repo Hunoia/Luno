@@ -2,7 +2,9 @@ package hunoia.luno.domain.system
 
 import android.content.Context
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.core.effect.AlertEffectHandle
+import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.runtime.floatball.FloatBallService
 
 /** 悬浮球服务启停门面：UI 不直接依赖 runtime 的服务实现。 */
@@ -19,9 +21,13 @@ object FloatBallUseCase {
     }
 
     /** 试播一次通知胶囊的到达提示动效（设置页入口，见 [FloatBallService.previewAlert]）。 */
-    fun previewAlert(context: Context, category: AlertCategory? = null) {
-        FloatBallService.previewAlert(context.applicationContext, category)
+    fun previewAlert(context: Context, slot: AlertSlot? = null) {
+        FloatBallService.previewAlert(context.applicationContext, slot)
     }
+
+    /** 通用效果播放：服务在跑转发到 `:service`，未在跑由调用进程托管（见架构例外）。 */
+    fun playAlertEffect(context: Context, request: AlertEffectRequest): AlertEffectHandle? =
+        FloatBallService.playAlertEffect(context.applicationContext, request)
 
     /**
      * 总闸打开后按落盘配置恢复共同宿主：球 / 通知胶囊 / 直执行规则任一需要才起服务。

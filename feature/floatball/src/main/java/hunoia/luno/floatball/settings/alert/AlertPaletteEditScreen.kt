@@ -81,8 +81,7 @@ fun AlertPaletteEditScreen(
     // 本地即显 + 异步落盘：写盘不保证立刻回推给活跃订阅者，颜色 / 彩虹开关必须当场可见
     // （与动效设置页同一口径，见 rememberAlertEditor）。
     val editor = rememberAlertEditor()
-    val alert = editor.alert
-    val palette = alert.customPalettes.firstOrNull { it.id == paletteId }
+    val palette = editor.library.palettes.firstOrNull { it.id == paletteId }
 
     // 不在组合期导航：先等配置流（新建调色板的写盘回推窗口），仍没有才回管理页；
     // 等到真值后把本地状态同步过来（管理页已先 syncActionSnapshot，正常路径不会走到这）。
@@ -90,7 +89,7 @@ fun AlertPaletteEditScreen(
         if (palette == null) {
             val appeared = withTimeoutOrNull(PaletteAppearWaitMs) {
                 TuneConfig.action.first { current ->
-                    current.floatBall.notificationCapsule.alert.customPalettes.any { it.id == paletteId }
+                    current.floatBall.notificationCapsule.alertLibrary.palettes.any { it.id == paletteId }
                 }
             }
             if (appeared == null) onBack() else editor.refresh()
@@ -106,9 +105,9 @@ fun AlertPaletteEditScreen(
     var leaving by remember { mutableStateOf(false) }
 
     fun updatePalette(transform: (AlertPalette) -> AlertPalette) {
-        editor.update { current ->
+        editor.updateLibrary { current ->
             current.copy(
-                customPalettes = current.customPalettes.map { p ->
+                palettes = current.palettes.map { p ->
                     if (p.id == paletteId) transform(p) else p
                 },
             )
@@ -142,9 +141,9 @@ fun AlertPaletteEditScreen(
             return
         }
         scope.launch {
-            persistAlertNow { current ->
+            persistLibraryNow { current ->
                 current.copy(
-                    customPalettes = current.customPalettes.map {
+                    palettes = current.palettes.map {
                         if (it.id == paletteId) it.copy(name = name) else it
                     },
                 )
@@ -323,7 +322,7 @@ fun AlertPaletteEditScreen(
                                 if (!leaving) {
                                     leaving = true
                                     scope.launch {
-                                        persistAlertNow { it.removePalette(paletteId) }
+                                        persistLibraryNow { it.removePalette(paletteId) }
                                         TuneConfig.syncActionSnapshot()
                                         onBack()
                                     }

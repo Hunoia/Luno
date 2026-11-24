@@ -6,7 +6,9 @@ import hunoia.luno.facade.PrivilegedGrantSummary
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.facade.PrivilegedPermissionStatus
 import android.content.Context
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.core.effect.AlertEffectHandle
+import hunoia.luno.core.effect.AlertEffectRequest
 import kotlinx.coroutines.flow.Flow
 object SystemUseCases : SystemFacade {
 
@@ -24,8 +26,11 @@ object SystemUseCases : SystemFacade {
 
     override fun refreshFloatBall(context: Context) = FloatBallUseCase.refresh(context)
 
-    override fun previewFloatBallAlert(context: Context, category: AlertCategory?) =
-        FloatBallUseCase.previewAlert(context, category)
+    override fun previewFloatBallAlert(context: Context, slot: AlertSlot?) =
+        FloatBallUseCase.previewAlert(context, slot)
+
+    override fun playAlertEffect(context: Context, request: AlertEffectRequest): AlertEffectHandle? =
+        FloatBallUseCase.playAlertEffect(context, request)
 
     override suspend fun restoreFloatBall(context: Context) =
         FloatBallUseCase.restoreIfEnabled(context)

@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -28,17 +30,9 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import hunoia.luno.config.model.AnchorAlertStyle
-import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.ColorSpec
-import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
-import hunoia.luno.config.model.ParticleAlertStyle
-import hunoia.luno.config.model.ParticleShape
-import hunoia.luno.config.model.ParticleShapeSettings
 import hunoia.luno.config.model.AlertParticleShape
-import hunoia.luno.config.model.ParticleArea
-import hunoia.luno.config.model.ParticleEmitter
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.runtime.floatball.alert.engine.ParticleFrame
@@ -84,6 +78,7 @@ private const val MeteorSeed = 0x4E7E
 private const val ConfettiSeed = 0xC0FF
 private const val FireflySeed = 0xF1AE
 private const val FireworksSeed = 0xF1AE0
+private const val PathSeed = 0x9A7A
 
 /**
  * 调色板 AGSL 声明与取色助手：`paletteCount` + 5 色。
@@ -313,8 +308,8 @@ internal fun AlertStageLayers(
     clock: () -> Float,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        for (layer in plan.stageLayers) {
-            key(layer.style) {
+        plan.stageLayers.forEachIndexed { index, layer ->
+            key("${layer.presetId ?: layer.style}-$index") {
                 val palette = resolvePalette(layer, colorSpec)
                 val seed = plan.seed
                 when (val style = layer.style) {
@@ -339,6 +334,8 @@ internal fun AlertStageLayers(
                         AnchorAlertStyle.BallBurst -> BallBurstLayer(layer, anchor, palette, clock, seed)
                         AnchorAlertStyle.BallHalo -> BallHaloLayer(layer, anchor, palette, clock)
                     }
+
+                    is ScreenAlertStyle -> ScreenLayer(layer, palette, clock)
 
                     is CapsuleAlertStyle -> Unit
                 }
@@ -473,42 +470,36 @@ private fun ParticleEngineLayer(
     seed: Int,
 ) {
     val spec = layer.spec as ParticlesSpec
+    val params = spec.params
+    val emitter = params.emitter
+    val look = params.look
     val style = layer.style as ParticleAlertStyle
-    val image = rememberParticleImage(spec, layer.appPackage)
-    val peakAlpha = layer.brightness
-        .lerpInRange(ParticlesTuning.PeakAlphaMin, ParticlesTuning.PeakAlphaMax)
-    val count = (layer.amount
-        .lerpInRange(
-            FloatBallDefaults.AlertParticlesCountMin.toFloat(),
-            FloatBallDefaults.AlertParticlesCountMax.toFloat(),
-        )
-        .roundToInt() * layer.cycles).coerceIn(1, 600)
-    val visual = remember(style, spec) { engineVisual(style, spec) }
+    val image = rememberParticleImage(look, layer.appPackage)
+    val peakAlpha = look.alpha.coerceIn(0.05f, 1f)
+    val count = (emitter.count * layer.cycles).coerceIn(1, 600)
     val cycleSeconds = layer.cycleMillis / 1000f
-    // 寿命 = 单循环 × 寿命占比 × 行程；至少留 5% 做错峰，否则一循环内所有粒子同刻出发。
-    val lifeSeconds = (
-        cycleSeconds * visual.lifeShare *
-            (if (style == ParticleAlertStyle.Firefly) 1f else spec.travelPercent.coerceIn(0.1f, 2f))
-        ).coerceIn(0.06f, cycleSeconds * 0.95f)
-    val lifeMs = (lifeSeconds * 1000f).coerceAtLeast(1f)
-    val spreadMs = (layer.cycleMillis - lifeMs).coerceAtLeast(1f)
+    // 寿命 = 单循环 × 寿命占比；至少留 5% 做错峰，否则一循环内所有粒子同刻出发。
+    val lifeSeconds = (cycleSeconds * emitter.lifeShare.coerceIn(0.05f, 0.95f))
+        .coerceIn(0.06f, cycleSeconds * 0.95f)
+    val spreadMs = (layer.cycleMillis - lifeSeconds * 1000f).coerceAtLeast(1f)
+    val motion = params.motion
 
-    // 一次播放的粒子状态：初始位置/方向一次生成，之后按帧推进。
+    // 一次播放的粒子状态：初始位置 / 方向一次生成，之后按帧推进。
     val run = remember(layer, seed) {
-        val random = Random(engineSeed(style) xor seed)
+        val random = Random((layer.presetId?.hashCode() ?: engineSeed(style)) xor seed)
         val states = mutableListOf<ParticleState>()
         val sizeJitters = FloatArray(count)
         val alphaJitters = FloatArray(count)
         repeat(count) { index ->
-            val base = spawnParticle(visual.emitter, ParticleFrame(1f), null, random)
+            val base = spawnParticle(emitter, ParticleFrame(1f), null, random)
             val wave = index / (count / layer.cycles).coerceAtLeast(1)
             states += base.copy(
                 life = lifeSeconds,
                 delay = (wave * layer.cycleMillis + random.nextFloat() * spreadMs) / 1000f,
                 seed = base.seed xor index,
             )
-            sizeJitters[index] = varianceScale(spec.variance, random.nextFloat())
-            alphaJitters[index] = varianceScale(spec.variance, random.nextFloat())
+            sizeJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
+            alphaJitters[index] = varianceScale(look.sizeJitter, random.nextFloat())
         }
         ParticleRun(states, sizeJitters, alphaJitters)
     }
@@ -520,11 +511,11 @@ private fun ParticleEngineLayer(
         if (envelope <= 0.005f) return@Canvas
 
         val frame = ParticleFrame(aspect = 1f)
-        advanceRun(run, frame, visual.motion, now)
+        advanceRun(run, frame, motion, now)
 
         val nowSeconds = now / 1000f
-        val peakSizePx = visual.look.sizeDp.dp.toPx()
-        val trailPx = visual.look.trailDp.dp.toPx()
+        val peakSizePx = look.sizeDp.dp.toPx()
+        val trailPx = look.trailDp.dp.toPx()
         run.states.forEachIndexed { index, particle ->
             val age = nowSeconds - particle.delay
             if (age <= 0f) return@forEachIndexed
@@ -535,26 +526,26 @@ private fun ParticleEngineLayer(
             val accent = palette.at(index)
             val center = Offset(particle.x * size.width, particle.y * size.height)
             val radius = peakSizePx * run.sizeJitters[index]
-            // 光晕：低 alpha 的大圆垫底，形状更接近旧观感（圆点最明显）。
-            if (visual.look.halo > 0f) {
+            // 光晕：低 alpha 的大圆垫底，圆点 / 图标形状更接近旧观感。
+            if (look.halo > 0f) {
                 drawCircle(
                     color = accent,
-                    alpha = (alpha * visual.look.halo).coerceIn(0f, 1f),
+                    alpha = (alpha * look.halo).coerceIn(0f, 1f),
                     radius = radius * ParticlesTuning.HaloScale,
                     center = center,
                 )
             }
             drawEngineShape(
-                shape = visual.look.shape,
+                shape = look.shape,
                 image = image,
                 color = accent.copy(alpha = alpha),
                 center = center,
                 radiusPx = radius,
-                rotationDeg = particle.spinDeg,
+                rotationDeg = if (look.rotate || motion.spin > 0f) particle.spinDeg else 0f,
                 vx = particle.vx,
                 vy = particle.vy,
                 trailPx = trailPx,
-                tint = spec.tintImage && spec.shape == ParticleShape.CustomImage,
+                tint = look.tintImage && look.shape == AlertParticleShape.CustomImage,
             )
         }
     }
@@ -597,133 +588,13 @@ private fun advanceRun(
     }
 }
 
-/**
- * 样式 → 引擎参数：发射区域 / 方向 / 初速 / 六族强度 / 形状 / 寿命。
- *
- * 旋钮映射：大小 → look.sizeDp；摆幅 → motion.sway；重力 → motion.gravity；
- * 散开 → spreadDeg（喷泉）；行程 → lifeSeconds；风 / 阻力 / 方差 → 对应字段。
- */
-private fun engineVisual(style: ParticleAlertStyle, spec: ParticlesSpec): EngineVisual {
-    val shape = when (spec.shape) {
-        ParticleShape.Dot -> AlertParticleShape.Dot
-        ParticleShape.CustomImage -> AlertParticleShape.CustomImage
-        ParticleShape.AppIcon -> AlertParticleShape.AppIcon
-    }
-    val size = (3f * spec.sizeScale).coerceIn(1f, 12f)
-    return when (style) {
-        ParticleAlertStyle.TopRain -> EngineVisual(
-            emitter = ParticleEmitter(
-                area = ParticleArea.TopEdge,
-                directionDeg = 90f,
-                spreadDeg = 24f,
-                speed = 0.6f,
-                speedJitter = 0.25f,
-            ),
-            motion = ParticleMotion(
-                gravity = spec.gravityExp.coerceIn(0f, 3f),
-                drag = spec.drag,
-                wind = spec.wind,
-                sway = 0.2f * spec.swayScale,
-            ),
-            look = ParticleLook(shape = shape, sizeDp = size, trailDp = 0f),
-            lifeShare = 0.65f,
-        )
-        ParticleAlertStyle.BottomFountain -> EngineVisual(
-            emitter = ParticleEmitter(
-                area = ParticleArea.BottomEdge,
-                directionDeg = 270f,
-                spreadDeg = (22f * spec.spreadScale).coerceIn(6f, 50f),
-                speed = 0.85f,
-                speedJitter = 0.35f,
-            ),
-            motion = ParticleMotion(
-                gravity = spec.gravityExp.coerceIn(0f, 3f),
-                drag = spec.drag,
-                wind = spec.wind,
-                bounce = 0.2f,
-            ),
-            look = ParticleLook(shape = shape, sizeDp = size),
-            lifeShare = 0.6f,
-        )
-        ParticleAlertStyle.Meteor -> EngineVisual(
-            emitter = ParticleEmitter(
-                area = ParticleArea.TopEdge,
-                directionDeg = 135f,
-                spreadDeg = 8f,
-                speed = 1.3f,
-                speedJitter = 0.2f,
-            ),
-            motion = ParticleMotion(
-                gravity = 0.2f,
-                drag = spec.drag,
-                wind = spec.wind,
-            ),
-            look = ParticleLook(
-                shape = AlertParticleShape.Line,
-                sizeDp = size,
-                trailDp = spec.tailLengthDp.toFloat(),
-            ),
-            lifeShare = 0.6f,
-        )
-        ParticleAlertStyle.Confetti -> EngineVisual(
-            emitter = ParticleEmitter(
-                area = ParticleArea.TopEdge,
-                directionDeg = 90f,
-                spreadDeg = 40f,
-                speed = 0.35f,
-                speedJitter = 0.4f,
-            ),
-            motion = ParticleMotion(
-                gravity = spec.gravityExp.coerceIn(0f, 3f) * 0.7f,
-                drag = spec.drag,
-                wind = spec.wind,
-                sway = 0.4f * spec.swayScale,
-                spin = 0.8f,
-                tilt = 0.8f,
-            ),
-            look = ParticleLook(shape = AlertParticleShape.Square, sizeDp = size),
-            lifeShare = 0.7f,
-        )
-        ParticleAlertStyle.Firefly -> EngineVisual(
-            emitter = ParticleEmitter(
-                area = ParticleArea.ScreenRect,
-                directionDeg = 90f,
-                spreadDeg = 360f,
-                speed = 0.05f,
-                speedJitter = 1f,
-            ),
-            motion = ParticleMotion(
-                gravity = 0f,
-                drag = 0.6f,
-                wind = spec.wind,
-                brownian = 0.6f,
-                turbulence = 0.4f,
-                sway = 0.5f * spec.swayScale,
-            ),
-            look = ParticleLook(
-                shape = shape,
-                sizeDp = size * 0.7f,
-                halo = 0.5f,
-            ),
-            lifeShare = 0.8f,
-        )
-    }
-}
-
-private class EngineVisual(
-    val emitter: ParticleEmitter,
-    val motion: ParticleMotion,
-    val look: ParticleLook,
-    /** 寿命占单循环的比例（再由行程倍率缩放）。 */
-    val lifeShare: Float,
-)
-
 private fun engineSeed(style: ParticleAlertStyle): Int = when (style) {
     ParticleAlertStyle.TopRain -> RainSeed
     ParticleAlertStyle.BottomFountain -> FountainSeed
     ParticleAlertStyle.Meteor -> MeteorSeed
     ParticleAlertStyle.Confetti -> ConfettiSeed
     ParticleAlertStyle.Firefly -> FireflySeed
+    ParticleAlertStyle.Path -> PathSeed
 }
 
 /** 形状绘制：几何形状走 Path / 描边，图片 / 图标复用 [drawMote]；未实现形状回落圆点。 */
@@ -818,6 +689,77 @@ private fun starPath(
     }
     path.close()
     return path
+}
+
+/**
+ * 全屏着色（舞台窗最上层之外的独立层）：闪光 / 暗角呼吸 / 缩放脉冲。
+ *
+ * 效果窗是全屏穿透的，不能真的缩放其它内容；缩放脉冲用径向亮环模拟「向外顶一下」，
+ * 观感与「屏幕像被轻推」一致，且不依赖任何应用内容。
+ */
+@Composable
+private fun ScreenLayer(
+    layer: AlertLayerPlan,
+    palette: AlertPaletteColors,
+    clock: () -> Float,
+) {
+    val spec = layer.spec as ScreenSpec
+    val amplitude = layer.brightness.coerceIn(0f, 1f)
+    val accent = palette.at(0)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val now = clock()
+        if (now >= layer.totalMillis) return@Canvas
+        val envelope = envelopeAt(now, layer.totalMillis, AlertEnvelopeShare)
+        if (envelope <= 0.005f) return@Canvas
+        val t = (now / layer.cycleMillis) % 1f
+        when (spec.pattern) {
+            ScreenAlertStyle.Flash -> {
+                val wave = sin(Math.PI.toFloat() * t).coerceAtLeast(0f)
+                val alpha = amplitude * wave * envelope * 0.8f
+                if (alpha > 0.003f) {
+                    drawRect(color = accent.copy(alpha = alpha))
+                }
+            }
+            ScreenAlertStyle.Vignette -> {
+                val breath = 0.5f + 0.5f * sin(2f * Math.PI.toFloat() * t)
+                val alpha = amplitude * (0.35f + 0.65f * breath) * envelope
+                val soft = spec.vignetteSoftness.coerceIn(0.05f, 1f)
+                val fadeIn = 1f - soft * 0.75f
+                val radius = maxOf(size.width, size.height) * 0.78f
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0f to accent.copy(alpha = 0f),
+                            fadeIn to accent.copy(alpha = 0f),
+                            1f to accent.copy(alpha = alpha),
+                        ),
+                        center = Offset(size.width / 2f, size.height / 2f),
+                        radius = radius,
+                    ),
+                )
+            }
+            ScreenAlertStyle.ZoomPulse -> {
+                val scale = 1f +
+                    spec.zoomPercent.coerceIn(0, 40) / 100f * t.easedOut(2f)
+                val alpha = amplitude * (1f - t).pow(1.4f) * envelope
+                val radius = maxOf(size.width, size.height) * 0.42f * scale
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0f to accent.copy(alpha = 0f),
+                            0.65f to accent.copy(alpha = alpha * 0.35f),
+                            0.92f to accent.copy(alpha = alpha),
+                            1f to accent.copy(alpha = 0f),
+                        ),
+                        center = Offset(size.width / 2f, size.height / 2f),
+                        radius = radius,
+                    ),
+                    radius = radius,
+                    center = Offset(size.width / 2f, size.height / 2f),
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -1396,8 +1338,8 @@ private const val ParticleImageMaxPx = 128
  */
 private val particleImageCache = LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(8)
 
-private fun particleImageKey(spec: ParticlesSpec, appPackage: String?): String =
-    "${spec.shape}|${spec.customImage}|${appPackage.orEmpty()}"
+private fun particleImageKey(look: ParticleLook, appPackage: String?): String =
+    "${look.shape}|${look.customImage}|${appPackage.orEmpty()}"
 
 /**
  * 粒子形状 → 位图：自定义图片 / 通知应用图标，**后台解码 + 降采样**，失败回落 null（圆点）。
@@ -1407,42 +1349,42 @@ private fun particleImageKey(spec: ParticlesSpec, appPackage: String?): String =
  */
 @Composable
 private fun rememberParticleImage(
-    spec: ParticlesSpec,
+    look: ParticleLook,
     appPackage: String?,
 ): androidx.compose.ui.graphics.ImageBitmap? {
     val context = LocalContext.current
-    val key = particleImageKey(spec, appPackage)
+    val key = particleImageKey(look, appPackage)
     var image by remember(key) { mutableStateOf(particleImageCache.get(key)) }
     LaunchedEffect(key) {
-        if (spec.shape == ParticleShape.Dot) {
+        if (look.shape == AlertParticleShape.Dot) {
             image = null
             return@LaunchedEffect
         }
-        image = decodeParticleImage(context, spec, appPackage)
+        image = decodeParticleImage(context, look, appPackage)
     }
-    return if (spec.shape == ParticleShape.Dot) null else image
+    return if (look.shape == AlertParticleShape.Dot) null else image
 }
 
 /** 后台解码并按 [ParticleImageMaxPx] 降采样；结果写入 [particleImageCache]。 */
 private suspend fun decodeParticleImage(
     context: Context,
-    spec: ParticlesSpec,
+    look: ParticleLook,
     appPackage: String?,
 ): androidx.compose.ui.graphics.ImageBitmap? = withContext(Dispatchers.IO) {
-    val key = particleImageKey(spec, appPackage)
+    val key = particleImageKey(look, appPackage)
     particleImageCache.get(key)?.let { return@withContext it }
     val decoded = runCatching {
-        when (spec.shape) {
-            ParticleShape.Dot -> null
-            ParticleShape.CustomImage -> decodeShapeFile(context, spec.customImage)
-            ParticleShape.AppIcon -> decodeAppIcon(context, appPackage)
+        when (look.shape) {
+            AlertParticleShape.CustomImage -> decodeShapeFile(context, look.customImage)
+            AlertParticleShape.AppIcon -> decodeAppIcon(context, appPackage)
+            else -> null
         }
     }.getOrNull()
     if (decoded != null) particleImageCache.put(key, decoded)
     decoded
 }
 
-/** 自定义形状文件：新数据只存文件名（文件在 `ParticleShapeSettings.ImageDirName` 下）；旧数据可能是绝对路径。 */
+/** 自定义形状文件：新数据只存文件名（文件在 `ParticleLook.ImageDirName` 下）；旧数据可能是绝对路径。 */
 private fun decodeShapeFile(context: Context, stored: String): androidx.compose.ui.graphics.ImageBitmap? {
     val file = resolveShapeFile(context, stored)?.takeIf { it.isFile } ?: return null
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -1459,7 +1401,7 @@ private fun resolveShapeFile(context: Context, stored: String): File? {
     val raw = stored.removePrefix("file://")
     if (raw.isBlank()) return null
     return if (raw.contains('/')) File(raw)
-    else File(File(context.filesDir, ParticleShapeSettings.ImageDirName), raw)
+    else File(File(context.filesDir, ParticleLook.ImageDirName), raw)
 }
 
 private fun sampleSizeFor(width: Int, height: Int): Int {

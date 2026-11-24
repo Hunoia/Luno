@@ -167,16 +167,15 @@ class FloatBallSettingsTest {
     }
 
     @Test
-    fun `old alert key with removed style is skipped and resets only the alert subtree`() {
-        // 旧键 alert 里含已删除的 EdgeBlink：严格 JSON 不能因此整份解析失败。
-        // alert_v2 是唯一挂载键，旧键整块被 ignoreUnknownKeys 跳过 → 动效回落默认（四类全关）。
+    fun `old alert v2 key is skipped and resets only the alert subtree`() {
+        // alert_v3 是唯一挂载键；旧 alert_v2（四类样式 + 旧调色板）整块被
+        // ignoreUnknownKeys 跳过 → 动效回落默认（五槽全关），素材库不受影响。
         val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
             """
             {
               "notificationCapsule": {
                 "enabled": true,
-                "alert": {
-                  "enabled": true,
+                "alert_v2": {
                   "edge": { "enabled": true, "style": "EdgeBlink" },
                   "particle": { "enabled": true, "style": "Snowflake" }
                 }
@@ -185,32 +184,43 @@ class FloatBallSettingsTest {
             """,
         )
         val alert = decoded.notificationCapsule.alert
-        assertFalse(alert.edge.enabled)
-        assertFalse(alert.particle.enabled)
-        assertEquals(EdgeAlertStyle.EdgeGlow, alert.edge.style)
-        assertEquals(ParticleAlertStyle.TopRain, alert.particle.style)
+        assertTrue(alert.slots.enabledSlots.isEmpty())
+        assertEquals(AlertSlots(), alert.slots)
+        assertTrue(decoded.notificationCapsule.alertLibrary.palettes.isEmpty())
         // 胶囊自身的其它字段照常解码。
         assertTrue(decoded.notificationCapsule.enabled)
     }
 
     @Test
-    fun `alert v2 key decodes the new shape`() {
+    fun `alert v3 key decodes slots presets and overrides`() {
         val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
             """
             {
               "notificationCapsule": {
-                "alert_v2": {
-                  "edge": { "enabled": true, "style": "EdgeRipple" },
-                  "particle": { "enabled": true, "style": "Confetti" }
+                "alert_v3": {
+                  "playOnEveryNotification": true,
+                  "readNotificationText": false,
+                  "slots": {
+                    "edge": {
+                      "enabled": true,
+                      "presetId": "builtin_edge_ripple",
+                      "overrides": { "intensityPercent": 120, "speedPercent": 80 }
+                    },
+                    "particle": { "enabled": true },
+                    "screen": { "enabled": false }
+                  }
                 }
               }
             }
             """,
         )
         val alert = decoded.notificationCapsule.alert
-        assertTrue(alert.edge.enabled)
-        assertEquals(EdgeAlertStyle.EdgeRipple, alert.edge.style)
-        assertTrue(alert.particle.enabled)
-        assertEquals(ParticleAlertStyle.Confetti, alert.particle.style)
+        assertTrue(alert.playOnEveryNotification)
+        assertFalse(alert.readNotificationText)
+        assertEquals(listOf(AlertSlot.Edge, AlertSlot.Particle), alert.slots.enabledSlots)
+        assertEquals("builtin_edge_ripple", alert.slots.edge.presetId)
+        assertEquals(120, alert.slots.edge.overrides.intensityPercent)
+        assertEquals(80, alert.slots.edge.overrides.speedPercent)
+        assertNull(alert.slots.particle.presetId)
     }
 }

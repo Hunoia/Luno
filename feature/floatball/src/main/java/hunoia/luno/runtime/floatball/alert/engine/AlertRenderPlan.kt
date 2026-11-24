@@ -4,6 +4,7 @@ import hunoia.luno.config.model.AlertColorRef
 import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertPreset
+import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.EdgeParams
@@ -21,6 +22,8 @@ import kotlin.math.roundToInt
  */
 data class AlertRenderLayer(
     val presetId: String?,
+    /** 配置槽位（外部调用可能为 null）；只影响日志与粒子种子。 */
+    val slot: AlertSlot? = null,
     val host: AlertHost,
     val kind: AlertKind,
     val cycleMillis: Int,
@@ -67,8 +70,11 @@ data class AlertRenderPlan(
 data class AlertSlotRequest(
     val presetId: String,
     val host: AlertHost,
+    val slot: AlertSlot? = null,
     val intensity: Float? = null,
     val speedScale: Float? = null,
+    /** 槽位颜色覆盖（优先于预设变体颜色）。 */
+    val colorOverride: AlertColorRef? = null,
 )
 
 object AlertRenderPlanBuilder {
@@ -104,12 +110,13 @@ object AlertRenderPlanBuilder {
                     val cycle = (layer.cycleMillis / speedScale).roundToInt().coerceAtLeast(1)
                     layers += AlertRenderLayer(
                         presetId = layer.presetId,
+                        slot = request.slot,
                         host = layer.host,
                         kind = layer.kind,
                         cycleMillis = cycle,
                         cycles = layer.cycles,
                         intensity = (request.intensity ?: 1f).coerceIn(0f, 2f),
-                        palette = paletteFor(variant.color),
+                        palette = paletteFor(request.colorOverride ?: variant.color),
                         appPackage = appPackage,
                         particle = variant.particle.takeIf { variant.kind == AlertKind.Particle },
                         edge = variant.edge.takeIf { variant.kind == AlertKind.Edge },

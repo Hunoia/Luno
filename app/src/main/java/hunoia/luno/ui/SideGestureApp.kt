@@ -81,11 +81,9 @@ import hunoia.luno.ui.navigation.PendingDynamicShortcuts
 import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
-import hunoia.luno.ui.navigation.FloatBallAlertAnchor
 import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
-import hunoia.luno.ui.navigation.FloatBallAlertCapsule
-import hunoia.luno.ui.navigation.FloatBallAlertEdge
-import hunoia.luno.ui.navigation.FloatBallAlertParticle
+import hunoia.luno.ui.navigation.FloatBallAlertSlot
+import hunoia.luno.ui.navigation.FloatBallAlertPresetPicker
 import hunoia.luno.ui.navigation.FloatBallAlertPalettePicker
 import hunoia.luno.ui.navigation.FloatBallAlertPaletteManager
 import hunoia.luno.ui.navigation.FloatBallAlertPaletteEdit
@@ -95,14 +93,12 @@ import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
-import hunoia.luno.floatball.settings.alert.AlertAnchorSettingsScreen
-import hunoia.luno.floatball.settings.alert.AlertCapsuleSettingsScreen
-import hunoia.luno.floatball.settings.alert.AlertEdgeSettingsScreen
-import hunoia.luno.floatball.settings.alert.AlertParticleSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertSlotSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertPresetPickerScreen
 import hunoia.luno.floatball.settings.alert.AlertPalettePickerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteManagerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteEditScreen
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.floatball.settings.ResultCapsuleSettingsScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
@@ -515,51 +511,42 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     NotificationCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
-                        onNavToAlertEdge = { navController.navigate(FloatBallAlertEdge) },
-                        onNavToAlertParticle = { navController.navigate(FloatBallAlertParticle) },
-                        onNavToAlertCapsule = { navController.navigate(FloatBallAlertCapsule) },
-                        onNavToAlertAnchor = { navController.navigate(FloatBallAlertAnchor) },
+                        onNavToAlertSlot = { slot ->
+                            navController.navigate(FloatBallAlertSlot(slot.name))
+                        },
                         onNavToAlertBlocklist = { navController.navigate(FloatBallAlertBlocklist) },
                     )
                 }
-                myComposable<FloatBallAlertEdge> {
-                    AlertEdgeSettingsScreen(
+                myComposable<FloatBallAlertSlot> { entry ->
+                    val slot = AlertSlot.entries
+                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertSlot>().slot }
+                        ?: AlertSlot.Edge
+                    AlertSlotSettingsScreen(
+                        slot = slot,
                         onBack = { navController.popBackStack() },
+                        onNavToPresetPicker = {
+                            navController.navigate(FloatBallAlertPresetPicker(slot.name))
+                        },
                         onNavToPalette = {
-                            navController.navigate(FloatBallAlertPalettePicker(AlertCategory.Edge.name))
+                            navController.navigate(FloatBallAlertPalettePicker(slot.name))
                         },
                     )
                 }
-                myComposable<FloatBallAlertParticle> {
-                    AlertParticleSettingsScreen(
+                myComposable<FloatBallAlertPresetPicker> { entry ->
+                    val slot = AlertSlot.entries
+                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertPresetPicker>().slot }
+                        ?: AlertSlot.Edge
+                    AlertPresetPickerScreen(
+                        slot = slot,
                         onBack = { navController.popBackStack() },
-                        onNavToPalette = {
-                            navController.navigate(FloatBallAlertPalettePicker(AlertCategory.Particle.name))
-                        },
-                    )
-                }
-                myComposable<FloatBallAlertCapsule> {
-                    AlertCapsuleSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavToPalette = {
-                            navController.navigate(FloatBallAlertPalettePicker(AlertCategory.Capsule.name))
-                        },
-                    )
-                }
-                myComposable<FloatBallAlertAnchor> {
-                    AlertAnchorSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavToPalette = {
-                            navController.navigate(FloatBallAlertPalettePicker(AlertCategory.Anchor.name))
-                        },
                     )
                 }
                 myComposable<FloatBallAlertPalettePicker> { entry ->
-                    val route = entry.toRoute<FloatBallAlertPalettePicker>()
-                    val category = AlertCategory.entries.firstOrNull { it.name == route.category }
-                        ?: AlertCategory.Edge
+                    val slot = AlertSlot.entries
+                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertPalettePicker>().slot }
+                        ?: AlertSlot.Edge
                     AlertPalettePickerScreen(
-                        category = category,
+                        slot = slot,
                         onBack = { navController.popBackStack() },
                         onNavToPaletteManager = { navController.navigate(FloatBallAlertPaletteManager) },
                     )

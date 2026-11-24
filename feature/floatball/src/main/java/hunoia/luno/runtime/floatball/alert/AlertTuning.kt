@@ -1,11 +1,6 @@
 package hunoia.luno.runtime.floatball.alert
 
-import hunoia.luno.config.model.AlertStyleId
-import hunoia.luno.config.model.AnchorAlertStyle
-import hunoia.luno.config.model.CapsuleAlertStyle
-import hunoia.luno.config.model.EdgeAlertStyle
 import hunoia.luno.config.model.FloatBallDefaults
-import hunoia.luno.config.model.ParticleAlertStyle
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -236,34 +231,3 @@ internal fun Float.lerpInRange(min: Float, max: Float): Float = min + (max - min
 
 /** 量 0..1 → 缓出曲线：k = 1 退化为线性，k > 1 起步快、收尾减速。 */
 internal fun Float.easedOut(exp: Float): Float = 1f - (1f - this).pow(exp)
-
-/**
- * 每个样式的**单循环基准时长**（ms，标准档 1.0×）：类内各按观感定值，不共用。
- *
- * 这是「每类一个 `MotionFamily`」之后的唯一时长来源——家族只承载档位倍率，基准在这里。
- * `when` 必须穷尽 [AlertStyleId]：新增样式不登记就编译不过（这是门禁，不是风格）。
- */
-internal fun alertStyleBaseMillis(style: AlertStyleId): Int = when (style) {
-    // 边缘类
-    EdgeAlertStyle.EdgeGlow -> 1400
-    EdgeAlertStyle.EdgeFlow -> 1600
-    EdgeAlertStyle.EdgeRipple -> 1300
-    EdgeAlertStyle.EdgeFireworks -> 1400
-    EdgeAlertStyle.EdgeBladeRise -> 1100
-    // 粒子类（一波粒子从顶缘落到淡出）
-    ParticleAlertStyle.TopRain -> 1000
-    ParticleAlertStyle.BottomFountain -> 1100
-    ParticleAlertStyle.Meteor -> 900
-    ParticleAlertStyle.Confetti -> 1200
-    ParticleAlertStyle.Firefly -> 1500
-    // 胶囊本体类
-    CapsuleAlertStyle.Pulse -> 1000
-    CapsuleAlertStyle.Shimmer -> 1150
-    CapsuleAlertStyle.BreathOutline -> 1100
-    CapsuleAlertStyle.InnerSweep -> 1150
-    // 球心·全屏类
-    AnchorAlertStyle.Ring -> 1000
-    AnchorAlertStyle.Ripple -> 1100
-    AnchorAlertStyle.BallBurst -> 900
-    AnchorAlertStyle.BallHalo -> 1200
-}

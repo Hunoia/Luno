@@ -35,8 +35,7 @@ fun AlertPaletteManagerScreen(
     val scope = rememberCoroutineScope()
     // 本地即显状态：从编辑页 / 管理页返回时跟着 resume 刷新（写盘不保证回推活跃订阅者）。
     val editor = rememberAlertEditor()
-    val alert = editor.alert
-    val palettes = alert.allPalettes()
+    val palettes = editor.library.allPalettes()
     // 连点「新建」会建出两个调色板并连进两次编辑页：用 creating 收口。
     var creating by remember { mutableStateOf(false) }
 
@@ -89,15 +88,16 @@ fun AlertPaletteManagerScreen(
                                     // 先等写盘完成并同步兜底缓存，再进编辑页：否则编辑页首帧读不到
                                     // 这个 id（写盘回推异步）会被判定为「已删除」直接弹回。
                                     scope.launch {
-                                        persistAlertNow { it.copy(customPalettes = it.customPalettes + newPalette) }
+                                        persistLibraryNow { it.copy(palettes = it.palettes + newPalette) }
                                         TuneConfig.syncActionSnapshot()
+                                        editor.refresh()
                                         onEditPalette(newPalette.id)
                                     }
                                 }
                             },
                         )
                     }
-                    val custom = palettes.filter { it.id.startsWith("custom_") }
+                    val custom = editor.library.palettes
                     if (custom.isEmpty()) {
                         item { shape ->
                             LunoSettingsRow(

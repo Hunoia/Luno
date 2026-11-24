@@ -80,7 +80,7 @@ object ModuleRules {
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:gesture", ":feature:actions",
+            ":core:effect", ":core:runtime", ":feature:gesture", ":feature:actions",
             ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(

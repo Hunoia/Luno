@@ -48,7 +48,7 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.config.model.withAnchorY
@@ -57,10 +57,16 @@ import hunoia.luno.link.Links
 import hunoia.luno.runtime.floatball.alert.AlertAnchor
 import hunoia.luno.runtime.floatball.alert.AlertEnvironment
 import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
+import hunoia.luno.runtime.floatball.alert.AlertEffectLocalHost
 import hunoia.luno.runtime.floatball.alert.AlertStageWindow
-import hunoia.luno.runtime.floatball.alert.buildPlan
+import hunoia.luno.runtime.floatball.alert.engine.AlertSlotPlanFactory
+import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.runtime.floatball.alert.needsCapsule
 import hunoia.luno.runtime.floatball.alert.shouldPlay
+import hunoia.luno.core.effect.AlertConcurrency
+import hunoia.luno.core.effect.AlertEffectHandle
+import hunoia.luno.core.effect.AlertEffectRequest
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.runtime.floatball.inbox.BallInboxAction
 import hunoia.luno.runtime.floatball.inbox.BallInboxChange
 import hunoia.luno.runtime.floatball.inbox.BallInboxConfig
@@ -301,6 +307,12 @@ class FloatBallService : Service() {
     /** 到达提示动效的单舞台窗（边缘 / 粒子 / 球心·全屏）；胶囊层走胶囊窗自己的 Compose 层。 */
     private val alertStage by lazy { AlertStageWindow(this) }
 
+    /** 外部效果请求 id：只用于取消匹配（播放中不排队、不打断由并发策略决定）。 */
+    private var activeEffectId: String? = null
+
+    /** QUEUE 的待播槽位（上限 1，契约约定）；播完当前效果后自动起播。 */
+    private var pendingEffect: AlertEffectRequest? = null
+
     // ---- 跟随持机手（三球各自独立） ----
 
     /**
@@ -436,16 +448,36 @@ class FloatBallService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_PREVIEW_ALERT) {
-            val categoryName = intent.getStringExtra(EXTRA_PREVIEW_CATEGORY)
-            val category = categoryName?.let { name ->
-                AlertCategory.entries.firstOrNull { it.name == name }
+            val slotName = intent.getStringExtra(EXTRA_PREVIEW_SLOT)
+            val slot = slotName?.let { name ->
+                AlertSlot.entries.firstOrNull { it.name == name }
             }
-            previewArrivalAlert(category)
+            previewArrivalAlert(slot)
             refreshWindows()
             if (shouldStopSelf()) {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_PLAY_EFFECT) {
+            val json = intent.getStringExtra(EXTRA_EFFECT_REQUEST)
+            val request = json?.let {
+                runCatching {
+                    JsonSerializer.globalJson.decodeFromString<AlertEffectRequest>(it)
+                }.getOrNull()
+            }
+            if (request != null) playEffect(request)
+            refreshWindows()
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_CANCEL_EFFECT) {
+            val id = intent.getStringExtra(EXTRA_EFFECT_ID)
+            if (id != null && id == activeEffectId) stopArrivalAlerts()
             return START_STICKY
         }
         refreshWindows()
@@ -753,14 +785,15 @@ class FloatBallService : Service() {
      * 种子每次播放重新取：同一份配置的粒子分布不会一模一样。
      */
     private fun buildAlertPlan(appPackage: String? = null): AlertPlayPlan {
-        val alert = settings.notificationCapsule.alert
+        val capsule = settings.notificationCapsule
         val profile = MotionTuning.profile
-        return buildPlan(
-            alert = alert,
-            tierFactor = { style -> profile.speedOf(style.category.toAlertFamily()).factor },
+        return AlertSlotPlanFactory.build(
+            alert = capsule.alert,
+            library = capsule.alertLibrary,
             appPackage = appPackage,
+            tierFor = { slot -> profile.speedOf(slot.toAlertFamily()).factor },
             seed = Random.nextInt(),
-        )
+        ).toPlayPlan()
     }
 
     /** 到达动效统一用动效独立颜色：未设置时渲染端回落主题主色（与胶囊 / 悬浮球解耦）。 */
@@ -810,9 +843,92 @@ class FloatBallService : Service() {
             plan = plan,
             anchor = anchor,
             colorSpec = alertColorSpec(),
-            secondColor = settings.notificationCapsule.alert.edge.edgeFlow.secondColor,
+            secondColor = ColorSpec.Unset,
             onFinished = {},
         )
+    }
+
+    /**
+     * 外部效果请求（Intent + JSON，来自 [playAlertEffect]）：与通知到达共用一条渲染路径。
+     *
+     * 并发语义由请求显式指定：Reject 有动画在播就拒绝；Replace 先停旧的再播；
+     * Queue 暂按 Reject 处理（上限 1，不维护待播队列）。
+     */
+    private fun playEffect(request: AlertEffectRequest): AlertEffectHandle? {
+        if (!canDrawOverlays()) return null
+        if (isAlertPlaying()) {
+            when (request.concurrency) {
+                AlertConcurrency.Reject -> {
+                    Log.i(TAG, "effect reject busy id=${request.id}")
+                    return null
+                }
+                AlertConcurrency.Queue -> {
+                    if (pendingEffect != null) return null
+                    pendingEffect = request
+                    Log.i(TAG, "effect queued id=${request.id}")
+                    return object : AlertEffectHandle {
+                        override val requestId = request.id
+                        override fun cancel() {
+                            if (pendingEffect?.id == request.id) pendingEffect = null
+                        }
+                    }
+                }
+                AlertConcurrency.Replace -> {
+                    stopArrivalAlerts()
+                    pendingEffect = null
+                }
+            }
+        }
+        val capsule = settings.notificationCapsule
+        val plan = AlertSlotPlanFactory.buildFromRequest(
+            request = request,
+            library = capsule.alertLibrary,
+            appPackage = request.content?.iconPackage,
+            seed = request.seed ?: Random.nextInt(),
+        ).toPlayPlan()
+        if (plan.isEmpty) {
+            Log.i(TAG, "effect empty id=${request.id}")
+            return null
+        }
+        activeEffectId = request.id
+        val capsuleLayer = plan.capsuleLayers.firstOrNull()
+        if (capsuleLayer != null && this::notificationSlot.isInitialized && notificationSlot.showing) {
+            notificationSlot.window.playArrivalAlert(capsuleLayer, alertColorSpec())
+        }
+        if (plan.stageLayers.isEmpty()) return object : AlertEffectHandle {
+            override val requestId = request.id
+            override fun cancel() = stopArrivalAlerts()
+        }
+        val anchor = alertAnchor() ?: AlertAnchor(
+            centerX = DensityProvider.screenWidthPx / 2f,
+            centerY = DensityProvider.screenHeightPx / 2f,
+            capsulePx = 0,
+        )
+        val shown = alertStage.show(
+            plan = plan,
+            anchor = anchor,
+            colorSpec = alertColorSpec(),
+            secondColor = ColorSpec.Unset,
+            onFinished = {
+                activeEffectId = null
+                consumePendingEffect()
+            },
+        )
+        if (!shown) {
+            activeEffectId = null
+            return null
+        }
+        return object : AlertEffectHandle {
+            override val requestId = request.id
+            override fun cancel() = stopArrivalAlerts()
+        }
+    }
+
+    /** 当前效果播完：起播 QUEUE 里待着的那一条（上限 1）。 */
+    private fun consumePendingEffect() {
+        val next = pendingEffect ?: return
+        pendingEffect = null
+        playEffect(next)
     }
 
     /**
@@ -822,7 +938,7 @@ class FloatBallService : Service() {
      * 依赖胶囊的计划（胶囊层 / 球心锚定）在胶囊未显示时先拉起演示胶囊再播。
      * 播不出来一定给一句原因（Toast），不再静默失败。
      */
-    private fun previewArrivalAlert(category: AlertCategory?) {
+    private fun previewArrivalAlert(slot: AlertSlot?) {
         if (!canDrawOverlays()) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_no_overlay)
             return
@@ -835,7 +951,7 @@ class FloatBallService : Service() {
             showAlertToast(R.string.float_ball_capsule_alert_preview_busy)
             return
         }
-        val plan = buildAlertPlan().onlyCategory(category)
+        val plan = buildAlertPlan().onlySlots(slot?.let { setOf(it) } ?: emptySet())
         if (plan.isEmpty) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_none)
             return
@@ -856,6 +972,8 @@ class FloatBallService : Service() {
 
     /** 播放中的到达合并：任何在播的提示动效都立即停掉（息屏 / 服务销毁）。 */
     private fun stopArrivalAlerts() {
+        activeEffectId = null
+        pendingEffect = null
         if (this::notificationSlot.isInitialized) {
             notificationSlot.window.cancelArrivalAlert()
         }
@@ -2828,7 +2946,11 @@ class FloatBallService : Service() {
         private const val NOTIFICATION_ID = FLOATBALL_NOTIFICATION_ID
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
         const val ACTION_PREVIEW_ALERT = "hunoia.luno.action.PREVIEW_CAPSULE_ALERT"
-        private const val EXTRA_PREVIEW_CATEGORY = "preview_category"
+        private const val EXTRA_PREVIEW_SLOT = "preview_slot"
+        private const val ACTION_PLAY_EFFECT = "hunoia.luno.action.PLAY_ALERT_EFFECT"
+        private const val EXTRA_EFFECT_REQUEST = "effect_request"
+        private const val ACTION_CANCEL_EFFECT = "hunoia.luno.action.CANCEL_ALERT_EFFECT"
+        private const val EXTRA_EFFECT_ID = "effect_id"
         private var currentRef: WeakReference<FloatBallService>? = null
 
         const val ACTION_SHOW_CLIP_FLOAT = "hunoia.luno.action.SHOW_CLIP_FLOAT"
@@ -2992,16 +3114,64 @@ class FloatBallService : Service() {
          * 试播一次到达提示动效；[category] 非空时只播该类（每类设置页的行内单播）。
          * 失败的可见反馈由服务侧 Toast 给出。
          */
-        fun previewAlert(context: Context, category: AlertCategory? = null) {
+        fun previewAlert(context: Context, slot: AlertSlot? = null) {
             runCatching {
                 context.startService(
                     Intent(context, FloatBallService::class.java)
                         .setAction(ACTION_PREVIEW_ALERT)
-                        .putExtra(EXTRA_PREVIEW_CATEGORY, category?.name),
+                        .putExtra(EXTRA_PREVIEW_SLOT, slot?.name),
                 )
             }.onFailure {
                 Log.e(TAG, "preview capsule alert FAILED", it)
             }
+        }
+
+        /**
+         * 外部效果调用：服务在跑 → Intent + JSON 转发；不在跑 → 调用进程托管轻量效果窗。
+         *
+         * 返回 null = 不可用 / 并发策略拒绝。跨进程检测用 [isServiceRunning]。
+         */
+        fun playAlertEffect(context: Context, request: AlertEffectRequest): AlertEffectHandle? {
+            val appContext = context.applicationContext
+            if (!isServiceRunning(appContext)) {
+                return AlertEffectLocalHost.play(appContext, request)
+            }
+            val sent = runCatching {
+                appContext.startService(
+                    Intent(appContext, FloatBallService::class.java)
+                        .setAction(ACTION_PLAY_EFFECT)
+                        .putExtra(EXTRA_EFFECT_REQUEST, JsonSerializer.globalJson.encodeToString(request)),
+                )
+            }.isSuccess
+            if (!sent) return null
+            return RemoteEffectHandle(appContext, request.id)
+        }
+
+        /** 跨进程句柄：取消 = 再发一条 Intent（幂等；匹配不到 id 时服务侧忽略）。 */
+        private class RemoteEffectHandle(
+            private val context: Context,
+            override val requestId: String,
+        ) : AlertEffectHandle {
+            override fun cancel() {
+                runCatching {
+                    context.startService(
+                        Intent(context, FloatBallService::class.java)
+                            .setAction(ACTION_CANCEL_EFFECT)
+                            .putExtra(EXTRA_EFFECT_ID, requestId),
+                    )
+                }
+            }
+        }
+
+        /** 宿主是否在跑：先看同进程的弱引用，再用 ActivityManager 查本应用服务。 */
+        fun isServiceRunning(context: Context): Boolean {
+            currentRef?.get()?.let { return true }
+            val manager = context.getSystemService(android.app.ActivityManager::class.java) ?: return false
+            return runCatching {
+                manager.getRunningServices(Int.MAX_VALUE).any {
+                    it.service.className == FloatBallService::class.java.name
+                }
+            }.getOrDefault(false)
         }
 
         fun stop(context: Context) {

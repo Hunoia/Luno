@@ -124,7 +124,6 @@ import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallPosition
 import hunoia.luno.config.model.FloatBallSettings
-import hunoia.luno.config.model.CapsuleAlertStyle
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.floatball.R
@@ -132,6 +131,7 @@ import hunoia.luno.runtime.floatball.alert.AlertEnvelopeShare
 import hunoia.luno.runtime.floatball.alert.FixedMotionDurationScale
 import hunoia.luno.runtime.floatball.alert.AlertLayerPlan
 import hunoia.luno.runtime.floatball.alert.AlertPaletteColors
+import hunoia.luno.runtime.floatball.alert.CapsuleAlertStyle
 import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
 import hunoia.luno.runtime.floatball.alert.BreathOutlineTuning
 import hunoia.luno.runtime.floatball.alert.InnerSweepSpec

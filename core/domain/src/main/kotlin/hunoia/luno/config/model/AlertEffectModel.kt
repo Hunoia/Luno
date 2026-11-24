@@ -15,6 +15,97 @@ import kotlinx.serialization.Serializable
  * [AlertLibrary.presets]（`notificationCapsule.alertLibrary`，不随 `alert_v3` 重置）。
  */
 
+/**
+ * 设置页的五个槽位：一槽一层，最多 5 层同时播。
+ *
+ * 槽位只是**配置分组**：真正决定绘制面的是预设变体声明的 [AlertHost]。
+ * [Path] 与 [Particle] 共用舞台宿主，分开只为了设置页语义（路径类预设偏向轨迹运动）。
+ */
+@Serializable
+@Keep
+enum class AlertSlot { Edge, Particle, Ball, Screen, Path }
+
+/**
+ * 槽位覆盖（少量、非全量）：颜色 / 强度 / 速度。
+ *
+ * [paletteId] 引用素材库（[AlertLibrary.palettes] 或内置）；[colors] 是直接存的 1–5 色 ARGB。
+ * 两者都空 = 跟随预设自身颜色。强度 100 = 预设原样（0–200），速度 100 = 预设基准（25–400）。
+ */
+@Serializable
+@Keep
+data class AlertSlotOverrides(
+    val paletteId: String? = null,
+    val colors: List<Int> = emptyList(),
+    val intensityPercent: Int = 100,
+    val speedPercent: Int = 100,
+)
+
+/** 单槽配置：开关 + 预设 id（null = 该槽默认预设）+ 覆盖。 */
+@Serializable
+@Keep
+data class AlertSlotSettings(
+    val enabled: Boolean = false,
+    val presetId: String? = null,
+    val overrides: AlertSlotOverrides = AlertSlotOverrides(),
+)
+
+/** 五槽配置：默认全关。 */
+@Serializable
+@Keep
+data class AlertSlots(
+    val edge: AlertSlotSettings = AlertSlotSettings(),
+    val particle: AlertSlotSettings = AlertSlotSettings(),
+    val ball: AlertSlotSettings = AlertSlotSettings(),
+    val screen: AlertSlotSettings = AlertSlotSettings(),
+    val path: AlertSlotSettings = AlertSlotSettings(),
+) {
+    fun of(slot: AlertSlot): AlertSlotSettings = when (slot) {
+        AlertSlot.Edge -> edge
+        AlertSlot.Particle -> particle
+        AlertSlot.Ball -> ball
+        AlertSlot.Screen -> screen
+        AlertSlot.Path -> path
+    }
+
+    fun with(slot: AlertSlot, settings: AlertSlotSettings): AlertSlots = when (slot) {
+        AlertSlot.Edge -> copy(edge = settings)
+        AlertSlot.Particle -> copy(particle = settings)
+        AlertSlot.Ball -> copy(ball = settings)
+        AlertSlot.Screen -> copy(screen = settings)
+        AlertSlot.Path -> copy(path = settings)
+    }
+
+    /** 当前开启的槽位（顺序固定，便于日志与测试）。 */
+    val enabledSlots: List<AlertSlot>
+        get() = AlertSlot.entries.filter { of(it).enabled }
+}
+
+/** 槽位默认预设（未选预设时兜底；与 [hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets] 对应）。 */
+fun AlertSlot.defaultPresetId(): String = when (this) {
+    AlertSlot.Edge -> "builtin_edge_glow"
+    AlertSlot.Particle -> "builtin_particle_rain"
+    AlertSlot.Ball -> "builtin_ball_ring"
+    AlertSlot.Screen -> "builtin_screen_flash"
+    AlertSlot.Path -> "builtin_path_comet"
+}
+
+/** 预设是否提供该槽位可用的宿主变体。 */
+fun AlertPreset.supports(slot: AlertSlot): Boolean = preferredHost(slot) != null
+
+/**
+ * 槽位 → 宿主偏好：球体槽接受球 / 胶囊两种宿主，其余槽位一一对应。
+ * 返回 null 表示该预设没有这个槽位能画的变体（设置页不列出、播放时跳过）。
+ */
+fun AlertPreset.preferredHost(slot: AlertSlot): AlertHost? {
+    fun first(host: AlertHost) = variants.firstOrNull { it.host == host }?.host
+    return when (slot) {
+        AlertSlot.Edge -> first(AlertHost.Edge)
+        AlertSlot.Particle, AlertSlot.Path -> first(AlertHost.Stage)
+        AlertSlot.Ball -> first(AlertHost.Ball) ?: first(AlertHost.Capsule)
+        AlertSlot.Screen -> first(AlertHost.Screen)
+    }
+}
+
 /** 效果宿主：决定绘制面与几何来源。 */
 @Serializable
 @Keep
@@ -205,7 +296,19 @@ data class ParticleLook(
     val trailAlpha: Float = 0.5f,
     val rotate: Boolean = false,
     val blendAdd: Boolean = false,
-)
+    /**
+     * 自定义图片的**文件名**（位于 [ImageDirName] 目录下）；空 = 回落圆点。
+     * 只存文件名：整机备份换机后 filesDir 路径会变，绝对路径必然失效。
+     */
+    val customImage: String = "",
+    /** 自定义图片是否跟随调色板染色（App 图标始终保留品牌原色）。 */
+    val tintImage: Boolean = false,
+) {
+    companion object {
+        /** 自定义形状图片目录（`filesDir` 下）：选择页写入、渲染端读取共用。 */
+        const val ImageDirName = "floatball_particle_shape"
+    }
+}
 
 // ---------------------------------------------------------------- 屏缘类
 

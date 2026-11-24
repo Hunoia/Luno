@@ -11,12 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.config.model.AlertCategory
 import hunoia.luno.config.model.AlertPalette
-import hunoia.luno.config.model.NotificationAlertSettings
+import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.allPalettes
-import hunoia.luno.config.model.paletteIdOf
-import hunoia.luno.config.model.withPaletteId
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoGroup
@@ -27,30 +24,33 @@ import hunoia.luno.ui.component.screen.LunoScreenLazy
 import kotlinx.coroutines.launch
 
 /**
- * 到达提示·调色板选择页：某分类从「跟随动效颜色」+ 内置/自定义调色板里单选。
+ * 到达提示·调色板选择页（按槽位）：从「跟随预设颜色」+ 内置 / 素材库调色板里单选。
  *
- * 选完即落盘并返回；「管理调色板」进管理页（选择页留在返回栈，回来还能继续挑）。
+ * 素材库与 `alert` 子树平级（`notificationCapsule.alertLibrary`），v3 重置不会清掉。
+ * 选完即落盘并返回；「管理调色板」进管理页。
  */
 @Composable
 fun AlertPalettePickerScreen(
-    category: AlertCategory,
+    slot: AlertSlot,
     onBack: () -> Unit,
     onNavToPaletteManager: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    // 本地即显状态：从编辑页 / 管理页返回时跟着 resume 刷新（写盘不保证回推活跃订阅者）。
     val editor = rememberAlertEditor()
-    val alert = editor.alert
-    val palettes = alert.allPalettes()
-    val currentId = alert.paletteIdOf(category)
+    val overrides = editor.alert.slotSettings(slot).overrides
+    val palettes = editor.library.allPalettes()
+    val currentId = overrides.paletteId
+    val scope = rememberCoroutineScope()
 
-    // 选完即落盘 + 返回；连点两下会连弹两次（第二次弹到分类页），用 leaving 收口。
     var leaving by remember { mutableStateOf(false) }
-    fun commitAndBack(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+    fun commitAndBack(paletteId: String?) {
         if (leaving) return
         leaving = true
         scope.launch {
-            persistAlertNow(transform)
+            persistAlertNow {
+                it.withSlot(slot) { s ->
+                    s.withOverrides { o -> o.copy(paletteId = paletteId, colors = emptyList()) }
+                }
+            }
             TuneConfig.syncActionSnapshot()
             onBack()
         }
@@ -67,21 +67,21 @@ fun AlertPalettePickerScreen(
     ) {
         item(key = "pick") {
             LunoGroup(
-                title = stringResource(category.titleRes()),
+                title = stringResource(slot.titleRes()),
                 subtitle = stringResource(R.string.float_ball_capsule_alert_palette_picker),
             ) {
                 val rows = segmentedRows {
                     item { shape ->
                         LunoSettingsRow(
                             title = stringResource(R.string.float_ball_capsule_alert_palette_none),
-                            subtitle = stringResource(R.string.float_ball_capsule_alert_palette_none_subtitle),
+                            subtitle = stringResource(R.string.float_ball_alert_palette_none_subtitle),
                             shape = shape,
                             trailing = if (currentId == null) {
                                 { Icon(Icons.Default.Check, contentDescription = null) }
                             } else {
                                 null
                             },
-                            onClick = { commitAndBack { it.withPaletteId(category, null) } },
+                            onClick = { commitAndBack(null) },
                         )
                     }
                     palettes.forEach { palette ->
@@ -90,7 +90,7 @@ fun AlertPalettePickerScreen(
                                 palette = palette,
                                 selected = palette.id == currentId,
                                 shape = shape,
-                                onClick = { commitAndBack { it.withPaletteId(category, palette.id) } },
+                                onClick = { commitAndBack(palette.id) },
                             )
                         }
                     }

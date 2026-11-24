@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
  * 单色（[colors].size == 1 且非 [rainbow]）= 纯色，其余按周长 / 序号采样。
  *
  * [id]：内置 `builtin_*`（[BuiltinAlertPalettes]，不落盘），自定义 `custom_*`（存
- * [NotificationAlertSettings.customPalettes]）。改 id 视为换调色板，不做迁移。
+ * [AlertLibrary.palettes]）。改 id 视为换调色板，不做迁移。
  */
 @Serializable
 @Keep
@@ -22,7 +22,7 @@ data class AlertPalette(
 )
 
 /**
- * 内置调色板：8 套主题 + 彩虹（常量，不落盘；`BuiltinAlertPalettes.all` 追加自定义）。
+ * 内置调色板：8 套主题 + 彩虹（常量，不落盘；素材库 `AlertLibrary.palettes` 另存自定义）。
  *
  * 色值取自各主题的招牌 5 色（可辨识度优先），顺序即取色顺序。
  * 名字用规范名（Catppuccin / Dracula / Nord / Tokyo Night / Gruvbox 都是专名，不做本地化）。
@@ -108,48 +108,21 @@ object BuiltinAlertPalettes {
     fun builtin(id: String): AlertPalette? = all.firstOrNull { it.id == id }
 }
 
-/**
- * 该类目当前命中的调色板：按 [NotificationAlertSettings] 里各类目的 `paletteId`
- * 在内置 + 自定义里解析；null = 跟随 [NotificationAlertSettings.color] 纯色。
- */
-fun NotificationAlertSettings.paletteFor(category: AlertCategory): AlertPalette? {
-    val id = when (category) {
-        AlertCategory.Edge -> edge.paletteId
-        AlertCategory.Particle -> particle.paletteId
-        AlertCategory.Capsule -> capsule.paletteId
-        AlertCategory.Anchor -> anchor.paletteId
-    } ?: return null
-    return BuiltinAlertPalettes.builtin(id) ?: customPalettes.firstOrNull { it.id == id }
+/** 全部可选调色板：内置（顺序即展示顺序）+ 素材库自定义。 */
+fun AlertLibrary.allPalettes(): List<AlertPalette> = BuiltinAlertPalettes.all + palettes
+
+/** id → 调色板（内置优先，再查素材库）；null = 未找到。 */
+fun AlertLibrary.paletteById(id: String?): AlertPalette? {
+    if (id == null) return null
+    return BuiltinAlertPalettes.builtin(id) ?: palettes.firstOrNull { it.id == id }
 }
 
-/** 全部可选调色板：内置（顺序即展示顺序）+ 自定义。 */
-fun NotificationAlertSettings.allPalettes(): List<AlertPalette> =
-    BuiltinAlertPalettes.all + customPalettes
+/** 删除素材库调色板；引用它的槽位由设置页 / 播放计划回落为跟随预设颜色。 */
+fun AlertLibrary.removePalette(id: String): AlertLibrary =
+    copy(palettes = palettes.filterNot { it.id == id })
 
-/** 该类目当前选中的调色板 id（null = 跟随 [NotificationAlertSettings.color]）。 */
-fun NotificationAlertSettings.paletteIdOf(category: AlertCategory): String? = when (category) {
-    AlertCategory.Edge -> edge.paletteId
-    AlertCategory.Particle -> particle.paletteId
-    AlertCategory.Capsule -> capsule.paletteId
-    AlertCategory.Anchor -> anchor.paletteId
+/** 新增或替换一个素材库调色板（按 id）。 */
+fun AlertLibrary.upsertPalette(palette: AlertPalette): AlertLibrary {
+    val next = palettes.filterNot { it.id == palette.id } + palette
+    return copy(palettes = next)
 }
-
-/** 设置该类目的调色板 id（null = 跟随 [NotificationAlertSettings.color]）。 */
-fun NotificationAlertSettings.withPaletteId(
-    category: AlertCategory,
-    id: String?,
-): NotificationAlertSettings = when (category) {
-    AlertCategory.Edge -> copy(edge = edge.copy(paletteId = id))
-    AlertCategory.Particle -> copy(particle = particle.copy(paletteId = id))
-    AlertCategory.Capsule -> copy(capsule = capsule.copy(paletteId = id))
-    AlertCategory.Anchor -> copy(anchor = anchor.copy(paletteId = id))
-}
-
-/** 删除自定义调色板并清空所有引用它的分类（引用回落为纯色）。 */
-fun NotificationAlertSettings.removePalette(id: String): NotificationAlertSettings = copy(
-    customPalettes = customPalettes.filterNot { it.id == id },
-    edge = edge.copy(paletteId = edge.paletteId?.takeIf { it != id }),
-    particle = particle.copy(paletteId = particle.paletteId?.takeIf { it != id }),
-    capsule = capsule.copy(paletteId = capsule.paletteId?.takeIf { it != id }),
-    anchor = anchor.copy(paletteId = anchor.paletteId?.takeIf { it != id }),
-)

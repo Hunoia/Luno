@@ -28,19 +28,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
-import hunoia.luno.config.model.AlertCategory
+import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.floatball.settings.alert.categoryEnabled
-import hunoia.luno.floatball.settings.alert.labelRes
-import hunoia.luno.floatball.settings.alert.styleOf
+import hunoia.luno.floatball.settings.alert.AlertSlotOrder
+import hunoia.luno.floatball.settings.alert.slotPresetName
 import hunoia.luno.floatball.settings.alert.titleRes
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -67,10 +67,7 @@ import kotlinx.coroutines.launch
 fun NotificationCapsuleSettingsScreen(
     onBack: () -> Unit,
     onNavToNotificationBlocklist: () -> Unit = {},
-    onNavToAlertEdge: () -> Unit = {},
-    onNavToAlertParticle: () -> Unit = {},
-    onNavToAlertCapsule: () -> Unit = {},
-    onNavToAlertAnchor: () -> Unit = {},
+    onNavToAlertSlot: (AlertSlot) -> Unit = {},
     onNavToAlertBlocklist: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
@@ -81,6 +78,13 @@ fun NotificationCapsuleSettingsScreen(
         .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val floatBall = actionSettings.floatBall
     val capsule = floatBall.notificationCapsule
+    // 动效子树有自己的本地即显状态：从槽位 / 预设 / 调色板页返回时配置流不保证回推，
+    // 主页面入口的副标题（当前预设）必须跟手刷新。
+    var alertState by remember { mutableStateOf(capsule.alert) }
+    LifecycleResumeEffect(Unit) {
+        alertState = TuneConfig.latestAction().floatBall.notificationCapsule.alert
+        onPauseOrDispose { }
+    }
 
     var localAutoHide by remember(capsule.autoHideMs) {
         mutableFloatStateOf(capsule.autoHideMs.toFloat())
@@ -137,6 +141,15 @@ fun NotificationCapsuleSettingsScreen(
             TuneConfig.updateAction { current ->
                 current.copy(floatBall = transform(current.floatBall))
             }
+        }
+    }
+
+    /** 动效子树：先改本地即显状态，再异步落盘（同屏刷新不依赖配置流回推）。 */
+    fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        val next = transform(alertState)
+        alertState = next
+        update {
+            it.copy(notificationCapsule = it.notificationCapsule.copy(alert = next))
         }
     }
 
@@ -206,20 +219,12 @@ fun NotificationCapsuleSettingsScreen(
                     onCopyColor = { hex ->
                         hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
                     },
-                    initialSelection = capsule.alert.color.toInitialSelection(
+                    initialSelection = alertState.color.toInitialSelection(
                         scheme = scheme,
                         primaryFallback = true,
                     ),
                     onColorSelected = { selection ->
-                        update {
-                            it.copy(
-                                notificationCapsule = it.notificationCapsule.copy(
-                                    alert = it.notificationCapsule.alert.copy(
-                                        color = selection.toColorSpec(scheme),
-                                    ),
-                                ),
-                            )
-                        }
+                        updateAlert { it.copy(color = selection.toColorSpec(scheme)) }
                         showAlertColorPicker = false
                     },
                 )
@@ -573,23 +578,14 @@ fun NotificationCapsuleSettingsScreen(
             }
         }
 
-        // 到达提示动效：只在胶囊开启时有意义；四类各自开关、默认全关（`alert_v2` 一次性重置）。
+        // 到达提示动效（v3）：五槽各自开关、默认全关；类目只是设置页分组，宿主由预设声明。
         if (capsule.enabled) {
             item(key = "alert") {
-                val alert = capsule.alert
+                val alert = alertState
                 val scheme = MaterialTheme.colorScheme
-                fun updateAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
-                    update {
-                        it.copy(
-                            notificationCapsule = it.notificationCapsule.copy(
-                                alert = transform(it.notificationCapsule.alert),
-                            ),
-                        )
-                    }
-                }
                 LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
                     LunoSegmentedGroup {
-                        // 没有总开关：下面四类各自开关；四类全关 = 不播。
+                        // 没有总开关：下面五槽各自开关；五槽全关 = 不播。
                         // 「每次新通知都播」是唯一的行为开关（在播时仍不排队、不打断）。
                         item { shape ->
                             LunoSwitchRow(
@@ -598,6 +594,17 @@ fun NotificationCapsuleSettingsScreen(
                                 checked = alert.playOnEveryNotification,
                                 onCheckedChange = { checked ->
                                     updateAlert { it.copy(playOnEveryNotification = checked) }
+                                },
+                                shape = shape,
+                            )
+                        }
+                        item { shape ->
+                            LunoSwitchRow(
+                                title = stringResource(R.string.float_ball_alert_read_text),
+                                subtitle = stringResource(R.string.float_ball_alert_read_text_subtitle),
+                                checked = alert.readNotificationText,
+                                onCheckedChange = { checked ->
+                                    updateAlert { it.copy(readNotificationText = checked) }
                                 },
                                 shape = shape,
                             )
@@ -632,25 +639,19 @@ fun NotificationCapsuleSettingsScreen(
                                 onClick = { showAlertColorPicker = true },
                             )
                         }
-                        // 四类目入口：每类独立二级页（类内单选样式，跨类可叠加）。
-                        AlertCategory.entries.forEach { category ->
+                        // 五槽入口：每槽独立二级页（设开关 / 选预设 / 少量覆盖 / 试播）。
+                        AlertSlotOrder.forEach { slot ->
+                            val settings = alert.slots.of(slot)
                             item { shape ->
                                 LunoSettingsRow(
-                                    title = stringResource(category.titleRes()),
-                                    subtitle = stringResource(
-                                        if (alert.categoryEnabled(category)) {
-                                            alert.styleOf(category).labelRes()
-                                        } else {
-                                            R.string.float_ball_capsule_alert_category_disabled
-                                        },
-                                    ),
-                                    shape = shape,
-                                    onClick = when (category) {
-                                        AlertCategory.Edge -> onNavToAlertEdge
-                                        AlertCategory.Particle -> onNavToAlertParticle
-                                        AlertCategory.Capsule -> onNavToAlertCapsule
-                                        AlertCategory.Anchor -> onNavToAlertAnchor
+                                    title = stringResource(slot.titleRes()),
+                                    subtitle = if (settings.enabled) {
+                                        slotPresetName(slot, settings, capsule.alertLibrary)
+                                    } else {
+                                        stringResource(R.string.float_ball_capsule_alert_category_disabled)
                                     },
+                                    shape = shape,
+                                    onClick = { onNavToAlertSlot(slot) },
                                 )
                             }
                         }
@@ -667,11 +668,11 @@ fun NotificationCapsuleSettingsScreen(
                                 onClick = onNavToAlertBlocklist,
                             )
                         }
-                        // 全部试播：按当前四类配置一起播一次（失败原因由服务侧 Toast 反馈）。
+                        // 全部试播：按当前五槽配置一起播一次（失败原因由服务侧 Toast 反馈）。
                         item { shape ->
                             LunoSettingsRow(
                                 title = stringResource(R.string.float_ball_capsule_alert_preview_all),
-                                subtitle = stringResource(R.string.float_ball_capsule_alert_preview_all_subtitle),
+                                subtitle = stringResource(R.string.float_ball_alert_preview_all_subtitle),
                                 icon = Icons.Default.PlayArrow,
                                 shape = shape,
                                 onClick = { facades.system.previewFloatBallAlert(context) },
