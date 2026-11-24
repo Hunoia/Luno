@@ -44,17 +44,15 @@ internal object FlowTuning {
 }
 
 /**
- * 顶部粒子掉落：粒子从顶缘错峰出发，重力加速下落 + 横向正弦摆动，
- * 双层圆点辉光（实心核 + 低 alpha 光晕），alpha 先驻留后衰减。
- * 粒子大小 / 摆幅 / 重力 / 行程是用户旋钮（[ParticlesSpec]），这里只留形状常量。
+ * 粒子引擎的公共常量：alpha 区间与衰减曲线。
+ *
+ * 光晕形态 / 范围已改为配置项（`ParticleHaloStyle` + haloScale），这里不再放大圆垫底。
+ * 粒子大小 / 摆幅 / 重力 / 行程是用户旋钮（[ParticlesSpec]）。
  */
 internal object ParticlesTuning {
     /** alpha 峰值下/上限：亮度旋钮的映射区间。 */
     const val PeakAlphaMin = 0.35f
     const val PeakAlphaMax = 0.8f
-
-    /** 光晕层半径倍数（低 alpha 大圆垫底）。 */
-    const val HaloScale = 2.6f
 
     /** alpha 衰减指数：>1 先驻留后衰减，避免一出发就明显变暗。 */
     const val FadeExp = 1.6f

@@ -167,60 +167,57 @@ class FloatBallSettingsTest {
     }
 
     @Test
-    fun `old alert v2 key is skipped and resets only the alert subtree`() {
-        // alert_v3 是唯一挂载键；旧 alert_v2（四类样式 + 旧调色板）整块被
-        // ignoreUnknownKeys 跳过 → 动效回落默认（五槽全关），素材库不受影响。
-        val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
-            """
-            {
-              "notificationCapsule": {
-                "enabled": true,
-                "alert_v2": {
-                  "edge": { "enabled": true, "style": "EdgeBlink" },
-                  "particle": { "enabled": true, "style": "Snowflake" }
+    fun `old alert v2 and v3 subtrees are skipped and reset only the alert subtree`() {
+        // alert_v4 是唯一挂载键；旧 alert_v2（四类样式）与 alert_v3（五槽）整块被
+        // ignoreUnknownKeys 跳过 → 动效回落默认（总开关关、未选预设），素材库不受影响。
+        listOf("alert_v2", "alert_v3").forEach { oldKey ->
+            val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
+                """
+                {
+                  "notificationCapsule": {
+                    "enabled": true,
+                    "$oldKey": {
+                      "edge": { "enabled": true, "style": "EdgeBlink" },
+                      "particle": { "enabled": true, "style": "Snowflake" },
+                      "slots": { "edge": { "enabled": true } }
+                    }
+                  }
                 }
-              }
-            }
-            """,
-        )
-        val alert = decoded.notificationCapsule.alert
-        assertTrue(alert.slots.enabledSlots.isEmpty())
-        assertEquals(AlertSlots(), alert.slots)
-        assertTrue(decoded.notificationCapsule.alertLibrary.palettes.isEmpty())
-        // 胶囊自身的其它字段照常解码。
-        assertTrue(decoded.notificationCapsule.enabled)
+                """,
+            )
+            val alert = decoded.notificationCapsule.alert
+            assertFalse(alert.enabled)
+            assertNull(alert.presetId)
+            assertEquals(100, alert.intensityPercent)
+            assertEquals(100, alert.speedPercent)
+            assertTrue(decoded.notificationCapsule.alertLibrary.palettes.isEmpty())
+            // 胶囊自身的其它字段照常解码。
+            assertTrue(decoded.notificationCapsule.enabled)
+        }
     }
 
     @Test
-    fun `alert v3 key decodes slots presets and overrides`() {
+    fun `alert v4 decodes master switch preset and global knobs`() {
         val decoded = JsonSerializer.decodeFromString<FloatBallSettings>(
             """
             {
               "notificationCapsule": {
-                "alert_v3": {
-                  "playOnEveryNotification": true,
-                  "readNotificationText": false,
-                  "slots": {
-                    "edge": {
-                      "enabled": true,
-                      "presetId": "builtin_edge_ripple",
-                      "overrides": { "intensityPercent": 120, "speedPercent": 80 }
-                    },
-                    "particle": { "enabled": true },
-                    "screen": { "enabled": false }
-                  }
+                "alert_v4": {
+                  "enabled": true,
+                  "presetId": "builtin_edge_ripple",
+                  "intensityPercent": 120,
+                  "speedPercent": 80,
+                  "playOnEveryNotification": true
                 }
               }
             }
             """,
         )
         val alert = decoded.notificationCapsule.alert
+        assertTrue(alert.enabled)
+        assertEquals("builtin_edge_ripple", alert.presetId)
+        assertEquals(120, alert.intensityPercent)
+        assertEquals(80, alert.speedPercent)
         assertTrue(alert.playOnEveryNotification)
-        assertFalse(alert.readNotificationText)
-        assertEquals(listOf(AlertSlot.Edge, AlertSlot.Particle), alert.slots.enabledSlots)
-        assertEquals("builtin_edge_ripple", alert.slots.edge.presetId)
-        assertEquals(120, alert.slots.edge.overrides.intensityPercent)
-        assertEquals(80, alert.slots.edge.overrides.speedPercent)
-        assertNull(alert.slots.particle.presetId)
     }
 }

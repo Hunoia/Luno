@@ -19,6 +19,7 @@ import hunoia.luno.runtime.floatball.alert.BreathOutlineSpec
 import hunoia.luno.runtime.floatball.alert.CapsuleAlertStyle
 import hunoia.luno.runtime.floatball.alert.EdgeAlertStyle
 import hunoia.luno.runtime.floatball.alert.EdgeBladeRiseSpec
+import hunoia.luno.runtime.floatball.alert.EdgeCometSpec
 import hunoia.luno.runtime.floatball.alert.EdgeFireworksSpec
 import hunoia.luno.runtime.floatball.alert.EdgeFlowSpec
 import hunoia.luno.runtime.floatball.alert.EdgeLightningSpec
@@ -38,6 +39,7 @@ import hunoia.luno.runtime.floatball.alert.RevealAlertStyle
 import hunoia.luno.runtime.floatball.alert.RevealSpec
 import hunoia.luno.runtime.floatball.alert.ScreenSpec
 import hunoia.luno.runtime.floatball.alert.ShimmerSpec
+import hunoia.luno.runtime.floatball.alert.ShockwaveSpec
 import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.RevealPattern
 import hunoia.luno.core.effect.AlertContent
@@ -45,7 +47,7 @@ import hunoia.luno.core.effect.AlertContent
 /**
  * 渲染计划 → 舞台 / 胶囊播放计划。
  *
- * 这一层是 v3 参数块（[AlertRenderLayer]）到现有绘制器的桥：粒子直接走统一引擎
+ * 这一层是 v4 层参数（[AlertRenderLayer]）到绘制器的桥：粒子直接走统一引擎
  * （参数原样透传），其余族把新参数映射到上次重做过的专用绘制器。新增形态（缎带 /
  * 闪电 / 螺旋卷吸等）先按最接近的绘制器回落，Step 2 再换独立实现。
  *
@@ -91,16 +93,18 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                     ),
                 )
                 EdgePattern.Comet -> Triple(
-                    EdgeAlertStyle.EdgeFlow,
-                    paramEdgeFlow(params).copy(
-                        trailScale = maxOf(params.trailScale, 2.5f),
-                        trailAlpha = maxOf(params.trailAlpha, 0.5f),
+                    EdgeAlertStyle.Comet,
+                    EdgeCometSpec(
+                        headWidthDp = params.bandWidthDp.coerceIn(4f, 28f),
+                        tailLengthDp = (params.bandWidthDp * params.trailScale)
+                            .coerceIn(40f, 320f),
+                        cornerRadiusDp = params.cornerRadiusDp,
                     ),
                     norm(
                         params.bandWidthDp,
                         FloatBallDefaults.AlertFlowBandWidthDpMin.toFloat(),
                         FloatBallDefaults.AlertFlowBandWidthDpMax.toFloat(),
-                    ) * 0.5f,
+                    ),
                 )
                 EdgePattern.Ripple -> Triple(
                     EdgeAlertStyle.EdgeRipple,
@@ -166,7 +170,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 palette = palette,
                 appPackage = appPackage,
                 presetId = presetId,
-                slot = slot,
+                layerId = layerId,
             )
         }
         AlertKind.Particle -> particle?.let { params ->
@@ -180,13 +184,14 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 palette = palette,
                 appPackage = appPackage,
                 presetId = presetId,
-                slot = slot,
+                layerId = layerId,
             )
         }
         AlertKind.Ball -> ball?.let { params ->
             val pattern = params.pattern
             val style: AlertRenderStyle = when (pattern) {
-                BallPattern.Ripple, BallPattern.Shockwave -> AnchorAlertStyle.Ripple
+                BallPattern.Ripple -> AnchorAlertStyle.Ripple
+                BallPattern.Shockwave -> AnchorAlertStyle.Shockwave
                 BallPattern.Burst -> AnchorAlertStyle.BallBurst
                 BallPattern.Halo -> AnchorAlertStyle.BallHalo
                 BallPattern.Spiral -> AnchorAlertStyle.Spiral
@@ -195,17 +200,13 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
             }
             val spec = when (style) {
                 AnchorAlertStyle.Ripple -> RippleSpec(
-                    strokeWidthDp = if (pattern == BallPattern.Shockwave) {
-                        params.strokeWidthDp + 1f
-                    } else {
-                        params.strokeWidthDp
-                    },
-                    haloScale = if (pattern == BallPattern.Shockwave) {
-                        params.haloScale * 1.4f
-                    } else {
-                        params.haloScale
-                    },
+                    strokeWidthDp = params.strokeWidthDp,
+                    haloScale = params.haloScale,
                     centerAtBall = params.centerAtBall,
+                )
+                AnchorAlertStyle.Shockwave -> ShockwaveSpec(
+                    strokeWidthDp = params.strokeWidthDp.coerceIn(1f, 12f),
+                    travelPercent = params.travelPercent.coerceIn(60, 300),
                 )
                 AnchorAlertStyle.BallBurst -> BallBurstSpec(
                     count = params.particleCount.coerceIn(12, 80),
@@ -248,7 +249,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 palette = palette,
                 appPackage = appPackage,
                 presetId = presetId,
-                slot = slot,
+                layerId = layerId,
             )
         }
         AlertKind.Capsule -> capsule?.let { params ->
@@ -314,7 +315,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 palette = palette,
                 appPackage = appPackage,
                 presetId = presetId,
-                slot = slot,
+                layerId = layerId,
             )
         }
         AlertKind.Screen -> screen?.let { params ->
@@ -338,7 +339,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                 palette = palette,
                 appPackage = appPackage,
                 presetId = presetId,
-                slot = slot,
+                layerId = layerId,
             )
         }
         AlertKind.Reveal -> reveal?.let { params ->
@@ -372,7 +373,7 @@ private fun AlertRenderLayer.toLayerPlan(content: AlertContent?): AlertLayerPlan
                     palette = palette,
                     appPackage = appPackage,
                     presetId = presetId,
-                    slot = slot,
+                    layerId = layerId,
                 )
             }
         }

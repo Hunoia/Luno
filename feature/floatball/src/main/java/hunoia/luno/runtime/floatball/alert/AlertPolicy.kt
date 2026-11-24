@@ -1,13 +1,12 @@
 package hunoia.luno.runtime.floatball.alert
 
-import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.config.model.ParticleParams
 
 /**
  * 渲染层的样式族（**不落盘**）：只用于渲染分派与种子。
  *
- * 配置（v3）已改为「全局预设 + 宿主变体」，预设参数直接写进各类 `*Spec`；
+ * 配置（v4）已改为「预设组合层」，预设参数直接写进各类 `*Spec`；
  * 这里的枚举只是渲染端的绘制器选择器，和设置页 / 备份无关。
  */
 sealed interface AlertRenderStyle {
@@ -26,12 +25,13 @@ enum class EdgeAlertStyle : AlertRenderStyle {
     EdgeBladeRise,
     Ribbon,
     Lightning,
+    Comet,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Edge
 }
 
-/** 粒子绘制器（v3 统一引擎，参数来自 [ParticlesSpec]；枚举只决定种子与日志）。 */
+/** 粒子绘制器（统一引擎，参数来自 [ParticlesSpec]；枚举只决定种子与日志）。 */
 enum class ParticleAlertStyle : AlertRenderStyle {
     TopRain,
     BottomFountain,
@@ -66,6 +66,7 @@ enum class AnchorAlertStyle : AlertRenderStyle {
     BallHalo,
     Spiral,
     Orbit3D,
+    Shockwave,
     ;
 
     override val category: AlertRenderCategory get() = AlertRenderCategory.Anchor
@@ -103,7 +104,7 @@ data class AlertEnvironment(
 )
 
 /**
- * 各样式的专属绘制参数：由播放计划构建（`AlertSlotPlanFactory`）夹取归一化，
+ * 各样式的专属绘制参数：由播放计划构建（`AlertPlanFactory`）夹取归一化，
  * 随计划下发给渲染层。渲染层只读计划不读配置。
  */
 sealed interface AlertEffectSpec
@@ -126,7 +127,7 @@ data class EdgeFlowSpec(
 ) : AlertEffectSpec
 
 /**
- * 粒子参数：v3 统一引擎直接消费预设的发射器 / 运动方程 / 外观。
+ * 粒子参数：统一引擎直接消费层的发射器 / 运动方程 / 外观。
  * [params] 的时间字段（lifeShare）在渲染层按单循环时长换算。
  */
 data class ParticlesSpec(
@@ -219,6 +220,19 @@ data class EdgeLightningSpec(
     val lineWidthDp: Float,
 ) : AlertEffectSpec
 
+/** 屏缘彗星：亮头 + 渐细拖尾的长条光带（不再用流光参数近似）。 */
+data class EdgeCometSpec(
+    val headWidthDp: Float,
+    val tailLengthDp: Float,
+    val cornerRadiusDp: Int,
+) : AlertEffectSpec
+
+/** 球心冲击波：粗前沿快速外扩，只有一个环，没有涟漪的多重尾环。 */
+data class ShockwaveSpec(
+    val strokeWidthDp: Float,
+    val travelPercent: Int,
+) : AlertEffectSpec
+
 /** 球锚点螺旋：粒子数、粒径、行程（球径 %）与旋转圈数。 */
 data class BallSpiralSpec(
     val count: Int,
@@ -290,8 +304,8 @@ data class AlertLayerPlan(
     val appPackage: String? = null,
     /** 预设 id：粒子种子与日志用。 */
     val presetId: String? = null,
-    /** 配置槽位（外部调用可为 null）；单槽试播按它过滤。 */
-    val slot: AlertSlot? = null,
+    /** 预设内稳定的层 id；编辑器「试播这一层」按它过滤。 */
+    val layerId: String? = null,
 ) {
     val totalMillis: Int get() = cycleMillis * cycles
 }
@@ -319,9 +333,9 @@ data class AlertPlayPlan(
 
     val isEmpty: Boolean get() = layers.isEmpty()
 
-    /** 只保留指定槽位的层（试播单槽用）；[slots] 为空时原样返回。 */
-    fun onlySlots(slots: Set<AlertSlot>): AlertPlayPlan =
-        if (slots.isEmpty()) this else copy(layers = layers.filter { it.slot in slots })
+    /** 只保留指定层（编辑器「试播这一层」用）；[layerId] 为 null 时原样返回。 */
+    fun onlyLayer(layerId: String?): AlertPlayPlan =
+        if (layerId == null) this else copy(layers = layers.filter { it.layerId == layerId })
 }
 
 /**
@@ -343,12 +357,8 @@ fun shouldPlay(
 /** 这份计划是否依赖胶囊的存在性：胶囊层要画在胶囊窗上；球心锚定的涟漪要胶囊矩形。 */
 fun needsCapsule(plan: AlertPlayPlan): Boolean = plan.layers.any { layer ->
     when (layer.style) {
-        is CapsuleAlertStyle -> true
-        is AnchorAlertStyle ->
-            layer.style == AnchorAlertStyle.Ring ||
-                layer.style == AnchorAlertStyle.BallBurst ||
-                layer.style == AnchorAlertStyle.BallHalo ||
-                (layer.spec as RippleSpec).centerAtBall
+        // 胶囊层画在胶囊窗上；球体锚定的层全部需要胶囊矩形（球 / 胶囊收起圆）。
+        is CapsuleAlertStyle, is AnchorAlertStyle -> true
         else -> false
     }
 }

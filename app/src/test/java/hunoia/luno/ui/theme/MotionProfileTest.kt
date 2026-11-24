@@ -1,7 +1,7 @@
 package hunoia.luno.ui.theme
 
 import hunoia.luno.config.model.MotionSpeed
-import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.config.model.AlertKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -51,19 +51,20 @@ class MotionProfileTest {
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.Floating))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingMorph))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.FloatingSnap))
-        // 到达提示四家族全部走浮窗档位。
+        // 到达提示三家族全部走浮窗档位。
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertEdge))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertParticle))
         assertEquals(MotionSpeed.Slowest, p.speedOf(MotionFamily.AlertAnchor))
     }
 
     @Test
-    fun `到达提示类目与家族一一映射`() {
-        assertEquals(MotionFamily.AlertEdge, AlertSlot.Edge.toAlertFamily())
-        assertEquals(MotionFamily.AlertParticle, AlertSlot.Particle.toAlertFamily())
-        assertEquals(MotionFamily.AlertParticle, AlertSlot.Path.toAlertFamily())
-        assertEquals(MotionFamily.AlertAnchor, AlertSlot.Ball.toAlertFamily())
-        assertEquals(MotionFamily.AlertAnchor, AlertSlot.Screen.toAlertFamily())
+    fun `到达提示层类别与家族一一映射`() {
+        assertEquals(MotionFamily.AlertEdge, AlertKind.Edge.toAlertFamily())
+        assertEquals(MotionFamily.AlertParticle, AlertKind.Particle.toAlertFamily())
+        assertEquals(MotionFamily.AlertParticle, AlertKind.Reveal.toAlertFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertKind.Ball.toAlertFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertKind.Capsule.toAlertFamily())
+        assertEquals(MotionFamily.AlertAnchor, AlertKind.Screen.toAlertFamily())
     }
 
     @Test

@@ -1,7 +1,7 @@
 package hunoia.luno.facade
 
 import android.content.Context
-import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
 import kotlinx.coroutines.flow.Flow
@@ -24,9 +24,19 @@ interface SystemFacade {
 
     /**
      * 试播一次通知胶囊的到达提示动效（按当前落盘配置；服务没在跑时不播）。
-     * [slot] 非空时只播该槽（每槽设置页的行内单播）；失败原因由服务侧 Toast 反馈。
+     * [layerId] 非空时只播预设里的这一层；失败原因由服务侧 Toast 反馈。
      */
-    fun previewFloatBallAlert(context: Context, slot: AlertSlot? = null)
+    fun previewFloatBallAlert(context: Context, layerId: String? = null)
+
+    /**
+     * 试播一份**未落盘**的预设（预设库 / 编辑器用），不写配置。
+     * [layerId] 非空时只播该层。
+     */
+    fun previewFloatBallAlertPreset(
+        context: Context,
+        preset: AlertPreset,
+        layerId: String? = null,
+    )
 
     /**
      * 播放一次通用效果（外部调用 / 试播共用）。

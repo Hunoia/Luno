@@ -48,7 +48,7 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.ScreenSceneEvent
 import hunoia.luno.core.TouchButtonSideEvent
-import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.config.model.withPosition
 import hunoia.luno.config.model.withAnchorY
@@ -59,7 +59,7 @@ import hunoia.luno.runtime.floatball.alert.AlertEnvironment
 import hunoia.luno.runtime.floatball.alert.AlertPlayPlan
 import hunoia.luno.runtime.floatball.alert.AlertEffectLocalHost
 import hunoia.luno.runtime.floatball.alert.AlertStageWindow
-import hunoia.luno.runtime.floatball.alert.engine.AlertSlotPlanFactory
+import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
 import hunoia.luno.runtime.floatball.alert.needsCapsule
 import hunoia.luno.runtime.floatball.alert.shouldPlay
@@ -449,11 +449,25 @@ class FloatBallService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_PREVIEW_ALERT) {
-            val slotName = intent.getStringExtra(EXTRA_PREVIEW_SLOT)
-            val slot = slotName?.let { name ->
-                AlertSlot.entries.firstOrNull { it.name == name }
+            previewArrivalAlert(layerId = intent.getStringExtra(EXTRA_PREVIEW_LAYER))
+            refreshWindows()
+            if (shouldStopSelf()) {
+                stopSelf()
+                return START_NOT_STICKY
             }
-            previewArrivalAlert(slot)
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_PREVIEW_PRESET) {
+            val presetJson = intent.getStringExtra(EXTRA_PREVIEW_PRESET)
+            val preset = presetJson?.let {
+                runCatching {
+                    JsonSerializer.globalJson.decodeFromString<AlertPreset>(it)
+                }.getOrNull()
+            }
+            previewArrivalAlert(
+                layerId = intent.getStringExtra(EXTRA_PREVIEW_LAYER),
+                preset = preset,
+            )
             refreshWindows()
             if (shouldStopSelf()) {
                 stopSelf()
@@ -760,6 +774,7 @@ class FloatBallService : Service() {
         if (!slot.showing) return
         val alert = settings.notificationCapsule.alert
         if (wasShowing && !alert.playOnEveryNotification) return
+        if (!alert.enabled || alert.presetId == null) return
         if (isAlertPlaying()) return
         val item = slot.state.items.firstOrNull() as? NotificationItem
         val pkg = item?.packageName
@@ -800,12 +815,12 @@ class FloatBallService : Service() {
     ): AlertPlayPlan {
         val capsule = settings.notificationCapsule
         val profile = MotionTuning.profile
-        return AlertSlotPlanFactory.build(
+        return AlertPlanFactory.build(
             alert = capsule.alert,
             library = capsule.alertLibrary,
             appPackage = appPackage,
             content = content,
-            tierFor = { slot -> profile.speedOf(slot.toAlertFamily()).factor },
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
             seed = Random.nextInt(),
         ).toPlayPlan()
     }
@@ -834,7 +849,7 @@ class FloatBallService : Service() {
      * 按计划分发：胶囊层画在胶囊窗自己的 Compose 层，舞台层进单舞台窗。
      * 真到达与试播共用；舞台窗已在播放时 [AlertStageWindow.show] 返回 false（由调用方先判 [isAlertPlaying]）。
      */
-    private fun dispatchAlertPlan(slot: CapsuleSlot, plan: AlertPlayPlan): Boolean {
+    private fun dispatchAlertPlan(slot: CapsuleSlot?, plan: AlertPlayPlan): Boolean {
         if (plan.isEmpty) return false
         Log.i(
             TAG,
@@ -843,7 +858,7 @@ class FloatBallService : Service() {
                 " total=${plan.durationMillis}ms",
         )
         plan.capsuleLayers.firstOrNull()?.let { layer ->
-            slot.window.playArrivalAlert(layer, alertColorSpec())
+            slot?.window?.playArrivalAlert(layer, alertColorSpec())
         }
         if (plan.stageLayers.isEmpty()) return true
         // 锚点缺失（胶囊未挂窗）时回落屏幕中心：舞台层里只有球心锚定的层会读它，
@@ -894,10 +909,12 @@ class FloatBallService : Service() {
             }
         }
         val capsule = settings.notificationCapsule
-        val plan = AlertSlotPlanFactory.buildFromRequest(
+        val profile = MotionTuning.profile
+        val plan = AlertPlanFactory.buildFromRequest(
             request = request,
             library = capsule.alertLibrary,
             appPackage = request.content?.iconPackage,
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
             seed = request.seed ?: Random.nextInt(),
         ).toPlayPlan()
         if (plan.isEmpty) {
@@ -946,19 +963,16 @@ class FloatBallService : Service() {
     }
 
     /**
-     * 试播：按当前配置立即播一次（设置页入口）。
+     * 试播：按当前配置（或编辑器里的临时预设）立即播一次。
      *
-     * 用户显式点击即授权，忽略熄屏 / 锁屏 / 勿扰闸；没有总开关，四类全关时试播会提示无可用样式；[category] 非空时只播该类。
+     * 用户显式点击即授权，忽略熄屏 / 锁屏 / 勿扰闸；未选预设时提示无可用效果；
+     * [layerId] 非空时只播该层（编辑器「试播这一层」）。
      * 依赖胶囊的计划（胶囊层 / 球心锚定）在胶囊未显示时先拉起演示胶囊再播。
      * 播不出来一定给一句原因（Toast），不再静默失败。
      */
-    private fun previewArrivalAlert(slot: AlertSlot?) {
+    private fun previewArrivalAlert(layerId: String? = null, preset: AlertPreset? = null) {
         if (!canDrawOverlays()) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_no_overlay)
-            return
-        }
-        if (!settings.notificationCapsule.enabled) {
-            showAlertToast(R.string.float_ball_capsule_alert_preview_no_capsule)
             return
         }
         if (isAlertPlaying()) {
@@ -978,18 +992,45 @@ class FloatBallService : Service() {
                 null
             },
         )
-        val plan = buildAlertPlan(content = demo).onlySlots(slot?.let { setOf(it) } ?: emptySet())
+        val profile = MotionTuning.profile
+        val plan = if (preset != null) {
+            AlertPlanFactory.buildFromPreset(
+                preset = preset,
+                presetId = preset.id,
+                library = settings.notificationCapsule.alertLibrary,
+                content = demo,
+                intensityScale = alert.intensityScale,
+                speedScale = alert.speedScale,
+                tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
+                seed = Random.nextInt(),
+            ).toPlayPlan()
+        } else {
+            buildAlertPlan(content = demo)
+        }.onlyLayer(layerId)
         if (plan.isEmpty) {
             showAlertToast(R.string.float_ball_capsule_alert_preview_none)
             return
         }
-        val slot = notificationSlot
-        if (needsCapsule(plan) && !slot.showing) {
-            // 演示胶囊：走真实展示管线（含展开动画与自动收起），球心锚点才有意义。
-            slot.previewCapsuleAlert(plan)
+        val capsuleEnabled = settings.notificationCapsule.enabled
+        if (needsCapsule(plan)) {
+            if (!capsuleEnabled) {
+                showAlertToast(R.string.float_ball_capsule_alert_preview_no_capsule)
+                return
+            }
+            val slot = notificationSlot
+            if (!slot.showing) {
+                // 演示胶囊：走真实展示管线（含展开动画与自动收起），球心锚点才有意义。
+                slot.previewCapsuleAlert(plan)
+                return
+            }
+            dispatchAlertPlan(slot, plan)
             return
         }
-        dispatchAlertPlan(slot, plan)
+        // 只有舞台层：胶囊没开 / 没挂窗时也能试播。
+        dispatchAlertPlan(
+            if (this::notificationSlot.isInitialized) notificationSlot else null,
+            plan,
+        )
     }
 
     /** 试播失败的可见反馈：一句原因，不打扰、不弹窗。 */
@@ -2973,7 +3014,9 @@ class FloatBallService : Service() {
         private const val NOTIFICATION_ID = FLOATBALL_NOTIFICATION_ID
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
         const val ACTION_PREVIEW_ALERT = "hunoia.luno.action.PREVIEW_CAPSULE_ALERT"
-        private const val EXTRA_PREVIEW_SLOT = "preview_slot"
+        private const val ACTION_PREVIEW_PRESET = "hunoia.luno.action.PREVIEW_ALERT_PRESET"
+        private const val EXTRA_PREVIEW_PRESET = "preview_preset"
+        private const val EXTRA_PREVIEW_LAYER = "preview_layer"
         private const val ACTION_PLAY_EFFECT = "hunoia.luno.action.PLAY_ALERT_EFFECT"
         private const val EXTRA_EFFECT_REQUEST = "effect_request"
         private const val ACTION_CANCEL_EFFECT = "hunoia.luno.action.CANCEL_ALERT_EFFECT"
@@ -3138,18 +3181,38 @@ class FloatBallService : Service() {
          * 通知胶囊已启用，而胶囊启用时宿主必然已被拉起（见恢复口径）。
          */
         /**
-         * 试播一次到达提示动效；[category] 非空时只播该类（每类设置页的行内单播）。
+         * 试播一次当前到达提示；[layerId] 非空时只播该层。
          * 失败的可见反馈由服务侧 Toast 给出。
          */
-        fun previewAlert(context: Context, slot: AlertSlot? = null) {
+        fun previewAlert(context: Context, layerId: String? = null) {
             runCatching {
                 context.startService(
                     Intent(context, FloatBallService::class.java)
                         .setAction(ACTION_PREVIEW_ALERT)
-                        .putExtra(EXTRA_PREVIEW_SLOT, slot?.name),
+                        .putExtra(EXTRA_PREVIEW_LAYER, layerId),
                 )
             }.onFailure {
                 Log.e(TAG, "preview capsule alert FAILED", it)
+            }
+        }
+
+        /**
+         * 试播一份**未落盘**的预设（预设库 / 编辑器用），不写配置。
+         * [layerId] 非空时只播该层。
+         */
+        fun previewPreset(context: Context, preset: AlertPreset, layerId: String? = null) {
+            runCatching {
+                context.startService(
+                    Intent(context, FloatBallService::class.java)
+                        .setAction(ACTION_PREVIEW_PRESET)
+                        .putExtra(
+                            EXTRA_PREVIEW_PRESET,
+                            JsonSerializer.globalJson.encodeToString(preset),
+                        )
+                        .putExtra(EXTRA_PREVIEW_LAYER, layerId),
+                )
+            }.onFailure {
+                Log.e(TAG, "preview alert preset FAILED", it)
             }
         }
 

@@ -2,20 +2,24 @@ package hunoia.luno.runtime.floatball.alert.preset
 
 import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertParticleShape
+import hunoia.luno.config.model.category
+import hunoia.luno.config.model.host
 import hunoia.luno.config.model.matchesKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 内置预设门禁：数量、id 唯一、变体自洽、宿主 / 类型匹配、参数区间合理。
+ * 内置预设门禁：全部单层素材、id 唯一、层自洽、宿主由 kind 推导、参数区间合理。
  *
- * 新增预设时这些约束会直接失败，避免「预设清单加了但参数块写错」这类静默问题。
+ * 内置只提供「一层」的可信观感；组合与跨类别叠加由用户预设负责。
  */
 class BuiltinAlertPresetsTest {
 
     private val presets = BuiltinAlertPresets.all
+    private val layers = presets.flatMap { it.layers }
 
     @Test
     fun `registry size matches the declared count`() {
@@ -32,55 +36,58 @@ class BuiltinAlertPresetsTest {
     }
 
     @Test
-    fun `every variant matches its kind and host`() {
+    fun `builtin presets are single-layer material`() {
         presets.forEach { preset ->
-            assertTrue("${preset.id} has no variants", preset.variants.isNotEmpty())
-            assertTrue("${preset.id} has too many variants", preset.variants.size <= 2)
-            preset.variants.forEach { variant ->
-                assertTrue("${preset.id} kind/params mismatch", variant.matchesKind())
-                assertTrue(
-                    "${preset.id} host/kind mismatch: ${variant.host}/${variant.kind}",
-                    variant.host.matches(variant.kind),
-                )
-            }
+            assertEquals("${preset.id} should be a single layer", 1, preset.layers.size)
+            assertTrue("${preset.id} layer must be enabled", preset.layers.single().enabled)
+            assertTrue("${preset.id} has no palette-level override", preset.paletteId == null)
+            assertTrue("${preset.id} should validate", preset.validate().isEmpty())
+        }
+    }
+
+    @Test
+    fun `every layer matches its kind`() {
+        layers.forEach { layer ->
+            assertTrue("${layer.id} kind/params mismatch", layer.matchesKind())
+            assertTrue("${layer.id} host derived from kind", layer.kind.host is AlertHost)
         }
     }
 
     @Test
     fun `timing and particle parameters stay in sane ranges`() {
-        presets.forEach { preset ->
-            preset.variants.forEach { variant ->
-                assertTrue("${preset.id} baseMillis", variant.timing.baseMillis > 0)
-                assertTrue("${preset.id} cycles", variant.timing.cycles in 1..20)
-                assertTrue("${preset.id} speed", variant.timing.speedPercent in 10..300)
-                variant.particle?.let { p ->
-                    assertTrue("${preset.id} count", p.emitter.count in 1..600)
-                    assertTrue("${preset.id} waves", p.emitter.waves in 1..20)
-                    assertTrue("${preset.id} speed", p.emitter.speed >= 0f)
-                    assertTrue("${preset.id} lifeShare", p.emitter.lifeShare > 0f && p.emitter.lifeShare <= 1f)
-                    assertTrue("${preset.id} delaySpread", p.emitter.delaySpread in 0f..1f)
-                    assertTrue("${preset.id} drag", p.motion.drag in 0f..1f)
-                    assertTrue("${preset.id} wind", p.motion.wind in -1f..1f)
-                    assertTrue("${preset.id} gravity", p.motion.gravity in 0f..3f)
-                    assertTrue("${preset.id} alpha", p.look.alpha in 0f..1f)
-                }
+        layers.forEach { layer ->
+            assertTrue("${layer.id} baseMillis", layer.timing.baseMillis > 0)
+            assertTrue("${layer.id} cycles", layer.timing.cycles in 1..20)
+            assertTrue("${layer.id} speed", layer.timing.speedPercent in 10..300)
+            layer.particle?.let { p ->
+                assertTrue("${layer.id} count", p.emitter.count in 1..600)
+                assertTrue("${layer.id} waves", p.emitter.waves in 1..20)
+                assertTrue("${layer.id} speed", p.emitter.speed >= 0f)
+                assertTrue("${layer.id} lifeShare", p.emitter.lifeShare > 0f && p.emitter.lifeShare <= 1f)
+                assertTrue("${layer.id} delaySpread", p.emitter.delaySpread in 0f..1f)
+                assertTrue("${layer.id} drag", p.motion.drag in 0f..1f)
+                assertTrue("${layer.id} wind", p.motion.wind in -1f..1f)
+                assertTrue("${layer.id} gravity", p.motion.gravity in 0f..3f)
+                assertTrue("${layer.id} alpha", p.look.alpha in 0f..1f)
+                assertTrue("${layer.id} size", p.look.sizeDp in 0.5f..32f)
             }
         }
     }
 
     @Test
-    fun `each slot has builtin coverage`() {
-        val byHostKind = presets.flatMap { it.variants }.map { it.host to it.kind }.toSet()
-        assertTrue(byHostKind.contains(AlertHost.Edge to AlertKind.Edge))
-        assertTrue(byHostKind.contains(AlertHost.Stage to AlertKind.Particle))
-        assertTrue(byHostKind.contains(AlertHost.Ball to AlertKind.Ball))
-        assertTrue(byHostKind.contains(AlertHost.Capsule to AlertKind.Capsule))
-        assertTrue(byHostKind.contains(AlertHost.Screen to AlertKind.Screen))
+    fun `every category has builtin coverage`() {
+        val categories = layers.map { it.kind.category }.toSet()
+        AlertLayerCategory.entries.forEach { category ->
+            assertTrue("missing builtin for $category", category in categories)
+        }
+        val skins = layers.map { it.kind }.toSet()
+        assertTrue(skins.contains(AlertKind.Capsule))
+        assertTrue(skins.contains(AlertKind.Reveal))
     }
 
     @Test
     fun `particle presets use the new shape vocabulary`() {
-        val shapes = presets.flatMap { it.variants }.mapNotNull { it.particle?.look?.shape }.toSet()
+        val shapes = layers.mapNotNull { it.particle?.look?.shape }.toSet()
         assertTrue(shapes.contains(AlertParticleShape.Dot))
         assertTrue(shapes.contains(AlertParticleShape.Line))
         assertTrue(shapes.contains(AlertParticleShape.Square))
@@ -89,11 +96,17 @@ class BuiltinAlertPresetsTest {
         assertTrue(shapes.contains(AlertParticleShape.Snowflake))
     }
 
-    private fun AlertHost.matches(kind: AlertKind): Boolean = when (this) {
-        AlertHost.Edge -> kind == AlertKind.Edge
-        AlertHost.Ball -> kind == AlertKind.Ball
-        AlertHost.Capsule -> kind == AlertKind.Capsule
-        AlertHost.Screen -> kind == AlertKind.Screen
-        AlertHost.Stage -> kind == AlertKind.Particle || kind == AlertKind.Reveal
+    @Test
+    fun `named forms map to distinct patterns`() {
+        val edge = presets.filter { it.layers.single().kind == AlertKind.Edge }
+            .map { it.layers.single().edge!!.pattern }
+        assertEquals(6, edge.toSet().size)
+        assertTrue(edge.contains(hunoia.luno.config.model.EdgePattern.Ribbon))
+        assertTrue(edge.contains(hunoia.luno.config.model.EdgePattern.Lightning))
+        val ball = presets.filter { it.layers.single().kind == AlertKind.Ball }
+            .map { it.layers.single().ball!!.pattern }
+        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Shockwave))
+        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Spiral))
+        assertTrue(ball.contains(hunoia.luno.config.model.BallPattern.Orbit3D))
     }
 }

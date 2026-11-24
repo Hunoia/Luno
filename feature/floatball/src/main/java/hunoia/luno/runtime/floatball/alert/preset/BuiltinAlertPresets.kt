@@ -1,12 +1,11 @@
 package hunoia.luno.runtime.floatball.alert.preset
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.AlertParticleShape
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.config.model.AlertTiming
-import hunoia.luno.config.model.AlertVariant
+import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.BallPattern
 import hunoia.luno.config.model.CapsuleParams
@@ -15,6 +14,7 @@ import hunoia.luno.config.model.EdgeParams
 import hunoia.luno.config.model.EdgePattern
 import hunoia.luno.config.model.ParticleArea
 import hunoia.luno.config.model.ParticleEmitter
+import hunoia.luno.config.model.ParticleHaloStyle
 import hunoia.luno.config.model.ParticleLook
 import hunoia.luno.config.model.ParticleMotion
 import hunoia.luno.config.model.ParticleParams
@@ -26,10 +26,10 @@ import hunoia.luno.config.model.ScreenPattern
 import hunoia.luno.config.model.matchesKind
 
 /**
- * 内置预设（20 个，代码常量、不进备份）。
+ * 内置预设：**全部单层素材**（代码常量、不进备份，数量不设硬上限）。
  *
- * 每个预设只提供 1 个宿主变体（跨宿主复用只对少数通用预设开放）：
- * 屏缘 4 / 粒子 5 / 球体 5 / 全屏 3 / 路径 3。
+ * 组合由用户在预设库里自己拼：内置只提供「一层」的可信观感，每个名字必须
+ * 对应真实绘制形态（不能只改参数就叫新名字）。
  *
  * 名称：内置预设的 [AlertPreset.name] 只是兜底展示；设置页按 id 取本地化文案
  * （`float_ball_preset_*`），用户预设才用自身名称。
@@ -41,7 +41,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_glow",
             name = "屏幕边缘呼吸光",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Glow,
                 bandWidthDp = 12f,
                 hardness = 2f,
@@ -51,7 +51,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_flow",
             name = "屏幕边缘流光",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Flow,
                 bandWidthDp = 18f,
                 hardness = 2.2f,
@@ -64,7 +64,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_ripple",
             name = "边缘波纹",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Ripple,
                 bandWidthDp = 6f,
                 crests = 3,
@@ -74,7 +74,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_comet",
             name = "屏缘彗星",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Comet,
                 bandWidthDp = 6f,
                 trailScale = 3f,
@@ -87,7 +87,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_rain",
             name = "顶部粒子掉落",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.TopEdge,
                     count = 60,
@@ -105,7 +105,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_fountain",
             name = "底部喷泉",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.BottomEdge,
                     count = 46,
@@ -123,7 +123,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_meteor",
             name = "流星",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.TopEdge,
                     count = 18,
@@ -145,7 +145,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_confetti",
             name = "彩带",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.TopEdge,
                     count = 52,
@@ -163,7 +163,7 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     shape = AlertParticleShape.Square,
-                    sizeDp = 4f,
+                    sizeDp = 8f,
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1200),
@@ -172,7 +172,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_firefly",
             name = "萤火",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.ScreenRect,
                     count = 42,
@@ -190,7 +190,11 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     alpha = 0.9f,
-                    halo = 0.5f,
+                    haloStyle = ParticleHaloStyle.Soft,
+                    haloAlpha = 0.5f,
+                    haloScale = 2.4f,
+                    blink = true,
+                    blinkCycles = 2.5f,
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1500),
@@ -201,7 +205,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_ring",
             name = "球光环",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Ring,
                 travelPercent = 95,
                 strokeWidthDp = 3f,
@@ -212,7 +216,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_ripple",
             name = "全屏涟漪",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Ripple,
                 travelPercent = 140,
                 strokeWidthDp = 2f,
@@ -223,7 +227,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_burst",
             name = "球心爆发",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Burst,
                 travelPercent = 70,
                 particleCount = 20,
@@ -234,7 +238,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_shockwave",
             name = "冲击波",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Shockwave,
                 travelPercent = 160,
                 strokeWidthDp = 4f,
@@ -245,7 +249,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_capsule_pulse",
             name = "胶囊脉冲",
-            variant = capsule(
+            layer = capsule(
                 pattern = CapsulePattern.Pulse,
                 strokeWidthDp = 1.5f,
                 timing = AlertTiming(baseMillis = 1000),
@@ -256,7 +260,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_screen_flash",
             name = "全屏闪光",
-            variant = screen(
+            layer = screen(
                 pattern = ScreenPattern.Flash,
                 amplitude = 0.55f,
                 timing = AlertTiming(baseMillis = 600),
@@ -265,7 +269,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_screen_vignette",
             name = "暗角呼吸",
-            variant = screen(
+            layer = screen(
                 pattern = ScreenPattern.Vignette,
                 amplitude = 0.45f,
                 vignetteSoftness = 0.6f,
@@ -275,7 +279,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_screen_zoom",
             name = "缩放脉冲",
-            variant = screen(
+            layer = screen(
                 pattern = ScreenPattern.ZoomPulse,
                 amplitude = 0.5f,
                 zoomPercent = 8,
@@ -287,7 +291,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_path_comet",
             name = "穿越彗星",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.ScreenRect,
                     count = 10,
@@ -315,7 +319,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_path_orbit",
             name = "轨道环绕",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.Point,
                     count = 26,
@@ -332,7 +336,7 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     shape = AlertParticleShape.Triangle,
-                    sizeDp = 3f,
+                    sizeDp = 6f,
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1400),
@@ -341,7 +345,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_path_spiral",
             name = "螺旋上升",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.Point,
                     count = 30,
@@ -358,7 +362,7 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     shape = AlertParticleShape.Star,
-                    sizeDp = 2.5f,
+                    sizeDp = 5f,
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1300),
@@ -370,7 +374,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_ribbon",
             name = "屏缘缎带",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Ribbon,
                 bandWidthDp = 22f,
                 trailScale = 3f,
@@ -381,7 +385,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_edge_lightning",
             name = "屏缘闪电",
-            variant = edge(
+            layer = edge(
                 pattern = EdgePattern.Lightning,
                 bandWidthDp = 8f,
                 strikeCount = 2,
@@ -391,7 +395,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_spiral",
             name = "螺旋卷吸",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Spiral,
                 travelPercent = 180,
                 particleCount = 36,
@@ -403,7 +407,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_ball_orbit",
             name = "3D 环绕",
-            variant = ball(
+            layer = ball(
                 pattern = BallPattern.Orbit3D,
                 travelPercent = 150,
                 particleCount = 28,
@@ -414,7 +418,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_capsule_flip",
             name = "胶囊 3D 翻转",
-            variant = capsule(
+            layer = capsule(
                 pattern = CapsulePattern.Flip3D,
                 strokeWidthDp = 1.5f,
                 flipDegrees = 180,
@@ -424,7 +428,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_capsule_chase",
             name = "双色追逐",
-            variant = capsule(
+            layer = capsule(
                 pattern = CapsulePattern.DualChase,
                 strokeWidthDp = 1.5f,
                 bandWidthPercent = 22,
@@ -436,7 +440,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_petals",
             name = "花瓣飘落",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.TopEdge,
                     count = 40,
@@ -456,7 +460,7 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     shape = AlertParticleShape.Petal,
-                    sizeDp = 6f,
+                    sizeDp = 12f,
                     sizeJitter = 0.35f,
                     alpha = 0.85f,
                     rotate = true,
@@ -468,7 +472,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_particle_snow",
             name = "雪花",
-            variant = particle(
+            layer = particle(
                 emitter = ParticleEmitter(
                     area = ParticleArea.TopEdge,
                     count = 44,
@@ -488,10 +492,9 @@ internal object BuiltinAlertPresets {
                 ),
                 look = ParticleLook(
                     shape = AlertParticleShape.Snowflake,
-                    sizeDp = 5f,
+                    sizeDp = 10f,
                     sizeJitter = 0.4f,
                     alpha = 0.9f,
-                    halo = 0.25f,
                 ),
                 color = AlertColorRef(),
                 timing = AlertTiming(baseMillis = 1600),
@@ -500,7 +503,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_reveal_text",
             name = "文字揭示",
-            variant = reveal(
+            layer = reveal(
                 pattern = RevealPattern.Text,
                 timing = AlertTiming(baseMillis = 900),
             ),
@@ -508,7 +511,7 @@ internal object BuiltinAlertPresets {
         preset(
             id = "builtin_reveal_icon",
             name = "图标揭示",
-            variant = reveal(
+            layer = reveal(
                 pattern = RevealPattern.Icon,
                 timing = AlertTiming(baseMillis = 800),
             ),
@@ -525,13 +528,19 @@ internal object BuiltinAlertPresets {
     private fun preset(
         id: String,
         name: String,
-        variant: AlertVariant,
+        layer: AlertLayer,
     ): AlertPreset = AlertPreset(
         id = id,
         name = name,
         builtin = true,
-        variants = listOf(variant),
-    ).also { check(variant.matchesKind()) { "preset $id variant kind mismatch" } }
+        layers = listOf(
+            layer.copy(
+                id = "${id}_l0",
+                name = name,
+                sourcePresetId = id,
+            ),
+        ),
+    ).also { check(layer.matchesKind()) { "preset $id layer kind mismatch" } }
 
     private fun edge(
         pattern: EdgePattern,
@@ -543,8 +552,8 @@ internal object BuiltinAlertPresets {
         crests: Int = 3,
         strikeCount: Int = 1,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Edge,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Edge,
         timing = timing,
         color = AlertColorRef(),
@@ -566,8 +575,8 @@ internal object BuiltinAlertPresets {
         look: ParticleLook,
         color: AlertColorRef,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Stage,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Particle,
         timing = timing,
         color = color,
@@ -584,8 +593,8 @@ internal object BuiltinAlertPresets {
         particleSizeDp: Float = 4f,
         ringsPerCycle: Int = 1,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Ball,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Ball,
         timing = timing,
         color = AlertColorRef(),
@@ -609,8 +618,8 @@ internal object BuiltinAlertPresets {
         trailAlpha: Float = 0.4f,
         flipDegrees: Int = 180,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Capsule,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Capsule,
         timing = timing,
         color = AlertColorRef(),
@@ -627,8 +636,8 @@ internal object BuiltinAlertPresets {
     private fun reveal(
         pattern: RevealPattern,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Stage,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Reveal,
         timing = timing,
         color = AlertColorRef(),
@@ -641,8 +650,8 @@ internal object BuiltinAlertPresets {
         vignetteSoftness: Float = 0.5f,
         zoomPercent: Int = 8,
         timing: AlertTiming,
-    ): AlertVariant = AlertVariant(
-        host = AlertHost.Screen,
+    ): AlertLayer = AlertLayer(
+        id = "",
         kind = AlertKind.Screen,
         timing = timing,
         color = AlertColorRef(),

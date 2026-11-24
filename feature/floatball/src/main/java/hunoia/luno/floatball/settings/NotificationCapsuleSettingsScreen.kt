@@ -2,15 +2,11 @@ package hunoia.luno.floatball.settings
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,15 +28,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
-import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.CapsuleGestureBehavior
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.config.model.NotificationAlertSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.floatball.settings.alert.AlertSlotOrder
-import hunoia.luno.floatball.settings.alert.slotPresetName
-import hunoia.luno.floatball.settings.alert.titleRes
+import hunoia.luno.floatball.settings.alert.AlertKnobSlider
+import hunoia.luno.floatball.settings.alert.displayName
+import hunoia.luno.floatball.settings.alert.selectedPreset
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
@@ -54,8 +48,6 @@ import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
@@ -67,7 +59,7 @@ import kotlinx.coroutines.launch
 fun NotificationCapsuleSettingsScreen(
     onBack: () -> Unit,
     onNavToNotificationBlocklist: () -> Unit = {},
-    onNavToAlertSlot: (AlertSlot) -> Unit = {},
+    onNavToAlertPicker: () -> Unit = {},
     onNavToAlertBlocklist: () -> Unit = {},
 ) {
     val facades = LocalFacades.current
@@ -78,7 +70,7 @@ fun NotificationCapsuleSettingsScreen(
         .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
     val floatBall = actionSettings.floatBall
     val capsule = floatBall.notificationCapsule
-    // 动效子树有自己的本地即显状态：从槽位 / 预设 / 调色板页返回时配置流不保证回推，
+    // 动效子树有自己的本地即显状态：从预设选择 / 预设库返回时配置流不保证回推，
     // 主页面入口的副标题（当前预设）必须跟手刷新。
     var alertState by remember { mutableStateOf(capsule.alert) }
     LifecycleResumeEffect(Unit) {
@@ -113,7 +105,6 @@ fun NotificationCapsuleSettingsScreen(
     val iconPicker = rememberBallIconPickerState()
     var showBallColorPicker by remember { mutableStateOf(false) }
     var showBackgroundColorPicker by remember { mutableStateOf(false) }
-    var showAlertColorPicker by remember { mutableStateOf(false) }
     var notifAccessGranted by remember {
         mutableStateOf(facades.system.isNotificationAccessGranted(context))
     }
@@ -209,23 +200,6 @@ fun NotificationCapsuleSettingsScreen(
                             )
                         }
                         showBackgroundColorPicker = false
-                    },
-                )
-            }
-            if (showAlertColorPicker) {
-                val scheme = MaterialTheme.colorScheme
-                ColorPickerBottomSheet(
-                    onDismissRequest = { showAlertColorPicker = false },
-                    onCopyColor = { hex ->
-                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
-                    },
-                    initialSelection = alertState.color.toInitialSelection(
-                        scheme = scheme,
-                        primaryFallback = true,
-                    ),
-                    onColorSelected = { selection ->
-                        updateAlert { it.copy(color = selection.toColorSpec(scheme)) }
-                        showAlertColorPicker = false
                     },
                 )
             }
@@ -578,15 +552,61 @@ fun NotificationCapsuleSettingsScreen(
             }
         }
 
-        // 到达提示动效（v3）：五槽各自开关、默认全关；类目只是设置页分组，宿主由预设声明。
+        // 到达提示动效（v4）：总开关 + 单选预设 + 全局强度 / 速度；组合层在预设里编辑。
         if (capsule.enabled) {
             item(key = "alert") {
                 val alert = alertState
-                val scheme = MaterialTheme.colorScheme
+                val selected = alert.selectedPreset(capsule.alertLibrary)
                 LunoGroup(title = stringResource(R.string.float_ball_capsule_alert_group)) {
                     LunoSegmentedGroup {
-                        // 没有总开关：下面五槽各自开关；五槽全关 = 不播。
-                        // 「每次新通知都播」是唯一的行为开关（在播时仍不排队、不打断）。
+                        item { shape ->
+                            LunoSwitchRow(
+                                title = stringResource(R.string.float_ball_capsule_alert_enabled),
+                                subtitle = stringResource(R.string.float_ball_capsule_alert_enabled_subtitle),
+                                checked = alert.enabled,
+                                onCheckedChange = { checked ->
+                                    updateAlert { it.copy(enabled = checked) }
+                                },
+                                shape = shape,
+                            )
+                        }
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_alert_preset),
+                                subtitle = when {
+                                    selected != null -> selected.displayName()
+                                    alert.presetId == null ->
+                                        stringResource(R.string.float_ball_alert_preset_none)
+                                    else -> stringResource(R.string.float_ball_alert_preset_missing)
+                                },
+                                shape = shape,
+                                onClick = onNavToAlertPicker,
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_alert_intensity),
+                                value = alert.intensityPercent,
+                                range = AlertIntensityRange,
+                                display = { "${it.toInt()}%" },
+                                shape = shape,
+                                onCommit = { value ->
+                                    updateAlert { it.copy(intensityPercent = value) }
+                                },
+                            )
+                        }
+                        item { shape ->
+                            AlertKnobSlider(
+                                label = stringResource(R.string.float_ball_alert_speed),
+                                value = alert.speedPercent,
+                                range = AlertSpeedRange,
+                                display = { "${it.toInt()}%" },
+                                shape = shape,
+                                onCommit = { value ->
+                                    updateAlert { it.copy(speedPercent = value) }
+                                },
+                            )
+                        }
                         item { shape ->
                             LunoSwitchRow(
                                 title = stringResource(R.string.float_ball_capsule_alert_play_every),
@@ -609,53 +629,6 @@ fun NotificationCapsuleSettingsScreen(
                                 shape = shape,
                             )
                         }
-                        // 动效独立颜色（与胶囊 / 悬浮球解耦；未设置时跟随主题主色）。
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_color),
-                                icon = Icons.Default.Palette,
-                                subtitle = stringResource(
-                                    if (alert.color.isUnset) {
-                                        R.string.float_ball_capsule_color_default
-                                    } else {
-                                        R.string.float_ball_capsule_color_custom
-                                    },
-                                ),
-                                shape = shape,
-                                leading = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(MarkColorSize)
-                                            .background(
-                                                color = if (alert.color.isUnset) {
-                                                    scheme.primary
-                                                } else {
-                                                    alert.color.toMarkColor()
-                                                },
-                                                shape = CircleShape,
-                                            ),
-                                    )
-                                },
-                                onClick = { showAlertColorPicker = true },
-                            )
-                        }
-                        // 五槽入口：每槽独立二级页（设开关 / 选预设 / 少量覆盖 / 试播）。
-                        AlertSlotOrder.forEach { slot ->
-                            val settings = alert.slots.of(slot)
-                            item { shape ->
-                                LunoSettingsRow(
-                                    title = stringResource(slot.titleRes()),
-                                    subtitle = if (settings.enabled) {
-                                        slotPresetName(slot, settings, capsule.alertLibrary)
-                                    } else {
-                                        stringResource(R.string.float_ball_capsule_alert_category_disabled)
-                                    },
-                                    shape = shape,
-                                    onClick = { onNavToAlertSlot(slot) },
-                                )
-                            }
-                        }
-                        // 动效黑名单：不复用通知胶囊黑名单（这些通知照常显示，只是不播动效）。
                         item { shape ->
                             LunoSettingsRow(
                                 title = stringResource(R.string.float_ball_capsule_alert_blocklist),
@@ -668,7 +641,6 @@ fun NotificationCapsuleSettingsScreen(
                                 onClick = onNavToAlertBlocklist,
                             )
                         }
-                        // 全部试播：按当前五槽配置一起播一次（失败原因由服务侧 Toast 反馈）。
                         item { shape ->
                             LunoSettingsRow(
                                 title = stringResource(R.string.float_ball_capsule_alert_preview_all),
@@ -684,3 +656,7 @@ fun NotificationCapsuleSettingsScreen(
         }
     }
 }
+
+/** 到达提示全局强度 / 速度滑杆（强度 0 会让效果不可见，下限取 50）。 */
+private val AlertIntensityRange = 50..200
+private val AlertSpeedRange = 25..400

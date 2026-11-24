@@ -8,7 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.config.model.AlertKind
 import hunoia.luno.config.model.MotionSpeed
 import hunoia.luno.config.model.MotionTuningSettings
 import kotlin.math.roundToInt
@@ -39,17 +39,17 @@ enum class MotionFamily(val baseMillis: Int) {
     FloatingSnap(170),
 
     /**
-     * 通知胶囊到达提示动效：**每个槽位一个家族**（屏缘 / 粒子与路径 / 球体与全屏），
-     * 全部走浮窗档位。单循环基准（呼吸一圈 / 一波粒子 / 一次扫光…）由预设的
-     * `AlertTiming.baseMillis` 承载，**不再由家族承载**——家族只负责「这个槽该用哪档速度」
-     * （见 ui-guidelines §2.4）。槽位 → 家族的唯一映射见 [toAlertFamily]。
+     * 通知胶囊到达提示动效：**按层类别一个家族**（屏缘 / 粒子与揭示 / 球体与全屏），
+     * 全部走浮窗档位。单循环基准（呼吸一圈 / 一波粒子 / 一次扫光…）由预设层的
+     * `AlertTiming.baseMillis` 承载，**不再由家族承载**——家族只负责「这一层该用哪档速度」
+     * （见 ui-guidelines §2.4）。类别 → 家族的唯一映射见 [AlertKind.toAlertFamily]。
      */
     AlertEdge(1400),
 
-    /** 粒子 / 路径槽的档位载体。 */
+    /** 粒子 / 揭示层的档位载体。 */
     AlertParticle(1000),
 
-    /** 球体 / 全屏槽的档位载体（胶囊宿主也走这里）。 */
+    /** 球体 / 全屏层的档位载体（胶囊宿主也走这里）。 */
     AlertAnchor(1000),
 }
 
@@ -131,12 +131,11 @@ fun floatingSpec(family: MotionFamily = MotionFamily.Floating): MotionSpec =
 fun <T> MotionSpec.tween(): TweenSpec<T> = tween(durationMillis, easing = easing)
 
 /**
- * 到达提示槽位 → 动效家族的唯一映射（每槽一个家族，只承载档位）。
- * 单循环基准在预设的 `AlertTiming.baseMillis`，不在这里。
+ * 到达提示层 → 动效家族的唯一映射（每类一个家族，只承载档位）。
+ * 单循环基准在层的 `AlertTiming.baseMillis`，不在这里。
  */
-fun AlertSlot.toAlertFamily(): MotionFamily = when (this) {
-    AlertSlot.Edge -> MotionFamily.AlertEdge
-    AlertSlot.Particle, AlertSlot.Path -> MotionFamily.AlertParticle
-    AlertSlot.Ball -> MotionFamily.AlertAnchor
-    AlertSlot.Screen -> MotionFamily.AlertAnchor
+fun AlertKind.toAlertFamily(): MotionFamily = when (this) {
+    AlertKind.Edge -> MotionFamily.AlertEdge
+    AlertKind.Particle, AlertKind.Reveal -> MotionFamily.AlertParticle
+    AlertKind.Ball, AlertKind.Capsule, AlertKind.Screen -> MotionFamily.AlertAnchor
 }

@@ -1,35 +1,35 @@
 package hunoia.luno.runtime.floatball.alert.engine
 
 import hunoia.luno.config.model.AlertColorRef
-import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPreset
-import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.config.model.BallParams
 import hunoia.luno.config.model.CapsuleParams
 import hunoia.luno.config.model.EdgeParams
 import hunoia.luno.config.model.ParticleParams
 import hunoia.luno.config.model.RevealParams
 import hunoia.luno.config.model.ScreenParams
+import hunoia.luno.config.model.host
+import hunoia.luno.core.effect.AlertContent
 import hunoia.luno.runtime.floatball.alert.AlertPaletteSpec
 import kotlin.math.roundToInt
 
 /**
- * 渲染层计划（纯 JVM）：预设 + 宿主 + 覆盖 → 渲染端可直接消费的层。
+ * 渲染层计划（纯 JVM）：预设的启用层 + 全局强度 / 速度 → 渲染端可直接消费的层。
  *
- * 与 [AlertPresetPlan] 的区别：这里已经合并了速度 / 强度覆盖、解析了调色板，
- * 并只保留该 [AlertKind] 对应的参数块。渲染端不再读配置，也不再判 `when(槽位)`。
+ * 渲染端不再读配置，也不再判类别：宿主 / 参数块在构建时就已落到具体层。
  */
 data class AlertRenderLayer(
     val presetId: String?,
-    /** 配置槽位（外部调用可能为 null）；只影响日志与粒子种子。 */
-    val slot: AlertSlot? = null,
+    /** 预设内稳定的层 id（渲染 key 用；不再用列表序号）。 */
+    val layerId: String? = null,
     val host: AlertHost,
     val kind: AlertKind,
     val cycleMillis: Int,
     val cycles: Int,
-    /** 覆盖后的强度倍率（1 = 预设原样，0..2）。 */
+    /** 全局强度倍率（1 = 预设原样，0..2）；各组渲染器再映射到自己的 alpha 区间。 */
     val intensity: Float = 1f,
     val palette: AlertPaletteSpec? = null,
     val appPackage: String? = null,
@@ -46,7 +46,7 @@ data class AlertRenderLayer(
 /**
  * 一次播放的渲染计划。
  *
- * [skipped] 保留解析失败原因（未知预设 / 宿主缺失），由服务侧记日志；
+ * [skipped] 保留解析失败原因（未知预设 / 空预设），由服务侧记日志；
  * 渲染端只消费 [layers]。
  */
 data class AlertRenderPlan(
@@ -67,71 +67,109 @@ data class AlertRenderPlan(
     /** 胶囊窗层（通知路径；外部调用可传 rect 近似）。 */
     val capsuleLayers: List<AlertRenderLayer>
         get() = layers.filter { it.host == AlertHost.Capsule }
+
+    /** 只保留指定层（编辑器「试播这一层」用）；null / 空 = 原样返回。 */
+    fun onlyLayer(layerId: String?): AlertRenderPlan =
+        if (layerId == null) this else copy(layers = layers.filter { it.layerId == layerId })
 }
 
-/** 一次槽位请求：预设 + 宿主 + 覆盖（强度 / 速度倍率）。 */
-data class AlertSlotRequest(
-    val presetId: String,
-    val host: AlertHost,
-    val slot: AlertSlot? = null,
-    val intensity: Float? = null,
-    val speedScale: Float? = null,
-    /** 槽位颜色覆盖（优先于预设变体颜色）。 */
-    val colorOverride: AlertColorRef? = null,
-)
+/** 解析失败的原因（调用侧用于日志 / Toast，不在这里做 UI）。 */
+sealed interface PresetResolveError {
+    data class UnknownPreset(val presetId: String) : PresetResolveError
+    data class EmptyPreset(val presetId: String) : PresetResolveError
+}
 
 object AlertRenderPlanBuilder {
 
     /**
-     * @param paletteFor 预设颜色引用 → 调色板（null = 跟随动效颜色）；由调用侧按素材库解析。
-     * @param tierFactor 动效档位倍率（1 = 标准档）。
+     * @param paletteFor 预设 / 层颜色引用 → 调色板（null = 跟随动效回退颜色）。
+     * @param intensityScale 全局强度（1 = 预设原样，0..2）。
+     * @param speedScale 全局速度（1 = 基准，0.25..4；>1 更快）。
+     * @param tierForKind 应用动效档位倍率（1 = 标准档，按层类别折叠）。
      */
     fun build(
-        requests: List<AlertSlotRequest>,
-        presets: Map<String, AlertPreset>,
+        preset: AlertPreset?,
+        presetId: String,
         paletteFor: (AlertColorRef) -> AlertPaletteSpec?,
         appPackage: String? = null,
-        tierFactor: Float = 1f,
+        intensityScale: Float = 1f,
+        speedScale: Float = 1f,
+        tierForKind: (AlertKind) -> Float = { 1f },
         seed: Int = 0,
         content: AlertContent? = null,
     ): AlertRenderPlan {
-        val layers = mutableListOf<AlertRenderLayer>()
-        val skipped = mutableListOf<PresetResolveError>()
-        requests.forEach { request ->
-            val preset = presets[request.presetId]
-            val resolved = AlertPresetResolver.resolve(
-                preset = preset,
-                presetId = request.presetId,
-                host = request.host,
-                tierFactor = tierFactor,
+        if (preset == null) {
+            return AlertRenderPlan(
+                layers = emptyList(),
+                seed = seed,
+                skipped = listOf(PresetResolveError.UnknownPreset(presetId)),
+                content = content,
             )
-            when (resolved) {
-                is PresetResolveResult.Failed -> skipped += resolved.error
-                is PresetResolveResult.Ok -> {
-                    val layer = resolved.layer
-                    val variant = layer.variant
-                    val speedScale = request.speedScale?.coerceIn(0.25f, 4f) ?: 1f
-                    val cycle = (layer.cycleMillis / speedScale).roundToInt().coerceAtLeast(1)
-                    layers += AlertRenderLayer(
-                        presetId = layer.presetId,
-                        slot = request.slot,
-                        host = layer.host,
-                        kind = layer.kind,
-                        cycleMillis = cycle,
-                        cycles = layer.cycles,
-                        intensity = (request.intensity ?: 1f).coerceIn(0f, 2f),
-                        palette = paletteFor(request.colorOverride ?: variant.color),
-                        appPackage = appPackage,
-                        particle = variant.particle.takeIf { variant.kind == AlertKind.Particle },
-                        edge = variant.edge.takeIf { variant.kind == AlertKind.Edge },
-                        ball = variant.ball.takeIf { variant.kind == AlertKind.Ball },
-                        capsule = variant.capsule.takeIf { variant.kind == AlertKind.Capsule },
-                        screen = variant.screen.takeIf { variant.kind == AlertKind.Screen },
-                        reveal = variant.reveal.takeIf { variant.kind == AlertKind.Reveal },
-                    )
-                }
+        }
+        val globalSpeed = speedScale.coerceIn(0.25f, 4f)
+        val globalIntensity = intensityScale.coerceIn(0f, 2f)
+        val rendered = preset.renderableLayers().mapNotNull { layer ->
+            val tier = tierForKind(layer.kind).coerceAtLeast(0.01f)
+            val layerSpeed = layer.timing.speedPercent.coerceIn(10, 300) / 100f
+            val effective = globalSpeed * layerSpeed
+            val cycle = (layer.timing.baseMillis * tier / effective)
+                .roundToInt()
+                .coerceAtLeast(1)
+            val color = preset.paletteId?.let { AlertColorRef(paletteId = it) } ?: layer.color
+            AlertRenderLayer(
+                presetId = preset.id,
+                layerId = layer.id,
+                host = layer.kind.host,
+                kind = layer.kind,
+                cycleMillis = cycle,
+                cycles = layer.timing.cycles.coerceIn(1, 20),
+                intensity = globalIntensity,
+                palette = paletteFor(color),
+                appPackage = appPackage,
+                particle = layer.particle.takeIf { layer.kind == AlertKind.Particle },
+                edge = layer.edge.takeIf { layer.kind == AlertKind.Edge },
+                ball = layer.ball.takeIf { layer.kind == AlertKind.Ball },
+                capsule = layer.capsule.takeIf { layer.kind == AlertKind.Capsule },
+                screen = layer.screen.takeIf { layer.kind == AlertKind.Screen },
+                reveal = layer.reveal.takeIf { layer.kind == AlertKind.Reveal },
+            )
+        }
+        if (rendered.isEmpty()) {
+            return AlertRenderPlan(
+                layers = emptyList(),
+                seed = seed,
+                skipped = listOf(PresetResolveError.EmptyPreset(presetId)),
+                content = content,
+            )
+        }
+        return AlertRenderPlan(
+            layers = applyParticleBudget(rendered),
+            seed = seed,
+            skipped = emptyList(),
+            content = content,
+        )
+    }
+
+    /**
+     * 跨层粒子总预算：按层顺序分配，超出截断（后面的层拿剩余额度，最少 0 = 丢弃）。
+     *
+     * 不是每层 600——5 层各带 600 会直接压垮帧率。
+     */
+    private fun applyParticleBudget(layers: List<AlertRenderLayer>): List<AlertRenderLayer> {
+        if (layers.sumOf { it.particle?.emitter?.count ?: 0 } <= AlertLimits.ParticleBudget) {
+            return layers
+        }
+        var remaining = AlertLimits.ParticleBudget
+        return layers.mapNotNull { layer ->
+            val params = layer.particle ?: return@mapNotNull layer
+            val requested = params.emitter.count.coerceAtLeast(0)
+            val allowed = requested.coerceAtMost(remaining)
+            remaining -= allowed
+            if (allowed <= 0) {
+                null
+            } else {
+                layer.copy(particle = params.copy(emitter = params.emitter.copy(count = allowed)))
             }
         }
-        return AlertRenderPlan(layers = layers, seed = seed, skipped = skipped, content = content)
     }
 }

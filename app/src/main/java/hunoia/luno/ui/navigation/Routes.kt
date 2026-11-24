@@ -201,25 +201,35 @@ data object FloatBallNotificationCapsule
 @Serializable
 data object FloatBallResultCapsule
 
-/** 到达提示·槽位设置页：[slot] 是 [hunoia.luno.config.model.AlertSlot] 的枚举名。 */
+/** 到达提示·预设选择页（单选内置素材 + 我的组合）。 */
 @Keep
 @Serializable
-data class FloatBallAlertSlot(val slot: String)
+data object FloatBallAlertPresetPicker
 
-/** 到达提示·预设选择页（按槽位过滤可用的宿主变体）。 */
+/** 到达提示·预设库（设置页根目录独立入口）：素材 / 组合 / 导入导出。 */
 @Keep
 @Serializable
-data class FloatBallAlertPresetPicker(val slot: String)
+data object FloatBallAlertPresetLibrary
+
+/** 预设编辑器：结构（名称 / 调色板 / 层列表）。 */
+@Keep
+@Serializable
+data class FloatBallAlertPresetEditor(val presetId: String)
+
+/** 单层编辑器：全参数。 */
+@Keep
+@Serializable
+data class FloatBallAlertLayerEditor(val presetId: String, val layerId: String)
+
+/** 添加层：空白层 + 内置素材。 */
+@Keep
+@Serializable
+data class FloatBallAlertLayerAdd(val presetId: String)
 
 /** 到达提示·动效独立黑名单（不复用通知胶囊黑名单）。 */
 @Keep
 @Serializable
 data object FloatBallAlertBlocklist
-
-/** 到达提示·调色板选择页：[slot] 是 [hunoia.luno.config.model.AlertSlot] 的枚举名。 */
-@Keep
-@Serializable
-data class FloatBallAlertPalettePicker(val slot: String)
 
 /** 到达提示·调色板管理页（内置只读 / 自定义可编辑）。 */
 @Keep

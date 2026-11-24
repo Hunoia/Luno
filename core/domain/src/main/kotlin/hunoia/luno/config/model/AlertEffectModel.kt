@@ -4,111 +4,23 @@ import androidx.annotation.Keep
 import kotlinx.serialization.Serializable
 
 /**
- * 到达提示动效 v3 的预设 / 素材库模型（尚未接线到设置页与渲染，先落数据层）。
+ * 到达提示动效 v4 的预设 / 素材库模型。
  *
- * 与旧模型的关系：
- * - 预设是**全局**的：一个预设可带 1–2 个宿主变体，跨类目复用只受宿主约束；
- * - 类目退化为设置页分组（槽位），真正决定绘制方式的是 [AlertVariant.host] + [AlertVariant.kind]；
- * - 旧的 18 个样式枚举与每样式设置块在切换那一版删除（`alert_v3` 一次性重置）。
+ * 与 v3 的关系：
+ * - **预设 = 1–5 个层**：一个预设可以只做单类动画，也可以组合多类（受 [AlertLimits] 约束）；
+ * - **层**声明自己的 [AlertKind]（宿主由 kind 推导），不再有「一个预设多宿主变体」；
+ * - **设置页只选一个预设**：五槽位删除，槽位概念降级为层类别（[AlertLayerCategory]）；
+ * - 内置预设全部是单层素材，组合只由用户拼装（[AlertLibrary.presets]）。
  *
- * 本文件只放可序列化 schema 与常量；内置预设是代码常量，放在功能模块；用户预设落在
- * [AlertLibrary.presets]（`notificationCapsule.alertLibrary`，不随 `alert_v3` 重置）。
+ * 本文件只放可序列化 schema 与约束；内置预设是代码常量，放在功能模块。
  */
 
-/**
- * 设置页的五个槽位：一槽一层，最多 5 层同时播。
- *
- * 槽位只是**配置分组**：真正决定绘制面的是预设变体声明的 [AlertHost]。
- * [Path] 与 [Particle] 共用舞台宿主，分开只为了设置页语义（路径类预设偏向轨迹运动）。
- */
+/** 层类别：设置页 / 编辑器的分组口径；[AlertKind.Capsule] 与球体同属 [Ball]。 */
 @Serializable
 @Keep
-enum class AlertSlot { Edge, Particle, Ball, Screen, Path }
+enum class AlertLayerCategory { Edge, Particle, Ball, Screen, Reveal }
 
-/**
- * 槽位覆盖（少量、非全量）：颜色 / 强度 / 速度。
- *
- * [paletteId] 引用素材库（[AlertLibrary.palettes] 或内置）；[colors] 是直接存的 1–5 色 ARGB。
- * 两者都空 = 跟随预设自身颜色。强度 100 = 预设原样（0–200），速度 100 = 预设基准（25–400）。
- */
-@Serializable
-@Keep
-data class AlertSlotOverrides(
-    val paletteId: String? = null,
-    val colors: List<Int> = emptyList(),
-    val intensityPercent: Int = 100,
-    val speedPercent: Int = 100,
-)
-
-/** 单槽配置：开关 + 预设 id（null = 该槽默认预设）+ 覆盖。 */
-@Serializable
-@Keep
-data class AlertSlotSettings(
-    val enabled: Boolean = false,
-    val presetId: String? = null,
-    val overrides: AlertSlotOverrides = AlertSlotOverrides(),
-)
-
-/** 五槽配置：默认全关。 */
-@Serializable
-@Keep
-data class AlertSlots(
-    val edge: AlertSlotSettings = AlertSlotSettings(),
-    val particle: AlertSlotSettings = AlertSlotSettings(),
-    val ball: AlertSlotSettings = AlertSlotSettings(),
-    val screen: AlertSlotSettings = AlertSlotSettings(),
-    val path: AlertSlotSettings = AlertSlotSettings(),
-) {
-    fun of(slot: AlertSlot): AlertSlotSettings = when (slot) {
-        AlertSlot.Edge -> edge
-        AlertSlot.Particle -> particle
-        AlertSlot.Ball -> ball
-        AlertSlot.Screen -> screen
-        AlertSlot.Path -> path
-    }
-
-    fun with(slot: AlertSlot, settings: AlertSlotSettings): AlertSlots = when (slot) {
-        AlertSlot.Edge -> copy(edge = settings)
-        AlertSlot.Particle -> copy(particle = settings)
-        AlertSlot.Ball -> copy(ball = settings)
-        AlertSlot.Screen -> copy(screen = settings)
-        AlertSlot.Path -> copy(path = settings)
-    }
-
-    /** 当前开启的槽位（顺序固定，便于日志与测试）。 */
-    val enabledSlots: List<AlertSlot>
-        get() = AlertSlot.entries.filter { of(it).enabled }
-}
-
-/** 槽位默认预设（未选预设时兜底；与 [hunoia.luno.runtime.floatball.alert.preset.BuiltinAlertPresets] 对应）。 */
-fun AlertSlot.defaultPresetId(): String = when (this) {
-    AlertSlot.Edge -> "builtin_edge_glow"
-    AlertSlot.Particle -> "builtin_particle_rain"
-    AlertSlot.Ball -> "builtin_ball_ring"
-    AlertSlot.Screen -> "builtin_screen_flash"
-    AlertSlot.Path -> "builtin_path_comet"
-}
-
-/** 预设是否提供该槽位可用的宿主变体。 */
-fun AlertPreset.supports(slot: AlertSlot): Boolean = preferredHost(slot) != null
-
-/**
- * 槽位 → 宿主偏好：球体槽接受球 / 胶囊两种宿主，其余槽位一一对应。
- * 返回 null 表示该预设没有这个槽位能画的变体（设置页不列出、播放时跳过）。
- */
-fun AlertPreset.preferredHost(slot: AlertSlot): AlertHost? {
-    fun first(host: AlertHost) = variants.firstOrNull { it.host == host }?.host
-    // 揭示类不固定槽位：任何槽位都允许选中，绘制仍在舞台窗。
-    fun reveal() = variants.firstOrNull { it.kind == AlertKind.Reveal }?.host
-    return when (slot) {
-        AlertSlot.Edge -> first(AlertHost.Edge) ?: reveal()
-        AlertSlot.Particle, AlertSlot.Path -> first(AlertHost.Stage)
-        AlertSlot.Ball -> first(AlertHost.Ball) ?: first(AlertHost.Capsule) ?: reveal()
-        AlertSlot.Screen -> first(AlertHost.Screen) ?: reveal()
-    }
-}
-
-/** 效果宿主：决定绘制面与几何来源。 */
+/** 效果宿主：决定绘制面与几何来源。由 [AlertKind] 唯一推导，不单独存储。 */
 @Serializable
 @Keep
 enum class AlertHost {
@@ -133,7 +45,69 @@ enum class AlertHost {
 @Keep
 enum class AlertKind { Particle, Edge, Ball, Capsule, Screen, Reveal }
 
-/** 时序：单循环基准、循环次数与速度倍率（100 = 预设基准）。 */
+/** 层的类别（揭示单列一类；胶囊与球体同属球体类）。 */
+val AlertKind.category: AlertLayerCategory
+    get() = when (this) {
+        AlertKind.Edge -> AlertLayerCategory.Edge
+        AlertKind.Particle -> AlertLayerCategory.Particle
+        AlertKind.Ball, AlertKind.Capsule -> AlertLayerCategory.Ball
+        AlertKind.Screen -> AlertLayerCategory.Screen
+        AlertKind.Reveal -> AlertLayerCategory.Reveal
+    }
+
+/** 层的绘制宿主。 */
+val AlertKind.host: AlertHost
+    get() = when (this) {
+        AlertKind.Edge -> AlertHost.Edge
+        AlertKind.Particle, AlertKind.Reveal -> AlertHost.Stage
+        AlertKind.Ball -> AlertHost.Ball
+        AlertKind.Capsule -> AlertHost.Capsule
+        AlertKind.Screen -> AlertHost.Screen
+    }
+
+/**
+ * 组合约束（唯一事实源）。
+ *
+ * **只数启用层**：禁用的层不占 5 层名额，但一个预设最多存 [MaxStoredLayers] 层，
+ * 避免编辑器里无限堆积。胶囊窗一次只能画一层，[MaxCapsuleLayers] 是渲染硬约束。
+ */
+object AlertLimits {
+    const val MaxEnabledLayers = 5
+    const val MaxStoredLayers = 10
+    const val MaxPerCategory = 2
+    const val MaxCapsuleLayers = 1
+    const val MaxScreenLayers = 1
+    const val MaxRevealLayers = 1
+
+    /** 跨层共享的粒子总预算；按各层请求量比例分配（不是每层 600）。 */
+    const val ParticleBudget = 600
+
+    const val IntensityMin = 0
+    const val IntensityMax = 200
+    const val SpeedMin = 25
+    const val SpeedMax = 400
+
+    /** 编辑器层的稳定 id 前缀；内置层用它区分「来自素材」。 */
+    const val LayerIdPrefix = "layer_"
+}
+
+/** 组合校验结果：编辑器提示与计划构建共用，不各自判一套。 */
+enum class AlertLimit {
+    EmptyPreset,
+    TooManyEnabledLayers,
+    TooManyStoredLayers,
+    TooManyInCategory,
+    TooManyCapsuleLayers,
+    TooManyScreenLayers,
+    TooManyRevealLayers,
+    MissingParams,
+}
+
+/**
+ * 时序：单循环基准 + 循环次数 + 预设自带的相对速度（100 = 基准）。
+ *
+ * 全局速度（设置页）在计划构建时再乘一次；这里存的是预设作者的意图。
+ */
 @Serializable
 @Keep
 data class AlertTiming(
@@ -144,7 +118,7 @@ data class AlertTiming(
 
 /**
  * 颜色引用：调色板 id 优先；[colors] 是逐色 ARGB（1–5 色，自定义预设可直接存色）。
- * 两者都为空 = 跟随「动效颜色」/主题主色。
+ * 两者都为空 = 跟随预设级调色板 / 「动效颜色」/ 主题主色。
  */
 @Serializable
 @Keep
@@ -161,7 +135,14 @@ data class AlertLibrary(
     val presets: List<AlertPreset> = emptyList(),
 )
 
-/** 全局预设：名称 + 1–2 个宿主变体。内置预设是代码常量，不进备份。 */
+/**
+ * 预设：名称 + 1–[AlertLimits.MaxEnabledLayers] 个层。
+ *
+ * 内置预设是代码常量（全部单层、只读）；用户预设存在 [AlertLibrary.presets]，
+ * 单层素材与组合共用同一类型，靠 [builtin] 与 [layers] 数量在 UI 上分组。
+ *
+ * [paletteId] 是组合级调色板：设了就覆盖所有层自己的颜色引用，避免 5 层各带一套色。
+ */
 @Serializable
 @Keep
 data class AlertPreset(
@@ -169,22 +150,130 @@ data class AlertPreset(
     val name: String,
     /** true = 代码内置（只读）；false = 用户预设（可编辑 / 删除）。 */
     val builtin: Boolean = false,
-    val variants: List<AlertVariant> = emptyList(),
-)
+    val paletteId: String? = null,
+    val layers: List<AlertLayer> = emptyList(),
+) {
+    val enabledLayers: List<AlertLayer> get() = layers.filter { it.enabled }
+
+    val enabledLayerCount: Int get() = layers.count { it.enabled }
+
+    /** 真实可渲染的层（顺序 = 绘制顺序，已套用全部上限）。 */
+    fun renderableLayers(): List<AlertLayer> {
+        var capsule = 0
+        var screen = 0
+        var reveal = 0
+        val result = mutableListOf<AlertLayer>()
+        val perCategory = HashMap<AlertLayerCategory, Int>()
+        layers.forEach { layer ->
+            if (!layer.enabled) return@forEach
+            if (result.size >= AlertLimits.MaxEnabledLayers) return@forEach
+            val category = layer.kind.category
+            val used = perCategory[category] ?: 0
+            if (used >= AlertLimits.MaxPerCategory) return@forEach
+            when (layer.kind) {
+                AlertKind.Capsule -> {
+                    if (capsule >= AlertLimits.MaxCapsuleLayers) return@forEach
+                    capsule++
+                }
+                AlertKind.Screen -> {
+                    if (screen >= AlertLimits.MaxScreenLayers) return@forEach
+                    screen++
+                }
+                AlertKind.Reveal -> {
+                    if (reveal >= AlertLimits.MaxRevealLayers) return@forEach
+                    reveal++
+                }
+                else -> Unit
+            }
+            perCategory[category] = used + 1
+            result += layer
+        }
+        return result
+    }
+
+    /** 校验组合约束；空列表 = 合法。 */
+    fun validate(): List<AlertLimit> {
+        val issues = mutableListOf<AlertLimit>()
+        if (layers.none { it.enabled }) issues += AlertLimit.EmptyPreset
+        if (layers.size > AlertLimits.MaxStoredLayers) issues += AlertLimit.TooManyStoredLayers
+        if (enabledLayerCount > AlertLimits.MaxEnabledLayers) {
+            issues += AlertLimit.TooManyEnabledLayers
+        }
+        val enabled = enabledLayers
+        val perCategory = enabled.groupingBy { it.kind.category }.eachCount()
+        if (perCategory.values.any { it > AlertLimits.MaxPerCategory }) {
+            issues += AlertLimit.TooManyInCategory
+        }
+        if (enabled.count { it.kind == AlertKind.Capsule } > AlertLimits.MaxCapsuleLayers) {
+            issues += AlertLimit.TooManyCapsuleLayers
+        }
+        if (enabled.count { it.kind == AlertKind.Screen } > AlertLimits.MaxScreenLayers) {
+            issues += AlertLimit.TooManyScreenLayers
+        }
+        if (enabled.count { it.kind == AlertKind.Reveal } > AlertLimits.MaxRevealLayers) {
+            issues += AlertLimit.TooManyRevealLayers
+        }
+        if (enabled.any { !it.matchesKind() }) issues += AlertLimit.MissingParams
+        return issues
+    }
+
+    /**
+     * 能否再启用一个 [kind] 的层。
+     *
+     * 返回 null = 可以；否则返回阻断原因（编辑器禁用「添加」并显示原因）。
+     * [addingStored] 为 true 时同时检查总存储层数（新建层）；仅切换启用状态时传 false。
+     */
+    fun addBlockedBy(kind: AlertKind, addingStored: Boolean = true): AlertLimit? {
+        if (addingStored && layers.size >= AlertLimits.MaxStoredLayers) {
+            return AlertLimit.TooManyStoredLayers
+        }
+        val enabled = enabledLayers
+        if (enabled.size >= AlertLimits.MaxEnabledLayers) return AlertLimit.TooManyEnabledLayers
+        val category = kind.category
+        if (enabled.count { it.kind.category == category } >= AlertLimits.MaxPerCategory) {
+            return AlertLimit.TooManyInCategory
+        }
+        return when (kind) {
+            AlertKind.Capsule ->
+                if (enabled.count { it.kind == AlertKind.Capsule } >= AlertLimits.MaxCapsuleLayers) {
+                    AlertLimit.TooManyCapsuleLayers
+                } else {
+                    null
+                }
+            AlertKind.Screen ->
+                if (enabled.count { it.kind == AlertKind.Screen } >= AlertLimits.MaxScreenLayers) {
+                    AlertLimit.TooManyScreenLayers
+                } else {
+                    null
+                }
+            AlertKind.Reveal ->
+                if (enabled.count { it.kind == AlertKind.Reveal } >= AlertLimits.MaxRevealLayers) {
+                    AlertLimit.TooManyRevealLayers
+                } else {
+                    null
+                }
+            else -> null
+        }
+    }
+}
 
 /**
- * 预设的宿主变体：同一观感在不同绘制面上的参数化。
+ * 一个层：类型 + 参数块 + 时序 + 颜色。
  *
- * [kind] 决定使用哪个参数块（[particle] / [edge] / [ball] / [capsule] / [screen] / [reveal]），
- * 其余块应为 null；解析层负责校验。
+ * [id] 在预设内稳定，渲染层 key 用它（不再用列表序号）；[name] 只用于编辑器列表；
+ * [sourcePresetId] 记录快照来源（内置素材 id），仅展示，播放不依赖。
+ * 参数块恰好一个非空，见 [matchesKind]。
  */
 @Serializable
 @Keep
-data class AlertVariant(
-    val host: AlertHost,
-    val kind: AlertKind,
+data class AlertLayer(
+    val id: String,
+    val name: String = "",
+    val enabled: Boolean = true,
+    val kind: AlertKind = AlertKind.Particle,
     val timing: AlertTiming = AlertTiming(),
     val color: AlertColorRef = AlertColorRef(),
+    val sourcePresetId: String? = null,
     val particle: ParticleParams? = null,
     val edge: EdgeParams? = null,
     val ball: BallParams? = null,
@@ -192,6 +281,19 @@ data class AlertVariant(
     val screen: ScreenParams? = null,
     val reveal: RevealParams? = null,
 )
+
+/** 校验层自洽：只有 [AlertLayer.kind] 对应的参数块非空（其余必须为空）。 */
+fun AlertLayer.matchesKind(): Boolean {
+    val blocks = listOfNotNull(
+        particle?.let { AlertKind.Particle },
+        edge?.let { AlertKind.Edge },
+        ball?.let { AlertKind.Ball },
+        capsule?.let { AlertKind.Capsule },
+        screen?.let { AlertKind.Screen },
+        reveal?.let { AlertKind.Reveal },
+    )
+    return blocks.size == 1 && blocks.single() == kind
+}
 
 // ---------------------------------------------------------------- 粒子类
 
@@ -263,7 +365,7 @@ data class ParticleMotion(
     val bounce: Float = 0f,
 )
 
-/** 粒子形状（v3 全集；图片 / 图标 / Emoji / 文字由渲染层决定加载方式）。 */
+/** 粒子形状全集（图片 / 图标 / Emoji / 文字由渲染层决定加载方式）。 */
 @Serializable
 @Keep
 enum class AlertParticleShape {
@@ -285,7 +387,23 @@ enum class AlertParticleShape {
     AppIcon,
 }
 
-/** 外观：形状、大小与抖动、亮度、光晕、拖尾、自转、混色。 */
+/**
+ * 光晕形态：**不再画硬边大圆垫底**（那会把花瓣 / 雪花读成「圆里套形状」）。
+ *
+ * - [Off]：不画光晕（几何形状的默认值）；
+ * - [Soft]：径向渐变柔光，边缘自然衰减；
+ * - [Shape]：同形状放大 + 低 alpha（雪花辉光是雪花轮廓）。
+ */
+@Serializable
+@Keep
+enum class ParticleHaloStyle { Off, Soft, Shape }
+
+/**
+ * 粒子外观：形状、尺寸与抖动、亮度、光晕、拖尾、自转、混色。
+ *
+ * [sizeDp] 是**外接盒边长**（不是半径）：换形状时视觉大小一致，同一预设不会因为
+ * 从圆点换成雪花就大一圈。
+ */
 @Serializable
 @Keep
 data class ParticleLook(
@@ -293,9 +411,15 @@ data class ParticleLook(
     val sizeDp: Float = 3f,
     val sizeJitter: Float = 0.2f,
     val alpha: Float = 0.8f,
-    val halo: Float = 0.35f,
+    val haloStyle: ParticleHaloStyle = ParticleHaloStyle.Off,
+    val haloAlpha: Float = 0.35f,
+    val haloScale: Float = 1.8f,
     val trailDp: Float = 0f,
     val trailAlpha: Float = 0.5f,
+    /** 闪烁：每颗粒子用自己的相位明灭（萤火 / 星点）。 */
+    val blink: Boolean = false,
+    /** 单次寿命内的闪烁周期数。 */
+    val blinkCycles: Float = 2f,
     val rotate: Boolean = false,
     val blendAdd: Boolean = false,
     /**
@@ -323,7 +447,8 @@ enum class EdgePattern { Glow, Flow, Ripple, Fireworks, Blade, Comet, Ribbon, Li
 
 /**
  * 屏缘参数：光带宽度 / 圆角 / 衰减硬度是所有形态的公共轴；
- * 双带 / 拖尾只对流光有效，波峰数只对波纹有效，刃宽刃高只对双刃有效。
+ * 双带 / 拖尾只对流光与彗星有效，波峰数只对波纹有效，刃高只对双刃有效，
+ * 落点数对烟花与闪电有效。
  */
 @Serializable
 @Keep
@@ -417,15 +542,21 @@ data class RevealParams(
 @Serializable
 @Keep
 enum class RevealDirection { LeftToRight, RightToLeft, TopToBottom, BottomToTop }
-/** 校验变体自洽：只有 [AlertVariant.kind] 对应的参数块非空（其余必须为空）。 */
-fun AlertVariant.matchesKind(): Boolean {
-    val blocks = listOfNotNull(
-        particle?.let { AlertKind.Particle },
-        edge?.let { AlertKind.Edge },
-        ball?.let { AlertKind.Ball },
-        capsule?.let { AlertKind.Capsule },
-        screen?.let { AlertKind.Screen },
-        reveal?.let { AlertKind.Reveal },
-    )
-    return blocks.size == 1 && blocks.single() == kind
-}
+/**
+ * 动效素材的专用导出格式（预设 + 调色板）。
+ *
+ * 与整机备份分开：整机备份是整域覆盖，这里是往素材库里**合并**。
+ * 内置预设不进导出；导入的预设一律按用户预设落库（内置只读，不能从外部塞进来）。
+ */
+@Serializable
+@Keep
+data class AlertLibraryExport(
+    /** 导出格式版本；以后结构再变时用它拒收旧档。 */
+    val schemaVersion: Int = AlertLibraryExportVersion,
+    val exportedAt: Long = 0L,
+    val palettes: List<AlertPalette> = emptyList(),
+    val presets: List<AlertPreset> = emptyList(),
+)
+
+/** 当前导出格式版本（v4 = 组合层模型）。 */
+const val AlertLibraryExportVersion: Int = 4

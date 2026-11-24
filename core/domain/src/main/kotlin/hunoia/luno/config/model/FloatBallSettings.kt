@@ -262,14 +262,11 @@ data class NotificationCapsuleSettings(
     val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
     /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
     val dismissSuppressMs: Long = FloatBallDefaults.CapsuleDismissSuppressMs,
-    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（四类各自开关，默认全关）。 */
-    @SerialName("alert_v3")
+    /** 到达提示动效：新通知把胶囊从隐藏拉起时播放一次，播完即停（默认关，默认未选预设）。 */
+    @SerialName("alert_v4")
     val alert: NotificationAlertSettings = NotificationAlertSettings(),
     /**
-     * 动效素材库（调色板 + 用户预设）：与 [alert] 平级，样式换代 / `alert_v3` 重置都不动这里。
-     *
-     * 目前先落数据层；切换设置页与引擎那一版起，调色板从这里读取。旧 `alert` 内的
-     * 自定义调色板按确认口径不迁移（素材库空启动）。
+     * 动效素材库（调色板 + 用户预设）：与 [alert] 平级，样式换代 / `alert_v4` 重置都不动这里。
      */
     val alertLibrary: AlertLibrary = AlertLibrary(),
     /** 存储原值，读请走 [ballLongPressBehavior]。 */
@@ -307,22 +304,31 @@ data class NotificationCapsuleSettings(
 }
 
 /**
- * 新通知到达提示动效配置（v3）：槽位 + 全局预设。
+ * 新通知到达提示动效配置（v4）：总开关 + 单选预设 + 全局强度 / 速度。
  *
  * 事件驱动、一次性播放：默认只在「通知到达把胶囊从隐藏拉起」的时机播放，播完自动停；
  * 熄屏 / 锁屏 / 勿扰不播。[playOnEveryNotification] 打开后胶囊已可见的新通知也播
  * （在播时跳过：不排队、不打断）。
  *
- * **没有总开关**：五槽各自的 `enabled` 是唯一入口，五槽全关 = 不播。
- * 槽位只用于设置页分组；绘制面由预设变体声明的宿主决定（见 `AlertEffectModel`）。
+ * **打开开关但没选预设 = 不播**：设置页显示空状态并引导去选，不伪装成已生效。
+ * 预设内部可以组合多层（见 [AlertPreset.layers]），层级上限与同类上限由
+ * [AlertLimits] 统一约束，宿主由层自己的 [AlertKind] 决定。
  *
- * **挂载键是 `alert_v3`**：v3 丢弃旧的四类样式与 `alert_v2` 内的自定义调色板，
- * 旧键整块被严格 JSON 的 `ignoreUnknownKeys` 跳过（动作面板 / 悬浮球 / 识别器不受影响）。
+ * **挂载键是 `alert_v4`**：v4 删除五槽位与槽位覆盖，旧 `alert_v3` 子树整块被严格 JSON 的
+ * `ignoreUnknownKeys` 跳过（动作面板 / 悬浮球 / 识别器不受影响）。
  * 调色板与用户预设放在平级的 [NotificationCapsuleSettings.alertLibrary]。
  */
 @Serializable
 @Keep
 data class NotificationAlertSettings(
+    /** 到达提示总开关；默认关。 */
+    val enabled: Boolean = false,
+    /** 当前选中的预设（内置或素材库）；null = 未选，不播。 */
+    val presetId: String? = null,
+    /** 全局强度（0–200）：只乘 alpha，不改尺寸 / 粒子数。 */
+    val intensityPercent: Int = 100,
+    /** 全局速度（25–400）：只缩放单循环与总时长，不改层数 / 粒子数。 */
+    val speedPercent: Int = 100,
     /** 胶囊已可见时的新通知也播；有动画在播就不播（不排队、不打断）。 */
     val playOnEveryNotification: Boolean = false,
     /** 动效独立黑名单（不复用通知胶囊黑名单）：这些包的通知到达不播动效，但胶囊照常显示。 */
@@ -331,9 +337,15 @@ data class NotificationAlertSettings(
     val color: ColorSpec = ColorSpec.Unset,
     /** 揭示类可读取通知标题 / 正文（默认开）；关闭时只做无文字的颜色 / 几何效果。 */
     val readNotificationText: Boolean = true,
-    /** 五槽配置：一槽一层，最多五层同时播；默认全关。 */
-    val slots: AlertSlots = AlertSlots(),
-)
+) {
+    /** 生效强度倍率（1 = 预设原样）。 */
+    val intensityScale: Float
+        get() = intensityPercent.toFloat() / 100f
+
+    /** 生效全局速度倍率（1 = 基准）。 */
+    val speedScale: Float
+        get() = speedPercent.toFloat() / 100f
+}
 
 /**
  * 结果胶囊配置：分发规则的胶囊档结果从这里展开，[autoHideMs] 后自动收起。

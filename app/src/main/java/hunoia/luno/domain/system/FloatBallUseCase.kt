@@ -2,7 +2,7 @@ package hunoia.luno.domain.system
 
 import android.content.Context
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.AlertSlot
+import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.runtime.floatball.FloatBallService
@@ -21,8 +21,13 @@ object FloatBallUseCase {
     }
 
     /** 试播一次通知胶囊的到达提示动效（设置页入口，见 [FloatBallService.previewAlert]）。 */
-    fun previewAlert(context: Context, slot: AlertSlot? = null) {
-        FloatBallService.previewAlert(context.applicationContext, slot)
+    fun previewAlert(context: Context, layerId: String? = null) {
+        FloatBallService.previewAlert(context.applicationContext, layerId)
+    }
+
+    /** 试播未落盘的预设（预设库 / 编辑器入口）。 */
+    fun previewPreset(context: Context, preset: AlertPreset, layerId: String? = null) {
+        FloatBallService.previewPreset(context.applicationContext, preset, layerId)
     }
 
     /** 通用效果播放：服务在跑转发到 `:service`，未在跑由调用进程托管（见架构例外）。 */

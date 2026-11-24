@@ -8,8 +8,10 @@ import hunoia.luno.core.effect.AlertConcurrency
 import hunoia.luno.core.effect.AlertEffectHandle
 import hunoia.luno.core.effect.AlertEffectRequest
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.runtime.floatball.alert.engine.AlertSlotPlanFactory
+import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import hunoia.luno.runtime.floatball.alert.engine.toPlayPlan
+import hunoia.luno.ui.theme.MotionTuning
+import hunoia.luno.ui.theme.toAlertFamily
 import kotlin.random.Random
 
 /**
@@ -23,17 +25,19 @@ internal object AlertEffectLocalHost {
 
     private var stage: AlertStageWindow? = null
 
-    /** QUEUE 的待播槽位（上限 1）；播完当前效果后自动起播。 */
+    /** QUEUE 的待播请求（上限 1）；播完当前效果后自动起播。 */
     private var pending: AlertEffectRequest? = null
 
     fun play(context: Context, request: AlertEffectRequest): AlertEffectHandle? {
         val appContext = context.applicationContext
         if (!appContext.canDrawOverlays()) return null
         val settings = TuneConfig.latestAction().floatBall.notificationCapsule
-        val renderPlan = AlertSlotPlanFactory.buildFromRequest(
+        val profile = MotionTuning.profile
+        val renderPlan = AlertPlanFactory.buildFromRequest(
             request = request,
             library = settings.alertLibrary,
             appPackage = request.content?.iconPackage,
+            tierFor = { kind -> profile.speedOf(kind.toAlertFamily()).factor },
             seed = request.seed ?: Random.nextInt(),
         )
         val plan = renderPlan.toPlayPlan()

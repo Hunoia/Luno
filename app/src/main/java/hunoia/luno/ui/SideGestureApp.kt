@@ -82,9 +82,11 @@ import hunoia.luno.ui.navigation.AppearanceSettings
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.FloatBallDropZoneAdjust
 import hunoia.luno.ui.navigation.FloatBallAlertBlocklist
-import hunoia.luno.ui.navigation.FloatBallAlertSlot
 import hunoia.luno.ui.navigation.FloatBallAlertPresetPicker
-import hunoia.luno.ui.navigation.FloatBallAlertPalettePicker
+import hunoia.luno.ui.navigation.FloatBallAlertPresetLibrary
+import hunoia.luno.ui.navigation.FloatBallAlertPresetEditor
+import hunoia.luno.ui.navigation.FloatBallAlertLayerEditor
+import hunoia.luno.ui.navigation.FloatBallAlertLayerAdd
 import hunoia.luno.ui.navigation.FloatBallAlertPaletteManager
 import hunoia.luno.ui.navigation.FloatBallAlertPaletteEdit
 import hunoia.luno.ui.navigation.FloatBallNotificationCapsule
@@ -93,12 +95,13 @@ import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.floatball.settings.NotificationCapsuleSettingsScreen
-import hunoia.luno.floatball.settings.alert.AlertSlotSettingsScreen
+import hunoia.luno.floatball.settings.alert.AlertPresetLibraryScreen
+import hunoia.luno.floatball.settings.alert.AlertPresetEditorScreen
+import hunoia.luno.floatball.settings.alert.AlertLayerEditorScreen
+import hunoia.luno.floatball.settings.alert.AlertLayerAddScreen
 import hunoia.luno.floatball.settings.alert.AlertPresetPickerScreen
-import hunoia.luno.floatball.settings.alert.AlertPalettePickerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteManagerScreen
 import hunoia.luno.floatball.settings.alert.AlertPaletteEditScreen
-import hunoia.luno.config.model.AlertSlot
 import hunoia.luno.floatball.settings.ResultCapsuleSettingsScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
@@ -277,6 +280,12 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToNotificationCapsuleSettings = {
                             navController.navigate(FloatBallNotificationCapsule)
+                        },
+                        onNavToAlertPresetLibrary = {
+                            navController.navigate(FloatBallAlertPresetLibrary)
+                        },
+                        onNavToAlertPaletteManager = {
+                            navController.navigate(FloatBallAlertPaletteManager)
                         },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
@@ -511,44 +520,64 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     NotificationCapsuleSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
-                        onNavToAlertSlot = { slot ->
-                            navController.navigate(FloatBallAlertSlot(slot.name))
-                        },
+                        onNavToAlertPicker = { navController.navigate(FloatBallAlertPresetPicker) },
                         onNavToAlertBlocklist = { navController.navigate(FloatBallAlertBlocklist) },
                     )
                 }
-                myComposable<FloatBallAlertSlot> { entry ->
-                    val slot = AlertSlot.entries
-                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertSlot>().slot }
-                        ?: AlertSlot.Edge
-                    AlertSlotSettingsScreen(
-                        slot = slot,
-                        onBack = { navController.popBackStack() },
-                        onNavToPresetPicker = {
-                            navController.navigate(FloatBallAlertPresetPicker(slot.name))
-                        },
-                        onNavToPalette = {
-                            navController.navigate(FloatBallAlertPalettePicker(slot.name))
-                        },
-                    )
-                }
-                myComposable<FloatBallAlertPresetPicker> { entry ->
-                    val slot = AlertSlot.entries
-                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertPresetPicker>().slot }
-                        ?: AlertSlot.Edge
+                myComposable<FloatBallAlertPresetPicker> {
                     AlertPresetPickerScreen(
-                        slot = slot,
                         onBack = { navController.popBackStack() },
+                        onNavToPresetLibrary = {
+                            navController.navigate(FloatBallAlertPresetLibrary)
+                        },
                     )
                 }
-                myComposable<FloatBallAlertPalettePicker> { entry ->
-                    val slot = AlertSlot.entries
-                        .firstOrNull { it.name == entry.toRoute<FloatBallAlertPalettePicker>().slot }
-                        ?: AlertSlot.Edge
-                    AlertPalettePickerScreen(
-                        slot = slot,
+                myComposable<FloatBallAlertPresetLibrary> {
+                    AlertPresetLibraryScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToPaletteManager = { navController.navigate(FloatBallAlertPaletteManager) },
+                        onEditPreset = { presetId ->
+                            navController.navigate(FloatBallAlertPresetEditor(presetId))
+                        },
+                    )
+                }
+                myComposable<FloatBallAlertPresetEditor> { entry ->
+                    val route = entry.toRoute<FloatBallAlertPresetEditor>()
+                    AlertPresetEditorScreen(
+                        presetId = route.presetId,
+                        onBack = { navController.popBackStack() },
+                        onEditLayer = { layerId ->
+                            navController.navigate(
+                                FloatBallAlertLayerEditor(route.presetId, layerId),
+                            )
+                        },
+                        onAddLayer = {
+                            navController.navigate(FloatBallAlertLayerAdd(route.presetId))
+                        },
+                        onGone = { navController.popBackStack() },
+                    )
+                }
+                myComposable<FloatBallAlertLayerAdd> { entry ->
+                    val route = entry.toRoute<FloatBallAlertLayerAdd>()
+                    AlertLayerAddScreen(
+                        presetId = route.presetId,
+                        onBack = { navController.popBackStack() },
+                        onAdded = { layerId ->
+                            // 添加页只做一次选择：从返回栈移掉，层编辑器的返回直接回预设编辑器。
+                            navController.popBackStack()
+                            navController.navigate(
+                                FloatBallAlertLayerEditor(route.presetId, layerId),
+                            )
+                        },
+                        onGone = { navController.popBackStack() },
+                    )
+                }
+                myComposable<FloatBallAlertLayerEditor> { entry ->
+                    val route = entry.toRoute<FloatBallAlertLayerEditor>()
+                    AlertLayerEditorScreen(
+                        presetId = route.presetId,
+                        layerId = route.layerId,
+                        onBack = { navController.popBackStack() },
+                        onGone = { navController.popBackStack() },
                     )
                 }
                 myComposable<FloatBallAlertPaletteManager> {

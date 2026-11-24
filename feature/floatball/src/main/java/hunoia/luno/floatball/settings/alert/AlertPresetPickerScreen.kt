@@ -9,10 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertPreset
-import hunoia.luno.config.model.AlertSlot
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -22,20 +21,20 @@ import hunoia.luno.ui.component.screen.LunoScreenLazy
 import kotlinx.coroutines.launch
 
 /**
- * 到达提示·预设选择页：指定槽位可选的全部预设（内置 + 我的）。
+ * 到达提示·预设选择页：单选（内置单层素材 + 我的组合），选完即落盘并返回。
  *
- * 只列**提供该槽可用宿主变体**的预设；选完即落盘并返回。预设本体编辑 / 新建在预设库
- * （Step 3），本页只做单选。
+ * 组合 / 参数编辑在预设库，本页只做选择。
  */
 @Composable
 fun AlertPresetPickerScreen(
-    slot: AlertSlot,
     onBack: () -> Unit,
+    onNavToPresetLibrary: () -> Unit = {},
 ) {
     val editor = rememberAlertEditor()
-    val settings = editor.alert.slotSettings(slot)
-    val presets = presetsForSlot(slot, editor.library)
-    val currentId = settings.presetId
+    val currentId = editor.alert.presetId
+    val all = editor.library.pickerPresets()
+    val mine = all.filter { !it.builtin }
+    val builtin = all.filter { it.builtin }
     val scope = rememberCoroutineScope()
     var leaving by remember { mutableStateOf(false) }
 
@@ -43,8 +42,7 @@ fun AlertPresetPickerScreen(
         if (leaving) return
         leaving = true
         scope.launch {
-            persistAlertNow { it.withSlot(slot) { s -> s.copy(presetId = presetId) } }
-            TuneConfig.syncActionSnapshot()
+            editor.commitAlert { it.copy(presetId = presetId) }
             onBack()
         }
     }
@@ -53,40 +51,70 @@ fun AlertPresetPickerScreen(
         title = stringResource(R.string.float_ball_alert_preset_picker),
         onBack = onBack,
     ) {
-        item(key = "presets") {
+        item(key = "none") {
+            LunoGroup(title = stringResource(R.string.float_ball_alert_preset_group_choice)) {
+                SegmentedRows(
+                    segmentedRows {
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_alert_preset_none),
+                                subtitle = stringResource(R.string.float_ball_alert_preset_none_subtitle),
+                                shape = shape,
+                                trailing = if (currentId == null) {
+                                    { Icon(Icons.Default.Check, contentDescription = null) }
+                                } else {
+                                    null
+                                },
+                                onClick = { selectAndBack(null) },
+                            )
+                        }
+                        item { shape ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.float_ball_alert_preset_manage),
+                                subtitle = stringResource(R.string.float_ball_alert_preset_manage_subtitle),
+                                shape = shape,
+                                onClick = onNavToPresetLibrary,
+                            )
+                        }
+                    },
+                )
+            }
+        }
+        if (mine.isNotEmpty()) {
+            item(key = "mine") {
+                LunoGroup(
+                    title = stringResource(R.string.float_ball_preset_group_mine),
+                    subtitle = stringResource(R.string.float_ball_preset_group_mine_hint),
+                ) {
+                    val rows = segmentedRows {
+                        mine.forEach { preset ->
+                            item { shape ->
+                                AlertPresetRow(
+                                    preset = preset,
+                                    selected = preset.id == currentId,
+                                    shape = shape,
+                                    onClick = { selectAndBack(preset.id) },
+                                )
+                            }
+                        }
+                    }
+                    SegmentedRows(rows)
+                }
+            }
+        }
+        item(key = "builtin") {
             LunoGroup(
-                title = stringResource(slot.titleRes()),
-                subtitle = stringResource(R.string.float_ball_alert_preset_picker_hint),
+                title = stringResource(R.string.float_ball_preset_group_builtin),
+                subtitle = stringResource(R.string.float_ball_preset_group_builtin_hint),
             ) {
                 val rows = segmentedRows {
-                    item { shape ->
-                        LunoSettingsRow(
-                            title = stringResource(R.string.float_ball_alert_preset_default),
-                            subtitle = stringResource(R.string.float_ball_alert_preset_default_subtitle),
-                            shape = shape,
-                            trailing = if (currentId == null) {
-                                { Icon(Icons.Default.Check, contentDescription = null) }
-                            } else {
-                                null
-                            },
-                            onClick = { selectAndBack(null) },
-                        )
-                    }
-                    presets.forEach { preset ->
+                    builtin.forEach { preset ->
                         item { shape ->
                             AlertPresetRow(
                                 preset = preset,
                                 selected = preset.id == currentId,
                                 shape = shape,
                                 onClick = { selectAndBack(preset.id) },
-                            )
-                        }
-                    }
-                    if (presets.isEmpty()) {
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_alert_preset_empty),
-                                shape = shape,
                             )
                         }
                     }
@@ -97,23 +125,24 @@ fun AlertPresetPickerScreen(
     }
 }
 
-/** 单行预设：名称 + 内置/我的徽标 + 选中勾。 */
+/** 单行预设：名称 + 层数 / 类别 + 选中勾。 */
 @Composable
-private fun AlertPresetRow(
+internal fun AlertPresetRow(
     preset: AlertPreset,
     selected: Boolean,
-    shape: androidx.compose.ui.graphics.Shape,
+    shape: Shape,
     onClick: () -> Unit,
 ) {
+    val categoryText = preset.categories()
+        .map { stringResource(it.titleRes()) }
+        .joinToString(" · ")
     LunoSettingsRow(
         title = preset.displayName(),
-        subtitle = stringResource(
-            if (preset.builtin) {
-                R.string.float_ball_alert_preset_builtin
-            } else {
-                R.string.float_ball_alert_preset_custom
-            },
-        ),
+        subtitle = if (categoryText.isBlank()) {
+            preset.layerSummary()
+        } else {
+            "${preset.layerSummary()}  $categoryText"
+        },
         shape = shape,
         trailing = if (selected) {
             { Icon(Icons.Default.Check, contentDescription = null) }

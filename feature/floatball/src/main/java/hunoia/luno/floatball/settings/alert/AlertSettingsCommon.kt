@@ -1,7 +1,5 @@
 package hunoia.luno.floatball.settings.alert
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -13,44 +11,44 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import hunoia.luno.config.model.AlertKind
+import hunoia.luno.config.model.AlertLayer
+import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibrary
+import hunoia.luno.config.model.AlertParticleShape
+import hunoia.luno.config.model.ParticleArea
+import hunoia.luno.config.model.ParticleHaloStyle
+import hunoia.luno.config.model.ParticlePath
 import hunoia.luno.config.model.AlertPreset
-import hunoia.luno.config.model.AlertSlot
-import hunoia.luno.config.model.AlertSlotOverrides
-import hunoia.luno.config.model.AlertSlotSettings
+import hunoia.luno.config.model.BallPattern
+import hunoia.luno.config.model.CapsulePattern
+import hunoia.luno.config.model.EdgePattern
 import hunoia.luno.config.model.NotificationAlertSettings
-import hunoia.luno.config.model.defaultPresetId
+import hunoia.luno.config.model.RevealPattern
+import hunoia.luno.config.model.ScreenPattern
+import hunoia.luno.config.model.category
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.runtime.floatball.alert.engine.AlertSlotPlanFactory
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.SegmentedGroupScope
+import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.Color
 
 /**
- * 到达提示 v3 设置页的共用件：槽位展示名、预设名、槽位读写、本地即显编辑状态与滑杆。
+ * 到达提示 v4 设置页（单选）与预设库 / 编辑器共用的展示件、落盘与编辑状态。
  *
- * 槽位只是设置页分组；预设与宿主由播放计划决定（见 `AlertEffectModel` / 引擎）。
+ * 预设 = 1–5 个层；层类别只用于分组与上限，宿主由层自己的 [AlertKind] 决定。
  */
 
-/** 槽位展示名（主页面入口 + 二级页标题）。 */
-internal fun AlertSlot.titleRes(): Int = when (this) {
-    AlertSlot.Edge -> R.string.float_ball_alert_slot_edge
-    AlertSlot.Particle -> R.string.float_ball_alert_slot_particle
-    AlertSlot.Ball -> R.string.float_ball_alert_slot_ball
-    AlertSlot.Screen -> R.string.float_ball_alert_slot_screen
-    AlertSlot.Path -> R.string.float_ball_alert_slot_path
-}
-
-/** 槽位一句话说明（二级页组头副标题）。 */
-internal fun AlertSlot.subtitleRes(): Int = when (this) {
-    AlertSlot.Edge -> R.string.float_ball_alert_slot_edge_hint
-    AlertSlot.Particle -> R.string.float_ball_alert_slot_particle_hint
-    AlertSlot.Ball -> R.string.float_ball_alert_slot_ball_hint
-    AlertSlot.Screen -> R.string.float_ball_alert_slot_screen_hint
-    AlertSlot.Path -> R.string.float_ball_alert_slot_path_hint
+/** 层类别的展示名（编辑器分组 / 预设卡片徽标）。 */
+@Composable
+internal fun AlertLayerCategory.titleRes(): Int = when (this) {
+    AlertLayerCategory.Edge -> R.string.float_ball_alert_category_edge
+    AlertLayerCategory.Particle -> R.string.float_ball_alert_category_particle
+    AlertLayerCategory.Ball -> R.string.float_ball_alert_category_ball
+    AlertLayerCategory.Screen -> R.string.float_ball_alert_category_screen
+    AlertLayerCategory.Reveal -> R.string.float_ball_alert_category_reveal
 }
 
 /** 内置预设的本地化名称；未登记时回落内置 name（[AlertPreset.name]）。 */
@@ -88,53 +86,156 @@ internal fun builtinPresetNameRes(id: String): Int? = when (id) {
     else -> null
 }
 
-/** 当前槽位的预设展示名：内置走本地化，用户预设用自身名称；未选 = 槽位默认预设。 */
-@Composable
-internal fun slotPresetName(slot: AlertSlot, settings: AlertSlotSettings, library: AlertLibrary): String {
-    val id = settings.presetId ?: slot.defaultPresetId()
-    val builtin = builtinPresetNameRes(id)
-    if (builtin != null) return stringResource(builtin)
-    val preset = library.presets.firstOrNull { it.id == id }
-    return preset?.name?.takeIf { it.isNotBlank() } ?: id
-}
-
-/** 预设展示名（预设选择页、试播提示共用）。 */
+/** 预设展示名（选择页 / 预设库 / 编辑共用）。 */
 @Composable
 internal fun AlertPreset.displayName(): String {
     val builtin = builtinPresetNameRes(id)
     if (builtin != null) return stringResource(builtin)
-    return name.takeIf { it.isNotBlank() } ?: id
+    return name.takeIf { it.isNotBlank() } ?: stringResource(R.string.float_ball_preset_unnamed)
 }
 
-/** 该槽的预设候选（内置 + 用户；只保留提供可用宿主变体的）。 */
-internal fun presetsForSlot(slot: AlertSlot, library: AlertLibrary): List<AlertPreset> =
-    AlertSlotPlanFactory.presetsForSlot(slot, library)
+/** 预设总层数展示：单层 = 素材，多层 = 组合。 */
+@Composable
+internal fun AlertPreset.layerSummary(): String =
+    if (layers.size <= 1) {
+        stringResource(R.string.float_ball_preset_layers_one)
+    } else {
+        stringResource(R.string.float_ball_preset_layers_many, layers.size)
+    }
 
-// ---------------------------------------------------------------- 槽位读写
+/** 当前选中的预设（未选 / 已被删 → null）。 */
+internal fun NotificationAlertSettings.selectedPreset(library: AlertLibrary): AlertPreset? {
+    val id = presetId ?: return null
+    return AlertPlanFactory.presets(library)[id]
+}
 
-internal fun NotificationAlertSettings.slotSettings(slot: AlertSlot): AlertSlotSettings =
-    slots.of(slot)
+/** 可选预设：内置素材 + 用户单层 / 组合。 */
+internal fun AlertLibrary.pickerPresets(): List<AlertPreset> =
+    AlertPlanFactory.presetsForPicker(this)
 
-internal fun NotificationAlertSettings.withSlot(
-    slot: AlertSlot,
-    transform: (AlertSlotSettings) -> AlertSlotSettings,
-): NotificationAlertSettings = copy(slots = slots.with(slot, transform(slots.of(slot))))
+/** 用户预设（素材库里的非内置项）。 */
+internal fun AlertLibrary.userPresets(): List<AlertPreset> = presets.filter { !it.builtin }
 
-internal fun AlertSlotSettings.withOverrides(
-    transform: (AlertSlotOverrides) -> AlertSlotOverrides,
-): AlertSlotSettings = copy(overrides = transform(overrides))
+internal fun AlertLibrary.presetById(id: String?): AlertPreset? =
+    id?.let { AlertPlanFactory.presets(this)[it] }
 
-/** 槽位是否开启了自定义颜色（素材库调色板或逐色）。 */
-internal fun AlertSlotOverrides.hasColor(): Boolean =
-    paletteId != null || colors.isNotEmpty()
+// ---------------------------------------------------------------- 层展示
 
-/** 全部槽位（设置页顺序）。 */
-internal val AlertSlotOrder: List<AlertSlot> = AlertSlot.entries
+/** 层的兜底显示名：来源素材名优先，否则「类别 · 形态」。 */
+@Composable
+internal fun AlertLayer.displayName(): String {
+    if (name.isNotBlank()) return name
+    val source = sourcePresetId?.let { builtinPresetNameRes(it) }
+    if (source != null) return stringResource(source)
+    val pattern = patternLabel()
+    return if (pattern == null) {
+        stringResource(kind.category.titleRes())
+    } else {
+        "${stringResource(kind.category.titleRes())} · $pattern"
+    }
+}
+
+/** 层参数里的形态名（用于编辑器行副标题）。 */
+@Composable
+internal fun AlertLayer.patternLabel(): String? = when (kind) {
+    AlertKind.Edge -> edge?.pattern?.labelRes()?.let { stringResource(it) }
+    AlertKind.Particle -> stringResource(R.string.float_ball_layer_particle_engine)
+    AlertKind.Ball -> ball?.pattern?.labelRes()?.let { stringResource(it) }
+    AlertKind.Capsule -> capsule?.pattern?.labelRes()?.let { stringResource(it) }
+    AlertKind.Screen -> screen?.pattern?.labelRes()?.let { stringResource(it) }
+    AlertKind.Reveal -> reveal?.pattern?.labelRes()?.let { stringResource(it) }
+}
+
+internal fun EdgePattern.labelRes(): Int = when (this) {
+    EdgePattern.Glow -> R.string.float_ball_layer_edge_glow
+    EdgePattern.Flow -> R.string.float_ball_layer_edge_flow
+    EdgePattern.Ripple -> R.string.float_ball_layer_edge_ripple
+    EdgePattern.Fireworks -> R.string.float_ball_layer_edge_fireworks
+    EdgePattern.Blade -> R.string.float_ball_layer_edge_blade
+    EdgePattern.Comet -> R.string.float_ball_layer_edge_comet
+    EdgePattern.Ribbon -> R.string.float_ball_layer_edge_ribbon
+    EdgePattern.Lightning -> R.string.float_ball_layer_edge_lightning
+}
+
+internal fun BallPattern.labelRes(): Int = when (this) {
+    BallPattern.Ring -> R.string.float_ball_layer_ball_ring
+    BallPattern.Ripple -> R.string.float_ball_layer_ball_ripple
+    BallPattern.Burst -> R.string.float_ball_layer_ball_burst
+    BallPattern.Halo -> R.string.float_ball_layer_ball_halo
+    BallPattern.Shockwave -> R.string.float_ball_layer_ball_shockwave
+    BallPattern.Spiral -> R.string.float_ball_layer_ball_spiral
+    BallPattern.Orbit3D -> R.string.float_ball_layer_ball_orbit
+}
+
+internal fun CapsulePattern.labelRes(): Int = when (this) {
+    CapsulePattern.Pulse -> R.string.float_ball_layer_capsule_pulse
+    CapsulePattern.Shimmer -> R.string.float_ball_layer_capsule_shimmer
+    CapsulePattern.BreathOutline -> R.string.float_ball_layer_capsule_breath
+    CapsulePattern.InnerSweep -> R.string.float_ball_layer_capsule_sweep
+    CapsulePattern.Flip3D -> R.string.float_ball_layer_capsule_flip
+    CapsulePattern.DualChase -> R.string.float_ball_layer_capsule_chase
+}
+
+internal fun ScreenPattern.labelRes(): Int = when (this) {
+    ScreenPattern.Flash -> R.string.float_ball_layer_screen_flash
+    ScreenPattern.Vignette -> R.string.float_ball_layer_screen_vignette
+    ScreenPattern.ZoomPulse -> R.string.float_ball_layer_screen_zoom
+}
+
+internal fun RevealPattern.labelRes(): Int = when (this) {
+    RevealPattern.Text -> R.string.float_ball_layer_reveal_text
+    RevealPattern.Icon -> R.string.float_ball_layer_reveal_icon
+}
+
+internal fun ParticleArea.labelRes(): Int = when (this) {
+    ParticleArea.TopEdge -> R.string.float_ball_layer_area_top
+    ParticleArea.BottomEdge -> R.string.float_ball_layer_area_bottom
+    ParticleArea.ScreenRect -> R.string.float_ball_layer_area_screen
+    ParticleArea.EdgePerimeter -> R.string.float_ball_layer_area_perimeter
+    ParticleArea.Point -> R.string.float_ball_layer_area_point
+    ParticleArea.BallRing -> R.string.float_ball_layer_area_ball
+}
+
+internal fun ParticlePath.labelRes(): Int = when (this) {
+    ParticlePath.Bezier -> R.string.float_ball_layer_path_bezier
+    ParticlePath.Arc -> R.string.float_ball_layer_path_arc
+    ParticlePath.Sine -> R.string.float_ball_layer_path_sine
+    ParticlePath.ZigZag -> R.string.float_ball_layer_path_zigzag
+}
+
+internal fun AlertParticleShape.labelRes(): Int = when (this) {
+    AlertParticleShape.Dot -> R.string.float_ball_layer_shape_dot
+    AlertParticleShape.Square -> R.string.float_ball_layer_shape_square
+    AlertParticleShape.Triangle -> R.string.float_ball_layer_shape_triangle
+    AlertParticleShape.Star -> R.string.float_ball_layer_shape_star
+    AlertParticleShape.Hexagon -> R.string.float_ball_layer_shape_hexagon
+    AlertParticleShape.Ring -> R.string.float_ball_layer_shape_ring
+    AlertParticleShape.Hollow -> R.string.float_ball_layer_shape_hollow
+    AlertParticleShape.Line -> R.string.float_ball_layer_shape_line
+    AlertParticleShape.Heart -> R.string.float_ball_layer_shape_heart
+    AlertParticleShape.Petal -> R.string.float_ball_layer_shape_petal
+    AlertParticleShape.Snowflake -> R.string.float_ball_layer_shape_snowflake
+    AlertParticleShape.Leaf -> R.string.float_ball_layer_shape_leaf
+    AlertParticleShape.Emoji -> R.string.float_ball_layer_shape_emoji
+    AlertParticleShape.Text -> R.string.float_ball_layer_shape_text
+    AlertParticleShape.CustomImage -> R.string.float_ball_layer_shape_image
+    AlertParticleShape.AppIcon -> R.string.float_ball_layer_shape_app
+}
+
+internal fun ParticleHaloStyle.labelRes(): Int = when (this) {
+    ParticleHaloStyle.Off -> R.string.float_ball_layer_halo_off
+    ParticleHaloStyle.Soft -> R.string.float_ball_layer_halo_soft
+    ParticleHaloStyle.Shape -> R.string.float_ball_layer_halo_shape
+}
+
+/** 预设卡片上的类别集合（按顺序去重）。 */
+internal fun AlertPreset.categories(): List<AlertLayerCategory> =
+    layers.map { it.kind.category }.distinct()
 
 // ---------------------------------------------------------------- 落盘
 
 /**
- * 二级页的落盘助手（**仅持久化**，不做同屏刷新）：只改 `notificationCapsule.alert` 子树。
+ * 设置页的落盘助手（**仅持久化**，不做同屏刷新）：只改 `notificationCapsule.alert` 子树。
  *
  * 页面持有本地即显状态（用户操作立即反映到 UI），这里只把同一 transform 写回配置；
  * 同屏刷新由页内本地状态负责，不依赖配置流「活跃推送」。
@@ -160,7 +261,7 @@ internal fun persistAlert(
     scope.launch { persistAlertNow(transform) }
 }
 
-/** 素材库落盘（调色板 / 用户预设）：与 `alert` 子树平级，v3 重置不动这里。 */
+/** 素材库落盘（调色板 / 用户预设）：与 `alert` 子树平级，v4 重置不动这里。 */
 internal suspend fun persistLibraryNow(
     transform: (AlertLibrary) -> AlertLibrary,
 ) {
@@ -182,7 +283,7 @@ internal fun persistLibrary(
 }
 
 /**
- * 槽位页 / 预设页共用的编辑态：本地即显 + 异步落盘。
+ * 设置页 / 预设库 / 编辑器共用的编辑态：本地即显 + 异步落盘。
  *
  * 不直接读配置流的原因见 `persistAlert` 的注释：MultiProcessDataStore 写盘后不保证
  * 通知活跃订阅者，同屏切换预设 / 覆盖会换不出来。resume 时再从真实配置同步一次。
@@ -208,6 +309,26 @@ internal class AlertEditorState internal constructor(private val scope: Coroutin
     fun updateLibrary(transform: (AlertLibrary) -> AlertLibrary) {
         library = transform(library)
         persistLibrary(scope, transform)
+    }
+
+    /**
+     * 结构改动（新建 / 删除 / 加层 / 改名）走这条：本地即显 → 等写盘 → 对齐兜底缓存。
+     *
+     * 调用方在同一协程里 await 后再导航，避免「返回上一页读到旧素材库」。
+     */
+    suspend fun commitLibrary(transform: (AlertLibrary) -> AlertLibrary) {
+        val next = transform(library)
+        library = next
+        persistLibraryNow { transform(it) }
+        TuneConfig.syncActionSnapshot()
+    }
+
+    /** 单选预设等 alert 子树的提交：同上，写完再导航。 */
+    suspend fun commitAlert(transform: (NotificationAlertSettings) -> NotificationAlertSettings) {
+        val next = transform(alert)
+        alert = next
+        persistAlertNow { transform(it) }
+        TuneConfig.syncActionSnapshot()
     }
 
     fun refresh() {
@@ -252,20 +373,25 @@ internal fun AlertKnobSlider(
     )
 }
 
-/** 每槽旋钮区的最后一行：把当前槽位的覆盖恢复默认（不动预设与颜色）。 */
+/** 预设卡片上的调色板色点：预设级调色板优先，否则取层的逐色引用。 */
 @Composable
-internal fun SegmentedGroupScope.AlertResetOverridesRow(onClick: () -> Unit) {
-    item { shape ->
-        LunoSettingsRow(
-            title = stringResource(R.string.float_ball_alert_reset_overrides),
-            subtitle = stringResource(R.string.float_ball_alert_reset_overrides_subtitle),
-            icon = Icons.Default.Refresh,
-            shape = shape,
-            onClick = onClick,
-        )
+internal fun AlertPreset.swatchColors(library: AlertLibrary, fallback: Color): List<Color> {
+    val paletteId = paletteId
+    if (paletteId != null) {
+        library.palettes.firstOrNull { it.id == paletteId }?.let { palette ->
+            if (palette.colors.isNotEmpty()) {
+                return palette.colors.map { Color(it) }
+            }
+        }
     }
+    val colors = layers.firstOrNull { it.color.colors.isNotEmpty() }?.color?.colors
+        ?: layers.firstNotNullOfOrNull { layer ->
+            layer.color.paletteId?.let { id ->
+                library.palettes.firstOrNull { it.id == id }?.colors
+            }
+        }
+    return (colors ?: emptyList()).map { Color(it) }.ifEmpty { listOf(fallback) }
 }
 
-/** 把槽位的覆盖恢复默认：强度 / 速度 100，颜色跟随预设。 */
-internal fun AlertSlotSettings.withDefaultOverrides(): AlertSlotSettings =
-    copy(overrides = AlertSlotOverrides())
+/** 编辑器里给新层用的稳定 id（时间戳 + 计数，避免同一预设内重复）。 */
+internal fun newLayerId(seed: Long = System.nanoTime()): String = "layer_$seed"
