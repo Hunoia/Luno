@@ -18,9 +18,10 @@ import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
@@ -57,7 +58,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
             title = stringResource(AlertCategory.Capsule.titleRes()),
             subtitle = stringResource(AlertCategory.Capsule.subtitleRes()),
         ) {
-            LunoSegmentedGroup {
+            val rows = segmentedRows {
                 item { shape ->
                     LunoSwitchRow(
                         title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
@@ -92,10 +93,11 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                     )
                 }
             }
+            SegmentedRows(rows)
         }
         key(settings.style) {
             LunoGroup {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     when (settings.style) {
                         CapsuleAlertStyle.Pulse -> {
                             val s = settings.pulse
@@ -436,6 +438,7 @@ fun AlertCapsuleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = 
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -26,7 +27,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AlertPalette
 import hunoia.luno.config.model.ColorSource
@@ -34,17 +34,18 @@ import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.removePalette
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PaletteDotSize
-import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -64,10 +65,12 @@ private const val PaletteAppearWaitMs = 900L
 
 /**
  * 到达提示·调色板编辑页（自定义）：名称、彩虹开关、逐色编辑（点色块取色）、
- * 增删颜色（1–5 色）与删除调色板。删除会清空引用它的分类的 `paletteId`。
+ * 增删颜色（1–5 色，每行可单独移除，至少保留 1 色）与删除调色板。
+ * 删除会清空引用它的分类的 `paletteId`；彩虹模式忽略色表，色表整块隐藏。
  *
- * 名称走本地草稿 + 防抖落盘（失焦立即写）；「页面在组合期直接调 onBack」属于副作用，
- * 这里改为等配置流给出真值后再判定（见 [PaletteAppearWaitMs]）。
+ * 改动走本地即显状态（[rememberAlertEditor]，与动效设置页同口径），写盘异步回推不稳，
+ * 不能只靠配置流刷新。名称是本地草稿 + 防抖落盘（失焦立即写）；「页面在组合期直接调
+ * onBack」属于副作用，这里等配置流给出真值后再判定（见 [PaletteAppearWaitMs]）。
  */
 @Composable
 fun AlertPaletteEditScreen(
@@ -75,12 +78,14 @@ fun AlertPaletteEditScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
-    val alert = actionSettings.floatBall.notificationCapsule.alert
+    // 本地即显 + 异步落盘：写盘不保证立刻回推给活跃订阅者，颜色 / 彩虹开关必须当场可见
+    // （与动效设置页同一口径，见 rememberAlertEditor）。
+    val editor = rememberAlertEditor()
+    val alert = editor.alert
     val palette = alert.customPalettes.firstOrNull { it.id == paletteId }
 
-    // 不在组合期导航：先等配置流（新建调色板的写盘回推窗口），仍没有才回管理页。
+    // 不在组合期导航：先等配置流（新建调色板的写盘回推窗口），仍没有才回管理页；
+    // 等到真值后把本地状态同步过来（管理页已先 syncActionSnapshot，正常路径不会走到这）。
     LaunchedEffect(paletteId) {
         if (palette == null) {
             val appeared = withTimeoutOrNull(PaletteAppearWaitMs) {
@@ -88,20 +93,22 @@ fun AlertPaletteEditScreen(
                     current.floatBall.notificationCapsule.alert.customPalettes.any { it.id == paletteId }
                 }
             }
-            if (appeared == null) onBack()
+            if (appeared == null) onBack() else editor.refresh()
         }
     }
     if (palette == null) return
 
     var editingColorIndex by remember { mutableStateOf(-1) }
+    // 「添加颜色」先取色再入表：取色那一刻还没有新下标，不能拿旧色表算索引。
+    var addingColor by remember { mutableStateOf(false) }
     var nameDraft by remember(paletteId) { mutableStateOf(palette.name) }
     // 连点 / 返回与删除并发时只允许离开一次（第二次 pop 会弹掉管理页）。
     var leaving by remember { mutableStateOf(false) }
 
     fun updatePalette(transform: (AlertPalette) -> AlertPalette) {
-        persistAlert(scope) {
-            it.copy(
-                customPalettes = it.customPalettes.map { p ->
+        editor.update { current ->
+            current.copy(
+                customPalettes = current.customPalettes.map { p ->
                     if (p.id == paletteId) transform(p) else p
                 },
             )
@@ -162,26 +169,40 @@ fun AlertPaletteEditScreen(
         title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
         onBack = { commitNameAndBack() },
         sheets = {
-            if (editingColorIndex >= 0) {
+            if (addingColor || editingColorIndex >= 0) {
                 val scheme = MaterialTheme.colorScheme
-                val currentArgb = palette.colors.getOrNull(editingColorIndex) ?: 0xFFFFFFFF.toInt()
+                // 「添加」还没有新下标：用默认色起手，选定后再入表。
+                val pickerArgb = if (addingColor) {
+                    DefaultNewPaletteColor
+                } else {
+                    palette.colors.getOrNull(editingColorIndex) ?: DefaultNewPaletteColor
+                }
                 ColorPickerBottomSheet(
-                    onDismissRequest = { editingColorIndex = -1 },
+                    onDismissRequest = {
+                        addingColor = false
+                        editingColorIndex = -1
+                    },
                     onCopyColor = { hex -> ClipboardCenter.writeTextImmediate(hex, "Luno color") },
                     initialSelection = ColorSpec(
                         source = ColorSource.Custom,
-                        customColor = currentArgb,
+                        customColor = pickerArgb,
                     ).toInitialSelection(scheme = scheme, primaryFallback = false),
                     onColorSelected = { selection ->
                         val argb = selection.toColorSpec(scheme).customColor
-                        updatePalette { p ->
-                            val index = editingColorIndex.coerceIn(0, p.colors.lastIndex.coerceAtLeast(0))
-                            if (p.colors.isEmpty()) {
-                                p
-                            } else {
-                                p.copy(colors = p.colors.toMutableList().also { it[index] = argb })
+                        if (addingColor) {
+                            updatePalette { p -> p.copy(colors = (p.colors + argb).take(5)) }
+                        } else {
+                            updatePalette { p ->
+                                val index = editingColorIndex
+                                    .coerceIn(0, p.colors.lastIndex.coerceAtLeast(0))
+                                if (p.colors.isEmpty()) {
+                                    p
+                                } else {
+                                    p.copy(colors = p.colors.toMutableList().also { it[index] = argb })
+                                }
                             }
                         }
+                        addingColor = false
                         editingColorIndex = -1
                     },
                 )
@@ -201,9 +222,9 @@ fun AlertPaletteEditScreen(
                     .onFocusChanged { if (!it.isFocused) commitName() },
             )
         }
-        item(key = "flags") {
+        item(key = "rainbow") {
             LunoGroup {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     item { shape ->
                         LunoSwitchRow(
                             title = stringResource(R.string.float_ball_capsule_alert_palette_rainbow),
@@ -214,49 +235,83 @@ fun AlertPaletteEditScreen(
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
-        item(key = "colors") {
-            LunoGroup(
-                title = stringResource(R.string.float_ball_capsule_alert_palette_colors),
-                subtitle = stringResource(R.string.float_ball_capsule_alert_palette_color_limit),
-            ) {
-                LunoSegmentedGroup {
-                    palette.colors.take(5).forEachIndexed { index, argb ->
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(
-                                    R.string.float_ball_capsule_alert_palette_color_count,
-                                    index + 1,
-                                ),
-                                subtitle = String.format(Locale.ROOT, "#%08X", argb),
-                                shape = shape,
-                                leading = {
-                                    Row(
-                                        modifier = Modifier
-                                            .size(PaletteDotSize)
-                                            .border(1.dp, Color(argb).copy(alpha = 0.3f), CircleShape)
-                                            .background(Color(argb), CircleShape),
-                                    ) {}
-                                },
-                                onClick = { editingColorIndex = index },
-                            )
+        // 彩虹模式忽略色表：整块隐藏（无效项不显示）；色表可删到只剩 1 色。
+        if (!palette.rainbow) {
+            item(key = "colors") {
+                LunoGroup(
+                    title = stringResource(R.string.float_ball_capsule_alert_palette_colors),
+                    subtitle = stringResource(R.string.float_ball_capsule_alert_palette_color_limit),
+                ) {
+                    val rows = segmentedRows {
+                        palette.colors.take(5).forEachIndexed { index, argb ->
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(
+                                        R.string.float_ball_capsule_alert_palette_color_count,
+                                        index + 1,
+                                    ),
+                                    subtitle = formatArgbHex(argb),
+                                    shape = shape,
+                                    leading = {
+                                        Row(
+                                            modifier = Modifier
+                                                .size(PaletteDotSize)
+                                                .border(1.dp, Color(argb).copy(alpha = 0.3f), CircleShape)
+                                                .background(Color(argb), CircleShape),
+                                        ) {}
+                                    },
+                                    trailing = if (palette.colors.size > 1) {
+                                        {
+                                            LunoIconButton(
+                                                icon = Icons.Default.Close,
+                                                contentDescription = stringResource(
+                                                    R.string.float_ball_capsule_alert_palette_remove_color,
+                                                ),
+                                                onClick = {
+                                                    updatePalette { p ->
+                                                        p.copy(
+                                                            colors = p.colors.filterIndexed { i, _ ->
+                                                                i != index
+                                                            },
+                                                        )
+                                                    }
+                                                    if (editingColorIndex == index) {
+                                                        editingColorIndex = -1
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                    onClick = { editingColorIndex = index },
+                                )
+                            }
+                        }
+                        if (palette.colors.size < 5) {
+                            item { shape ->
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.float_ball_capsule_alert_palette_add_color),
+                                    icon = Icons.Default.Add,
+                                    shape = shape,
+                                    onClick = {
+                                        addingColor = true
+                                        editingColorIndex = -1
+                                    },
+                                )
+                            }
                         }
                     }
-                    if (palette.colors.size < 5) {
-                        item { shape ->
-                            LunoSettingsRow(
-                                title = stringResource(R.string.float_ball_capsule_alert_palette_add_color),
-                                icon = Icons.Default.Add,
-                                shape = shape,
-                                onClick = {
-                                    updatePalette {
-                                        it.copy(colors = it.colors + 0xFFE53935.toInt())
-                                    }
-                                },
-                            )
-                        }
-                    }
+                    SegmentedRows(rows)
+                }
+            }
+        }
+        item(key = "delete") {
+            LunoGroup {
+                val rows = segmentedRows {
                     item { shape ->
                         LunoSettingsRow(
                             title = stringResource(R.string.float_ball_capsule_alert_palette_delete),
@@ -277,7 +332,11 @@ fun AlertPaletteEditScreen(
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }
 }
+
+/** 新增颜色的起始色（与「新建调色板」的默认色一致）。 */
+private val DefaultNewPaletteColor = 0xFFE53935.toInt()

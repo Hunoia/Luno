@@ -141,6 +141,7 @@
     <string name="float_ball_capsule_alert_palette_rainbow_subtitle">Cycle the hue ring; ignores colors below</string>
     <string name="float_ball_capsule_alert_palette_colors">Colors</string>
     <string name="float_ball_capsule_alert_palette_add_color">Add color</string>
+    <string name="float_ball_capsule_alert_palette_remove_color">Remove this color</string>
     <string name="float_ball_capsule_alert_palette_delete">Delete palette</string>
     <string name="float_ball_capsule_alert_palette_delete_subtitle">Categories using it fall back to solid color</string>
     <string name="float_ball_capsule_alert_palette_empty">No custom palettes yet; tap New palette to create one</string>

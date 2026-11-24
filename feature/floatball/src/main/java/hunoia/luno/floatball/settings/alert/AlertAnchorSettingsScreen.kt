@@ -18,9 +18,10 @@ import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
@@ -56,7 +57,10 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
             title = stringResource(AlertCategory.Anchor.titleRes()),
             subtitle = stringResource(AlertCategory.Anchor.subtitleRes()),
         ) {
-            LunoSegmentedGroup {
+            // 条件行（球心光晕不显示调色板）走裸行：注册和 emit 都在本卡组合里，
+            // 和驱动它的样式下拉同批刷新，不会「选择已落盘但行不出现」
+            // （见 ui-guidelines §4.1；不要塞进和驱动控件共用的 LunoSegmentedGroup）。
+            val rows = segmentedRows {
                 item { shape ->
                     LunoSwitchRow(
                         title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
@@ -82,9 +86,9 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                         shape = shape,
                     )
                 }
-                // 调色板：环 / 涟漪 / 爆发都按周长或序号取色；球心光晕只用首色（单色辉光），
-                // 多色调色板对它无效，选中时隐藏入口（避免「无效项仍显示」）。
                 if (settings.style != AnchorAlertStyle.BallHalo) {
+                    // 调色板：环 / 涟漪 / 爆发都按周长或序号取色；球心光晕只用首色（单色辉光），
+                    // 多色调色板对它无效，选中时隐藏入口（避免「无效项仍显示」）。
                     item { shape ->
                         AlertPaletteSettingsRow(
                             palette = alert.paletteFor(AlertCategory.Anchor),
@@ -95,10 +99,11 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                     }
                 }
             }
+            SegmentedRows(rows)
         }
         key(settings.style) {
             LunoGroup {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     when (settings.style) {
                         AnchorAlertStyle.Ring -> {
                             val s = settings.ring
@@ -458,6 +463,7 @@ fun AlertAnchorSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }

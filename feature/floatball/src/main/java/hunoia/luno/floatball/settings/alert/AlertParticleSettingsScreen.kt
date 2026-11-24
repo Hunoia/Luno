@@ -21,9 +21,10 @@ import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.toMarkColor
@@ -66,7 +67,10 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
             title = stringResource(AlertCategory.Particle.titleRes()),
             subtitle = stringResource(AlertCategory.Particle.subtitleRes()),
         ) {
-            LunoSegmentedGroup {
+            // 条件行（仅图片形状才出现的两行）走裸行：注册和 emit 都在本卡组合里，
+            // 和驱动它的形状下拉同批刷新，不会「选择已落盘但行不出现」
+            // （见 ui-guidelines §4.1；不要塞进和驱动控件共用的 LunoSegmentedGroup）。
+            val rows = segmentedRows {
                 item { shape ->
                     LunoSwitchRow(
                         title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
@@ -166,7 +170,10 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                                                     !previous.contains('/')
                                                 ) {
                                                     File(
-                                                        File(context.filesDir, ParticleShapeSettings.ImageDirName),
+                                                        File(
+                                                            context.filesDir,
+                                                            ParticleShapeSettings.ImageDirName,
+                                                        ),
                                                         previous,
                                                     ).delete()
                                                 }
@@ -200,10 +207,11 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                     }
                 }
             }
+            SegmentedRows(rows)
         }
         key(settings.style) {
             LunoGroup {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     // 粒子类旋钮按类目共享（数量 / 大小 / 摆幅 / 重力 / 行程 / 速度 / 亮度 / 波次）：
                     // 所有运动共用同一组旋钮，差异只在渲染层（ui-guidelines §2.4 例外）。
                     run {
@@ -465,6 +473,7 @@ fun AlertParticleSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit =
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }

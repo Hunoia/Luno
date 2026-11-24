@@ -31,9 +31,10 @@ import hunoia.luno.config.model.paletteFor
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
@@ -46,7 +47,8 @@ import hunoia.luno.ui.theme.toMarkColor
  * 到达提示·边缘类设置页：类目开关、类内单选样式（呼吸光 / 流光 / 波纹 / 烟花 /
  * 双刃上升）与各自旋钮。
  *
- * 行形状全部由 [LunoSegmentedGroup] 自动算（不再手数行数）；旋钮松手才落盘。
+ * 行形状全部由 [segmentedRows] + [SegmentedRows] 自动算（不再手数行数，也不会因容器跳过
+ * item 注册而漏掉条件行）；旋钮松手才落盘。
  * 「试播该分类」只播这一类，失败原因由服务侧 Toast 反馈。
  */
 @Composable
@@ -101,7 +103,7 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
             title = stringResource(AlertCategory.Edge.titleRes()),
             subtitle = stringResource(AlertCategory.Edge.subtitleRes()),
         ) {
-            LunoSegmentedGroup {
+            val rows = segmentedRows {
                 item { shape ->
                     LunoSwitchRow(
                         title = stringResource(R.string.float_ball_capsule_alert_category_enabled),
@@ -136,10 +138,11 @@ fun AlertEdgeSettingsScreen(onBack: () -> Unit, onNavToPalette: () -> Unit = {})
                     )
                 }
             }
+            SegmentedRows(rows)
         }
         key(settings.style) {
             LunoGroup {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     when (settings.style) {
                         EdgeAlertStyle.EdgeGlow -> {
                             val s = settings.edgeGlow
@@ -643,6 +646,7 @@ EdgeAlertStyle.EdgeBladeRise -> {
                         )
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }

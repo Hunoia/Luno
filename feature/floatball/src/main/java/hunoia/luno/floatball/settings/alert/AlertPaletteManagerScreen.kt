@@ -10,15 +10,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.AlertPalette
 import hunoia.luno.config.model.BuiltinAlertPalettes
 import hunoia.luno.config.model.allPalettes
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.SegmentedRows
+import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -33,9 +33,9 @@ fun AlertPaletteManagerScreen(
     onEditPalette: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = TuneConfig.latestAction())
-    val alert = actionSettings.floatBall.notificationCapsule.alert
+    // 本地即显状态：从编辑页 / 管理页返回时跟着 resume 刷新（写盘不保证回推活跃订阅者）。
+    val editor = rememberAlertEditor()
+    val alert = editor.alert
     val palettes = alert.allPalettes()
     // 连点「新建」会建出两个调色板并连进两次编辑页：用 creating 收口。
     var creating by remember { mutableStateOf(false) }
@@ -48,7 +48,7 @@ fun AlertPaletteManagerScreen(
             LunoGroup(
                 title = stringResource(R.string.float_ball_capsule_alert_palette_builtin),
             ) {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     BuiltinAlertPalettes.all.forEach { palette ->
                         item { shape ->
                             PaletteManagerRow(
@@ -60,13 +60,14 @@ fun AlertPaletteManagerScreen(
                         }
                     }
                 }
+                SegmentedRows(rows)
             }
         }
         item(key = "custom") {
             LunoGroup(
                 title = stringResource(R.string.float_ball_capsule_alert_palette_custom),
             ) {
-                LunoSegmentedGroup {
+                val rows = segmentedRows {
                     item { shape ->
                         val defaultName = stringResource(R.string.float_ball_capsule_alert_palette_default_name)
                         LunoSettingsRow(
@@ -117,6 +118,7 @@ fun AlertPaletteManagerScreen(
                         }
                     }
                 }
+                SegmentedRows(rows)
             }
         }
     }

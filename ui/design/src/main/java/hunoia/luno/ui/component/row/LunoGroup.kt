@@ -60,6 +60,11 @@ fun segmentedShape(index: Int, count: Int): Shape {
  *
  * 子项通过 [SegmentedGroupScope.item] 注册，只有实际执行到的 item 才会计数。
  * 子项接收容器按最终数量计算出的 shape，因此不需要手动维护总数。
+ *
+ * **依赖选择项 / 开关条件增删行的卡片不要用这个**：容器是一次 Composable 调用，
+ * 可能被跳过（param 比较相等时），跳过时 `item` 不会重新注册，表现为
+ * 「选择已落盘，但条件行不出现 / 行尾值不刷新」。那种场景用 [segmentedRows] +
+ * [SegmentedRows]（注册和 emit 都在调用方的组合里）。
  */
 @Composable
 fun LunoSegmentedGroup(
@@ -78,6 +83,29 @@ fun LunoSegmentedGroup(
             item(segmentedShape(index, scope.items.size))
         }
     }
+}
+
+/**
+ * 分段行的「裸行」变体（配合 [LunoGroup] 使用）：在调用方的组合里注册行，
+ * 再交给 [SegmentedRows] 直接 emit 到当前 `ColumnScope`。
+ *
+ * 与 [LunoSegmentedGroup] 的差别只在**容器**：这里没有额外一层 Composable，
+ * 注册和 emit 都发生在调用方，因此「选择项 / 开关 + 它驱动的条件行」一定同批刷新。
+ * 返回值必须被使用（[SegmentedRows]），所以这层也不会被跳过。
+ */
+@Composable
+fun segmentedRows(
+    content: @Composable SegmentedGroupScope.() -> Unit,
+): List<@Composable (Shape) -> Unit> {
+    val scope = SegmentedGroupScope()
+    scope.content()
+    return scope.items
+}
+
+/** 把 [segmentedRows] 注册的行按顺序 emit 到当前 `ColumnScope`，形状按实际条目总数算。 */
+@Composable
+fun ColumnScope.SegmentedRows(rows: List<@Composable (Shape) -> Unit>) {
+    rows.forEachIndexed { index, row -> row(segmentedShape(index, rows.size)) }
 }
 
 class SegmentedGroupScope internal constructor() {

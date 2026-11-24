@@ -155,6 +155,7 @@
     <string name="float_ball_capsule_alert_palette_rainbow_subtitle">按色相环循环取色，忽略下方色表</string>
     <string name="float_ball_capsule_alert_palette_colors">颜色</string>
     <string name="float_ball_capsule_alert_palette_add_color">添加颜色</string>
+    <string name="float_ball_capsule_alert_palette_remove_color">移除该颜色</string>
     <string name="float_ball_capsule_alert_palette_delete">删除调色板</string>
     <string name="float_ball_capsule_alert_palette_delete_subtitle">删除后引用它的分类回落为纯色</string>
     <string name="float_ball_capsule_alert_palette_empty">还没有自定义调色板，点「新建调色板」创建</string>

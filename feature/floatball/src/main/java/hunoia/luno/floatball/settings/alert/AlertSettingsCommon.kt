@@ -166,7 +166,7 @@ internal fun rememberAlertEditor(): AlertEditorState {
 
 /**
  * 二级页的旋钮滑杆：拖动只改本地预览，松手一次性落盘（滑杆交互口径）。
- * [range] 来自 `FloatBallDefaults` 的滑杆约束常量；行形状由 [LunoSegmentedGroup] 传入。
+ * [range] 来自 `FloatBallDefaults` 的滑杆约束常量；行形状由 [segmentedRows] + [SegmentedRows] 或 LunoSegmentedGroup 传入。
  */
 @Composable
 internal fun AlertKnobSlider(

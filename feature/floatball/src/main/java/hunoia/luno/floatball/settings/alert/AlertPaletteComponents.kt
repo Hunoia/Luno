@@ -22,6 +22,7 @@ import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.PaletteDotSize
 import hunoia.luno.ui.theme.PaletteDotSpacing
 import hunoia.luno.ui.theme.PalettePreviewHeight
+import java.util.Locale
 
 /**
  * 调色板缩略预览：非彩虹 = 一排色点（1–5 色），彩虹 = 一条色相环渐变条。
@@ -99,4 +100,17 @@ internal fun AlertPaletteSettingsRow(
         },
         onClick = onClick,
     )
+}
+
+/** 色值展示：alpha = 255 时输出 `#RRGGBB`，否则 `#AARRGGBB`（与取色器的复制格式同口径）。 */
+internal fun formatArgbHex(argb: Int): String {
+    val a = (argb ushr 24) and 0xFF
+    val r = (argb ushr 16) and 0xFF
+    val g = (argb ushr 8) and 0xFF
+    val b = argb and 0xFF
+    return if (a == 255) {
+        String.format(Locale.ROOT, "#%02X%02X%02X", r, g, b)
+    } else {
+        String.format(Locale.ROOT, "#%02X%02X%02X%02X", a, r, g, b)
+    }
 }
