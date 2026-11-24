@@ -25,6 +25,8 @@ internal fun LayerFloatSlider(
     decimals: Int = 2,
     shape: Shape,
     display: ((Float) -> String)? = null,
+    /** 滑轨两端的方向提示（左 = 区间小端，右 = 大端）；标题说清就不给。 */
+    hints: Pair<String, String>? = null,
     onCommit: (Float) -> Unit,
 ) {
     var local by remember(value, range) { mutableFloatStateOf(value.coerceIn(range)) }
@@ -34,6 +36,7 @@ internal fun LayerFloatSlider(
         onValueChangeFinished = { onCommit(local.coerceIn(range)) },
         text = label,
         valueDisplay = { current -> display?.invoke(current) ?: current.format(decimals) },
+        sliderValueHint = hints,
         valueRange = range,
         shape = shape,
     )
@@ -46,6 +49,8 @@ internal fun LayerIntSlider(
     range: IntRange,
     suffix: String = "",
     shape: Shape,
+    /** 滑轨两端的方向提示（左 = 区间小端，右 = 大端）；标题说清就不给。 */
+    hints: Pair<String, String>? = null,
     onCommit: (Int) -> Unit,
 ) {
     var local by remember(value, range) { mutableFloatStateOf(value.toFloat()) }
@@ -55,10 +60,24 @@ internal fun LayerIntSlider(
         onValueChangeFinished = { onCommit(local.roundToInt().coerceIn(range)) },
         text = label,
         valueDisplay = { "${it.roundToInt()}$suffix" },
+        sliderValueHint = hints,
         valueRange = range.first.toFloat()..range.last.toFloat(),
         shape = shape,
     )
 }
+
+/**
+ * 长度类滑杆的统一显示：光带厚度 / 头部宽度 / 线条粗细都以 dp 计。
+ *
+ * 非整数保留一位小数——细线条的 0.5–2dp 区间四舍五入会把 1.5 读成 2。
+ */
+internal fun dpDisplay(value: Float): String {
+    val rounded = value.roundToInt()
+    return if (kotlin.math.abs(value - rounded) < 0.05f) "$rounded dp" else "%.1f dp".format(value)
+}
+
+/** 比例类滑杆的统一显示：0..1 直接读成百分比。 */
+internal fun percentDisplay(value: Float): String = "${(value * 100).roundToInt()}%"
 
 /** 枚举 / 可空枚举的单选下拉：行尾显示当前值，点开菜单选。 */
 @Composable

@@ -455,6 +455,7 @@ private fun LayerAdvancedParams(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_opacity),
+                    display = { percentDisplay(it) },
                     value = layer.opacity,
                     range = 0f..1f,
                     decimals = 2,
@@ -629,6 +630,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_depth),
+                            display = { dpDisplay(it) },
                             value = params.breathing.depthDp,
                             range = 2f..64f,
                             decimals = 1,
@@ -641,6 +643,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
+                            hints = stringResource(R.string.float_ball_layer_hint_hardness_low) to
+                                stringResource(R.string.float_ball_layer_hint_hardness_high),
                             value = params.breathing.hardness,
                             range = 1f..4f,
                             decimals = 2,
@@ -653,6 +657,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_breath_amount),
+                            hints = stringResource(R.string.float_ball_layer_hint_breath_amount_low) to
+                                stringResource(R.string.float_ball_layer_hint_breath_amount_high),
                             value = params.breathing.breathAmount,
                             range = 0f..1f,
                             decimals = 2,
@@ -679,6 +685,9 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_travel),
+                            display = { percentDisplay(it) },
+                            hints = stringResource(R.string.float_ball_layer_hint_travel_low) to
+                                stringResource(R.string.float_ball_layer_hint_travel_high),
                             value = params.sweep.travel,
                             range = 0f..1f,
                             decimals = 2,
@@ -691,6 +700,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_head_width),
+                            display = { dpDisplay(it) },
                             value = params.sweep.headWidthDp,
                             range = 2f..48f,
                             decimals = 1,
@@ -703,6 +713,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_depth),
+                            display = { dpDisplay(it) },
                             value = params.sweep.depthDp,
                             range = 2f..64f,
                             decimals = 1,
@@ -715,6 +726,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
+                            hints = stringResource(R.string.float_ball_layer_hint_hardness_low) to
+                                stringResource(R.string.float_ball_layer_hint_hardness_high),
                             value = params.sweep.hardness,
                             range = 1f..4f,
                             decimals = 2,
@@ -727,6 +740,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerIntSlider(
                             label = stringResource(R.string.float_ball_layer_tail_length),
+                            hints = stringResource(R.string.float_ball_layer_hint_tail_length_low) to
+                                stringResource(R.string.float_ball_layer_hint_tail_length_high),
                             value = params.sweep.tailPercent,
                             range = 0..60,
                             suffix = "%",
@@ -739,6 +754,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_tail_falloff),
+                            hints = stringResource(R.string.float_ball_layer_hint_tail_falloff_low) to
+                                stringResource(R.string.float_ball_layer_hint_tail_falloff_high),
                             value = params.sweep.tailFalloff,
                             range = 0.5f..4f,
                             decimals = 2,
@@ -751,6 +768,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_tail_alpha),
+                            display = { percentDisplay(it) },
                             value = params.sweep.tailAlpha,
                             range = 0f..1f,
                             decimals = 2,
@@ -763,6 +781,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_head_boost),
+                            display = { percentDisplay(it) },
                             value = params.sweep.headBoost,
                             range = 0f..1f,
                             decimals = 2,
@@ -820,6 +839,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_wave_width),
+                            display = { dpDisplay(it) },
                             value = params.wave.waveWidthDp,
                             range = 2f..64f,
                             decimals = 1,
@@ -832,6 +852,9 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_travel),
+                            display = { percentDisplay(it) },
+                            hints = stringResource(R.string.float_ball_layer_hint_travel_low) to
+                                stringResource(R.string.float_ball_layer_hint_travel_high),
                             value = params.wave.travel,
                             range = 0f..1f,
                             decimals = 2,
@@ -844,6 +867,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_depth),
+                            display = { dpDisplay(it) },
                             value = params.wave.depthDp,
                             range = 2f..64f,
                             decimals = 1,
@@ -856,6 +880,8 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_hardness),
+                            hints = stringResource(R.string.float_ball_layer_hint_hardness_low) to
+                                stringResource(R.string.float_ball_layer_hint_hardness_high),
                             value = params.wave.hardness,
                             range = 1f..4f,
                             decimals = 2,
@@ -892,6 +918,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_bolt_window),
+                            display = { percentDisplay(it) },
                             value = params.lightning.window,
                             range = 0.05f..0.9f,
                             decimals = 2,
@@ -904,6 +931,7 @@ private fun EdgeParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_stroke),
+                            display = { dpDisplay(it) },
                             value = params.lightning.widthDp,
                             range = 0.5f..6f,
                             decimals = 2,
@@ -964,6 +992,7 @@ private fun ParticleParamsBlock(
     }
     LunoGroup(
         title = stringResource(R.string.float_ball_layer_group_emitter),
+        subtitle = stringResource(R.string.float_ball_layer_group_emitter_hint),
     ) {
         val rows = segmentedRows {
             item { shape ->
@@ -1043,6 +1072,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_speed),
+                    display = { value -> "%.2f 屏高/秒".format(value) },
                     value = params.emitter.speed,
                     range = 0.05f..2.5f,
                     decimals = 2,
@@ -1053,6 +1083,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_speed_jitter),
+                    display = { percentDisplay(it) },
                     value = params.emitter.speedJitter,
                     range = 0f..1f,
                     decimals = 2,
@@ -1065,6 +1096,9 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_delay_spread),
+                    display = { percentDisplay(it) },
+                    hints = stringResource(R.string.float_ball_layer_hint_delay_spread_low) to
+                        stringResource(R.string.float_ball_layer_hint_delay_spread_high),
                     value = params.emitter.delaySpread,
                     range = 0f..1f,
                     decimals = 2,
@@ -1077,6 +1111,9 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_life_share),
+                    display = { percentDisplay(it) },
+                    hints = stringResource(R.string.float_ball_layer_hint_life_share_low) to
+                        stringResource(R.string.float_ball_layer_hint_life_share_high),
                     value = params.emitter.lifeShare,
                     range = 0.1f..1f,
                     decimals = 2,
@@ -1125,6 +1162,7 @@ private fun ParticleParamsBlock(
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_launch_height),
+                        display = { value -> "${(value * 100).toInt()}% 屏高" },
                         value = cluster.launchHeight,
                         range = 0f..0.9f,
                         decimals = 2,
@@ -1138,6 +1176,7 @@ private fun ParticleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_launch_share),
+                            display = { percentDisplay(it) },
                             value = cluster.launchShare,
                             range = 0.1f..0.9f,
                             decimals = 2,
@@ -1154,6 +1193,7 @@ private fun ParticleParamsBlock(
     }
     LunoGroup(
         title = stringResource(R.string.float_ball_layer_group_motion),
+        subtitle = stringResource(R.string.float_ball_layer_group_motion_hint),
     ) {
         val rows = segmentedRows {
             item { shape ->
@@ -1216,6 +1256,8 @@ private fun ParticleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_motion_drag),
+                            hints = stringResource(R.string.float_ball_layer_hint_motion_drag_low) to
+                                stringResource(R.string.float_ball_layer_hint_motion_drag_high),
                             value = params.motion.free.drag,
                             range = 0f..1f,
                             decimals = 2,
@@ -1342,6 +1384,7 @@ private fun ParticleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_motion_sway_cycles),
+                            display = { "%.1f 次".format(it) },
                             value = params.motion.free.swayCycles,
                             range = 0.5f..4f,
                             decimals = 1,
@@ -1495,6 +1538,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_size_jitter),
+                    display = { percentDisplay(it) },
                     value = params.look.sizeJitter,
                     range = 0f..1f,
                     decimals = 2,
@@ -1505,6 +1549,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_alpha),
+                    display = { percentDisplay(it) },
                     value = params.look.alpha,
                     range = 0.05f..1f,
                     decimals = 2,
@@ -1515,6 +1560,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_alpha_jitter),
+                    display = { percentDisplay(it) },
                     value = params.look.alphaJitter,
                     range = 0f..1f,
                     decimals = 2,
@@ -1525,6 +1571,7 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_size_shrink),
+                    display = { percentDisplay(it) },
                     value = params.look.sizeShrink,
                     range = 0f..0.9f,
                     decimals = 2,
@@ -1535,6 +1582,8 @@ private fun ParticleParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_fade_exp),
+                    hints = stringResource(R.string.float_ball_layer_hint_fade_exp_low) to
+                        stringResource(R.string.float_ball_layer_hint_fade_exp_high),
                     value = params.look.fadeExp,
                     range = 0.5f..4f,
                     decimals = 2,
@@ -1568,6 +1617,7 @@ private fun ParticleParamsBlock(
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_halo_alpha),
+                        display = { percentDisplay(it) },
                         value = params.look.haloAlpha,
                         range = 0f..1f,
                         decimals = 2,
@@ -1606,6 +1656,7 @@ private fun ParticleParamsBlock(
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_trail_alpha),
+                        display = { percentDisplay(it) },
                         value = params.look.trailAlpha,
                         range = 0f..1f,
                         decimals = 2,
@@ -1630,6 +1681,7 @@ private fun ParticleParamsBlock(
                 item { shape ->
                     LayerFloatSlider(
                         label = stringResource(R.string.float_ball_layer_blink_cycles),
+                        display = { "%.1f 次".format(it) },
                         value = params.look.blinkCycles,
                         range = 0.5f..6f,
                         decimals = 1,
@@ -1676,6 +1728,7 @@ private fun RingParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_stroke),
+                    display = { dpDisplay(it) },
                     value = params.strokeWidthDp,
                     range = 1f..12f,
                     decimals = 1,
@@ -1695,6 +1748,8 @@ private fun RingParamsBlock(
             item { shape ->
                 LayerIntSlider(
                     label = stringResource(R.string.float_ball_layer_travel_percent),
+                    hints = stringResource(R.string.float_ball_layer_hint_travel_percent_low) to
+                        stringResource(R.string.float_ball_layer_hint_travel_percent_high),
                     value = params.travelPercent,
                     range = 0..300,
                     suffix = "%",
@@ -1775,6 +1830,7 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_stroke),
+                            display = { dpDisplay(it) },
                             value = params.sweep.strokeWidthDp,
                             range = 0.5f..6f,
                             decimals = 2,
@@ -1820,6 +1876,9 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_travel),
+                            display = { percentDisplay(it) },
+                            hints = stringResource(R.string.float_ball_layer_hint_travel_low) to
+                                stringResource(R.string.float_ball_layer_hint_travel_high),
                             value = params.sweep.travel,
                             range = 0f..1f,
                             decimals = 2,
@@ -1832,6 +1891,7 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_trail_scale),
+                            display = { "%.1f×".format(it) },
                             value = params.sweep.trailScale,
                             range = 0f..4f,
                             decimals = 2,
@@ -1844,6 +1904,7 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_trail_alpha),
+                            display = { percentDisplay(it) },
                             value = params.sweep.trailAlpha,
                             range = 0f..1f,
                             decimals = 2,
@@ -1868,6 +1929,7 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_stroke),
+                            display = { dpDisplay(it) },
                             value = params.pulse.strokeWidthDp,
                             range = 0.5f..6f,
                             decimals = 2,
@@ -1917,6 +1979,7 @@ private fun CapsuleParamsBlock(
                     item { shape ->
                         LayerFloatSlider(
                             label = stringResource(R.string.float_ball_layer_stroke),
+                            display = { dpDisplay(it) },
                             value = params.flip.strokeWidthDp,
                             range = 0.5f..6f,
                             decimals = 2,
@@ -2058,6 +2121,8 @@ private fun CoverParamsBlock(
             item { shape ->
                 LayerFloatSlider(
                     label = stringResource(R.string.float_ball_layer_curve),
+                    hints = stringResource(R.string.float_ball_layer_hint_curve_low) to
+                        stringResource(R.string.float_ball_layer_hint_curve_high),
                     value = params.curve,
                     range = 1f..4f,
                     decimals = 2,
@@ -2178,6 +2243,8 @@ private fun RevealParamsBlock(
             item { shape ->
                 LayerIntSlider(
                     label = stringResource(R.string.float_ball_layer_stagger),
+                    hints = stringResource(R.string.float_ball_layer_hint_stagger_low) to
+                        stringResource(R.string.float_ball_layer_hint_stagger_high),
                     value = params.staggerPercent,
                     range = 0..90,
                     suffix = "%",
