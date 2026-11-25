@@ -165,6 +165,9 @@
     <string name="trigger_distance_delay_group">停留与按压时间</string>
     <string name="trigger_distance_slide_group">滑动距离</string>
     <string name="trigger_double_tap_delay">双击等待时间</string>
+    <string name="trigger_hold_fire_on_release">滑动停留抬手触发</string>
+    <string name="trigger_hold_fire_on_release_hint">关闭＝到点即触发；开启＝松手才触发，滑远松手按滑动处理</string>
+    <string name="trigger_hold_release_group">停留触发时机</string>
     <string name="trigger_long_press_delay">长按触发延迟</string>
     <string name="trigger_long_slide_distance">长滑触发距离</string>
     <string name="trigger_long_slide_hold_delay">长滑停留时间</string>

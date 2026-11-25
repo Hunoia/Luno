@@ -81,6 +81,12 @@ class GestureState(
     private var pendingDoubleTapJob: Job? = null
     private var pendingTapResult: GestureResolvedActions? = null
 
+    /** 上一条 MOVE 的停留就绪类型：抬手模式下的振动边沿判定。 */
+    private var lastArmedHoldType: GestureTriggerType? = null
+
+    /** 本次手势已在停留就绪时振过：抬手结算不再补振。 */
+    private var holdArmedBuzzed = false
+
     private val recognizer = GestureRecognizer()
 
     fun onDragStart(offset: Offset, imePadding: Int, hint: TouchWindowHint? = null) {
@@ -153,6 +159,14 @@ class GestureState(
         triggerDirection = recognizer.triggerDirection
         actionDirection = recognizer.actionDirection
 
+        // 抬手模式：停留到点只标就绪（不点火），振动在就绪边沿响一次。
+        val armedHold = recognizer.armedHoldType
+        if (armedHold != null && armedHold != lastArmedHoldType) {
+            vibrateFor(b, actualTypeFor(b, armedHold, actionDirection))
+            holdArmedBuzzed = true
+        }
+        lastArmedHoldType = armedHold
+
         val distance = kotlin.math.hypot(
             (finger.x - origin.x).toDouble(),
             (finger.y - origin.y).toDouble(),
@@ -189,7 +203,10 @@ class GestureState(
             }
             is GestureDecision.Trigger -> {
                 val (action, actualType) = actionsFor(b, decision)
-                vibrateFor(b, actualType)
+                // 抬手模式已在停留就绪时振过：同一次手势不补振（否则到点一次、抬手又一次）。
+                if (!(config.holdFireOnRelease && holdArmedBuzzed)) {
+                    vibrateFor(b, actualType)
+                }
                 // 传实际回退类型（不是 decision 的名义类型）：面板样式、hold 判定
                 // 都按真正执行的动作类型走。
                 val result = resolved(b, decision.actionDirection, actualType, action, decision)
@@ -269,6 +286,8 @@ class GestureState(
         isMirrorTouchTarget = false
         triggerDirection = 0
         actionDirection = 0
+        lastArmedHoldType = null
+        holdArmedBuzzed = false
     }
 
     private fun resolved(
@@ -313,6 +332,7 @@ class GestureState(
                 }
                 types.any { t -> actionByType(button, t, direction).hasMeaningfulAction() }
             },
+            holdFireOnRelease = button.holdFireOnRelease,
         )
     }
 
@@ -320,11 +340,20 @@ class GestureState(
         button: GestureButton,
         decision: GestureDecision.Trigger,
     ): Pair<StoredAction?, GestureTriggerType> {
-        for (type in decision.triggerType.sameDirectionFallbackOrder()) {
-            val action = actionByType(button, type, decision.actionDirection)
-            if (action.hasMeaningfulAction()) return action to type
+        val actualType = actualTypeFor(button, decision.triggerType, decision.actionDirection)
+        return actionByType(button, actualType, decision.actionDirection) to actualType
+    }
+
+    /** 同方向回退后的实际触发类型；该方向没有任何可用动作时返回名义类型（动作为 null）。 */
+    private fun actualTypeFor(
+        button: GestureButton,
+        type: GestureTriggerType,
+        direction: Int,
+    ): GestureTriggerType {
+        for (candidate in type.sameDirectionFallbackOrder()) {
+            if (actionByType(button, candidate, direction).hasMeaningfulAction()) return candidate
         }
-        return null to decision.triggerType
+        return type
     }
 
     private fun actionByType(

@@ -61,6 +61,8 @@ object GestureButtonDefaults {
     const val DoubleTapTriggerDelayMs = 300L
     const val SlideHoldTriggerDelayMs = 120L
     const val LongSlideHoldTriggerDelayMs = 120L
+    /** false = 停留到点即触发（现状）；true = 到点只就绪，抬手才触发。 */
+    const val HoldFireOnRelease = false
     const val SlideVibrate = false
     const val LongSlideVibrate = false
     const val TapVibrate = false
@@ -101,6 +103,11 @@ data class GestureButton(
     val doubleTapTriggerDelayMs: Long = GestureButtonDefaults.DoubleTapTriggerDelayMs,
     val slideHoldTriggerDelayMs: Long = GestureButtonDefaults.SlideHoldTriggerDelayMs,
     val longSlideHoldTriggerDelayMs: Long = GestureButtonDefaults.LongSlideHoldTriggerDelayMs,
+    /**
+     * 停留（短滑停留 / 长滑停留）的触发时机：false = 到点即触发，true = 到点只就绪、
+     * 抬手才触发。抬手时按同一条件带重校验，滑远松手按普通滑动结算。
+     */
+    val holdFireOnRelease: Boolean = GestureButtonDefaults.HoldFireOnRelease,
 ) {
 
     /**

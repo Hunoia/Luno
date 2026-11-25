@@ -155,6 +155,9 @@
     <string name="trigger_distance_delay_group">Hold &amp; press durations</string>
     <string name="trigger_distance_slide_group">Swipe distance</string>
     <string name="trigger_double_tap_delay">Double-tap wait time</string>
+    <string name="trigger_hold_fire_on_release">Swipe-hold fires on release</string>
+    <string name="trigger_hold_fire_on_release_hint">Off: fires when the hold time is reached. On: fires on release; releasing far falls back to a swipe</string>
+    <string name="trigger_hold_release_group">Hold trigger timing</string>
     <string name="trigger_long_press_delay">Long-press trigger delay</string>
     <string name="trigger_long_slide_distance">Long-swipe trigger distance</string>
     <string name="trigger_long_slide_hold_delay">Long-swipe hold time</string>

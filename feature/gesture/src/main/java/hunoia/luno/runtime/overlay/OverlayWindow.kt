@@ -19,8 +19,23 @@ interface GestureOverlayCallbacks {
      * （其 [hunoia.luno.config.model.SubGesture.angle] 边界 / 主题色 / 短长滑范围供
      * overlay 以初始点为圆心绘制角度示意）；退出时 [inSubGesture] 为 false、
      * [subGesture] 为 null。
+     *
+     * [releaseEntry] = 手指已抬起才进入会话（抬手触发 / 面板点选 / 悬浮球点按）：
+     * 这时窗口要接管第二次按下，用全屏触摸窗；按着进入时窗口只做视觉，保持小方块。
      */
-    fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, subGesture: hunoia.luno.config.model.SubGesture?)
+    fun onSubGestureModeChanged(
+        inSubGesture: Boolean,
+        center: Offset,
+        subGesture: hunoia.luno.config.model.SubGesture?,
+        releaseEntry: Boolean = false,
+    )
+
+    /**
+     * 子手势会话内重新按下：判定圆心已换到 [center]，示意跟着搬过去（不改窗口形态）。
+     * 默认空实现：不画示意的宿主不关心。
+     */
+    fun onSubGestureCenterChanged(center: Offset) {}
+
     fun onActionPanelOverlayChanged(show: Boolean)
 
     /**

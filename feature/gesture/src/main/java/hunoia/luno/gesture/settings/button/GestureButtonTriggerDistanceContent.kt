@@ -33,6 +33,8 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSegmentedGroup
+import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.DistanceStrokeWidth
 import hunoia.luno.ui.theme.DistanceTrackHeight
@@ -60,6 +62,8 @@ fun GestureButtonTriggerDistanceContent(
         onSlideHoldTriggerDelayMsChange = vm::onSlideHoldTriggerDelayMsChange,
         longSlideHoldTriggerDelayMs = button.longSlideHoldTriggerDelayMs,
         onLongSlideHoldTriggerDelayMsChange = vm::onLongSlideHoldTriggerDelayMsChange,
+        holdFireOnRelease = button.holdFireOnRelease,
+        onHoldFireOnReleaseChange = vm::onHoldFireOnReleaseChange,
         scrollState = scrollState,
         onValueChangeFinished = vm::saveSettings,
     )
@@ -81,6 +85,9 @@ fun GestureSlideTriggerDistanceContent(
     onSlideHoldTriggerDelayMsChange: (Float) -> Unit,
     longSlideHoldTriggerDelayMs: Long,
     onLongSlideHoldTriggerDelayMsChange: (Float) -> Unit,
+    /** 非 null 时在停留时长组下方渲染「停留触发时机」开关；子手势页不传。 */
+    holdFireOnRelease: Boolean? = null,
+    onHoldFireOnReleaseChange: ((Boolean) -> Unit)? = null,
     scrollState: androidx.compose.foundation.ScrollState? = null,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
@@ -168,6 +175,20 @@ fun GestureSlideTriggerDistanceContent(
                     valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
                     shape = segmentedShape(delayIndex, delaySliderCount),
                 )
+            }
+
+            if (holdFireOnRelease != null && onHoldFireOnReleaseChange != null) {
+                LunoGroup(title = stringResource(R.string.trigger_hold_release_group)) {
+                    LunoSegmentedGroup {
+                        item { shape -> LunoSwitchRow(
+                            onCheckedChange = onHoldFireOnReleaseChange,
+                            checked = holdFireOnRelease,
+                            title = stringResource(R.string.trigger_hold_fire_on_release),
+                            subtitle = stringResource(R.string.trigger_hold_fire_on_release_hint),
+                            shape = shape,
+                        ) }
+                    }
+                }
             }
         }
     }
