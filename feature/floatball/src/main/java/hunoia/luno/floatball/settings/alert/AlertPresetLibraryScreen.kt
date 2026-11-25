@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLayerCategory
 import hunoia.luno.config.model.AlertLibraryExport
@@ -58,6 +59,7 @@ fun AlertPresetLibraryScreen(
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources = LocalResources.current
     var busy by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val library = editor.library
@@ -75,7 +77,7 @@ fun AlertPresetLibraryScreen(
         if (busy) return
         busy = true
         val name = uniquePresetName(
-            context.getString(R.string.float_ball_preset_default_name),
+            resources.getString(R.string.float_ball_preset_default_name),
             library.presets.map { it.name },
         )
         val preset = newUserPreset(name)
@@ -92,7 +94,7 @@ fun AlertPresetLibraryScreen(
         val copied = preset.asUserCopy().let { copy ->
             copy.copy(
                 name = uniquePresetName(
-                    context.getString(
+                    resources.getString(
                         R.string.float_ball_preset_copy_name,
                         preset.displayNameString(context),
                     ),
@@ -125,7 +127,7 @@ fun AlertPresetLibraryScreen(
             }
             busy = false
             toast(
-                context.getString(
+                resources.getString(
                     if (ok) R.string.float_ball_preset_export_done
                     else R.string.float_ball_preset_export_failed,
                 ),
@@ -153,13 +155,13 @@ fun AlertPresetLibraryScreen(
             val merged = decoded?.let { library.mergeImport(it) }
             if (decoded == null || merged == null) {
                 busy = false
-                toast(context.getString(R.string.float_ball_preset_import_failed))
+                toast(resources.getString(R.string.float_ball_preset_import_failed))
                 return@launch
             }
             val added = merged.presets.size - library.presets.size
             editor.commitLibrary { merged }
             busy = false
-            toast(context.getString(R.string.float_ball_preset_import_done, added))
+            toast(resources.getString(R.string.float_ball_preset_import_done, added))
         }
     }
 

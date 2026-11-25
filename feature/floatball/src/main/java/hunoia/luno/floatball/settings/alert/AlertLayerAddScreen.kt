@@ -5,7 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertHost
@@ -35,7 +35,7 @@ fun AlertLayerAddScreen(
 ) {
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val current = editor.library.presetById(presetId)
     LaunchedEffect(presetId, current) {
         if (current == null) onGone()
@@ -71,7 +71,7 @@ fun AlertLayerAddScreen(
                                     R.string.float_ball_layer_add_blank,
                                     stringResource(family.labelRes()),
                                 ),
-                                subtitle = blocked?.let { context.getString(it.reasonRes()) }
+                                subtitle = blocked?.let { resources.getString(it.reasonRes()) }
                                     ?: stringResource(familyHint(family)),
                                 shape = shape,
                                 enabled = blocked == null,

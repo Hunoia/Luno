@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.floatball.R
@@ -41,6 +42,7 @@ fun AlertSettingsScreen(
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val facades = LocalFacades.current
     var showPresetSheet by remember { mutableStateOf(false) }
 
@@ -64,7 +66,7 @@ fun AlertSettingsScreen(
                         facades.system.previewFloatBallAlert(context)
                     } else {
                         toast(
-                            context.getString(
+                            resources.getString(
                                 if (!alert.enabled) {
                                     R.string.float_ball_alert_preview_disabled
                                 } else {

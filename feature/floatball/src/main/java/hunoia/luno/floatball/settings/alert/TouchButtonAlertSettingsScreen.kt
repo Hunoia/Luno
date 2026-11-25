@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.defaults.GestureSettingsDefaults
@@ -59,6 +60,7 @@ fun TouchButtonAlertSettingsScreen(
     focusButtonId: String? = null,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val facades = LocalFacades.current
     var alert by remember {
@@ -112,10 +114,10 @@ fun TouchButtonAlertSettingsScreen(
     }
 
     fun presetName(presetId: String?): String {
-        if (presetId == null) return context.getString(R.string.button_alert_unbound)
+        if (presetId == null) return resources.getString(R.string.button_alert_unbound)
         val preset: AlertPreset? = library.presetById(presetId)
         return preset?.displayNameString(context)
-            ?: context.getString(R.string.float_ball_alert_preset_missing)
+            ?: resources.getString(R.string.float_ball_alert_preset_missing)
     }
 
     val orderedButtons = remember(buttons, focusButtonId) {
@@ -135,9 +137,9 @@ fun TouchButtonAlertSettingsScreen(
             LunoFab(
                 onClick = {
                     when {
-                        !alert.enabled -> toast(context.getString(R.string.button_alert_preview_disabled))
+                        !alert.enabled -> toast(resources.getString(R.string.button_alert_preview_disabled))
                         previewPreset == null || !previewPreset.isPlayable() ->
-                            toast(context.getString(R.string.button_alert_preview_none))
+                            toast(resources.getString(R.string.button_alert_preview_none))
                         else -> facades.system.previewFloatBallAlertPreset(
                             context,
                             previewPreset,

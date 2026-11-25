@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertLimits
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val facades = LocalFacades.current
     var alert by remember { mutableStateOf(TuneConfig.latestAction().floatBall.lockAlert) }
@@ -113,9 +115,9 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
             LunoFab(
                 onClick = {
                     when {
-                        !alert.enabled -> toast(context.getString(R.string.lock_alert_preview_disabled))
+                        !alert.enabled -> toast(resources.getString(R.string.lock_alert_preview_disabled))
                         selected == null || !selected.isPlayable() ->
-                            toast(context.getString(R.string.lock_alert_preview_none))
+                            toast(resources.getString(R.string.lock_alert_preview_none))
                         else -> facades.system.previewFloatBallAlertPreset(
                             context,
                             selected,

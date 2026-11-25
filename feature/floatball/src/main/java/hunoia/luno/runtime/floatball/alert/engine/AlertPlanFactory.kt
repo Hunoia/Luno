@@ -128,7 +128,9 @@ internal object AlertPlanFactory {
     /** 颜色引用 → 渲染用调色板：逐色 > 素材库 / 内置调色板 > 跟随预设自身颜色。 */
     fun paletteResolver(library: AlertLibrary): (AlertColorRef) -> AlertPaletteSpec? = { ref ->
         when {
-            ref.colors.isNotEmpty() -> AlertPaletteSpec(colors = ref.colors.take(5))
+            ref.colors.isNotEmpty() -> AlertPaletteSpec(
+                colors = ref.colors.take(hunoia.luno.config.model.AlertLimits.MaxPaletteColors),
+            )
             ref.paletteId != null -> library.paletteById(ref.paletteId)?.toSpec()
             else -> null
         }

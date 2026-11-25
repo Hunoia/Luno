@@ -36,6 +36,8 @@ fun LunoDropdownRow(
     onSelect: (Int) -> Unit,
     shape: Shape,
     subtitle: String? = null,
+    /** 置灰且不展开菜单（条件未满足时用副标题说明原因）。 */
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val current = options.getOrElse(selectedIndex) { "" }
@@ -45,6 +47,7 @@ fun LunoDropdownRow(
             // 无 hint 时当前值作副标题；有 hint（副标题被占）时当前值改走行尾，收起也能看到。
             subtitle = subtitle ?: current,
             shape = shape,
+            enabled = enabled,
             trailing = if (subtitle != null) {
                 {
                     Row(
@@ -66,7 +69,7 @@ fun LunoDropdownRow(
             } else {
                 null
             },
-            onClick = { expanded = true },
+            onClick = if (enabled) ({ expanded = true }) else null,
         )
         Box(modifier = Modifier.align(Alignment.BottomEnd)) {
             LunoDropdownMenu(

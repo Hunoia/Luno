@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -75,6 +76,7 @@ private enum class ActionAlertTab { Picker, Library }
 @Composable
 fun ActionAlertSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val facades = LocalFacades.current
     var actionAlert by remember { mutableStateOf(TuneConfig.latestAction().floatBall.actionAlert) }
@@ -135,10 +137,10 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
             typeId.contains(normalizedQuery, ignoreCase = true)
 
     fun boundPresetLabel(presetId: String?): String {
-        if (presetId == null) return context.getString(R.string.action_alert_unbound)
+        if (presetId == null) return resources.getString(R.string.action_alert_unbound)
         val preset: AlertPreset? = library.presetById(presetId)
         return preset?.displayNameString(context)
-            ?: context.getString(R.string.float_ball_alert_preset_missing)
+            ?: resources.getString(R.string.float_ball_alert_preset_missing)
     }
 
     val previewPreset: AlertPreset? = previewPresetId?.let { library.presetById(it) }
@@ -152,10 +154,10 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
                 onClick = {
                     when {
                         !actionAlert.enabled -> toast(
-                            context.getString(R.string.action_alert_preview_disabled),
+                            resources.getString(R.string.action_alert_preview_disabled),
                         )
                         previewPreset == null -> toast(
-                            context.getString(R.string.action_alert_preview_none),
+                            resources.getString(R.string.action_alert_preview_none),
                         )
                         else -> facades.system.previewFloatBallAlertPreset(
                             context,

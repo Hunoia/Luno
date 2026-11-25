@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.AlertPlaybackPolicy
@@ -67,6 +68,7 @@ fun AlertPresetEditorScreen(
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val facades = LocalFacades.current
     var leaving by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -138,9 +140,9 @@ fun AlertPresetEditorScreen(
             if (blocked != null) {
                 Toast.makeText(
                     context,
-                    context.getString(
+                    resources.getString(
                         R.string.float_ball_preset_toggle_blocked,
-                        context.getString(blocked.reasonRes()),
+                        resources.getString(blocked.reasonRes()),
                     ),
                     Toast.LENGTH_SHORT,
                 ).show()
@@ -162,7 +164,7 @@ fun AlertPresetEditorScreen(
                     } else {
                         Toast.makeText(
                             context,
-                            context.getString(R.string.float_ball_preset_empty_preview),
+                            resources.getString(R.string.float_ball_preset_empty_preview),
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
@@ -329,10 +331,10 @@ fun AlertPresetEditorScreen(
                         LunoSettingsRow(
                             title = "#${index + 1}  ${layer.displayName()}",
                             subtitle = buildString {
-                                append(context.getString(layer.family.labelRes()))
+                                append(resources.getString(layer.family.labelRes()))
                                 if (!layer.enabled) {
                                     append("  ")
-                                    append(context.getString(R.string.float_ball_preset_layer_off))
+                                    append(resources.getString(R.string.float_ball_preset_layer_off))
                                 }
                             },
                             shape = LargeShape,

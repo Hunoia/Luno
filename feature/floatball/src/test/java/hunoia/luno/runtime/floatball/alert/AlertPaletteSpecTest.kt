@@ -1,7 +1,9 @@
 package hunoia.luno.runtime.floatball.alert
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import hunoia.luno.config.model.rainbowRing
 
 /**
  * 多色取色的口径：周长 / 角度采样必须**环形插值**（相邻两色过渡、末色接回首色），
@@ -56,5 +58,30 @@ class AlertPaletteSpecTest {
         // 越界比例夹回 0..1，不产生溢出色。
         assertEquals(red, lerpArgb(red, green, -2f))
         assertEquals(green, lerpArgb(red, green, 3f))
+    }
+
+    @Test
+    fun `rainbow spec carries the parameterized ring`() {
+        val source = hunoia.luno.config.model.BuiltinAlertPalettes.Rainbow.copy(
+            rainbowHueOffset = 90,
+            rainbowReverse = true,
+        )
+        val spec = source.toSpec()
+        assertTrue(spec.isRainbow)
+        assertEquals(hunoia.luno.config.model.AlertLimits.MaxPaletteColors, spec.colors.size)
+        // 环由参数生成，与预览共用同一份色表。
+        assertEquals(source.rainbowRing(), spec.colors)
+    }
+
+    @Test
+    fun `non rainbow spec truncates to palette max`() {
+        val colors = List(hunoia.luno.config.model.AlertLimits.MaxPaletteColors + 2) { red }
+        val spec = hunoia.luno.config.model.AlertPalette(
+            id = "t",
+            name = "t",
+            colors = colors,
+        ).toSpec()
+        assertEquals(hunoia.luno.config.model.AlertLimits.MaxPaletteColors, spec.colors.size)
+        assertTrue(!spec.isRainbow)
     }
 }

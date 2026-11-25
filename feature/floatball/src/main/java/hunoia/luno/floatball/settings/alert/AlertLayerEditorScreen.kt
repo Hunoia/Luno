@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
@@ -95,6 +96,7 @@ fun AlertLayerEditorScreen(
     val editor = rememberAlertEditor()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val facades = LocalFacades.current
     var leaving by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -176,7 +178,7 @@ fun AlertLayerEditorScreen(
                     if (playable) {
                         previewLayer()
                     } else {
-                        toast(context.getString(R.string.float_ball_layer_preview_disabled))
+                        toast(resources.getString(R.string.float_ball_layer_preview_disabled))
                     }
                 },
                 icon = Icons.Default.PlayArrow,
@@ -227,9 +229,9 @@ fun AlertLayerEditorScreen(
                         val blocked = currentPreset.addBlockedBy(layer.family, addingStored = true)
                         if (blocked != null) {
                             toast(
-                                context.getString(
+                                resources.getString(
                                     R.string.float_ball_preset_toggle_blocked,
-                                    context.getString(blocked.reasonRes()),
+                                    resources.getString(blocked.reasonRes()),
                                 ),
                             )
                             return@LunoDropdownMenuItem
@@ -294,9 +296,9 @@ fun AlertLayerEditorScreen(
                                     )
                                     if (blocked != null) {
                                         toast(
-                                            context.getString(
+                                            resources.getString(
                                                 R.string.float_ball_preset_toggle_blocked,
-                                                context.getString(blocked.reasonRes()),
+                                                resources.getString(blocked.reasonRes()),
                                             ),
                                         )
                                         return@LunoSwitchRow

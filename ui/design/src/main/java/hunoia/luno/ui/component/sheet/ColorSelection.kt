@@ -47,3 +47,9 @@ fun ColorSelection.toColorSpec(scheme: ColorScheme): ColorSpec = when (this) {
         customColor = key.resolveColor(scheme).toArgb(),
     )
 }
+
+/** 选择器结果的 ARGB 快照（主题色取当前解析值；「最近使用色」用）。 */
+fun ColorSelection.toArgb(scheme: ColorScheme): Int = when (this) {
+    is ColorSelection.Custom -> color.toArgb()
+    is ColorSelection.Theme -> key.resolveColor(scheme).toArgb()
+}

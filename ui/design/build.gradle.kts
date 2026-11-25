@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.collection)
+    implementation(libs.androidx.palette.ktx)
     implementation(libs.coil.compose)
     // LunoScreen/LunoSheet 的公开参数含 HazeState：属于契约性再导出
     api(libs.haze)

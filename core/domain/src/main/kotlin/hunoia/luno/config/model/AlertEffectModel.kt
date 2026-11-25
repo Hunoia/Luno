@@ -139,6 +139,9 @@ object AlertLimits {
     /** 层延迟上限（ms）：通用时序旋钮，避免透明窗挂太久。 */
     const val MaxDelayMillis = 3000
 
+    /** 调色板颜色数上限（1–[MaxPaletteColors]）；渲染 AGSL 与环形采样共用同一上限。 */
+    const val MaxPaletteColors = 6
+
     /** UI 下限取 50：0 会让效果完全不可见（外部请求仍可用 0..2 的倍率）。 */
     const val IntensityMin = 50
     const val IntensityMax = 200
@@ -177,8 +180,8 @@ data class AlertTiming(
 )
 
 /**
- * 颜色引用：调色板 id 优先；[colors] 是逐色 ARGB（1–5 色，自定义预设可直接存色）。
- * 两者都为空 = 跟随预设级调色板 / 「动效颜色」/ 主题主色。
+ * 颜色引用：调色板 id 优先；[colors] 是逐色 ARGB（1–[AlertLimits.MaxPaletteColors] 色，
+ * 自定义预设可直接存色）。两者都为空 = 跟随预设级调色板 / 「动效颜色」/ 主题主色。
  */
 @Serializable
 @Keep

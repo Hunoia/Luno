@@ -8,23 +8,36 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.ui.component.menu.LunoDropdownMenu
-import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.sheet.OptimizedScrollState
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.PageGutter
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import hunoia.luno.config.model.AlertFamily
 import hunoia.luno.config.model.AlertLayer
@@ -301,10 +314,8 @@ internal fun AlertCategoryFilter(
 }
 
 /**
- * 调色板单选下拉：预设级（组合调色板）/ 层级（颜色）共用。
- *
- * 第一项是“跟随”（预设级 = 跟随各层；层级 = 跟随预设），后面是素材库全部调色板，
- * 每项带色条预览（[PaletteSwatchStrip]）。「跟随」项走纯文字，无色条。
+ * 调色板单选：点行弹底部 sheet，sheet 内单列卡片（第一张「跟随」，其余素材库全部调色板，
+ * 每卡带色条预览，选中卡高亮描边）。预设级（组合调色板）/ 层级（颜色）共用。
  */
 @Composable
 internal fun AlertPaletteRow(
@@ -317,56 +328,98 @@ internal fun AlertPaletteRow(
 ) {
     val palettes = library.paletteChoices()
     val index = palettes.indexOfFirst { it.id == selectedId }
-    var expanded by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
     val currentName = if (index < 0) followLabel else palettes[index].name
-    Box(modifier = Modifier.fillMaxWidth()) {
-        LunoSettingsRow(
-            title = title,
-            subtitle = currentName,
-            shape = shape,
-            trailing = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (index >= 0) {
-                        PaletteSwatchStrip(palettes[index])
-                    }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            onClick = { expanded = true },
-        )
-        Box(modifier = Modifier.align(Alignment.BottomEnd)) {
-            LunoDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
+
+    LunoSettingsRow(
+        title = title,
+        subtitle = currentName,
+        shape = shape,
+        trailing = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                LunoDropdownMenuItem(
-                    text = followLabel,
+                if (index >= 0) {
+                    PaletteSwatchStrip(palettes[index])
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        onClick = { showSheet = true },
+    )
+
+    if (showSheet) {
+        val sheetScroll = rememberScrollState()
+        LunoSheet(
+            onDismissRequest = { showSheet = false },
+            scrollState = OptimizedScrollState.Scroll(sheetScroll),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(sheetScroll)
+                    .padding(vertical = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = CardInnerSpacing),
+                )
+                FollowPaletteCard(
+                    label = followLabel,
                     selected = index < 0,
                     onClick = {
-                        expanded = false
+                        showSheet = false
                         onSelect(null)
                     },
                 )
-                palettes.forEachIndexed { i, palette ->
-                    LunoDropdownMenuItem(
-                        text = palette.name,
-                        leadingIcon = { PaletteSwatchStrip(palette) },
-                        selected = i == index,
+                palettes.forEach { palette ->
+                    PaletteCard(
+                        palette = palette,
+                        selected = palette.id == selectedId,
                         onClick = {
-                            expanded = false
+                            showSheet = false
                             onSelect(palette.id)
                         },
                     )
                 }
             }
         }
+    }
+}
+
+/** 选择 sheet 里的「跟随」卡：无色条（跟随语义），选中用高亮底色（与 [PaletteCard] 同口径，不描边）。 */
+@Composable
+private fun FollowPaletteCard(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(LargeShape)
+            .background(if (selected) scheme.primaryContainer else scheme.surfaceContainerHigh)
+            .pressClickable(onClick = onClick, role = Role.RadioButton)
+            .padding(CardInnerSpacing),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

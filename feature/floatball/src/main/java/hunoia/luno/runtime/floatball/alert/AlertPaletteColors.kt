@@ -2,15 +2,14 @@ package hunoia.luno.runtime.floatball.alert
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import hunoia.luno.config.model.BuiltinAlertPalettes
 import kotlin.math.abs
 
 /**
- * 解析好的调色板（Compose 侧）：1–5 色或彩虹。
+ * 解析好的调色板（Compose 侧）：1–[hunoia.luno.config.model.AlertLimits.MaxPaletteColors] 色或彩虹。
  *
  * 取色口径（需求确认）：边缘按周长、粒子按序号、胶囊 / 球环按角度；单色恒纯色。
- * 周长 / 角度采样走 [sampleArgb] 的**环形插值**（末色接回首色）—— 5 色在屏缘上读作
- * 连续渐变，不会出现 5 段硬色带；粒子按序号取色本就是逐颗离散，仍走 [at]。
+ * 周长 / 角度采样走 [sampleArgb] 的**环形插值**（末色接回首色）—— 多色在屏缘上读作
+ * 连续渐变，不会出现几段硬色带；粒子按序号取色本就是逐颗离散，仍走 [at]。
  */
 internal class AlertPaletteColors(
     val colors: List<Color>,
@@ -38,9 +37,11 @@ internal class AlertPaletteColors(
 /** [AlertPaletteSpec] → 渲染用颜色；[fallback] 是未选调色板时的单色（主题解析后）。 */
 internal fun AlertPaletteSpec.toColors(fallback: Color): AlertPaletteColors {
     if (rainbow) {
-        // 彩虹与设置页预览共用同一份色表（BuiltinAlertPalettes.rainbowColors）。
+        // 彩虹与设置页预览共用同一份色表（AlertPalette.rainbowRing，已在 toSpec 填好）；
+        // 空表兜底为默认色相环，保证 AlertPaletteColors 非空约束。
+        val ring = colors.ifEmpty { hunoia.luno.config.model.BuiltinAlertPalettes.rainbowColors }
         return AlertPaletteColors(
-            colors = BuiltinAlertPalettes.rainbowColors.map { Color(it) },
+            colors = ring.map { Color(it) },
             rainbow = true,
         )
     }

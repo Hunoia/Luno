@@ -15,6 +15,9 @@ val PaletteDotSize = 18.dp
 val PalettePreviewHeight = 24.dp
 /** 调色板预览里相邻色点的间距。 */
 val PaletteDotSpacing = 4.dp
+/** 调色板编辑页的可视化色块边长与圆角条高度。同为固定尺寸色块语义，不随字体缩放。 */
+val PaletteSwatchSize = 48.dp
+val PaletteStripHeight = 32.dp
 val MinItemHeightNoSecondary = 50.dp
 val MinInteractiveSize = 48.dp
 /**

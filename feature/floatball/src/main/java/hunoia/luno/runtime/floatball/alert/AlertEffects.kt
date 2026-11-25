@@ -99,10 +99,10 @@ private const val TAG = "AlertEffects"
 private const val TwoPi = (Math.PI * 2.0).toFloat()
 
 /**
- * 调色板 AGSL 声明与取色助手：`paletteCount` + 5 色。
+ * 调色板 AGSL 声明与取色助手：`paletteCount` + [hunoia.luno.config.model.AlertLimits.MaxPaletteColors] 色。
  *
- * `paletteAt` 在相邻两色之间**线性插值**（末色接回首色）：分桶取色会让 5 色在屏缘上
- * 读作 5 段硬色带，与「沿屏缘渐变」的取色口径不符；单色恒 `palette0`。
+ * `paletteAt` 在相邻两色之间**线性插值**（末色接回首色）：分桶取色会让多色在屏缘上
+ * 读作几段硬色带，与「沿屏缘渐变」的取色口径不符；单色恒 `palette0`。
  */
 private const val PALETTE_DECL = """
     uniform float paletteCount;
@@ -111,6 +111,7 @@ private const val PALETTE_DECL = """
     layout(color) uniform half4 palette2;
     layout(color) uniform half4 palette3;
     layout(color) uniform half4 palette4;
+    layout(color) uniform half4 palette5;
 
     half4 paletteNth(float fi) {
         float i = mod(fi, max(paletteCount, 1.0));
@@ -118,7 +119,8 @@ private const val PALETTE_DECL = """
         if (i < 1.5) return palette1;
         if (i < 2.5) return palette2;
         if (i < 3.5) return palette3;
-        return palette4;
+        if (i < 4.5) return palette4;
+        return palette5;
     }
 
     half4 paletteAt(float s) {
@@ -2307,9 +2309,9 @@ private fun decodeAppIcon(context: Context, appPackage: String?): androidx.compo
     return bitmap.asImageBitmap()
 }
 
-/** 写入调色板 AGSL uniforms（paletteCount + 5 色；空色表回退首色）。 */
+/** 写入调色板 AGSL uniforms（paletteCount + 上限色；空色表回退首色）。 */
 private fun setPaletteUniforms(shader: RuntimeShader, palette: AlertPaletteColors) {
-    val n = palette.colors.size.coerceIn(1, 5)
+    val n = palette.colors.size.coerceIn(1, hunoia.luno.config.model.AlertLimits.MaxPaletteColors)
     shader.setFloatUniform("paletteCount", n.toFloat())
     val argb = palette.colors.map { it.copy(alpha = 1f).toArgb() }
     shader.setColorUniform("palette0", argb[0 % argb.size])
@@ -2317,6 +2319,7 @@ private fun setPaletteUniforms(shader: RuntimeShader, palette: AlertPaletteColor
     shader.setColorUniform("palette2", argb[2 % argb.size])
     shader.setColorUniform("palette3", argb[3 % argb.size])
     shader.setColorUniform("palette4", argb[4 % argb.size])
+    shader.setColorUniform("palette5", argb[5 % argb.size])
 }
 
 /** AGSL 编译失败不连坐整窗：失败只记日志并跳过该层（否则构造异常会把窗口一起带走）。 */

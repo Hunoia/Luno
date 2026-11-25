@@ -18,7 +18,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
@@ -43,8 +42,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import hunoia.luno.design.R
@@ -241,17 +243,27 @@ internal fun ColorSlider(
                     .fillMaxSize()
                     .background(brush),
             )
-            Slider(
-                state = sliderState,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                interactionSource = interactionSource,
-                // 轨道不画（渐变 + 棋盘由底下两层画），但必须占满宽度：M3 用轨道实测宽度算拇指
-                // 行程，空轨道会测成 0 宽、圆点钉死不动。
-                track = { Box(Modifier.fillMaxWidth()) },
-                // M3 拇指摆位按内部固定 20dp 拇指宽换算，内容给多大都有约 6dp 两端偏移，
-                // 所以不画它，圆点由本层自己摆。
-                thumb = { Box(Modifier.size(thumbSize)) },
+            // 不用 M3 Slider：它在**按下瞬间**就把值写成按下位置（且直接写 state），
+            // 手指落左半边就弹到最左、右半边弹到最右，上层手势层的相对位移拦不住。
+            // 这里只保留一个不可见的语义节点：TalkBack 的增减走 setProgress，
+            // 指针交互全交给下面的 horizontalSliderDrag。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(thumbSize)
+                    .semantics {
+                        progressBarRangeInfo = ProgressBarRangeInfo(
+                            current = sliderState.value.coerceIn(0f, 1f),
+                            range = 0f..1f,
+                            steps = 0,
+                        )
+                        setProgress { target ->
+                            val next = target.coerceIn(0f, 1f)
+                            sliderState.value = next
+                            onValueChange(next)
+                            true
+                        }
+                    },
             )
             // 圆点自己摆位：x = 比例 ×（轨道宽 − 圆点宽），0% 贴左端、100% 贴右端。
             // align(CenterStart) 让圆点从轨道左端起算，offset 才是绝对行程（否则先居中再偏移）。
@@ -285,6 +297,9 @@ internal fun ColorSlider(
                         steps = 0,
                         currentValue = { sliderState.value },
                         interactionSource = interactionSource,
+                        // 行程换算必须用**本层实际画出的圆点直径**（HueBarTouchHeight），
+                        // 不是 M3 默认的 20dp：两者差 12dp，否则圆点追不上手指。
+                        thumbWidth = thumbSize,
                         // 外部受控值可能松手才落盘：先写 state，拇指才跟手；外部回写由上面
                         // 带 isDragging 守卫的 LaunchedEffect 对齐。
                         onValueChange = { v ->

@@ -28,6 +28,7 @@ junit = "4.13.2"
 konsist = "0.18.1"
 coroutines = "1.11.0"
 androidxAnnotation = "1.11.0"
+paletteKtx = "1.0.0"
 glance = "1.2.0"
 androidxWork = "2.12.0"
 browser = "1.8.0"
@@ -48,6 +49,7 @@ coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil"
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotation" }
+androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "paletteKtx" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 com-aaronzzx-fastcompose-compose = { group = "com.github.aaronzzx.fastcompose", name = "compose", version.ref = "fastCompose" }
 com-aaronzzx-fastcompose-compose-accessibility = { group = "com.github.aaronzzx.fastcompose", name = "composeaccessibility", version.ref = "fastCompose" }

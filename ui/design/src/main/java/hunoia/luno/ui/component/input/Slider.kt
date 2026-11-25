@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -242,7 +243,13 @@ internal fun Modifier.horizontalSliderDrag(
     interactionSource: MutableInteractionSource,
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
-): Modifier = pointerInput(valueRange, steps, interactionSource) {
+    /**
+     * 行程换算要扣掉的拇指宽度。必须与调用方**实际画出来的**圆点直径一致：
+     * 默认 [SliderThumbWidth] 对应 M3 自带拇指；自绘圆点（如颜色滑杆用
+     * `HueBarTouchHeight`）必须显式传入，否则两端各差半个宽度，圆点追不上手指。
+     */
+    thumbWidth: Dp = SliderThumbWidth,
+): Modifier = pointerInput(valueRange, steps, interactionSource, thumbWidth) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val press = PressInteraction.Press(down.position)
@@ -250,7 +257,7 @@ internal fun Modifier.horizontalSliderDrag(
         val baseValue = currentValue()
         val start = down.position
         // M3 轨道两端各留半个 thumb，拖动映射要扣掉，否则指尖没到边值就到底。
-        val trackPx = (size.width - SliderThumbWidth.toPx()).coerceAtLeast(1f)
+        val trackPx = (size.width - thumbWidth.toPx()).coerceAtLeast(1f)
         var dragging = false
         var dragStart: DragInteraction.Start? = null
         while (true) {

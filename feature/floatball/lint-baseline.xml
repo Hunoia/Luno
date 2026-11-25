@@ -24,17 +24,6 @@
     </issue>
 
     <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                runCatching { android.net.Uri.parse(item.uri) }.getOrNull()?.let { uri ->"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/hunoia/luno/runtime/floatball/FloatBallService.kt"
-            line="954"
-            column="31"/>
-    </issue>
-
-    <issue
         id="ClickableViewAccessibility"
         message="Custom view ``FrameLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
         errorLine1="        root.setOnTouchListener { _, event ->"
