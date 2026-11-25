@@ -16,7 +16,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import kotlinx.coroutines.launch
 
 /**
@@ -56,10 +55,11 @@ fun AlertLayerAddScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_layer_add_title),
-        onBack = onBack,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_layer_add_title),
+onBack = onBack) {
+    list() {
+        lazy {
+
         item(key = "blank") {
             LunoGroup(subtitle = stringResource(R.string.float_ball_layer_add_blank_hint)) {
                 val rows = segmentedRows {
@@ -83,7 +83,10 @@ fun AlertLayerAddScreen(
                 SegmentedRows(rows)
             }
         }
+
+        }
     }
+}
 }
 
 /** 添加层的排列顺序（先宿主后族，胶囊三族相邻）。 */

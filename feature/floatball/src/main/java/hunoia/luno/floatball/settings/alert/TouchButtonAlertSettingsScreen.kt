@@ -36,7 +36,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
@@ -129,11 +128,9 @@ fun TouchButtonAlertSettingsScreen(
             ?: alert.bindings.values.firstOrNull()?.let { library.presetById(it) }
         )
 
-    LunoScreenLazy(
-        title = stringResource(R.string.button_alert_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.button_alert_title),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = {
                     when {
@@ -152,7 +149,7 @@ fun TouchButtonAlertSettingsScreen(
                 contentDescription = stringResource(R.string.button_alert_preview),
             )
         },
-        sheets = {
+sheets = {
             pickButtonId?.let { buttonId ->
                 AlertPresetSelectSheet(
                     library = library,
@@ -194,8 +191,10 @@ fun TouchButtonAlertSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "effect") {
             val rows = segmentedRows {
                 item { shape ->
@@ -390,7 +389,10 @@ fun TouchButtonAlertSettingsScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 @Composable

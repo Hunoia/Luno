@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.design.R
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.MenuShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressButton
@@ -59,7 +59,7 @@ private fun SheetActionButton(
     PressButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = MinInteractiveSize),
-        shape = LargeShape,
+        shape = MenuShape,
         interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -75,7 +75,7 @@ private fun SheetActionButton(
  * 只有一个确认类动作、没有取消对的 sheet 用（如取色器的「确认」）。
  */
 @Composable
-fun SheetSingleActionButton(
+internal fun SheetSingleActionButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -87,7 +87,7 @@ fun SheetSingleActionButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = MinInteractiveSize),
-        shape = LargeShape,
+        shape = MenuShape,
         interactionSource = interactionSource,
         colors = if (destructive) {
             ButtonDefaults.buttonColors(

@@ -35,6 +35,7 @@ import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.row.groupItemClip
 import hunoia.luno.ui.component.row.groupItemSpacing
 import hunoia.luno.ui.component.row.segmentedShape
@@ -66,28 +67,26 @@ internal fun EngineEditFields(
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         // 基本信息：三行同属一组，分段风格是三个圆角块，大卡风格是一张卡 + 行间分割线。
-        LunoGroup(title = stringResource(R.string.search_engine_basic_group)) {
-            LunoInputRow(
-                label = stringResource(R.string.search_engine_name),
-                value = state.name,
-                onValueChange = { state.name = it },
-                placeholder = stringResource(R.string.search_engine_name_hint),
-                shape = segmentedShape(0, 3),
-            )
-            LunoInputRow(
-                label = stringResource(R.string.search_engine_icon_text),
-                value = state.iconText,
-                onValueChange = { state.iconText = it.take(2) },
-                placeholder = stringResource(R.string.search_engine_icon_text_hint),
-                shape = segmentedShape(1, 3),
-            )
-            LunoInputRow(
-                label = stringResource(R.string.search_engine_trigger),
-                value = state.trigger,
-                onValueChange = { state.trigger = it },
-                placeholder = "bb",
-                // 格式错误与撞车分开展示：撞车指名道姓（撞了哪个引擎 / 哪个来源）。
-                subtitle = when (val conflict = state.triggerConflict) {
+        group(title = stringResource(R.string.search_engine_basic_group)) {inputRow(
+label = stringResource(R.string.search_engine_name),
+value = state.name,
+onValueChange = { state.name = it },
+placeholder = stringResource(R.string.search_engine_name_hint),
+
+)
+inputRow(
+label = stringResource(R.string.search_engine_icon_text),
+value = state.iconText,
+onValueChange = { state.iconText = it.take(2) },
+placeholder = stringResource(R.string.search_engine_icon_text_hint),
+
+)
+inputRow(
+label = stringResource(R.string.search_engine_trigger),
+value = state.trigger,
+onValueChange = { state.trigger = it },
+placeholder = "bb",
+subtitle = when (val conflict = state.triggerConflict) {
                     is TriggerConflict.Engine ->
                         stringResource(R.string.search_engine_trigger_conflict, conflict.name)
                     is TriggerConflict.Source -> stringResource(
@@ -96,9 +95,9 @@ internal fun EngineEditFields(
                     )
                     else -> state.triggerError?.let { stringResource(it) }.orEmpty()
                 },
-                isError = state.triggerError != null || state.triggerConflict != null,
-                shape = segmentedShape(2, 3),
-            )
+isError = state.triggerError != null || state.triggerConflict != null,
+
+)
         }
         EngineIconFields(state)
         OpenModeCard(state)
@@ -127,50 +126,48 @@ internal fun EngineEditFields(
         // Custom Tabs 打开：仅 Default（无指定包）。App 模式指定了包名，
         // Custom Tabs 只会拉起默认浏览器，两者互斥，所以不在 App 模式展示。
         if (state.mode == EngineOpenMode.Default) {
-            LunoGroup(title = stringResource(R.string.search_engine_url_options)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.search_engine_small_window),
-                    subtitle = stringResource(R.string.search_engine_small_window_desc),
-                    checked = state.useSmallWindow,
-                    onCheckedChange = {
+            group(title = stringResource(R.string.search_engine_url_options)) {switchRow(
+title = stringResource(R.string.search_engine_small_window),
+subtitle = stringResource(R.string.search_engine_small_window_desc),
+checked = state.useSmallWindow,
+onCheckedChange = {
                         state.useSmallWindow = it
-                        // 两个打开方式互斥：分发里小窗优先级更高，同时开着只会造成
-                        // 「以为走 Custom Tabs 实际进小窗」的困惑，联动互关。
+
+
                         if (it) state.useCustomTabs = false
                     },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.search_engine_custom_tabs),
-                    subtitle = stringResource(R.string.search_engine_custom_tabs_desc),
-                    checked = state.useCustomTabs,
-                    onCheckedChange = {
+
+)
+switchRow(
+title = stringResource(R.string.search_engine_custom_tabs),
+subtitle = stringResource(R.string.search_engine_custom_tabs_desc),
+checked = state.useCustomTabs,
+onCheckedChange = {
                         state.useCustomTabs = it
                         if (it) state.useSmallWindow = false
                     },
-                    shape = segmentedShape(1, 2),
-                )
+
+)
             }
         }
         if (state.mode == EngineOpenMode.App || state.mode == EngineOpenMode.Share || state.isShareImage || state.isActivity) {
-            LunoGroup(title = stringResource(R.string.search_engine_target_app)) {
-                LunoSettingsRow(
-                    title = appLabel
+            group(title = stringResource(R.string.search_engine_target_app)) {row(
+title = appLabel
                         ?: targetPackage.takeIf { it.isNotBlank() }
                         ?: stringResource(R.string.search_engine_target_app_hint),
-                    subtitle = when {
+subtitle = when {
                         state.targetMissing(targetPackage) -> stringResource(R.string.search_engine_target_required)
                         appLabel != null -> targetPackage
                         else -> ""
                     },
-                    subtitleColor = if (state.targetMissing(targetPackage)) {
+subtitleColor = if (state.targetMissing(targetPackage)) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    onClick = onPickApp,
-                    shape = segmentedShape(0, 1),
-                )
+onClick = onPickApp,
+
+)
             }
             if (state.isShareImage) {
                 Text(
@@ -213,14 +210,13 @@ internal fun EngineEditFields(
                         shape = segmentedShape(1, 2),
                     )
                 }
-                LunoGroup(title = stringResource(R.string.search_engine_activity_options)) {
-                    LunoSwitchRow(
-                        title = stringResource(R.string.search_engine_auto_enter),
-                        subtitle = stringResource(R.string.search_engine_auto_enter_desc),
-                        checked = state.autoInputEnter,
-                        onCheckedChange = { state.autoInputEnter = it },
-                        shape = segmentedShape(0, 1),
-                    )
+                group(title = stringResource(R.string.search_engine_activity_options)) {switchRow(
+title = stringResource(R.string.search_engine_auto_enter),
+subtitle = stringResource(R.string.search_engine_auto_enter_desc),
+checked = state.autoInputEnter,
+onCheckedChange = { state.autoInputEnter = it },
+
+)
                 }
             }
         }
@@ -269,14 +265,13 @@ private fun EngineIconFields(state: EngineEditState) {
     }
     when (state.iconType) {
         EngineIconType.Text -> Unit
-        EngineIconType.App -> LunoGroup(title = stringResource(R.string.search_engine_icon_app_source)) {
-            LunoInputRow(
-                label = stringResource(R.string.search_engine_icon_package),
-                value = state.icon,
-                onValueChange = { state.icon = it },
-                placeholder = "com.example.app",
-                shape = segmentedShape(0, 1),
-            )
+        EngineIconType.App -> group(title = stringResource(R.string.search_engine_icon_app_source)) {inputRow(
+label = stringResource(R.string.search_engine_icon_package),
+value = state.icon,
+onValueChange = { state.icon = it },
+placeholder = "com.example.app",
+
+)
         }
         EngineIconType.Image -> LunoGroup(title = stringResource(R.string.search_engine_icon_image_source)) {
             LunoInputRow(
@@ -297,33 +292,31 @@ private fun EngineImageFields(
     imageAppLabel: String?,
     onPickImageApp: () -> Unit,
 ) {
-    LunoGroup(title = stringResource(R.string.search_engine_image_group)) {
-        LunoSwitchRow(
-            title = stringResource(R.string.search_engine_image_dual),
-            subtitle = stringResource(R.string.search_engine_image_dual_desc),
-            checked = state.imageShareEnabled,
-            onCheckedChange = { state.imageShareEnabled = it },
-            shape = segmentedShape(0, 1),
-        )
+    group(title = stringResource(R.string.search_engine_image_group)) {switchRow(
+title = stringResource(R.string.search_engine_image_dual),
+subtitle = stringResource(R.string.search_engine_image_dual_desc),
+checked = state.imageShareEnabled,
+onCheckedChange = { state.imageShareEnabled = it },
+
+)
     }
     if (!state.imageShareEnabled) return
-    LunoGroup(title = stringResource(R.string.search_engine_image_target)) {
-        LunoSettingsRow(
-            title = imageAppLabel
+    group(title = stringResource(R.string.search_engine_image_target)) {row(
+title = imageAppLabel
                 ?: state.imageTargetPackage.takeIf { it.isNotBlank() }
                 ?: stringResource(R.string.search_engine_target_app_hint),
-            subtitle = when {
+subtitle = when {
                 state.imageTargetMissing -> stringResource(R.string.search_engine_target_required)
                 else -> state.imageTargetPackage
             },
-            subtitleColor = if (state.imageTargetMissing) {
+subtitleColor = if (state.imageTargetMissing) {
                 MaterialTheme.colorScheme.error
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
-            onClick = onPickImageApp,
-            shape = segmentedShape(0, 1),
-        )
+onClick = onPickImageApp,
+
+)
     }
     // 内容取向：文字 / 图片 / 每次询问。
     val modes = listOf(

@@ -20,7 +20,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import kotlinx.coroutines.launch
 
 /** 小窗设置列表：跟随触发位置 + 三个边距（当前朝向）、固定位置与大小入口。 */
@@ -38,7 +38,14 @@ fun MiniWindowSettingsScreen(
     val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    LunoScreen(title = stringResource(R.string.mini_window_settings_title), onBack = onBack) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.mini_window_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         LunoGroup(title = stringResource(R.string.mini_window_settings_group)) {
             LunoSwitchRow(
                 title = stringResource(R.string.mini_window_follow_trigger),
@@ -96,17 +103,17 @@ fun MiniWindowSettingsScreen(
                 ) }
             }
         }
-        LunoGroup(title = stringResource(R.string.mini_window_mini_group)) {
-            LunoDropdownRow(
-                title = stringResource(R.string.mini_window_mini_position),
-                subtitle = stringResource(R.string.mini_window_mini_position_hint),
-                options = listOf(
+        group(title = stringResource(R.string.mini_window_mini_group)) {
+dropdownRow(
+title = stringResource(R.string.mini_window_mini_position),
+subtitle = stringResource(R.string.mini_window_mini_position_hint),
+options = listOf(
                     stringResource(R.string.mini_window_mini_position_auto),
                     stringResource(R.string.mini_window_mini_position_left),
                     stringResource(R.string.mini_window_mini_position_right),
                 ),
-                selectedIndex = settings.miniFreeform.position.ordinal,
-                onSelect = { index ->
+selectedIndex = settings.miniFreeform.position.ordinal,
+onSelect = { index ->
                     val position = MiniFreeformPosition.entries[index]
                     scope.launch {
                         TuneConfig.updateAdvanced { current ->
@@ -119,13 +126,13 @@ fun MiniWindowSettingsScreen(
                         }
                     }
                 },
-                shape = segmentedShape(0, 2),
-            )
-            LunoSwitchRow(
-                title = stringResource(R.string.mini_window_mini_swap),
-                subtitle = stringResource(R.string.mini_window_mini_swap_hint),
-                checked = settings.miniFreeform.autoSwap,
-                onCheckedChange = { enabled ->
+
+)
+switchRow(
+title = stringResource(R.string.mini_window_mini_swap),
+subtitle = stringResource(R.string.mini_window_mini_swap_hint),
+checked = settings.miniFreeform.autoSwap,
+onCheckedChange = { enabled ->
                     scope.launch {
                         TuneConfig.updateAdvanced { current ->
                             val currentSettings = current.miniWindowSettings()
@@ -137,8 +144,11 @@ fun MiniWindowSettingsScreen(
                         }
                     }
                 },
-                shape = segmentedShape(1, 2),
-            )
+
+)        }
+
         }
     }
+}
+}
 }

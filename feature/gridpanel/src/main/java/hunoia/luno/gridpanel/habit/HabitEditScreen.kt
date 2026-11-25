@@ -54,7 +54,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -199,17 +199,15 @@ fun HabitEditScreen(
 
     val scheme = MaterialTheme.colorScheme
 
-    LunoScreen(
-        title = stringResource(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
             if (isNew && state.createdId == null) {
                 R.string.habit_create_title
             } else {
                 R.string.habit_edit_title
             },
         ),
-        onBack = ::handleBack,
-        bottomContentPadding = ContentBottom,
-        actions = {
+onBack = ::handleBack,
+actions = {
             if (habit != null) {
                 PressIconButton(
                     onClick = {
@@ -224,7 +222,7 @@ fun HabitEditScreen(
                 }
             }
         },
-        dialogs = {
+dialogs = {
             // 删除确认；与其他弹层（时间选择等）互斥由各自开关保证（ui-guidelines §3.2-5 / §4.4）。
             if (state.showDeleteDialog) {
                 if (habit != null) {
@@ -283,7 +281,7 @@ fun HabitEditScreen(
                 )
             }
         },
-        sheets = {
+sheets = {
             if (state.showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { state.showColorPicker = false },
@@ -301,8 +299,13 @@ fun HabitEditScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         LunoGroup(title = stringResource(R.string.habit_name)) {
             LunoCardInput(
                 value = shownName,
@@ -340,32 +343,30 @@ fun HabitEditScreen(
                 },
             )
         }
-        LunoGroup(title = stringResource(R.string.habit_interval)) {
-            LunoTextSlider(
-                value = shownInterval.toFloat(),
-                onValueChange = {
+        group(title = stringResource(R.string.habit_interval)) {
+sliderRow(
+value = shownInterval.toFloat(),
+onValueChange = {
                     state.interval = it.roundToInt().coerceIn(1, 30)
                     scheduleFlush()
                 },
-                text = stringResource(R.string.habit_interval_summary, shownInterval),
-                valueRange = 1f..30f,
-                steps = 28,
-                shape = segmentedShape(0, 1),
-            )
-        }
-        LunoGroup(title = stringResource(R.string.habit_daily_target)) {
-            LunoTextSlider(
-                value = shownTarget.toFloat(),
-                onValueChange = {
+text = stringResource(R.string.habit_interval_summary, shownInterval),
+valueRange = 1f..30f,
+steps = 28,
+
+)        }
+        group(title = stringResource(R.string.habit_daily_target)) {
+sliderRow(
+value = shownTarget.toFloat(),
+onValueChange = {
                     state.dailyTarget = it.roundToInt().coerceIn(1, HabitMaxDailyTarget)
                     scheduleFlush()
                 },
-                text = stringResource(R.string.habit_daily_target_summary, shownTarget),
-                valueRange = 1f..HabitMaxDailyTarget.toFloat(),
-                steps = HabitMaxDailyTarget - 2,
-                shape = segmentedShape(0, 1),
-            )
-        }
+text = stringResource(R.string.habit_daily_target_summary, shownTarget),
+valueRange = 1f..HabitMaxDailyTarget.toFloat(),
+steps = HabitMaxDailyTarget - 2,
+
+)        }
         LunoGroup(title = stringResource(R.string.habit_reminder)) {
             val reminderRowCount = if (shownReminderEnabled) shownReminders.size + 3 else 1
             LunoSwitchRow(
@@ -433,7 +434,11 @@ fun HabitEditScreen(
                 )
             }
         }
+
+        }
     }
+}
+}
 }
 
 /**

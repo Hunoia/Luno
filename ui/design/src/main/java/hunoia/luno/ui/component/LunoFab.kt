@@ -19,7 +19,7 @@ import hunoia.luno.ui.component.PressFloatingActionButton
 
 /**
  * 右下角保存/新增 FAB：64dp、无点击 ripple、避让导航栏，全 app 的编辑页与列表页共用一套观感。
- * 内部自带 fillMaxSize Box，LunoScreen（BoxScope 槽）与 LunoScreenLazy（普通槽）都能直接放。
+ * 内部自带 fillMaxSize Box，LunoPage 的 floatingContent 槽（BoxScope）直接放。
  *
  * [containerColor] 可以来自用户自定义色：此时 [contentColor] 必须由调用方按底色亮度给足对比度，
  * 不能依赖 `contentColorFor` 对非主题色的回落。

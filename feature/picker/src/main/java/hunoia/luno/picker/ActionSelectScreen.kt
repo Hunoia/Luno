@@ -68,7 +68,6 @@ import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.SystemAppsMenuButton
-import hunoia.luno.ui.component.screen.LunoScreenPlain
 import hunoia.luno.gridpanel.habit.HabitPickerDialog
 import hunoia.luno.gridpanel.trend.TrendPickerDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -125,10 +124,9 @@ fun ActionSelectContent(
         val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
 
         // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
-        LunoScreenPlain(
-            title = uiState.title,
-            onBack = onDismissRequest,
-            actions = {
+        hunoia.luno.ui.component.page.LunoPage(title = uiState.title,
+onBack = onDismissRequest,
+actions = {
                 // 应用tab：系统应用两类开关（页内内存开关，默认关、不记忆）。
                 if (normalizedType == TYPE_APP) {
                     SystemAppsMenuButton(
@@ -181,7 +179,7 @@ fun ActionSelectContent(
                     }
                 }
             },
-            dialogs = {
+dialogs = {
                 // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（architecture §9.2）。
                 // 选中后不在这里卸弹层：由 HabitPickerDialog 播完退场再回调 onDismiss，
                 // 同步置空会把退场动画跳过（退化为瞬时消失）。
@@ -211,9 +209,11 @@ fun ActionSelectContent(
                         onDismiss = { pendingTrendWidgetId = null },
                     )
                 }
-            },
-        ) { topPadding, hazeState ->
-            Column(modifier = Modifier.fillMaxSize()) {
+            }) {
+    raw { env ->
+        val topPadding = env.topPadding
+        val hazeState = env.hazeState ?: hunoia.luno.ui.theme.rememberAppHazeState()
+Column(modifier = Modifier.fillMaxSize()) {
                     val context = LocalContext.current
                     val permissionState = rememberGetInstalledAppsPermissionState()
                     // 首次进入与授权状态变化都重扫：先清进程级缓存（AppQuery / 应用清单 /
@@ -433,7 +433,9 @@ fun ActionSelectContent(
                         )
                     }
                 }
-            }
+
+    }
+}
         }
 
 }

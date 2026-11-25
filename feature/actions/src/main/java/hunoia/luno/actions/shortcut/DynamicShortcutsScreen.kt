@@ -24,7 +24,6 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.ListSpacing
 
 /**
@@ -64,11 +63,11 @@ fun DynamicShortcutsScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.dynamic_shortcuts_title),
-        onBack = onBack,
-        contentSpacing = ListSpacing,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.dynamic_shortcuts_title),
+onBack = onBack) {
+    list(contentSpacing = ListSpacing) {
+        lazy {
+
         item(key = "home") {
             // 会话进行中多一行「恢复原桌面」，分段圆角按实际行数走。
             val rowCount = if (state.sessionActive) 4 else 3
@@ -149,5 +148,8 @@ fun DynamicShortcutsScreen(
                 }
             }
         }
+
+        }
     }
+}
 }

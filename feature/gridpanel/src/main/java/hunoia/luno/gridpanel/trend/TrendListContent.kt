@@ -55,23 +55,15 @@ import java.time.ZoneId
  */
 @Composable
 fun TrendListContent(
-    topPadding: Dp,
     onOpenMetric: (metricId: String) -> Unit,
     onNewMetric: () -> Unit,
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
 ) {
     val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
-    LazyColumn(
+    hunoia.luno.ui.component.page.LunoPageList(
         modifier = modifier.fillMaxSize(),
         state = state,
-        contentPadding = PaddingValues(
-            start = PageGutter,
-            top = topPadding,
-            end = PageGutter,
-            bottom = FloatingContentBottom,
-        ),
-        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         if (config.metrics.isEmpty()) {
             item {

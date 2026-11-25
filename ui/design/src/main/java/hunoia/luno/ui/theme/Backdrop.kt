@@ -18,18 +18,20 @@ import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.hazeBlur
+import hunoia.luno.config.model.ShadowStrength
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import hunoia.luno.ui.theme.CapsuleShape
 
-val HazeBlurRadius: Dp = 25.dp
+val HazeBlurRadius: Dp get() = UiAppearance.floatingBlur
 
 /**
  * 顶栏专用模糊半径 / 底色透明度：比悬浮胶囊更实，滚动内容几乎看不清，贴近 FlClash 磨砂
  * 顶栏（ui-guidelines §4.7 顶栏条目）。胶囊族仍用 [HazeBlurRadius] / [GlassCapsuleHazeAlpha]。
+ * 三个值都可被用户覆盖（§2.5 玻璃组）。
  */
-val TopBarBlurRadius: Dp = 40.dp
-const val TopBarHazeAlpha = 0.7f
+val TopBarBlurRadius: Dp get() = UiAppearance.topBarBlur
+val TopBarHazeAlpha: Float get() = UiAppearance.topBarAlpha
 
 /** 屏幕级 Haze 状态：内容层 hazeSource，TopBar/底栏 hazeEffect，共用同一实例。 */
 @Composable
@@ -73,7 +75,20 @@ fun Modifier.appHazeEffect(
 }
 
 /** 玻璃胶囊底色透明度：悬浮胶囊共用（与主页悬浮底栏同一套，自身不再叠底色，双层会发白）。 */
-const val GlassCapsuleHazeAlpha = 0.65f
+val GlassCapsuleHazeAlpha: Float get() = UiAppearance.floatingAlpha
+
+/** 玻璃阴影强度 → 阴影参数（§2.5 悬浮玻璃组的「阴影」档）。 */
+private fun ShadowStrength.shadowRadius(): Dp = when (this) {
+    ShadowStrength.None -> 0.dp
+    ShadowStrength.Subtle -> TileInnerPadding * 1.5f
+    ShadowStrength.Strong -> TileInnerPadding * 3f
+}
+
+private fun ShadowStrength.shadowAlpha(dark: Boolean): Float = when (this) {
+    ShadowStrength.None -> 0f
+    ShadowStrength.Subtle -> if (dark) 0.12f else 0.06f
+    ShadowStrength.Strong -> if (dark) 0.24f else 0.14f
+}
 
 /**
  * 悬浮玻璃胶囊**装饰背景层**（连续曲率）：阴影 + 裁形 + 毛玻璃 + 发丝描边，**不含内容与内边距**。
@@ -84,12 +99,14 @@ const val GlassCapsuleHazeAlpha = 0.65f
 @Composable
 fun Modifier.glassCapsuleBackground(hazeState: HazeState?): Modifier {
     val capsuleShape = CapsuleShape
+    val shadow = UiAppearance.floatingShadow
+    val dark = isSystemInDarkTheme()
     return dropShadow(
         shape = capsuleShape,
         shadow = Shadow(
-            radius = TileInnerPadding * 1.5f,
+            radius = shadow.shadowRadius(),
             color = Color.Black,
-            alpha = if (isSystemInDarkTheme()) 0.12f else 0.06f,
+            alpha = shadow.shadowAlpha(dark),
         ),
     )
         // clip 在 haze 之外：方形糊输出裁成连续曲率胶囊（只裁绘制，不影响采样）。

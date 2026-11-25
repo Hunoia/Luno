@@ -63,7 +63,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
@@ -208,14 +208,10 @@ fun SearchEngineSettingsScreen(
             contentDescription = stringResource(R.string.search_engine_add),
         )
     }
-    LunoScreenLazy(
-        title = stringResource(R.string.search_engine_settings),
-        onBack = onBack,
-        state = listState,
-        contentSpacing = SegmentedGap,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = { addFab() },
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.search_engine_settings),
+onBack = onBack,
+floatingContent = { addFab() },
+actions = {
             var menuOpen by remember { mutableStateOf(false) }
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
@@ -268,7 +264,7 @@ fun SearchEngineSettingsScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             importPreview?.let { preview ->
                 ConfirmDialog(
                     title = stringResource(R.string.search_import_confirm_title),
@@ -321,8 +317,12 @@ fun SearchEngineSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = listState,
+contentSpacing = SegmentedGap,
+bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         chunkedGroup(
             engines,
             "engines",
@@ -390,37 +390,39 @@ fun SearchEngineSettingsScreen(
         item(key = "gap-general") { GroupGap() }
         // 通用组：内容源入口 + 列表样式 + 输入行为开关。
         item(key = "general") {
-            LunoGroup(title = stringResource(R.string.search_general_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_source_settings),
-                    trailing = { ArrowHint() },
-                    shape = segmentedShape(0, 3),
-                    onClick = onNavToSources,
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.search_list_style),
-                    options = listOf(
+            group(title = stringResource(R.string.search_general_group)) {row(
+title = stringResource(R.string.search_source_settings),
+trailing = { ArrowHint() },
+onClick = onNavToSources,
+
+)
+dropdownRow(
+title = stringResource(R.string.search_list_style),
+options = listOf(
                         stringResource(R.string.search_list_style_flat),
                         stringResource(R.string.search_list_style_cards),
                     ),
-                    selectedIndex = settings.listStyle.ordinal,
-                    onSelect = { index ->
+selectedIndex = settings.listStyle.ordinal,
+onSelect = { index ->
                         update { it.copy(listStyle = QuickSearchListStyle.entries[index]) }
                     },
-                    shape = segmentedShape(1, 3),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.search_ascii_enter),
-                    subtitle = stringResource(R.string.search_ascii_enter_subtitle),
-                    checked = settings.asciiEnterSearch,
-                    onCheckedChange = { v ->
+
+)
+switchRow(
+title = stringResource(R.string.search_ascii_enter),
+subtitle = stringResource(R.string.search_ascii_enter_subtitle),
+checked = settings.asciiEnterSearch,
+onCheckedChange = { v ->
                         update { it.copy(asciiEnterSearch = v) }
                     },
-                    shape = segmentedShape(2, 3),
-                )
+
+)
             }
         }
+
+        }
     }
+}
 }
 
 /** 组间距补偿：LazyColumn 项间距是 SegmentedGap，组间再补到 ListSpacing。 */

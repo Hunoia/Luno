@@ -57,7 +57,7 @@ import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -87,14 +87,36 @@ fun TrendEditScreen(
     val config = configOrNull
     if (config == null) {
         // 首帧还没读到 DataStore：不渲染表单，避免「先空后填」闪一下。
-        LunoScreen(title = stringResource(R.string.trend_edit_title), onBack = onBack) {}
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_edit_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        }
+    }
+}
+}
         return
     }
     val metric = metricId?.takeIf { it.isNotBlank() }?.let { config.metricById(it) }
     if (!metricId.isNullOrBlank() && metric == null) {
-        LunoScreen(title = stringResource(R.string.trend_edit_title), onBack = onBack) {
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_edit_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
             EmptyState(message = stringResource(R.string.trend_metric_missing))
+
         }
+    }
+}
+}
         return
     }
     TrendEditForm(metric = metric, onBack = onBack)
@@ -199,15 +221,13 @@ private fun TrendEditForm(
         }
     }
 
-    LunoScreen(
-        title = stringResource(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
             if (metric == null) R.string.trend_create_title else R.string.trend_edit_title,
         ),
-        onBack = onBack,
-        bottomContentPadding = ContentBottom,
-        // 含文字按钮「保存」：不进单胶囊动作组，删除图标单独成组。
+onBack = onBack,
+// 含文字按钮「保存」：不进单胶囊动作组，删除图标单独成组。
         groupActions = false,
-        actions = {
+actions = {
             if (metric != null) {
                 TopBarActionGroup {
                     PressIconButton(onClick = { showDeleteConfirm = true }) {
@@ -222,7 +242,7 @@ private fun TrendEditForm(
                 Text(stringResource(R.string.trend_save))
             }
         },
-        dialogs = {
+dialogs = {
             if (showDeleteConfirm && metric != null) {
                 ConfirmDialog(
                     title = stringResource(R.string.trend_delete_confirm_title),
@@ -252,7 +272,7 @@ private fun TrendEditForm(
                 )
             }
         },
-        sheets = {
+sheets = {
             if (showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { showColorPicker = false },
@@ -263,8 +283,13 @@ private fun TrendEditForm(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         LunoGroup(title = stringResource(R.string.trend_edit_name)) {
             LunoCardInput(
                 value = name,
@@ -359,11 +384,10 @@ private fun TrendEditForm(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
         }
-        LunoGroup(title = stringResource(R.string.trend_edit_color)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.trend_edit_color),
-                shape = segmentedShape(0, 1),
-                leading = {
+        group(title = stringResource(R.string.trend_edit_color)) {
+row(
+title = stringResource(R.string.trend_edit_color),
+leading = {
                     Box(
                         Modifier
                             .size(22.dp)
@@ -371,9 +395,9 @@ private fun TrendEditForm(
                             .background(colorSpec.toColor()),
                     )
                 },
-                onClick = { showColorPicker = true },
-            )
-        }
+onClick = { showColorPicker = true },
+
+)        }
         LunoGroup(title = stringResource(R.string.trend_edit_target)) {
             LunoCardInput(
                 value = targetText,
@@ -432,7 +456,11 @@ private fun TrendEditForm(
                 }
             }
         }
+
+        }
     }
+}
+}
 }
 
 @Composable

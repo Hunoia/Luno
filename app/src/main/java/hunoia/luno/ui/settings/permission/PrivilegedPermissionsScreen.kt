@@ -35,7 +35,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SectionBadge
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressTextButton
@@ -217,11 +216,14 @@ fun PrivilegedPermissionsScreen(
         }
     }
 
-    LunoScreen(
-        title = stringResource(R.string.perm_page_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.perm_page_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         // 顶部一行摘要：与主页卡同一形态——标题只说状态（还有几项），按钮只说动作。
         LunoGroup {
             LunoSettingsRow(
@@ -331,5 +333,9 @@ fun PrivilegedPermissionsScreen(
                 }
             }
         }
+
+        }
     }
+}
+}
 }

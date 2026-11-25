@@ -9,7 +9,6 @@ import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -26,8 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import hunoia.luno.ui.theme.FabShape
 import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.LargeShape
 
 /**
  * M3 按钮族的统一包装：**保留 M3 视觉与语义，只把点击反馈换成按压缩放**。
@@ -62,33 +61,6 @@ fun PressButton(
         border = border,
         contentPadding = contentPadding,
         interactionSource = source,
-        content = content,
-    )
-}
-
-@Composable
-fun PressFilledTonalButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    shape: Shape = CapsuleShape,
-    colors: ButtonColors = ButtonDefaults.filledTonalButtonColors(),
-    elevation: ButtonElevation? = ButtonDefaults.buttonElevation(),
-    border: BorderStroke? = null,
-    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
-    content: @Composable RowScope.() -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    FilledTonalButton(
-        onClick = onClick,
-        modifier = modifier.pressScale(interactionSource),
-        enabled = enabled,
-        shape = shape,
-        colors = colors,
-        elevation = elevation,
-        border = border,
-        contentPadding = contentPadding,
-        interactionSource = interactionSource,
         content = content,
     )
 }
@@ -164,7 +136,7 @@ fun PressFilledIconButton(
 fun PressFloatingActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    shape: Shape = LargeShape,
+    shape: Shape = FabShape,
     containerColor: Color = FloatingActionButtonDefaults.containerColor,
     contentColor: Color = androidx.compose.material3.contentColorFor(containerColor),
     elevation: FloatingActionButtonElevation = FloatingActionButtonDefaults.elevation(),

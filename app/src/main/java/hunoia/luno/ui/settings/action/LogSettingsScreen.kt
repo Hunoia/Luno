@@ -35,7 +35,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.PageGutter
@@ -99,13 +99,20 @@ fun LogSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    LunoScreen(title = stringResource(R.string.log_settings_title), onBack = onBack) {
-        LunoGroup(title = stringResource(R.string.log_settings_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.log_settings_recording),
-                subtitle = stringResource(R.string.log_settings_recording_hint),
-                checked = stats.enabled,
-                onCheckedChange = { enabled ->
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.log_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.log_settings_group)) {
+switchRow(
+title = stringResource(R.string.log_settings_recording),
+subtitle = stringResource(R.string.log_settings_recording_hint),
+checked = stats.enabled,
+onCheckedChange = { enabled ->
                     scope.launch {
                         withContext(Dispatchers.IO) {
                             facades.logs.setRecordingEnabled(enabled)
@@ -113,14 +120,14 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                         tick++
                     }
                 },
-                shape = segmentedShape(0, 2),
-            )
-            LunoDropdownRow(
-                title = stringResource(R.string.log_settings_level),
-                options = supportedLevels.map { stringResource(it.labelRes()) },
-                selectedIndex = supportedLevels.indexOf(stats.level),
-                subtitle = levelSummary(stats),
-                onSelect = { index ->
+
+)
+dropdownRow(
+title = stringResource(R.string.log_settings_level),
+options = supportedLevels.map { stringResource(it.labelRes()) },
+selectedIndex = supportedLevels.indexOf(stats.level),
+subtitle = levelSummary(stats),
+onSelect = { index ->
                     scope.launch {
                         withContext(Dispatchers.IO) {
                             facades.logs.setLevel(supportedLevels[index])
@@ -128,9 +135,8 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                         tick++
                     }
                 },
-                shape = segmentedShape(1, 2),
-            )
-        }
+
+)        }
         LunoGroup(title = stringResource(R.string.log_settings_files)) {
             if (stats.files.isEmpty()) {
                 LunoSettingsRow(
@@ -147,12 +153,12 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-        LunoGroup(title = stringResource(R.string.incident_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.incident_notification),
-                subtitle = stringResource(R.string.incident_notification_hint),
-                checked = incidentStats.notifyEnabled,
-                onCheckedChange = { enabled ->
+        group(title = stringResource(R.string.incident_group)) {
+switchRow(
+title = stringResource(R.string.incident_notification),
+subtitle = stringResource(R.string.incident_notification_hint),
+checked = incidentStats.notifyEnabled,
+onCheckedChange = { enabled ->
                     scope.launch {
                         withContext(Dispatchers.IO) {
                             facades.logs.setIncidentNotifyEnabled(enabled)
@@ -160,36 +166,34 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                         tick++
                     }
                 },
-                shape = segmentedShape(0, 3),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.incident_recent),
-                subtitle = incidentSummary(incidentStats),
-                shape = segmentedShape(1, 3),
-                onClick = { showIncidents = true },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.incident_clear),
-                subtitle = formatBytes(incidentStats.sizeBytes),
-                shape = segmentedShape(2, 3),
-                onClick = { showClearIncidentsConfirm = true },
-            )
-        }
-        LunoGroup(title = stringResource(R.string.log_settings_manage)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.log_settings_total),
-                subtitle = stringResource(
+
+)
+row(
+title = stringResource(R.string.incident_recent),
+subtitle = incidentSummary(incidentStats),
+onClick = { showIncidents = true },
+
+)
+row(
+title = stringResource(R.string.incident_clear),
+subtitle = formatBytes(incidentStats.sizeBytes),
+onClick = { showClearIncidentsConfirm = true },
+
+)        }
+        group(title = stringResource(R.string.log_settings_manage)) {
+row(
+title = stringResource(R.string.log_settings_total),
+subtitle = stringResource(
                     R.string.log_settings_total_value,
                     stats.files.size,
                     formatBytes(stats.totalBytes),
                 ),
-                shape = segmentedShape(0, 3),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.log_settings_export),
-                subtitle = stringResource(R.string.log_settings_export_hint),
-                shape = segmentedShape(1, 3),
-                onClick = {
+
+)
+row(
+title = stringResource(R.string.log_settings_export),
+subtitle = stringResource(R.string.log_settings_export_hint),
+onClick = {
                     scope.launch {
                         val ok = facades.logs.exportAndShare(context)
                         if (!ok) {
@@ -197,22 +201,25 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                         }
                     }
                 },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.log_settings_clear),
-                shape = segmentedShape(2, 3),
-                onClick = { showClearConfirm = true },
-            )
-        }
-        LunoGroup(title = stringResource(R.string.log_settings_preview)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.log_settings_preview),
-                subtitle = stringResource(R.string.log_settings_preview_hint, PREVIEW_LINES),
-                shape = segmentedShape(0, 1),
-                onClick = { showPreview = true },
-            )
+
+)
+row(
+title = stringResource(R.string.log_settings_clear),
+onClick = { showClearConfirm = true },
+
+)        }
+        group(title = stringResource(R.string.log_settings_preview)) {
+row(
+title = stringResource(R.string.log_settings_preview),
+subtitle = stringResource(R.string.log_settings_preview_hint, PREVIEW_LINES),
+onClick = { showPreview = true },
+
+)        }
+
         }
     }
+}
+}
 
     if (showPreview) {
         LunoSheet(onDismissRequest = { showPreview = false }, showDragHandle = true) {

@@ -22,4 +22,6 @@ data class AdvancedSettings(
     val motion: MotionTuningSettings = MotionTuningSettings(),
     /** 通用通知显示设置（呈现模式 + 覆盖层，见 [NotificationDisplaySettings]）。 */
     val notificationDisplay: NotificationDisplaySettings = NotificationDisplaySettings(),
+    /** 用户可调外观：圆角（按组件族）/ 玻璃 / 间距（ui-guidelines §2.5）。 */
+    val ui: UiAppearanceSettings = UiAppearanceSettings(),
 )

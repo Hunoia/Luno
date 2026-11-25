@@ -38,7 +38,6 @@ import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.toColorSpec
@@ -180,10 +179,9 @@ fun AlertPaletteEditScreen(
     // 系统返回也走「先写完再 pop」：防抖窗口内返回不会吞掉最后一次改名。
     BackHandler { commitNameAndBack() }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_capsule_alert_palette_edit),
-        onBack = { commitNameAndBack() },
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_edit),
+onBack = { commitNameAndBack() },
+actions = {
             PressIconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -193,7 +191,7 @@ fun AlertPaletteEditScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (showDeleteConfirm) {
                 ConfirmDialog(
                     title = stringResource(
@@ -215,7 +213,7 @@ fun AlertPaletteEditScreen(
                 )
             }
         },
-        sheets = {
+sheets = {
             if (addingColor || editingColorIndex >= 0) {
                 val scheme = MaterialTheme.colorScheme
                 // 「添加」还没有新下标：用默认色起手，选定后再入表。
@@ -256,8 +254,10 @@ fun AlertPaletteEditScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list() {
+        lazy {
+
         item(key = "basic") {
             LunoGroup {
                 val rows = segmentedRows {
@@ -511,7 +511,10 @@ fun AlertPaletteEditScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 /** 新增颜色的起始色（与「新建调色板」的默认色一致）。 */

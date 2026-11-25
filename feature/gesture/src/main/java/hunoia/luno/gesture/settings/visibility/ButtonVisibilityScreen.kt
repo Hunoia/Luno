@@ -24,7 +24,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityText.summary
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
@@ -52,61 +52,59 @@ fun ButtonVisibilityScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.button_visibility),
-        onBack = onBack,
-        state = rememberLazyListState(),
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.button_visibility),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = { onEdit(NEW_VISIBILITY_PROFILE_ID) },
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.button_visibility_new),
             )
-        },
-    ) {
+        }) {
+    list(state = rememberLazyListState(),
+bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         // 系统级显隐：应用列表与 Luno 后台（与下方按场景的触钮/悬浮球显隐区分）。
         item(key = "system_visibility") {
-            LunoGroup(title = stringResource(R.string.button_visibility_system_group)) {
-                LunoSwitchRow(
-                    icon = Icons.Default.Android,
-                    title = stringResource(R.string.apps_show_uiless),
-                    subtitle = stringResource(R.string.apps_show_uiless_hint),
-                    checked = actionSettings.showUILessSystemComponents,
-                    onCheckedChange = { enabled ->
+            group(title = stringResource(R.string.button_visibility_system_group)) {switchRow(
+icon = Icons.Default.Android,
+title = stringResource(R.string.apps_show_uiless),
+subtitle = stringResource(R.string.apps_show_uiless_hint),
+checked = actionSettings.showUILessSystemComponents,
+onCheckedChange = { enabled ->
                         scope.launch { TuneConfig.updateAction { it.copy(showUILessSystemComponents = enabled) } }
                     },
-                    shape = segmentedShape(0, 3),
-                )
-                LunoSwitchRow(
-                    icon = Icons.Default.Android,
-                    title = stringResource(R.string.apps_show_noentry),
-                    subtitle = stringResource(R.string.apps_show_noentry_hint),
-                    checked = actionSettings.showNoEntrySystemApps,
-                    onCheckedChange = { enabled ->
+
+)
+switchRow(
+icon = Icons.Default.Android,
+title = stringResource(R.string.apps_show_noentry),
+subtitle = stringResource(R.string.apps_show_noentry_hint),
+checked = actionSettings.showNoEntrySystemApps,
+onCheckedChange = { enabled ->
                         scope.launch { TuneConfig.updateAction { it.copy(showNoEntrySystemApps = enabled) } }
                     },
-                    shape = segmentedShape(1, 3),
-                )
-                LunoSwitchRow(
-                    icon = Icons.Default.VisibilityOff,
-                    title = stringResource(R.string.hide_luno_from_recents),
-                    subtitle = stringResource(R.string.hide_luno_from_recents_hint),
-                    checked = advanced.hideLunoFromRecents,
-                    onCheckedChange = { hidden ->
+
+)
+switchRow(
+icon = Icons.Default.VisibilityOff,
+title = stringResource(R.string.hide_luno_from_recents),
+subtitle = stringResource(R.string.hide_luno_from_recents_hint),
+checked = advanced.hideLunoFromRecents,
+onCheckedChange = { hidden ->
                         scope.launch { TuneConfig.updateAdvanced { it.copy(hideLunoFromRecents = hidden) } }
                     },
-                    shape = segmentedShape(2, 3),
-                )
+
+)
             }
         }
         // 黑名单组：无条件从相关列表排除的应用，与上方场景显隐互不替代。
         item(key = "blocklist") {
-            LunoGroup(title = stringResource(R.string.button_visibility_blocklist_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.Block,
-                    title = stringResource(R.string.button_visibility_recent_apps_blocklist),
-                    subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+            group(title = stringResource(R.string.button_visibility_blocklist_group)) {row(
+icon = Icons.Default.Block,
+title = stringResource(R.string.button_visibility_recent_apps_blocklist),
+subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
                         stringResource(R.string.button_visibility_recent_apps_blocklist_hint)
                     } else {
                         stringResource(
@@ -114,9 +112,9 @@ fun ButtonVisibilityScreen(
                             actionSettings.recentAppsBlocklist.size,
                         )
                     },
-                    onClick = onNavToRecentAppsBlocklist,
-                    shape = segmentedShape(0, 0),
-                )
+onClick = onNavToRecentAppsBlocklist,
+
+)
             }
         }
         item(key = "profiles") {
@@ -144,7 +142,10 @@ fun ButtonVisibilityScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 @Composable

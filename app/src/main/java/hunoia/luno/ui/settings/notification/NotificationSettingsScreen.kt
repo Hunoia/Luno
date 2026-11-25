@@ -35,7 +35,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -140,27 +140,30 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    LunoScreen(
-        title = stringResource(R.string.notification_display_settings_title),
-        onBack = onBack,
-    ) {
-        LunoGroup(title = stringResource(R.string.notification_display_mode_group)) {
-            LunoDropdownRow(
-                title = stringResource(R.string.notification_display_mode_row),
-                subtitle = stringResource(R.string.notification_display_mode_hint),
-                options = listOf(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.notification_display_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.notification_display_mode_group)) {
+dropdownRow(
+title = stringResource(R.string.notification_display_mode_row),
+subtitle = stringResource(R.string.notification_display_mode_hint),
+options = listOf(
                     stringResource(R.string.notification_display_mode_standard),
                     stringResource(R.string.notification_display_mode_live),
                     stringResource(R.string.notification_display_mode_island),
                 ),
-                selectedIndex = display.mode.ordinal,
-                onSelect = { index ->
+selectedIndex = display.mode.ordinal,
+onSelect = { index ->
                     val mode = NotificationMode.entries[index]
                     update { it.copy(mode = mode) }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
+
+)        }
 
         LunoGroup(
             title = stringResource(R.string.notification_display_override_group),
@@ -200,164 +203,160 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             }
         }
 
-        LunoGroup(
+        group(
             title = stringResource(R.string.toast_presentation_group),
             subtitle = stringResource(R.string.toast_presentation_hint),
         ) {
-            LunoDropdownRow(
-                title = stringResource(R.string.toast_presentation_row),
-                options = listOf(
+dropdownRow(
+title = stringResource(R.string.toast_presentation_row),
+options = listOf(
                     stringResource(R.string.toast_presentation_toast),
                     stringResource(R.string.toast_presentation_standard),
                     stringResource(R.string.toast_presentation_live),
                     stringResource(R.string.toast_presentation_island),
                     stringResource(R.string.toast_presentation_capsule),
                 ),
-                selectedIndex = display.toastPresentation.ordinal,
-                onSelect = { index ->
+selectedIndex = display.toastPresentation.ordinal,
+onSelect = { index ->
                     update { it.copy(toastPresentation = ToastPresentation.entries[index]) }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
+
+)        }
 
         if (islandInUse) {
-            LunoGroup(title = stringResource(R.string.notification_display_island_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.notification_display_island_auto_expand),
-                    subtitle = stringResource(R.string.notification_display_island_auto_expand_hint),
-                    shape = segmentedShape(0, ISLAND_ROWS),
-                    checked = display.islandAutoExpand,
-                    onCheckedChange = { checked ->
+            group(title = stringResource(R.string.notification_display_island_group)) {
+switchRow(
+title = stringResource(R.string.notification_display_island_auto_expand),
+subtitle = stringResource(R.string.notification_display_island_auto_expand_hint),
+checked = display.islandAutoExpand,
+onCheckedChange = { checked ->
                         update { it.copy(islandAutoExpand = checked) }
                     },
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.notification_display_island_expand_seconds),
-                    subtitle = stringResource(R.string.notification_display_island_expand_seconds_hint),
-                    options = listOf(
+
+)
+dropdownRow(
+title = stringResource(R.string.notification_display_island_expand_seconds),
+subtitle = stringResource(R.string.notification_display_island_expand_seconds_hint),
+options = listOf(
                         stringResource(R.string.notification_display_island_expand_3s),
                         stringResource(R.string.notification_display_island_expand_5s),
                         stringResource(R.string.notification_display_island_expand_10s),
                     ),
-                    selectedIndex = ISLAND_EXPAND_OPTIONS
+selectedIndex = ISLAND_EXPAND_OPTIONS
                         .indexOf(display.islandExpandSeconds).coerceAtLeast(0),
-                    onSelect = { index ->
+onSelect = { index ->
                         update { it.copy(islandExpandSeconds = ISLAND_EXPAND_OPTIONS[index]) }
                     },
-                    shape = segmentedShape(1, ISLAND_ROWS),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.notification_display_island_disconnect),
-                    subtitle = stringResource(R.string.notification_display_island_disconnect_hint),
-                    options = ISLAND_DISCONNECT_OPTIONS.map {
+
+)
+dropdownRow(
+title = stringResource(R.string.notification_display_island_disconnect),
+subtitle = stringResource(R.string.notification_display_island_disconnect_hint),
+options = ISLAND_DISCONNECT_OPTIONS.map {
                         stringResource(R.string.notification_display_island_disconnect_value, it)
                     },
-                    selectedIndex = ISLAND_DISCONNECT_OPTIONS
+selectedIndex = ISLAND_DISCONNECT_OPTIONS
                         .indexOf(display.islandDisconnectMs).coerceAtLeast(0),
-                    onSelect = { index ->
+onSelect = { index ->
                         update { it.copy(islandDisconnectMs = ISLAND_DISCONNECT_OPTIONS[index]) }
                     },
-                    shape = segmentedShape(2, ISLAND_ROWS),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.notification_display_island_outer_glow),
-                    subtitle = stringResource(R.string.notification_display_island_outer_glow_hint),
-                    shape = segmentedShape(3, ISLAND_ROWS),
-                    checked = display.islandOuterGlow,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.notification_display_island_outer_glow),
+subtitle = stringResource(R.string.notification_display_island_outer_glow_hint),
+checked = display.islandOuterGlow,
+onCheckedChange = { checked ->
                         update { it.copy(islandOuterGlow = checked) }
                     },
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.notification_display_island_keep_shade),
-                    subtitle = stringResource(R.string.notification_display_island_keep_shade_hint),
-                    shape = segmentedShape(4, ISLAND_ROWS),
-                    checked = display.islandKeepShadeNotification,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.notification_display_island_keep_shade),
+subtitle = stringResource(R.string.notification_display_island_keep_shade_hint),
+checked = display.islandKeepShadeNotification,
+onCheckedChange = { checked ->
                         update { it.copy(islandKeepShadeNotification = checked) }
                     },
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.notification_display_island_drag_share),
-                    subtitle = stringResource(R.string.notification_display_island_drag_share_hint),
-                    shape = segmentedShape(5, ISLAND_ROWS),
-                    checked = display.islandDragShare,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.notification_display_island_drag_share),
+subtitle = stringResource(R.string.notification_display_island_drag_share_hint),
+checked = display.islandDragShare,
+onCheckedChange = { checked ->
                         update { it.copy(islandDragShare = checked) }
                     },
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.notification_display_island_timeout),
-                    subtitle = stringResource(R.string.notification_display_island_timeout_hint),
-                    options = listOf(
+
+)
+dropdownRow(
+title = stringResource(R.string.notification_display_island_timeout),
+subtitle = stringResource(R.string.notification_display_island_timeout_hint),
+options = listOf(
                         stringResource(R.string.notification_display_island_timeout_none),
                         stringResource(R.string.notification_display_island_timeout_5m),
                         stringResource(R.string.notification_display_island_timeout_30m),
                         stringResource(R.string.notification_display_island_timeout_1h),
                     ),
-                    selectedIndex = ISLAND_TIMEOUT_OPTIONS.indexOf(display.islandTimeoutSeconds)
+selectedIndex = ISLAND_TIMEOUT_OPTIONS.indexOf(display.islandTimeoutSeconds)
                         .coerceAtLeast(0),
-                    onSelect = { index ->
+onSelect = { index ->
                         update { it.copy(islandTimeoutSeconds = ISLAND_TIMEOUT_OPTIONS[index]) }
                     },
-                    shape = segmentedShape(6, ISLAND_ROWS),
-                )
-            }
+
+)            }
         }
 
         // 进度类通知的收尾行为：与呈现模式无关（标准 / 实时 / 岛都适用），所以不放在岛分组里。
-        LunoGroup(title = stringResource(R.string.notification_display_progress_group)) {
-            LunoDropdownRow(
-                title = stringResource(R.string.notification_display_progress_dismiss),
-                subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
-                options = PROGRESS_DISMISS_OPTIONS.map {
+        group(title = stringResource(R.string.notification_display_progress_group)) {
+dropdownRow(
+title = stringResource(R.string.notification_display_progress_dismiss),
+subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
+options = PROGRESS_DISMISS_OPTIONS.map {
                     if (it == 0) {
                         stringResource(R.string.notification_display_progress_dismiss_none)
                     } else {
                         stringResource(R.string.notification_display_progress_dismiss_value, it)
                     }
                 },
-                selectedIndex = PROGRESS_DISMISS_OPTIONS
+selectedIndex = PROGRESS_DISMISS_OPTIONS
                     .indexOf(display.progressDismissSeconds).coerceAtLeast(0),
-                onSelect = { index ->
+onSelect = { index ->
                     update { it.copy(progressDismissSeconds = PROGRESS_DISMISS_OPTIONS[index]) }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
 
-        LunoGroup(title = stringResource(R.string.notification_display_test_group)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.notification_display_test_send),
-                subtitle = stringResource(R.string.notification_display_test_send_hint),
-                shape = segmentedShape(0, TEST_ROWS),
-                onClick = {
+)        }
+
+        group(title = stringResource(R.string.notification_display_test_group)) {
+row(
+title = stringResource(R.string.notification_display_test_send),
+subtitle = stringResource(R.string.notification_display_test_send_hint),
+onClick = {
                     scope.launch {
-                        // 非标准模式：先切走再投递，否则前台应用拿不到岛（生产路径都是后台发）。
+
                         sendTestNotification(progress = false)
                     }
                 },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.notification_display_test_progress),
-                subtitle = stringResource(R.string.notification_display_test_progress_hint),
-                shape = segmentedShape(1, TEST_ROWS),
-                onClick = {
+
+)
+row(
+title = stringResource(R.string.notification_display_test_progress),
+subtitle = stringResource(R.string.notification_display_test_progress_hint),
+onClick = {
                     scope.launch {
                         sendTestNotification(progress = true)
                     }
                 },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.notification_display_test_toast),
-                subtitle = stringResource(R.string.notification_display_test_toast_hint),
-                shape = segmentedShape(2, TEST_ROWS),
-                onClick = {
+
+)
+row(
+title = stringResource(R.string.notification_display_test_toast),
+subtitle = stringResource(R.string.notification_display_test_toast_hint),
+onClick = {
                     scope.launch { sendTestToast() }
                 },
-            )
-        }
+
+)        }
 
         // 权限提示：只在对应权限缺失时出现（与悬浮球设置页同模式）；已授权/不适用（旧系统不支持）不显示。
         val needNotifPerm = !notificationsEnabled
@@ -397,7 +396,11 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        }
     }
+}
+}
 }
 
 private fun canScheduleExactAlarms(context: Context): Boolean {

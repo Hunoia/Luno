@@ -11,14 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
+import hunoia.luno.ui.theme.MenuShape
 import hunoia.luno.ui.theme.ElevationSmall
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MenuMaxHeight
 
 /**
  * 下拉 / 长按菜单的唯一实现（ui-guidelines §4.4）：视觉与尺寸在此定死，调用方只写内容。
  *
- * - 视觉：`surfaceContainerHigh` 底 + `LargeShape` 圆角 + `ElevationSmall`（只改底色，不画
+ * - 视觉：`surfaceContainerHigh` 底 + `MenuShape` 圆角 + `ElevationSmall`（只改底色，不画
  *   阴影——弹出菜单窗口尺寸 == 内容尺寸，阴影会被窗口边界裁掉，见 ui-guidelines §4.6）。
  * - 高度：上限 [MenuMaxHeight]，内容超过时菜单内滚动（M3 `DropdownMenu` 内置滚动，
  *   本组件只收紧高度上限）。
@@ -47,7 +47,7 @@ fun LunoDropdownMenu(
         scrollState = scrollState,
         properties = properties,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = LargeShape,
+        shape = MenuShape,
         tonalElevation = ElevationSmall,
         shadowElevation = 0.dp,
         content = content,

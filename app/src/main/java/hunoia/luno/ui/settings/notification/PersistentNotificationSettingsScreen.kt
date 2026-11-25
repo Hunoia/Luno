@@ -32,7 +32,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.Dispatchers
@@ -93,10 +93,14 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LunoScreen(
-        title = stringResource(R.string.persistent_notification_settings_title),
-        onBack = onBack,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.persistent_notification_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         // 权限提示：只在功能开启且对应依赖缺失时出现（与悬浮球设置页同模式）。
         if (state.settings.enabled && (!state.notificationAccessGranted || !state.shizukuReady)) {
             val needNotifAccess = !state.notificationAccessGranted
@@ -130,29 +134,28 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
             }
         }
 
-        LunoGroup(title = stringResource(R.string.persistent_notification_master_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.persistent_notification_master),
-                subtitle = stringResource(R.string.persistent_notification_master_hint),
-                checked = state.settings.enabled,
-                onCheckedChange = { enabled ->
+        group(title = stringResource(R.string.persistent_notification_master_group)) {
+switchRow(
+title = stringResource(R.string.persistent_notification_master),
+subtitle = stringResource(R.string.persistent_notification_master_hint),
+checked = state.settings.enabled,
+onCheckedChange = { enabled ->
                     update({ current ->
                         current.copy(settings = current.settings.copy(enabled = enabled))
                     }) {
                         PersistentNotificationHidingUseCase.setEnabled(context, enabled)
                     }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
 
-        LunoGroup(title = stringResource(R.string.persistent_notification_luno_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.persistent_notification_luno_hide),
-                subtitle = stringResource(R.string.persistent_notification_luno_hide_hint),
-                checked = state.settings.hideLunoNotifications,
-                enabled = state.settings.enabled,
-                onCheckedChange = { hidden ->
+)        }
+
+        group(title = stringResource(R.string.persistent_notification_luno_group)) {
+switchRow(
+title = stringResource(R.string.persistent_notification_luno_hide),
+subtitle = stringResource(R.string.persistent_notification_luno_hide_hint),
+checked = state.settings.hideLunoNotifications,
+enabled = state.settings.enabled,
+onCheckedChange = { hidden ->
                     update({ current ->
                         current.copy(
                             settings = current.settings.copy(hideLunoNotifications = hidden),
@@ -161,9 +164,8 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
                         PersistentNotificationHidingUseCase.setLunoHidden(context, hidden)
                     }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
+
+)        }
 
         if (loaded) {
             if (state.notifications.isEmpty()) {
@@ -216,7 +218,11 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        }
     }
+}
+}
 }
 
 private fun appLabel(context: Context, packageName: String): String = runCatching {

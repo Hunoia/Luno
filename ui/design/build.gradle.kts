@@ -38,6 +38,8 @@ dependencies {
     api(libs.squircle.shape) {
         exclude(group = "org.jetbrains.compose.material3")
     }
+    // 主题色板：单 seed → HCT / tonal palette → 完整 M3 ColorScheme（纯 JVM，无 Android 依赖）。
+    implementation(libs.material.color.utilities)
     // 纯几何 / 纯函数的 JVM 单测（EdgeBarLayoutTest：识屏工具条与剪贴板动作条共用）
     testImplementation(libs.junit)
     // 仅 debug：形状软度画廊（src/debug/.../ShapeGalleryPreviews.kt）只在 Android Studio 预览生效

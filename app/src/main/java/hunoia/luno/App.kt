@@ -179,8 +179,21 @@ class App : Application(), SingletonImageLoader.Factory {
         // 抛「Reading a state that was created after the snapshot was taken」崩溃。此处先在主线程
         // 触碰，保证 state 在主线程创建；后台 onEach 只是普通跨线程写（Compose 全局快照安全处理）。
         hunoia.luno.ui.theme.MotionTuning.profile
+        // 外观设置同一进程级状态：这里先触碰一次，保证 state 在主线程创建（同上）。
+        hunoia.luno.ui.theme.UiAppearance.settings
+        hunoia.luno.ui.theme.UiAppearance.customPalettes
         hunoia.luno.domain.tune.TuneConfig.advanced
-            .onEach { hunoia.luno.ui.theme.MotionTuning.profile = it.motion.toProfile() }
+            .onEach {
+                hunoia.luno.ui.theme.MotionTuning.profile = it.motion.toProfile()
+                hunoia.luno.ui.theme.UiAppearance.settings = it.ui
+            }
+            .launchIn(appScope)
+        // 主题可选到达提示素材库里的用户自定义色板：定义仍只有一处，这里只同步只读列表。
+        hunoia.luno.domain.tune.TuneConfig.action
+            .onEach {
+                hunoia.luno.ui.theme.UiAppearance.customPalettes =
+                    it.floatBall.notificationCapsule.alertLibrary.palettes
+            }
             .launchIn(appScope)
 
         UDFComponentDefaults.set(UDFComponentDefaultsImpl())

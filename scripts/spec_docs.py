@@ -142,8 +142,11 @@ def ui_components_doc() -> str:
     # 允许 `fun <T> Name(...)`（泛型）与 `fun Modifier.name(...)`（扩展）：只捕获真正的名字，
     # 否则索引会漏泛型（WheelColumn 踩过）或把接收者 `Modifier` / `ColumnScope` 当组件名。
     # `private` 是文件内实现细节，不进组件索引。
+    # 只认**行首**的 `@Composable fun`：类 / 作用域内的成员 Composable（如 LunoPageScope.list）
+    # 不是页面可复用的顶层组件，不能进索引。
     composable_re = re.compile(
-        r"@Composable\s+(?:(internal|public)\s+)?fun\s+(?:<[^<>]*>\s*)?(?:[\w.<>]+\.)?(\w+)"
+        r"^@Composable\s+(?:(internal|public)\s+)?fun\s+(?:<[^<>]*>\s*)?(?:[\w.<>]+\.)?(\w+)",
+        re.MULTILINE,
     )
     lines = [
         "# UI 组件索引（自动生成）",

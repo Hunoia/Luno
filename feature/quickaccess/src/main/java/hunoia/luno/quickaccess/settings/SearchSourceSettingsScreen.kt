@@ -28,7 +28,6 @@ import hunoia.luno.quickaccess.query.SearchSourceRegistry
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.TextInputDialog
 import kotlinx.coroutines.launch
 
@@ -75,10 +74,14 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
             },
         )
     }
-    LunoScreen(
-        title = stringResource(R.string.search_source_settings),
-        onBack = onBack,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.search_source_settings),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         val groups = listOf(
             R.string.search_source_group_apps to listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION),
             R.string.search_source_group_comms to listOf(SRC_CONTACT, SRC_SMS, SRC_CALL),
@@ -116,7 +119,11 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        }
     }
+}
+}
 }
 
 /** 来源 key → 显示名：统一从来源注册表取，面板提示与设置页共用。 */

@@ -64,7 +64,7 @@ import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.OptimizedScrollState
@@ -138,17 +138,16 @@ fun GlobalGestureZoneEditorScreen(
         return
     }
 
-    LunoScreenLazy(
-        title = globalZoneLabel(zone, zoneIndex),
-        onBack = onBack,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = globalZoneLabel(zone, zoneIndex),
+onBack = onBack,
+actions = {
             LunoIconButton(
                 icon = Icons.Default.Delete,
                 contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                 onClick = { showDeleteZone = true },
             )
         },
-        floatingContent = {
+floatingContent = {
             if (adjustingBounds) {
                 ZoneBoundsDragOverlay(
                     bounds = zone.bounds,
@@ -162,7 +161,7 @@ fun GlobalGestureZoneEditorScreen(
                 ZoneBoundsOverlay(zones = settings.zones, activeId = zone.id)
             }
         },
-        sheets = {
+sheets = {
             if (showAddTrigger) {
                 AddTriggerSheet(
                     onDismissRequest = { showAddTrigger = false },
@@ -176,8 +175,10 @@ fun GlobalGestureZoneEditorScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list() {
+        lazy {
+
         item(key = "zone_bounds") {
             ZoneBoundsGroup(
                 bounds = zone.bounds,
@@ -215,7 +216,10 @@ fun GlobalGestureZoneEditorScreen(
                 }
             }
         }
+
+        }
     }
+}
 
     if (showDeleteZone) {
         ConfirmDialog(
@@ -322,17 +326,16 @@ fun GlobalGestureTriggerEditorScreen(
         return
     }
 
-    LunoScreenLazy(
-        title = triggerTitle(trigger),
-        onBack = onBack,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = triggerTitle(trigger),
+onBack = onBack,
+actions = {
             LunoIconButton(
                 icon = Icons.Default.Delete,
                 contentDescription = stringResource(R.string.gesture_global_trigger_delete),
                 onClick = { showDelete = true },
             )
         },
-        sheets = {
+sheets = {
             if (showAngleEditor) {
                 LunoSheet(onDismissRequest = { showAngleEditor = false }, showDragHandle = true) {
                     GestureButtonAngleContent(
@@ -355,8 +358,10 @@ fun GlobalGestureTriggerEditorScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list() {
+        lazy {
+
         item(key = "behavior") {
             LunoGroup(title = stringResource(R.string.gesture_global_trigger_behavior)) {
                 val count = behaviorRowCount(trigger)
@@ -551,16 +556,18 @@ fun GlobalGestureTriggerEditorScreen(
             }
         }
         item(key = "feedback") {
-            LunoGroup(title = stringResource(R.string.gesture_global_trigger_feedback)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.gesture_global_trigger_vibrate),
-                    checked = trigger.vibrate,
-                    onCheckedChange = { enabled -> updateTrigger { it.copy(vibrate = enabled) } },
-                    shape = segmentedShape(0, 1),
-                )
+            group(title = stringResource(R.string.gesture_global_trigger_feedback)) {switchRow(
+title = stringResource(R.string.gesture_global_trigger_vibrate),
+checked = trigger.vibrate,
+onCheckedChange = { enabled -> updateTrigger { it.copy(vibrate = enabled) } },
+
+)
             }
         }
+
+        }
     }
+}
 
     if (showDelete) {
         ConfirmDialog(

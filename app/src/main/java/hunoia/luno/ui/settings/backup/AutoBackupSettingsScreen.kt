@@ -32,7 +32,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
@@ -158,28 +158,32 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
         else -> stringResource(R.string.auto_backup_status_never)
     }
 
-    LunoScreen(
-        title = stringResource(R.string.backup_settings_entry),
-        onBack = onBack,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.backup_settings_entry),
+onBack = onBack,
+actions = {
             LunoIconButton(
                 icon = Icons.TwoTone.RestartAlt,
                 contentDescription = stringResource(hunoia.luno.design.R.string.reset),
                 onClick = { showResetConfirm = true },
             )
-        },
-    ) {
-        LunoGroup(title = stringResource(R.string.auto_backup_switch)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.auto_backup_switch),
-                subtitle = stringResource(R.string.auto_backup_switch_hint),
-                checked = current?.enabled == true,
-                onCheckedChange = { want ->
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.auto_backup_switch)) {
+switchRow(
+title = stringResource(R.string.auto_backup_switch),
+subtitle = stringResource(R.string.auto_backup_switch_hint),
+checked = current?.enabled == true,
+onCheckedChange = { want ->
                     if (!want) {
                         scope.launch { AutoBackupCenter.setEnabled(context, false) }
-                        return@LunoSwitchRow
+                        return@switchRow
                     }
-                    // 开开关前先确认目录授权还在；不在就走选择器，选完直接开启。
+
                     scope.launch {
                         if (AutoBackupCenter.hasStoredTree(context)) {
                             AutoBackupCenter.setEnabled(context, true)
@@ -189,57 +193,55 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                         }
                     }
                 },
-                shape = segmentedShape(0, 4),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.auto_backup_directory),
-                subtitle = treeName
+
+)
+row(
+title = stringResource(R.string.auto_backup_directory),
+subtitle = treeName
                     ?: stringResource(R.string.auto_backup_directory_unset),
-                shape = segmentedShape(1, 4),
-                onClick = {
+onClick = {
                     pendingEnable = false
                     treePicker.launch(null)
                 },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.auto_backup_status),
-                subtitle = statusText,
-                subtitleColor = if (failure != null) {
+
+)
+row(
+title = stringResource(R.string.auto_backup_status),
+subtitle = statusText,
+subtitleColor = if (failure != null) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                shape = segmentedShape(2, 4),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.auto_backup_run_now),
-                subtitle = stringResource(R.string.auto_backup_run_now_hint),
-                shape = segmentedShape(3, 4),
-                onClick = {
+
+)
+row(
+title = stringResource(R.string.auto_backup_run_now),
+subtitle = stringResource(R.string.auto_backup_run_now_hint),
+onClick = {
                     if (current?.hasTree() != true) {
                         showToast(R.string.auto_backup_run_need_directory)
-                        return@LunoSettingsRow
+                        return@row
                     }
                     AutoBackupCenter.runNow(context)
                     showToast(R.string.auto_backup_run_queued)
                 },
-            )
-        }
 
-        LunoGroup(title = stringResource(R.string.backup_manual_group)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.backup_to_file),
-                subtitle = stringResource(R.string.backup_to_file_hint),
-                shape = segmentedShape(0, 2),
-                onClick = { createFileLauncher.launch("${appName}_$dateStamp.zip") },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.restore_from_file),
-                subtitle = stringResource(R.string.restore_from_file_hint),
-                shape = segmentedShape(1, 2),
-                onClick = { getFileLauncher.launch("*/*") },
-            )
-        }
+)        }
+
+        group(title = stringResource(R.string.backup_manual_group)) {
+row(
+title = stringResource(R.string.backup_to_file),
+subtitle = stringResource(R.string.backup_to_file_hint),
+onClick = { createFileLauncher.launch("${appName}_$dateStamp.zip") },
+
+)
+row(
+title = stringResource(R.string.restore_from_file),
+subtitle = stringResource(R.string.restore_from_file_hint),
+onClick = { getFileLauncher.launch("*/*") },
+
+)        }
 
         LunoGroup(title = stringResource(R.string.auto_backup_restore)) {
             if (backups.isEmpty()) {
@@ -279,7 +281,11 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        }
     }
+}
+}
 
     // 组合期捕获：确认时 onDismissRequest 已先清掉 pendingRestore。
     val restoreUri = pendingRestore

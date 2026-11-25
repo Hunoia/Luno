@@ -133,7 +133,7 @@ internal fun ActionPage(
     launchShortcuts: List<LauncherInfo>,
     selectedRecord: SelectedRecord,
     permissionState: hunoia.luno.ui.permission.PermissionState,
-    /** 与内容层同一份 Haze 状态，给悬浮底栏做模糊底；由 [LunoScreenPlain] 模板下发。 */
+    /** 与内容层同一份 Haze 状态，给悬浮底栏做模糊底；由 [LunoPageRaw] 内容下发。 */
     hazeState: HazeState,
     contentPadding: PaddingValues = PaddingValues(),
     /**

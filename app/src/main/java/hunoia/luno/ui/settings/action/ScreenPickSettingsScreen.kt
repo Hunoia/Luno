@@ -33,7 +33,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -94,57 +94,62 @@ fun ScreenPickSettingsScreen(
         if (d.allOk) add(sDiagNote)
     }
 
-    LunoScreen(title = stringResource(R.string.screen_pick_settings_title), onBack = onBack) {
-        LunoGroup(title = stringResource(R.string.screen_pick_settings_image_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_save_to_gallery),
-                subtitle = stringResource(R.string.screen_pick_save_to_gallery_hint),
-                checked = advancedSettings.screenPickSaveToGallery,
-                onCheckedChange = { checked ->
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.screen_pick_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.screen_pick_settings_image_group)) {
+switchRow(
+title = stringResource(R.string.screen_pick_save_to_gallery),
+subtitle = stringResource(R.string.screen_pick_save_to_gallery_hint),
+checked = advancedSettings.screenPickSaveToGallery,
+onCheckedChange = { checked ->
                     scope.launch {
                         TuneConfig.updateAdvanced { it.copy(screenPickSaveToGallery = checked) }
                     }
                 },
-                shape = segmentedShape(0, 1),
-            )
-        }
+
+)        }
         // ===== 识别规则与取字参数 =====
         // 松手去向 / 二维码是识别后的参数，统一在本页；规则表与情景识别在分发规则页。
-        LunoGroup(title = stringResource(R.string.screen_pick_recognition_group)) {
-            LunoSettingsRow(
-                title = stringResource(hunoia.luno.link.R.string.recognition_title),
-                subtitle = stringResource(R.string.screen_pick_recognition_hint),
-                shape = segmentedShape(0, 1),
-                onClick = onNavToRecognition,
-            )
-        }
+        group(title = stringResource(R.string.screen_pick_recognition_group)) {
+row(
+title = stringResource(hunoia.luno.link.R.string.recognition_title),
+subtitle = stringResource(R.string.screen_pick_recognition_hint),
+onClick = onNavToRecognition,
+
+)        }
         // ===== 识屏取字（二维码 / 松手去向）=====
         // v6 单一模型覆盖 50 语言（中 / 日 / 韩 / 拉丁），文字体系无需选择，只留这两个参数。
-        LunoGroup(
+        group(
             title = stringResource(hunoia.luno.link.R.string.recognition_screen_pick_group),
             subtitle = stringResource(hunoia.luno.link.R.string.recognition_screen_pick_hint),
         ) {
-            LunoSwitchRow(
-                title = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr),
-                subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr_hint),
-                checked = screenPick.enableQrRecognition,
-                onCheckedChange = { checked ->
+switchRow(
+title = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr),
+subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_enable_qr_hint),
+checked = screenPick.enableQrRecognition,
+onCheckedChange = { checked ->
                     updateScreenPick { it.copy(enableQrRecognition = checked) }
                 },
-                shape = segmentedShape(0, 2),
-            )
-            LunoDropdownRow(
-                title = stringResource(hunoia.luno.link.R.string.screen_pick_release_mode),
-                subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_portal_toolbar_hint),
-                options = listOf(
+
+)
+dropdownRow(
+title = stringResource(hunoia.luno.link.R.string.screen_pick_release_mode),
+subtitle = stringResource(hunoia.luno.link.R.string.screen_pick_portal_toolbar_hint),
+options = listOf(
                     stringResource(hunoia.luno.link.R.string.screen_pick_release_cancel),
                     stringResource(hunoia.luno.link.R.string.screen_pick_release_stay),
                 ),
-                selectedIndex = when (screenPick.portalReleaseMode) {
+selectedIndex = when (screenPick.portalReleaseMode) {
                     PortalReleaseMode.Cancel -> 0
                     PortalReleaseMode.StayInPicker -> 1
                 },
-                onSelect = { index ->
+onSelect = { index ->
                     updateScreenPick {
                         it.copy(
                             portalReleaseMode = if (index == 0) {
@@ -155,15 +160,14 @@ fun ScreenPickSettingsScreen(
                         )
                     }
                 },
-                shape = segmentedShape(1, 2),
-            )
-        }
+
+)        }
         // ===== 识屏诊断 =====
-        LunoGroup(title = stringResource(R.string.screen_pick_diag_group)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.screen_pick_diag_run),
-                subtitle = stringResource(R.string.screen_pick_diag_hint),
-                onClick = {
+        group(title = stringResource(R.string.screen_pick_diag_group)) {
+row(
+title = stringResource(R.string.screen_pick_diag_run),
+subtitle = stringResource(R.string.screen_pick_diag_hint),
+onClick = {
                     scope.launch {
                         diagRunning = true
                         showDiagDialog = true
@@ -172,40 +176,41 @@ fun ScreenPickSettingsScreen(
                         diagRunning = false
                     }
                 },
-                shape = segmentedShape(0, 0),
-            )
-        }
+
+)        }
         // ===== OCR 模型管理（原独立页面，已内嵌） =====
-        LunoGroup(title = stringResource(R.string.ocr_model_env_group)) {
-            LunoSettingsRow(
-                title = ocrModels.socModel.ifBlank { stringResource(R.string.ocr_model_soc) },
-                subtitle = stringResource(
+        group(title = stringResource(R.string.ocr_model_env_group)) {
+row(
+title = ocrModels.socModel.ifBlank { stringResource(R.string.ocr_model_soc) },
+subtitle = stringResource(
                     if (ocrModels.gpuSupported) {
                         R.string.ocr_model_gpu_supported
                     } else {
                         R.string.ocr_model_gpu_unsupported
                     },
                 ),
-                shape = segmentedShape(0, 1),
-            )
-        }
-        LunoGroup(
+
+)        }
+        group(
             title = stringResource(R.string.ocr_model_pp_group),
             badgeText = ppBadge(ocrModels.pp),
             badgeError = ocrModels.pp.state is OcrModelState.Failed,
         ) {
-            LunoSettingsRow(
-                title = stringResource(R.string.ocr_model_pp_state),
-                subtitle = ppDetail(ocrModels.pp),
-                subtitleColor = if (ocrModels.pp.state is OcrModelState.Failed) {
+row(
+title = stringResource(R.string.ocr_model_pp_state),
+subtitle = ppDetail(ocrModels.pp),
+subtitleColor = if (ocrModels.pp.state is OcrModelState.Failed) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                shape = segmentedShape(0, 0),
-            )
+
+)        }
+
         }
     }
+}
+}
 
     if (showDiagDialog) {
         AnchoredDialog(onDismiss = { if (!diagRunning) showDiagDialog = false }) { dismiss ->

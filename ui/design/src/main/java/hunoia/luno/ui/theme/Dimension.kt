@@ -1,12 +1,10 @@
 package hunoia.luno.ui.theme
 
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.ContainerSmoothing
-import hunoia.luno.ui.theme.LargeShape
 import sv.lib.squircleshape.CornerSmoothing
-import sv.lib.squircleshape.SquircleShape
 
 // Component sizes
 val MarkColorSize = 20.dp
@@ -18,7 +16,18 @@ val PaletteDotSpacing = 4.dp
 /** 调色板编辑页的可视化色块边长与圆角条高度。同为固定尺寸色块语义，不随字体缩放。 */
 val PaletteSwatchSize = 48.dp
 val PaletteStripHeight = 32.dp
-val MinItemHeightNoSecondary = 56.dp
+/**
+ * 列表行（`LunoRowBase` 一族：设置行 / 开关行 / 多选行 / 输入行）的最小高。
+ *
+ * 56 与 FlClash `prism_ui` 的 `listRowMinHeight = 56` 同档，也等于 M3 `ListTokens` 的单行值。
+ * 说明：M3 1.5 的 `ListItem` 在 `measure` 里就按它兜底（`calculateHeight` =
+ * `max(token, 内容高)`，`place` 按该值 layout），所以这个下界平时是**显式契约**、不改变现状；
+ * M3 若哪天把这层兜底挪走（只剩 intrinsic 用），行会静默掉到内容高（≈40，被 48 命中区下限兜住）。
+ * 要真把行调高，改这里：外层下界 > 56 才会压过 M3 的兜底。
+ */
+val ListRowMinHeight = 56.dp
+/** 滑杆行最小高：与列表行同档，滑杆内容（标题 + 轨道 + 两端提示）不挤。 */
+val SliderRowMinHeight = 56.dp
 val MinInteractiveSize = 48.dp
 /**
  * 紧凑命中区下限：密排自绘命中区（月历格、时间表盘刻度、多列网格）与卡片内纯图标工具条共用。
@@ -43,8 +52,8 @@ val ProgressBarHeight = 12.dp
 val LoadingIndicatorSize = 60.dp
 
 // Layout spacing
-val PageGutter = 16.dp
-val ListSpacing = 16.dp
+val PageGutter: Dp get() = UiAppearance.pageGutter
+val ListSpacing: Dp get() = UiAppearance.listSpacing
 val ListItemVerticalPadding = 12.dp
 val CardInnerSpacing = 8.dp
 // 滑杆行内容横向内边距：与普通设置行（RowInnerPadding=16dp）对齐，行内容位置一致。
@@ -80,24 +89,27 @@ val ShapeExtraLarge = 32.dp
 val ContainerSmoothing = CornerSmoothing.Medium
 val CapsuleSmoothing = CornerSmoothing.Small
 
-// Shape instances（四角色见 §2.1.1）
+// Shape instances（四角色见 §2.1.1；半径/形态可由用户按组件族覆盖，见 §2.5）
 // 小角也用同一几何家族，只换档位，不另开一套圆弧形状。
-val SmallShape: Shape = SquircleShape(ShapeSmall, ContainerSmoothing)
-val MediumShape: Shape = SquircleShape(ShapeMedium, ContainerSmoothing)
-val LargeShape: Shape = SquircleShape(ShapeLarge, ContainerSmoothing)
-val ExtraLargeShape: Shape = SquircleShape(ShapeExtraLarge, ContainerSmoothing)
-val SheetTopShape: Shape = SquircleShape(
-    topStart = ShapeExtraLarge,
-    topEnd = ShapeExtraLarge,
-    bottomStart = 0.dp,
-    bottomEnd = 0.dp,
-    smoothing = ContainerSmoothing,
-)
+// 全部走委托形状：每次 layout 读一次 `UiAppearance`，改设置自动重排，调用点无需传参。
+val SmallShape: Shape = DelegatingShape(ShapeRole.Compact)
+val MediumShape: Shape = DelegatingShape(ShapeRole.CompactMedium)
+/** 列表与卡（行 / 组卡 / 分段组 / 输入框 / 空态 / 横幅）。 */
+val LargeShape: Shape = DelegatingShape(ShapeRole.List)
+/** 悬浮操作按钮：与列表分开成族，圆角可单独调。 */
+val FabShape: Shape = DelegatingShape(ShapeRole.Fab)
+/** 菜单项与 sheet 按钮（48dp 族）。 */
+val MenuShape: Shape = DelegatingShape(ShapeRole.Menu)
+/** 紧凑工具条（标注页，48dp 族）。 */
+val ToolbarShape: Shape = DelegatingShape(ShapeRole.Toolbar)
+/** 菜单选中块：菜单圆角 − 8dp（同心，§4.1）。 */
+val MenuInnerShape: Shape = DelegatingShape(ShapeRole.MenuInner)
+val ExtraLargeShape: Shape = DelegatingShape(ShapeRole.Sheet)
+val SheetTopShape: Shape = DelegatingShape(ShapeRole.SheetTop)
 
 // 胶囊：零直边百分比 50/(1+s)，随高度自适应，不写 dp（§2.1.2 第 2 条）。
 // 底栏、指示 pill、chip、玻璃胶囊、固定高度单行输入都用它，不再按尺寸开 dp token。
-val CapsuleCornerPercent = 50f / (1f + CapsuleSmoothing / 100f)
-val CapsuleShape: Shape = PercentSquircleShape(CapsuleCornerPercent, CapsuleSmoothing)
+val CapsuleShape: Shape = DelegatingShape(ShapeRole.Capsule)
 
 // Bottom bar
 // 底栏与屏幕底边的间距（命名沿用 padding，实为整条底栏的外边距），三处底栏共用同一值。

@@ -309,7 +309,7 @@ fun DialogScrim(
  * [modifier] 作用在卡片本体上（内边距之内），`heightIn` / `verticalScroll` 等由调用方追加。
  */
 @Composable
-fun DialogCard(
+internal fun DialogCard(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(LargeGutter),
     content: @Composable ColumnScope.() -> Unit,

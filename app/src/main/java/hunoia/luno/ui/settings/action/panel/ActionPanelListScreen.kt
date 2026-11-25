@@ -31,6 +31,7 @@ import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.screen.PanelCreateItem
 import hunoia.luno.ui.component.screen.PanelListRow
 import hunoia.luno.ui.component.screen.PanelListScreen
@@ -151,28 +152,27 @@ fun ActionPanelListScreen(
             ),
         ),
         header = {
-            LunoGroup(title = stringResource(R.string.action_panel_style_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.Gesture,
-                    title = stringResource(R.string.action_panel_style),
-                    subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
-                    shape = segmentedShape(0, 3),
-                    onClick = { showStyle = true },
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.ViewCarousel,
-                    title = stringResource(R.string.panel_dock),
-                    subtitle = panelDockSummary(actionSettings),
-                    shape = segmentedShape(1, 3),
-                    onClick = { showDock = true },
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.Palette,
-                    title = stringResource(R.string.panel_appearance),
-                    subtitle = stringResource(R.string.panel_appearance_hint),
-                    shape = segmentedShape(2, 3),
-                    onClick = { showAppearance = true },
-                )
+            group(title = stringResource(R.string.action_panel_style_group)) {row(
+icon = Icons.Default.Gesture,
+title = stringResource(R.string.action_panel_style),
+subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
+onClick = { showStyle = true },
+
+)
+row(
+icon = Icons.Default.ViewCarousel,
+title = stringResource(R.string.panel_dock),
+subtitle = panelDockSummary(actionSettings),
+onClick = { showDock = true },
+
+)
+row(
+icon = Icons.Default.Palette,
+title = stringResource(R.string.panel_appearance),
+subtitle = stringResource(R.string.panel_appearance_hint),
+onClick = { showAppearance = true },
+
+)
             }
         },
     )

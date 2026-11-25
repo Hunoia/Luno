@@ -50,7 +50,6 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -145,11 +144,9 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
 
     val previewPreset: AlertPreset? = previewPresetId?.let { library.presetById(it) }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.action_alert_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.action_alert_title),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = {
                     when {
@@ -171,7 +168,7 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
                 contentDescription = stringResource(R.string.action_alert_preview),
             )
         },
-        sheets = {
+sheets = {
             pickTarget?.let { target ->
                 AlertPresetSelectSheet(
                     library = library,
@@ -185,8 +182,10 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
                     noneSubtitle = stringResource(R.string.action_alert_unbound_hint),
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "basic") {
             val rows = segmentedRows {
                 item { shape ->
@@ -378,7 +377,10 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
+
+        }
     }
+}
 }
 
 @Composable

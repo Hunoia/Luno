@@ -70,8 +70,8 @@ import hunoia.luno.annotate.model.ShapeKind
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.config.model.AnnotateToolStyle
 import hunoia.luno.annotate.render.exportPixelSize
+import hunoia.luno.ui.theme.ToolbarShape
 import hunoia.luno.ui.theme.CompactControlIconSize
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.component.input.LunoSlider
 import hunoia.luno.ui.component.PressFilledIconButton
@@ -108,13 +108,15 @@ fun AnnotateToolbar(
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         Surface(
             modifier = modifier,
-            shape = LargeShape,
+            shape = ToolbarShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 3.dp,
             // 无投影（P：工具卡去阴影），层次靠色差。
             shadowElevation = 0.dp,
         ) {
-            Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+            // 36dp 工具行 + 上下各 6dp = 48dp：与「菜单与按钮」同族预算（r ≤ 48/2.96），
+            // 以前 44dp 配 16dp 圆角已经越界（§2.1.2 第 3 条），这里抬高 4dp 归一。
+            Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
                 // 工具行：点工具选中并通知宿主弹样式二层卡（再点同一工具收起）。
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),

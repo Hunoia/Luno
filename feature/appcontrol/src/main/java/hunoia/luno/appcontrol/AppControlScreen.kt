@@ -79,7 +79,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SectionBadge
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -142,11 +141,9 @@ fun AppControlScreen(
     // 保留分节结构供按节发 item（见列表 content）；平铺视图供空态 / 使能态判断。
     val visible = sections.flatMap { it.items }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.app_control_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.app_control_title),
+onBack = onBack,
+actions = {
             // 常态：显示系统应用（图标开关态）+ 选择入口；选择态：顶栏放退出。
             if (state.selectionMode) {
                 PressIconButton(onClick = { vm.toggleSelectionMode() }) {
@@ -177,7 +174,7 @@ fun AppControlScreen(
                 }
             }
         },
-        floatingContent = { hazeState ->
+floatingContent = { hazeState ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
                 AppControlToolbar(
                     hazeState = hazeState,
@@ -199,7 +196,7 @@ fun AppControlScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (state.pendingFreezeCount > 0) {
                 ConfirmDialog(
                     title = stringResource(
@@ -212,8 +209,10 @@ fun AppControlScreen(
                     onConfirm = { vm.confirmFreezeSelected() },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         if (state.failures.isNotEmpty()) {
             item {
                 LunoGroup(title = stringResource(R.string.app_control_failures_title)) {
@@ -347,7 +346,10 @@ fun AppControlScreen(
                 }
             }
         }
+
+        }
     }
+}
 
     if (showPicker && appPicker != null) {
         appPicker(

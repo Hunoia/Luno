@@ -30,7 +30,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
@@ -104,12 +104,9 @@ fun ResultCapsuleSettingsScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_result_group),
-        onBack = onBack,
-        state = listState,
-        bottomContentPadding = FloatingContentBottom,
-        sheets = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_result_group),
+onBack = onBack,
+sheets = {
             BallCustomIconSheet(
                 context = context,
                 picker = iconPicker,
@@ -164,8 +161,11 @@ fun ResultCapsuleSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = listState,
+bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         if (!overlayGranted) {
             item(key = "permission") {
                 LunoGroup {
@@ -183,22 +183,21 @@ fun ResultCapsuleSettingsScreen(
         }
 
         item(key = "behavior") {
-            LunoGroup(title = stringResource(R.string.float_ball_result_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_result_follow_hand),
-                    subtitle = stringResource(R.string.float_ball_result_follow_hand_subtitle),
-                    checked = capsule.followHand,
-                    onCheckedChange = { checked ->
+            group(title = stringResource(R.string.float_ball_result_group)) {switchRow(
+title = stringResource(R.string.float_ball_result_follow_hand),
+subtitle = stringResource(R.string.float_ball_result_follow_hand_subtitle),
+checked = capsule.followHand,
+onCheckedChange = { checked ->
                         update {
                             it.copy(resultCapsule = it.resultCapsule.copy(followHand = checked))
                         }
                     },
-                    shape = segmentedShape(0, 7),
-                )
-                LunoTextSlider(
-                    value = localIdleDim,
-                    onValueChange = { value -> localIdleDim = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localIdleDim,
+onValueChange = { value -> localIdleDim = value },
+onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -207,16 +206,16 @@ fun ResultCapsuleSettingsScreen(
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_idle_dim_delay),
-                    valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
-                    valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
+text = stringResource(R.string.float_ball_idle_dim_delay),
+valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
+valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
                         FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
-                    shape = segmentedShape(1, 7),
-                )
-                LunoTextSlider(
-                    value = localAutoHide,
-                    onValueChange = { value -> localAutoHide = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localAutoHide,
+onValueChange = { value -> localAutoHide = value },
+onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -225,16 +224,16 @@ fun ResultCapsuleSettingsScreen(
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_capsule_auto_hide),
-                    valueDisplay = { "${(it / 1000).toInt()} s" },
-                    valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
+text = stringResource(R.string.float_ball_capsule_auto_hide),
+valueDisplay = { "${(it / 1000).toInt()} s" },
+valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(2, 7),
-                )
-                LunoTextSlider(
-                    value = localVisibleRows,
-                    onValueChange = { value -> localVisibleRows = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localVisibleRows,
+onValueChange = { value -> localVisibleRows = value },
+onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -243,16 +242,16 @@ fun ResultCapsuleSettingsScreen(
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_capsule_visible_rows),
-                    valueDisplay = { "${it.toInt()}" },
-                    valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
+text = stringResource(R.string.float_ball_capsule_visible_rows),
+valueDisplay = { "${it.toInt()}" },
+valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
                         FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
-                    shape = segmentedShape(3, 7),
-                )
-                LunoTextSlider(
-                    value = localRowHeight,
-                    onValueChange = { value -> localRowHeight = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localRowHeight,
+onValueChange = { value -> localRowHeight = value },
+onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -261,30 +260,30 @@ fun ResultCapsuleSettingsScreen(
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_capsule_row_height),
-                    valueDisplay = { "${it.toInt()} dp" },
-                    valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
+text = stringResource(R.string.float_ball_capsule_row_height),
+valueDisplay = { "${it.toInt()} dp" },
+valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
                         FloatBallDefaults.CapsuleRowHeightDpMax.toFloat(),
-                    shape = segmentedShape(4, 7),
-                )
-                LunoTextSlider(
-                    value = localTtl,
-                    onValueChange = { value -> localTtl = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localTtl,
+onValueChange = { value -> localTtl = value },
+onValueChangeFinished = {
                         update {
                             it.copy(inbox = it.inbox.copy(resultTtlMs = localTtl.toLong()))
                         }
                     },
-                    text = stringResource(R.string.float_ball_result_ttl),
-                    valueDisplay = { "${(it / 1000).toInt()} s" },
-                    valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
+text = stringResource(R.string.float_ball_result_ttl),
+valueDisplay = { "${(it / 1000).toInt()} s" },
+valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
                         FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
-                    shape = segmentedShape(5, 7),
-                )
-                LunoTextSlider(
-                    value = localCapacity,
-                    onValueChange = { value -> localCapacity = value },
-                    onValueChangeFinished = {
+
+)
+sliderRow(
+value = localCapacity,
+onValueChange = { value -> localCapacity = value },
+onValueChangeFinished = {
                         update {
                             it.copy(
                                 inbox = it.inbox.copy(
@@ -293,12 +292,12 @@ fun ResultCapsuleSettingsScreen(
                             )
                         }
                     },
-                    text = stringResource(R.string.float_ball_result_capacity),
-                    valueDisplay = { "${it.toInt()}" },
-                    valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
+text = stringResource(R.string.float_ball_result_capacity),
+valueDisplay = { "${it.toInt()}" },
+valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(6, 7),
-                )
+
+)
             }
         }
 
@@ -397,5 +396,8 @@ fun ResultCapsuleSettingsScreen(
                 )
             }
         }
+
+        }
     }
+}
 }

@@ -39,7 +39,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
@@ -140,11 +139,9 @@ fun NotificationCapsuleSettingsScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_notification_group),
-        onBack = onBack,
-        state = listState,
-        sheets = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_notification_group),
+onBack = onBack,
+sheets = {
             BallCustomIconSheet(
                 context = context,
                 picker = iconPicker,
@@ -199,8 +196,10 @@ fun NotificationCapsuleSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = listState) {
+        lazy {
+
         if (!overlayGranted) {
             item(key = "permission") {
                 LunoGroup {
@@ -569,7 +568,10 @@ fun NotificationCapsuleSettingsScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 /** 到达提示全局强度 / 速度滑杆（范围由 [AlertLimits] 统一给出）。 */

@@ -12,6 +12,7 @@ import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.group
 
 /**
  * 主页权限状态卡：**一行摘要 + 右侧一键授权**，无分组标题，逐项解释留给授权页。
@@ -31,15 +32,12 @@ fun HomePermissionStatusCard(
     onGrant: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LunoGroup(modifier = modifier) {
-        LunoSettingsRow(
-            title = pluralStringResource(R.plurals.home_permission_pending, missingCount, missingCount),
-            // 副标题只说标题没说的（怎么进去），不重复“未授权”这个状态。
-            subtitle = stringResource(R.string.home_permission_pending_hint),
-            icon = Icons.Filled.Warning,
-            onClick = onOpen,
-            shape = segmentedShape(0, 1),
-            trailing = {
+    group(modifier = modifier) {row(
+title = pluralStringResource(R.plurals.home_permission_pending, missingCount, missingCount),
+subtitle = stringResource(R.string.home_permission_pending_hint),
+icon = Icons.Filled.Warning,
+onClick = onOpen,
+trailing = {
                 PressTextButton(onClick = onGrant, enabled = !isGranting) {
                     Text(
                         text = stringResource(
@@ -52,6 +50,7 @@ fun HomePermissionStatusCard(
                     )
                 }
             },
-        )
+
+)
     }
 }

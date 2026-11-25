@@ -75,7 +75,7 @@ import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -113,13 +113,11 @@ fun ActionLibraryEditScreen(
     val guardedBack: () -> Unit = {
         if (state.isDirty) showDiscardConfirm = true else onBack()
     }
-    LunoScreen(
-        title = stringResource(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
             if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
         ),
-        onBack = guardedBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = { hazeState ->
+onBack = guardedBack,
+floatingContent = { hazeState ->
             if (draft != null) {
                 // 底部玻璃胶囊：靠右、自适应宽，[测试][保存] 两个图标按钮（同冻结页底栏几何）。
                 Column(
@@ -206,7 +204,7 @@ fun ActionLibraryEditScreen(
                 }
             }
         },
-        actions = {
+actions = {
             if (draft?.id != null) {
                 LunoIconButton(
                     icon = Icons.Outlined.Delete,
@@ -215,7 +213,7 @@ fun ActionLibraryEditScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (showDeleteConfirm) {
                 ConfirmDialog(
                     title = stringResource(R.string.action_library_delete_title),
@@ -290,8 +288,13 @@ fun ActionLibraryEditScreen(
                 )
             }
 
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
 
             when {
                 state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
@@ -299,21 +302,20 @@ fun ActionLibraryEditScreen(
                     LoadingState(message = stringResource(R.string.action_library_loading))
                 else -> {
                     // 名称：页首浮空组，行内形式（标签「名称」+ 值右对齐）。
-                    LunoGroup(title = stringResource(R.string.action_library_name)) {
-                        LunoInputRow(
-                            label = stringResource(R.string.action_library_name),
-                            value = draft.name,
-                            onValueChange = { vm.updateName(it) },
-                            placeholder = stringResource(R.string.action_library_entry_name_hint),
-                            isError = draft.name.isBlank(),
-                            subtitle = if (draft.name.isBlank()) {
+                    group(title = stringResource(R.string.action_library_name)) {
+inputRow(
+label = stringResource(R.string.action_library_name),
+value = draft.name,
+onValueChange = { vm.updateName(it) },
+placeholder = stringResource(R.string.action_library_entry_name_hint),
+isError = draft.name.isBlank(),
+subtitle = if (draft.name.isBlank()) {
                                 stringResource(R.string.action_library_entry_name_required)
                             } else {
                                 ""
                             },
-                            shape = segmentedShape(0, 1),
-                        )
-                    }
+
+)                    }
                     if (definition.parameters.isNotEmpty()) {
                         // 开关（小窗模式这类）放参数组最上面，其余非键值对按定义序；
                         // 键值对（extras / query）单独一组「额外参数」。
@@ -357,8 +359,12 @@ fun ActionLibraryEditScreen(
                     }
                 }
             }
-        
+
+
+        }
     }
+}
+}
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

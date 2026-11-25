@@ -68,7 +68,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
@@ -183,19 +183,16 @@ fun RecognitionSettingsScreen(
     LaunchedEffect(settings.rules) { reorder.syncWithCurrent() }
     val rules = reorder.items
 
-    LunoScreenLazy(
-        title = stringResource(R.string.recognition_title),
-        onBack = onBack,
-        state = listState,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.recognition_title),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = onCreateRule,
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.recognition_rule_add),
             )
         },
-        actions = {
+actions = {
             var menuOpen by remember { mutableStateOf(false) }
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
@@ -248,7 +245,7 @@ fun RecognitionSettingsScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             importPreview?.let { preview ->
                 ConfirmDialog(
                     title = stringResource(R.string.recognition_import_confirm_title),
@@ -279,16 +276,17 @@ fun RecognitionSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = listState,
+bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         // 默认浏览器：只在 Luno 不是默认浏览器时才显示入口（已是默认就没必要再引导）。
         if (!isLunoDefaultBrowser(context)) {
             item {
-                LunoGroup(title = stringResource(R.string.recognition_browser_group)) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.recognition_default_browser),
-                        shape = segmentedShape(0, 1),
-                        onClick = {
+                group(title = stringResource(R.string.recognition_browser_group)) {row(
+title = stringResource(R.string.recognition_default_browser),
+onClick = {
                             val launched = runCatching {
                                 context.startActivity(
                                     Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
@@ -304,7 +302,8 @@ fun RecognitionSettingsScreen(
                                 }
                             }
                         },
-                    )
+
+)
                 }
             }
         }
@@ -318,21 +317,20 @@ fun RecognitionSettingsScreen(
             ) + browsers.map { it.label }
             val browserIndex = browsers
                 .indexOfFirst { it.packageName == settings.browserPackage } + 1
-            LunoGroup(title = stringResource(R.string.recognition_global_group)) {
-                LunoDropdownRow(
-                    title = stringResource(R.string.recognition_fallback),
-                    subtitle = stringResource(R.string.recognition_fallback_hint),
-                    options = listOf(
+            group(title = stringResource(R.string.recognition_global_group)) {dropdownRow(
+title = stringResource(R.string.recognition_fallback),
+subtitle = stringResource(R.string.recognition_fallback_hint),
+options = listOf(
                         stringResource(R.string.recognition_miss_share),
                         stringResource(R.string.recognition_miss_browser),
                         stringResource(R.string.recognition_miss_picker),
                     ),
-                    selectedIndex = when (settings.fallback) {
+selectedIndex = when (settings.fallback) {
                         LinkMissMode.SHARE -> 0
                         LinkMissMode.BROWSER -> 1
                         LinkMissMode.PICKER -> 2
                     },
-                    onSelect = { index ->
+onSelect = { index ->
                         update {
                             it.copy(
                                 fallback = when (index) {
@@ -343,14 +341,14 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(0, 3),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.recognition_browser_choice),
-                    subtitle = stringResource(R.string.recognition_browser_choice_hint),
-                    options = browserOptions,
-                    selectedIndex = browserIndex.coerceAtLeast(0),
-                    onSelect = { index ->
+
+)
+dropdownRow(
+title = stringResource(R.string.recognition_browser_choice),
+subtitle = stringResource(R.string.recognition_browser_choice_hint),
+options = browserOptions,
+selectedIndex = browserIndex.coerceAtLeast(0),
+onSelect = { index ->
                         update {
                             it.copy(
                                 browserPackage =
@@ -358,21 +356,21 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(1, 3),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.recognition_copy_clear_delay),
-                    subtitle = stringResource(R.string.recognition_copy_clear_delay_hint),
-                    options = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS.map { seconds ->
+
+)
+dropdownRow(
+title = stringResource(R.string.recognition_copy_clear_delay),
+subtitle = stringResource(R.string.recognition_copy_clear_delay_hint),
+options = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS.map { seconds ->
                         if (seconds == 0) {
                             stringResource(R.string.recognition_copy_clear_off)
                         } else {
                             stringResource(R.string.recognition_copy_clear_seconds, seconds)
                         }
                     },
-                    selectedIndex = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS
+selectedIndex = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS
                         .indexOf(settings.copyClearDelaySeconds).coerceAtLeast(0),
-                    onSelect = { index ->
+onSelect = { index ->
                         update {
                             it.copy(
                                 copyClearDelaySeconds =
@@ -380,20 +378,19 @@ fun RecognitionSettingsScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(2, 3),
-                )
+
+)
             }
         }
         // 结果胶囊是分发规则的“显示面”：入口放这里，不再在动作设置里重复一份。
         item(key = "capsule") {
-            LunoGroup(title = stringResource(R.string.recognition_capsule_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.Lightbulb,
-                    title = stringResource(R.string.recognition_capsule_entry),
-                    subtitle = stringResource(R.string.recognition_capsule_entry_hint),
-                    shape = segmentedShape(0, 1),
-                    onClick = onNavToResultCapsuleSettings,
-                )
+            group(title = stringResource(R.string.recognition_capsule_group)) {row(
+icon = Icons.Default.Lightbulb,
+title = stringResource(R.string.recognition_capsule_entry),
+subtitle = stringResource(R.string.recognition_capsule_entry_hint),
+onClick = onNavToResultCapsuleSettings,
+
+)
             }
         }
         // 读取来源：这是「规则读不读这一路输入」的开关，与结果胶囊显示无关
@@ -401,63 +398,63 @@ fun RecognitionSettingsScreen(
         // 组里还带一个通知侧的显示开关（命中规则后要不要留在通知栏），它是「显示」不是「读取」，
         // 所以组副标题只讲读取，避免把两个轴混在一起。
         item {
-            LunoGroup(
+            group(
                 title = stringResource(R.string.recognition_read_group),
                 subtitle = stringResource(R.string.recognition_read_group_hint),
             ) {
                 // 读取来源与「命中后隐藏系统通知」两组开关在同一组里。
-                LunoSwitchRow(
-                    title = stringResource(R.string.recognition_read_notification),
-                    subtitle = stringResource(R.string.recognition_read_notification_hint),
-                    checked = settings.notificationReadEnabled,
-                    onCheckedChange = { checked ->
+                switchRow(
+title = stringResource(R.string.recognition_read_notification),
+subtitle = stringResource(R.string.recognition_read_notification_hint),
+checked = settings.notificationReadEnabled,
+onCheckedChange = { checked ->
                         update { it.copy(notificationReadEnabled = checked) }
                     },
-                    shape = segmentedShape(0, 5),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.recognition_hide_matched_notification),
-                    subtitle = stringResource(R.string.recognition_hide_matched_notification_hint),
-                    checked = settings.hideMatchedNotification,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.recognition_hide_matched_notification),
+subtitle = stringResource(R.string.recognition_hide_matched_notification_hint),
+checked = settings.hideMatchedNotification,
+onCheckedChange = { checked ->
                         update { it.copy(hideMatchedNotification = checked) }
                     },
-                    shape = segmentedShape(1, 5),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.recognition_read_clipboard),
-                    subtitle = stringResource(R.string.recognition_read_clipboard_hint),
-                    checked = settings.clipboardReadEnabled,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.recognition_read_clipboard),
+subtitle = stringResource(R.string.recognition_read_clipboard_hint),
+checked = settings.clipboardReadEnabled,
+onCheckedChange = { checked ->
                         update { it.copy(clipboardReadEnabled = checked) }
                     },
-                    shape = segmentedShape(2, 5),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.recognition_direct_toast),
-                    subtitle = stringResource(R.string.recognition_direct_toast_hint),
-                    checked = settings.directToastEnabled,
-                    onCheckedChange = { checked ->
+
+)
+switchRow(
+title = stringResource(R.string.recognition_direct_toast),
+subtitle = stringResource(R.string.recognition_direct_toast_hint),
+checked = settings.directToastEnabled,
+onCheckedChange = { checked ->
                         update { it.copy(directToastEnabled = checked) }
                     },
-                    shape = segmentedShape(3, 5),
-                )
-                LunoDropdownRow(
-                    title = stringResource(R.string.recognition_direct_prompt_mode),
-                    subtitle = stringResource(R.string.recognition_direct_prompt_mode_hint),
-                    options = listOf(
+
+)
+dropdownRow(
+title = stringResource(R.string.recognition_direct_prompt_mode),
+subtitle = stringResource(R.string.recognition_direct_prompt_mode_hint),
+options = listOf(
                         stringResource(R.string.recognition_direct_prompt_toast),
                         stringResource(R.string.recognition_direct_prompt_standard),
                         stringResource(R.string.recognition_direct_prompt_live),
                         stringResource(R.string.recognition_direct_prompt_island),
                         stringResource(R.string.recognition_direct_prompt_capsule),
                     ),
-                    selectedIndex = settings.directPromptMode.ordinal,
-                    onSelect = { index ->
+selectedIndex = settings.directPromptMode.ordinal,
+onSelect = { index ->
                         update { it.copy(directPromptMode = ToastPresentation.entries[index]) }
                     },
-                    shape = segmentedShape(4, 5),
-                )
+
+)
             }
         }
         // 情景识别：识别器的第五个输入源，开关与范围都在这里（不再挂在结果胶囊下）。
@@ -587,7 +584,10 @@ fun RecognitionSettingsScreen(
                 },
             )
         }
+
+        }
     }
+}
 }
 
 /** 无障碍服务类的简单类名（`SideGestureService`）；与 `:app` 里的声明保持同步。 */

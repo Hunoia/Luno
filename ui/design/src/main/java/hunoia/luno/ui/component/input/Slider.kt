@@ -2,7 +2,7 @@ package hunoia.luno.ui.component.input
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-import hunoia.luno.ui.theme.MinItemHeightNoSecondary
+import hunoia.luno.ui.theme.SliderRowMinHeight
 import hunoia.luno.ui.theme.SliderInnerPadding
 import hunoia.luno.ui.theme.SliderThumbWidth
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -60,7 +60,7 @@ private fun SliderSurface(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = MinItemHeightNoSecondary)
+                .heightIn(min = SliderRowMinHeight)
                 .padding(vertical = ListItemVerticalPadding),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)
         ) {

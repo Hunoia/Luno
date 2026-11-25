@@ -1,5 +1,6 @@
 package hunoia.luno.quickaccess.query
 
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.search.R
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.AppUsageStats

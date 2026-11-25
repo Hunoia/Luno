@@ -36,7 +36,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.Dispatchers
@@ -123,11 +123,14 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
     val common = StatusBarIconCatalog.common
     val more = StatusBarIconCatalog.more
 
-    LunoScreen(
-        title = stringResource(R.string.status_bar_icons_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.status_bar_icons_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         when {
             // 与无障碍管理页共用同一组原因 / 动作文案，页面差异由上下文自己承担。
             !shizukuStatus.isReady -> NoticeBanner(
@@ -195,21 +198,20 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
             }
         }
 
-        LunoGroup(title = stringResource(R.string.status_bar_icons_actions_group)) {
-            LunoSettingsRow(
-                icon = Icons.Default.Visibility,
-                title = stringResource(R.string.status_bar_icons_show_all),
-                subtitle = stringResource(R.string.status_bar_icons_show_all_hint),
-                shape = segmentedShape(0, 2),
-                enabled = state.canWrite,
-                onClick = ::showAll,
-            )
-            LunoSettingsRow(
-                icon = Icons.Default.OpenInNew,
-                title = stringResource(R.string.status_bar_icons_open_tuner),
-                subtitle = stringResource(R.string.status_bar_icons_open_tuner_hint),
-                shape = segmentedShape(1, 2),
-                onClick = {
+        group(title = stringResource(R.string.status_bar_icons_actions_group)) {
+row(
+icon = Icons.Default.Visibility,
+title = stringResource(R.string.status_bar_icons_show_all),
+subtitle = stringResource(R.string.status_bar_icons_show_all_hint),
+enabled = state.canWrite,
+onClick = ::showAll,
+
+)
+row(
+icon = Icons.Default.OpenInNew,
+title = stringResource(R.string.status_bar_icons_open_tuner),
+subtitle = stringResource(R.string.status_bar_icons_open_tuner_hint),
+onClick = {
                     val intent = StatusBarIcons.tunerIntent(context)
                     if (intent == null) {
                         showToast(R.string.status_bar_icons_tuner_missing)
@@ -220,7 +222,11 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
                             }
                     }
                 },
-            )
+
+)        }
+
         }
     }
+}
+}
 }

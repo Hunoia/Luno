@@ -118,7 +118,7 @@ fun ColumnScope.BallCustomIconRows(
 }
 
 /**
- * 待裁剪图标的弹层；宿主放进 `LunoScreenLazy` 的 `sheets` 槽。
+ * 待裁剪图标的弹层；宿主放进 `LunoPage` 的 `sheets` 槽。
  *
  * 确认时复制到 filesDir 并回调 [onChange]，由宿主写自己的那组配置；
  * 旧文件在这里删除，避免调用方各写一份复制 / 清理逻辑。

@@ -58,7 +58,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -98,11 +97,18 @@ fun TrendDetailScreen(
     val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
     val metric = config.metricById(metricId)
     if (metric == null) {
-        LunoScreenLazy(title = stringResource(R.string.trend_list_title), onBack = onBack) {
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_list_title),
+onBack = onBack) {
+    list() {
+        lazy {
+
             item {
                 EmptyState(message = stringResource(R.string.trend_metric_missing))
             }
+
         }
+    }
+}
         return
     }
     val entries = config.entriesOf(metricId)
@@ -144,11 +150,9 @@ fun TrendDetailScreen(
         trendDayGroups(entries, TrendRecordPreviewLimit, zone)
     }
 
-    LunoScreenLazy(
-        title = metric.name,
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = metric.name,
+onBack = onBack,
+actions = {
             PressIconButton(onClick = { onEditMetric(metric.id) }) {
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -156,7 +160,7 @@ fun TrendDetailScreen(
                 )
             }
         },
-        floatingContent = {
+floatingContent = {
             LunoFab(
                 onClick = { showRecord = true },
                 icon = Icons.Default.Add,
@@ -165,7 +169,7 @@ fun TrendDetailScreen(
                 contentColor = if (baseColor.luminance() > 0.5f) Color.Black else Color.White,
             )
         },
-        sheets = {
+sheets = {
             if (showRecord) {
                 TrendRecordSheet(
                     metric = metric,
@@ -189,8 +193,10 @@ fun TrendDetailScreen(
                     onDelete = { scope.launch { TrendCenter.deleteEntry(metric.id, entry.id) } },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "trend_summary") {
             TrendSummary(
                 metric = metric,
@@ -261,7 +267,10 @@ fun TrendDetailScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 /**

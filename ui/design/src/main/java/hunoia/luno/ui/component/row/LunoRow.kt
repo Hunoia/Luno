@@ -61,13 +61,13 @@ import hunoia.luno.ui.component.pressScale
 import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.MinInteractiveSize
+import hunoia.luno.ui.theme.ListRowMinHeight
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
 
 /**
  * 列表行的唯一实现，三种预设共用：内边距由页面 gutter 或 [LunoGroup] 提供，
- * 触控区统一 ≥ [MinInteractiveSize]。`leading` 与 icon/iconBitmap/iconModel/textIcon
+ * 触控区统一 ≥ 48dp（命中区下限）。`leading` 与 icon/iconBitmap/iconModel/textIcon
  * 互斥（自定义优先）；四种图标参数是唯一允许的图标入口。
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -158,7 +158,9 @@ internal fun LunoRowBase(
 
     ListItem(
         modifier = modifier
-            .heightIn(min = MinInteractiveSize)
+            // 行高下界走行自己的 token（56，与 FlClash listRowMinHeight 同档）：M3 1.5 的
+            // ListItem 自己也按 56 兜底，这里显式写出来，M3 改动时不至于静默变矮。
+            .heightIn(min = ListRowMinHeight)
             .alpha(if (enabled) 1f else DisabledAlpha)
             // 行不加 ripple（§5.3），点击反馈靠按压缩放。
             .pressScale(interactionSource)
@@ -413,7 +415,7 @@ fun LunoInputRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = MinInteractiveSize)
+                    .heightIn(min = ListRowMinHeight)
                     .padding(horizontal = RowInnerPadding),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

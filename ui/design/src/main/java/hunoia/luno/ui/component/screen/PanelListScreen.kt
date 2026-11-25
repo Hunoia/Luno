@@ -10,6 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.ui.component.ListAddFab
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
+import hunoia.luno.ui.component.page.LunoPageColumn
+import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
@@ -87,25 +90,28 @@ fun PanelListScreen(
 
     val totalRows = sections.sumOf { it.rows.size }
     if (totalRows == 0) {
-        LunoScreen(
+        LunoPage(
             title = title,
             onBack = onBack,
-            bottomContentPadding = FloatingContentBottom,
             floatingContent = { addFab() },
         ) {
-            header?.invoke()
-            EmptyState(message = sections.firstOrNull()?.emptyHint.orEmpty())
+            LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+                block {
+                    header?.invoke()
+                    EmptyState(message = sections.firstOrNull()?.emptyHint.orEmpty())
+                }
+            }
         }
         return
     }
 
-    LunoScreenLazy(
+    LunoPage(
         title = title,
         onBack = onBack,
-        state = listState,
-        bottomContentPadding = FloatingContentBottom,
         floatingContent = { addFab() },
     ) {
+        LunoPageList(state = listState, bottomContentPadding = FloatingContentBottom) {
+            lazy {
         header?.let { h ->
             item(key = "header") { h() }
         }
@@ -126,6 +132,8 @@ fun PanelListScreen(
                     }
                 }
             }
+            }
         }
     }
+}
 }

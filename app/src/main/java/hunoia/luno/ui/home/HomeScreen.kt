@@ -94,7 +94,9 @@ import androidx.compose.material.icons.twotone.Home
 import androidx.compose.material.icons.twotone.Settings
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.component.screen.HomeShell
+import hunoia.luno.ui.component.page.LunoPage
+import hunoia.luno.ui.component.page.LunoPageList
+import hunoia.luno.ui.component.page.LunoTabPager
 import hunoia.luno.ui.settings.action.ActionSettingsTab
 
 enum class MainTab(
@@ -295,11 +297,12 @@ fun HomeScreen(
             homeBackTarget?.let(::selectTab)
         }
 
-        HomeShell(
+        LunoPage(
             title = stringResource(mainTab.titleRes),
+            bottomBarInitialHeight = FloatingContentBottom - hunoia.luno.ui.theme.ContentBottom,
             actions = {
                 // 记录页的「设置」入口：执行面（今天的打卡 / 待办）与设置分开，管理项进二级页
-                // （ui-guidelines §3.1 模板选择：普通设置页用 LunoScreen，不塞进行内）。
+                // （ui-guidelines §3.1 模板选择：普通设置页用 LunoPage，不塞进行内）。
                 // 习惯 tab 不设顶栏入口：行点按进详情页，编辑在详情页顶栏；待办 tab 齿轮 = 待办设置。
                 val openSettings: (() -> Unit)? = when (mainTab) {
                     MainTab.Todos -> onNavToTodoSettings
@@ -467,37 +470,10 @@ fun HomeScreen(
                     )
                 }
             },
-        ) { topPadding, _ ->
-            // 方向感知的 tab 切换动画：向右切（序号变大）内容左移，向左切反之。
-            AnimatedContent(
-                targetState = mainTab,
-                transitionSpec = {
-                    val forward = targetState.ordinal > initialState.ordinal
-                    val enter = slideInHorizontally(
-                        animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter, easing = FastOutSlowInEasing),
-                    ) { full -> if (forward) full / 6 else -full / 6 } +
-                        fadeIn(animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter))
-                    val exit = slideOutHorizontally(
-                        animationSpec = tween(hunoia.luno.ui.theme.MotionPageExit, easing = FastOutSlowInEasing),
-                    ) { full -> if (forward) -full / 6 else full / 6 } +
-                        fadeOut(animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut))
-                    enter togetherWith exit
-                },
-                contentKey = { it },
-                label = "homeTabs",
-            ) { tab ->
+        ) {
+            LunoTabPager(tabs = MainTab.entries, selected = mainTab) { tab ->
                 when (tab) {
-                        MainTab.Home -> LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            state = homeListState,
-                            contentPadding = PaddingValues(
-                                start = PageGutter,
-                                top = topPadding,
-                                end = PageGutter,
-                                bottom = FloatingContentBottom,
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(ListSpacing),
-                        ) {
+                        MainTab.Home -> LunoPageList(state = homeListState) {
                             item(key = "runtime_status") {
                                 HomeRuntimeStatusCard(
                                     runtimeStatus = uiState.runtimeStatus,
@@ -592,7 +568,6 @@ fun HomeScreen(
                         }
 
                         MainTab.Habits -> HabitListContent(
-                            topPadding = topPadding,
                             onOpenHabit = onNavToHabitDetail,
                             onNewHabit = { onNavToHabitEdit(null) },
                             state = habitListState,
@@ -605,18 +580,16 @@ fun HomeScreen(
                             val navBottom = navigationWindowInsets.asPaddingValues()
                                 .calculateBottomPadding()
                             TodoListContent(
-                                topPadding = topPadding,
                                 addRequest = todoAddRequest,
                                 onAddRequestHandled = { todoAddRequest = 0 },
                                 onNewTodo = { todoAddRequest++ },
                                 state = todoListState,
-                                bottomContentPadding = navBottom + FloatingContentBottom,
+                                bottomContentPadding = hunoia.luno.ui.theme.ContentBottom,
                                 undoBarBottomInset = navBottom + BottomBarPadding + DockBallSize + DockOverlayGap,
                             )
                         }
 
                         MainTab.Trends -> TrendListContent(
-                            topPadding = topPadding,
                             onOpenMetric = onNavToTrendDetail,
                             onNewMetric = { onNavToTrendEdit(null) },
                             state = trendListState,
@@ -625,11 +598,9 @@ fun HomeScreen(
                         MainTab.ActionLibrary -> ActionLibraryScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
-                            contentPadding = PaddingValues(top = topPadding),
                         )
 
                         MainTab.Settings -> ActionSettingsTab(
-                            topPadding = topPadding,
                             onNavToActionPanels = onNavToActionPanels,
                             onNavToSearchEngines = onNavToSearchEngines,
                             onNavToFloatBallSettings = onNavToFloatBallSettings,

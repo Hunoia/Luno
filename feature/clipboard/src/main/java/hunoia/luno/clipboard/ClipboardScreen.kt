@@ -96,7 +96,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.BottomBarIconSize
@@ -196,12 +196,9 @@ fun ClipboardScreen(
         )
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.clipboard_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        state = listState,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.clipboard_title),
+onBack = onBack,
+actions = {
             // 常态：选择入口 + 数据菜单；选中态：删除（退出左侧）+ 退出，数据菜单隐藏。
             if (state.selectionMode) {
                 PressIconButton(
@@ -237,7 +234,7 @@ fun ClipboardScreen(
                 )
             }
         },
-        floatingContent = { hazeState ->
+floatingContent = { hazeState ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 ClipboardToolbar(
                     hazeState = hazeState,
@@ -255,7 +252,7 @@ fun ClipboardScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (state.clearConfirm) {
                 ConfirmDialog(
                     title = stringResource(R.string.clipboard_clear_confirm_title),
@@ -265,29 +262,31 @@ fun ClipboardScreen(
                     onConfirm = { state.contentTab.kind?.let { vm.confirmClear(it) } },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom,
+state = listState) {
+        lazy {
+
         if (settingsTab) {
             // 设置段：只渲染记录设置组（无空态 / 会话 / 内容）。
             item(key = "settings") {
-                LunoGroup(title = stringResource(R.string.clipboard_settings_group)) {
-                    LunoSwitchRow(
-                        title = stringResource(R.string.clipboard_record_enabled),
-                        subtitle = stringResource(R.string.clipboard_record_enabled_hint),
-                        checked = state.settings.recordEnabled,
-                        onCheckedChange = { vm.setRecordEnabled(it) },
-                        shape = segmentedShape(0, 2),
-                    )
-                    LunoSettingsRow(
-                        title = stringResource(R.string.clipboard_max_entries),
-                        shape = segmentedShape(1, 2),
-                        trailing = {
+                group(title = stringResource(R.string.clipboard_settings_group)) {switchRow(
+title = stringResource(R.string.clipboard_record_enabled),
+subtitle = stringResource(R.string.clipboard_record_enabled_hint),
+checked = state.settings.recordEnabled,
+onCheckedChange = { vm.setRecordEnabled(it) },
+
+)
+row(
+title = stringResource(R.string.clipboard_max_entries),
+trailing = {
                             MaxEntriesControls(
                                 value = state.settings.maxEntries,
                                 onValueChange = { vm.setMaxEntries(it) },
                             )
                         },
-                    )
+
+)
                 }
             }
         } else {
@@ -343,7 +342,10 @@ fun ClipboardScreen(
             }
             // 只有固定项（无未固定内容）时：固定组已渲染，不再渲染空态或内容组。
         }
+
+        }
     }
+}
 }
 
 /** 工具条三种形态；搜索优先于选中态（两者互斥，见 [ClipboardVM.toggleSelectionMode]）。 */

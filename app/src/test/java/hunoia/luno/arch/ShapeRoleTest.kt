@@ -1,5 +1,6 @@
 package hunoia.luno.arch
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,6 +21,7 @@ class ShapeRoleTest {
         themeRoot + "ShapeRoles.kt",
         themeRoot + "PercentSquircleShape.kt",
         themeRoot + "GeneratorTheme.kt",
+        themeRoot + "UiAppearance.kt",
     )
 
     @Test
@@ -71,22 +73,70 @@ class ShapeRoleTest {
     /**
      * §2.1.2 第 3 条：容器必须满足 `2·r·(1+s) ≤ h`，否则端部控制点互侵、被静默 clamp。
      *
-     * 绑定用例是列表行：最小高 `MinItemHeightNoSecondary`、半径 `ShapeLarge`。
-     * 改平滑度或档位时这条会先红，避免「越界后发现弧被拍平」。
+     * 可调外观（§2.5）把半径交给用户，但**默认值与每个组件族的预算**仍必须自洽：
+     * 逐族核对「默认半径 ≤ 该族最矮容器高 / (2(1+s))」，两种形态各算一次。
+     * 组内中档（小元件 +4）按最大 48dp 容器校验。
      *
-     * 从源码取值而不是引用 `Dimension.kt` 的常量：那会连带加载形状库的 class
+     * 从源码取值而不是引用常量：那会连带加载形状库的 class
      * （库用 Java 21 编译，测试 JVM 是 17，直接取常量会 UnsupportedClassVersionError）。
      */
     @Test
-    fun `large shape stays inside the row height budget`() {
-        val s = smoothingFraction("ContainerSmoothing")
-        val radius = dpValue("ShapeLarge")
-        val height = dpValue("MinItemHeightNoSecondary")
-        val maxRadius = height / (2f * (1f + s))
-        assertTrue(
-            "ShapeLarge=${radius}dp 超过行高上限 ${maxRadius}dp（s=$s）；改档位时先重算 §2.1.2 第 3 条",
-            radius <= maxRadius,
-        )
+    fun `every shape group default fits its container budget`() {
+        val uiAppearance = productionFiles.first { it.repoPath() == themeRoot + "UiAppearance.kt" }.text
+        val settings = productionFiles
+            .first { it.repoPath().endsWith("config/model/UiAppearanceSettings.kt") }
+            .text
+
+        // 组件族预算：enum ShapeRole 的 `List(56),` 之类。
+        val budgets = Regex("""^ {4}(\w+)\((\d+)(?:,[^)]*)?\),""", RegexOption.MULTILINE)
+            .findAll(uiAppearance.substringAfter("enum class ShapeRole"))
+            .associate { it.groupValues[1] to it.groupValues[2].toFloat() }
+        // 默认半径：`val list: ShapeSetting = ShapeSetting(radiusDp = 16),` 之类。
+        val defaults = Regex(
+            """val\s+(list|fab|menu|toolbar|compact|sheet)\s*:\s*ShapeSetting\s*=\s*ShapeSetting\(radiusDp\s*=\s*(\d+)\)""",
+        ).findAll(settings).associate { it.groupValues[1] to it.groupValues[2].toFloat() }
+
+        assertTrue("UiAppearance.kt 没解析到组件族预算：$budgets", budgets.size >= 6)
+        assertTrue("UiAppearanceSettings.kt 没解析到默认圆角：$defaults", defaults.size == 6)
+
+        val problems = mutableListOf<String>()
+        // 连续曲率 0.48 / 标准圆弧 0。
+        for ((modeName, s) in listOf("连续" to 0.48f, "标准" to 0f)) {
+            for ((field, radius) in defaults) {
+                val roleName = when (field) {
+                    "list" -> "List"
+                    "fab" -> "Fab"
+                    "menu" -> "Menu"
+                    "toolbar" -> "Toolbar"
+                    "compact" -> "Compact"
+                    "sheet" -> "Sheet"
+                    else -> error("未知分组 $field")
+                }
+                val budget = budgets.getValue(roleName)
+                val cap = budget / (2f * (1f + s))
+                if (radius > cap) {
+                    problems += "$field(${radius}dp) 超过 $modeName 形态上限 " +
+                        "${"%.1f".format(cap)}dp（预算 ${budget}dp）"
+                }
+                // 小元件组的中档 = 小档 + 4，按中档自己的预算（48dp 级图标格）校验。
+                if (field == "compact") {
+                    val mediumCap = budgets.getValue("CompactMedium") / (2f * (1f + s))
+                    if (radius + 4f > mediumCap) {
+                        problems += "compact 中档(${radius + 4f}dp) 超过 $modeName 形态上限 " +
+                            "${"%.1f".format(mediumCap)}dp（预算 ${budgets.getValue("CompactMedium")}dp）"
+                    }
+                }
+            }
+        }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    /** 默认半径必须还是 `Dimension.kt` 的档位值（改档位时两处一起改，别让默认值悄悄漂移）。 */
+    @Test
+    fun `default radii match dimension tokens`() {
+        assertEquals(dpValue("ShapeLarge"), 16f, 0.01f)
+        assertEquals(dpValue("ShapeSmall"), 8f, 0.01f)
+        assertEquals(dpValue("ShapeExtraLarge"), 32f, 0.01f)
     }
 
     private fun dimensionSource(): String =

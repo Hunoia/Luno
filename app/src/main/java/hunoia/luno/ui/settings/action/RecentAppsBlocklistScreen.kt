@@ -80,7 +80,6 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenPlain
 import hunoia.luno.ui.icon.toIconBitmap
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
@@ -198,10 +197,9 @@ fun RecentAppsBlocklistScreen(
         onSave(ordered)
     }
 
-    LunoScreenPlain(
-        title = title,
-        onBack = onBack,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = title,
+onBack = onBack,
+actions = {
             if (permissionState.isGranted) {
                 SystemAppsMenuButton(
                     showUILess = systemVisibility.showUILess,
@@ -221,9 +219,11 @@ fun RecentAppsBlocklistScreen(
                     onClick = { selected = emptySet() },
                 )
             }
-        },
-    ) { topPadding, hazeState ->
-        Column(
+        }) {
+    raw { env ->
+        val topPadding = env.topPadding
+        val hazeState = env.hazeState ?: hunoia.luno.ui.theme.rememberAppHazeState()
+Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = topPadding),
@@ -474,7 +474,9 @@ fun RecentAppsBlocklistScreen(
                 }
             }
         }
+
     }
+}
 }
 
 /** 常态：保存 + 搜索（均图标按钮，与 AppControlToolbar 同一形态）。 */

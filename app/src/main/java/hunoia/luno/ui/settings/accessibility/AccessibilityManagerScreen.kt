@@ -37,7 +37,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -128,16 +127,19 @@ fun AccessibilityManagerScreen(
         }
     }
 
-    LunoScreen(
-        title = stringResource(R.string.a11y_manager_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        sheets = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.a11y_manager_title),
+onBack = onBack,
+sheets = {
             detail?.let { entry ->
                 ServiceDetailSheet(entry = entry, onDismissRequest = { detail = null })
             }
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         when {
             // 文案只写原因，动作只写动词：句子里不再复述按钮要做什么。
             !shizukuStatus.isReady -> NoticeBanner(
@@ -188,7 +190,11 @@ fun AccessibilityManagerScreen(
                 }
             }
         }
+
+        }
     }
+}
+}
 }
 
 /** 服务详情：描述 + 包名 + 组件名（组件名即启停用的 token）。 */

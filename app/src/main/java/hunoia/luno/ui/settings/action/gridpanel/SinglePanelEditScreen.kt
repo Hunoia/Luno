@@ -22,8 +22,6 @@ import hunoia.luno.quickaccess.panel.QuickLauncherSettingsContent
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import kotlinx.coroutines.launch
 
 /**
@@ -56,12 +54,20 @@ fun SinglePanelEditScreen(
     val title = SinglePanelCatalog.label(context, widgetId)
     if (current == null) {
         if (loaded) {
-            LunoScreen(
-                title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
-                onBack = onBack,
-            ) {
+            hunoia.luno.ui.component.page.LunoPage(title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
                 EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing))
-            }
+
+        }
+    }
+}
+}
         }
         return
     }
@@ -72,11 +78,11 @@ fun SinglePanelEditScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
-        onBack = onBack,
-        state = rememberLazyListState(),
-    ) {
+    hunoia.luno.ui.component.page.LunoPage(title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
+onBack = onBack) {
+    list(state = rememberLazyListState()) {
+        lazy {
+
         item {
             LunoGroup {
                 val ownAppearance = current.appearance
@@ -105,5 +111,8 @@ fun SinglePanelEditScreen(
                 }
             }
         }
+
+        }
     }
+}
 }

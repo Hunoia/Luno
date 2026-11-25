@@ -50,7 +50,6 @@ fun ActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
     vm: ActionLibraryVM = viewModel(),
     onNavToEdit: (String, String?) -> Unit = { _, _ -> },
-    contentPadding: PaddingValues = PaddingValues(),
 ) {
     val uiState by vm.uiState.collectAsState()
     var iconPickerEntry by remember { mutableStateOf<ActionLibraryEntry?>(null) }
@@ -61,14 +60,8 @@ fun ActionLibraryScreen(
         filtered.groupBy { entry -> libraryCategoryOf(entry.typeId) }
     }
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                state = listState,
-                contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = FloatingContentBottom),
-                // 组与组之间用 ListSpacing；组内分段圆角仍由 LunoGroup 的 contentSpacing 管。
-                verticalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
+            hunoia.luno.ui.component.page.LunoPageList(state = listState) {
+                lazy {
                 if (filtered.isEmpty()) {
                     item { EmptyState(stringResource(R.string.action_library_empty)) }
                 } else {

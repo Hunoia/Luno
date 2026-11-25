@@ -79,7 +79,6 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun HabitListContent(
-    topPadding: Dp,
     onOpenHabit: (habitId: String) -> Unit,
     onNewHabit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -95,17 +94,11 @@ fun HabitListContent(
     // 分组是纯函数（[groupHabitsToday]）：只在配置 / 日期变化时重算，重组不重建临时列表。
     val groups = remember(config, today) { groupHabitsToday(config, today) }
 
-    LazyColumn(
+    hunoia.luno.ui.component.page.LunoPageList(
         modifier = modifier.fillMaxSize(),
         state = state,
-        contentPadding = PaddingValues(
-            start = PageGutter,
-            top = topPadding,
-            end = PageGutter,
-            bottom = FloatingContentBottom,
-        ),
-        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
+        lazy {
         if (config.habits.isEmpty()) {
             item {
                 EmptyState(
@@ -133,6 +126,7 @@ fun HabitListContent(
             habitGroupItem(R.string.habit_group_today_skipped, groups.skipped, onOpenHabit, view) {
                 pending = it
             }
+        }
         }
     }
 

@@ -20,7 +20,7 @@ import hunoia.luno.ui.theme.toMarkColor
 /**
  * 胶囊外观的颜色行：球色与胶囊背景色，两颗胶囊共用（同一语义组件只留一份）。
  *
- * 行为对齐主球取色：色板行点击开取色板（sheet 由宿主挂在 `LunoScreenLazy` 的 sheets 槽，
+ * 行为对齐主球取色：色板行点击开取色板（sheet 由宿主挂在 `LunoPage` 的 sheets 槽，
  * 这里只回调 [onBallClick] / [onBackgroundClick]）。副标题实时显示来源；色板显示
  * **当前生效色**（未设置时即 [defaultColor]，渲染端回落主题主色，与悬浮球解耦）。
  */

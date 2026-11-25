@@ -35,7 +35,6 @@ import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.gesture.settings.GestureActionTarget
@@ -61,11 +60,10 @@ fun GestureButtonSettingsScreen(
                 onConfirm = { vm.deleteGestureButton() }
             )
         }
-    LunoScreenLazy(
-        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = hunoia.luno.core.data.R.string.gesture_button) }
+    hunoia.luno.ui.component.page.LunoPage(title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = hunoia.luno.core.data.R.string.gesture_button) }
             ?: stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
-        onBack = onBack,
-        postfixTitle = {
+onBack = onBack,
+postfixTitle = {
                             if (uiState.gestureButton != null) {
                                 Box(
                                     modifier = Modifier
@@ -78,7 +76,7 @@ fun GestureButtonSettingsScreen(
                                 )
                             }
                         },
-        actions = {
+actions = {
                             if (uiState.gestureButton != null && !uiState.gestureButton.isDefault) {
                                 LunoIconButton(
                                     icon = Icons.Default.Delete,
@@ -87,11 +85,10 @@ fun GestureButtonSettingsScreen(
                                 )
                             }
                         },
-        state = listState,
-        floatingContent = {
+floatingContent = {
             GestureButtonBoundsOverlay(uiState)
         },
-        sheets = {
+sheets = {
         val sheetButton = uiState.gestureButton
         if (showVibrationSettings && sheetButton != null) {
             LunoSheet(onDismissRequest = { showVibrationSettings = false }, showDragHandle = true) {
@@ -115,8 +112,10 @@ fun GestureButtonSettingsScreen(
                 GestureButtonTriggerDistanceContent(button = sheetButton, vm = vm)
             }
         }
-        },
-    ) {
+        }) {
+    list(state = listState) {
+        lazy {
+
 
                         val gestureButton = uiState.gestureButton
                         if (gestureButton != null) {
@@ -182,7 +181,10 @@ fun GestureButtonSettingsScreen(
                             }
                         }
 
+
+        }
     }
+}
     }
 }
 

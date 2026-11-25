@@ -33,7 +33,6 @@ import hunoia.luno.ui.component.ListAddFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -146,17 +145,15 @@ fun AlertPaletteManagerScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
+onBack = onBack,
+floatingContent = {
             ListAddFab(
                 onClick = ::createNew,
                 contentDescription = stringResource(R.string.float_ball_capsule_alert_palette_new),
             )
         },
-        dialogs = {
+dialogs = {
             val target = deleteTarget
             if (target != null) {
                 ConfirmDialog(
@@ -176,8 +173,10 @@ fun AlertPaletteManagerScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         // 自定义在上：用户自己的调色板是常用项，内置只作模板来源。
         item(key = "custom_title") {
             SectionLabel(stringResource(R.string.float_ball_capsule_alert_palette_custom))
@@ -233,7 +232,10 @@ fun AlertPaletteManagerScreen(
                 onClick = null,
             )
         }
+
+        }
     }
+}
 }
 
 /** 分组标签（内置 / 自定义）。 */

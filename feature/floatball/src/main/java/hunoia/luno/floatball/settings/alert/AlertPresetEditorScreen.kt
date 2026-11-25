@@ -42,7 +42,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -152,11 +151,9 @@ fun AlertPresetEditorScreen(
         update { it.withReplacedLayer(layer.copy(enabled = enabled)) }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_preset_editor_title),
-        onBack = { leave() },
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_preset_editor_title),
+onBack = { leave() },
+floatingContent = {
             LunoFab(
                 onClick = {
                     if (current.isPlayable()) {
@@ -173,7 +170,7 @@ fun AlertPresetEditorScreen(
                 contentDescription = stringResource(R.string.float_ball_preset_preview),
             )
         },
-        actions = {
+actions = {
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -195,7 +192,7 @@ fun AlertPresetEditorScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (confirmDelete) {
                 ConfirmDialog(
                     title = stringResource(R.string.float_ball_preset_delete_confirm_title),
@@ -241,8 +238,10 @@ fun AlertPresetEditorScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "name") {
             LunoGroup {
                 SegmentedRows(
@@ -400,5 +399,8 @@ fun AlertPresetEditorScreen(
                 }
             }
         }
+
+        }
     }
+}
 }

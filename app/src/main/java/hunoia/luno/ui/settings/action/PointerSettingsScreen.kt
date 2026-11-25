@@ -18,7 +18,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -42,19 +42,26 @@ fun PointerSettingsScreen(
         scope.launch { TuneConfig.updateGesture { it.copy(pointer = next) } }
     }
 
-    LunoScreen(title = stringResource(R.string.pointer_settings_title), onBack = onBack) {
-        LunoGroup(title = stringResource(R.string.pointer_group_start)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.pointer_follow_trigger),
-                subtitle = stringResource(R.string.pointer_follow_trigger_hint),
-                checked = draft.followTrigger,
-                onCheckedChange = { checked -> commit(draft.copy(followTrigger = checked)) },
-                shape = segmentedShape(0, 2),
-            )
-            LunoSettingsRow(
-                icon = Icons.Default.Adjust,
-                title = stringResource(R.string.pointer_adjust_position),
-                subtitle = if (draft.followTrigger) {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.pointer_settings_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.pointer_group_start)) {
+switchRow(
+title = stringResource(R.string.pointer_follow_trigger),
+subtitle = stringResource(R.string.pointer_follow_trigger_hint),
+checked = draft.followTrigger,
+onCheckedChange = { checked -> commit(draft.copy(followTrigger = checked)) },
+
+)
+row(
+icon = Icons.Default.Adjust,
+title = stringResource(R.string.pointer_adjust_position),
+subtitle = if (draft.followTrigger) {
                     stringResource(
                         R.string.pointer_follow_offset_summary,
                         (draft.followOffsetXRatio * 100).roundToInt(),
@@ -67,39 +74,37 @@ fun PointerSettingsScreen(
                         (draft.initialYRatio * 100).roundToInt(),
                     )
                 },
-                shape = segmentedShape(1, 2),
-                onClick = { onAdjustPosition(draft.followTrigger) },
-            )
-        }
-        LunoGroup(title = stringResource(R.string.pointer_group_motion)) {
-            LunoTextSlider(
-                value = draft.sensitivityX,
-                onValueChange = { draft = draft.copy(sensitivityX = it) },
-                onValueChangeFinished = { commit(draft) },
-                text = stringResource(id = R.string.pointer_sensitivity_x_plain),
-                valueDisplay = { stringResource(id = R.string.pointer_sensitivity_x, it) },
-                valueRange = 0.5f..4f,
-                shape = segmentedShape(0, 3),
-            )
-            LunoTextSlider(
-                value = draft.sensitivityY,
-                onValueChange = { draft = draft.copy(sensitivityY = it) },
-                onValueChangeFinished = { commit(draft) },
-                text = stringResource(id = R.string.pointer_sensitivity_y_plain),
-                valueDisplay = { stringResource(id = R.string.pointer_sensitivity_y, it) },
-                valueRange = 0.5f..4f,
-                shape = segmentedShape(1, 3),
-            )
-            LunoTextSlider(
-                value = draft.acceleration,
-                onValueChange = { draft = draft.copy(acceleration = it) },
-                onValueChangeFinished = { commit(draft) },
-                text = stringResource(id = R.string.pointer_acceleration_plain),
-                valueDisplay = { stringResource(id = R.string.pointer_acceleration, it) },
-                valueRange = 0f..2f,
-                shape = segmentedShape(2, 3),
-            )
-        }
+onClick = { onAdjustPosition(draft.followTrigger) },
+
+)        }
+        group(title = stringResource(R.string.pointer_group_motion)) {
+sliderRow(
+value = draft.sensitivityX,
+onValueChange = { draft = draft.copy(sensitivityX = it) },
+onValueChangeFinished = { commit(draft) },
+text = stringResource(id = R.string.pointer_sensitivity_x_plain),
+valueDisplay = { stringResource(id = R.string.pointer_sensitivity_x, it) },
+valueRange = 0.5f..4f,
+
+)
+sliderRow(
+value = draft.sensitivityY,
+onValueChange = { draft = draft.copy(sensitivityY = it) },
+onValueChangeFinished = { commit(draft) },
+text = stringResource(id = R.string.pointer_sensitivity_y_plain),
+valueDisplay = { stringResource(id = R.string.pointer_sensitivity_y, it) },
+valueRange = 0.5f..4f,
+
+)
+sliderRow(
+value = draft.acceleration,
+onValueChange = { draft = draft.copy(acceleration = it) },
+onValueChangeFinished = { commit(draft) },
+text = stringResource(id = R.string.pointer_acceleration_plain),
+valueDisplay = { stringResource(id = R.string.pointer_acceleration, it) },
+valueRange = 0f..2f,
+
+)        }
         LunoGroup(title = stringResource(R.string.pointer_group_cursor)) {
             // 光标大小是 Int：本地浮点过渡，松手取整提交。
             var localCursorSize by remember(draft.cursorSizeDp) {
@@ -126,5 +131,9 @@ fun PointerSettingsScreen(
                 shape = segmentedShape(1, 2),
             )
         }
+
+        }
     }
+}
+}
 }

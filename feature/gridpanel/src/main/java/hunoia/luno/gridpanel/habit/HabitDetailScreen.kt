@@ -48,7 +48,6 @@ import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.theme.ContentBottom
@@ -106,21 +105,26 @@ fun HabitDetailScreen(
 
     if (habit == null) {
         // 还没读到配置 / 记录确实不存在：都给一个可读结局（不留空白页、不闪退）。
-        LunoScreen(
-            title = stringResource(R.string.habit_list_title),
-            onBack = onBack,
-            bottomContentPadding = ContentBottom,
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.habit_list_title),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
         ) {
+
             EmptyState(message = stringResource(R.string.grid_panel_habit_missing))
+
         }
+    }
+}
+}
         return
     }
 
-    LunoScreen(
-        title = habit.name,
-        onBack = onBack,
-        bottomContentPadding = ContentBottom,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = habit.name,
+onBack = onBack,
+actions = {
             PressIconButton(onClick = { onEdit(habit.id) }) {
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -128,7 +132,7 @@ fun HabitDetailScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             pendingDay?.let { (day, targetChecked) ->
                 val date = LocalDate.ofEpochDay(day)
                 ConfirmDialog(
@@ -163,8 +167,13 @@ fun HabitDetailScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         RecentChecksGrid(
             habitId = habit.id,
             color = habit.colorSpec.toColor(),
@@ -181,7 +190,11 @@ fun HabitDetailScreen(
             today = today,
             target = habit.safeDailyTarget,
         )
+
+        }
     }
+}
+}
 }
 
 /**

@@ -21,7 +21,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.ContentBottom
@@ -56,11 +56,9 @@ fun TodoSettingsScreen(
         }
     }
 
-    LunoScreen(
-        title = stringResource(R.string.todo_settings_title),
-        onBack = onBack,
-        bottomContentPadding = ContentBottom,
-        dialogs = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.todo_settings_title),
+onBack = onBack,
+dialogs = {
             if (showSnooze) {
                 SnoozeDurationDialog(
                     initialMinutes = config.reminderSnoozeMinutes,
@@ -98,7 +96,7 @@ fun TodoSettingsScreen(
                 )
             }
         },
-        sheets = {
+sheets = {
             if (showRetentionSheet) {
                 LunoSheet(onDismissRequest = { showRetentionSheet = false }) {
                     Text(
@@ -122,31 +120,38 @@ fun TodoSettingsScreen(
                     }
                 }
             }
-        },
-    ) {
-        LunoGroup(title = stringResource(R.string.todo_settings_group_notify)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.todo_reminder_setting),
-                subtitle = snoozeDurationLabel(config.reminderSnoozeMinutes),
-                shape = segmentedShape(0, 1),
-                onClick = { showSnooze = true },
-            )
-        }
-        LunoGroup(title = stringResource(R.string.todo_settings_group_done)) {
-            LunoSettingsRow(
-                title = stringResource(R.string.todo_done_retention),
-                subtitle = stringResource(R.string.todo_done_retention_value, config.doneRetentionDays),
-                shape = segmentedShape(0, 2),
-                onClick = { showRetentionSheet = true },
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.todo_clear_done),
-                shape = segmentedShape(1, 2),
-                enabled = config.doneCount > 0,
-                onClick = { confirmClear = true },
-            )
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
+        group(title = stringResource(R.string.todo_settings_group_notify)) {
+row(
+title = stringResource(R.string.todo_reminder_setting),
+subtitle = snoozeDurationLabel(config.reminderSnoozeMinutes),
+onClick = { showSnooze = true },
+
+)        }
+        group(title = stringResource(R.string.todo_settings_group_done)) {
+row(
+title = stringResource(R.string.todo_done_retention),
+subtitle = stringResource(R.string.todo_done_retention_value, config.doneRetentionDays),
+onClick = { showRetentionSheet = true },
+
+)
+row(
+title = stringResource(R.string.todo_clear_done),
+enabled = config.doneCount > 0,
+onClick = { confirmClear = true },
+
+)        }
+
         }
     }
+}
+}
 }
 
 /** 待确认的降档：天数 + 会被裁掉的条数（点选那一刻冻结）。 */

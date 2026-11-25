@@ -56,7 +56,6 @@ import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -116,12 +115,20 @@ fun RecognitionRuleEditScreen(
 
     val initial = snapshot
     if (missing) {
-        LunoScreen(
-            title = stringResource(R.string.recognition_rule_edit),
-            onBack = onBack,
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.recognition_rule_edit),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
         ) {
+
             EmptyState(message = stringResource(R.string.recognition_rule_missing))
+
         }
+    }
+}
+}
         return
     }
     if (initial == null) return
@@ -177,12 +184,11 @@ fun RecognitionRuleEditScreen(
         }
     }
 
-    LunoScreen(
-        title = stringResource(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
             if (addMode) R.string.recognition_rule_add_title else R.string.recognition_rule_edit,
         ),
-        onBack = guardedBack,
-        actions = {
+onBack = guardedBack,
+actions = {
             if (!addMode) {
                 PressIconButton(onClick = { showDeleteConfirm = true }) {
                     Icon(
@@ -193,8 +199,7 @@ fun RecognitionRuleEditScreen(
                 }
             }
         },
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = { _ ->
+floatingContent = { _ ->
             LunoFab(
                 onClick = { if (valid) save() else showToast(R.string.recognition_rule_invalid) },
                 icon = Icons.Default.Save,
@@ -203,7 +208,7 @@ fun RecognitionRuleEditScreen(
                 else MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         },
-        dialogs = {
+dialogs = {
             if (showDeleteConfirm) {
                 ConfirmDialog(
                     onDismissRequest = { showDeleteConfirm = false },
@@ -230,7 +235,7 @@ fun RecognitionRuleEditScreen(
                 )
             }
         },
-        sheets = {
+sheets = {
             if (showAppPicker) {
                 val picker = appPicker
                 val linkMatch = match as? RecognitionMatch.Link
@@ -253,8 +258,13 @@ fun RecognitionRuleEditScreen(
                     )
                 }
             }
-        },
-    ) {
+        }) {
+hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
         LunoGroup {
             LunoSwitchRow(
                 title = stringResource(R.string.recognition_rule_enabled),
@@ -728,7 +738,11 @@ fun RecognitionRuleEditScreen(
                 )
             }
         }
+
+        }
     }
+}
+}
 }
 
 /** 组内的纯文字动作（快捷选择）：可点即用，不可点时降级为说明文字。 */

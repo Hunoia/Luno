@@ -39,8 +39,6 @@ import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.LargeShape
@@ -100,9 +98,20 @@ fun ActionPanelEditScreen(
     if (current == null) {
         // 数据未到：本帧什么都不画（一次闪烁）。数据到了还不存在：给明确落点，不静默弹回。
         if (loaded) {
-            LunoScreen(title = stringResource(hunoia.luno.actions.R.string.action_panel_unnamed), onBack = onBack) {
+            hunoia.luno.ui.component.page.LunoPage(title = stringResource(hunoia.luno.actions.R.string.action_panel_unnamed),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
                 EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.action_panel_missing))
-            }
+
+        }
+    }
+}
+}
         }
         return
     }
@@ -117,12 +126,9 @@ fun ActionPanelEditScreen(
         persistItems(newItems, cleanupResources)
     }
 
-    LunoScreenLazy(
-        title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
-        onBack = onBack,
-        state = listState,
-        bottomContentPadding = FloatingContentBottom,
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
+onBack = onBack,
+actions = {
             // 删除从列表页移到编辑页右上角：带确认，删后返回。
             LunoIconButton(
                 icon = Icons.Outlined.Delete,
@@ -130,14 +136,14 @@ fun ActionPanelEditScreen(
                 onClick = { showDeleteConfirm = true },
             )
         },
-        floatingContent = {
+floatingContent = {
             LunoFab(
                 onClick = { onPickItem(ActionSelect(actionPanelId = panelId)) },
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(hunoia.luno.actions.R.string.action_panel_add_item),
             )
         },
-        dialogs = {
+dialogs = {
             if (showDeleteConfirm) {
                 // 引用数在弹窗打开时现查：引用可能刚在别的页面改过。
                 var referenceCount by remember { mutableStateOf(0) }
@@ -170,8 +176,11 @@ fun ActionPanelEditScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = listState,
+bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item {
             OutlinedTextField(
                 value = current.name,
@@ -245,5 +254,8 @@ fun ActionPanelEditScreen(
                 }
             }
         }
+
+        }
     }
+}
 }

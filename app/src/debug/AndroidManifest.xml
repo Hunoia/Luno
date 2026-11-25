@@ -51,5 +51,11 @@
             android:name="hunoia.luno.ui.theme.ShapeGalleryActivity"
             android:exported="true"
             android:theme="@style/Theme.SideGesture" />
+
+        <!-- 组件画廊：新页面前对照行 / 组 / 按钮 / 状态 / 色板。 -->
+        <activity
+            android:name="hunoia.luno.ui.theme.DesignGalleryActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SideGesture" />
     </application>
 </manifest>

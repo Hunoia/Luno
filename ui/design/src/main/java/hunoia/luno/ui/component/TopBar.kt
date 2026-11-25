@@ -59,7 +59,7 @@ import hunoia.luno.ui.theme.topBarMask
  * （ui-guidelines §4.4 顶栏条目）。
  */
 @Composable
-fun FloatingTopBar(
+internal fun FloatingTopBar(
     onHeightChange: (Dp) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,

@@ -45,10 +45,10 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
@@ -141,11 +141,9 @@ fun FloatBallEditScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball),
-        onBack = onBack,
-        state = listState,
-        sheets = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball),
+onBack = onBack,
+sheets = {
             if (showColorPicker) {
                 val scheme = MaterialTheme.colorScheme
                 ColorPickerBottomSheet(
@@ -176,8 +174,10 @@ fun FloatBallEditScreen(
                 current = mainIcon,
                 onChange = ::writeMainIcon,
             )
-        },
-    ) {
+        }) {
+    list(state = listState) {
+        lazy {
+
         if (!overlayGranted) {
             item(key = "permission") {
                 LunoGroup {
@@ -195,16 +195,15 @@ fun FloatBallEditScreen(
         }
 
         item(key = "toggle") {
-            LunoGroup(title = stringResource(R.string.float_ball)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_enabled),
-                    checked = floatBall.enabled,
-                    onCheckedChange = { enabled ->
+            group(title = stringResource(R.string.float_ball)) {switchRow(
+title = stringResource(R.string.float_ball_enabled),
+checked = floatBall.enabled,
+onCheckedChange = { enabled ->
                         update { it.copy(enabled = enabled) }
                         facades.system.setFloatBallEnabled(context, enabled)
                     },
-                    shape = segmentedShape(0, 1),
-                )
+
+)
             }
         }
 
@@ -350,17 +349,19 @@ fun FloatBallEditScreen(
         }
 
         item(key = "behavior") {
-            LunoGroup(title = stringResource(R.string.float_ball_behavior)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_follow_hand),
-                    subtitle = stringResource(R.string.float_ball_follow_hand_subtitle),
-                    checked = floatBall.followHand,
-                    onCheckedChange = { checked -> update { it.copy(followHand = checked) } },
-                    shape = segmentedShape(0, 1),
-                )
+            group(title = stringResource(R.string.float_ball_behavior)) {switchRow(
+title = stringResource(R.string.float_ball_follow_hand),
+subtitle = stringResource(R.string.float_ball_follow_hand_subtitle),
+checked = floatBall.followHand,
+onCheckedChange = { checked -> update { it.copy(followHand = checked) } },
+
+)
             }
         }
+
+        }
     }
+}
 }
 
 /** 自定义图标落盘目录（相对 filesDir）：与内容球共用，见 [BALL_ICON_DIR]。 */

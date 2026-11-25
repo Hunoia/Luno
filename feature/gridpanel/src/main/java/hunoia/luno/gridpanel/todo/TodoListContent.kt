@@ -65,7 +65,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TodoListContent(
-    topPadding: Dp,
     addRequest: Int,
     onAddRequestHandled: () -> Unit,
     modifier: Modifier = Modifier,
@@ -152,16 +151,13 @@ fun TodoListContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
+        hunoia.luno.ui.component.page.LunoPageList(
+            modifier = Modifier.fillMaxSize(),
             state = state,
-            contentPadding = PaddingValues(
-                start = PageGutter,
-                top = topPadding,
-                end = PageGutter,
-                bottom = bottomContentPadding,
-            ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentSpacing = hunoia.luno.ui.theme.CardInnerSpacing,
+            bottomContentPadding = bottomContentPadding,
         ) {
+            lazy {
             if (config.todos.isEmpty()) {
                 item(key = "empty") {
                     EmptyState(
@@ -224,6 +220,7 @@ fun TodoListContent(
                         )
                     }
                 }
+            }
             }
         }
 

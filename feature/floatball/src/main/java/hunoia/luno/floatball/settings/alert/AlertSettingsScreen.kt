@@ -22,7 +22,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
@@ -55,11 +54,9 @@ fun AlertSettingsScreen(
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_alert_settings_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_alert_settings_title),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = {
                     if (playable) {
@@ -85,7 +82,7 @@ fun AlertSettingsScreen(
                 },
             )
         },
-        sheets = {
+sheets = {
             if (showPresetSheet) {
                 AlertPresetSelectSheet(
                     library = library,
@@ -97,8 +94,10 @@ fun AlertSettingsScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "alert") {
             val rows = segmentedRows {
                 item { shape ->
@@ -209,7 +208,10 @@ fun AlertSettingsScreen(
                 SegmentedRows(rows)
             }
         }
+
+        }
     }
+}
 }
 
 private val AlertIntensityRange =

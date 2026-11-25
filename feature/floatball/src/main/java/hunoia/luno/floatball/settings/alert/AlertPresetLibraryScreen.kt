@@ -37,7 +37,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MarkColorSize
 import kotlinx.coroutines.Dispatchers
@@ -165,17 +164,15 @@ fun AlertPresetLibraryScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_preset_library_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_preset_library_title),
+onBack = onBack,
+floatingContent = {
             ListAddFab(
                 onClick = ::createPreset,
                 contentDescription = stringResource(R.string.float_ball_preset_new),
             )
         },
-        actions = {
+actions = {
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -214,8 +211,10 @@ fun AlertPresetLibraryScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "filter") {
             AlertCategoryFilter(
                 selected = categoryFilter,
@@ -279,7 +278,10 @@ fun AlertPresetLibraryScreen(
                 }
             }
         }
+
+        }
     }
+}
 }
 
 /** 预设卡片左侧的小色块（调色板首色）；没有颜色时用主题主色。 */

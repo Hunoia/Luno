@@ -25,7 +25,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
@@ -107,11 +106,9 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
 
     val selected: AlertPreset? = library.presetById(alert.presetId)
 
-    LunoScreenLazy(
-        title = stringResource(R.string.lock_alert_title),
-        onBack = onBack,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.lock_alert_title),
+onBack = onBack,
+floatingContent = {
             LunoFab(
                 onClick = {
                     when {
@@ -130,7 +127,7 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
                 contentDescription = stringResource(R.string.lock_alert_preview),
             )
         },
-        sheets = {
+sheets = {
             if (showSheet) {
                 AlertPresetSelectSheet(
                     library = library,
@@ -143,8 +140,10 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
                     noneSubtitle = stringResource(R.string.lock_alert_unbound_hint),
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "basic") {
             val rows = segmentedRows {
                 item { shape ->
@@ -220,7 +219,10 @@ fun LockScreenAlertSettingsScreen(onBack: () -> Unit) {
                 )
             }
         }
+
+        }
     }
+}
 }
 
 private val LockIntensityRange =

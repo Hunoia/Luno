@@ -43,7 +43,8 @@ import hunoia.luno.config.model.TrendEntry
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ShapeSmall
+import hunoia.luno.ui.theme.ShapeRole
+import hunoia.luno.ui.theme.UiAppearance
 import hunoia.luno.ui.theme.TileInnerPadding
 import kotlin.math.abs
 
@@ -492,7 +493,7 @@ private fun DrawScope.drawScrubReadout(
         color = background,
         topLeft = Offset(x, y),
         size = Size(width, height),
-        cornerRadius = CornerRadius(ShapeSmall.toPx()),
+        cornerRadius = CornerRadius(UiAppearance.resolvedRadius(ShapeRole.Compact).dp.toPx()),
     )
     drawText(subLayout, topLeft = Offset(x + padding, y + padding))
     drawText(bodyLayout, topLeft = Offset(x + padding, y + padding + subLayout.size.height + gap))

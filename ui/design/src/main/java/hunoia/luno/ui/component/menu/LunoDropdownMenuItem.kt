@@ -11,10 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.MenuShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.ShapeSmall
-import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.MenuInnerShape
 
 /**
  * [LunoDropdownMenu] 的菜单项：文案、前 / 后图标、选中态、禁用与破坏性色在此统一。
@@ -55,7 +55,7 @@ fun LunoDropdownMenuItem(
             )
         },
         shapes = MenuDefaults.itemShapes(
-            shape = LargeShape,
+            shape = MenuShape,
             selectedShape = SelectedItemShape,
         ),
         // 色块左右边距 4dp：项不再加水平 padding，M3 色块硬编码 4dp 即成；上下仍 8dp（容器 8dp 垂直外距）。
@@ -79,6 +79,5 @@ fun LunoDropdownMenuItem(
 /** 文字内衬：水平 8dp + 垂直 0。只呼吸文字，不决定色块位置（色块由 modifier 4dp + M3 硬编码 4dp 定位）。 */
 private val ItemContentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
 
-/** 选中块圆角 = 容器圆角(16dp) − 边距(8dp) = 8dp，与容器同心（参考 FlClash 同心规则）。 */
-/** 选中高亮块：容器角色小档（[ShapeSmall]），主题同源几何，不在组件层拼形状（§2.1.1）。 */
-private val SelectedItemShape = SmallShape
+/** 选中高亮块：菜单圆角 − 8dp 内距（同心，§4.1），随菜单组设置联动（`ShapeRole.MenuInner`）。 */
+private val SelectedItemShape = MenuInnerShape

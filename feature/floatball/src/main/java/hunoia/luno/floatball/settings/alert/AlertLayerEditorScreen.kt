@@ -63,7 +63,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -168,11 +167,9 @@ fun AlertLayerEditorScreen(
 
     val playable = layer.enabled
 
-    LunoScreenLazy(
-        title = stringResource(R.string.float_ball_layer_title),
-        onBack = { leave() },
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_layer_title),
+onBack = { leave() },
+floatingContent = {
             LunoFab(
                 onClick = {
                     if (playable) {
@@ -190,7 +187,7 @@ fun AlertLayerEditorScreen(
                 },
             )
         },
-        actions = {
+actions = {
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -250,7 +247,7 @@ fun AlertLayerEditorScreen(
                 )
             }
         },
-        dialogs = {
+dialogs = {
             if (confirmDelete) {
                 ConfirmDialog(
                     title = stringResource(R.string.float_ball_layer_delete_confirm_title),
@@ -274,8 +271,10 @@ fun AlertLayerEditorScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(bottomContentPadding = FloatingContentBottom) {
+        lazy {
+
         item(key = "base") {
             LunoGroup(
                 title = stringResource(R.string.float_ball_layer_group_base),
@@ -403,7 +402,10 @@ fun AlertLayerEditorScreen(
                 onUpdate = pushLayer,
             )
         }
+
+        }
     }
+}
 }
 
 /** 主参数区：按 kind 分派。 */

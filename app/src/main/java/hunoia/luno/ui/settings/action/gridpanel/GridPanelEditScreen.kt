@@ -31,8 +31,6 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
-import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
@@ -71,9 +69,20 @@ fun GridPanelEditScreen(
     val current = panel
     if (current == null) {
         if (loaded) {
-            LunoScreen(title = stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed), onBack = onBack) {
+            hunoia.luno.ui.component.page.LunoPage(title = stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed),
+onBack = onBack) {
+hunoia.luno.ui.component.page.LunoPageColumn() {
+    block {
+        androidx.compose.foundation.layout.Column(
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        ) {
+
                 EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.action_panel_missing))
-            }
+
+        }
+    }
+}
+}
         }
         return
     }
@@ -87,11 +96,9 @@ fun GridPanelEditScreen(
         }
     }
 
-    LunoScreenLazy(
-        title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
-        onBack = onBack,
-        state = rememberLazyListState(),
-        actions = {
+    hunoia.luno.ui.component.page.LunoPage(title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
+onBack = onBack,
+actions = {
             // 删除从列表页移到编辑页右上角：带确认，删后返回。
             LunoIconButton(
                 icon = Icons.Outlined.Delete,
@@ -99,7 +106,7 @@ fun GridPanelEditScreen(
                 onClick = { showDeleteConfirm = true },
             )
         },
-        dialogs = {
+dialogs = {
             if (showIconPicker) {
                 IconPickerSheet(
                     onDismissRequest = { showIconPicker = false },
@@ -143,8 +150,10 @@ fun GridPanelEditScreen(
                     },
                 )
             }
-        },
-    ) {
+        }) {
+    list(state = rememberLazyListState()) {
+        lazy {
+
         item {
             OutlinedTextField(
                 value = current.name,
@@ -195,5 +204,8 @@ fun GridPanelEditScreen(
                 )
             }
         }
+
+        }
     }
+}
 }

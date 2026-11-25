@@ -47,7 +47,7 @@ import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -115,20 +115,23 @@ fun ButtonVisibilityEditScreen(
     val current = draft
     if (current == null) {
         // 配置未加载完靠上面 LaunchedEffect 的「继续等」规避；真正落到这里说明场景已被删。
-        LunoScreenLazy(
-            title = stringResource(
+        hunoia.luno.ui.component.page.LunoPage(title = stringResource(
                 if (isNew) R.string.button_visibility_new else R.string.button_visibility_edit,
             ),
-            onBack = onBack,
-            state = rememberLazyListState(),
-        ) {
+onBack = onBack) {
+    list(state = rememberLazyListState()) {
+        lazy {
+
             item(key = "missing") {
                 EmptyState(
                     message = stringResource(R.string.button_visibility_missing),
                     icon = Icons.TwoTone.Visibility,
                 )
             }
+
         }
+    }
+}
         return
     }
 
@@ -182,13 +185,11 @@ fun ButtonVisibilityEditScreen(
         )
     }
 
-    LunoScreenLazy(
-        title = stringResource(
+    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
             if (isNew) R.string.button_visibility_new else R.string.button_visibility_edit,
         ),
-        onBack = onBack,
-        state = rememberLazyListState(),
-        actions = {
+onBack = onBack,
+actions = {
             if (!isNew || persisted) {
                 LunoIconButton(
                     icon = Icons.Default.Delete,
@@ -203,7 +204,7 @@ fun ButtonVisibilityEditScreen(
                 onClick = { save() },
             )
         },
-        sheets = {
+sheets = {
             if (showAppPicker) {
                 val picker = appPicker
                 if (picker == null) {
@@ -336,57 +337,56 @@ fun ButtonVisibilityEditScreen(
                     }
                 }
             }
-        },
-    ) {
+        }) {
+    list(state = rememberLazyListState()) {
+        lazy {
+
         item(key = "name") {
-            LunoGroup(title = stringResource(R.string.button_visibility_name)) {
-                LunoInputRow(
-                    label = stringResource(R.string.button_visibility_name),
-                    value = current.name,
-                    placeholder = stringResource(R.string.button_visibility_name_hint),
-                    onValueChange = { draft = current.copy(name = it) },
-                    shape = segmentedShape(0, 1),
-                )
+            group(title = stringResource(R.string.button_visibility_name)) {inputRow(
+label = stringResource(R.string.button_visibility_name),
+value = current.name,
+placeholder = stringResource(R.string.button_visibility_name_hint),
+onValueChange = { draft = current.copy(name = it) },
+
+)
             }
         }
         item(key = "match") {
-            LunoGroup(title = stringResource(R.string.button_visibility)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.button_visibility_apps),
-                    subtitle = if (current.packageNames.isEmpty()) {
+            group(title = stringResource(R.string.button_visibility)) {row(
+title = stringResource(R.string.button_visibility_apps),
+subtitle = if (current.packageNames.isEmpty()) {
                         stringResource(R.string.button_visibility_any_app)
                     } else {
                         stringResource(R.string.button_visibility_apps_count, current.packageNames.size)
                     },
-                    shape = segmentedShape(0, 2),
-                    onClick = { showAppPicker = true },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.button_visibility_screens),
-                    subtitle = if (current.screens.isEmpty()) {
+onClick = { showAppPicker = true },
+
+)
+row(
+title = stringResource(R.string.button_visibility_screens),
+subtitle = if (current.screens.isEmpty()) {
                         stringResource(R.string.button_visibility_any_screen)
                     } else {
                         current.screens.map { it.label() }.joinToString(" / ")
                     },
-                    shape = segmentedShape(1, 2),
-                    onClick = { showScreenPicker = true },
-                )
+onClick = { showScreenPicker = true },
+
+)
             }
         }
         item(key = "effect") {
-            LunoGroup(title = stringResource(R.string.button_visibility_target)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.button_visibility_visible),
-                    subtitle = current.visible.label(),
-                    shape = segmentedShape(0, 2),
-                    onClick = { showEffectPicker = true },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.button_visibility_target),
-                    subtitle = ButtonVisibilityText.targetSummary(current),
-                    shape = segmentedShape(1, 2),
-                    onClick = { showTargetPicker = true },
-                )
+            group(title = stringResource(R.string.button_visibility_target)) {row(
+title = stringResource(R.string.button_visibility_visible),
+subtitle = current.visible.label(),
+onClick = { showEffectPicker = true },
+
+)
+row(
+title = stringResource(R.string.button_visibility_target),
+subtitle = ButtonVisibilityText.targetSummary(current),
+onClick = { showTargetPicker = true },
+
+)
             }
         }
         item(key = "trigger_enter") {
@@ -416,16 +416,18 @@ fun ButtonVisibilityEditScreen(
             )
         }
         item(key = "trigger_cooldown") {
-            LunoGroup(title = stringResource(R.string.button_visibility_trigger)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.button_visibility_trigger_cooldown),
-                    subtitle = cooldownLabel(current.cooldownSeconds),
-                    shape = segmentedShape(0, 1),
-                    onClick = { showCooldownPicker = true },
-                )
+            group(title = stringResource(R.string.button_visibility_trigger)) {row(
+title = stringResource(R.string.button_visibility_trigger_cooldown),
+subtitle = cooldownLabel(current.cooldownSeconds),
+onClick = { showCooldownPicker = true },
+
+)
             }
         }
+
+        }
     }
+}
 }
 
 /** 触发动作组：已配动作行（行尾删除）+ 添加动作行；列表只进不出换动作 = 删了重加。 */
