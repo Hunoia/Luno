@@ -1,6 +1,5 @@
 package hunoia.luno.ui.theme
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -11,7 +10,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,11 +24,12 @@ import hunoia.luno.ui.theme.CapsuleShape
 
 val HazeBlurRadius: Dp = 25.dp
 
-/** 顶栏 Haze 底色透明度；过高会发奶白。 */
-const val TopBarHazeAlpha = 0.5f
-
-/** 玻璃胶囊描边透明度：只补轮廓，不抢内容。 */
-const val GlassOutlineAlpha = 0.35f
+/**
+ * 顶栏专用模糊半径 / 底色透明度：比悬浮胶囊更实，滚动内容几乎看不清，贴近 FlClash 磨砂
+ * 顶栏（ui-guidelines §4.7 顶栏条目）。胶囊族仍用 [HazeBlurRadius] / [GlassCapsuleHazeAlpha]。
+ */
+val TopBarBlurRadius: Dp = 40.dp
+const val TopBarHazeAlpha = 0.7f
 
 /** 屏幕级 Haze 状态：内容层 hazeSource，TopBar/底栏 hazeEffect，共用同一实例。 */
 @Composable
@@ -64,22 +63,14 @@ fun Modifier.appHazeEffect(
         HazeBlurStyle {
             blurRadius(radius)
             backgroundColor(tint)
+            // 关掉 haze 2.1 默认的噪点（noiseFactor）：项目玻璃只做 blur + 半透明底 + 羽化，
+            // 不留颗粒；否则顶栏未收起（blur=0、底 alpha=0）时仍有一层颗粒。
+            noiseFactor(0f)
             progressive(blend)
             mask(brush)
         },
     )
 }
-
-/**
- * 玻璃胶囊发丝描边：Haze 叠在滚动内容上时边缘容易糊掉，补一圈极淡的轮廓。
- * 主页底栏与动作选择页底栏共用，保证两颗胶囊观感一致。
- */
-@Composable
-fun Modifier.appGlassOutline(shape: Shape): Modifier = border(
-    width = 1.dp,
-    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = GlassOutlineAlpha),
-    shape = shape,
-)
 
 /** 玻璃胶囊底色透明度：悬浮胶囊共用（与主页悬浮底栏同一套，自身不再叠底色，双层会发白）。 */
 const val GlassCapsuleHazeAlpha = 0.65f
@@ -96,20 +87,19 @@ fun Modifier.glassCapsuleBackground(hazeState: HazeState?): Modifier {
     return dropShadow(
         shape = capsuleShape,
         shadow = Shadow(
-            radius = TileInnerPadding * 2.5f,
+            radius = TileInnerPadding * 1.5f,
             color = Color.Black,
-            alpha = if (isSystemInDarkTheme()) 0.2f else 0.1f,
+            alpha = if (isSystemInDarkTheme()) 0.12f else 0.06f,
         ),
     )
         // clip 在 haze 之外：方形糊输出裁成连续曲率胶囊（只裁绘制，不影响采样）。
         .clip(capsuleShape)
-        // 底色/透明度对齐主页底栏；用 surfaceContainerHighest 而不是 surfaceContainer，
-        // 否则叠在列表上过淡，看起来像内容自己浮着、没有胶囊容器。
+        // 底色对齐 FlClash 浮动层（亮 surfaceBright / 暗 surfaceContainerHigh）：底栏胶囊
+        // 与列表行同一层灰，看起来是列表的一部分而不是另一张浮卡；不描边（边缘靠阴影与底色差表达）。
         .appHazeEffect(
             hazeState,
-            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = GlassCapsuleHazeAlpha),
+            floatingSurfaceColor().copy(alpha = GlassCapsuleHazeAlpha),
         )
-        .appGlassOutline(capsuleShape)
 }
 
 /**
@@ -134,7 +124,37 @@ fun topBarMask(): Brush {
     }
 }
 
+/**
+ * FlClash `SurfaceLevel` 明暗映射（`prism_ui/surface.dart`）：浮动层（底栏 / 搜索胶囊）
+ * 亮色 = `surfaceBright`(card) / 暗色 = `surfaceContainerHigh`(block)。
+ */
+@Composable
+fun floatingSurfaceColor(): Color =
+    if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
+
+/** 抬升层（顶栏）：亮色 = `surfaceBright`(card) / 暗色 = `surfaceContainer`。 */
+@Composable
+fun raisedSurfaceColor(): Color =
+    if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
+
+/** 页面底（FlClash `page`）：亮色 = `surfaceContainer` / 暗色 = `surface`。 */
+@Composable
+fun pageSurfaceColor(): Color =
+    if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer
+    }
+
 @Composable
 fun hazeSurfaceColor(alpha: Float = TopBarHazeAlpha): Color =
-    MaterialTheme.colorScheme.surfaceContainer.copy(alpha = alpha)
+    raisedSurfaceColor().copy(alpha = alpha)
 

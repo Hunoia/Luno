@@ -1,13 +1,8 @@
 package hunoia.luno.ui.settings.action
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,11 +23,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
@@ -52,12 +47,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.system.gotoAppDetailSettings
@@ -73,7 +69,7 @@ import hunoia.luno.ui.component.IndexBar
 import hunoia.luno.ui.component.IndexBarEntry
 import hunoia.luno.ui.component.IndexBarOrientation
 import hunoia.luno.ui.component.IndexBarSide
-import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.SheetGroupHeader
@@ -88,11 +84,12 @@ import hunoia.luno.ui.component.screen.LunoScreenPlain
 import hunoia.luno.ui.icon.toIconBitmap
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
+import hunoia.luno.ui.theme.MotionSwapIn
+import hunoia.luno.ui.theme.DockCapsuleHeight
+import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.MotionSwapIn
-import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.TileInnerPadding
@@ -131,6 +128,22 @@ fun RecentAppsBlocklistScreen(
     val appIcons = remember { mutableStateMapOf<String, ImageBitmap>() }
     var searchQuery by remember { mutableStateOf("") }
     var searchExpanded by remember { mutableStateOf(false) }
+    val searchKeyboard = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val imeVisible by remember(density, imeInsets) { derivedStateOf { imeInsets.getBottom(density) > 0 } }
+    // 收起 = 连查询一起清掉（搜索框藏起来还留着筛选条件，用户看不见也清不掉）。
+    // hide 键盘 + 清 query + 关搜索态**立即**（收起动画立即播）；输入框节点由叠层保留到
+    // 键盘滑完（`imeVisible=false`）才移除，不在下滑途中销毁 → 焦点/InputConnection 不断 →
+    // 键盘有完整下滑动画、不回弹。动画与键盘是两条独立驱动源、互不等待（FlClash 同款）。
+    fun closeSearch() {
+        searchKeyboard?.hide()
+        searchQuery = ""
+        searchExpanded = false
+    }
+    // 系统返回先收搜索框，否则输入到一半直接退页。
+    BackHandler(enabled = searchExpanded) { closeSearch() }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
     // 页内内存开关：默认关、不记忆；两类（无界面组件 / 有界面无入口）各自独立，展开重查。
@@ -261,6 +274,8 @@ fun RecentAppsBlocklistScreen(
                     val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
                     // 列表全屏（不压缩）：内容底部让位给悬浮底栏 + 键盘。列表滚到玻璃胶囊后面
                     // 被模糊（AppControlScreen 同款），不再露出 Scaffold 背景层盖住列表。
+                    // 让位取搜索态/常态的较大值、固定不变（不做二次动画，§3.2-9）；收起搜索
+                    // 时列表底部不跳，键盘 inset 逐帧跟手即可。
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
@@ -347,7 +362,6 @@ fun RecentAppsBlocklistScreen(
                     // IME∪导航 inset 与 bottom padding 由外层 Column 统一承担。
                     // 字母在列时胶囊全宽（字母左 + 按钮右）；loading/空/search 时无字母，
                     // 胶囊随按钮收窄靠右。
-                    val bottomFull = showIndex || searchExpanded
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -368,139 +382,97 @@ fun RecentAppsBlocklistScreen(
                             ),
                         horizontalAlignment = Alignment.End,
                     ) {
+                        // 搜索态 ↔ 常态：叠层交叉淡入淡出（FlClash 式）。搜索层与常态层同时组合，
+                        // 视觉 alpha 由 searchAlpha 立即驱动；搜索层节点保留到键盘滑完（searchExpanded || imeVisible），
+                        // 输入框不在下滑途中销毁 → 焦点/InputConnection 不断 → 键盘有完整下滑动画、不回弹。
+                        val searchAlpha by animateFloatAsState(
+                            targetValue = if (searchExpanded) 1f else 0f,
+                            animationSpec = tween(MotionSwapIn),
+                            label = "blocklistSearchAlpha",
+                        )
                         Box(
-                            modifier = Modifier
-                                .then(if (bottomFull) Modifier.fillMaxWidth() else Modifier),
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.TopEnd,
                         ) {
-                            // 装饰背景层：裁切 + 玻璃视觉；内容层不被它裁（气泡需溢出不裁切）。
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .glassCapsuleBackground(hazeState),
-                            )
-                            // 内容层：内边距口径同 glassCapsule（TileInnerPadding），内里高 56。
-                            Row(
-                                modifier = Modifier
-                                    .then(if (bottomFull) Modifier.fillMaxWidth() else Modifier)
-                                    .padding(TileInnerPadding)
-                                    .height(BottomBarHeight),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (showIndex) {
-                                    val activeKey = sections
-                                        .getOrNull(listState.firstVisibleItemIndex / 2)
-                                        ?.letter?.toString()
-                                    IndexBar(
-                                        entries = barEntries,
-                                        metrics = null,
-                                        activeKey = activeKey,
-                                        side = IndexBarSide.Start,
-                                        onJump = { entry ->
-                                            val sectionIndex = sections.indexOfFirst {
-                                                it.letter.toString() == entry.key
+                            if (!searchExpanded) {
+                                // 常态层（玻璃胶囊，字母条 + 保存/搜索）。
+                                Box(modifier = Modifier.graphicsLayer { alpha = 1f - searchAlpha }) {
+                                    Box(
+                                        modifier = Modifier
+                                            .then(if (showIndex) Modifier.fillMaxWidth() else Modifier),
+                                    ) {
+                                        // 装饰背景层：裁切 + 玻璃视觉；内容层不被它裁（气泡需溢出不裁切）。
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .glassCapsuleBackground(hazeState),
+                                        )
+                                        // 内容层：内边距口径同 glassCapsule（TileInnerPadding），内里高 56。
+                                        Row(
+                                            modifier = Modifier
+                                                .then(if (showIndex) Modifier.fillMaxWidth() else Modifier)
+                                                .padding(TileInnerPadding)
+                                                .height(BottomBarHeight),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            if (showIndex) {
+                                                val activeKey = sections
+                                                    .getOrNull(listState.firstVisibleItemIndex / 2)
+                                                    ?.letter?.toString()
+                                                IndexBar(
+                                                    entries = barEntries,
+                                                    metrics = null,
+                                                    activeKey = activeKey,
+                                                    side = IndexBarSide.Start,
+                                                    onJump = { entry ->
+                                                        val sectionIndex = sections.indexOfFirst {
+                                                            it.letter.toString() == entry.key
+                                                        }
+                                                        if (sectionIndex >= 0) {
+                                                            listState.requestScrollToItem(sectionIndex * 2)
+                                                        }
+                                                    },
+                                                    orientation = IndexBarOrientation.Horizontal,
+                                                    maxWindow = 5,
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                                Spacer(modifier = Modifier.width(LetterBarCapsuleGap))
                                             }
-                                            if (sectionIndex >= 0) {
-                                                listState.requestScrollToItem(sectionIndex * 2)
-                                            }
-                                        },
-                                        orientation = IndexBarOrientation.Horizontal,
-                                        maxWindow = 5,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Spacer(modifier = Modifier.width(LetterBarCapsuleGap))
+                                            ToolbarNormalContent(
+                                                onSave = { confirm() },
+                                                onToggleSearch = { searchExpanded = true },
+                                            )
+                                        }
+                                    }
+                            }
+                                // 搜索层：叠在上层，alpha 立即淡出/淡入；节点保留到键盘滑完再移除。
+                                if (searchExpanded || imeVisible) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .graphicsLayer { alpha = searchAlpha },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        LunoCapsuleSearch(
+                                            query = searchQuery,
+                                            onQueryChange = { searchQuery = it },
+                                            placeholder = stringResource(R.string.search_app_hint),
+                                            onCancel = { closeSearch() },
+                                            cancelContentDescription = stringResource(R.string.search_collapse),
+                                            hazeState = hazeState,
+                                            focusRequester = searchFocusRequester,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .widthIn(max = DockMaxWidth)
+                                                .height(DockCapsuleHeight),
+                                        )
+                                    }
                                 }
-                                BlocklistToolbarContent(
-                                    searchExpanded = searchExpanded,
-                                    query = searchQuery,
-                                    onQueryChange = { searchQuery = it },
-                                    onToggleSearch = { searchExpanded = !searchExpanded },
-                                    onSave = { confirm() },
-                                )
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * 底部玻璃胶囊的**内容**（常态右侧动作 / 搜索态全宽输入）：玻璃背景层与内边距由调用方承担，
- * 本函数只管搜索状态与按钮内容。搜索逻辑同 AppControlToolbar —— 常态 [保存][搜索]，
- * 搜索点击展开全宽输入框 + × 收起；`BackHandler` 收搜索、展开后取焦点、IME 收起再折叠。
- */
-@Composable
-private fun BlocklistToolbarContent(
-    searchExpanded: Boolean,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onToggleSearch: () -> Unit,
-    onSave: () -> Unit,
-) {
-    val keyboard = LocalSoftwareKeyboardController.current
-    val density = LocalDensity.current
-    val imeInsets = WindowInsets.ime
-    val imeVisible by remember(density, imeInsets) {
-        derivedStateOf { imeInsets.getBottom(density) > 0 }
-    }
-    val focusRequester = remember { FocusRequester() }
-    var collapsePending by remember { mutableStateOf(false) }
-
-    // 收起搜索：先收键盘，等 IME 真正收起再清 query + 收起，不挤在同一段动画里。
-    fun closeSearch() {
-        if (imeVisible) {
-            collapsePending = true
-            keyboard?.hide()
-        } else {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
-    }
-    LaunchedEffect(collapsePending, imeVisible) {
-        if (collapsePending && !imeVisible) {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
-    }
-    // 系统返回先收搜索框，否则输入到一半直接退页。
-    BackHandler(enabled = searchExpanded) { closeSearch() }
-
-    // 常态 ↔ 搜索展开/收起：slide(±width/8)+fade，与动作选择页（ActionSelectBottomBar）
-    // 同款。搜索内容在框内自带收起 ×（无尾槽），展开全宽、收起回右侧动作。
-    // 高度填满、宽度**按内容**（不能 fillMaxWidth/fillMaxSize：本函数是底栏 Row 里的
-    // 非 weight 子项，会被先于 IndexBar(weight 1f) 测量，fillMaxWidth 会吃满整行、
-    // 把拼音滑杆挤到 0 宽消失）。
-    AnimatedContent(
-        targetState = searchExpanded,
-        modifier = Modifier.fillMaxHeight(),
-        transitionSpec = {
-            val enter = fadeIn(tween(MotionSwapIn)) +
-                slideInHorizontally(tween(MotionSwapIn)) { full ->
-                    if (targetState) full / 8 else -full / 8
-                }
-            val exit = fadeOut(tween(MotionSwapOut)) +
-                slideOutHorizontally(tween(MotionSwapOut)) { full ->
-                    if (targetState) -full / 8 else full / 8
-                }
-            enter togetherWith exit
-        },
-        label = "blocklistToolbarMode",
-    ) { searching ->
-        if (searching) {
-            ToolbarSearchContent(
-                query = query,
-                onQueryChange = onQueryChange,
-                focusRequester = focusRequester,
-                onClose = { closeSearch() },
-            )
-        } else {
-            ToolbarNormalContent(
-                onSave = onSave,
-                onToggleSearch = onToggleSearch,
-            )
         }
     }
 }
@@ -531,42 +503,6 @@ private fun ToolbarNormalContent(
     }
 }
 
-/** 搜索：输入框 + × 收起；展开动画铺好布局再取焦点（节点未挂载时 requestFocus 落空）。 */
-@Composable
-private fun ToolbarSearchContent(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    focusRequester: FocusRequester,
-    onClose: () -> Unit,
-) {
-    var placed by remember { mutableStateOf(false) }
-    LaunchedEffect(placed) {
-        if (placed) runCatching { focusRequester.requestFocus() }
-    }
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        LunoSearchField(
-            query = query,
-            onQueryChange = onQueryChange,
-            placeholder = stringResource(R.string.search_app_hint),
-            focusRequester = focusRequester,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .onGloballyPositioned { placed = true },
-        )
-        PressIconButton(onClick = onClose) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = stringResource(R.string.search_collapse),
-            )
-        }
-    }
-}
-
 /** 只吃事件、不做任何事：把落在工具条矩形范围内的触摸从下层列表手里拿回来。 */
 private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
     awaitPointerEventScope {
@@ -580,9 +516,16 @@ private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
 private val iconLoadGate = Semaphore(ICON_LOAD_CONCURRENCY)
 private const val ICON_LOAD_CONCURRENCY = 4
 
-/** 底部悬浮区让位：胶囊本高（BottomBarHeight + 2×TileInnerPadding）+ BottomBarPadding。 */
+/**
+ * 底部悬浮区让位：取搜索态（浮动胶囊 `DockCapsuleHeight + 2×BottomBarPadding`）与
+ * 常态（玻璃胶囊 `BottomBarHeight + 2×TileInnerPadding + BottomBarPadding`）的较大值，
+ * **固定不随搜索态切换跳变**——让位不做二次动画（IME inset 已逐帧，§3.2-9）。
+ */
 private val ToolbarReservedBottom =
-    BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding
+    maxOf(
+        DockCapsuleHeight + BottomBarPadding * 2,
+        BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding,
+    )
 
 /** 横向滑杆与悬浮胶囊之间的水平间隙。 */
 private val LetterBarCapsuleGap = 12.dp

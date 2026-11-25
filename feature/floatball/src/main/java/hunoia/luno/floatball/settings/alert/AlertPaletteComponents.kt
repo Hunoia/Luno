@@ -40,10 +40,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -341,6 +343,8 @@ internal fun PaletteSwatchRow(
     // 长按成立后到抬手之间，忽略该块的点击。`clickable` 的抬手判定（waitForUpOrCancellation）
     // 先返回抬手事件、不检查消费标记，父节点 consume 压不住，只能靠这个状态门挡。
     var clickBlockedUid by remember { mutableStateOf<Int?>(null) }
+    // 长按命中瞬间轻振一次，预告「长按手势已被接管」（跨槽位不再补振，6 格太密会连成嗡嗡声）。
+    val haptic = LocalHapticFeedback.current
 
     // 槽位节距 = 格子宽 + 行间距；不算间距会每跨一格就偏 8dp，越拖越不准。
     val cellSpacingPx = with(LocalDensity.current) { CardInnerSpacing.toPx() }
@@ -414,9 +418,10 @@ internal fun PaletteSwatchRow(
                                 if (awaitLongPressOrCancellation(down.id) == null) {
                                     return@awaitEachGesture
                                 }
-                                // 到阈值立刻弹菜单（不等抬手），并落门挡掉这次抬手会漏出的
-                                // onClick —— clickable 的 tap 判定在子节点先跑，父节点 consume
-                                // 已经晚了，只能靠状态门。
+                                // 到阈值：轻振预告接管 + 立刻弹菜单（不等抬手），并落门挡掉
+                                // 这次抬手会漏出的 onClick —— clickable 的 tap 判定在子节点先跑，
+                                // 父节点 consume 已经晚了，只能靠状态门。
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 menuForUid = item.uid
                                 clickBlockedUid = item.uid
                                 try {

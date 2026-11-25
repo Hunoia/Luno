@@ -4,11 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -60,11 +60,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -85,7 +85,7 @@ import hunoia.luno.config.model.ClipboardMaxEntriesRange
 import hunoia.luno.ui.component.FloatingBarLayout
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.component.FloatingTabRow
-import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
@@ -102,7 +102,9 @@ import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.BottomBarTabWidth
+import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGutter
+import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MotionSwapIn
@@ -440,31 +442,19 @@ private fun ClipboardToolbar(
     onExitSelection: () -> Unit,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
     val imeVisible by remember(density, imeInsets) {
         derivedStateOf { imeInsets.getBottom(density) > 0 }
     }
-    val focusRequester = remember { FocusRequester() }
-    var collapsePending by remember { mutableStateOf(false) }
-
-    // 收起搜索：先收键盘，等 IME 真正收起再清 query + 收起，不挤在同一段动画里（§3.2 第 7 条）。
+    // 收起：hide 键盘 + 清 query + 关搜索态**立即**（收起动画立即播）；输入框节点由叠层保留到
+    // 键盘滑完（`imeVisible=false`）才移除，不在下滑途中销毁 → 焦点/InputConnection 不断 →
+    // 键盘有完整下滑动画、不回弹。动画与键盘是两条独立驱动源、互不等待（FlClash 同款）。
     fun closeSearch() {
-        if (imeVisible) {
-            collapsePending = true
-            keyboard?.hide()
-        } else {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
-    }
-    LaunchedEffect(collapsePending, imeVisible) {
-        if (collapsePending && !imeVisible) {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
+        keyboard?.hide()
+        onQueryChange("")
+        onToggleSearch()
     }
     // 系统返回先收搜索框，否则输入到一半直接退页。
     BackHandler(enabled = searchExpanded) { closeSearch() }
@@ -508,89 +498,107 @@ private fun ClipboardToolbar(
                 trailingSlot = searchSlot,
             )
 
-            // 玻璃胶囊容器（阴影/裁形/毛玻璃/描边/内边距），与页面级悬浮胶囊共用同一份样式。
-            Column(
-                modifier = Modifier
-                    .width(capsuleWidth)
-                    .glassCapsule(hazeState),
+            // 搜索态 ↔ 常态/选择：叠层交叉淡入淡出（FlClash 式）。搜索层与常态层同时组合，
+            // 视觉 alpha 由 searchAlpha 立即驱动；搜索层节点保留到键盘滑完（searchExpanded || imeVisible），
+            // 输入框不在下滑途中销毁 → 焦点/InputConnection 不断 → 键盘有完整下滑动画、不回弹。
+            val searchAlpha by animateFloatAsState(
+                targetValue = if (searchExpanded) 1f else 0f,
+                animationSpec = tween(MotionSwapIn),
+                label = "clipboardSearchAlpha",
+            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                val mode = when {
-                    searchExpanded -> ToolbarMode.Search
-                    selectionMode -> ToolbarMode.Selection
-                    else -> ToolbarMode.Normal
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(DockTabHeight),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // 分段 / 搜索 / 选中态同一行互换：不把底栏撑高，列表留白不跳。
-                    // 搜索↔常态走 slide(±width/8)+fade（与动作选择页一致）；选中↔常态仍纯 fade。
-                    AnimatedContent(
-                        targetState = mode,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        transitionSpec = {
-                            val expanding = targetState == ToolbarMode.Search
-                            val collapsing = initialState == ToolbarMode.Search
-                            if (expanding || collapsing) {
-                                val dir = if (expanding) 1 else -1
-                                val enter = fadeIn(tween(MotionSwapIn)) +
-                                    slideInHorizontally(tween(MotionSwapIn)) { full -> dir * full / 8 }
-                                val exit = fadeOut(tween(MotionSwapOut)) +
-                                    slideOutHorizontally(tween(MotionSwapOut)) { full -> -dir * full / 8 }
-                                enter togetherWith exit
-                            } else {
-                                fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                if (!searchExpanded) {
+                    // 玻璃胶囊容器（阴影/裁形/毛玻璃/描边/内边距），与页面级悬浮胶囊共用同一份样式。
+                    Column(
+                        modifier = Modifier
+                            .width(capsuleWidth)
+                            .glassCapsule(hazeState)
+                            .graphicsLayer { alpha = 1f - searchAlpha },
+                        ) {
+                            val mode = when {
+                                selectionMode -> ToolbarMode.Selection
+                                else -> ToolbarMode.Normal
                             }
-                        },
-                        label = "clipboardToolbarMode",
-                    ) { m ->
-                        when (m) {
-                            ToolbarMode.Search -> ToolbarSearchContent(
-                                query = query,
-                                onQueryChange = onQueryChange,
-                                focusRequester = focusRequester,
-                            )
-                            ToolbarMode.Selection -> ToolbarSelectionContent(
-                                selectedCount = selectedCount,
-                                onSelectAll = onSelectAll,
-                                onPin = onPinSelected,
-                            )
-                            ToolbarMode.Normal -> TabSegments(
-                                tab = tab,
-                                chipWidth = chipWidth,
-                                onTabChange = onTabChange,
-                            )
-                        }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(DockTabHeight),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                // 分段 / 选中态同一行互换：不把底栏撑高，列表留白不跳。
+                                AnimatedContent(
+                                    targetState = mode,
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    transitionSpec = {
+                                        fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                                    },
+                                    label = "clipboardToolbarMode",
+                                ) { m ->
+                                    when (m) {
+                                        ToolbarMode.Selection -> ToolbarSelectionContent(
+                                            selectedCount = selectedCount,
+                                            onSelectAll = onSelectAll,
+                                            onPin = onPinSelected,
+                                        )
+                                        ToolbarMode.Normal -> TabSegments(
+                                            tab = tab,
+                                            chipWidth = chipWidth,
+                                            onTabChange = onTabChange,
+                                        )
+                                        // 搜索态已在分支外，这里不会出现。
+                                        ToolbarMode.Search -> Unit
+                                    }
+                                }
+                                // 尾槽：常态搜索 / 选中态退出（删除在顶栏，退出回到底栏右侧）。
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(searchSlot),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    when (mode) {
+                                        ToolbarMode.Selection -> SlotButton(
+                                            onClick = onExitSelection,
+                                            icon = Icons.Default.Close,
+                                            contentDescription = stringResource(R.string.clipboard_clear_selection),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        ToolbarMode.Normal -> SlotButton(
+                                            onClick = { onToggleSearch() },
+                                            icon = Icons.Default.Search,
+                                            contentDescription = stringResource(R.string.clipboard_search_hint),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        ToolbarMode.Search -> Unit
+                                    }
+                                }
+                            }
                     }
-                    // 尾槽：常态搜索 / 搜索态收起 / 选中态退出（删除在顶栏，退出回到底栏右侧）。
+                }
+                // 搜索层：叠在上层，alpha 立即淡出/淡入；节点保留到键盘滑完再移除。
+                if (searchExpanded || imeVisible) {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .width(searchSlot),
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = searchAlpha },
                         contentAlignment = Alignment.Center,
                     ) {
-                        when (mode) {
-                            ToolbarMode.Selection -> SlotButton(
-                                onClick = onExitSelection,
-                                icon = Icons.Default.Close,
-                                contentDescription = stringResource(R.string.clipboard_clear_selection),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            ToolbarMode.Search -> SlotButton(
-                                onClick = { closeSearch() },
-                                icon = Icons.Default.Close,
-                                contentDescription = stringResource(R.string.clipboard_search_collapse),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            ToolbarMode.Normal -> SlotButton(
-                                onClick = { onToggleSearch() },
-                                icon = Icons.Default.Search,
-                                contentDescription = stringResource(R.string.clipboard_search_hint),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        LunoCapsuleSearch(
+                            query = query,
+                            onQueryChange = onQueryChange,
+                            placeholder = stringResource(R.string.clipboard_search_hint),
+                            onCancel = { closeSearch() },
+                            cancelContentDescription = stringResource(R.string.clipboard_search_collapse),
+                            hazeState = hazeState,
+                            focusRequester = focusRequester,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = DockMaxWidth)
+                                .height(DockCapsuleHeight),
+                        )
                     }
                 }
             }
@@ -652,39 +660,6 @@ private fun SlotButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = tint,
-        )
-    }
-}
-
-/**
- * 栏内搜索：只放输入框（框内清空 × 由 [LunoSearchField] 自带）。收起搜索走尾槽
- * [SlotButton]（design §4.3 语义三分：框内 × 清空 query，底栏右侧 × 收起），
- * 这里不再画第二个收起 ×，避免输入时并排两个 ×。
- */
-@Composable
-private fun ToolbarSearchContent(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    focusRequester: FocusRequester,
-) {
-    var placed by remember { mutableStateOf(false) }
-    LaunchedEffect(placed) {
-        if (placed) runCatching { focusRequester.requestFocus() }
-    }
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        LunoSearchField(
-            query = query,
-            onQueryChange = onQueryChange,
-            placeholder = stringResource(R.string.clipboard_search_hint),
-            focusRequester = focusRequester,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .onGloballyPositioned { placed = true },
         )
     }
 }

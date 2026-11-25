@@ -47,6 +47,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.TopBarActionGroup
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTimePicker
 import hunoia.luno.ui.component.input.rememberLunoTimePickerState
@@ -204,13 +205,17 @@ private fun TrendEditForm(
         ),
         onBack = onBack,
         bottomContentPadding = ContentBottom,
+        // 含文字按钮「保存」：不进单胶囊动作组，删除图标单独成组。
+        groupActions = false,
         actions = {
             if (metric != null) {
-                PressIconButton(onClick = { showDeleteConfirm = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.trend_delete),
-                    )
+                TopBarActionGroup {
+                    PressIconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.trend_delete),
+                        )
+                    }
                 }
             }
             PressTextButton(onClick = ::save) {

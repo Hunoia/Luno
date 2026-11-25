@@ -21,14 +21,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import dev.chrisbanes.haze.HazeState
+import hunoia.luno.ui.component.FloatingTopBar
 import hunoia.luno.ui.component.LunoColumn
+import hunoia.luno.ui.component.LunoTopBarScrollBehavior
 import hunoia.luno.ui.component.TopBar
+import hunoia.luno.ui.component.rememberLunoTopBarScrollBehavior
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
@@ -47,7 +51,8 @@ fun LunoScreen(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    actions: (@Composable androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    groupActions: Boolean = true,
     postfixTitle: (@Composable () -> Unit)? = null,
     floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
     contentSpacing: Dp = ListSpacing,
@@ -63,6 +68,7 @@ fun LunoScreen(
         modifier = modifier,
         onBack = onBack,
         actions = actions,
+        groupActions = groupActions,
         postfixTitle = postfixTitle,
         floatingContent = floatingContent,
         dialogs = dialogs,
@@ -101,7 +107,8 @@ fun LunoScreenPlain(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     showBackIcon: Boolean = true,
-    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    actions: (@Composable androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    groupActions: Boolean = true,
     postfixTitle: (@Composable () -> Unit)? = null,
     floatingContent: (@Composable () -> Unit)? = null,
     dialogs: @Composable () -> Unit = {},
@@ -114,6 +121,7 @@ fun LunoScreenPlain(
         onBack = onBack,
         showBackIcon = showBackIcon,
         actions = actions,
+        groupActions = groupActions,
         postfixTitle = postfixTitle,
         floatingContent = { floatingContent?.invoke() },
         dialogs = dialogs,
@@ -138,7 +146,8 @@ fun LunoScreenLazy(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    actions: (@Composable androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    groupActions: Boolean = true,
     postfixTitle: (@Composable () -> Unit)? = null,
     floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
     contentSpacing: Dp = ListSpacing,
@@ -154,6 +163,7 @@ fun LunoScreenLazy(
         modifier = modifier,
         onBack = onBack,
         actions = actions,
+        groupActions = groupActions,
         postfixTitle = postfixTitle,
         floatingContent = floatingContent,
         dialogs = dialogs,
@@ -185,7 +195,8 @@ private fun LunoScreenScaffold(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     showBackIcon: Boolean = true,
-    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    actions: (@Composable androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    groupActions: Boolean = true,
     postfixTitle: (@Composable () -> Unit)? = null,
     floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
     dialogs: @Composable () -> Unit = {},
@@ -193,31 +204,48 @@ private fun LunoScreenScaffold(
     content: @Composable (
         padding: androidx.compose.foundation.layout.PaddingValues,
         hazeState: HazeState,
-        scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior,
+        scrollBehavior: LunoTopBarScrollBehavior,
     ) -> Unit,
 ) {
-    @Suppress("DEPRECATION")
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    @OptIn(ExperimentalMaterial3Api::class)
+    val scrollBehavior = rememberLunoTopBarScrollBehavior()
     val hazeState = rememberAppHazeState()
     ClearFocusWhenImeHidden()
+    // 顶栏高度（含它自己的状态栏让位）：先按「展开高 + 顶栏自己那套 windowInsets 顶 inset」兜底，
+    // 量到真实高度后回写；顶栏收拢时实时回传，内容顶部让位跟着收，不空出一段。
+    val density = LocalDensity.current
+    val statusBarInset = with(density) {
+        TopAppBarDefaults.windowInsets.getTop(this).toDp()
+    }
+    val topBarHeight = remember {
+        mutableStateOf(TopAppBarDefaults.MediumAppBarExpandedHeight + statusBarInset)
+    }
     Box(modifier = modifier.fillMaxSize()) {
+        // Scaffold 只当页面容器与背景：顶栏**不**占它的 topBar 槽。占槽会把内容视口裁在
+        // 顶栏下沿——滚动内容到不了顶栏底下，磨砂层底下也没有内容可糊（看起来像
+        // 「顶栏被内容夹没」）。改成 overlay 悬浮后内容从顶栏底下穿过，磨砂才有东西可糊。
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentWindowInsets = WindowInsets(),
-            topBar = {
-                TopBar(
-                    title = title,
-                    onBack = onBack,
-                    actions = actions,
-                    showBackIcon = showBackIcon,
-                    postfixTitle = postfixTitle,
-                    scrollBehavior = scrollBehavior,
-                    hazeState = hazeState,
-                )
-            },
-        ) { padding ->
-            content(padding, hazeState, scrollBehavior)
+        ) { _ ->
+            content(
+                androidx.compose.foundation.layout.PaddingValues(top = topBarHeight.value),
+                hazeState,
+                scrollBehavior,
+            )
+        }
+        FloatingTopBar(onHeightChange = { topBarHeight.value = it }) {
+            TopBar(
+                title = title,
+                onBack = onBack,
+                actions = actions,
+                groupActions = groupActions,
+                showBackIcon = showBackIcon,
+                postfixTitle = postfixTitle,
+                scrollBehavior = scrollBehavior,
+                hazeState = hazeState,
+            )
         }
         floatingContent?.invoke(this, hazeState)
         dialogs()

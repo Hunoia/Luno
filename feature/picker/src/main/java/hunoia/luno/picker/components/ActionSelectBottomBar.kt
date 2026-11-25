@@ -1,14 +1,9 @@
 package hunoia.luno.picker
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -30,7 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -48,32 +43,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.min
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.picker.R
 import hunoia.luno.ui.component.FloatingBarLayout
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.component.FloatingTabRow
-import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.BottomBarTabWidth
+import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGutter
+import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.MotionSwapIn
-import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.glassCapsule
 
@@ -111,35 +108,18 @@ internal fun ActionSelectBottomBar(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
-    // 派生状态：键盘升降过程中 IME inset 每帧都在变，只在「可见/不可见」翻转时触发组合，
-    // 不跟着键盘动画逐帧重组整条底栏。
     val imeInsets = WindowInsets.ime
     val imeVisible by remember(density, imeInsets) {
         derivedStateOf { imeInsets.getBottom(density) > 0 }
     }
-    // 点 × 后：先收键盘，等 IME 真正收起再换内容 + 清 query。
-    // 三件事挤在同一段动画里会互相踩：键盘下滑（逐帧改 inset 与列表底部留白）、
-    // AnimatedContent 换行、清空 query 后列表恢复全量内容，表现为明显卡一下。
-    var collapsePending by remember { mutableStateOf(false) }
-
     // 收起 = 连查询一起清掉：搜索框藏起来后还留着筛选条件，用户看不见也清不掉。
+    // hide 键盘 + 清 query + 关搜索态**立即**（收起动画立即播）；输入框节点由叠层保留到
+    // 键盘滑完（`imeVisible=false`）才移除，不在下滑途中销毁 → 焦点/InputConnection 不断 →
+    // 键盘有完整下滑动画、不回弹。动画与键盘是两条独立驱动源、互不等待（FlClash 同款）。
     fun closeSearch() {
-        if (imeVisible) {
-            collapsePending = true
-            keyboard?.hide()
-        } else {
-            collapsePending = false
-            onQueryChange("")
-            searchExpanded = false
-        }
-    }
-
-    LaunchedEffect(collapsePending, imeVisible) {
-        if (collapsePending && !imeVisible) {
-            collapsePending = false
-            onQueryChange("")
-            searchExpanded = false
-        }
+        keyboard?.hide()
+        onQueryChange("")
+        searchExpanded = false
     }
 
     // 系统返回先收搜索框，否则输入到一半会直接退出选择页。
@@ -194,85 +174,85 @@ internal fun ActionSelectBottomBar(
                 trailingSlot = searchSlot,
             )
 
-            // 玻璃胶囊容器（阴影/裁形/毛玻璃/描边/内边距）与页面级悬浮搜索胶囊共用同一份样式。
-            Column(
-                modifier = Modifier
-                    .width(capsuleWidth)
-                    .glassCapsule(hazeState),
+            // 搜索态 ↔ 常态：叠层交叉淡入淡出（FlClash 式）。搜索层与常态层同时组合，
+            // 视觉 alpha 由 searchAlpha 立即驱动；搜索层节点保留到键盘滑完（searchExpanded || imeVisible），
+            // 输入框不在下滑途中销毁 → 焦点/InputConnection 不断 → 键盘有完整下滑动画、不回弹。
+            val searchAlpha by animateFloatAsState(
+                targetValue = if (searchExpanded) 1f else 0f,
+                animationSpec = tween(MotionSwapIn),
+                label = "actionSelectSearchAlpha",
+            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(DockTabHeight),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // chip 区与搜索框同一行互换：不把底栏撑高，列表留白也就不会跳。
-                    AnimatedContent(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        targetState = searchExpanded,
-                        transitionSpec = {
-                            val enter = fadeIn(tween(MotionSwapIn)) + slideInHorizontally(tween(MotionSwapIn)) { full ->
-                                if (targetState) full / 8 else -full / 8
-                            }
-                            val exit = fadeOut(tween(MotionSwapOut)) + slideOutHorizontally(tween(MotionSwapOut)) { full ->
-                                if (targetState) -full / 8 else full / 8
-                            }
-                            enter togetherWith exit
-                        },
-                        label = "actionSearchMode",
-                    ) { searching ->
-                        if (searching) {
-                            // 展开动画铺好布局再要焦点：组合期直接 requestFocus 节点还没 attach，
-                            // 会落空（旧实现用固定 delay(100) 盲等，慢设备等不够就静默失败、键盘
-                            // 不弹，快设备又白等）。改用 onGloballyPositioned 等搜索框完成首帧布局，
-                            // 回调触发即节点已挂载，requestFocus 必不落空；标志位与搜索框同组合作用域，
-                            // 收起自动销毁、下次展开从 false 重新触发，反复展开/收起都正确。
-                            var placed by remember { mutableStateOf(false) }
-                            LaunchedEffect(placed) {
-                                if (placed) runCatching { focusRequester.requestFocus() }
-                            }
-                            LunoSearchField(
-                                query = query,
-                                onQueryChange = onQueryChange,
-                                placeholder = stringResource(hunoia.luno.design.R.string.search_hint_all),
-                                focusRequester = focusRequester,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .onGloballyPositioned { placed = true },
-                            )
-                        } else {
+                if (!searchExpanded) {
+                    // 常态层：玻璃胶囊（搜索态不组合，避免搜索框下露出常态层）。
+                    Column(
+                        modifier = Modifier
+                            .width(capsuleWidth)
+                        .glassCapsule(hazeState)
+                        .graphicsLayer { alpha = 1f - searchAlpha },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(DockTabHeight),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // chip 条（搜索时整条互换为浮动搜索胶囊，已在分支外）。
                             TypeChipStrip(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
                                 typeChips = typeChips,
                                 chipWidth = chipWidth,
                                 selectedType = selectedType,
                                 onSelectedTypeChange = onSelectedTypeChange,
                             )
+                            // 放大镜槽（= 展开搜索）。自己画点击区而不是用 IconButton：
+                            // IconButton 固定 48dp，搜索槽要与内容高正方形对齐，点在死区上
+                            // 什么都不会发生（以前还会穿透到列表）。
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(searchSlot)
+                                    .clip(CircleShape)
+                                    .pressClickable(
+                                        role = Role.Button,
+                                        onClick = { searchExpanded = true },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = stringResource(hunoia.luno.design.R.string.search_hint_all),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
-                    // 自己画点击区而不是用 IconButton：IconButton 固定 48dp，搜索槽要与内容高
-                    // 正方形对齐，点在死区上什么都不会发生（以前还会穿透到列表）。
+                }
+                // 搜索层：叠在上层，alpha 立即淡出/淡入；节点保留到键盘滑完再移除。
+                if (searchExpanded || imeVisible) {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .width(searchSlot)
-                            .clip(CircleShape)
-                            .pressClickable(
-                                role = Role.Button,
-                                onClick = { if (searchExpanded) closeSearch() else searchExpanded = true },
-                            ),
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = searchAlpha },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = stringResource(
-                                if (searchExpanded) R.string.search_collapse_cd else hunoia.luno.design.R.string.search_hint_all
-                            ),
-                            tint = if (searchExpanded) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
+                        LunoCapsuleSearch(
+                            query = query,
+                            onQueryChange = onQueryChange,
+                            placeholder = stringResource(hunoia.luno.design.R.string.search_hint_all),
+                            onCancel = { closeSearch() },
+                            cancelContentDescription = stringResource(R.string.search_collapse_cd),
+                            hazeState = hazeState,
+                            focusRequester = focusRequester,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = DockMaxWidth)
+                                .height(DockCapsuleHeight),
                         )
                     }
                 }

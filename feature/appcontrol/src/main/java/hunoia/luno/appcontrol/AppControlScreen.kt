@@ -2,14 +2,14 @@ package hunoia.luno.appcontrol
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,8 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -50,9 +50,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -65,7 +65,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.quickaccess.icon.AppIconRequests
 import hunoia.luno.quickaccess.query.AppAvailability
 import hunoia.luno.quickaccess.query.AppDrawerSections
-import hunoia.luno.ui.component.LunoSearchField
+import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.SystemAppsMenuButton
@@ -84,7 +84,9 @@ import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.BottomBarPadding
+import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGutter
+import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
@@ -393,31 +395,19 @@ private fun AppControlToolbar(
     onExitSelection: () -> Unit,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
     val imeVisible by remember(density, imeInsets) {
         derivedStateOf { imeInsets.getBottom(density) > 0 }
     }
-    val focusRequester = remember { FocusRequester() }
-    var collapsePending by remember { mutableStateOf(false) }
-
-    // 收起搜索：先收键盘，等 IME 真正收起再清 query + 收起，不挤在同一段动画里。
+    // 收起：hide 键盘 + 清 query + 关搜索态**立即**（收起动画立即播）；输入框节点由叠层保留到
+    // 键盘滑完（`imeVisible=false`）才移除，不在下滑途中销毁 → 焦点/InputConnection 不断 →
+    // 键盘有完整下滑动画、不回弹。动画与键盘是两条独立驱动源、互不等待（FlClash 同款）。
     fun closeSearch() {
-        if (imeVisible) {
-            collapsePending = true
-            keyboard?.hide()
-        } else {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
-    }
-    LaunchedEffect(collapsePending, imeVisible) {
-        if (collapsePending && !imeVisible) {
-            collapsePending = false
-            onQueryChange("")
-            onToggleSearch()
-        }
+        keyboard?.hide()
+        onQueryChange("")
+        onToggleSearch()
     }
     // 系统返回先收搜索框，否则输入到一半直接退页。
     BackHandler(enabled = searchExpanded) { closeSearch() }
@@ -443,65 +433,82 @@ private fun AppControlToolbar(
             .padding(start = DockGutter, end = DockGutter, bottom = BottomBarPadding),
         horizontalAlignment = Alignment.End,
     ) {
-        // 玻璃胶囊容器：随内容自适应、靠右；仅搜索时展开全宽。宽度随形态切换同帧变化，
-        // 内容淡入淡出（动画改动曾用 BoxWithConstraints+widthIn+animateContentSize 导致
-        // 靠左 + 方形裁剪圆角阴影，已回退）。若需宽度平滑动画，须在玻璃胶囊外部做，不能
-        // 在 clip 之前加方形裁剪。
-        Column(
-            modifier = Modifier
-                .then(if (isSearch) Modifier.fillMaxWidth() else Modifier)
-                .glassCapsule(hazeState),
+        // 搜索态 ↔ 常态/选择：叠层交叉淡入淡出（FlClash 式）。搜索层与常态层**同时组合**，
+        // 视觉 alpha 由 [searchAlpha] 立即驱动；搜索层节点保留到键盘滑完
+        // (`isSearch || imeVisible`)，输入框不在下滑途中销毁 → 焦点/InputConnection 不断 →
+        // 键盘有完整下滑动画、不回弹；收起动画与键盘收起是两条独立驱动源，互不等待。
+        val searchAlpha by animateFloatAsState(
+            targetValue = if (isSearch) 1f else 0f,
+            animationSpec = tween(MotionSwapIn),
+            label = "appControlSearchAlpha",
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.BottomEnd,
         ) {
-            Row(
-                modifier = Modifier
-                    .then(if (isSearch) Modifier.fillMaxWidth() else Modifier)
-                    .height(DockTabHeight),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AnimatedContent(
-                    targetState = mode,
+            if (!isSearch) {
+                // 常态 / 选择层：玻璃胶囊容器，随内容自适应、靠右；胶囊宽不随形态变化。
+                Column(
                     modifier = Modifier
-                        .then(if (isSearch) Modifier.fillMaxWidth() else Modifier)
-                        .fillMaxHeight(),
-                    transitionSpec = {
-                        val expanding = targetState == ToolbarMode.Search
-                        val collapsing = initialState == ToolbarMode.Search
-                        if (expanding || collapsing) {
-                            val dir = if (expanding) 1 else -1
-                            val enter = fadeIn(tween(MotionSwapIn)) +
-                                slideInHorizontally(tween(MotionSwapIn)) { full -> dir * full / 8 }
-                            val exit = fadeOut(tween(MotionSwapOut)) +
-                                slideOutHorizontally(tween(MotionSwapOut)) { full -> -dir * full / 8 }
-                            enter togetherWith exit
-                        } else {
-                            fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                        .glassCapsule(hazeState)
+                        .graphicsLayer { alpha = 1f - searchAlpha },
+                ) {
+                    Row(
+                        modifier = Modifier.height(DockTabHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AnimatedContent(
+                            targetState = mode,
+                            modifier = Modifier.fillMaxHeight(),
+                            transitionSpec = {
+                                fadeIn(tween(MotionSwapIn)) togetherWith fadeOut(tween(MotionSwapOut))
+                            },
+                            label = "appControlToolbarMode",
+                        ) { m ->
+                            when (m) {
+                                ToolbarMode.Selection -> ToolbarSelectionContent(
+                                    selectedCount = selectedCount,
+                                    canSelectAll = canSelectAll,
+                                    busy = busy,
+                                    onSelectAll = onSelectAll,
+                                    onFreeze = onFreeze,
+                                    onUnfreeze = onUnfreeze,
+                                    onRemoveOneKey = onRemoveOneKey,
+                                    onExitSelection = onExitSelection,
+                                )
+                                ToolbarMode.Normal -> ToolbarNormalContent(
+                                    showAdd = showAdd,
+                                    onAdd = onAdd,
+                                    onToggleSearch = onToggleSearch,
+                                )
+                                // 搜索态在另一层，这里不会出现。
+                                ToolbarMode.Search -> Unit
+                            }
                         }
-                    },
-                    label = "appControlToolbarMode",
-                ) { m ->
-                    when (m) {
-                        ToolbarMode.Search -> ToolbarSearchContent(
-                            query = query,
-                            onQueryChange = onQueryChange,
-                            focusRequester = focusRequester,
-                            onClose = { closeSearch() },
-                        )
-                        ToolbarMode.Selection -> ToolbarSelectionContent(
-                            selectedCount = selectedCount,
-                            canSelectAll = canSelectAll,
-                            busy = busy,
-                            onSelectAll = onSelectAll,
-                            onFreeze = onFreeze,
-                            onUnfreeze = onUnfreeze,
-                            onRemoveOneKey = onRemoveOneKey,
-                            onExitSelection = onExitSelection,
-                        )
-                        ToolbarMode.Normal -> ToolbarNormalContent(
-                            showAdd = showAdd,
-                            onAdd = onAdd,
-                            onToggleSearch = onToggleSearch,
-                        )
                     }
+                }
+            }
+            // 搜索层：叠在上层，alpha 立即淡出/淡入；节点保留到键盘滑完再移除。
+            if (isSearch || imeVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = searchAlpha },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LunoCapsuleSearch(
+                        query = query,
+                        onQueryChange = onQueryChange,
+                        placeholder = stringResource(R.string.app_control_search_hint),
+                        onCancel = { closeSearch() },
+                        cancelContentDescription = stringResource(R.string.app_control_search_collapse),
+                        hazeState = hazeState,
+                        focusRequester = focusRequester,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = DockMaxWidth)
+                            .height(DockCapsuleHeight),
+                    )
                 }
             }
         }
@@ -532,42 +539,6 @@ private fun ToolbarNormalContent(
             Icon(
                 Icons.Default.Search,
                 contentDescription = stringResource(R.string.app_control_search_hint),
-            )
-        }
-    }
-}
-
-/** 搜索：输入框 + × 收起；展开动画铺好布局再取焦点（节点未挂载时 requestFocus 落空）。 */
-@Composable
-private fun ToolbarSearchContent(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    focusRequester: FocusRequester,
-    onClose: () -> Unit,
-) {
-    var placed by remember { mutableStateOf(false) }
-    LaunchedEffect(placed) {
-        if (placed) runCatching { focusRequester.requestFocus() }
-    }
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        LunoSearchField(
-            query = query,
-            onQueryChange = onQueryChange,
-            placeholder = stringResource(R.string.app_control_search_hint),
-            focusRequester = focusRequester,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .onGloballyPositioned { placed = true },
-        )
-        PressIconButton(onClick = onClose) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = stringResource(R.string.app_control_search_collapse),
             )
         }
     }

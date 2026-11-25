@@ -18,7 +18,7 @@ val PaletteDotSpacing = 4.dp
 /** 调色板编辑页的可视化色块边长与圆角条高度。同为固定尺寸色块语义，不随字体缩放。 */
 val PaletteSwatchSize = 48.dp
 val PaletteStripHeight = 32.dp
-val MinItemHeightNoSecondary = 50.dp
+val MinItemHeightNoSecondary = 56.dp
 val MinInteractiveSize = 48.dp
 /**
  * 紧凑命中区下限：密排自绘命中区（月历格、时间表盘刻度、多列网格）与卡片内纯图标工具条共用。
