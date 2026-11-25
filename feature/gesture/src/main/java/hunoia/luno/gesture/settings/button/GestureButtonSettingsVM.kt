@@ -174,6 +174,8 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
 
     fun onGestureButtonMirrorHorizontalChange(value: Boolean) = updateButton { copy(mirrorHorizontal = value) }
 
+    fun onHoldFireOnReleaseChange(value: Boolean) = updateButton { copy(holdFireOnRelease = value) }
+
     fun saveSettings() {
         viewModelScope.launch {
             // 按 id 定向合并：整表覆盖会把 :service 侧的运行态改动连同 UI 快照一起写回旧值。

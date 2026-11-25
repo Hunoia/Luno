@@ -831,6 +831,7 @@ class GestureSessionPipeline(
             scope,
             state.subGestureSettings,
             callbacks::onSubGestureModeChanged,
+            onCenterChanged = callbacks::onSubGestureCenterChanged,
         )
     }
 }

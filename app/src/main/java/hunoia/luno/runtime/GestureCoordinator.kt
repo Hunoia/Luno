@@ -897,9 +897,14 @@ class GestureCoordinator(
     }
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
-        override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, subGesture: hunoia.luno.config.model.SubGesture?) {
+        override fun onSubGestureModeChanged(
+            inSubGesture: Boolean,
+            center: Offset,
+            subGesture: hunoia.luno.config.model.SubGesture?,
+            releaseEntry: Boolean,
+        ) {
             if (inSubGesture) {
-                transientOverlayController.attachSubGestureOverlay(center, subGesture)
+                transientOverlayController.attachSubGestureOverlay(center, subGesture, releaseEntry)
                 Events.post(PanelShownEvent())
             } else {
                 transientOverlayController.detachSubGestureOverlay()
@@ -913,6 +918,10 @@ class GestureCoordinator(
                     Events.post(PanelDismissedEvent())
                 }
             }
+        }
+
+        override fun onSubGestureCenterChanged(center: Offset) {
+            transientOverlayController.updateSubGestureCenter(center)
         }
 
         override fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig) {

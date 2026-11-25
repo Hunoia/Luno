@@ -23,7 +23,7 @@ class SubGestureEntryTest {
     private fun state(vararg gestures: SubGesture) = SubGestureState(
         scope = CoroutineScope(Dispatchers.Unconfined),
         subGestureSettings = SubGestureSettings(gestures.toList()),
-        onModeChanged = { _, _, _ -> },
+        onModeChanged = { _, _, _, _ -> },
     )
 
     @Test
@@ -64,7 +64,7 @@ class SubGestureEntryTest {
         fun capturingState(gesture: SubGesture) = SubGestureState(
             scope = CoroutineScope(Dispatchers.Unconfined),
             subGestureSettings = SubGestureSettings(listOf(gesture)),
-            onModeChanged = { _, _, sg -> captured += sg },
+            onModeChanged = { _, _, sg, _ -> captured += sg },
         )
         // 默认开启：回调带整个子手势，overlay 据此画边界线 + 范围圆。
         val enabled = SubGesture(id = "sg", angle = SubGestureAngle(boundaries))
@@ -76,5 +76,34 @@ class SubGestureEntryTest {
         capturingState(disabled).tryEnterSubGesture(ref("sg"), Offset.Zero)
         assertEquals(disabled, captured.last())
         assertFalse(captured.last()?.showAngleGuide ?: true)
+    }
+
+    @Test
+    fun `release entry is reported so the window can take over the second press`() {
+        val releases = mutableListOf<Boolean>()
+        fun capturingState() = SubGestureState(
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            subGestureSettings = SubGestureSettings(listOf(SubGesture(id = "sg"))),
+            onModeChanged = { inSubGesture, _, _, release -> if (inSubGesture) releases += release },
+        )
+        // 手指已抬（抬手触发 / 面板点选 / 悬浮球点按）：触摸窗要接管第二次按下 → 全屏。
+        capturingState().tryEnterSubGesture(ref("sg"), Offset.Zero, holdFire = false)
+        // 按着进入（触钮停留 / 面板项长按）：手指还在主窗上拖，子手势窗只做视觉 → 小方块。
+        capturingState().tryEnterSubGesture(ref("sg"), Offset.Zero, holdFire = true)
+        assertEquals(listOf(true, false), releases)
+    }
+
+    @Test
+    fun `re-press reports the new judgment center`() {
+        val centers = mutableListOf<Offset>()
+        val state = SubGestureState(
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            subGestureSettings = SubGestureSettings(listOf(SubGesture(id = "sg"))),
+            onModeChanged = { _, _, _, _ -> },
+            onCenterChanged = { centers += it },
+        )
+        state.tryEnterSubGesture(ref("sg"), Offset(10f, 20f))
+        state.onDragStart(Offset(100f, 200f))
+        assertEquals(listOf(Offset(100f, 200f)), centers)
     }
 }

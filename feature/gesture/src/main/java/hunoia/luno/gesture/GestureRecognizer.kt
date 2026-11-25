@@ -1,6 +1,7 @@
 package hunoia.luno.gesture
 
 import androidx.compose.ui.geometry.Offset
+import hunoia.luno.config.model.GestureTriggerType
 
 /**
  * 手势识别器：只推进会话状态并遍历 [GestureStrategyRegistry]。
@@ -16,14 +17,18 @@ class GestureRecognizer {
     val triggerDirection: Int get() = session.triggerDirection
     val actionDirection: Int get() = session.actionDirection
 
+    /** 抬手模式下已就绪的停留类型（只用于振动反馈）；null = 无。 */
+    val armedHoldType: GestureTriggerType? get() = session.armedHoldType
+
     fun onDown(timeMs: Long, position: Offset, config: GestureConfig): GestureDecision {
         session.origin = position
         session.finger = position
         session.downTimeMs = timeMs
         session.directTriggered = false
         session.isLongPressCanceled = false
-        session.slideHoldFirstReachedMs = 0L
-        session.longSlideHoldFirstReachedMs = 0L
+        session.slideHoldFirstReachedMs = null
+        session.longSlideHoldFirstReachedMs = null
+        session.armedHoldType = null
         GestureStrategyRegistry.onDown(timeMs, position, config, session)
         return GestureDecision.Noop
     }

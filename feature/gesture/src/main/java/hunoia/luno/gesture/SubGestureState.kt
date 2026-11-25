@@ -51,11 +51,20 @@ class SubGestureState(
     private val scope: CoroutineScope,
     private val subGestureSettings: SubGestureSettings,
     /**
-     * 子手势模式切换通知：`(进入, 初始点, 子手势)`。
+     * 子手势模式切换通知：`(进入, 初始点, 子手势, 释手进入)`。
      * [subGesture] 为 null = 退出模式；进入时给整个子手势，overlay 据此以初始点为
      * 圆心画扇区边界线 + 短/长滑范围圆（[SubGesture.showAngleGuide] 关闭时不画）。
+     * [releaseEntry] = 手指已抬起才进入（抬手触发 / 面板点选 / 悬浮球点按）：窗口用
+     * 全屏触摸窗接管第二次按下；按着进入时窗口只做视觉，保持小方块。
      */
-    private val onModeChanged: (Boolean, Offset, SubGesture?) -> Unit,
+    private val onModeChanged: (
+        inSubGesture: Boolean,
+        center: Offset,
+        subGesture: SubGesture?,
+        releaseEntry: Boolean,
+    ) -> Unit,
+    /** 会话内重新按下：判定圆心已换到新按点，示意跟着搬过去。 */
+    private val onCenterChanged: (Offset) -> Unit = {},
     /** 单调时间源；默认 `SystemClock.uptimeMillis`，单测注入假时钟以验证按住类触发。 */
     private val nowMs: () -> Long = SystemClock::uptimeMillis,
 ) {
@@ -108,7 +117,7 @@ class SubGestureState(
         subGestureDepth += 1
         scheduleTimeout()
         if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()
-        onModeChanged(true, origin, target)
+        onModeChanged(true, origin, target, !holdFire)
         return SubGestureEntry.Entered
     }
 
@@ -123,6 +132,7 @@ class SubGestureState(
         longSlideHoldFirstTriggerMs = null
         directTriggered = false
         restartTimeout()
+        if (origin.hasFiniteCoordinates()) onCenterChanged(origin)
         return true
     }
 
@@ -214,7 +224,7 @@ class SubGestureState(
         subGestureDepth = 0
         timeoutJob?.cancel()
         timeoutJob = null
-        if (notifyService) onModeChanged(false, Offset.Unspecified, null)
+        if (notifyService) onModeChanged(false, Offset.Unspecified, null, false)
     }
 
     private fun scheduleTimeout() {
@@ -255,7 +265,7 @@ class SubGestureState(
         longSlideHoldFirstTriggerMs = null
         subGesture.tryVibrateFor(triggerType)
         directTriggered = false
-        onModeChanged(false, Offset.Unspecified, null)
+        onModeChanged(false, Offset.Unspecified, null, false)
         return SubGestureResolvedActions(
         subGesture,
         direction,

@@ -54,7 +54,10 @@ object WindowLayoutFactory {
         }
     }
 
-    fun actionPanelOverlayLayoutParams(): WindowManager.LayoutParams {
+    fun actionPanelOverlayLayoutParams(): WindowManager.LayoutParams =
+        fullScreenTouchOverlayLayoutParams()
+
+    private fun fullScreenTouchOverlayLayoutParams(): WindowManager.LayoutParams {
         return WindowManager.LayoutParams().apply {
             type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             format = PixelFormat.RGBA_8888
@@ -71,7 +74,16 @@ object WindowLayoutFactory {
         }
     }
 
-    fun subGestureLayoutParams(center: Offset, radiusPx: Int): WindowManager.LayoutParams {
+    /**
+     * 子手势会话窗。[fullScreen] = 释手进入：全屏透明触摸窗（点哪都算第二次按下）；
+     * 否则是以 [center] 为中心的 `2×radiusPx` 方块（手指还按着，窗口只做视觉）。
+     */
+    fun subGestureLayoutParams(
+        center: Offset,
+        radiusPx: Int,
+        fullScreen: Boolean = false,
+    ): WindowManager.LayoutParams {
+        if (fullScreen) return fullScreenTouchOverlayLayoutParams()
         val screenWidth = DensityProvider.screenWidthPx
         val screenHeight = DensityProvider.screenHeightPx
         val radius = radiusPx.coerceAtLeast(DensityProvider.dp2px(48f))

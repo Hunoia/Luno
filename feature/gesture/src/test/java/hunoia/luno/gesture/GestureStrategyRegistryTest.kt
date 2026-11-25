@@ -6,6 +6,7 @@ import hunoia.luno.config.model.evenBoundaries
 import hunoia.luno.config.model.GestureTriggerType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -28,6 +29,7 @@ class GestureStrategyRegistryTest {
         longPress: Boolean = false,
         angle: GestureButtonAngle = GestureButtonAngle(),
         mirrored: Boolean = false,
+        holdFireOnRelease: Boolean = false,
     ) = GestureConfig(
         buttonId = "b1",
         angle = angle,
@@ -37,6 +39,7 @@ class GestureStrategyRegistryTest {
         hasDoubleTapActions = doubleTap,
         hasLongPressActions = longPress,
         hasActionInDirection = { _, _ -> true },
+        holdFireOnRelease = holdFireOnRelease,
     )
 
     private fun trigger(decision: GestureDecision): GestureDecision.Trigger {
@@ -108,6 +111,105 @@ class GestureStrategyRegistryTest {
         assertEquals(
             GestureTriggerType.LongSlideHold,
             trigger(longSlideHold.onMove(250L, Offset.Zero, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode arms on move but only fires on up`() {
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(150f, 0f), cfg)
+        }
+        assertEquals(GestureDecision.Noop, recognizer.onMove(250L, Offset.Zero, cfg))
+        assertEquals(GestureTriggerType.SlideHold, recognizer.armedHoldType)
+        assertEquals(
+            GestureTriggerType.SlideHold,
+            trigger(recognizer.onUp(300L, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode fires on up without any later move`() {
+        // 手指完全静止时可能一个 MOVE 都不再派发：点火不依赖 armed，只看进入带的时刻。
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(150f, 0f), cfg)
+        }
+        assertEquals(
+            GestureTriggerType.SlideHold,
+            trigger(recognizer.onUp(300L, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode before the hold delay falls back to slide`() {
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(150f, 0f), cfg)
+        }
+        assertEquals(
+            GestureTriggerType.Slide,
+            trigger(recognizer.onUp(150L, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode falls back to long slide when released far`() {
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(150f, 0f), cfg)
+            onMove(250L, Offset.Zero, cfg)
+            onMove(260L, Offset(100f, 0f), cfg)
+        }
+        assertNull(recognizer.armedHoldType)
+        assertEquals(
+            GestureTriggerType.LongSlide,
+            trigger(recognizer.onUp(300L, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode fires long slide hold when held in the far band`() {
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(250f, 0f), cfg)
+        }
+        assertEquals(GestureDecision.Noop, recognizer.onMove(250L, Offset.Zero, cfg))
+        assertEquals(
+            GestureTriggerType.LongSlideHold,
+            trigger(recognizer.onUp(300L, cfg)).triggerType,
+        )
+    }
+
+    @Test
+    fun `release mode disarms when the finger returns below the band`() {
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(10L, Offset(150f, 0f), cfg)
+            onMove(250L, Offset.Zero, cfg)
+            onMove(260L, Offset(-120f, 0f), cfg)
+        }
+        assertNull(recognizer.armedHoldType)
+        assertEquals(GestureDecision.Noop, recognizer.onUp(300L, cfg))
+    }
+
+    @Test
+    fun `release mode accepts a zero start clock`() {
+        // 注入时钟可以从 0 开始：0 不再是「未开始计时」的哨兵。
+        val cfg = config(holdFireOnRelease = true)
+        val recognizer = GestureRecognizer().apply {
+            onDown(0L, Offset.Zero, cfg)
+            onMove(0L, Offset(150f, 0f), cfg)
+        }
+        assertEquals(
+            GestureTriggerType.SlideHold,
+            trigger(recognizer.onUp(250L, cfg)).triggerType,
         )
     }
 

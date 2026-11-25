@@ -20,7 +20,7 @@ class SubGestureFallbackTest {
     private fun state(subGesture: SubGesture): SubGestureState = SubGestureState(
         scope = CoroutineScope(Dispatchers.Unconfined),
         subGestureSettings = SubGestureSettings(listOf(subGesture)),
-        onModeChanged = { _, _, _ -> },
+        onModeChanged = { _, _, _, _ -> },
     ).also { state ->
         state.tryEnterSubGesture(
             StoredAction.of("internal.subGesture", "id" to subGesture.id),
