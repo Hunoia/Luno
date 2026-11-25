@@ -10,7 +10,6 @@ import hunoia.luno.capability.ocr.pp.RecModelChoice
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog as Log
-import java.io.File
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,11 +25,12 @@ import kotlinx.coroutines.withContext
  * PP-OCRv6（LiteRT / Google AI Edge）本地离线识别实现。
  *
  * 管线移植自 google-ai-edge/litert-samples 的 `PpocrImageEngine`：检测（DBNet）+ 逐行
- * 识别（CTC）。模型为**用户导入的 GPU 包**（原始 fp32 tflite），运行时经 GPU delegate
- * （OpenCL，Adreno）执行、失败降级 CPU（见 `PpOcrModelRunner`），完全离线。
+ * 识别（CTC）。模型为**随 APK 打包的资产**（原始 fp32 tflite，见 [BundledOcrModel]），
+ * 运行时经 GPU delegate（OpenCL，Adreno）执行、失败降级 CPU（见 `PpOcrModelRunner`），
+ * 完全离线。
  *
- * 模型目录与校验见 [OcrModelStore]；未导入 / 不完整时直接返回空结果，不做任何隐式下载。
- * 加载或推理失败时抛异常，由调用方（识屏层）按「无结果」处理。
+ * 资产缺失时直接返回空结果，不做任何隐式下载；加载或推理失败时抛异常，
+ * 由调用方（识屏层）按「无结果」处理。
  *
  * v6 用单一模型 + 统一 50 语言字符表，覆盖中文 / 日文 / 韩文 / 拉丁等；请求的脚本
  * 只作为结果块的标签，不再选不同模型。
@@ -41,12 +41,12 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         /** 源图里矮于该值的框直接丢（图标碎笔划）。 */
         const val MIN_LINE_HEIGHT_PX = 10
 
-        /** 同时常驻的 rec 模型上限：320/640 两档足够覆盖常见屏幕，960 用时再换入。 */
+        /** 同时常驻的 rec 模型上限：单档（640）常驻 1 份即够，LRU 逻辑保留防多档包。 */
         const val MAX_RESIDENT_RECOGNIZERS = 2
 
         /**
          * 空闲多久后释放模型。识屏是低频动作，常驻进程不该为“可能马上要用”整天占着
-         * 三份 fp32 模型（实测 native ~70MB + GPU ~110MB）；识屏层开窗时本就会
+         * fp32 模型（实测单档 native ~23MB + GPU ~37MB）；识屏层开窗时本就会
          * `ensureWarm()`，重新加载藏在框选期间，用户无感。
          */
         const val IDLE_RELEASE_MS = 120_000L
@@ -74,15 +74,15 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
 
     /** 已加载的 rec 模型，按输入宽度索引；访问顺序即 LRU（最多常驻两档，防显存堆积）。 */
     private val recognizers = LinkedHashMap<Int, PpOcrRecognizer>(4, 0.75f, true)
-    private var cachedRecFiles: List<Pair<Int, File>>? = null
+    private var cachedRecFiles: List<Pair<Int, String>>? = null
 
     override suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult =
         withContext(Dispatchers.Default) {
             mutex.withLock {
                 scheduleIdleRelease()
                 if (bitmap.isRecycled) return@withContext OcrResult.Empty
-                if (!OcrModelStore.isReady(appContext)) {
-                    Log.w(LOG_TAG, "ppocr: 模型未就绪（未导入 GPU 包），返回空结果")
+                if (!BundledOcrModel.isPresent(appContext)) {
+                    Log.w(LOG_TAG, "ppocr: 模型资产缺失，返回空结果")
                     return@withContext OcrResult.Empty
                 }
                 val script = scripts.firstOrNull() ?: OcrScript.Chinese
@@ -209,8 +209,8 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     private fun warmLocked(force: Boolean) {
         scheduleIdleRelease()
         if (warmed && !force) return
-        if (!OcrModelStore.isReady(appContext)) {
-            Log.i(LOG_TAG, "ppocr: 预热跳过（模型未就绪）")
+        if (!BundledOcrModel.isPresent(appContext)) {
+            Log.i(LOG_TAG, "ppocr: 预热跳过（模型资产缺失）")
             return
         }
         val totalStart = System.nanoTime()
@@ -221,7 +221,7 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             val detMs = (System.nanoTime() - detStart) / 1_000_000.0
 
             val recReport = StringBuilder()
-            // 只预热运行时常驻上限内的档位：默认包 320+640 全热，960 首次用时再换入。
+            // 只预热运行时常驻上限内的档位：单档 640 全热，无需换入。
             for ((width, file) in recModelFiles().take(MAX_RESIDENT_RECOGNIZERS)) {
                 val recStart = System.nanoTime()
                 try {
@@ -242,24 +242,6 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         } catch (failure: Throwable) {
             Log.w(LOG_TAG, "ppocr: 预热失败：${failure.message}")
         }
-    }
-
-    /**
-     * 模型包变了（导入 / 删除）：释放旧 native 句柄并重新预热。
-     *
-     * 拿 [mutex] 做，避免和正在跑的识别并发释放 buffer。
-     */
-    suspend fun reload() {
-        withContext(Dispatchers.Default) {
-            mutex.withLock {
-                val d = detector
-                detector = null
-                warmed = false
-                releaseRecognizers()
-                runCatching { d?.close() }
-            }
-        }
-        if (OcrModelStore.isReady(appContext)) warmUp()
     }
 
     /**
@@ -300,17 +282,14 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         cachedRecFiles = null
     }
 
-    private fun openDetector(): PpOcrDetector {
-        val file = File(OcrModelStore.modelDir(appContext), OcrModelStore.DET_MODEL)
-        return PpOcrDetector(appContext, file)
-    }
+    private fun openDetector(): PpOcrDetector =
+        PpOcrDetector(appContext, BundledOcrModel.detAssetPath())
 
-    /** 目录里已安装的 rec 档位（宽度 → 文件），按宽度升序；缓存到下次 reload。 */
-    private fun recModelFiles(): List<Pair<Int, File>> {
+    /** 打包的 rec 档位（宽度 → 资产路径），按宽度升序；缓存到下次 reload。 */
+    private fun recModelFiles(): List<Pair<Int, String>> {
         cachedRecFiles?.let { return it }
-        val dir = OcrModelStore.modelDir(appContext)
-        return OcrModelStore.recFiles(dir)
-            .mapNotNull { file -> OcrModelStore.recWidth(file.name)?.let { it to file } }
+        return BundledOcrModel.REC_WIDTHS
+            .map { it to BundledOcrModel.recAssetPath(it) }
             .sortedBy { it.first }
             .also { cachedRecFiles = it }
     }
@@ -329,9 +308,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                 modelHeight = PpOcrRecognizer.H,
                 widths = candidates,
             ) ?: return null
-            val file = files.firstOrNull { it.first == width }?.second ?: return null
+            val assetPath = files.firstOrNull { it.first == width }?.second ?: return null
             try {
-                return recognizerFor(width, file)
+                return recognizerFor(width, assetPath)
             } catch (failure: Throwable) {
                 Log.w(LOG_TAG, "ppocr: rec($width) 加载失败，换下一档：${failure.message}")
                 candidates = candidates.filter { it != width }
@@ -340,10 +319,10 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         return null
     }
 
-    private fun recognizerFor(width: Int, file: File): PpOcrRecognizer {
+    private fun recognizerFor(width: Int, assetPath: String): PpOcrRecognizer {
         recognizers[width]?.let { return it }
         if (recognizers.size >= MAX_RESIDENT_RECOGNIZERS) {
-            // 访问顺序即 LRU：换出最久未用的那一档，避免三档模型同时占显存。
+            // 访问顺序即 LRU：换出最久未用的那一档，避免多档模型同时占显存。
             val iterator = recognizers.entries.iterator()
             if (iterator.hasNext()) {
                 val evicted = iterator.next()
@@ -351,13 +330,13 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                 runCatching { evicted.value.close() }
             }
         }
-        return openRecognizer(file).also { recognizers[width] = it }
+        return openRecognizer(assetPath).also { recognizers[width] = it }
     }
 
-    private fun openRecognizer(file: File): PpOcrRecognizer = PpOcrRecognizer(
+    private fun openRecognizer(assetPath: String): PpOcrRecognizer = PpOcrRecognizer(
         context = appContext,
-        modelFile = file,
-        dictFile = File(OcrModelStore.modelDir(appContext), OcrModelStore.DICT),
+        modelAssetPath = assetPath,
+        dictAssetPath = BundledOcrModel.dictAssetPath(),
     )
 
     /** 把输入位图等比铺进 [PpOcrDetector.SIZE]×[PpOcrDetector.SIZE]，白底居中（letterbox）。 */

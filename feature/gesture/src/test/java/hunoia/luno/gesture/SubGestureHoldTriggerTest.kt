@@ -40,16 +40,22 @@ class SubGestureHoldTriggerTest {
     }
 
     private fun subGesture(
+        slideActions: DirectionActions = DirectionActions(),
+        longSlideActions: DirectionActions = DirectionActions(),
         slideHoldActions: DirectionActions = DirectionActions(),
         longSlideHoldActions: DirectionActions = DirectionActions(),
+        holdFireOnRelease: Boolean = false,
     ) = SubGesture(
         id = "sg",
         triggerDistance = 100,
         longSlideTriggerDistance = 300,
         slideHoldTriggerDelayMs = 120,
         longSlideHoldTriggerDelayMs = 120,
+        slideActions = slideActions,
+        longSlideActions = longSlideActions,
         slideHoldActions = slideHoldActions,
         longSlideHoldActions = longSlideHoldActions,
+        holdFireOnRelease = holdFireOnRelease,
     )
 
     @Test
@@ -108,6 +114,63 @@ class SubGestureHoldTriggerTest {
         assertNull(state.onDrag(Offset(150f, 0f)))
         now += 120
         assertEquals(GestureTriggerType.SlideHold, state.onDrag(Offset.Zero)?.triggerType)
+    }
+
+    // ===== 抬手模式（holdFireOnRelease）：到点只就绪、抬手点火 =====
+
+    @Test
+    fun `抬手模式到点不点火只就绪`() {
+        val state = state(subGesture(slideHoldActions = actions(), holdFireOnRelease = true))
+
+        assertNull(state.onDrag(Offset(150f, 0f)))
+        now += 120
+        // 到点：只标就绪（供振动），不点火。
+        assertNull(state.onDrag(Offset.Zero))
+    }
+
+    @Test
+    fun `抬手模式抬手点火 SlideHold`() {
+        val state = state(subGesture(slideHoldActions = actions(), holdFireOnRelease = true))
+
+        assertNull(state.onDrag(Offset(150f, 0f)))
+        now += 120
+        assertNull(state.onDrag(Offset.Zero)) // 到点不点火
+        val result = state.onDragEnd() // 抬手才点火
+
+        assertEquals(GestureTriggerType.SlideHold, result?.triggerType)
+        assertEquals(TEST_TYPE, result?.action?.typeId)
+    }
+
+    @Test
+    fun `抬手模式远档停留抬手点火 LongSlideHold`() {
+        val state = state(subGesture(longSlideHoldActions = actions(), holdFireOnRelease = true))
+
+        assertNull(state.onDrag(Offset(400f, 0f)))
+        now += 120
+        assertNull(state.onDrag(Offset.Zero)) // 到点不点火
+        assertEquals(GestureTriggerType.LongSlideHold, state.onDragEnd()?.triggerType)
+    }
+
+    @Test
+    fun `抬手模式滑远未停够松手落普通滑动`() {
+        val state = state(subGesture(longSlideActions = actions(), holdFireOnRelease = true))
+
+        // 快速滑进远档立即抬手：未停够，settle 不成立 → 落 LongSlide 滑动结算。
+        assertNull(state.onDrag(Offset(400f, 0f)))
+        assertEquals(GestureTriggerType.LongSlide, state.onDragEnd()?.triggerType)
+    }
+
+    @Test
+    fun `抬手模式离开条件带后抬手不点火`() {
+        val state = state(subGesture(slideHoldActions = actions(), holdFireOnRelease = true))
+
+        assertNull(state.onDrag(Offset(150f, 0f)))
+        now += 120
+        assertNull(state.onDrag(Offset.Zero)) // 到点就绪
+        // 滑回原点：离开条件带，计时与 armed 清空。
+        assertNull(state.onDrag(Offset(-150f, 0f)))
+        // 抬手：不在带内，停留与滑动都不成立。
+        assertNull(state.onDragEnd())
     }
 
     private companion object {

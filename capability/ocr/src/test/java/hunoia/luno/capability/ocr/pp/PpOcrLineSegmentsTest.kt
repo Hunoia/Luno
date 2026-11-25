@@ -147,8 +147,8 @@ class PpOcrLineSegmentsTest {
 
     @Test
     fun `高行同样适用（大字号长行）`() {
-        // det 框高 120、宽 1000 的截图大字行：单段最宽 = 320*120/48 = 800，需切段
-        checkAll(width = 1000, height = 120)
+        // det 框高 120、宽 1000 的截图大字行：320 档单段最宽 = 320*120/48 = 800，需切段
+        checkAll(width = 1000, height = 120, modelWidth = 320)
     }
 
     @Test
@@ -181,7 +181,7 @@ class PpOcrLineSegmentsTest {
         val path = intArrayOf(1, 0, 1, 1)
         val logits = FloatArray(path.size * chars.size) { -5f }
         path.forEachIndexed { time, token -> logits[time * chars.size + token] = 5f }
-        val decoded = PpOcrRecognizer.decodeSteps(logits, chars)
+        val decoded = PpOcrRecognizer.decodeSteps(logits, chars, width = 320)
         assertEquals(2, decoded.size)
         assertEquals(40f, decoded[0].x, 1e-4f)
         assertEquals(200f, decoded[1].x, 1e-4f)

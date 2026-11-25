@@ -318,7 +318,6 @@
     <string name="ocr_result_empty">No text recognized</string>
     <string name="ocr_result_failed">Operation failed, please retry</string>
     <string name="ocr_result_image_decode_failed">Failed to decode image</string>
-    <string name="ocr_model_missing_hint">OCR model not installed; import it in screen recognition settings</string>
     <string name="photo_recognize_capture_failed">Capture failed or cancelled</string>
     <string name="photo_recognize_decode_failed">Failed to decode image</string>
     <string name="photo_recognize_need_camera_permission">Camera permission is required to take a photo</string>
@@ -340,26 +339,17 @@
     <string name="ocr_result_select_word">Select this word</string>
     <string name="ocr_result_unselect_word">Deselect this word</string>
 
-    <!-- ===== OCR model settings page (restored from debug APK resources) ===== -->
-    <string name="ocr_model_delete">Delete</string>
+    <!-- ===== OCR model (bundled in APK, loaded from assets) ===== -->
     <string name="ocr_model_env_group">Runtime</string>
     <string name="ocr_model_gpu_supported">GPU available (OpenCL / Adreno; loads fp32 tflite at runtime)</string>
     <string name="ocr_model_gpu_unsupported">No GPU delegate on this device; falls back to CPU (slower)</string>
-    <string name="ocr_model_pp_delete">Delete model</string>
-    <string name="ocr_model_pp_delete_confirm">Delete the imported PP-OCRv6 model? Recognition will not work until you re-import.</string>
     <string name="ocr_model_pp_detail">%1$s · %2$s</string>
     <string name="ocr_model_pp_error">Unavailable</string>
     <string name="ocr_model_pp_failed">Unavailable: %1$s</string>
     <string name="ocr_model_pp_group">PP-OCRv6 (local GPU)</string>
-    <string name="ocr_model_pp_import">Import model ZIP</string>
-    <string name="ocr_model_pp_import_hint">Contains manifest.json, det / rec tflite and characters.json</string>
-    <string name="ocr_model_pp_imported_at">Imported %1$s</string>
-    <string name="ocr_model_pp_missing">No GPU model imported</string>
     <string name="ocr_model_pp_ready">Ready</string>
     <string name="ocr_model_pp_rec">rec %1$s</string>
     <string name="ocr_model_pp_state">Model state</string>
-    <string name="ocr_model_pp_verifying">Verifying…</string>
-    <string name="ocr_model_refresh">Recheck state</string>
     <string name="ocr_model_soc">SoC</string>
 
     <!-- ===== Accessibility manager (list and toggle all accessibility services) ===== -->

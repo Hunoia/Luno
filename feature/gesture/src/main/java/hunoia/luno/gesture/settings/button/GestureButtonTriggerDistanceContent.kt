@@ -85,7 +85,7 @@ fun GestureSlideTriggerDistanceContent(
     onSlideHoldTriggerDelayMsChange: (Float) -> Unit,
     longSlideHoldTriggerDelayMs: Long,
     onLongSlideHoldTriggerDelayMsChange: (Float) -> Unit,
-    /** 非 null 时在停留时长组下方渲染「停留触发时机」开关；子手势页不传。 */
+    /** 非 null 时在停留时长组下方渲染「停留触发时机」开关；触钮与子手势页都传。 */
     holdFireOnRelease: Boolean? = null,
     onHoldFireOnReleaseChange: ((Boolean) -> Unit)? = null,
     scrollState: androidx.compose.foundation.ScrollState? = null,

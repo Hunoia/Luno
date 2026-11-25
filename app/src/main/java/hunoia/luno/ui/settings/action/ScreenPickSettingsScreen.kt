@@ -1,7 +1,5 @@
 package hunoia.luno.ui.settings.action
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,9 +35,6 @@ import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AnchoredDialog
-import hunoia.luno.ui.component.sheet.ConfirmDialog
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressTextButton
@@ -75,13 +70,6 @@ fun ScreenPickSettingsScreen(
     val globalGesture by GestureConfig.globalGesture.collectAsStateWithLifecycle(
         initialValue = GestureConfig.latestGlobalGesture(),
     )
-    var confirmDelete by remember { mutableStateOf(false) }
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        scope.launch { facades.ocrModels.importPp(uri) }
-    }
     // ===== 识屏诊断 =====
     // stringResource 只能在组合期取：先全部解析，onClick 协程与弹窗里只用现成字符串。
     // 结果在弹窗里展示：项数多、文案长，行副标题放不下。
@@ -214,29 +202,7 @@ fun ScreenPickSettingsScreen(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                shape = segmentedShape(0, 4),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.ocr_model_pp_import),
-                subtitle = stringResource(R.string.ocr_model_pp_import_hint),
-                onClick = {
-                    importLauncher.launch(
-                        arrayOf("application/zip", "application/octet-stream"),
-                    )
-                },
-                enabled = !ocrModels.importing,
-                shape = segmentedShape(1, 4),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.ocr_model_pp_delete),
-                onClick = { confirmDelete = true },
-                enabled = ocrModels.pp.state is OcrModelState.Ready && !ocrModels.importing,
-                shape = segmentedShape(2, 4),
-            )
-            LunoSettingsRow(
-                title = stringResource(R.string.ocr_model_refresh),
-                onClick = { scope.launch { facades.ocrModels.refresh() } },
-                shape = segmentedShape(3, 4),
+                shape = segmentedShape(0, 0),
             )
         }
     }
@@ -274,56 +240,25 @@ fun ScreenPickSettingsScreen(
             }
         }
     }
-
-    if (confirmDelete) {
-        ConfirmDialog(
-            title = stringResource(R.string.ocr_model_pp_delete),
-            text = stringResource(R.string.ocr_model_pp_delete_confirm),
-            confirmLabel = stringResource(R.string.ocr_model_delete),
-            destructive = true,
-            onDismissRequest = { confirmDelete = false },
-            onConfirm = {
-                confirmDelete = false
-                scope.launch { facades.ocrModels.deletePp() }
-            },
-        )
-    }
 }
 
 @Composable
 private fun ppBadge(pp: PpModelUiState): String? = when (pp.state) {
     is OcrModelState.Ready -> stringResource(R.string.ocr_model_pp_ready)
-    is OcrModelState.Verifying -> stringResource(R.string.ocr_model_pp_verifying)
     is OcrModelState.Failed -> stringResource(R.string.ocr_model_pp_error)
-    else -> null
 }
-
-/** 模型导入时间的时间格式化：重组里反复调，构造一次复用（SDF 内部要建 Calendar）。 */
-private val modelImportTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
 @Composable
 private fun ppDetail(pp: PpModelUiState): String {
-    val state = pp.state
-    val base = when (state) {
+    val base = when (val state = pp.state) {
         is OcrModelState.Ready -> stringResource(R.string.ocr_model_pp_ready)
-        is OcrModelState.Verifying -> stringResource(R.string.ocr_model_pp_verifying)
         is OcrModelState.Failed -> stringResource(R.string.ocr_model_pp_failed, state.message)
-        else -> stringResource(R.string.ocr_model_pp_missing)
     }
     val meta = buildList {
-        pp.source?.takeIf { it.isNotBlank() }?.let { add(it) }
         pp.recWidths.takeIf { it.isNotEmpty() }?.let {
             add(stringResource(R.string.ocr_model_pp_rec, it.joinToString("/")))
         }
         pp.sizeBytes?.let { add(formatSize(it)) }
-        pp.importedAt?.takeIf { it > 0 }?.let {
-            add(
-                stringResource(
-                    R.string.ocr_model_pp_imported_at,
-                    modelImportTimeFormat.format(Date(it)),
-                ),
-            )
-        }
     }
     return if (meta.isEmpty()) base else stringResource(
         R.string.ocr_model_pp_detail,

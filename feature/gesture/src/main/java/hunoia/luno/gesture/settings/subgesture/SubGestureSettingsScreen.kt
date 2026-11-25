@@ -413,6 +413,8 @@ private fun SubGestureTriggerDistanceContent(
             onSlideHoldTriggerDelayMsChange = vm::onSubSlideHoldTriggerDelayMsChange,
             longSlideHoldTriggerDelayMs = gesture.longSlideHoldTriggerDelayMs,
             onLongSlideHoldTriggerDelayMsChange = vm::onSubLongSlideHoldTriggerDelayMsChange,
+            holdFireOnRelease = gesture.holdFireOnRelease,
+            onHoldFireOnReleaseChange = vm::onSubHoldFireOnReleaseChange,
             onValueChangeFinished = vm::persistSubGesture,
         )
     }

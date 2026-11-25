@@ -187,6 +187,7 @@ class DaemonService : Service() {
             } else {
                 selfWroteValue = current
             }
+            rebindIfInstanceGone()
             return
         }
 
@@ -204,6 +205,24 @@ class DaemonService : Service() {
     private fun hasWriteSecureSettings(): Boolean {
         return checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
             PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * token 在位但无障碍实例不在：摘除再写回，让系统走一遍 unbind → bind。
+     *
+     * 单纯「补一遍 token」不产生任何变化，系统不会重绑——被划掉（force-stop）后正是这个状态。
+     * 判据用 `SideGestureService.current`：本服务与它同进程（`:service`），是该进程内的权威信号。
+     * 节流由 [restoreIfNeeded] 的 [RESTORE_WRITE_MIN_INTERVAL_MS] 兜住（防「重绑 → 再断」秒级循环）。
+     */
+    private fun rebindIfInstanceGone() {
+        if (SideGestureService.current != null) return
+        if (!hasWriteSecureSettings()) return
+        hunoia.luno.core.LunoLog.i(LOG_TAG, "rebindIfInstanceGone: token present but instance gone")
+        scope.launch {
+            val ok = hunoia.luno.domain.system.EnableAccessibilityUseCase
+                .enable(this@DaemonService, forceRebind = true)
+            hunoia.luno.core.LunoLog.w(LOG_TAG, "rebindIfInstanceGone: rebind=$ok")
+        }
     }
 
     private fun startForegroundNotification(notificationManager: NotificationManager) {

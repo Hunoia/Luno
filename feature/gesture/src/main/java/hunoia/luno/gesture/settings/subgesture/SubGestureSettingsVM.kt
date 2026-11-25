@@ -183,6 +183,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     fun onSubLongSlideHoldTriggerDelayMsChange(value: Float) = updateSubGestureLive { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
     fun onSubTimeoutMsChange(value: Float) = updateSubGestureLive { copy(timeoutMs = value.toLong()) }
     fun onSubShowAngleGuideChange(value: Boolean) = updateSubGesture { copy(showAngleGuide = value) }
+    fun onSubHoldFireOnReleaseChange(value: Boolean) = updateSubGesture { copy(holdFireOnRelease = value) }
 
 
     private fun loadData() {

@@ -16,16 +16,14 @@ import hunoia.luno.capability.ocr.PpOcrEngine
  * context 引用、不在构造期调用任何 context 方法；首次模型操作时才取 `applicationContext`
  * （拿不到则退回传入的 context），所以不会把 Service 实例钉在单例里。
  *
- * 模型包导入 / 删除后由 `SideGestureService.refreshOcrEngine()` 调 `reload()`；
- * `SurfaceActionRuntime` 存活期且无障碍服务不在位时删除模型，本实例不会自动 reload，
- * 下次识别经 `OcrModelStore.isReady` 检查返回空结果（罕见路径，接受）。
+ * 模型随 APK 打包（资产直载），无导入/删除事件，实例创建后不需要 `reload()`。
  */
 object OcrEngineHolder {
 
     @Volatile
     private var instance: PpOcrEngine? = null
 
-    /** 返回具体 [PpOcrEngine]，调用方（如 SideGestureService.refreshOcrEngine）需要 `reload()`。 */
+    /** 进程内单例；调用方直接使用，无需 `reload()`。 */
     fun get(context: Context): PpOcrEngine = instance ?: synchronized(this) {
         instance ?: PpOcrEngine(context).also { instance = it }
     }

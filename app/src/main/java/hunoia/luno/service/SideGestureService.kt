@@ -139,14 +139,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 标注期间球/面板一直隐藏，避免盖在画布上（关层时恢复）。 */
     private var annotateSurfacesHidden = false
 
-    /**
-     * OCR 模型包导入 / 删除后调用：丢弃旧引擎（模型 native 句柄）并重新预热，
-     * 避免设置页换了模型而 `:service` 一直用旧的。
-     */
-    fun refreshOcrEngine() {
-        coroutineScope.launch { runCatching { ocrEngine.reload() } }
-    }
-
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
         if (!isDispatchReady()) return false

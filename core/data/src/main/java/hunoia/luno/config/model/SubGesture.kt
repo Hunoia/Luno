@@ -47,6 +47,12 @@ data class SubGesture(
     val longSlideTriggerDistance: Int = DensityProvider.dp2px(96f),
     val slideHoldTriggerDelayMs: Long = 120L,
     val longSlideHoldTriggerDelayMs: Long = 120L,
+    /**
+     * 停留（短滑停留 / 长滑停留）的触发时机：false = 到点即触发，true = 到点只就绪、
+     * 抬手才触发。抬手时按同一条件带重校验，滑远松手按普通滑动结算。与
+     * [GestureButton.holdFireOnRelease] 同语义，默认 false 不改变存量行为。
+     */
+    val holdFireOnRelease: Boolean = false,
 ) {
     val effectiveLongSlideTriggerDistance: Int
         get() = longSlideTriggerDistance.coerceAtLeast(triggerDistance)

@@ -326,7 +326,6 @@
     <string name="ocr_result_empty">未识别到文字</string>
     <string name="ocr_result_failed">操作失败，请重试</string>
     <string name="ocr_result_image_decode_failed">图片解码失败</string>
-    <string name="ocr_model_missing_hint">OCR模型未安装，请到识屏设置导入</string>
     <string name="photo_recognize_capture_failed">拍照失败或已取消</string>
     <string name="photo_recognize_decode_failed">图片解码失败</string>
     <string name="photo_recognize_need_camera_permission">需要相机权限才能拍照</string>
@@ -348,26 +347,17 @@
     <string name="ocr_result_select_word">选择此词</string>
     <string name="ocr_result_unselect_word">取消选择此词</string>
 
-    <!-- ===== OCR 模型设置页（自 debug APK 资源还原） ===== -->
-    <string name="ocr_model_delete">删除</string>
+    <!-- ===== OCR 模型（随 APK 打包，资产直载） ===== -->
     <string name="ocr_model_env_group">运行环境</string>
     <string name="ocr_model_gpu_supported">GPU 可用（OpenCL / Adreno，运行时加载 fp32 tflite）</string>
     <string name="ocr_model_gpu_unsupported">此机型无可用 GPU delegate，将回落 CPU 运行（较慢）</string>
-    <string name="ocr_model_pp_delete">删除模型</string>
-    <string name="ocr_model_pp_delete_confirm">删除已导入的 PP-OCRv6 模型？删除后识屏将无法识别文字，可重新导入。</string>
     <string name="ocr_model_pp_detail">%1$s · %2$s</string>
     <string name="ocr_model_pp_error">不可用</string>
     <string name="ocr_model_pp_failed">不可用：%1$s</string>
     <string name="ocr_model_pp_group">PP-OCRv6（本地 GPU）</string>
-    <string name="ocr_model_pp_import">导入模型 ZIP</string>
-    <string name="ocr_model_pp_import_hint">包含 manifest.json、det / rec tflite 与 characters.json</string>
-    <string name="ocr_model_pp_imported_at">导入于 %1$s</string>
-    <string name="ocr_model_pp_missing">未导入 GPU 模型</string>
     <string name="ocr_model_pp_ready">已就绪</string>
     <string name="ocr_model_pp_rec">rec %1$s</string>
     <string name="ocr_model_pp_state">模型状态</string>
-    <string name="ocr_model_pp_verifying">校验中…</string>
-    <string name="ocr_model_refresh">重新检查状态</string>
     <string name="ocr_model_soc">SoC</string>
 
     <!-- ===== 无障碍管理（列出并启停设备上的全部无障碍服务） ===== -->

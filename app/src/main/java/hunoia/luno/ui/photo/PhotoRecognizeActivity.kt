@@ -17,8 +17,6 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.capability.ocr.OcrModelStatus
-import hunoia.luno.capability.ocr.OcrModelStore
 import hunoia.luno.capability.ocr.OcrText
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.domain.gesture.GestureConfig
@@ -106,12 +104,6 @@ class PhotoRecognizeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 识别依赖 OCR 模型：缺模型时不进来源，直接带因提示（与剪贴板 OCR 同口径）。
-        if (OcrModelStore.status(this) !is OcrModelStatus.Ready) {
-            showToast(R.string.ocr_model_missing_hint)
-            finish()
-            return
-        }
         // 按动作来源直调：无选择页。相机可能需权限（launchCamera 内处理），相册免权限。
         if (intent.getStringExtra(EXTRA_SOURCE) == SOURCE_GALLERY) {
             galleryPick.launch("image/*")

@@ -35,6 +35,10 @@ docs
 AGENTS.md
 .perch/
 
+# OCR 模型资产（源在 docs/ppocrv，本地；检出后由 syncOcrModels 任务生成，不随 git）
+app/src/main/assets/ppocrv6_gpu/*.tflite
+app/src/main/assets/ppocrv6_gpu/characters.json
+
 # Python helper caches
 __pycache__/
 *.pyc

@@ -231,15 +231,6 @@ object DispatchClient {
         return oneway { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }
     }
 
-    /** OCR 模型导入/删除后，让 :service 重新加载引擎（未连接 / 超时返回 false）。 */
-    suspend fun refreshOcrEngine(): Boolean {
-        val s = stub ?: run {
-            retryBindIfNeeded()
-            return false
-        }
-        return oneway { s.refreshOcrEngine() }
-    }
-
     /** oneway Binder 调用的有界等待；超时只停止等待，不保证对端没收到。 */
     private suspend fun oneway(call: () -> Unit): Boolean = try {
         withContext(Dispatchers.IO) {

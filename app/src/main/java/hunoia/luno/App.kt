@@ -199,7 +199,7 @@ class App : Application(), SingletonImageLoader.Factory {
         hunoia.luno.runtime.recognition.RecognitionHosts.install(
             hunoia.luno.recognition.AppRecognitionHost(applicationContext),
         )
-        // OCR 模型页要扫模型目录、并在导入/删除后通知 :service 重载引擎。
+        // OCR 模型随 APK 打包（资产直载）；init 只探测内置包大小填充设置页展示态。
         hunoia.luno.domain.ocr.OcrModelCenter.init(applicationContext)
 
         // 启动能力库的协作者注入（architecture §9.4）：能力库自己不认识配置流与查询层。
@@ -210,9 +210,9 @@ class App : Application(), SingletonImageLoader.Factory {
             hunoia.luno.quickaccess.query.AppListRepository.refresh()
         }
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
-        // 无障碍服务进程崩溃后系统会重启进程（PID 变）但常不重连连接；
-        // 主进程/:service 进程启动时检测最近崩溃，用 Shizuku 权限强制重绑（免手动重开）。
-        hunoia.luno.service.AccessibilityCrashRecovery.tryRecover(applicationContext)
+        // 无障碍服务掉线（进程崩溃后系统不重连连接 / 应用被划掉后实例被杀）后，
+        // 主进程/:service 进程启动时检测，用 Shizuku 权限写回 token 强制重绑（免手动重开）。
+        hunoia.luno.service.AccessibilityRecovery.tryRecover(applicationContext)
         // ANR / native crash 不会走 UncaughtExceptionHandler，启动时从系统历史退出原因补记。
         appScope.launch(Dispatchers.IO) {
             hunoia.luno.domain.log.IncidentExitScanner.scan(applicationContext)

@@ -2,7 +2,6 @@ package hunoia.luno.capability.ocr.pp
 
 import android.content.Context
 import java.io.Closeable
-import java.io.File
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -10,8 +9,8 @@ import kotlin.math.roundToInt
  * PP-OCRv6 文本识别（PP-HGNetV2/SVTR + CTC）on LiteRT GPU delegate。
  *
  * line[1,3,48,W] -> logits[1,T,C]（CTC）。v6 用统一的 50 语言字符表（characters.json，
- * 含 blank 在 index 0），单模型覆盖中文 / 日文 / 韩文 / 拉丁等；[dictFile] 为 JSON 字符串
- * 数组，长度必须与模型输出 class 数一致。
+ * 含 blank 在 index 0），单模型覆盖中文 / 日文 / 韩文 / 拉丁等；[dictAssetPath] 为
+ * 资产内 JSON 字符串数组，长度必须与模型输出 class 数一致。
  *
  * 输入宽 [inputWidth] 由模型自己读（320 / 640 / 960 三档），切段与字符坐标映射都跟着它走。
  */
@@ -42,8 +41,8 @@ internal data class LineSegment(
 
 class PpOcrRecognizer(
     private val context: Context,
-    modelFile: File,
-    dictFile: File,
+    modelAssetPath: String,
+    dictAssetPath: String,
 ) : Closeable {
 
     companion object {
@@ -157,7 +156,7 @@ class PpOcrRecognizer(
         }
     }
 
-    private val rec = PpOcrModelRunner.fromFile(context, modelFile)
+    private val rec = PpOcrModelRunner.fromAsset(context, modelAssetPath)
 
     /** 模型自身的输入尺寸（由 tflite 输入张量读出）。 */
     val inputHeight: Int = rec.inputHeight
@@ -167,9 +166,11 @@ class PpOcrRecognizer(
     private val chars: Array<String>
 
     init {
-        val json = org.json.JSONArray(dictFile.readText())
+        val json = context.assets.open(dictAssetPath).bufferedReader().use { reader ->
+            org.json.JSONArray(reader.readText())
+        }
         chars = Array(json.length()) { json.getString(it) }
-        require(chars.size > 2) { "字典为空：${dictFile.name}" }
+        require(chars.size > 2) { "字典为空：$dictAssetPath" }
     }
 
     /** crop：H*W*3 行主序 [0,255]。返回解码字符及其 CTC 时间步（切段拼接去重用）。 */

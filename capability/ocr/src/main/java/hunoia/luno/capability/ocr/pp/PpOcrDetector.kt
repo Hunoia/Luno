@@ -2,15 +2,14 @@ package hunoia.luno.capability.ocr.pp
 
 import android.content.Context
 import java.io.Closeable
-import java.io.File
 
 /**
  * PP-OCRv6 文本检测（DBNet）on LiteRT GPU delegate。
  *
- * image[1,3,640,640] -> prob map[640*640]（sigmoid 文本区域概率）。模型来自用户导入的
- * GPU 包（fp32 tflite）；取框（阈值 + 连通域 + unclip）在 CPU，标准 OCR 部署切分。
+ * image[1,3,640,640] -> prob map[640*640]（sigmoid 文本区域概率）。模型来自随 APK 打包的
+ * 资产（fp32 tflite）；取框（阈值 + 连通域 + unclip）在 CPU，标准 OCR 部署切分。
  */
-class PpOcrDetector(context: Context, modelFile: File) : Closeable {
+class PpOcrDetector(context: Context, modelAssetPath: String) : Closeable {
 
     companion object {
         const val SIZE = 640
@@ -97,7 +96,7 @@ class PpOcrDetector(context: Context, modelFile: File) : Closeable {
 
     data class Box(val x0: Int, val y0: Int, val x1: Int, val y1: Int)
 
-    private val det = PpOcrModelRunner.fromFile(context, modelFile)
+    private val det = PpOcrModelRunner.fromAsset(context, modelAssetPath)
 
     /** rgb：SIZE*SIZE*3 行主序 [0,255]。返回 [SIZE*SIZE] 概率图。 */
     fun probMap(rgb: FloatArray): FloatArray {

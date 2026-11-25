@@ -79,6 +79,8 @@ android {
     androidResources {
         // en 暂无对应 res 目录，英文资源后续补；先声明避免以后加 values-en 时遗漏过滤配置。
         localeFilters += listOf("en", "zh-rCN")
+        // OCR tflite 必须未压缩：LiteRT 从 assets mmap 加载，压缩资产无法直接映射。
+        noCompress += "**/*.tflite"
     }
     packaging {
         dex {
@@ -103,6 +105,27 @@ android {
             excludes += "/nlp/chinese_ts_char.txt"
         }
     }
+}
+
+// PP-OCRv6 模型资产：源在 docs/ppocrv（模型不入 git），检出后先跑 syncOcrModels 再构建。
+val syncOcrModels by tasks.registering(Copy::class) {
+    val src = rootProject.file("docs/ppocrv")
+    val files = listOf(
+        "ppocrv6_small_det_640_fp32.tflite",
+        "ppocrv6_small_rec_640_fp32.tflite",
+        "characters.json",
+    )
+    doFirst {
+        require(files.all { src.resolve(it).isFile }) {
+            "OCR 模型源缺失：$src（模型不入 git，需先同步 docs/ppocrv 再构建）"
+        }
+    }
+    from(src) { include(files) }
+    into(layout.projectDirectory.dir("src/main/assets/ppocrv6_gpu"))
+}
+// merge{Debug,Release}Assets 在配置期之后才创建，用 configureEach 延迟挂依赖。
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) dependsOn(syncOcrModels)
 }
 
 // kotlin-android-extensions-runtime:1.3.72 仍被某传递依赖拖入（配 exclude 前不下载，缓存里看不到），

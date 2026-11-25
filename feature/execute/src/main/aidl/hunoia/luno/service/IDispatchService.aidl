@@ -13,7 +13,4 @@ interface IDispatchService {
     boolean isReady();
     /** 主进程删除面板后，让 :service 的 AppWidgetHost 回收未引用的 widget id。 */
     oneway void releaseOrphanAppWidgets(in int[] keepIds);
-
-    /** OCR 模型导入/删除后，让 :service 丢弃旧引擎、重新加载并预热。 */
-    oneway void refreshOcrEngine();
 }

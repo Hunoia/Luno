@@ -86,6 +86,13 @@ class SubGestureState(
     private var longSlideHoldFirstTriggerMs: Long? = null
     private var directTriggered = false
 
+    /** 抬手模式下已就绪的停留类型（只用于振动反馈，点火仍由 [onDragEnd] 按抬手时刻重算）；同一时刻最多一种。 */
+    private var armedHoldType: GestureTriggerType? = null
+    /** 上一条 onDrag 的 armed 类型：抬手模式下的振动边沿判定（离开带置 null 会复位）。 */
+    private var lastArmedHoldType: GestureTriggerType? = null
+    /** 本次手势已在停留就绪时振过：抬手结算不补振（否则到点一次、抬手又一次）。 */
+    private var holdArmedBuzzed = false
+
     val isActive: Boolean get() = activeSubGesture != null
 
     /**
@@ -114,6 +121,9 @@ class SubGestureState(
         slideHoldFirstTriggerMs = null
         longSlideHoldFirstTriggerMs = null
         directTriggered = false
+        armedHoldType = null
+        lastArmedHoldType = null
+        holdArmedBuzzed = false
         subGestureDepth += 1
         scheduleTimeout()
         if (holdFire) target.tryVibrateHoldFire() else target.tryVibrateOverlay()
@@ -131,6 +141,9 @@ class SubGestureState(
         slideHoldFirstTriggerMs = null
         longSlideHoldFirstTriggerMs = null
         directTriggered = false
+        armedHoldType = null
+        lastArmedHoldType = null
+        holdArmedBuzzed = false
         restartTimeout()
         if (origin.hasFiniteCoordinates()) onCenterChanged(origin)
         return true
@@ -155,12 +168,18 @@ class SubGestureState(
                     direction,
                 )
                 if (action.hasMeaningfulAction()) {
-                    directTriggered = true
-                    return resolve(sg, direction, actualType)
+                    // 抬手模式：到点只标就绪（供振动），点火推迟到 onDragEnd 按抬手时刻重算。
+                    if (sg.holdFireOnRelease) {
+                        armedHoldType = GestureTriggerType.LongSlideHold
+                    } else {
+                        directTriggered = true
+                        return resolve(sg, direction, actualType)
+                    }
                 }
             }
         } else {
             longSlideHoldFirstTriggerMs = null
+            if (armedHoldType == GestureTriggerType.LongSlideHold) armedHoldType = null
         }
         if (canReachSlide && !canReachLongSlide) {
             if (slideHoldFirstTriggerMs == null) {
@@ -173,12 +192,27 @@ class SubGestureState(
                     direction,
                 )
                 if (action.hasMeaningfulAction()) {
-                    directTriggered = true
-                    return resolve(sg, direction, actualType)
+                    if (sg.holdFireOnRelease) {
+                        armedHoldType = GestureTriggerType.SlideHold
+                    } else {
+                        directTriggered = true
+                        return resolve(sg, direction, actualType)
+                    }
                 }
             }
         } else {
             slideHoldFirstTriggerMs = null
+            if (armedHoldType == GestureTriggerType.SlideHold) armedHoldType = null
+        }
+        // 抬手模式：停留到点只标就绪（不点火），振动在就绪边沿响一次；离开条件带把
+        // armed 清回 null、lastArmedHoldType 同步复位，下次再就绪会再振。非抬手模式恒跳过。
+        if (sg.holdFireOnRelease) {
+            val armed = armedHoldType
+            if (armed != null && armed != lastArmedHoldType) {
+                sg.tryVibrateFor(armed)
+                holdArmedBuzzed = true
+            }
+            lastArmedHoldType = armed
         }
         return null
     }
@@ -192,6 +226,11 @@ class SubGestureState(
         val sg = activeSubGesture ?: return null
         val distance = kotlin.math.hypot(subGestureAccum.x, subGestureAccum.y)
         val direction = sg.angle.directionOf(subGestureAccum)
+        // 抬手模式：先在抬手时刻按所在条件带重算停留结算；没触发再落普通滑动（滑远松手=滑动）。
+        if (sg.holdFireOnRelease) {
+            val settled = settleHoldOnRelease(sg, distance, direction)
+            if (settled != null) return settled
+        }
         val nominalType = when {
             distance >= sg.effectiveLongSlideTriggerDistance -> GestureTriggerType.LongSlide
             distance >= sg.triggerDistance -> GestureTriggerType.Slide
@@ -205,6 +244,31 @@ class SubGestureState(
         }
         subGestureAccum = Offset.Zero
         return null
+    }
+
+    /**
+     * 抬手模式下的停留结算（与触钮 `GestureStrategy.settleHoldOnRelease` 同语义）：
+     * 判据在抬手时刻重算——仍在同一条件带（计时非 null，离开带已被清）+ 已停够 +
+     * 该方向有动作才点火。不读 [armedHoldType]：手指完全静止时可能一个 MOVE 都收不到，
+     * armed 永远推进不到位；而「进入条件带的时刻」在抬手时仍然有效，点火不依赖振动是否响过。
+     */
+    private fun settleHoldOnRelease(
+        sg: SubGesture,
+        distance: Float,
+        direction: Int,
+    ): SubGestureResolvedActions? {
+        val (type, firstReachedMs, delayMs) = when {
+            distance >= sg.effectiveLongSlideTriggerDistance ->
+                Triple(GestureTriggerType.LongSlideHold, longSlideHoldFirstTriggerMs, sg.longSlideHoldTriggerDelayMs)
+            distance >= sg.triggerDistance ->
+                Triple(GestureTriggerType.SlideHold, slideHoldFirstTriggerMs, sg.slideHoldTriggerDelayMs)
+            else -> return null
+        }
+        val first = firstReachedMs ?: return null
+        if (nowMs() - first < delayMs) return null
+        val (action, actualType) = actionsFor(sg, type, direction)
+        if (!action.hasMeaningfulAction()) return null
+        return resolve(sg, direction, actualType)
     }
 
     fun onDragCancel() {
@@ -221,6 +285,9 @@ class SubGestureState(
         slideHoldFirstTriggerMs = null
         longSlideHoldFirstTriggerMs = null
         directTriggered = false
+        armedHoldType = null
+        lastArmedHoldType = null
+        holdArmedBuzzed = false
         subGestureDepth = 0
         timeoutJob?.cancel()
         timeoutJob = null
@@ -263,7 +330,14 @@ class SubGestureState(
         finger = Offset.Unspecified
         slideHoldFirstTriggerMs = null
         longSlideHoldFirstTriggerMs = null
-        subGesture.tryVibrateFor(triggerType)
+        armedHoldType = null
+        lastArmedHoldType = null
+        // 抬手模式已在停留就绪时振过：同一次手势不补振（否则到点一次、抬手又一次）。
+        // 手指静止收不到 MOVE 时 holdArmedBuzzed 为 false，抬手结算仍会振（补偿），与触钮一致。
+        if (!(subGesture.holdFireOnRelease && holdArmedBuzzed)) {
+            subGesture.tryVibrateFor(triggerType)
+        }
+        holdArmedBuzzed = false
         directTriggered = false
         onModeChanged(false, Offset.Unspecified, null, false)
         return SubGestureResolvedActions(

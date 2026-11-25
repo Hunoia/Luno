@@ -15,26 +15,21 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
 
 ## 实现要点
 
-- 模型**不随 APK 打包**：用户导入 GPU zip（原始 fp32 tflite + `characters.json`），
-  落盘在 `filesDir/ocr_models/ppocrv6_gpu/`，由 `OcrModelStore` 校验
-  `manifest.json`（`kind="gpu"`）与逐文件 SHA-256；未导入时识别直接返回空结果，
-  不做隐式下载。包构建：`scripts/build_ocr_gpu.py`（`docs/ppocrv` 的 HF tflite + 字典），
-  `--rec 320,640` 可在一个包里放多档 rec（默认 320+640），也支持单档 `--rec 960`。
-- 模型包差分（2026-10-31）：320/640 两档是同一组权重，21MB 文件仅 256 字节的形状元数据
-  不同。构建脚本自动把较小档替换成 `ppocrv6_small_rec_<宽度>_fp32.tflite.patch.json`
-  （几 KB），导入时由 `RecModelPatch` 从完整档还原，再按 manifest 做 SHA-256 校验；默认
-  320+640 包约 26MB（原来 43MB）。差异过大（模型换版 / 不同训练权重）或还原后哈希不匹配
-  时脚本自动回退为完整文件，不影响可导入性。
-- 多档 rec 动态选择：每行按 `行宽 × 模型高 ≤ 模型宽 × 行高` 选“刚好放得下”的最小档，
-  短行 320、宽行自动升 640/960，三档都放不下才用最宽档切段。运行时最多常驻两档模型
-  （LRU 换入换出，避免三档同时占显存）；单档包行为与以前一致。
+- 模型**随 APK 打包**：det + rec640 + `characters.json`（约 34MB）落在 `:app` 的
+  `assets/ppocrv6_gpu/`，由 `BundledOcrModel` 列出固定清单，`PpOcrModelRunner` 经
+  `CompiledModel.create(assetManager, …)` 资产直载（tflite 需 `noCompress` 才能 mmap），
+  不落盘、不校验、不联网；模型二进制不入 git，检出后先跑 `./gradlew syncOcrModels`
+  （从 `docs/ppocrv` 同步）。来源与许可（Apache-2.0）见 `assets/ppocrv6_gpu/NOTICE.md`。
+- 单档 rec：内置 640。短行也跑 640 宽（右补白，约 2× 320 档计算量，但 rec 只占管线
+  小头），换取宽行不切段、常驻仅 1 份模型。`RecModelChoice` 按行宽自动选档的逻辑
+  保留，单档时恒选 640。
 - 运行时 GPU delegate 优先（`Accelerator.GPU + CPU`）；GPU 首次加载有设备端编译 warmup，
   delegate 不可用自动回落 CPU。
 - 预热必须显式处理 det 与 rec：白图检测不出文字框，只跑 `recognize()` 不会加载 rec。
   `PpOcrEngine.warmUp()` 逐档打开已安装的 rec（最多 `MAX_RESIDENT_RECOGNIZERS` 档）并各跑
   一次 dummy 推理；`ensureWarm()` 供识屏层打开时复用，已预热直接返回。
-- **不做常驻预热**：`SideGestureService` 启动时不再 warmUp。三份 fp32 模型常驻实测占
-   native ~70MB + GPU ~110MB，而识屏是低频动作；现在每次使用后重置空闲计时，
+- **不做常驻预热**：`SideGestureService` 启动时不再 warmUp。fp32 模型常驻实测占
+   native ~23MB + GPU ~37MB（单档），而识屏是低频动作；现在每次使用后重置空闲计时，
   `IDLE_RELEASE_MS`（2 分钟）内无新使用就释放 det/rec（`close()` 同一路径，拿锁执行，
   与进行中的识别互斥）。重新加载藏在识屏层打开的框选期间，`ClipboardOcrLauncher`
   等直接调 `recognize()` 的路径首次会多付一次加载/设备端编译。
@@ -56,8 +51,7 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
 
 - `:feature:gesture` 的 `ScreenPickOverlay`：**仅框选菜单的 OCR 动作 / 图片文字**。
   长按取词走 a11y 字符级快照，不再调用 OCR（见 [architecture.md](../../docs/architecture.md) §7.4）。
-- 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`；
-  模型导入 / 删除后经 `DispatchClient.refreshOcrEngine()` 让 `:service` 重载并预热。
+- 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`。
 - 识屏层打开时调用 `ensureWarm()`，把模型加载 / 设备端编译藏在用户框选期间；
   空闲释放后下一次开窗会自动重新预热。
 - 结果页不等待 OCR：框选 / 幽灵卡只做裁剪并立即交接，OCR 由结果页的 `ocrLoader` 懒加载。
