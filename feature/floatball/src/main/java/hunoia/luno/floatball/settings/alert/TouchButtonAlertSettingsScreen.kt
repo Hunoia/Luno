@@ -31,6 +31,7 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -128,7 +129,7 @@ fun TouchButtonAlertSettingsScreen(
             ?: alert.bindings.values.firstOrNull()?.let { library.presetById(it) }
         )
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.button_alert_title),
+    LunoPage(title = stringResource(R.string.button_alert_title),
 onBack = onBack,
 floatingContent = {
             LunoFab(

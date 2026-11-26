@@ -23,7 +23,7 @@ import hunoia.luno.config.model.UiAppearancePresets
 import hunoia.luno.config.model.UiAppearanceSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.MotionTuningPreview
-import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -65,75 +65,78 @@ fun AppearanceSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.action_settings_appearance_group),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        group(title = stringResource(R.string.appearance_group_list)) {
-dropdownRow(
-title = stringResource(R.string.action_settings_list_style),
-options = listOf(
-                    stringResource(R.string.list_style_segmented),
-                    stringResource(R.string.list_style_card_divided),
-                ),
-selectedIndex = advanced.listStyle.ordinal,
-onSelect = { index ->
-                    scope.launch {
-                        TuneConfig.updateAdvanced { it.copy(listStyle = ListStyle.entries[index]) }
-                    }
-                },
-
-)        }
-        group(title = stringResource(R.string.action_settings_motion_group)) {
-dropdownRow(
-title = stringResource(R.string.motion_panel_speed),
-options = motionSpeedOptions(),
-selectedIndex = advanced.motion.panel.ordinal,
-onSelect = { index ->
-                    updateMotion { it.copy(panel = MotionSpeed.entries[index]) }
-                },
-
-)
-dropdownRow(
-title = stringResource(R.string.motion_overlay_speed),
-options = motionSpeedOptions(),
-selectedIndex = advanced.motion.overlay.ordinal,
-onSelect = { index ->
-                    updateMotion { it.copy(overlay = MotionSpeed.entries[index]) }
-                },
-
-)
-dropdownRow(
-title = stringResource(R.string.motion_floating_speed),
-options = motionSpeedOptions(),
-selectedIndex = advanced.motion.floating.ordinal,
-onSelect = { index ->
-                    updateMotion { it.copy(floating = MotionSpeed.entries[index]) }
-                },
-
-)        }
-        MotionTuningPreview(profile = advanced.motion.toProfile())
-
-        ThemeSection(ui = ui, onChange = { next -> updateUi { next } })
-        ShapeSection(ui = ui, onChange = { next -> updateUi { next } })
-        GlassSection(ui = ui, onChange = { next -> updateUi { next } })
-        SpacingSection(ui = ui, onChange = { next -> updateUi { next } })
-        LunoGroup {
-            LunoSettingsRow(
-                title = stringResource(R.string.appearance_reset),
-                onClick = { updateUi { UiAppearanceSettings() } },
-                shape = segmentedShape(0, 1),
-            )
-        }
-
+    LunoPage(
+        title = stringResource(R.string.action_settings_appearance_group),
+        onBack = onBack,
+    ) {
+        column {
+            group(title = stringResource(R.string.appearance_group_list)) {
+                dropdownRow(
+                    title = stringResource(R.string.action_settings_list_style),
+                    options = listOf(
+                        stringResource(R.string.list_style_segmented),
+                        stringResource(R.string.list_style_card_divided),
+                    ),
+                    selectedIndex = advanced.listStyle.ordinal,
+                    onSelect = { index ->
+                        scope.launch {
+                            TuneConfig.updateAdvanced { it.copy(listStyle = ListStyle.entries[index]) }
+                        }
+                    },
+                )
+            }
+            group(title = stringResource(R.string.action_settings_motion_group)) {
+                dropdownRow(
+                    title = stringResource(R.string.motion_panel_speed),
+                    options = motionSpeedOptions(),
+                    selectedIndex = advanced.motion.panel.ordinal,
+                    onSelect = { index ->
+                        updateMotion { it.copy(panel = MotionSpeed.entries[index]) }
+                    },
+                )
+                dropdownRow(
+                    title = stringResource(R.string.motion_overlay_speed),
+                    options = motionSpeedOptions(),
+                    selectedIndex = advanced.motion.overlay.ordinal,
+                    onSelect = { index ->
+                        updateMotion { it.copy(overlay = MotionSpeed.entries[index]) }
+                    },
+                )
+                dropdownRow(
+                    title = stringResource(R.string.motion_floating_speed),
+                    options = motionSpeedOptions(),
+                    selectedIndex = advanced.motion.floating.ordinal,
+                    onSelect = { index ->
+                        updateMotion { it.copy(floating = MotionSpeed.entries[index]) }
+                    },
+                )
+            }
+            block {
+                MotionTuningPreview(profile = advanced.motion.toProfile())
+            }
+            block {
+                ThemeSection(ui = ui, onChange = { next -> updateUi { next } })
+            }
+            block {
+                ShapeSection(ui = ui, onChange = { next -> updateUi { next } })
+            }
+            block {
+                GlassSection(ui = ui, onChange = { next -> updateUi { next } })
+            }
+            block {
+                SpacingSection(ui = ui, onChange = { next -> updateUi { next } })
+            }
+            block {
+                LunoGroup {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.appearance_reset),
+                        onClick = { updateUi { UiAppearanceSettings() } },
+                        shape = segmentedShape(0, 1),
+                    )
+                }
+            }
         }
     }
-}
-}
 }
 
 /**
@@ -280,11 +283,10 @@ private fun GlassSection(
     ui: UiAppearanceSettings,
     onChange: (UiAppearanceSettings) -> Unit,
 ) {
-    val rowCount = 5
-    LunoGroup(title = stringResource(R.string.appearance_group_glass)) {
+    group(title = stringResource(R.string.appearance_group_glass)) {
         val topBar = ui.topBarGlass
         var blurDraft by remember(topBar.blurDp) { mutableFloatStateOf(topBar.blurDp.toFloat()) }
-        LunoTextSlider(
+        sliderRow(
             value = blurDraft,
             onValueChange = { blurDraft = it },
             onValueChangeFinished = {
@@ -295,10 +297,9 @@ private fun GlassSection(
             valueDisplay = { "${it.roundToInt()} dp" },
             valueRange = UiAppearancePresets.BlurDp.first.toFloat()..UiAppearancePresets.BlurDp.last.toFloat(),
             steps = 0,
-            shape = segmentedShape(0, rowCount),
         )
         var alphaDraft by remember(topBar.alpha) { mutableFloatStateOf(topBar.alpha) }
-        LunoTextSlider(
+        sliderRow(
             value = alphaDraft,
             onValueChange = { alphaDraft = it },
             onValueChangeFinished = {
@@ -309,14 +310,13 @@ private fun GlassSection(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.4f..0.9f,
             steps = 0,
-            shape = segmentedShape(1, rowCount),
         )
 
         val floating = ui.floatingGlass
         var floatingBlur by remember(floating.blurDp) {
             mutableFloatStateOf(floating.blurDp.toFloat())
         }
-        LunoTextSlider(
+        sliderRow(
             value = floatingBlur,
             onValueChange = { floatingBlur = it },
             onValueChangeFinished = {
@@ -327,10 +327,9 @@ private fun GlassSection(
             valueDisplay = { "${it.roundToInt()} dp" },
             valueRange = UiAppearancePresets.BlurDp.first.toFloat()..UiAppearancePresets.BlurDp.last.toFloat(),
             steps = 0,
-            shape = segmentedShape(2, rowCount),
         )
         var floatingAlpha by remember(floating.alpha) { mutableFloatStateOf(floating.alpha) }
-        LunoTextSlider(
+        sliderRow(
             value = floatingAlpha,
             onValueChange = { floatingAlpha = it },
             onValueChangeFinished = {
@@ -341,9 +340,8 @@ private fun GlassSection(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.4f..0.9f,
             steps = 0,
-            shape = segmentedShape(3, rowCount),
         )
-        LunoDropdownRow(
+        dropdownRow(
             title = stringResource(R.string.appearance_floating_glass) + " · " +
                 stringResource(R.string.appearance_glass_shadow),
             options = shadowLabels(),
@@ -353,7 +351,6 @@ private fun GlassSection(
                     ui.copy(floatingGlass = floating.copy(shadow = ShadowStrength.entries[index])),
                 )
             },
-            shape = segmentedShape(4, rowCount),
         )
     }
 }
@@ -366,15 +363,15 @@ private fun SpacingSection(
 ) {
     val spacing = ui.spacing
     group(title = stringResource(R.string.appearance_group_spacing)) {
-dropdownRow(
-title = stringResource(R.string.appearance_page_gutter),
-options = UiAppearancePresets.PageGutter.map {
+        dropdownRow(
+            title = stringResource(R.string.appearance_page_gutter),
+            options = UiAppearancePresets.PageGutter.map {
                 stringResource(R.string.appearance_radius_value, it)
             },
-selectedIndex = UiAppearancePresets.PageGutter
+            selectedIndex = UiAppearancePresets.PageGutter
                 .indexOf(spacing.pageGutterDp)
                 .coerceAtLeast(0),
-onSelect = { index ->
+            onSelect = { index ->
                 onChange(
                     ui.copy(
                         spacing = spacing.copy(
@@ -383,17 +380,16 @@ onSelect = { index ->
                     ),
                 )
             },
-
-)
-dropdownRow(
-title = stringResource(R.string.appearance_list_spacing),
-options = UiAppearancePresets.ListSpacing.map {
+        )
+        dropdownRow(
+            title = stringResource(R.string.appearance_list_spacing),
+            options = UiAppearancePresets.ListSpacing.map {
                 stringResource(R.string.appearance_radius_value, it)
             },
-selectedIndex = UiAppearancePresets.ListSpacing
+            selectedIndex = UiAppearancePresets.ListSpacing
                 .indexOf(spacing.listSpacingDp)
                 .coerceAtLeast(0),
-onSelect = { index ->
+            onSelect = { index ->
                 onChange(
                     ui.copy(
                         spacing = spacing.copy(
@@ -402,8 +398,8 @@ onSelect = { index ->
                     ),
                 )
             },
-
-)    }
+        )
+    }
 }
 
 /** 角色 → 写回对应分组（CompactMedium / SheetTop 跟随各自母组）。 */

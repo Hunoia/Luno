@@ -17,9 +17,8 @@ import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.ui.SnoozeDurationDialog
 import hunoia.luno.gridpanel.ui.snoozeDurationLabel
-import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoSelectableRow
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -56,9 +55,10 @@ fun TodoSettingsScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.todo_settings_title),
-onBack = onBack,
-dialogs = {
+    LunoPage(
+        title = stringResource(R.string.todo_settings_title),
+        onBack = onBack,
+        dialogs = {
             if (showSnooze) {
                 SnoozeDurationDialog(
                     initialMinutes = config.reminderSnoozeMinutes,
@@ -96,7 +96,7 @@ dialogs = {
                 )
             }
         },
-sheets = {
+        sheets = {
             if (showRetentionSheet) {
                 LunoSheet(onDismissRequest = { showRetentionSheet = false }) {
                     Text(
@@ -120,38 +120,30 @@ sheets = {
                     }
                 }
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        group(title = stringResource(R.string.todo_settings_group_notify)) {
-row(
-title = stringResource(R.string.todo_reminder_setting),
-subtitle = snoozeDurationLabel(config.reminderSnoozeMinutes),
-onClick = { showSnooze = true },
-
-)        }
-        group(title = stringResource(R.string.todo_settings_group_done)) {
-row(
-title = stringResource(R.string.todo_done_retention),
-subtitle = stringResource(R.string.todo_done_retention_value, config.doneRetentionDays),
-onClick = { showRetentionSheet = true },
-
-)
-row(
-title = stringResource(R.string.todo_clear_done),
-enabled = config.doneCount > 0,
-onClick = { confirmClear = true },
-
-)        }
-
+        },
+    ) {
+        column(bottomContentPadding = ContentBottom) {
+            group(title = stringResource(R.string.todo_settings_group_notify)) {
+                row(
+                    title = stringResource(R.string.todo_reminder_setting),
+                    subtitle = snoozeDurationLabel(config.reminderSnoozeMinutes),
+                    onClick = { showSnooze = true },
+                )
+            }
+            group(title = stringResource(R.string.todo_settings_group_done)) {
+                row(
+                    title = stringResource(R.string.todo_done_retention),
+                    subtitle = stringResource(R.string.todo_done_retention_value, config.doneRetentionDays),
+                    onClick = { showRetentionSheet = true },
+                )
+                row(
+                    title = stringResource(R.string.todo_clear_done),
+                    enabled = config.doneCount > 0,
+                    onClick = { confirmClear = true },
+                )
+            }
         }
     }
-}
-}
 }
 
 /** 待确认的降档：天数 + 会被裁掉的条数（点选那一刻冻结）。 */

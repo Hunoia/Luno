@@ -29,6 +29,7 @@ import hunoia.luno.quickaccess.query.toSearchAction
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -84,20 +85,16 @@ fun SearchEngineEditScreen(
     if (snap == null) return
     if (!addMode && snap.engine == null) {
         // 编辑期间引擎在别处被删：给明确落点，不静默弹回。
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.search_engine_edit),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        LunoPage(
+            title = stringResource(R.string.search_engine_edit),
+            onBack = onBack,
         ) {
-
-            EmptyState(message = stringResource(R.string.search_engine_missing))
-
+            column {
+                block {
+                    EmptyState(message = stringResource(R.string.search_engine_missing))
+                }
+            }
         }
-    }
-}
-}
         return
     }
     val editState = rememberEngineEditState(
@@ -186,11 +183,12 @@ hunoia.luno.ui.component.page.LunoPageColumn() {
             onBack()
         }
     }
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+    LunoPage(
+        title = stringResource(
             if (addMode) R.string.search_engine_add else R.string.search_engine_edit,
         ),
-onBack = guardedBack,
-actions = {
+        onBack = guardedBack,
+        actions = {
             // 测试放顶栏（与动作库编辑页一致）：模板/目标应用就绪即可试，名称不拦。
             LunoIconButton(
                 icon = Icons.Default.PlayArrow,
@@ -202,7 +200,7 @@ actions = {
                 },
             )
         },
-floatingContent = { _ ->
+        floatingContent = { _ ->
             // 点击直接保存（无效草稿 toast 提示）；无效态换灰底提示不可保存。
             LunoFab(
                 onClick = {
@@ -214,7 +212,7 @@ floatingContent = { _ ->
                 else MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         },
-dialogs = {
+        dialogs = {
             if (showDiscardConfirm) {
                 ConfirmDialog(
                     onDismissRequest = { showDiscardConfirm = false },
@@ -227,7 +225,7 @@ dialogs = {
                 )
             }
         },
-sheets = {
+        sheets = {
             if (showAppPicker) {
                 val picker = appPicker
                 if (picker == null) {
@@ -266,24 +264,19 @@ sheets = {
                     )
                 }
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        EngineEditFields(
-            state = editState,
-            targetPackage = targetPackage,
-            appLabel = appLabel,
-            onPickApp = { showAppPicker = true },
-            imageAppLabel = imageAppLabel,
-            onPickImageApp = { showImageAppPicker = true },
-        )
-
+        },
+    ) {
+        column(bottomContentPadding = FloatingContentBottom) {
+            block {
+                EngineEditFields(
+                    state = editState,
+                    targetPackage = targetPackage,
+                    appLabel = appLabel,
+                    onPickApp = { showAppPicker = true },
+                    imageAppLabel = imageAppLabel,
+                    onPickImageApp = { showImageAppPicker = true },
+                )
+            }
         }
     }
-}
-}
 }

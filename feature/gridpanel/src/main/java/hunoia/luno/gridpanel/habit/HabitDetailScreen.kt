@@ -44,6 +44,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -105,26 +106,23 @@ fun HabitDetailScreen(
 
     if (habit == null) {
         // 还没读到配置 / 记录确实不存在：都给一个可读结局（不留空白页、不闪退）。
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.habit_list_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        LunoPage(
+            title = stringResource(R.string.habit_list_title),
+            onBack = onBack,
         ) {
-
-            EmptyState(message = stringResource(R.string.grid_panel_habit_missing))
-
+            column(bottomContentPadding = ContentBottom) {
+                block {
+                    EmptyState(message = stringResource(R.string.grid_panel_habit_missing))
+                }
+            }
         }
-    }
-}
-}
         return
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = habit.name,
-onBack = onBack,
-actions = {
+    LunoPage(
+        title = habit.name,
+        onBack = onBack,
+        actions = {
             PressIconButton(onClick = { onEdit(habit.id) }) {
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -132,7 +130,7 @@ actions = {
                 )
             }
         },
-dialogs = {
+        dialogs = {
             pendingDay?.let { (day, targetChecked) ->
                 val date = LocalDate.ofEpochDay(day)
                 ConfirmDialog(
@@ -167,34 +165,31 @@ dialogs = {
                     },
                 )
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        RecentChecksGrid(
-            habitId = habit.id,
-            color = habit.colorSpec.toColor(),
-            config = config,
-            today = today,
-            interval = habit.interval,
-            target = habit.safeDailyTarget,
-            onDayClick = { day, targetChecked -> pendingDay = day to targetChecked },
-        )
-        HabitHeatmapCard(
-            habitId = habit.id,
-            color = habit.colorSpec.toColor(),
-            config = config,
-            today = today,
-            target = habit.safeDailyTarget,
-        )
-
+        },
+    ) {
+        column(bottomContentPadding = ContentBottom) {
+            block {
+                RecentChecksGrid(
+                    habitId = habit.id,
+                    color = habit.colorSpec.toColor(),
+                    config = config,
+                    today = today,
+                    interval = habit.interval,
+                    target = habit.safeDailyTarget,
+                    onDayClick = { day, targetChecked -> pendingDay = day to targetChecked },
+                )
+            }
+            block {
+                HabitHeatmapCard(
+                    habitId = habit.id,
+                    color = habit.colorSpec.toColor(),
+                    config = config,
+                    today = today,
+                    target = habit.safeDailyTarget,
+                )
+            }
         }
     }
-}
-}
 }
 
 /**

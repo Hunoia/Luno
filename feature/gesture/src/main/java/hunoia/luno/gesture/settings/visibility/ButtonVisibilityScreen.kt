@@ -20,8 +20,8 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
@@ -52,7 +52,7 @@ fun ButtonVisibilityScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.button_visibility),
+    LunoPage(title = stringResource(R.string.button_visibility),
 onBack = onBack,
 floatingContent = {
             LunoFab(
@@ -67,44 +67,43 @@ bottomContentPadding = FloatingContentBottom) {
 
         // 系统级显隐：应用列表与 Luno 后台（与下方按场景的触钮/悬浮球显隐区分）。
         item(key = "system_visibility") {
-            group(title = stringResource(R.string.button_visibility_system_group)) {switchRow(
-icon = Icons.Default.Android,
-title = stringResource(R.string.apps_show_uiless),
-subtitle = stringResource(R.string.apps_show_uiless_hint),
-checked = actionSettings.showUILessSystemComponents,
-onCheckedChange = { enabled ->
+            group(title = stringResource(R.string.button_visibility_system_group)) {
+                switchRow(
+                    icon = Icons.Default.Android,
+                    title = stringResource(R.string.apps_show_uiless),
+                    subtitle = stringResource(R.string.apps_show_uiless_hint),
+                    checked = actionSettings.showUILessSystemComponents,
+                    onCheckedChange = { enabled ->
                         scope.launch { TuneConfig.updateAction { it.copy(showUILessSystemComponents = enabled) } }
                     },
-
-)
-switchRow(
-icon = Icons.Default.Android,
-title = stringResource(R.string.apps_show_noentry),
-subtitle = stringResource(R.string.apps_show_noentry_hint),
-checked = actionSettings.showNoEntrySystemApps,
-onCheckedChange = { enabled ->
+                )
+                switchRow(
+                    icon = Icons.Default.Android,
+                    title = stringResource(R.string.apps_show_noentry),
+                    subtitle = stringResource(R.string.apps_show_noentry_hint),
+                    checked = actionSettings.showNoEntrySystemApps,
+                    onCheckedChange = { enabled ->
                         scope.launch { TuneConfig.updateAction { it.copy(showNoEntrySystemApps = enabled) } }
                     },
-
-)
-switchRow(
-icon = Icons.Default.VisibilityOff,
-title = stringResource(R.string.hide_luno_from_recents),
-subtitle = stringResource(R.string.hide_luno_from_recents_hint),
-checked = advanced.hideLunoFromRecents,
-onCheckedChange = { hidden ->
+                )
+                switchRow(
+                    icon = Icons.Default.VisibilityOff,
+                    title = stringResource(R.string.hide_luno_from_recents),
+                    subtitle = stringResource(R.string.hide_luno_from_recents_hint),
+                    checked = advanced.hideLunoFromRecents,
+                    onCheckedChange = { hidden ->
                         scope.launch { TuneConfig.updateAdvanced { it.copy(hideLunoFromRecents = hidden) } }
                     },
-
-)
+                )
             }
         }
         // 黑名单组：无条件从相关列表排除的应用，与上方场景显隐互不替代。
         item(key = "blocklist") {
-            group(title = stringResource(R.string.button_visibility_blocklist_group)) {row(
-icon = Icons.Default.Block,
-title = stringResource(R.string.button_visibility_recent_apps_blocklist),
-subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+            group(title = stringResource(R.string.button_visibility_blocklist_group)) {
+                row(
+                    icon = Icons.Default.Block,
+                    title = stringResource(R.string.button_visibility_recent_apps_blocklist),
+                    subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
                         stringResource(R.string.button_visibility_recent_apps_blocklist_hint)
                     } else {
                         stringResource(
@@ -112,9 +111,8 @@ subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
                             actionSettings.recentAppsBlocklist.size,
                         )
                     },
-onClick = onNavToRecentAppsBlocklist,
-
-)
+                    onClick = onNavToRecentAppsBlocklist,
+                )
             }
         }
         item(key = "profiles") {

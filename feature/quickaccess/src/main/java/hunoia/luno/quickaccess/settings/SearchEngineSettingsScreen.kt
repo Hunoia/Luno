@@ -46,6 +46,7 @@ import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
+import hunoia.luno.ui.component.page.LunoPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,12 +58,9 @@ import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
-import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.chunkedGroup
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -208,7 +206,7 @@ fun SearchEngineSettingsScreen(
             contentDescription = stringResource(R.string.search_engine_add),
         )
     }
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.search_engine_settings),
+    LunoPage(title = stringResource(R.string.search_engine_settings),
 onBack = onBack,
 floatingContent = { addFab() },
 actions = {
@@ -390,33 +388,31 @@ bottomContentPadding = FloatingContentBottom) {
         item(key = "gap-general") { GroupGap() }
         // 通用组：内容源入口 + 列表样式 + 输入行为开关。
         item(key = "general") {
-            group(title = stringResource(R.string.search_general_group)) {row(
-title = stringResource(R.string.search_source_settings),
-trailing = { ArrowHint() },
-onClick = onNavToSources,
-
-)
-dropdownRow(
-title = stringResource(R.string.search_list_style),
-options = listOf(
+            group(title = stringResource(R.string.search_general_group)) {
+                row(
+                    title = stringResource(R.string.search_source_settings),
+                    trailing = { ArrowHint() },
+                    onClick = onNavToSources,
+                )
+                dropdownRow(
+                    title = stringResource(R.string.search_list_style),
+                    options = listOf(
                         stringResource(R.string.search_list_style_flat),
                         stringResource(R.string.search_list_style_cards),
                     ),
-selectedIndex = settings.listStyle.ordinal,
-onSelect = { index ->
+                    selectedIndex = settings.listStyle.ordinal,
+                    onSelect = { index ->
                         update { it.copy(listStyle = QuickSearchListStyle.entries[index]) }
                     },
-
-)
-switchRow(
-title = stringResource(R.string.search_ascii_enter),
-subtitle = stringResource(R.string.search_ascii_enter_subtitle),
-checked = settings.asciiEnterSearch,
-onCheckedChange = { v ->
+                )
+                switchRow(
+                    title = stringResource(R.string.search_ascii_enter),
+                    subtitle = stringResource(R.string.search_ascii_enter_subtitle),
+                    checked = settings.asciiEnterSearch,
+                    onCheckedChange = { v ->
                         update { it.copy(asciiEnterSearch = v) }
                     },
-
-)
+                )
             }
         }
 

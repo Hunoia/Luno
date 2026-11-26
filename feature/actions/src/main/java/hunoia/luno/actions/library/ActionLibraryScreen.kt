@@ -1,13 +1,9 @@
 package hunoia.luno.actions.library
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -35,12 +31,10 @@ import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
+import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.actions.resolvedIcon
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -60,7 +54,7 @@ fun ActionLibraryScreen(
         filtered.groupBy { entry -> libraryCategoryOf(entry.typeId) }
     }
     Box(modifier = Modifier.fillMaxSize()) {
-            hunoia.luno.ui.component.page.LunoPageList(state = listState) {
+            LunoPageList(state = listState) {
                 lazy {
                 if (filtered.isEmpty()) {
                     item { EmptyState(stringResource(R.string.action_library_empty)) }

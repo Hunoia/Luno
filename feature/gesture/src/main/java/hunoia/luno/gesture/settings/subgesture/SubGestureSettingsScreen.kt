@@ -1,5 +1,7 @@
 package hunoia.luno.gesture.settings.subgesture
-import hunoia.luno.ui.theme.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import hunoia.luno.ui.component.page.LunoPage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
@@ -15,10 +17,8 @@ import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,7 +36,6 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.component.input.LunoTextSlider
 import androidx.compose.foundation.layout.Arrangement
 import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsUiEvent
 import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsUiState
@@ -45,16 +44,14 @@ import hunoia.luno.gesture.settings.button.GestureSlideTriggerDistanceContent
 import hunoia.luno.gesture.settings.button.ExpandableGestureActionCard
 import hunoia.luno.gesture.settings.button.actionContentRowShape
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.gesture.settings.style.SideGestureSettings
-import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.gesture.settings.GestureActionTarget
+import hunoia.luno.ui.theme.*
 @Composable
 fun SubGestureSettingsScreen(
     onBack: () -> Unit,
@@ -122,216 +119,212 @@ fun SubGestureSettingsScreen(
                 )
             }
         }
-    hunoia.luno.ui.component.page.LunoPage(title = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
-onBack = onBack,
-postfixTitle = {
-                        Box(
-                            modifier = Modifier
-                                .padding(start = CardInnerSpacing)
-                                .size(MarkColorSize)
-                                .background(
-                                    color = gesture.colorSpec.toMarkColor(),
-                                    shape = CircleShape
+        LunoPage(title = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
+    onBack = onBack,
+    postfixTitle = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = CardInnerSpacing)
+                                    .size(MarkColorSize)
+                                    .background(
+                                        color = gesture.colorSpec.toMarkColor(),
+                                        shape = CircleShape
+                                    )
                                 )
+                        },
+    actions = {
+                            LunoIconButton(
+                                icon = Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.mirror_sub_gesture),
+                                onClick = { vm.showMirrorCopyDialog(true) },
                             )
-                    },
-actions = {
-                        LunoIconButton(
-                            icon = Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.mirror_sub_gesture),
-                            onClick = { vm.showMirrorCopyDialog(true) },
-                        )
-                        LunoIconButton(
-                            icon = Icons.Default.Delete,
-                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
-                            onClick = { vm.showDeleteWarningDialog(true) },
-                        )                    }) {
-    list(state = listState) {
-        lazy {
+                            LunoIconButton(
+                                icon = Icons.Default.Delete,
+                                contentDescription = stringResource(hunoia.luno.design.R.string.delete),
+                                onClick = { vm.showDeleteWarningDialog(true) },
+                            )                    }) {
+        list(state = listState) {
+            lazy {
 
-        fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
-            vm.setExpandedActionGroup(if (expanded) group else null)
-        }
+            fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
+                vm.setExpandedActionGroup(if (expanded) group else null)
+            }
 
-                    item {
-                        LunoGroup(
-                            title = stringResource(id = R.string.trigger_actions),
-                        ) {
-                            ExpandableGestureActionCard(
-                                title = stringResource(id = R.string.slide_action),
-                                icon = Icons.Default.Swipe,
-                                expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
-                                onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
-                                index = 0,
-                                count = 4,
+                        item {
+                            LunoGroup(
+                                title = stringResource(id = R.string.trigger_actions),
                             ) {
-                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
-                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
-                                slots.forEachIndexed { index, slot ->
-                                    val center = gesture.angle.slotCenterDegrees(slot)
-                                    val label = directionLabel(center, gesture.angle.count)
-                                    SideGestureSettings(
-                                        onClick = {
-                                            onNavToActionSelect(
-                                                GestureActionTarget(
-                                                    gestureButtonId = "",
-                                                    slot = slot,
-                                                    directionLabel = label,
-                                                    triggerType = GestureTriggerType.Slide,
-                                                    subGestureId = gesture.id,
+                                ExpandableGestureActionCard(
+                                    title = stringResource(id = R.string.slide_action),
+                                    icon = Icons.Default.Swipe,
+                                    expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
+                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                                    index = 0,
+                                    count = 4,
+                                ) {
+                                    val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                        .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                    slots.forEachIndexed { index, slot ->
+                                        val center = gesture.angle.slotCenterDegrees(slot)
+                                        val label = directionLabel(center, gesture.angle.count)
+                                        SideGestureSettings(
+                                            onClick = {
+                                                onNavToActionSelect(
+                                                    GestureActionTarget(
+                                                        gestureButtonId = "",
+                                                        slot = slot,
+                                                        directionLabel = label,
+                                                        triggerType = GestureTriggerType.Slide,
+                                                        subGestureId = gesture.id,
+                                                    )
                                                 )
-                                            )
-                                        },
-                                        centerDegrees = center,
-                                        count = gesture.angle.count,
-                                        subtitle = gesture.slideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
-                                        shape = actionContentRowShape(index, slots.size),
-                                    )
+                                            },
+                                            centerDegrees = center,
+                                            count = gesture.angle.count,
+                                            subtitle = gesture.slideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
+                                            shape = actionContentRowShape(index, slots.size),
+                                        )
+                                    }
                                 }
-                            }
-                            ExpandableGestureActionCard(
-                                title = stringResource(id = R.string.slide_hold_action),
-                                icon = Icons.Default.Swipe,
-                                expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
-                                onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
-                                index = 1,
-                                count = 4,
-                            ) {
-                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
-                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
-                                slots.forEachIndexed { index, slot ->
-                                    val center = gesture.angle.slotCenterDegrees(slot)
-                                    val label = directionLabel(center, gesture.angle.count)
-                                    SideGestureSettings(
-                                        onClick = {
-                                            onNavToActionSelect(
-                                                GestureActionTarget(
-                                                    gestureButtonId = "",
-                                                    slot = slot,
-                                                    directionLabel = label,
-                                                    triggerType = GestureTriggerType.SlideHold,
-                                                    subGestureId = gesture.id,
+                                ExpandableGestureActionCard(
+                                    title = stringResource(id = R.string.slide_hold_action),
+                                    icon = Icons.Default.Swipe,
+                                    expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
+                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
+                                    index = 1,
+                                    count = 4,
+                                ) {
+                                    val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                        .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                    slots.forEachIndexed { index, slot ->
+                                        val center = gesture.angle.slotCenterDegrees(slot)
+                                        val label = directionLabel(center, gesture.angle.count)
+                                        SideGestureSettings(
+                                            onClick = {
+                                                onNavToActionSelect(
+                                                    GestureActionTarget(
+                                                        gestureButtonId = "",
+                                                        slot = slot,
+                                                        directionLabel = label,
+                                                        triggerType = GestureTriggerType.SlideHold,
+                                                        subGestureId = gesture.id,
+                                                    )
                                                 )
-                                            )
-                                        },
-                                        centerDegrees = center,
-                                        count = gesture.angle.count,
-                                        subtitle = gesture.slideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
-                                        shape = actionContentRowShape(index, slots.size),
-                                    )
+                                            },
+                                            centerDegrees = center,
+                                            count = gesture.angle.count,
+                                            subtitle = gesture.slideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
+                                            shape = actionContentRowShape(index, slots.size),
+                                        )
+                                    }
                                 }
-                            }
-                            ExpandableGestureActionCard(
-                                title = stringResource(id = R.string.long_slide_action),
-                                icon = Icons.Default.Gesture,
-                                expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
-                                onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
-                                index = 2,
-                                count = 4,
-                            ) {
-                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
-                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
-                                slots.forEachIndexed { index, slot ->
-                                    val center = gesture.angle.slotCenterDegrees(slot)
-                                    val label = directionLabel(center, gesture.angle.count)
-                                    SideGestureSettings(
-                                        onClick = {
-                                            onNavToActionSelect(
-                                                GestureActionTarget(
-                                                    gestureButtonId = "",
-                                                    slot = slot,
-                                                    directionLabel = label,
-                                                    triggerType = GestureTriggerType.LongSlide,
-                                                    subGestureId = gesture.id,
+                                ExpandableGestureActionCard(
+                                    title = stringResource(id = R.string.long_slide_action),
+                                    icon = Icons.Default.Gesture,
+                                    expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
+                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
+                                    index = 2,
+                                    count = 4,
+                                ) {
+                                    val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                        .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                    slots.forEachIndexed { index, slot ->
+                                        val center = gesture.angle.slotCenterDegrees(slot)
+                                        val label = directionLabel(center, gesture.angle.count)
+                                        SideGestureSettings(
+                                            onClick = {
+                                                onNavToActionSelect(
+                                                    GestureActionTarget(
+                                                        gestureButtonId = "",
+                                                        slot = slot,
+                                                        directionLabel = label,
+                                                        triggerType = GestureTriggerType.LongSlide,
+                                                        subGestureId = gesture.id,
+                                                    )
                                                 )
-                                            )
-                                        },
-                                        centerDegrees = center,
-                                        count = gesture.angle.count,
-                                        subtitle = gesture.longSlideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
-                                        shape = actionContentRowShape(index, slots.size),
-                                    )
+                                            },
+                                            centerDegrees = center,
+                                            count = gesture.angle.count,
+                                            subtitle = gesture.longSlideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
+                                            shape = actionContentRowShape(index, slots.size),
+                                        )
+                                    }
                                 }
-                            }
-                            ExpandableGestureActionCard(
-                                title = stringResource(id = R.string.long_slide_hold_action),
-                                icon = Icons.Default.Gesture,
-                                expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
-                                onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
-                                index = 3,
-                                count = 4,
-                            ) {
-                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
-                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
-                                slots.forEachIndexed { index, slot ->
-                                    val center = gesture.angle.slotCenterDegrees(slot)
-                                    val label = directionLabel(center, gesture.angle.count)
-                                    SideGestureSettings(
-                                        onClick = {
-                                            onNavToActionSelect(
-                                                GestureActionTarget(
-                                                    gestureButtonId = "",
-                                                    slot = slot,
-                                                    directionLabel = label,
-                                                    triggerType = GestureTriggerType.LongSlideHold,
-                                                    subGestureId = gesture.id,
+                                ExpandableGestureActionCard(
+                                    title = stringResource(id = R.string.long_slide_hold_action),
+                                    icon = Icons.Default.Gesture,
+                                    expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
+                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
+                                    index = 3,
+                                    count = 4,
+                                ) {
+                                    val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                        .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                    slots.forEachIndexed { index, slot ->
+                                        val center = gesture.angle.slotCenterDegrees(slot)
+                                        val label = directionLabel(center, gesture.angle.count)
+                                        SideGestureSettings(
+                                            onClick = {
+                                                onNavToActionSelect(
+                                                    GestureActionTarget(
+                                                        gestureButtonId = "",
+                                                        slot = slot,
+                                                        directionLabel = label,
+                                                        triggerType = GestureTriggerType.LongSlideHold,
+                                                        subGestureId = gesture.id,
+                                                    )
                                                 )
-                                            )
-                                        },
-                                        centerDegrees = center,
-                                        count = gesture.angle.count,
-                                        subtitle = gesture.longSlideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
-                                        shape = actionContentRowShape(index, slots.size),
-                                    )
+                                            },
+                                            centerDegrees = center,
+                                            count = gesture.angle.count,
+                                            subtitle = gesture.longSlideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
+                                            shape = actionContentRowShape(index, slots.size),
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    item {
-                        group(
-                            title = stringResource(id = R.string.physical_params),
-                        ) {row(
-title = stringResource(id = R.string.sub_gesture_angles),
-icon = Icons.Default.Straighten,
-onClick = { showGestureAngles = true },
-
-)
-row(
-title = stringResource(id = R.string.gesture_button_vibration),
-icon = Icons.Default.Vibration,
-onClick = { showSubVibrationSettings = true },
-
-)
-row(
-title = stringResource(id = R.string.gesture_button_trigger_distance),
-icon = Icons.Default.Tune,
-onClick = { showSubTriggerDistanceSettings = true },
-
-)
-switchRow(
-onCheckedChange = { vm.onSubShowAngleGuideChange(it) },
-checked = gesture.showAngleGuide,
-title = stringResource(id = R.string.sub_gesture_angle_guide),
-
-)
-sliderRow(
-value = gesture.timeoutMs.toFloat(),
-onValueChange = { vm.onSubTimeoutMsChange(it) },
-onValueChangeFinished = { vm.persistSubGesture() },
-text = stringResource(R.string.sub_gesture_timeout_label),
-valueDisplay = {
-                                    stringResource(R.string.sub_gesture_timeout_value, it.toLong() / 1000)
-                                },
-valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat(),
-
-)
+                        item {
+                            group(
+                                title = stringResource(id = R.string.physical_params),
+                            ) {
+                                row(
+                                    title = stringResource(id = R.string.sub_gesture_angles),
+                                    icon = Icons.Default.Straighten,
+                                    onClick = { showGestureAngles = true },
+                                )
+                                row(
+                                    title = stringResource(id = R.string.gesture_button_vibration),
+                                    icon = Icons.Default.Vibration,
+                                    onClick = { showSubVibrationSettings = true },
+                                )
+                                row(
+                                    title = stringResource(id = R.string.gesture_button_trigger_distance),
+                                    icon = Icons.Default.Tune,
+                                    onClick = { showSubTriggerDistanceSettings = true },
+                                )
+                                switchRow(
+                                    onCheckedChange = { vm.onSubShowAngleGuideChange(it) },
+                                    checked = gesture.showAngleGuide,
+                                    title = stringResource(id = R.string.sub_gesture_angle_guide),
+                                )
+                                sliderRow(
+                                    value = gesture.timeoutMs.toFloat(),
+                                    onValueChange = { vm.onSubTimeoutMsChange(it) },
+                                    onValueChangeFinished = { vm.persistSubGesture() },
+                                    text = stringResource(R.string.sub_gesture_timeout_label),
+                                    valueDisplay = {
+                                        stringResource(R.string.sub_gesture_timeout_value, it.toLong() / 1000)
+                                    },
+                                    valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat(),
+                                )
+                            }
                         }
-                    }
 
 
+            }
         }
     }
-}
 }
 }
 @Composable
@@ -340,58 +333,53 @@ private fun SubGestureVibrationContent(
     vm: SubGestureSettingsVM
 ) {
     LunoColumn(contentPadding = 0.dp, verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
-        group(title = stringResource(R.string.vibration_group_slide)) {switchRow(
-onCheckedChange = { vm.onSubSlideVibrateChange(it) },
-checked = gesture.slideVibrate,
-title = stringResource(R.string.vibration_slide),
-
-)
-switchRow(
-onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
-checked = gesture.longSlideVibrate,
-title = stringResource(R.string.vibration_long_slide),
-
-)
+        group(title = stringResource(R.string.vibration_group_slide)) {
+            switchRow(
+                onCheckedChange = { vm.onSubSlideVibrateChange(it) },
+                checked = gesture.slideVibrate,
+                title = stringResource(R.string.vibration_slide),
+            )
+            switchRow(
+                onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
+                checked = gesture.longSlideVibrate,
+                title = stringResource(R.string.vibration_long_slide),
+            )
         }
-        group(title = stringResource(R.string.vibration_group_hold)) {switchRow(
-onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
-checked = gesture.slideHoldVibrate,
-title = stringResource(R.string.vibration_slide_hold),
-
-)
-switchRow(
-onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
-checked = gesture.longSlideHoldVibrate,
-title = stringResource(R.string.vibration_long_slide_hold),
-
-)
+        group(title = stringResource(R.string.vibration_group_hold)) {
+            switchRow(
+                onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
+                checked = gesture.slideHoldVibrate,
+                title = stringResource(R.string.vibration_slide_hold),
+            )
+            switchRow(
+                onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
+                checked = gesture.longSlideHoldVibrate,
+                title = stringResource(R.string.vibration_long_slide_hold),
+            )
         }
         // 会话反馈：进入/按下/超时这类「不是某个方向」的节点，和上面四个方向振动分开成组。
         // 进入分两档：手指还按着（触钮停留/滑动进、面板项长按点火）与抬手/无手指（触摸窗接管）。
-        group(title = stringResource(R.string.vibration_group_session)) {switchRow(
-onCheckedChange = { vm.onSubHoldFireVibrateChange(it) },
-checked = gesture.holdFireVibrate,
-title = stringResource(R.string.vibration_sub_hold_fire),
-
-)
-switchRow(
-onCheckedChange = { vm.onSubOverlayVibrateChange(it) },
-checked = gesture.overlayVibrate,
-title = stringResource(R.string.vibration_sub_overlay),
-
-)
-switchRow(
-onCheckedChange = { vm.onSubPressVibrateChange(it) },
-checked = gesture.pressVibrate,
-title = stringResource(R.string.vibration_sub_press),
-
-)
-switchRow(
-onCheckedChange = { vm.onSubTimeoutVibrateChange(it) },
-checked = gesture.timeoutVibrate,
-title = stringResource(R.string.vibration_sub_timeout),
-
-)
+        group(title = stringResource(R.string.vibration_group_session)) {
+            switchRow(
+                onCheckedChange = { vm.onSubHoldFireVibrateChange(it) },
+                checked = gesture.holdFireVibrate,
+                title = stringResource(R.string.vibration_sub_hold_fire),
+            )
+            switchRow(
+                onCheckedChange = { vm.onSubOverlayVibrateChange(it) },
+                checked = gesture.overlayVibrate,
+                title = stringResource(R.string.vibration_sub_overlay),
+            )
+            switchRow(
+                onCheckedChange = { vm.onSubPressVibrateChange(it) },
+                checked = gesture.pressVibrate,
+                title = stringResource(R.string.vibration_sub_press),
+            )
+            switchRow(
+                onCheckedChange = { vm.onSubTimeoutVibrateChange(it) },
+                checked = gesture.timeoutVibrate,
+                title = stringResource(R.string.vibration_sub_timeout),
+            )
         }
     }
 }

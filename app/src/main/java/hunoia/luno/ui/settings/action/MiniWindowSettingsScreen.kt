@@ -13,7 +13,7 @@ import hunoia.luno.config.model.MiniFreeformPosition
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.component.row.LunoDropdownRow
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -38,117 +38,116 @@ fun MiniWindowSettingsScreen(
     val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.mini_window_settings_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        LunoGroup(title = stringResource(R.string.mini_window_settings_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.mini_window_follow_trigger),
-                subtitle = stringResource(R.string.mini_window_follow_trigger_hint),
-                checked = settings.followTrigger,
-                onCheckedChange = { enabled ->
-                    scope.launch {
-                        TuneConfig.updateAdvanced { current ->
-                            current.withMiniWindowSettings(
-                                current.miniWindowSettings().copy(followTrigger = enabled)
+    LunoPage(
+        title = stringResource(R.string.mini_window_settings_title),
+        onBack = onBack,
+    ) {
+        column {
+            block {
+                LunoGroup(title = stringResource(R.string.mini_window_settings_group)) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.mini_window_follow_trigger),
+                        subtitle = stringResource(R.string.mini_window_follow_trigger_hint),
+                        checked = settings.followTrigger,
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                TuneConfig.updateAdvanced { current ->
+                                    current.withMiniWindowSettings(
+                                        current.miniWindowSettings().copy(followTrigger = enabled)
+                                    )
+                                }
+                            }
+                        },
+                        shape = segmentedShape(0, 4),
+                    )
+                    SurfacePlacementSliders(
+                        placement = settings.placement(landscape),
+                        enabled = settings.followTrigger,
+                        shapeAt = { index -> segmentedShape(index + 1, 4) },
+                        onCommit = { next ->
+                            scope.launch {
+                                TuneConfig.updateAdvanced { current ->
+                                    current.withMiniWindowSettings(
+                                        current.miniWindowSettings().withPlacement(landscape, next)
+                                    )
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+            block {
+                LunoGroup {
+                    LunoSegmentedGroup {
+                        item { shape -> LunoSettingsRow(
+                                icon = Icons.Default.Crop,
+                                title = stringResource(R.string.mini_window_position_size),
+                                subtitle = stringResource(R.string.mini_window_position_size_hint),
+                                shape = shape,
+                                onClick = onAdjustBounds,
+                            )
+                        }
+                        item { shape -> LunoSwitchRow(
+                                title = stringResource(R.string.mini_window_swap_existing),
+                                subtitle = stringResource(R.string.mini_window_swap_existing_hint),
+                                checked = settings.swapExisting,
+                                onCheckedChange = { enabled ->
+                                    scope.launch {
+                                        TuneConfig.updateAdvanced { current ->
+                                            current.withMiniWindowSettings(
+                                                current.miniWindowSettings().copy(swapExisting = enabled)
+                                            )
+                                        }
+                                    }
+                                },
+                                shape = shape,
                             )
                         }
                     }
-                },
-                shape = segmentedShape(0, 4),
-            )
-            SurfacePlacementSliders(
-                placement = settings.placement(landscape),
-                enabled = settings.followTrigger,
-                shapeAt = { index -> segmentedShape(index + 1, 4) },
-                onCommit = { next ->
-                    scope.launch {
-                        TuneConfig.updateAdvanced { current ->
-                            current.withMiniWindowSettings(
-                                current.miniWindowSettings().withPlacement(landscape, next)
-                            )
-                        }
-                    }
-                },
-            )
-        }
-        LunoGroup {
-            LunoSegmentedGroup {
-                item { shape -> LunoSettingsRow(
-                icon = Icons.Default.Crop,
-                title = stringResource(R.string.mini_window_position_size),
-                subtitle = stringResource(R.string.mini_window_position_size_hint),
-                shape = shape,
-                onClick = onAdjustBounds,
-                ) }
-                item { shape -> LunoSwitchRow(
-                    title = stringResource(R.string.mini_window_swap_existing),
-                    subtitle = stringResource(R.string.mini_window_swap_existing_hint),
-                    checked = settings.swapExisting,
-                    onCheckedChange = { enabled ->
+                }
+            }
+            group(title = stringResource(R.string.mini_window_mini_group)) {
+                dropdownRow(
+                    title = stringResource(R.string.mini_window_mini_position),
+                    subtitle = stringResource(R.string.mini_window_mini_position_hint),
+                    options = listOf(
+                        stringResource(R.string.mini_window_mini_position_auto),
+                        stringResource(R.string.mini_window_mini_position_left),
+                        stringResource(R.string.mini_window_mini_position_right),
+                    ),
+                    selectedIndex = settings.miniFreeform.position.ordinal,
+                    onSelect = { index ->
+                        val position = MiniFreeformPosition.entries[index]
                         scope.launch {
                             TuneConfig.updateAdvanced { current ->
+                                val currentSettings = current.miniWindowSettings()
                                 current.withMiniWindowSettings(
-                                    current.miniWindowSettings().copy(swapExisting = enabled)
+                                    currentSettings.copy(
+                                        miniFreeform = currentSettings.miniFreeform.copy(position = position),
+                                    )
                                 )
                             }
                         }
                     },
-                    shape = shape,
-                ) }
+                )
+                switchRow(
+                    title = stringResource(R.string.mini_window_mini_swap),
+                    subtitle = stringResource(R.string.mini_window_mini_swap_hint),
+                    checked = settings.miniFreeform.autoSwap,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            TuneConfig.updateAdvanced { current ->
+                                val currentSettings = current.miniWindowSettings()
+                                current.withMiniWindowSettings(
+                                    currentSettings.copy(
+                                        miniFreeform = currentSettings.miniFreeform.copy(autoSwap = enabled),
+                                    )
+                                )
+                            }
+                        }
+                    },
+                )
             }
         }
-        group(title = stringResource(R.string.mini_window_mini_group)) {
-dropdownRow(
-title = stringResource(R.string.mini_window_mini_position),
-subtitle = stringResource(R.string.mini_window_mini_position_hint),
-options = listOf(
-                    stringResource(R.string.mini_window_mini_position_auto),
-                    stringResource(R.string.mini_window_mini_position_left),
-                    stringResource(R.string.mini_window_mini_position_right),
-                ),
-selectedIndex = settings.miniFreeform.position.ordinal,
-onSelect = { index ->
-                    val position = MiniFreeformPosition.entries[index]
-                    scope.launch {
-                        TuneConfig.updateAdvanced { current ->
-                            val currentSettings = current.miniWindowSettings()
-                            current.withMiniWindowSettings(
-                                currentSettings.copy(
-                                    miniFreeform = currentSettings.miniFreeform.copy(position = position),
-                                )
-                            )
-                        }
-                    }
-                },
-
-)
-switchRow(
-title = stringResource(R.string.mini_window_mini_swap),
-subtitle = stringResource(R.string.mini_window_mini_swap_hint),
-checked = settings.miniFreeform.autoSwap,
-onCheckedChange = { enabled ->
-                    scope.launch {
-                        TuneConfig.updateAdvanced { current ->
-                            val currentSettings = current.miniWindowSettings()
-                            current.withMiniWindowSettings(
-                                currentSettings.copy(
-                                    miniFreeform = currentSettings.miniFreeform.copy(autoSwap = enabled),
-                                )
-                            )
-                        }
-                    }
-                },
-
-)        }
-
-        }
     }
-}
-}
 }

@@ -7,12 +7,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,6 +34,7 @@ import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.PageGutter
@@ -151,7 +149,7 @@ fun TodoListContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        hunoia.luno.ui.component.page.LunoPageList(
+        LunoPageList(
             modifier = Modifier.fillMaxSize(),
             state = state,
             contentSpacing = hunoia.luno.ui.theme.CardInnerSpacing,

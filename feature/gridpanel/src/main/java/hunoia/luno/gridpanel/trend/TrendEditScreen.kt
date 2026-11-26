@@ -51,6 +51,7 @@ import hunoia.luno.ui.component.TopBarActionGroup
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTimePicker
 import hunoia.luno.ui.component.input.rememberLunoTimePickerState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -87,36 +88,24 @@ fun TrendEditScreen(
     val config = configOrNull
     if (config == null) {
         // 首帧还没读到 DataStore：不渲染表单，避免「先空后填」闪一下。
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_edit_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        LunoPage(
+            title = stringResource(R.string.trend_edit_title),
+            onBack = onBack,
         ) {
-
+            column {}
         }
-    }
-}
-}
         return
     }
     val metric = metricId?.takeIf { it.isNotBlank() }?.let { config.metricById(it) }
     if (!metricId.isNullOrBlank() && metric == null) {
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_edit_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
+        LunoPage(
+            title = stringResource(R.string.trend_edit_title),
+            onBack = onBack,
         ) {
-
-            EmptyState(message = stringResource(R.string.trend_metric_missing))
-
+            column {
+                block { EmptyState(message = stringResource(R.string.trend_metric_missing)) }
+            }
         }
-    }
-}
-}
         return
     }
     TrendEditForm(metric = metric, onBack = onBack)
@@ -221,13 +210,14 @@ private fun TrendEditForm(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+    LunoPage(
+        title = stringResource(
             if (metric == null) R.string.trend_create_title else R.string.trend_edit_title,
         ),
-onBack = onBack,
-// 含文字按钮「保存」：不进单胶囊动作组，删除图标单独成组。
+        onBack = onBack,
+        // 含文字按钮「保存」：不进单胶囊动作组，删除图标单独成组。
         groupActions = false,
-actions = {
+        actions = {
             if (metric != null) {
                 TopBarActionGroup {
                     PressIconButton(onClick = { showDeleteConfirm = true }) {
@@ -242,7 +232,7 @@ actions = {
                 Text(stringResource(R.string.trend_save))
             }
         },
-dialogs = {
+        dialogs = {
             if (showDeleteConfirm && metric != null) {
                 ConfirmDialog(
                     title = stringResource(R.string.trend_delete_confirm_title),
@@ -272,7 +262,7 @@ dialogs = {
                 )
             }
         },
-sheets = {
+        sheets = {
             if (showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { showColorPicker = false },
@@ -283,184 +273,191 @@ sheets = {
                     },
                 )
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        LunoGroup(title = stringResource(R.string.trend_edit_name)) {
-            LunoCardInput(
-                value = name,
-                onValueChange = { name = it },
-                placeholder = stringResource(R.string.trend_edit_name_hint),
-                shape = segmentedShape(0, 1),
-            )
-        }
-        LunoGroup(title = stringResource(R.string.trend_edit_unit)) {
-            LunoCardInput(
-                value = unit,
-                onValueChange = { unit = it },
-                placeholder = stringResource(R.string.trend_edit_unit_hint),
-                supportingText = stringResource(R.string.trend_edit_unit_note),
-                shape = segmentedShape(0, 1),
-            )
-        }
-        LunoGroup(title = stringResource(R.string.trend_edit_decimals)) {
-            LunoGroupItem(shape = segmentedShape(0, 1)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = PageGutter, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                ) {
-                    (0..TrendMaxDecimals).forEach { digits ->
-                        PressFilterChip(
-                            selected = decimals == digits,
-                            onClick = { decimals = digits },
-                            label = { Text(stringResource(R.string.trend_edit_decimals_value, digits)) },
+        },
+    ) {
+        column(bottomContentPadding = ContentBottom) {
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_name)) {
+                    LunoCardInput(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = stringResource(R.string.trend_edit_name_hint),
+                        shape = segmentedShape(0, 1),
+                    )
+                }
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_unit)) {
+                    LunoCardInput(
+                        value = unit,
+                        onValueChange = { unit = it },
+                        placeholder = stringResource(R.string.trend_edit_unit_hint),
+                        supportingText = stringResource(R.string.trend_edit_unit_note),
+                        shape = segmentedShape(0, 1),
+                    )
+                }
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_decimals)) {
+                    LunoGroupItem(shape = segmentedShape(0, 1)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = PageGutter, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                        ) {
+                            (0..TrendMaxDecimals).forEach { digits ->
+                                PressFilterChip(
+                                    selected = decimals == digits,
+                                    onClick = { decimals = digits },
+                                    label = { Text(stringResource(R.string.trend_edit_decimals_value, digits)) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_values)) {
+                    // 多值时才需要给槽位起名；第 1 个槽位也可以命名（旧版从第 2 个才开始，导致图例永远是「值 1」）。
+                    val nameRows = if (valueNames.size > 1) valueNames.size else 0
+                    val totalRows = 1 + nameRows
+                    LunoGroupItem(shape = segmentedShape(0, totalRows)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = PageGutter, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                        ) {
+                            (1..TrendMaxValues).forEach { count ->
+                                PressFilterChip(
+                                    selected = valueNames.size == count,
+                                    onClick = { setValueCount(count) },
+                                    label = { Text(stringResource(R.string.trend_edit_values_count, count)) },
+                                )
+                            }
+                        }
+                    }
+                    for (index in 0 until nameRows) {
+                        LunoCardInput(
+                            value = valueNames[index],
+                            onValueChange = { newValue ->
+                                valueNames = valueNames.toMutableList().also { it[index] = newValue }
+                            },
+                            label = stringResource(R.string.trend_edit_value_name, index + 1),
+                            placeholder = stringResource(R.string.trend_edit_value_name_hint),
+                            shape = segmentedShape(index + 1, totalRows),
                         )
                     }
                 }
             }
-        }
-        LunoGroup(title = stringResource(R.string.trend_edit_values)) {
-            // 多值时才需要给槽位起名；第 1 个槽位也可以命名（旧版从第 2 个才开始，导致图例永远是「值 1」）。
-            val nameRows = if (valueNames.size > 1) valueNames.size else 0
-            val totalRows = 1 + nameRows
-            LunoGroupItem(shape = segmentedShape(0, totalRows)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = PageGutter, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                ) {
-                    (1..TrendMaxValues).forEach { count ->
-                        PressFilterChip(
-                            selected = valueNames.size == count,
-                            onClick = { setValueCount(count) },
-                            label = { Text(stringResource(R.string.trend_edit_values_count, count)) },
-                        )
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_formula)) {
+                    val formulaIssue = if (formula.isNotBlank()) {
+                        checkTrendFormula(formula.trim(), valueNames.size)
+                    } else {
+                        null
                     }
+                    LunoCardInput(
+                        value = formula,
+                        onValueChange = { formula = it },
+                        placeholder = stringResource(R.string.trend_edit_formula_hint),
+                        supportingText = if (formulaIssue == null) {
+                            stringResource(R.string.trend_edit_formula_note)
+                        } else {
+                            stringResource(
+                                when (formulaIssue) {
+                                    TrendFormulaIssue.SYNTAX -> R.string.trend_edit_formula_syntax
+                                    TrendFormulaIssue.BAD_PLACEHOLDER -> R.string.trend_edit_formula_placeholder
+                                },
+                            )
+                        },
+                        isError = formulaIssue != null,
+                        shape = segmentedShape(0, 1),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                    )
                 }
             }
-            for (index in 0 until nameRows) {
-                LunoCardInput(
-                    value = valueNames[index],
-                    onValueChange = { newValue ->
-                        valueNames = valueNames.toMutableList().also { it[index] = newValue }
+            group(title = stringResource(R.string.trend_edit_color)) {
+                row(
+                    title = stringResource(R.string.trend_edit_color),
+                    leading = {
+                        Box(
+                            Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(colorSpec.toColor()),
+                        )
                     },
-                    label = stringResource(R.string.trend_edit_value_name, index + 1),
-                    placeholder = stringResource(R.string.trend_edit_value_name_hint),
-                    shape = segmentedShape(index + 1, totalRows),
+                    onClick = { showColorPicker = true },
                 )
             }
-        }
-        LunoGroup(title = stringResource(R.string.trend_edit_formula)) {
-            val formulaIssue = if (formula.isNotBlank()) {
-                checkTrendFormula(formula.trim(), valueNames.size)
-            } else {
-                null
-            }
-            LunoCardInput(
-                value = formula,
-                onValueChange = { formula = it },
-                placeholder = stringResource(R.string.trend_edit_formula_hint),
-                supportingText = if (formulaIssue == null) {
-                    stringResource(R.string.trend_edit_formula_note)
-                } else {
-                    stringResource(
-                        when (formulaIssue) {
-                            TrendFormulaIssue.SYNTAX -> R.string.trend_edit_formula_syntax
-                            TrendFormulaIssue.BAD_PLACEHOLDER -> R.string.trend_edit_formula_placeholder
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_target)) {
+                    LunoCardInput(
+                        value = targetText,
+                        onValueChange = { targetText = it },
+                        placeholder = stringResource(R.string.trend_edit_target_hint),
+                        supportingText = stringResource(R.string.trend_edit_target_note),
+                        shape = segmentedShape(0, 2),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        trailing = unit.takeIf { it.isNotBlank() }?.let { suffix ->
+                            { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         },
                     )
-                },
-                isError = formulaIssue != null,
-                shape = segmentedShape(0, 1),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-            )
-        }
-        group(title = stringResource(R.string.trend_edit_color)) {
-row(
-title = stringResource(R.string.trend_edit_color),
-leading = {
-                    Box(
-                        Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(colorSpec.toColor()),
+                    LunoGroupItem(shape = segmentedShape(1, 2)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = PageGutter, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                        ) {
+                            TrendGoalDirection.entries.forEach { item ->
+                                PressFilterChip(
+                                    selected = direction == item,
+                                    onClick = { direction = item },
+                                    label = { Text(trendGoalLabel(item)) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.trend_edit_reminder)) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.trend_edit_reminder_enable),
+                        checked = reminderEnabled,
+                        onCheckedChange = { reminderEnabled = it },
+                        shape = segmentedShape(0, if (reminderEnabled) 3 else 1),
                     )
-                },
-onClick = { showColorPicker = true },
-
-)        }
-        LunoGroup(title = stringResource(R.string.trend_edit_target)) {
-            LunoCardInput(
-                value = targetText,
-                onValueChange = { targetText = it },
-                placeholder = stringResource(R.string.trend_edit_target_hint),
-                supportingText = stringResource(R.string.trend_edit_target_note),
-                shape = segmentedShape(0, 2),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                trailing = unit.takeIf { it.isNotBlank() }?.let { suffix ->
-                    { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                },
-            )
-            LunoGroupItem(shape = segmentedShape(1, 2)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = PageGutter, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                ) {
-                    TrendGoalDirection.entries.forEach { item ->
-                        PressFilterChip(
-                            selected = direction == item,
-                            onClick = { direction = item },
-                            label = { Text(trendGoalLabel(item)) },
+                    if (reminderEnabled) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.trend_edit_reminder_time),
+                            subtitle = stringResource(
+                                R.string.trend_edit_reminder_time_value,
+                                reminderHour,
+                                reminderMinute,
+                            ),
+                            onClick = { showTimePicker = true },
+                            shape = segmentedShape(1, 3),
                         )
+                        LunoGroupItem(shape = segmentedShape(2, 3)) {
+                            Text(
+                                text = stringResource(R.string.trend_edit_reminder_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
+                            )
+                        }
                     }
                 }
             }
         }
-        LunoGroup(title = stringResource(R.string.trend_edit_reminder)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.trend_edit_reminder_enable),
-                checked = reminderEnabled,
-                onCheckedChange = { reminderEnabled = it },
-                shape = segmentedShape(0, if (reminderEnabled) 3 else 1),
-            )
-            if (reminderEnabled) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.trend_edit_reminder_time),
-                    subtitle = stringResource(
-                        R.string.trend_edit_reminder_time_value,
-                        reminderHour,
-                        reminderMinute,
-                    ),
-                    onClick = { showTimePicker = true },
-                    shape = segmentedShape(1, 3),
-                )
-                LunoGroupItem(shape = segmentedShape(2, 3)) {
-                    Text(
-                        text = stringResource(R.string.trend_edit_reminder_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
-                    )
-                }
-            }
-        }
-
-        }
     }
-}
-}
 }
 
 @Composable

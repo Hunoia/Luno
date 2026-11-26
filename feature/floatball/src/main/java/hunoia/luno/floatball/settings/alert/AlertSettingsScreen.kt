@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -54,7 +55,7 @@ fun AlertSettingsScreen(
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_alert_settings_title),
+    LunoPage(title = stringResource(R.string.float_ball_alert_settings_title),
 onBack = onBack,
 floatingContent = {
             LunoFab(

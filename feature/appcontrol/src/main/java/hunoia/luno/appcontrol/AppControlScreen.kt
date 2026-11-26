@@ -73,6 +73,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -141,7 +142,7 @@ fun AppControlScreen(
     // 保留分节结构供按节发 item（见列表 content）；平铺视图供空态 / 使能态判断。
     val visible = sections.flatMap { it.items }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.app_control_title),
+    LunoPage(title = stringResource(R.string.app_control_title),
 onBack = onBack,
 actions = {
             // 常态：显示系统应用（图标开关态）+ 选择入口；选择态：顶栏放退出。

@@ -28,6 +28,7 @@ import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.system.PersistentNotificationHidingUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -93,136 +94,126 @@ fun PersistentNotificationSettingsScreen(onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.persistent_notification_settings_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        // 权限提示：只在功能开启且对应依赖缺失时出现（与悬浮球设置页同模式）。
-        if (state.settings.enabled && (!state.notificationAccessGranted || !state.shizukuReady)) {
-            val needNotifAccess = !state.notificationAccessGranted
-            val needShizuku = !state.shizukuReady
-            val rowCount = (if (needNotifAccess) 1 else 0) + (if (needShizuku) 1 else 0)
-            LunoGroup {
-                if (needNotifAccess) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.persistent_notification_access_off),
-                        subtitle = stringResource(R.string.persistent_notification_access_hint_off),
-                        icon = Icons.AutoMirrored.Filled.OpenInNew,
-                        shape = segmentedShape(0, rowCount),
-                        onClick = {
-                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                        },
-                    )
-                }
-                if (needShizuku) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.persistent_notification_shizuku_off),
-                        subtitle = stringResource(R.string.persistent_notification_shizuku_hint_off),
-                        icon = Icons.AutoMirrored.Filled.OpenInNew,
-                        shape = segmentedShape(if (needNotifAccess) 1 else 0, rowCount),
-                        onClick = {
-                            scope.launch {
-                                runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
-                            }
-                        },
-                    )
-                }
-            }
-        }
-
-        group(title = stringResource(R.string.persistent_notification_master_group)) {
-switchRow(
-title = stringResource(R.string.persistent_notification_master),
-subtitle = stringResource(R.string.persistent_notification_master_hint),
-checked = state.settings.enabled,
-onCheckedChange = { enabled ->
-                    update({ current ->
-                        current.copy(settings = current.settings.copy(enabled = enabled))
-                    }) {
-                        PersistentNotificationHidingUseCase.setEnabled(context, enabled)
-                    }
-                },
-
-)        }
-
-        group(title = stringResource(R.string.persistent_notification_luno_group)) {
-switchRow(
-title = stringResource(R.string.persistent_notification_luno_hide),
-subtitle = stringResource(R.string.persistent_notification_luno_hide_hint),
-checked = state.settings.hideLunoNotifications,
-enabled = state.settings.enabled,
-onCheckedChange = { hidden ->
-                    update({ current ->
-                        current.copy(
-                            settings = current.settings.copy(hideLunoNotifications = hidden),
+    LunoPage(
+        title = stringResource(R.string.persistent_notification_settings_title),
+        onBack = onBack,
+    ) {
+        column {
+            if (state.settings.enabled && (!state.notificationAccessGranted || !state.shizukuReady)) {
+                val needNotifAccess = !state.notificationAccessGranted
+                val needShizuku = !state.shizukuReady
+                val rowCount = (if (needNotifAccess) 1 else 0) + (if (needShizuku) 1 else 0)
+                LunoGroup {
+                    if (needNotifAccess) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.persistent_notification_access_off),
+                            subtitle = stringResource(R.string.persistent_notification_access_hint_off),
+                            icon = Icons.AutoMirrored.Filled.OpenInNew,
+                            shape = segmentedShape(0, rowCount),
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            },
                         )
-                    }) {
-                        PersistentNotificationHidingUseCase.setLunoHidden(context, hidden)
                     }
-                },
-
-)        }
-
-        if (loaded) {
-            if (state.notifications.isEmpty()) {
-                EmptyState(message = stringResource(R.string.persistent_notification_empty))
-            } else {
-                LunoGroup(title = stringResource(R.string.persistent_notification_others_group)) {
-                    val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
-                    state.notifications.forEachIndexed { index, notification ->
-                        val icon = rememberPackageIconBitmap(notification.packageName, iconPx)
-                        val label = remember(notification.packageName) {
-                            appLabel(context, notification.packageName)
-                        }
-                        val channelId = notification.channelId
-                        val subtitle = if (channelId.isNullOrBlank()) {
-                            stringResource(R.string.persistent_notification_target_subtitle, label)
-                        } else {
-                            stringResource(
-                                R.string.persistent_notification_target_subtitle_channel,
-                                label,
-                                channelId,
-                            )
-                        }
-                        LunoSwitchRow(
-                            title = notification.title.ifBlank { label },
-                            subtitle = subtitle,
-                            iconBitmap = icon,
-                            checked = state.settings.isTargetHidden(
-                                packageName = notification.packageName,
-                                notificationId = notification.notificationId,
-                                tag = notification.tag,
-                            ),
-                            enabled = state.settings.enabled,
-                            onCheckedChange = { hidden ->
-                                val target = notification.toTarget()
-                                update({ current ->
-                                    current.copy(
-                                        settings = current.settings.withTargetHidden(target, hidden),
-                                    )
-                                }) {
-                                    PersistentNotificationHidingUseCase.setTargetHidden(
-                                        context = context,
-                                        notification = notification,
-                                        hidden = hidden,
-                                    )
+                    if (needShizuku) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.persistent_notification_shizuku_off),
+                            subtitle = stringResource(R.string.persistent_notification_shizuku_hint_off),
+                            icon = Icons.AutoMirrored.Filled.OpenInNew,
+                            shape = segmentedShape(if (needNotifAccess) 1 else 0, rowCount),
+                            onClick = {
+                                scope.launch {
+                                    runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
                                 }
                             },
-                            shape = segmentedShape(index, state.notifications.size),
                         )
                     }
                 }
             }
-        }
-
+            group(title = stringResource(R.string.persistent_notification_master_group)) {
+                switchRow(
+                    title = stringResource(R.string.persistent_notification_master),
+                    subtitle = stringResource(R.string.persistent_notification_master_hint),
+                    checked = state.settings.enabled,
+                    onCheckedChange = { enabled ->
+                        update({ current ->
+                                current.copy(settings = current.settings.copy(enabled = enabled))
+                        }) {
+                            PersistentNotificationHidingUseCase.setEnabled(context, enabled)
+                        }
+                    },
+                )
+            }
+            group(title = stringResource(R.string.persistent_notification_luno_group)) {
+                switchRow(
+                    title = stringResource(R.string.persistent_notification_luno_hide),
+                    subtitle = stringResource(R.string.persistent_notification_luno_hide_hint),
+                    checked = state.settings.hideLunoNotifications,
+                    enabled = state.settings.enabled,
+                    onCheckedChange = { hidden ->
+                        update({ current ->
+                                current.copy(
+                                    settings = current.settings.copy(hideLunoNotifications = hidden),
+                                )
+                        }) {
+                            PersistentNotificationHidingUseCase.setLunoHidden(context, hidden)
+                        }
+                    },
+                )
+            }
+            if (loaded) {
+                if (state.notifications.isEmpty()) {
+                    EmptyState(message = stringResource(R.string.persistent_notification_empty))
+                } else {
+                    LunoGroup(title = stringResource(R.string.persistent_notification_others_group)) {
+                        val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
+                        state.notifications.forEachIndexed { index, notification ->
+                            val icon = rememberPackageIconBitmap(notification.packageName, iconPx)
+                            val label = remember(notification.packageName) {
+                                appLabel(context, notification.packageName)
+                            }
+                            val channelId = notification.channelId
+                            val subtitle = if (channelId.isNullOrBlank()) {
+                                stringResource(R.string.persistent_notification_target_subtitle, label)
+                            } else {
+                                stringResource(
+                                    R.string.persistent_notification_target_subtitle_channel,
+                                    label,
+                                    channelId,
+                                )
+                            }
+                            LunoSwitchRow(
+                                title = notification.title.ifBlank { label },
+                                subtitle = subtitle,
+                                iconBitmap = icon,
+                                checked = state.settings.isTargetHidden(
+                                    packageName = notification.packageName,
+                                    notificationId = notification.notificationId,
+                                    tag = notification.tag,
+                                ),
+                                enabled = state.settings.enabled,
+                                onCheckedChange = { hidden ->
+                                    val target = notification.toTarget()
+                                    update({ current ->
+                                            current.copy(
+                                                settings = current.settings.withTargetHidden(target, hidden),
+                                            )
+                                    }) {
+                                        PersistentNotificationHidingUseCase.setTargetHidden(
+                                            context = context,
+                                            notification = notification,
+                                            hidden = hidden,
+                                        )
+                                    }
+                                },
+                                shape = segmentedShape(index, state.notifications.size),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
-}
-}
 }
 
 private fun appLabel(context: Context, packageName: String): String = runCatching {

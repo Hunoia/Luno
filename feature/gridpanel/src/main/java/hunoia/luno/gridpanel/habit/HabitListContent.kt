@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -36,7 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.view.View
@@ -48,18 +45,17 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.HabitDayCheckIconSize
 import hunoia.luno.ui.theme.HabitDayDotStroke
 import hunoia.luno.ui.theme.HabitTodayDotGap
 import hunoia.luno.ui.theme.HabitTodayDotMarkSize
 import hunoia.luno.ui.theme.HabitTodayDotSize
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
@@ -94,7 +90,7 @@ fun HabitListContent(
     // 分组是纯函数（[groupHabitsToday]）：只在配置 / 日期变化时重算，重组不重建临时列表。
     val groups = remember(config, today) { groupHabitsToday(config, today) }
 
-    hunoia.luno.ui.component.page.LunoPageList(
+    LunoPageList(
         modifier = modifier.fillMaxSize(),
         state = state,
     ) {

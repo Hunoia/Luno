@@ -53,7 +53,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.system.gotoAppDetailSettings
@@ -77,6 +76,7 @@ import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
@@ -197,7 +197,7 @@ fun RecentAppsBlocklistScreen(
         onSave(ordered)
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = title,
+    LunoPage(title = title,
 onBack = onBack,
 actions = {
             if (permissionState.isGranted) {

@@ -7,14 +7,13 @@ direct-material-card|app/src/main/java/hunoia/luno/ui/home/components/HomeRuntim
 direct-lazy-column|app/src/main/java/hunoia/luno/ui/ocr/OcrResultActivity.kt|1
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/accessibility/AccessibilityManagerScreen.kt|3
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/AdjustChrome.kt|3
-manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/AppearanceSettingsScreen.kt|12
+manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/AppearanceSettingsScreen.kt|7
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/BoundsAdjustCanvas.kt|11
 raw-font-size|app/src/main/java/hunoia/luno/ui/settings/action/BoundsAdjustCanvas.kt|1
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/FontScaleControls.kt|1
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/LogSettingsScreen.kt|2
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/MiniWindowSettingsScreen.kt|2
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/PointerAdjustScreen.kt|6
-manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/PointerSettingsScreen.kt|2
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/RecentAppsBlocklistScreen.kt|2
 direct-lazy-column|app/src/main/java/hunoia/luno/ui/settings/action/RecentAppsBlocklistScreen.kt|1
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/ScreenPickSettingsScreen.kt|1
@@ -50,5 +49,5 @@ raw-dp|feature/gesture/src/main/java/hunoia/luno/gesture/settings/subgesture/Sub
 manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityEditScreen.kt|5
 direct-lazy-column|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityEditScreen.kt|4
 manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityScreen.kt|1
-manual-segmented-shape|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/settings/EngineEditFields.kt|5
+manual-segmented-shape|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/settings/EngineEditFields.kt|4
 manual-segmented-shape|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/settings/SearchSourceSettingsScreen.kt|1

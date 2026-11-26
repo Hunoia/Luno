@@ -1,10 +1,7 @@
 package hunoia.luno.ui.settings.action
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
@@ -39,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -51,14 +47,8 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.page.LunoPageList
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 
 /** 设置 tab：功能 / 动作 / 系统 / 外观。 */
@@ -154,175 +144,171 @@ fun ActionSettingsTab(
                 key = "features",
                 title = stringResource(R.string.action_settings_feature_group),
             ) {
-row(
-                        icon = Icons.Default.Palette,
-                        title = stringResource(R.string.action_settings_appearance_group),
-                        subtitle = stringResource(R.string.appearance_settings_entry_hint),
-                        onClick = onNavToAppearanceSettings,
-                    )
-                    row(
-                        icon = Icons.Default.Adjust,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball),
-                        onClick = onNavToFloatBallSettings,
-                    )
-                    row(
-                        icon = Icons.Default.Notifications,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_notification_group),
-                        onClick = onNavToNotificationCapsuleSettings,
-                    )
-                    row(
-                        icon = Icons.Default.PlayArrow,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_title),
-                        subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_entry_hint),
-                        onClick = onNavToAlertPresetLibrary,
-                    )
-                    row(
-                        icon = Icons.Default.Palette,
-                        title = stringResource(hunoia.luno.floatball.R.string.float_ball_capsule_alert_palette_manage),
-                        subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_palette_entry_hint),
-                        onClick = onNavToAlertPaletteManager,
-                    )
-                    row(
-                        icon = Icons.Default.RadioButtonChecked,
-                        title = stringResource(R.string.action_panel_list_group),
-                        subtitle = stringResource(
-                            R.string.action_panel_count,
-                            actionSettings.actionPanels.panels.size +
-                                actionSettings.actionGridPanels.panels.size +
-                                hunoia.luno.gridpanel.SinglePanelCatalog.widgets().size,
-                        ),
-                        onClick = onNavToActionPanels,
-                    )
-                    row(
-                        icon = Icons.Default.Search,
-                        title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
-                        onClick = onNavToSearchEngines,
-                    )
-                    row(
-                        icon = Icons.Default.Link,
-                        title = stringResource(hunoia.luno.link.R.string.recognition_title),
-                        onClick = onNavToRecognition,
-                    )
-
+                row(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(R.string.action_settings_appearance_group),
+                    subtitle = stringResource(R.string.appearance_settings_entry_hint),
+                    onClick = onNavToAppearanceSettings,
+                )
+                row(
+                    icon = Icons.Default.Adjust,
+                    title = stringResource(hunoia.luno.floatball.R.string.float_ball),
+                    onClick = onNavToFloatBallSettings,
+                )
+                row(
+                    icon = Icons.Default.Notifications,
+                    title = stringResource(hunoia.luno.floatball.R.string.float_ball_notification_group),
+                    onClick = onNavToNotificationCapsuleSettings,
+                )
+                row(
+                    icon = Icons.Default.PlayArrow,
+                    title = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_title),
+                    subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_library_entry_hint),
+                    onClick = onNavToAlertPresetLibrary,
+                )
+                row(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(hunoia.luno.floatball.R.string.float_ball_capsule_alert_palette_manage),
+                    subtitle = stringResource(hunoia.luno.floatball.R.string.float_ball_preset_palette_entry_hint),
+                    onClick = onNavToAlertPaletteManager,
+                )
+                row(
+                    icon = Icons.Default.RadioButtonChecked,
+                    title = stringResource(R.string.action_panel_list_group),
+                    subtitle = stringResource(
+                        R.string.action_panel_count,
+                        actionSettings.actionPanels.panels.size +
+                            actionSettings.actionGridPanels.panels.size +
+                            hunoia.luno.gridpanel.SinglePanelCatalog.widgets().size,
+                    ),
+                    onClick = onNavToActionPanels,
+                )
+                row(
+                    icon = Icons.Default.Search,
+                    title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
+                    onClick = onNavToSearchEngines,
+                )
+                row(
+                    icon = Icons.Default.Link,
+                    title = stringResource(hunoia.luno.link.R.string.recognition_title),
+                    onClick = onNavToRecognition,
+                )
             }
             group(
                 key = "effects",
                 title = stringResource(R.string.action_settings_effect_group),
             ) {
-row(
-                        icon = Icons.Default.PlayArrow,
-                        title = stringResource(hunoia.luno.floatball.R.string.action_alert_title),
-                        subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_action_alert_hint),
-                        onClick = onNavToActionAlert,
-                    )
-                    row(
-                        icon = Icons.Default.NotificationsActive,
-                        title = stringResource(hunoia.luno.floatball.R.string.lock_alert_title),
-                        subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_lock_alert_hint),
-                        onClick = onNavToLockAlert,
-                    )
-                    row(
-                        icon = Icons.Default.TouchApp,
-                        title = stringResource(hunoia.luno.floatball.R.string.button_alert_title),
-                        subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_button_alert_hint),
-                        onClick = onNavToButtonAlert,
-                    )
-
+                row(
+                    icon = Icons.Default.PlayArrow,
+                    title = stringResource(hunoia.luno.floatball.R.string.action_alert_title),
+                    subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_action_alert_hint),
+                    onClick = onNavToActionAlert,
+                )
+                row(
+                    icon = Icons.Default.NotificationsActive,
+                    title = stringResource(hunoia.luno.floatball.R.string.lock_alert_title),
+                    subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_lock_alert_hint),
+                    onClick = onNavToLockAlert,
+                )
+                row(
+                    icon = Icons.Default.TouchApp,
+                    title = stringResource(hunoia.luno.floatball.R.string.button_alert_title),
+                    subtitle = stringResource(hunoia.luno.floatball.R.string.action_settings_button_alert_hint),
+                    onClick = onNavToButtonAlert,
+                )
             }
             group(
                 key = "actions",
                 title = stringResource(R.string.action_settings_action_group),
             ) {
-                    val enabledZoneCount = if (initialSettings.gestureEnabled) {
-                        globalGesture.zones.count { zone ->
-                            zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
-                        }
-                    } else {
-                        0
+                val enabledZoneCount = if (initialSettings.gestureEnabled) {
+                    globalGesture.zones.count { zone ->
+                        zone.enabled && zone.triggers.any { it.enabled && it.hasAnyAction }
                     }
-                    row(
-                        icon = Icons.Default.TouchApp,
-                        title = stringResource(R.string.pointer),
-                        subtitle = stringResource(R.string.pointer_hint),
-                        onClick = onNavToPointerSettings,
-                    )
-                    row(
-                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
-                        title = stringResource(R.string.recents_gesture_settings_title),
-                        onClick = onNavToRecentsGestureSettings,
-                    )
-                    row(
-                        icon = Icons.Default.DocumentScanner,
-                        title = stringResource(R.string.screen_pick_settings_title),
-                        subtitle = if (enabledZoneCount > 0) {
-                            stringResource(R.string.screen_pick_settings_zones_count, enabledZoneCount)
-                        } else {
-                            stringResource(R.string.screen_pick_settings_disabled)
-                        },
-                        onClick = onNavToScreenPickSettings,
-                    )
-                    row(
-                        icon = Icons.Default.Crop,
-                        title = stringResource(R.string.action_settings_mini_window_position),
-                        onClick = onNavToMiniWindowSettings,
-                    )
-                    row(
-                        icon = Icons.Default.Visibility,
-                        title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
-                        onClick = onNavToButtonVisibility,
-                    )
-                    row(
-                        icon = Icons.Default.AppShortcut,
-                        title = stringResource(hunoia.luno.actions.R.string.dynamic_shortcuts_title),
-                        onClick = onNavToDynamicShortcuts,
-                    )
-
+                } else {
+                    0
+                }
+                row(
+                    icon = Icons.Default.TouchApp,
+                    title = stringResource(R.string.pointer),
+                    subtitle = stringResource(R.string.pointer_hint),
+                    onClick = onNavToPointerSettings,
+                )
+                row(
+                    icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                    title = stringResource(R.string.recents_gesture_settings_title),
+                    onClick = onNavToRecentsGestureSettings,
+                )
+                row(
+                    icon = Icons.Default.DocumentScanner,
+                    title = stringResource(R.string.screen_pick_settings_title),
+                    subtitle = if (enabledZoneCount > 0) {
+                        stringResource(R.string.screen_pick_settings_zones_count, enabledZoneCount)
+                    } else {
+                        stringResource(R.string.screen_pick_settings_disabled)
+                    },
+                    onClick = onNavToScreenPickSettings,
+                )
+                row(
+                    icon = Icons.Default.Crop,
+                    title = stringResource(R.string.action_settings_mini_window_position),
+                    onClick = onNavToMiniWindowSettings,
+                )
+                row(
+                    icon = Icons.Default.Visibility,
+                    title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
+                    onClick = onNavToButtonVisibility,
+                )
+                row(
+                    icon = Icons.Default.AppShortcut,
+                    title = stringResource(hunoia.luno.actions.R.string.dynamic_shortcuts_title),
+                    onClick = onNavToDynamicShortcuts,
+                )
             }
             group(
                 key = "system",
                 title = stringResource(R.string.action_settings_system_group),
             ) {
-row(
-                        icon = Icons.Default.TextFields,
-                        title = stringResource(R.string.font_scale_entry),
-                        subtitle = if (canWriteSystemSettings) {
-                            stringResource(
-                                R.string.font_scale_entry_summary,
-                                (fontScale * 100f).roundToInt(),
-                            )
-                        } else {
-                            stringResource(R.string.font_scale_need_permission)
-                        },
-                        onClick = ::openFontScale,
-                    )
-                    row(
-                        icon = Icons.Default.NotificationsOff,
-                        title = stringResource(R.string.persistent_notification_settings_entry),
-                        onClick = onNavToPersistentNotificationSettings,
-                    )
-                    row(
-                        icon = Icons.Default.VisibilityOff,
-                        title = stringResource(R.string.status_bar_icons_entry),
-                        onClick = onNavToStatusBarIconSettings,
-                    )
-                    row(
-                        icon = Icons.Default.Accessibility,
-                        title = stringResource(R.string.a11y_settings_entry),
-                        subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        onClick = onNavToAccessibilityManager,
-                    )
-                    row(
-                        icon = Icons.Default.NotificationsActive,
-                        title = stringResource(R.string.notification_display_settings_entry),
-                        subtitle = stringResource(R.string.notification_display_settings_entry_hint),
-                        onClick = onNavToNotificationSettings,
-                    )
-                    row(
-                        icon = Icons.Default.VerifiedUser,
-                        title = stringResource(R.string.perm_page_title),
-                        onClick = onNavToPrivilegedPermissions,
-                    )
-
+                row(
+                    icon = Icons.Default.TextFields,
+                    title = stringResource(R.string.font_scale_entry),
+                    subtitle = if (canWriteSystemSettings) {
+                        stringResource(
+                            R.string.font_scale_entry_summary,
+                            (fontScale * 100f).roundToInt(),
+                        )
+                    } else {
+                        stringResource(R.string.font_scale_need_permission)
+                    },
+                    onClick = ::openFontScale,
+                )
+                row(
+                    icon = Icons.Default.NotificationsOff,
+                    title = stringResource(R.string.persistent_notification_settings_entry),
+                    onClick = onNavToPersistentNotificationSettings,
+                )
+                row(
+                    icon = Icons.Default.VisibilityOff,
+                    title = stringResource(R.string.status_bar_icons_entry),
+                    onClick = onNavToStatusBarIconSettings,
+                )
+                row(
+                    icon = Icons.Default.Accessibility,
+                    title = stringResource(R.string.a11y_settings_entry),
+                    subtitle = stringResource(R.string.a11y_settings_entry_hint),
+                    onClick = onNavToAccessibilityManager,
+                )
+                row(
+                    icon = Icons.Default.NotificationsActive,
+                    title = stringResource(R.string.notification_display_settings_entry),
+                    subtitle = stringResource(R.string.notification_display_settings_entry_hint),
+                    onClick = onNavToNotificationSettings,
+                )
+                row(
+                    icon = Icons.Default.VerifiedUser,
+                    title = stringResource(R.string.perm_page_title),
+                    onClick = onNavToPrivilegedPermissions,
+                )
             }
         }
 

@@ -58,6 +58,7 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -183,7 +184,7 @@ fun RecognitionSettingsScreen(
     LaunchedEffect(settings.rules) { reorder.syncWithCurrent() }
     val rules = reorder.items
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.recognition_title),
+    LunoPage(title = stringResource(R.string.recognition_title),
 onBack = onBack,
 floatingContent = {
             LunoFab(
@@ -284,9 +285,10 @@ bottomContentPadding = FloatingContentBottom) {
         // 默认浏览器：只在 Luno 不是默认浏览器时才显示入口（已是默认就没必要再引导）。
         if (!isLunoDefaultBrowser(context)) {
             item {
-                group(title = stringResource(R.string.recognition_browser_group)) {row(
-title = stringResource(R.string.recognition_default_browser),
-onClick = {
+                group(title = stringResource(R.string.recognition_browser_group)) {
+                    row(
+                        title = stringResource(R.string.recognition_default_browser),
+                        onClick = {
                             val launched = runCatching {
                                 context.startActivity(
                                     Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
@@ -302,8 +304,7 @@ onClick = {
                                 }
                             }
                         },
-
-)
+                    )
                 }
             }
         }
@@ -317,20 +318,21 @@ onClick = {
             ) + browsers.map { it.label }
             val browserIndex = browsers
                 .indexOfFirst { it.packageName == settings.browserPackage } + 1
-            group(title = stringResource(R.string.recognition_global_group)) {dropdownRow(
-title = stringResource(R.string.recognition_fallback),
-subtitle = stringResource(R.string.recognition_fallback_hint),
-options = listOf(
+            group(title = stringResource(R.string.recognition_global_group)) {
+                dropdownRow(
+                    title = stringResource(R.string.recognition_fallback),
+                    subtitle = stringResource(R.string.recognition_fallback_hint),
+                    options = listOf(
                         stringResource(R.string.recognition_miss_share),
                         stringResource(R.string.recognition_miss_browser),
                         stringResource(R.string.recognition_miss_picker),
                     ),
-selectedIndex = when (settings.fallback) {
+                    selectedIndex = when (settings.fallback) {
                         LinkMissMode.SHARE -> 0
                         LinkMissMode.BROWSER -> 1
                         LinkMissMode.PICKER -> 2
                     },
-onSelect = { index ->
+                    onSelect = { index ->
                         update {
                             it.copy(
                                 fallback = when (index) {
@@ -341,56 +343,53 @@ onSelect = { index ->
                             )
                         }
                     },
-
-)
-dropdownRow(
-title = stringResource(R.string.recognition_browser_choice),
-subtitle = stringResource(R.string.recognition_browser_choice_hint),
-options = browserOptions,
-selectedIndex = browserIndex.coerceAtLeast(0),
-onSelect = { index ->
+                )
+                dropdownRow(
+                    title = stringResource(R.string.recognition_browser_choice),
+                    subtitle = stringResource(R.string.recognition_browser_choice_hint),
+                    options = browserOptions,
+                    selectedIndex = browserIndex.coerceAtLeast(0),
+                    onSelect = { index ->
                         update {
                             it.copy(
                                 browserPackage =
-                                if (index == 0) "" else browsers[index - 1].packageName,
+                                    if (index == 0) "" else browsers[index - 1].packageName,
                             )
                         }
                     },
-
-)
-dropdownRow(
-title = stringResource(R.string.recognition_copy_clear_delay),
-subtitle = stringResource(R.string.recognition_copy_clear_delay_hint),
-options = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS.map { seconds ->
+                )
+                dropdownRow(
+                    title = stringResource(R.string.recognition_copy_clear_delay),
+                    subtitle = stringResource(R.string.recognition_copy_clear_delay_hint),
+                    options = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS.map { seconds ->
                         if (seconds == 0) {
                             stringResource(R.string.recognition_copy_clear_off)
                         } else {
                             stringResource(R.string.recognition_copy_clear_seconds, seconds)
                         }
                     },
-selectedIndex = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS
+                    selectedIndex = RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS
                         .indexOf(settings.copyClearDelaySeconds).coerceAtLeast(0),
-onSelect = { index ->
+                    onSelect = { index ->
                         update {
                             it.copy(
                                 copyClearDelaySeconds =
-                                RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS[index],
+                                    RecognitionDefaults.COPY_CLEAR_DELAY_OPTIONS[index],
                             )
                         }
                     },
-
-)
+                )
             }
         }
         // 结果胶囊是分发规则的“显示面”：入口放这里，不再在动作设置里重复一份。
         item(key = "capsule") {
-            group(title = stringResource(R.string.recognition_capsule_group)) {row(
-icon = Icons.Default.Lightbulb,
-title = stringResource(R.string.recognition_capsule_entry),
-subtitle = stringResource(R.string.recognition_capsule_entry_hint),
-onClick = onNavToResultCapsuleSettings,
-
-)
+            group(title = stringResource(R.string.recognition_capsule_group)) {
+                row(
+                    icon = Icons.Default.Lightbulb,
+                    title = stringResource(R.string.recognition_capsule_entry),
+                    subtitle = stringResource(R.string.recognition_capsule_entry_hint),
+                    onClick = onNavToResultCapsuleSettings,
+                )
             }
         }
         // 读取来源：这是「规则读不读这一路输入」的开关，与结果胶囊显示无关
@@ -404,57 +403,52 @@ onClick = onNavToResultCapsuleSettings,
             ) {
                 // 读取来源与「命中后隐藏系统通知」两组开关在同一组里。
                 switchRow(
-title = stringResource(R.string.recognition_read_notification),
-subtitle = stringResource(R.string.recognition_read_notification_hint),
-checked = settings.notificationReadEnabled,
-onCheckedChange = { checked ->
+                    title = stringResource(R.string.recognition_read_notification),
+                    subtitle = stringResource(R.string.recognition_read_notification_hint),
+                    checked = settings.notificationReadEnabled,
+                    onCheckedChange = { checked ->
                         update { it.copy(notificationReadEnabled = checked) }
                     },
-
-)
-switchRow(
-title = stringResource(R.string.recognition_hide_matched_notification),
-subtitle = stringResource(R.string.recognition_hide_matched_notification_hint),
-checked = settings.hideMatchedNotification,
-onCheckedChange = { checked ->
+                )
+                switchRow(
+                    title = stringResource(R.string.recognition_hide_matched_notification),
+                    subtitle = stringResource(R.string.recognition_hide_matched_notification_hint),
+                    checked = settings.hideMatchedNotification,
+                    onCheckedChange = { checked ->
                         update { it.copy(hideMatchedNotification = checked) }
                     },
-
-)
-switchRow(
-title = stringResource(R.string.recognition_read_clipboard),
-subtitle = stringResource(R.string.recognition_read_clipboard_hint),
-checked = settings.clipboardReadEnabled,
-onCheckedChange = { checked ->
+                )
+                switchRow(
+                    title = stringResource(R.string.recognition_read_clipboard),
+                    subtitle = stringResource(R.string.recognition_read_clipboard_hint),
+                    checked = settings.clipboardReadEnabled,
+                    onCheckedChange = { checked ->
                         update { it.copy(clipboardReadEnabled = checked) }
                     },
-
-)
-switchRow(
-title = stringResource(R.string.recognition_direct_toast),
-subtitle = stringResource(R.string.recognition_direct_toast_hint),
-checked = settings.directToastEnabled,
-onCheckedChange = { checked ->
+                )
+                switchRow(
+                    title = stringResource(R.string.recognition_direct_toast),
+                    subtitle = stringResource(R.string.recognition_direct_toast_hint),
+                    checked = settings.directToastEnabled,
+                    onCheckedChange = { checked ->
                         update { it.copy(directToastEnabled = checked) }
                     },
-
-)
-dropdownRow(
-title = stringResource(R.string.recognition_direct_prompt_mode),
-subtitle = stringResource(R.string.recognition_direct_prompt_mode_hint),
-options = listOf(
+                )
+                dropdownRow(
+                    title = stringResource(R.string.recognition_direct_prompt_mode),
+                    subtitle = stringResource(R.string.recognition_direct_prompt_mode_hint),
+                    options = listOf(
                         stringResource(R.string.recognition_direct_prompt_toast),
                         stringResource(R.string.recognition_direct_prompt_standard),
                         stringResource(R.string.recognition_direct_prompt_live),
                         stringResource(R.string.recognition_direct_prompt_island),
                         stringResource(R.string.recognition_direct_prompt_capsule),
                     ),
-selectedIndex = settings.directPromptMode.ordinal,
-onSelect = { index ->
+                    selectedIndex = settings.directPromptMode.ordinal,
+                    onSelect = { index ->
                         update { it.copy(directPromptMode = ToastPresentation.entries[index]) }
                     },
-
-)
+                )
             }
         }
         // 情景识别：识别器的第五个输入源，开关与范围都在这里（不再挂在结果胶囊下）。

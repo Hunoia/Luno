@@ -46,9 +46,9 @@ import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.config.model.normalizeReminderTimes
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.R
-import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.input.LunoTimePicker
 import hunoia.luno.ui.component.input.rememberLunoTimePickerState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -199,15 +199,16 @@ fun HabitEditScreen(
 
     val scheme = MaterialTheme.colorScheme
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+    LunoPage(
+        title = stringResource(
             if (isNew && state.createdId == null) {
                 R.string.habit_create_title
             } else {
                 R.string.habit_edit_title
             },
         ),
-onBack = ::handleBack,
-actions = {
+        onBack = ::handleBack,
+        actions = {
             if (habit != null) {
                 PressIconButton(
                     onClick = {
@@ -222,7 +223,7 @@ actions = {
                 }
             }
         },
-dialogs = {
+        dialogs = {
             // 删除确认；与其他弹层（时间选择等）互斥由各自开关保证（ui-guidelines §3.2-5 / §4.4）。
             if (state.showDeleteDialog) {
                 if (habit != null) {
@@ -281,7 +282,7 @@ dialogs = {
                 )
             }
         },
-sheets = {
+        sheets = {
             if (state.showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { state.showColorPicker = false },
@@ -299,146 +300,145 @@ sheets = {
                     },
                 )
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = ContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        LunoGroup(title = stringResource(R.string.habit_name)) {
-            LunoCardInput(
-                value = shownName,
-                onValueChange = { value ->
-                    state.name = value
-                    val needsCreate = state.createdId == null && isNew && value.trim().isNotEmpty()
-                    if (needsCreate) {
-                        // 新建习惯名字首次非空即创建，先落一个稳定 id。
-                        state.createdId = UUID.randomUUID().toString()
-                        state.createdPersisted = false
-                        flushNow()
-                    } else {
-                        scheduleFlush()
-                    }
-                },
-                placeholder = stringResource(R.string.habit_name_hint),
-                shape = segmentedShape(0, 1),
-            )
-        }
-        LunoGroup {
-            LunoSettingsRow(
-                title = stringResource(R.string.habit_color),
-                shape = segmentedShape(0, 1),
-                leading = {
-                    Box(
-                        Modifier
-                            .size(MarkColorSize)
-                            .clip(CircleShape)
-                            .background(shownColorSpec.toColor()),
+        },
+    ) {
+        column(bottomContentPadding = ContentBottom) {
+            block {
+                LunoGroup(title = stringResource(R.string.habit_name)) {
+                    LunoCardInput(
+                        value = shownName,
+                        onValueChange = { value ->
+                            state.name = value
+                            val needsCreate = state.createdId == null && isNew && value.trim().isNotEmpty()
+                            if (needsCreate) {
+                                // 新建习惯名字首次非空即创建，先落一个稳定 id。
+                                state.createdId = UUID.randomUUID().toString()
+                                state.createdPersisted = false
+                                flushNow()
+                            } else {
+                                scheduleFlush()
+                            }
+                        },
+                        placeholder = stringResource(R.string.habit_name_hint),
+                        shape = segmentedShape(0, 1),
                     )
-                },
-                onClick = {
-                    state.showDeleteDialog = false
-                    state.showColorPicker = true
-                },
-            )
-        }
-        group(title = stringResource(R.string.habit_interval)) {
-sliderRow(
-value = shownInterval.toFloat(),
-onValueChange = {
-                    state.interval = it.roundToInt().coerceIn(1, 30)
-                    scheduleFlush()
-                },
-text = stringResource(R.string.habit_interval_summary, shownInterval),
-valueRange = 1f..30f,
-steps = 28,
-
-)        }
-        group(title = stringResource(R.string.habit_daily_target)) {
-sliderRow(
-value = shownTarget.toFloat(),
-onValueChange = {
-                    state.dailyTarget = it.roundToInt().coerceIn(1, HabitMaxDailyTarget)
-                    scheduleFlush()
-                },
-text = stringResource(R.string.habit_daily_target_summary, shownTarget),
-valueRange = 1f..HabitMaxDailyTarget.toFloat(),
-steps = HabitMaxDailyTarget - 2,
-
-)        }
-        LunoGroup(title = stringResource(R.string.habit_reminder)) {
-            val reminderRowCount = if (shownReminderEnabled) shownReminders.size + 3 else 1
-            LunoSwitchRow(
-                title = stringResource(R.string.habit_reminder_enable),
-                checked = shownReminderEnabled,
-                onCheckedChange = { enabled ->
-                    state.reminderEnabled = enabled
-                    if (enabled && shownReminders.isEmpty()) {
-                        state.reminders = listOf(HabitReminderTime())
-                    }
-                    scheduleFlush()
-                },
-                shape = segmentedShape(0, reminderRowCount),
-            )
-            if (shownReminderEnabled) {
-                shownReminders.forEachIndexed { index, reminder ->
+                }
+            }
+            block {
+                LunoGroup {
                     LunoSettingsRow(
-                        title = stringResource(R.string.habit_reminder_time),
-                        subtitle = stringResource(
-                            R.string.habit_reminder_time_value,
-                            reminder.hour,
-                            reminder.minute,
-                        ),
-                        shape = segmentedShape(index + 1, reminderRowCount),
+                        title = stringResource(R.string.habit_color),
+                        shape = segmentedShape(0, 1),
+                        leading = {
+                            Box(
+                                Modifier
+                                    .size(MarkColorSize)
+                                    .clip(CircleShape)
+                                    .background(shownColorSpec.toColor()),
+                            )
+                        },
                         onClick = {
                             state.showDeleteDialog = false
-                            state.showSnoozeDialog = false
-                            state.editingReminderIndex = index
-                            state.showTimePicker = true
-                        },
-                        trailing = {
-                            PressIconButton(
-                                onClick = {
-                                    state.reminders = normalizeReminderTimes(
-                                        shownReminders.filterIndexed { i, _ -> i != index },
-                                    )
-                                    flushNow()
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.habit_reminder_delete),
-                                )
-                            }
+                            state.showColorPicker = true
                         },
                     )
                 }
-                val atMax = shownReminders.size >= HabitMaxReminders
-                LunoSettingsRow(
-                    title = stringResource(R.string.habit_reminder_add),
-                    subtitle = if (atMax) stringResource(R.string.habit_reminder_max) else "",
-                    icon = Icons.Default.Add,
-                    enabled = !atMax,
-                    shape = segmentedShape(shownReminders.size + 1, reminderRowCount),
-                    onClick = {
-                        state.editingReminderIndex = null
-                        state.showTimePicker = true
+            }
+            group(title = stringResource(R.string.habit_interval)) {
+                sliderRow(
+                    value = shownInterval.toFloat(),
+                    onValueChange = {
+                        state.interval = it.roundToInt().coerceIn(1, 30)
+                        scheduleFlush()
                     },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.habit_snooze),
-                    subtitle = snoozeDurationLabel(shownSnoozeMinutes),
-                    shape = segmentedShape(shownReminders.size + 2, reminderRowCount),
-                    onClick = { state.showSnoozeDialog = true },
+                    text = stringResource(R.string.habit_interval_summary, shownInterval),
+                    valueRange = 1f..30f,
+                    steps = 28,
                 )
             }
-        }
-
+            group(title = stringResource(R.string.habit_daily_target)) {
+                sliderRow(
+                    value = shownTarget.toFloat(),
+                    onValueChange = {
+                        state.dailyTarget = it.roundToInt().coerceIn(1, HabitMaxDailyTarget)
+                        scheduleFlush()
+                    },
+                    text = stringResource(R.string.habit_daily_target_summary, shownTarget),
+                    valueRange = 1f..HabitMaxDailyTarget.toFloat(),
+                    steps = HabitMaxDailyTarget - 2,
+                )
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.habit_reminder)) {
+                    val reminderRowCount = if (shownReminderEnabled) shownReminders.size + 3 else 1
+                    LunoSwitchRow(
+                        title = stringResource(R.string.habit_reminder_enable),
+                        checked = shownReminderEnabled,
+                        onCheckedChange = { enabled ->
+                            state.reminderEnabled = enabled
+                            if (enabled && shownReminders.isEmpty()) {
+                                state.reminders = listOf(HabitReminderTime())
+                            }
+                            scheduleFlush()
+                        },
+                        shape = segmentedShape(0, reminderRowCount),
+                    )
+                    if (shownReminderEnabled) {
+                        shownReminders.forEachIndexed { index, reminder ->
+                            LunoSettingsRow(
+                                title = stringResource(R.string.habit_reminder_time),
+                                subtitle = stringResource(
+                                    R.string.habit_reminder_time_value,
+                                    reminder.hour,
+                                    reminder.minute,
+                                ),
+                                shape = segmentedShape(index + 1, reminderRowCount),
+                                onClick = {
+                                    state.showDeleteDialog = false
+                                    state.showSnoozeDialog = false
+                                    state.editingReminderIndex = index
+                                    state.showTimePicker = true
+                                },
+                                trailing = {
+                                    PressIconButton(
+                                        onClick = {
+                                            state.reminders = normalizeReminderTimes(
+                                                shownReminders.filterIndexed { i, _ -> i != index },
+                                            )
+                                            flushNow()
+                                        },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource(R.string.habit_reminder_delete),
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                        val atMax = shownReminders.size >= HabitMaxReminders
+                        LunoSettingsRow(
+                            title = stringResource(R.string.habit_reminder_add),
+                            subtitle = if (atMax) stringResource(R.string.habit_reminder_max) else "",
+                            icon = Icons.Default.Add,
+                            enabled = !atMax,
+                            shape = segmentedShape(shownReminders.size + 1, reminderRowCount),
+                            onClick = {
+                                state.editingReminderIndex = null
+                                state.showTimePicker = true
+                            },
+                        )
+                        LunoSettingsRow(
+                            title = stringResource(R.string.habit_snooze),
+                            subtitle = snoozeDurationLabel(shownSnoozeMinutes),
+                            shape = segmentedShape(shownReminders.size + 2, reminderRowCount),
+                            onClick = { state.showSnoozeDialog = true },
+                        )
+                    }
+                }
+            }
         }
     }
-}
-}
 }
 
 /**

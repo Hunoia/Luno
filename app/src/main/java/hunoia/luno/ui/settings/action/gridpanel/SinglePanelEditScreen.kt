@@ -20,6 +20,7 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.SinglePanelCatalog
 import hunoia.luno.quickaccess.panel.QuickLauncherSettingsContent
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import kotlinx.coroutines.launch
@@ -54,20 +55,16 @@ fun SinglePanelEditScreen(
     val title = SinglePanelCatalog.label(context, widgetId)
     if (current == null) {
         if (loaded) {
-            hunoia.luno.ui.component.page.LunoPage(title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-                EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing))
-
-        }
-    }
-}
-}
+            LunoPage(
+                title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
+                onBack = onBack,
+            ) {
+                column {
+                    block {
+                        EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing))
+                    }
+                }
+            }
         }
         return
     }
@@ -78,7 +75,7 @@ hunoia.luno.ui.component.page.LunoPageColumn() {
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
+    LunoPage(title = title ?: stringResource(hunoia.luno.gridpanel.R.string.single_panel_function_missing),
 onBack = onBack) {
     list(state = rememberLazyListState()) {
         lazy {

@@ -1,5 +1,7 @@
 package hunoia.luno.gesture.settings.button
-import hunoia.luno.ui.theme.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import hunoia.luno.ui.component.page.LunoPage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
@@ -13,10 +15,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
@@ -31,6 +31,7 @@ import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiEvent
 import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiState
 import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
+import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
@@ -60,131 +61,131 @@ fun GestureButtonSettingsScreen(
                 onConfirm = { vm.deleteGestureButton() }
             )
         }
-    hunoia.luno.ui.component.page.LunoPage(title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = hunoia.luno.core.data.R.string.gesture_button) }
-            ?: stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
-onBack = onBack,
-postfixTitle = {
-                            if (uiState.gestureButton != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(start = CardInnerSpacing)
-                                        .size(MarkColorSize)
-                                        .background(
-                                            color = uiState.gestureButton.colorSpec.toMarkColor(),
-                                            shape = CircleShape
+        LunoPage(title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = hunoia.luno.core.data.R.string.gesture_button) }
+                ?: stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
+    onBack = onBack,
+    postfixTitle = {
+                                if (uiState.gestureButton != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(start = CardInnerSpacing)
+                                            .size(MarkColorSize)
+                                            .background(
+                                                color = uiState.gestureButton.colorSpec.toMarkColor(),
+                                                shape = CircleShape
+                                            )
+                                    )
+                                }
+                            },
+    actions = {
+                                if (uiState.gestureButton != null && !uiState.gestureButton.isDefault) {
+                                    LunoIconButton(
+                                        icon = Icons.Default.Delete,
+                                        contentDescription = stringResource(hunoia.luno.design.R.string.delete),
+                                        onClick = { vm.showDeleteWarningDialog(true) },
+                                    )
+                                }
+                            },
+    floatingContent = {
+                GestureButtonBoundsOverlay(uiState)
+            },
+    sheets = {
+            val sheetButton = uiState.gestureButton
+            if (showVibrationSettings && sheetButton != null) {
+                LunoSheet(onDismissRequest = { showVibrationSettings = false }, showDragHandle = true) {
+                    GestureButtonVibrationContent(button = sheetButton, vm = vm)
+                }
+            }
+            if (showGestureAngles && sheetButton != null) {
+                LunoSheet(onDismissRequest = { showGestureAngles = false }, showDragHandle = true) {
+                    GestureButtonAngleContent(
+                        angle = sheetButton.angle,
+                        onDismissRequest = { showGestureAngles = false },
+                        onConfirm = {
+                            vm.updateGestureButtonAngle(it)
+                            showGestureAngles = false
+                        },
+                    )
+                }
+            }
+            if (showTriggerDistanceSettings && sheetButton != null) {
+                LunoSheet(onDismissRequest = { showTriggerDistanceSettings = false }, showDragHandle = true) {
+                    GestureButtonTriggerDistanceContent(button = sheetButton, vm = vm)
+                }
+            }
+            }) {
+        list(state = listState) {
+            lazy {
+
+
+                            val gestureButton = uiState.gestureButton
+                            if (gestureButton != null) {
+                                fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
+                                    vm.setExpandedActionGroup(if (expanded) group else null)
+                                }
+                                item {
+                                    LunoGroup(title = stringResource(R.string.gesture_effect_group)) {
+                                        LunoSettingsRow(
+                                            title = stringResource(R.string.gesture_button_alert_row),
+                                            subtitle = stringResource(R.string.gesture_button_alert_row_hint),
+                                            icon = Icons.Default.PlayArrow,
+                                            shape = LargeShape,
+                                            onClick = { onNavToButtonAlert(gestureButton.id) },
                                         )
-                                )
-                            }
-                        },
-actions = {
-                            if (uiState.gestureButton != null && !uiState.gestureButton.isDefault) {
-                                LunoIconButton(
-                                    icon = Icons.Default.Delete,
-                                    contentDescription = stringResource(hunoia.luno.design.R.string.delete),
-                                    onClick = { vm.showDeleteWarningDialog(true) },
-                                )
-                            }
-                        },
-floatingContent = {
-            GestureButtonBoundsOverlay(uiState)
-        },
-sheets = {
-        val sheetButton = uiState.gestureButton
-        if (showVibrationSettings && sheetButton != null) {
-            LunoSheet(onDismissRequest = { showVibrationSettings = false }, showDragHandle = true) {
-                GestureButtonVibrationContent(button = sheetButton, vm = vm)
-            }
-        }
-        if (showGestureAngles && sheetButton != null) {
-            LunoSheet(onDismissRequest = { showGestureAngles = false }, showDragHandle = true) {
-                GestureButtonAngleContent(
-                    angle = sheetButton.angle,
-                    onDismissRequest = { showGestureAngles = false },
-                    onConfirm = {
-                        vm.updateGestureButtonAngle(it)
-                        showGestureAngles = false
-                    },
-                )
-            }
-        }
-        if (showTriggerDistanceSettings && sheetButton != null) {
-            LunoSheet(onDismissRequest = { showTriggerDistanceSettings = false }, showDragHandle = true) {
-                GestureButtonTriggerDistanceContent(button = sheetButton, vm = vm)
-            }
-        }
-        }) {
-    list(state = listState) {
-        lazy {
-
-
-                        val gestureButton = uiState.gestureButton
-                        if (gestureButton != null) {
-                            fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
-                                vm.setExpandedActionGroup(if (expanded) group else null)
-                            }
-                            item {
-                                LunoGroup(title = stringResource(R.string.gesture_effect_group)) {
-                                    LunoSettingsRow(
-                                        title = stringResource(R.string.gesture_button_alert_row),
-                                        subtitle = stringResource(R.string.gesture_button_alert_row_hint),
-                                        icon = Icons.Default.PlayArrow,
-                                        shape = LargeShape,
-                                        onClick = { onNavToButtonAlert(gestureButton.id) },
+                                    }
+                                }
+                                item {
+                                    LunoGroup(
+                                        title = stringResource(id = R.string.trigger_actions),
+                                    ) {
+                                        GestureButtonTapActionsCard(
+                                            gestureButton = gestureButton,
+                                            onNavToActionSelect = onNavToActionSelect,
+                                            expanded = uiState.expandedActionGroup == GestureActionGroup.Tap,
+                                            onExpandedChange = { setExpandedGroup(GestureActionGroup.Tap, it) },
+                                        )
+                                        GestureButtonSlideActionsCard(
+                                            gestureButton = gestureButton,
+                                            onNavToActionSelect = onNavToActionSelect,
+                                            expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
+                                            onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                                        )
+                                        GestureButtonSlideHoldActionsCard(
+                                            gestureButton = gestureButton,
+                                            onNavToActionSelect = onNavToActionSelect,
+                                            expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
+                                            onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
+                                        )
+                                        GestureButtonLongSlideActionsCard(
+                                            gestureButton = gestureButton,
+                                            onNavToActionSelect = onNavToActionSelect,
+                                            expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
+                                            onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
+                                        )
+                                        GestureButtonLongSlideHoldActionsCard(
+                                            gestureButton = gestureButton,
+                                            onNavToActionSelect = onNavToActionSelect,
+                                            expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
+                                            onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
+                                        )
+                                    }
+                                }
+                                item {
+                                    GestureButtonPhysicalParamsCard(
+                                        gestureButton = gestureButton,
+                                        mirrorHorizontal = uiState.mirrorHorizontal,
+                                        vm = vm,
+                                        onAngleClick = { showGestureAngles = true },
+                                        onVibrationClick = { showVibrationSettings = true },
+                                        onTriggerDistanceClick = { showTriggerDistanceSettings = true },
                                     )
                                 }
                             }
-                            item {
-                                LunoGroup(
-                                    title = stringResource(id = R.string.trigger_actions),
-                                ) {
-                                    GestureButtonTapActionsCard(
-                                        gestureButton = gestureButton,
-                                        onNavToActionSelect = onNavToActionSelect,
-                                        expanded = uiState.expandedActionGroup == GestureActionGroup.Tap,
-                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.Tap, it) },
-                                    )
-                                    GestureButtonSlideActionsCard(
-                                        gestureButton = gestureButton,
-                                        onNavToActionSelect = onNavToActionSelect,
-                                        expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
-                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
-                                    )
-                                    GestureButtonSlideHoldActionsCard(
-                                        gestureButton = gestureButton,
-                                        onNavToActionSelect = onNavToActionSelect,
-                                        expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
-                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
-                                    )
-                                    GestureButtonLongSlideActionsCard(
-                                        gestureButton = gestureButton,
-                                        onNavToActionSelect = onNavToActionSelect,
-                                        expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
-                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
-                                    )
-                                    GestureButtonLongSlideHoldActionsCard(
-                                        gestureButton = gestureButton,
-                                        onNavToActionSelect = onNavToActionSelect,
-                                        expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
-                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
-                                    )
-                                }
-                            }
-                            item {
-                                GestureButtonPhysicalParamsCard(
-                                    gestureButton = gestureButton,
-                                    mirrorHorizontal = uiState.mirrorHorizontal,
-                                    vm = vm,
-                                    onAngleClick = { showGestureAngles = true },
-                                    onVibrationClick = { showVibrationSettings = true },
-                                    onTriggerDistanceClick = { showTriggerDistanceSettings = true },
-                                )
-                            }
-                        }
 
 
+            }
         }
     }
-}
     }
 }
 

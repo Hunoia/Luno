@@ -6,8 +6,12 @@ import android.content.Intent.ShortcutIconResource
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import hunoia.luno.config.model.TrendWidgetParams
 import hunoia.luno.core.LunoLog as Log
+import hunoia.luno.ui.component.page.LunoPage
+import hunoia.luno.ui.theme.*
 import java.io.File
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -28,12 +32,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -66,7 +68,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
-import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.gridpanel.habit.HabitPickerDialog
 import hunoia.luno.gridpanel.trend.TrendPickerDialog
@@ -124,7 +125,7 @@ fun ActionSelectContent(
         val normalizedType = if (selectedType == TYPE_SHORTCUT_LEGACY) TYPE_APP else selectedType
 
         // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
-        hunoia.luno.ui.component.page.LunoPage(title = uiState.title,
+        LunoPage(title = uiState.title,
 onBack = onDismissRequest,
 actions = {
                 // 应用tab：系统应用两类开关（页内内存开关，默认关、不记忆）。

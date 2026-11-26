@@ -25,10 +25,9 @@ import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
@@ -104,7 +103,7 @@ fun ResultCapsuleSettingsScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_result_group),
+    LunoPage(title = stringResource(R.string.float_ball_result_group),
 onBack = onBack,
 sheets = {
             BallCustomIconSheet(
@@ -183,21 +182,21 @@ bottomContentPadding = FloatingContentBottom) {
         }
 
         item(key = "behavior") {
-            group(title = stringResource(R.string.float_ball_result_group)) {switchRow(
-title = stringResource(R.string.float_ball_result_follow_hand),
-subtitle = stringResource(R.string.float_ball_result_follow_hand_subtitle),
-checked = capsule.followHand,
-onCheckedChange = { checked ->
+            group(title = stringResource(R.string.float_ball_result_group)) {
+                switchRow(
+                    title = stringResource(R.string.float_ball_result_follow_hand),
+                    subtitle = stringResource(R.string.float_ball_result_follow_hand_subtitle),
+                    checked = capsule.followHand,
+                    onCheckedChange = { checked ->
                         update {
                             it.copy(resultCapsule = it.resultCapsule.copy(followHand = checked))
                         }
                     },
-
-)
-sliderRow(
-value = localIdleDim,
-onValueChange = { value -> localIdleDim = value },
-onValueChangeFinished = {
+                )
+                sliderRow(
+                    value = localIdleDim,
+                    onValueChange = { value -> localIdleDim = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -206,16 +205,15 @@ onValueChangeFinished = {
                             )
                         }
                     },
-text = stringResource(R.string.float_ball_idle_dim_delay),
-valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
-valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
-                        FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
-
-)
-sliderRow(
-value = localAutoHide,
-onValueChange = { value -> localAutoHide = value },
-onValueChangeFinished = {
+                    text = stringResource(R.string.float_ball_idle_dim_delay),
+                    valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
+                    valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
+                    FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
+                )
+                sliderRow(
+                    value = localAutoHide,
+                    onValueChange = { value -> localAutoHide = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -224,16 +222,15 @@ onValueChangeFinished = {
                             )
                         }
                     },
-text = stringResource(R.string.float_ball_capsule_auto_hide),
-valueDisplay = { "${(it / 1000).toInt()} s" },
-valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
-                        FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-
-)
-sliderRow(
-value = localVisibleRows,
-onValueChange = { value -> localVisibleRows = value },
-onValueChangeFinished = {
+                    text = stringResource(R.string.float_ball_capsule_auto_hide),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
+                    FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
+                )
+                sliderRow(
+                    value = localVisibleRows,
+                    onValueChange = { value -> localVisibleRows = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -242,16 +239,15 @@ onValueChangeFinished = {
                             )
                         }
                     },
-text = stringResource(R.string.float_ball_capsule_visible_rows),
-valueDisplay = { "${it.toInt()}" },
-valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
-                        FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
-
-)
-sliderRow(
-value = localRowHeight,
-onValueChange = { value -> localRowHeight = value },
-onValueChangeFinished = {
+                    text = stringResource(R.string.float_ball_capsule_visible_rows),
+                    valueDisplay = { "${it.toInt()}" },
+                    valueRange = FloatBallDefaults.CapsuleVisibleRowsMin.toFloat()..
+                    FloatBallDefaults.CapsuleVisibleRowsMax.toFloat(),
+                )
+                sliderRow(
+                    value = localRowHeight,
+                    onValueChange = { value -> localRowHeight = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(
                                 resultCapsule = it.resultCapsule.copy(
@@ -260,30 +256,28 @@ onValueChangeFinished = {
                             )
                         }
                     },
-text = stringResource(R.string.float_ball_capsule_row_height),
-valueDisplay = { "${it.toInt()} dp" },
-valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
-                        FloatBallDefaults.CapsuleRowHeightDpMax.toFloat(),
-
-)
-sliderRow(
-value = localTtl,
-onValueChange = { value -> localTtl = value },
-onValueChangeFinished = {
+                    text = stringResource(R.string.float_ball_capsule_row_height),
+                    valueDisplay = { "${it.toInt()} dp" },
+                    valueRange = FloatBallDefaults.CapsuleRowHeightDpMin.toFloat()..
+                    FloatBallDefaults.CapsuleRowHeightDpMax.toFloat(),
+                )
+                sliderRow(
+                    value = localTtl,
+                    onValueChange = { value -> localTtl = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(inbox = it.inbox.copy(resultTtlMs = localTtl.toLong()))
                         }
                     },
-text = stringResource(R.string.float_ball_result_ttl),
-valueDisplay = { "${(it / 1000).toInt()} s" },
-valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
-                        FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
-
-)
-sliderRow(
-value = localCapacity,
-onValueChange = { value -> localCapacity = value },
-onValueChangeFinished = {
+                    text = stringResource(R.string.float_ball_result_ttl),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.InboxResultTtlMsMin.toFloat()..
+                    FloatBallDefaults.InboxResultTtlMsMax.toFloat(),
+                )
+                sliderRow(
+                    value = localCapacity,
+                    onValueChange = { value -> localCapacity = value },
+                    onValueChangeFinished = {
                         update {
                             it.copy(
                                 inbox = it.inbox.copy(
@@ -292,12 +286,11 @@ onValueChangeFinished = {
                             )
                         }
                     },
-text = stringResource(R.string.float_ball_result_capacity),
-valueDisplay = { "${it.toInt()}" },
-valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
-                        FloatBallDefaults.InboxCapacityMax.toFloat(),
-
-)
+                    text = stringResource(R.string.float_ball_result_capacity),
+                    valueDisplay = { "${it.toInt()}" },
+                    valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
+                    FloatBallDefaults.InboxCapacityMax.toFloat(),
+                )
             }
         }
 

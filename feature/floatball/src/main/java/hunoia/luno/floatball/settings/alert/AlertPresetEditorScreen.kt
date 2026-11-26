@@ -36,6 +36,7 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -151,7 +152,7 @@ fun AlertPresetEditorScreen(
         update { it.withReplacedLayer(layer.copy(enabled = enabled)) }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_preset_editor_title),
+    LunoPage(title = stringResource(R.string.float_ball_preset_editor_title),
 onBack = { leave() },
 floatingContent = {
             LunoFab(

@@ -54,6 +54,7 @@ import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -97,7 +98,7 @@ fun TrendDetailScreen(
     val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
     val metric = config.metricById(metricId)
     if (metric == null) {
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.trend_list_title),
+        LunoPage(title = stringResource(R.string.trend_list_title),
 onBack = onBack) {
     list() {
         lazy {
@@ -150,7 +151,7 @@ onBack = onBack) {
         trendDayGroups(entries, TrendRecordPreviewLimit, zone)
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = metric.name,
+    LunoPage(title = metric.name,
 onBack = onBack,
 actions = {
             PressIconButton(onClick = { onEditMetric(metric.id) }) {

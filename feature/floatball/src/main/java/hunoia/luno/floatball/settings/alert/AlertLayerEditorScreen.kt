@@ -57,6 +57,7 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -167,7 +168,7 @@ fun AlertLayerEditorScreen(
 
     val playable = layer.enabled
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_layer_title),
+    LunoPage(title = stringResource(R.string.float_ball_layer_title),
 onBack = { leave() },
 floatingContent = {
             LunoFab(

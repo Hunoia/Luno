@@ -32,6 +32,7 @@ import hunoia.luno.bridge.system.StatusBarIcons
 import hunoia.luno.domain.system.StatusBarIconHidingUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.feedback.NoticeBanner
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -123,110 +124,105 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
     val common = StatusBarIconCatalog.common
     val more = StatusBarIconCatalog.more
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.status_bar_icons_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        when {
-            // 与无障碍管理页共用同一组原因 / 动作文案，页面差异由上下文自己承担。
-            !shizukuStatus.isReady -> NoticeBanner(
-                message = stringResource(R.string.perm_shizuku_not_running),
-                actionLabel = stringResource(R.string.perm_fix_shizuku),
-                onAction = ::fixShizuku,
-            )
-            !state.canWrite -> NoticeBanner(
-                message = stringResource(R.string.perm_write_secure_missing),
-                actionLabel = stringResource(R.string.perm_grant_one),
-                onAction = {
-                    scope.launch {
-                        runCatching { ShizukuManager.ensureWriteSecureSettings() }
-                        tick++
-                    }
-                },
-            )
-        }
-
-        LunoGroup(
-            title = stringResource(R.string.status_bar_icons_common_group),
-            subtitle = stringResource(R.string.status_bar_icons_scope_hint),
-        ) {
-            common.forEachIndexed { index, slot ->
-                LunoSwitchRow(
-                    title = stringResource(slot.labelRes),
-                    subtitle = slot.hintRes?.let { stringResource(it) }.orEmpty(),
-                    checked = slot.key in state.hidden,
-                    enabled = state.canWrite,
-                    onCheckedChange = { hidden -> toggle(slot.key, hidden) },
-                    shape = segmentedShape(index, common.size),
-                )
-            }
-        }
-
-        // 「更多（MIUI）」默认折叠：展开行本身就是组首行，展开后的开关同组往下接。
-        LunoGroup(title = stringResource(R.string.status_bar_icons_more_group)) {
-            val rowCount = if (showMore) more.size + 1 else 1
-            LunoSettingsRow(
-                icon = Icons.Default.Tune,
-                title = stringResource(R.string.status_bar_icons_more_entry),
-                subtitle = stringResource(R.string.status_bar_icons_more_entry_hint),
-                shape = segmentedShape(0, rowCount),
-                onClick = { showMore = !showMore },
-                trailing = {
-                    Icon(
-                        imageVector = if (showMore) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(RowIconSize),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    LunoPage(
+        title = stringResource(R.string.status_bar_icons_title),
+        onBack = onBack,
+    ) {
+        column(bottomContentPadding = FloatingContentBottom) {
+            block {
+                when {
+                    // 与无障碍管理页共用同一组原因 / 动作文案，页面差异由上下文自己承担。
+                    !shizukuStatus.isReady -> NoticeBanner(
+                        message = stringResource(R.string.perm_shizuku_not_running),
+                        actionLabel = stringResource(R.string.perm_fix_shizuku),
+                        onAction = ::fixShizuku,
                     )
-                },
-            )
-            if (showMore) {
-                more.forEachIndexed { index, slot ->
-                    LunoSwitchRow(
-                        title = stringResource(slot.labelRes),
-                        subtitle = slot.hintRes?.let { stringResource(it) }.orEmpty(),
-                        checked = slot.key in state.hidden,
-                        enabled = state.canWrite,
-                        onCheckedChange = { hidden -> toggle(slot.key, hidden) },
-                        shape = segmentedShape(index + 1, rowCount),
+                    !state.canWrite -> NoticeBanner(
+                        message = stringResource(R.string.perm_write_secure_missing),
+                        actionLabel = stringResource(R.string.perm_grant_one),
+                        onAction = {
+                            scope.launch {
+                                runCatching { ShizukuManager.ensureWriteSecureSettings() }
+                                tick++
+                            }
+                        },
                     )
                 }
             }
-        }
-
-        group(title = stringResource(R.string.status_bar_icons_actions_group)) {
-row(
-icon = Icons.Default.Visibility,
-title = stringResource(R.string.status_bar_icons_show_all),
-subtitle = stringResource(R.string.status_bar_icons_show_all_hint),
-enabled = state.canWrite,
-onClick = ::showAll,
-
-)
-row(
-icon = Icons.Default.OpenInNew,
-title = stringResource(R.string.status_bar_icons_open_tuner),
-subtitle = stringResource(R.string.status_bar_icons_open_tuner_hint),
-onClick = {
-                    val intent = StatusBarIcons.tunerIntent(context)
-                    if (intent == null) {
-                        showToast(R.string.status_bar_icons_tuner_missing)
-                    } else {
-                        runCatching { context.startActivity(intent) }
-                            .onFailure {
-                                showToast(R.string.status_bar_icons_tuner_missing)
-                            }
+            block {
+                LunoGroup(
+                    title = stringResource(R.string.status_bar_icons_common_group),
+                    subtitle = stringResource(R.string.status_bar_icons_scope_hint),
+                ) {
+                    common.forEachIndexed { index, slot ->
+                        LunoSwitchRow(
+                            title = stringResource(slot.labelRes),
+                            subtitle = slot.hintRes?.let { stringResource(it) }.orEmpty(),
+                            checked = slot.key in state.hidden,
+                            enabled = state.canWrite,
+                            onCheckedChange = { hidden -> toggle(slot.key, hidden) },
+                            shape = segmentedShape(index, common.size),
+                        )
                     }
-                },
-
-)        }
-
+                }
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.status_bar_icons_more_group)) {
+                    val rowCount = if (showMore) more.size + 1 else 1
+                    LunoSettingsRow(
+                        icon = Icons.Default.Tune,
+                        title = stringResource(R.string.status_bar_icons_more_entry),
+                        subtitle = stringResource(R.string.status_bar_icons_more_entry_hint),
+                        shape = segmentedShape(0, rowCount),
+                        onClick = { showMore = !showMore },
+                        trailing = {
+                            Icon(
+                                imageVector = if (showMore) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                modifier = Modifier.size(RowIconSize),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    if (showMore) {
+                        more.forEachIndexed { index, slot ->
+                            LunoSwitchRow(
+                                title = stringResource(slot.labelRes),
+                                subtitle = slot.hintRes?.let { stringResource(it) }.orEmpty(),
+                                checked = slot.key in state.hidden,
+                                enabled = state.canWrite,
+                                onCheckedChange = { hidden -> toggle(slot.key, hidden) },
+                                shape = segmentedShape(index + 1, rowCount),
+                            )
+                        }
+                    }
+                }
+            }
+            group(title = stringResource(R.string.status_bar_icons_actions_group)) {
+                row(
+                    icon = Icons.Default.Visibility,
+                    title = stringResource(R.string.status_bar_icons_show_all),
+                    subtitle = stringResource(R.string.status_bar_icons_show_all_hint),
+                    enabled = state.canWrite,
+                    onClick = ::showAll,
+                )
+                row(
+                    icon = Icons.Default.OpenInNew,
+                    title = stringResource(R.string.status_bar_icons_open_tuner),
+                    subtitle = stringResource(R.string.status_bar_icons_open_tuner_hint),
+                    onClick = {
+                        val intent = StatusBarIcons.tunerIntent(context)
+                        if (intent == null) {
+                            showToast(R.string.status_bar_icons_tuner_missing)
+                        } else {
+                            runCatching { context.startActivity(intent) }
+                                .onFailure {
+                                    showToast(R.string.status_bar_icons_tuner_missing)
+                                }
+                        }
+                    },
+                )
+            }
         }
     }
-}
-}
 }

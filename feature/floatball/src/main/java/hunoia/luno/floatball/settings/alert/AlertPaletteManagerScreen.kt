@@ -33,6 +33,7 @@ import hunoia.luno.ui.component.ListAddFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -145,7 +146,7 @@ fun AlertPaletteManagerScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
+    LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
 onBack = onBack,
 floatingContent = {
             ListAddFab(

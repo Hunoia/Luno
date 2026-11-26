@@ -25,6 +25,7 @@ import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -74,56 +75,52 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
             },
         )
     }
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.search_source_settings),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        val groups = listOf(
-            R.string.search_source_group_apps to listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION),
-            R.string.search_source_group_comms to listOf(SRC_CONTACT, SRC_SMS, SRC_CALL),
-            R.string.search_source_group_media to listOf(SRC_MUSIC, SRC_FILE, SRC_CLIP),
-            R.string.search_source_group_system to listOf(SRC_CALENDAR),
-        )
-        groups.forEach { (titleRes, keys) ->
-            LunoGroup(title = stringResource(titleRes)) {
-                keys.forEachIndexed { index, key ->
-                    LunoSwitchRow(
-                        title = sourceTitle(key),
-                        checked = SourceSwitches.getValue(key)(settings),
-                        subtitle = settings.effectiveTrigger(key)
-                            .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
-                        onClick = { triggerTarget = key },
-                        onCheckedChange = { v ->
-                            update { current ->
-                                when (key) {
-                                    SRC_APP -> current.copy(searchApps = v)
-                                    SRC_SHORTCUT -> current.copy(searchShortcuts = v)
-                                    SRC_ACTION -> current.copy(searchActions = v)
-                                    SRC_CONTACT -> current.copy(searchContacts = v)
-                                    SRC_SMS -> current.copy(searchSms = v)
-                                    SRC_CALL -> current.copy(searchCalls = v)
-                                    SRC_MUSIC -> current.copy(searchMusic = v)
-                                    SRC_FILE -> current.copy(searchFiles = v)
-                                    SRC_CLIP -> current.copy(searchClipboard = v)
-                                    SRC_CALENDAR -> current.copy(searchCalendar = v)
-                                    else -> current
-                                }
-                            }
-                        },
-                        shape = segmentedShape(index, keys.size),
-                    )
+    LunoPage(
+        title = stringResource(R.string.search_source_settings),
+        onBack = onBack,
+    ) {
+        column {
+            val groups = listOf(
+                R.string.search_source_group_apps to listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION),
+                R.string.search_source_group_comms to listOf(SRC_CONTACT, SRC_SMS, SRC_CALL),
+                R.string.search_source_group_media to listOf(SRC_MUSIC, SRC_FILE, SRC_CLIP),
+                R.string.search_source_group_system to listOf(SRC_CALENDAR),
+            )
+            block {
+                groups.forEach { (titleRes, keys) ->
+                    LunoGroup(title = stringResource(titleRes)) {
+                        keys.forEachIndexed { index, key ->
+                            LunoSwitchRow(
+                                title = sourceTitle(key),
+                                checked = SourceSwitches.getValue(key)(settings),
+                                subtitle = settings.effectiveTrigger(key)
+                                    .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                                onClick = { triggerTarget = key },
+                                onCheckedChange = { v ->
+                                    update { current ->
+                                        when (key) {
+                                            SRC_APP -> current.copy(searchApps = v)
+                                            SRC_SHORTCUT -> current.copy(searchShortcuts = v)
+                                            SRC_ACTION -> current.copy(searchActions = v)
+                                            SRC_CONTACT -> current.copy(searchContacts = v)
+                                            SRC_SMS -> current.copy(searchSms = v)
+                                            SRC_CALL -> current.copy(searchCalls = v)
+                                            SRC_MUSIC -> current.copy(searchMusic = v)
+                                            SRC_FILE -> current.copy(searchFiles = v)
+                                            SRC_CLIP -> current.copy(searchClipboard = v)
+                                            SRC_CALENDAR -> current.copy(searchCalendar = v)
+                                            else -> current
+                                        }
+                                    }
+                                },
+                                shape = segmentedShape(index, keys.size),
+                            )
+                        }
+                    }
                 }
             }
         }
-
-        }
     }
-}
-}
 }
 
 /** 来源 key → 显示名：统一从来源注册表取，面板提示与设置页共用。 */

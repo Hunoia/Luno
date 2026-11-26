@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -63,7 +64,7 @@ fun DynamicShortcutsScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.dynamic_shortcuts_title),
+    LunoPage(title = stringResource(R.string.dynamic_shortcuts_title),
 onBack = onBack) {
     list(contentSpacing = ListSpacing) {
         lazy {

@@ -12,6 +12,7 @@ import hunoia.luno.config.model.AlertHost
 import hunoia.luno.config.model.AlertLayer
 import hunoia.luno.config.model.host
 import hunoia.luno.floatball.R
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
@@ -55,7 +56,7 @@ fun AlertLayerAddScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_layer_add_title),
+    LunoPage(title = stringResource(R.string.float_ball_layer_add_title),
 onBack = onBack) {
     list() {
         lazy {

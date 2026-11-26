@@ -35,6 +35,7 @@ import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -98,20 +99,16 @@ fun ActionPanelEditScreen(
     if (current == null) {
         // 数据未到：本帧什么都不画（一次闪烁）。数据到了还不存在：给明确落点，不静默弹回。
         if (loaded) {
-            hunoia.luno.ui.component.page.LunoPage(title = stringResource(hunoia.luno.actions.R.string.action_panel_unnamed),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-                EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.action_panel_missing))
-
-        }
-    }
-}
-}
+            LunoPage(
+                title = stringResource(hunoia.luno.actions.R.string.action_panel_unnamed),
+                onBack = onBack,
+            ) {
+                column {
+                    block {
+                        EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.action_panel_missing))
+                    }
+                }
+            }
         }
         return
     }
@@ -126,7 +123,7 @@ hunoia.luno.ui.component.page.LunoPageColumn() {
         persistItems(newItems, cleanupResources)
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
+    LunoPage(title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
 onBack = onBack,
 actions = {
             // 删除从列表页移到编辑页右上角：带确认，删后返回。

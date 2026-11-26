@@ -1,5 +1,7 @@
 package hunoia.luno.actions.library
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.theme.FloatingContentBottom
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
@@ -40,12 +43,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -71,7 +72,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
@@ -113,11 +113,12 @@ fun ActionLibraryEditScreen(
     val guardedBack: () -> Unit = {
         if (state.isDirty) showDiscardConfirm = true else onBack()
     }
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+    LunoPage(
+        title = stringResource(
             if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
         ),
-onBack = guardedBack,
-floatingContent = { hazeState ->
+        onBack = guardedBack,
+        floatingContent = { hazeState ->
             if (draft != null) {
                 // 底部玻璃胶囊：靠右、自适应宽，[测试][保存] 两个图标按钮（同冻结页底栏几何）。
                 Column(
@@ -193,18 +194,18 @@ floatingContent = { hazeState ->
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            // 底部抬到胶囊上方：胶囊高 = DockTabHeight + 玻璃胶囊内边距，加一段间隙。
-                            .padding(
-                                start = PageGutter,
-                                end = PageGutter,
-                                bottom = BottomBarPadding + DockTabHeight + TileInnerPadding * 2 + ListSpacing,
-                            )
-                            .fillMaxWidth(),
+                        // 底部抬到胶囊上方：胶囊高 = DockTabHeight + 玻璃胶囊内边距，加一段间隙。
+                        .padding(
+                            start = PageGutter,
+                            end = PageGutter,
+                            bottom = BottomBarPadding + DockTabHeight + TileInnerPadding * 2 + ListSpacing,
+                        )
+                        .fillMaxWidth(),
                     )
                 }
             }
         },
-actions = {
+        actions = {
             if (draft?.id != null) {
                 LunoIconButton(
                     icon = Icons.Outlined.Delete,
@@ -213,7 +214,7 @@ actions = {
                 )
             }
         },
-dialogs = {
+        dialogs = {
             if (showDeleteConfirm) {
                 ConfirmDialog(
                     title = stringResource(R.string.action_library_delete_title),
@@ -246,10 +247,10 @@ dialogs = {
                                 draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
                             ),
                             selectedUserId = (paramDef as? ParameterDefinition.AppSelector)
-                                ?.takeIf { it.userIdKey != null }
-                                ?.let {
-                                    draft?.params?.get("userId")?.scalarText()?.toIntOrNull() ?: 0
-                                },
+                            ?.takeIf { it.userIdKey != null }
+                            ?.let {
+                                draft?.params?.get("userId")?.scalarText()?.toIntOrNull() ?: 0
+                            },
                             onDismiss = { showAppPicker = null },
                             onConfirm = { selected ->
                                 val current = draft?.params?.get(paramDef.key)?.scalarText()
@@ -261,16 +262,16 @@ dialogs = {
                                 showAppPicker = null
                             },
                             onSelect = (paramDef as? ParameterDefinition.AppSelector)
-                                ?.takeIf { it.userIdKey != null }
-                                ?.let { selector ->
-                                    { packageName, userId ->
-                                        vm.updateParam(selector.key, packageName)
-                                        selector.userIdKey?.let {
-                                            vm.updateParam(it, if (userId == 0) "" else userId.toString())
-                                        }
-                                        showAppPicker = null
+                            ?.takeIf { it.userIdKey != null }
+                            ?.let { selector ->
+                                { packageName, userId ->
+                                    vm.updateParam(selector.key, packageName)
+                                    selector.userIdKey?.let {
+                                        vm.updateParam(it, if (userId == 0) "" else userId.toString())
                                     }
-                                },
+                                    showAppPicker = null
+                                }
+                            },
                         ),
                     )
                 }
@@ -287,84 +288,76 @@ dialogs = {
                     },
                 )
             }
-
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-
-            when {
-                state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
-                draft == null || definition == null ->
+        },
+    ) {
+        column(bottomContentPadding = FloatingContentBottom) {
+            block {
+                when {
+                    state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
+                    draft == null || definition == null ->
                     LoadingState(message = stringResource(R.string.action_library_loading))
-                else -> {
-                    // 名称：页首浮空组，行内形式（标签「名称」+ 值右对齐）。
-                    group(title = stringResource(R.string.action_library_name)) {
-inputRow(
-label = stringResource(R.string.action_library_name),
-value = draft.name,
-onValueChange = { vm.updateName(it) },
-placeholder = stringResource(R.string.action_library_entry_name_hint),
-isError = draft.name.isBlank(),
-subtitle = if (draft.name.isBlank()) {
-                                stringResource(R.string.action_library_entry_name_required)
-                            } else {
-                                ""
-                            },
-
-)                    }
-                    if (definition.parameters.isNotEmpty()) {
-                        // 开关（小窗模式这类）放参数组最上面，其余非键值对按定义序；
-                        // 键值对（extras / query）单独一组「额外参数」。
-                        val switches = definition.parameters.filterIsInstance<ParameterDefinition.Bool>()
-                        val otherParams = definition.parameters.filter {
-                            it !is ParameterDefinition.Bool && it !is ParameterDefinition.KeyValueMap
+                    else -> {
+                        // 名称：页首浮空组，行内形式（标签「名称」+ 值右对齐）。
+                        group(title = stringResource(R.string.action_library_name)) {
+                            inputRow(
+                                label = stringResource(R.string.action_library_name),
+                                value = draft.name,
+                                onValueChange = { vm.updateName(it) },
+                                placeholder = stringResource(R.string.action_library_entry_name_hint),
+                                isError = draft.name.isBlank(),
+                                subtitle = if (draft.name.isBlank()) {
+                                    stringResource(R.string.action_library_entry_name_required)
+                                } else {
+                                    ""
+                                },
+                            )
                         }
-                        val extraParams = definition.parameters.filterIsInstance<ParameterDefinition.KeyValueMap>()
-                        val mainParams = switches + otherParams
-                        if (mainParams.isNotEmpty()) {
-                            LunoGroup(title = stringResource(R.string.action_param_label)) {
-                                mainParams.forEachIndexed { i, paramDef ->
-                                    ParameterEditor(
-                                        definition = paramDef,
-                                        currentParams = draft.params,
-                                        onParamChange = vm::updateParam,
-                                        onParamElementChange = vm::updateParamElement,
-                                        onPickApp = { showAppPicker = paramDef },
-                                        onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                                        shape = segmentedShape(i, mainParams.size),
-                                    )
+                        if (definition.parameters.isNotEmpty()) {
+                            // 开关（小窗模式这类）放参数组最上面，其余非键值对按定义序；
+                            // 键值对（extras / query）单独一组「额外参数」。
+                            val switches = definition.parameters.filterIsInstance<ParameterDefinition.Bool>()
+                            val otherParams = definition.parameters.filter {
+                                it !is ParameterDefinition.Bool && it !is ParameterDefinition.KeyValueMap
+                            }
+                            val extraParams = definition.parameters.filterIsInstance<ParameterDefinition.KeyValueMap>()
+                            val mainParams = switches + otherParams
+                            if (mainParams.isNotEmpty()) {
+                                LunoGroup(title = stringResource(R.string.action_param_label)) {
+                                    mainParams.forEachIndexed { i, paramDef ->
+                                        ParameterEditor(
+                                            definition = paramDef,
+                                            currentParams = draft.params,
+                                            onParamChange = vm::updateParam,
+                                            onParamElementChange = vm::updateParamElement,
+                                            onPickApp = { showAppPicker = paramDef },
+                                            onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                                            shape = segmentedShape(i, mainParams.size),
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        if (extraParams.isNotEmpty()) {
-                            // 组标题用参数自身的 label（如 Query 参数 / Extras）；每行分段由
-                            // KeyValueMapEditor 内部按行数自算。
-                            extraParams.forEach { paramDef ->
-                                LunoGroup(title = paramDef.label) {
-                                    ParameterEditor(
-                                        definition = paramDef,
-                                        currentParams = draft.params,
-                                        onParamChange = vm::updateParam,
-                                        onParamElementChange = vm::updateParamElement,
-                                        onPickApp = { showAppPicker = paramDef },
-                                        onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                                    )
+                            if (extraParams.isNotEmpty()) {
+                                // 组标题用参数自身的 label（如 Query 参数 / Extras）；每行分段由
+                                // KeyValueMapEditor 内部按行数自算。
+                                extraParams.forEach { paramDef ->
+                                    LunoGroup(title = paramDef.label) {
+                                        ParameterEditor(
+                                            definition = paramDef,
+                                            currentParams = draft.params,
+                                            onParamChange = vm::updateParam,
+                                            onParamElementChange = vm::updateParamElement,
+                                            onPickApp = { showAppPicker = paramDef },
+                                            onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-
-
         }
     }
-}
-}
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

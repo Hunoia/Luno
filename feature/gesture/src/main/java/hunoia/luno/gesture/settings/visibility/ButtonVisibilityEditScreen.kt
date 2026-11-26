@@ -42,8 +42,8 @@ import hunoia.luno.gesture.settings.global.globalZoneLabel
 import hunoia.luno.ui.component.actionText
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -115,7 +115,7 @@ fun ButtonVisibilityEditScreen(
     val current = draft
     if (current == null) {
         // 配置未加载完靠上面 LaunchedEffect 的「继续等」规避；真正落到这里说明场景已被删。
-        hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+        LunoPage(title = stringResource(
                 if (isNew) R.string.button_visibility_new else R.string.button_visibility_edit,
             ),
 onBack = onBack) {
@@ -185,7 +185,7 @@ onBack = onBack) {
         )
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(
+    LunoPage(title = stringResource(
             if (isNew) R.string.button_visibility_new else R.string.button_visibility_edit,
         ),
 onBack = onBack,
@@ -342,51 +342,49 @@ sheets = {
         lazy {
 
         item(key = "name") {
-            group(title = stringResource(R.string.button_visibility_name)) {inputRow(
-label = stringResource(R.string.button_visibility_name),
-value = current.name,
-placeholder = stringResource(R.string.button_visibility_name_hint),
-onValueChange = { draft = current.copy(name = it) },
-
-)
+            group(title = stringResource(R.string.button_visibility_name)) {
+                inputRow(
+                    label = stringResource(R.string.button_visibility_name),
+                    value = current.name,
+                    placeholder = stringResource(R.string.button_visibility_name_hint),
+                    onValueChange = { draft = current.copy(name = it) },
+                )
             }
         }
         item(key = "match") {
-            group(title = stringResource(R.string.button_visibility)) {row(
-title = stringResource(R.string.button_visibility_apps),
-subtitle = if (current.packageNames.isEmpty()) {
+            group(title = stringResource(R.string.button_visibility)) {
+                row(
+                    title = stringResource(R.string.button_visibility_apps),
+                    subtitle = if (current.packageNames.isEmpty()) {
                         stringResource(R.string.button_visibility_any_app)
                     } else {
                         stringResource(R.string.button_visibility_apps_count, current.packageNames.size)
                     },
-onClick = { showAppPicker = true },
-
-)
-row(
-title = stringResource(R.string.button_visibility_screens),
-subtitle = if (current.screens.isEmpty()) {
+                    onClick = { showAppPicker = true },
+                )
+                row(
+                    title = stringResource(R.string.button_visibility_screens),
+                    subtitle = if (current.screens.isEmpty()) {
                         stringResource(R.string.button_visibility_any_screen)
                     } else {
                         current.screens.map { it.label() }.joinToString(" / ")
                     },
-onClick = { showScreenPicker = true },
-
-)
+                    onClick = { showScreenPicker = true },
+                )
             }
         }
         item(key = "effect") {
-            group(title = stringResource(R.string.button_visibility_target)) {row(
-title = stringResource(R.string.button_visibility_visible),
-subtitle = current.visible.label(),
-onClick = { showEffectPicker = true },
-
-)
-row(
-title = stringResource(R.string.button_visibility_target),
-subtitle = ButtonVisibilityText.targetSummary(current),
-onClick = { showTargetPicker = true },
-
-)
+            group(title = stringResource(R.string.button_visibility_target)) {
+                row(
+                    title = stringResource(R.string.button_visibility_visible),
+                    subtitle = current.visible.label(),
+                    onClick = { showEffectPicker = true },
+                )
+                row(
+                    title = stringResource(R.string.button_visibility_target),
+                    subtitle = ButtonVisibilityText.targetSummary(current),
+                    onClick = { showTargetPicker = true },
+                )
             }
         }
         item(key = "trigger_enter") {
@@ -416,12 +414,12 @@ onClick = { showTargetPicker = true },
             )
         }
         item(key = "trigger_cooldown") {
-            group(title = stringResource(R.string.button_visibility_trigger)) {row(
-title = stringResource(R.string.button_visibility_trigger_cooldown),
-subtitle = cooldownLabel(current.cooldownSeconds),
-onClick = { showCooldownPicker = true },
-
-)
+            group(title = stringResource(R.string.button_visibility_trigger)) {
+                row(
+                    title = stringResource(R.string.button_visibility_trigger_cooldown),
+                    subtitle = cooldownLabel(current.cooldownSeconds),
+                    onClick = { showCooldownPicker = true },
+                )
             }
         }
 

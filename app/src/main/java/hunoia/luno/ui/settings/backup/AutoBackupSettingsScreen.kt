@@ -28,9 +28,9 @@ import hunoia.luno.config.backup.AutoBackupRepository
 import hunoia.luno.config.backup.RestorePrecheckResult
 import hunoia.luno.domain.backup.AutoBackupCenter
 import hunoia.luno.domain.backup.labelRes
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -158,134 +158,123 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
         else -> stringResource(R.string.auto_backup_status_never)
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.backup_settings_entry),
-onBack = onBack,
-actions = {
+    LunoPage(
+        title = stringResource(R.string.backup_settings_entry),
+        onBack = onBack,
+        actions = {
             LunoIconButton(
                 icon = Icons.TwoTone.RestartAlt,
                 contentDescription = stringResource(hunoia.luno.design.R.string.reset),
                 onClick = { showResetConfirm = true },
             )
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        group(title = stringResource(R.string.auto_backup_switch)) {
-switchRow(
-title = stringResource(R.string.auto_backup_switch),
-subtitle = stringResource(R.string.auto_backup_switch_hint),
-checked = current?.enabled == true,
-onCheckedChange = { want ->
-                    if (!want) {
-                        scope.launch { AutoBackupCenter.setEnabled(context, false) }
-                        return@switchRow
-                    }
-
-                    scope.launch {
-                        if (AutoBackupCenter.hasStoredTree(context)) {
-                            AutoBackupCenter.setEnabled(context, true)
-                        } else {
-                            pendingEnable = true
-                            treePicker.launch(null)
+        },
+    ) {
+        column {
+            group(title = stringResource(R.string.auto_backup_switch)) {
+                switchRow(
+                    title = stringResource(R.string.auto_backup_switch),
+                    subtitle = stringResource(R.string.auto_backup_switch_hint),
+                    checked = current?.enabled == true,
+                    onCheckedChange = { want ->
+                        if (!want) {
+                            scope.launch { AutoBackupCenter.setEnabled(context, false) }
+                            return@switchRow
+                        }
+                        scope.launch {
+                            if (AutoBackupCenter.hasStoredTree(context)) {
+                                AutoBackupCenter.setEnabled(context, true)
+                            } else {
+                                pendingEnable = true
+                                treePicker.launch(null)
+                            }
+                        }
+                    },
+                )
+                row(
+                    title = stringResource(R.string.auto_backup_directory),
+                    subtitle = treeName
+                        ?: stringResource(R.string.auto_backup_directory_unset),
+                    onClick = {
+                        pendingEnable = false
+                        treePicker.launch(null)
+                    },
+                )
+                row(
+                    title = stringResource(R.string.auto_backup_status),
+                    subtitle = statusText,
+                    subtitleColor = if (failure != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                row(
+                    title = stringResource(R.string.auto_backup_run_now),
+                    subtitle = stringResource(R.string.auto_backup_run_now_hint),
+                    onClick = {
+                        if (current?.hasTree() != true) {
+                            showToast(R.string.auto_backup_run_need_directory)
+                            return@row
+                        }
+                        AutoBackupCenter.runNow(context)
+                        showToast(R.string.auto_backup_run_queued)
+                    },
+                )
+            }
+            group(title = stringResource(R.string.backup_manual_group)) {
+                row(
+                    title = stringResource(R.string.backup_to_file),
+                    subtitle = stringResource(R.string.backup_to_file_hint),
+                    onClick = { createFileLauncher.launch("${appName}_$dateStamp.zip") },
+                )
+                row(
+                    title = stringResource(R.string.restore_from_file),
+                    subtitle = stringResource(R.string.restore_from_file_hint),
+                    onClick = { getFileLauncher.launch("*/*") },
+                )
+            }
+            block {
+                LunoGroup(title = stringResource(R.string.auto_backup_restore)) {
+                    if (backups.isEmpty()) {
+                        LunoSettingsRow(
+                            title = stringResource(
+                                if (listFailed) R.string.auto_backup_restore_list_failed
+                                else R.string.auto_backup_restore_empty,
+                            ),
+                            subtitle = stringResource(R.string.auto_backup_restore_hint),
+                            shape = segmentedShape(0, 1),
+                        )
+                    } else {
+                        backups.forEachIndexed { index, file ->
+                            LunoSettingsRow(
+                                title = file.name,
+                                subtitle = if (file.lastModifiedMs > 0) {
+                                    formatStatusTime(file.lastModifiedMs)
+                                } else {
+                                    stringResource(R.string.auto_backup_restore_hint)
+                                },
+                                shape = segmentedShape(index, backups.size),
+                                onClick = {
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            facades.backup.precheckRestore(context, file.uri)
+                                        }
+                                        when (result) {
+                                            RestorePrecheckResult.Passed -> {
+                                                pendingRestore = file.uri
+                                                showRestoreConfirm = true
+                                            }
+                                            is RestorePrecheckResult.Failed -> showToast(result.reason.stringRes)
+                                        }
+                                    }
+                                },
+                            )
                         }
                     }
-                },
-
-)
-row(
-title = stringResource(R.string.auto_backup_directory),
-subtitle = treeName
-                    ?: stringResource(R.string.auto_backup_directory_unset),
-onClick = {
-                    pendingEnable = false
-                    treePicker.launch(null)
-                },
-
-)
-row(
-title = stringResource(R.string.auto_backup_status),
-subtitle = statusText,
-subtitleColor = if (failure != null) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-
-)
-row(
-title = stringResource(R.string.auto_backup_run_now),
-subtitle = stringResource(R.string.auto_backup_run_now_hint),
-onClick = {
-                    if (current?.hasTree() != true) {
-                        showToast(R.string.auto_backup_run_need_directory)
-                        return@row
-                    }
-                    AutoBackupCenter.runNow(context)
-                    showToast(R.string.auto_backup_run_queued)
-                },
-
-)        }
-
-        group(title = stringResource(R.string.backup_manual_group)) {
-row(
-title = stringResource(R.string.backup_to_file),
-subtitle = stringResource(R.string.backup_to_file_hint),
-onClick = { createFileLauncher.launch("${appName}_$dateStamp.zip") },
-
-)
-row(
-title = stringResource(R.string.restore_from_file),
-subtitle = stringResource(R.string.restore_from_file_hint),
-onClick = { getFileLauncher.launch("*/*") },
-
-)        }
-
-        LunoGroup(title = stringResource(R.string.auto_backup_restore)) {
-            if (backups.isEmpty()) {
-                LunoSettingsRow(
-                    title = stringResource(
-                        if (listFailed) R.string.auto_backup_restore_list_failed
-                        else R.string.auto_backup_restore_empty,
-                    ),
-                    subtitle = stringResource(R.string.auto_backup_restore_hint),
-                    shape = segmentedShape(0, 1),
-                )
-            } else {
-                backups.forEachIndexed { index, file ->
-                    LunoSettingsRow(
-                        title = file.name,
-                        subtitle = if (file.lastModifiedMs > 0) {
-                            formatStatusTime(file.lastModifiedMs)
-                        } else {
-                            stringResource(R.string.auto_backup_restore_hint)
-                        },
-                        shape = segmentedShape(index, backups.size),
-                        onClick = {
-                            scope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    facades.backup.precheckRestore(context, file.uri)
-                                }
-                                when (result) {
-                                    RestorePrecheckResult.Passed -> {
-                                        pendingRestore = file.uri
-                                        showRestoreConfirm = true
-                                    }
-                                    is RestorePrecheckResult.Failed -> showToast(result.reason.stringRes)
-                                }
-                            }
-                        },
-                    )
                 }
             }
         }
-
-        }
     }
-}
-}
 
     // 组合期捕获：确认时 onDismissRequest 已先清掉 pendingRestore。
     val restoreUri = pendingRestore

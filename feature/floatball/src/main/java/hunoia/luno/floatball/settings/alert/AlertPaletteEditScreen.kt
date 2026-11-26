@@ -31,6 +31,7 @@ import hunoia.luno.config.model.removePalette
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
@@ -179,7 +180,7 @@ fun AlertPaletteEditScreen(
     // 系统返回也走「先写完再 pop」：防抖窗口内返回不会吞掉最后一次改名。
     BackHandler { commitNameAndBack() }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_edit),
+    LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_edit),
 onBack = { commitNameAndBack() },
 actions = {
             PressIconButton(onClick = { showDeleteConfirm = true }) {

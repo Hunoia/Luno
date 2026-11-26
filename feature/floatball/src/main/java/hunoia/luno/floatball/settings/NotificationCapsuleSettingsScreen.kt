@@ -35,6 +35,7 @@ import hunoia.luno.floatball.settings.alert.displayName
 import hunoia.luno.floatball.settings.alert.selectedPreset
 import hunoia.luno.floatball.R
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -139,7 +140,7 @@ fun NotificationCapsuleSettingsScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_notification_group),
+    LunoPage(title = stringResource(R.string.float_ball_notification_group),
 onBack = onBack,
 sheets = {
             BallCustomIconSheet(

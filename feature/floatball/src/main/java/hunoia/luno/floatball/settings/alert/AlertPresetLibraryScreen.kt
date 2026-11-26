@@ -33,6 +33,7 @@ import hunoia.luno.ui.component.ListAddFab
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
@@ -164,7 +165,7 @@ fun AlertPresetLibraryScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball_preset_library_title),
+    LunoPage(title = stringResource(R.string.float_ball_preset_library_title),
 onBack = onBack,
 floatingContent = {
             ListAddFab(

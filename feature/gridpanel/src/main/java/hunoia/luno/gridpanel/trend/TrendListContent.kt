@@ -3,13 +3,11 @@ package hunoia.luno.gridpanel.trend
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.config.model.TrendEntry
@@ -34,13 +31,11 @@ import hunoia.luno.domain.gridpanel.TrendCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.toColor
 import java.time.Instant
 import java.time.LocalDate
@@ -61,7 +56,7 @@ fun TrendListContent(
     state: LazyListState = rememberLazyListState(),
 ) {
     val config by TrendCenter.trendConfig.collectAsStateWithLifecycle(initialValue = TrendCenter.latestTrendConfig())
-    hunoia.luno.ui.component.page.LunoPageList(
+    LunoPageList(
         modifier = modifier.fillMaxSize(),
         state = state,
     ) {

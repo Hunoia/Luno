@@ -9,10 +9,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.group
 import kotlinx.coroutines.launch
 
@@ -35,70 +32,62 @@ fun RecentsGestureSettingsScreen(
         scope.launch { TuneConfig.updateAction { it.copy(gestureTools = transform(it.gestureTools)) } }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.recents_gesture_settings_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        group(title = stringResource(R.string.recents_settings_motion_group)) {
-row(
-icon = Icons.AutoMirrored.Filled.FormatListBulleted,
-title = stringResource(R.string.recent_apps_blocklist),
-subtitle = stringResource(
-                    R.string.recents_settings_blocklist_count,
-                    actionSettings.recentAppsBlocklist.size,
-                ),
-onClick = onNavToBlocklist,
-
-)
-sliderRow(
-value = tools.recentsSensitivityPercent.toFloat(),
-onValueChange = { value ->
-                    update { it.copy(recentsSensitivityPercent = value.toInt()) }
-                },
-text = stringResource(R.string.recents_settings_sensitivity),
-valueDisplay = { "${it.toInt() / 100.0}x" },
-valueRange = 50f..300f,
-
-)
-sliderRow(
-value = tools.recentsIconSizeDp.toFloat(),
-onValueChange = { value ->
-                    update { it.copy(recentsIconSizeDp = value.toInt()) }
-                },
-text = stringResource(R.string.recents_settings_icon_size),
-valueDisplay = { "${it.toInt()}dp" },
-valueRange = 48f..108f,
-
-)        }
-        group(title = stringResource(R.string.gesture_tools_volume_group)) {
-sliderRow(
-value = tools.volumeScrubStepThresholdDp.toFloat(),
-onValueChange = { value ->
-                    update { it.copy(volumeScrubStepThresholdDp = value.toInt()) }
-                },
-text = stringResource(R.string.gesture_tools_volume_scrub_sensitivity),
-valueDisplay = { "${it.toInt()}dp" },
-valueRange = 4f..64f,
-
-)        }
-        group(title = stringResource(R.string.gesture_tools_trigger_hide_group)) {
-sliderRow(
-value = tools.triggerButtonHideMs.toFloat(),
-onValueChange = { value ->
-                    update { it.copy(triggerButtonHideMs = value.toLong()) }
-                },
-text = stringResource(R.string.gesture_tools_trigger_hide_duration),
-valueDisplay = { "${it.toInt()}ms" },
-valueRange = 500f..30000f,
-
-)        }
-
+    LunoPage(
+        title = stringResource(R.string.recents_gesture_settings_title),
+        onBack = onBack,
+    ) {
+        column {
+            group(title = stringResource(R.string.recents_settings_motion_group)) {
+                row(
+                    icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                    title = stringResource(R.string.recent_apps_blocklist),
+                    subtitle = stringResource(
+                        R.string.recents_settings_blocklist_count,
+                        actionSettings.recentAppsBlocklist.size,
+                    ),
+                    onClick = onNavToBlocklist,
+                )
+                sliderRow(
+                    value = tools.recentsSensitivityPercent.toFloat(),
+                    onValueChange = { value ->
+                        update { it.copy(recentsSensitivityPercent = value.toInt()) }
+                    },
+                    text = stringResource(R.string.recents_settings_sensitivity),
+                    valueDisplay = { "${it.toInt() / 100.0}x" },
+                    valueRange = 50f..300f,
+                )
+                sliderRow(
+                    value = tools.recentsIconSizeDp.toFloat(),
+                    onValueChange = { value ->
+                        update { it.copy(recentsIconSizeDp = value.toInt()) }
+                    },
+                    text = stringResource(R.string.recents_settings_icon_size),
+                    valueDisplay = { "${it.toInt()}dp" },
+                    valueRange = 48f..108f,
+                )
+            }
+            group(title = stringResource(R.string.gesture_tools_volume_group)) {
+                sliderRow(
+                    value = tools.volumeScrubStepThresholdDp.toFloat(),
+                    onValueChange = { value ->
+                        update { it.copy(volumeScrubStepThresholdDp = value.toInt()) }
+                    },
+                    text = stringResource(R.string.gesture_tools_volume_scrub_sensitivity),
+                    valueDisplay = { "${it.toInt()}dp" },
+                    valueRange = 4f..64f,
+                )
+            }
+            group(title = stringResource(R.string.gesture_tools_trigger_hide_group)) {
+                sliderRow(
+                    value = tools.triggerButtonHideMs.toFloat(),
+                    onValueChange = { value ->
+                        update { it.copy(triggerButtonHideMs = value.toLong()) }
+                    },
+                    text = stringResource(R.string.gesture_tools_trigger_hide_duration),
+                    valueDisplay = { "${it.toInt()}ms" },
+                    valueRange = 500f..30000f,
+                )
+            }
         }
     }
-}
-}
 }

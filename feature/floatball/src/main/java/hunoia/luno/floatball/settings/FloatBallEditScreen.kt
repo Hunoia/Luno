@@ -38,6 +38,7 @@ import hunoia.luno.config.model.BallCustomIcon
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -141,7 +142,7 @@ fun FloatBallEditScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.float_ball),
+    LunoPage(title = stringResource(R.string.float_ball),
 onBack = onBack,
 sheets = {
             if (showColorPicker) {

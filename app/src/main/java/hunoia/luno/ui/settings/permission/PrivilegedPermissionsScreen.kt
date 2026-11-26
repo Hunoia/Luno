@@ -29,6 +29,7 @@ import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.facade.PrivilegedPermissionGroup
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.component.row.LunoGroup
@@ -216,113 +217,40 @@ fun PrivilegedPermissionsScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.perm_page_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        // 顶部一行摘要：与主页卡同一形态——标题只说状态（还有几项），按钮只说动作。
-        LunoGroup {
-            LunoSettingsRow(
-                title = pluralStringResource(R.plurals.home_permission_pending, missingCount, missingCount),
-                // 副标题只在 Shizuku 不可用时给原因；可用时标题已说尽，不再附说明。
-                subtitle = when {
-                    shizukuReady -> ""
-                    shizukuStatus.binderAlive -> stringResource(R.string.perm_shizuku_not_authorized)
-                    else -> stringResource(R.string.perm_shizuku_not_running)
-                },
-                icon = Icons.Filled.VerifiedUser,
-                onClick = { if (missingCount > 0) { if (shizukuReady) grantAll() else fixShizuku() } },
-                trailing = when {
-                    missingCount == 0 -> {
-                        { SectionBadge(text = stringResource(R.string.perm_state_granted)) }
-                    }
-                    else -> {
-                        {
-                            PressTextButton(
-                                onClick = { if (shizukuReady) grantAll() else fixShizuku() },
-                                enabled = !bulkBusy && busy == null,
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        when {
-                                            bulkBusy -> R.string.privileged_granting
-                                            !shizukuReady -> R.string.perm_fix_shizuku
-                                            else -> R.string.perm_grant_one
-                                        },
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                },
-            )
-        }
-
-        grouped.fastForEach { groupStatuses ->
-            LunoGroup(title = groupStatuses.first().permission.group.title()) {
-                groupStatuses.forEachIndexed { index, status ->
-                    val permission = status.permission
-                    val granted = status.granted
-                    val stateDesc = stringResource(
-                        if (granted) R.string.perm_state_granted else R.string.perm_state_missing,
-                    )
-                    // 获取应用列表没有直达系统页：应用内拉起系统对话框，永久拒绝后才退回应用详情。
-                    val requestInstalledApps: () -> Unit = {
-                        if (installedAppsPermission.deniedForever) openSettings(permission)
-                        else installedAppsPermission.launchPermissionRequest()
-                    }
+    LunoPage(
+        title = stringResource(R.string.perm_page_title),
+        onBack = onBack,
+    ) {
+        column(bottomContentPadding = FloatingContentBottom) {
+            block {
+                LunoGroup {
                     LunoSettingsRow(
-                        modifier = Modifier.semantics { stateDescription = stateDesc },
-                        title = permission.title(),
-                        subtitle = permission.hint(),
-                        shape = segmentedShape(index, groupStatuses.size),
-                        onClick = when {
-                            permission == PrivilegedPermission.GET_INSTALLED_APPS ->
-                                requestInstalledApps
-                            permission == PrivilegedPermission.ACCESSIBILITY ||
-                                permission == PrivilegedPermission.WRITE_SECURE_SETTINGS ->
-                                onNavToAccessibilityManager
-                            permission.hasSettingsPage -> { { openSettings(permission) } }
-                            else -> null
+                        title = pluralStringResource(R.plurals.home_permission_pending, missingCount, missingCount),
+                        // 副标题只在 Shizuku 不可用时给原因；可用时标题已说尽，不再附说明。
+                        subtitle = when {
+                            shizukuReady -> ""
+                            shizukuStatus.binderAlive -> stringResource(R.string.perm_shizuku_not_authorized)
+                            else -> stringResource(R.string.perm_shizuku_not_running)
                         },
+                        icon = Icons.Filled.VerifiedUser,
+                        onClick = { if (missingCount > 0) { if (shizukuReady) grantAll() else fixShizuku() } },
                         trailing = when {
-                            // 已授权：用徽标说明状态，不再靠副标题变色。
-                            granted -> { { SectionBadge(text = stringResource(R.string.perm_state_granted)) } }
-                            // 厂商权限：系统对话框才是正路，不给「去设置」这种多跳一次的死路。
-                            permission == PrivilegedPermission.GET_INSTALLED_APPS -> {
-                                {
-                                    PressTextButton(onClick = requestInstalledApps) {
-                                        Text(
-                                            text = stringResource(
-                                                if (installedAppsPermission.deniedForever) R.string.perm_go_settings
-                                                else R.string.perm_grant_one,
-                                            ),
-                                        )
-                                    }
-                                }
-                            }
-                            // Shizuku 授不了（特殊 / 隐私敏感权限）：给看得见的「去设置」，不让人猜。
-                            !permission.shizukuGrantable -> {
-                                {
-                                    PressTextButton(onClick = { openSettings(permission) }) {
-                                        Text(text = stringResource(R.string.perm_go_settings))
-                                    }
-                                }
+                            missingCount == 0 -> {
+                                { SectionBadge(text = stringResource(R.string.perm_state_granted)) }
                             }
                             else -> {
                                 {
                                     PressTextButton(
-                                        onClick = { grantOne(permission) },
+                                        onClick = { if (shizukuReady) grantAll() else fixShizuku() },
                                         enabled = !bulkBusy && busy == null,
                                     ) {
                                         Text(
                                             text = stringResource(
-                                                if (busy == permission) R.string.privileged_granting
-                                                else R.string.perm_grant_one,
+                                                when {
+                                                    bulkBusy -> R.string.privileged_granting
+                                                    !shizukuReady -> R.string.perm_fix_shizuku
+                                                    else -> R.string.perm_grant_one
+                                                },
                                             ),
                                         )
                                     }
@@ -332,10 +260,79 @@ hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingCont
                     )
                 }
             }
-        }
-
+            block {
+                grouped.fastForEach { groupStatuses ->
+                    LunoGroup(title = groupStatuses.first().permission.group.title()) {
+                        groupStatuses.forEachIndexed { index, status ->
+                            val permission = status.permission
+                            val granted = status.granted
+                            val stateDesc = stringResource(
+                                if (granted) R.string.perm_state_granted else R.string.perm_state_missing,
+                            )
+                            // 获取应用列表没有直达系统页：应用内拉起系统对话框，永久拒绝后才退回应用详情。
+                            val requestInstalledApps: () -> Unit = {
+                                if (installedAppsPermission.deniedForever) openSettings(permission)
+                                else installedAppsPermission.launchPermissionRequest()
+                            }
+                            LunoSettingsRow(
+                                modifier = Modifier.semantics { stateDescription = stateDesc },
+                                title = permission.title(),
+                                subtitle = permission.hint(),
+                                shape = segmentedShape(index, groupStatuses.size),
+                                onClick = when {
+                                    permission == PrivilegedPermission.GET_INSTALLED_APPS ->
+                                    requestInstalledApps
+                                    permission == PrivilegedPermission.ACCESSIBILITY ||
+                                        permission == PrivilegedPermission.WRITE_SECURE_SETTINGS ->
+                                    onNavToAccessibilityManager
+                                    permission.hasSettingsPage -> { { openSettings(permission) } }
+                                    else -> null
+                                },
+                                trailing = when {
+                                    // 已授权：用徽标说明状态，不再靠副标题变色。
+                                    granted -> { { SectionBadge(text = stringResource(R.string.perm_state_granted)) } }
+                                    // 厂商权限：系统对话框才是正路，不给「去设置」这种多跳一次的死路。
+                                    permission == PrivilegedPermission.GET_INSTALLED_APPS -> {
+                                        {
+                                            PressTextButton(onClick = requestInstalledApps) {
+                                                Text(
+                                                    text = stringResource(
+                                                        if (installedAppsPermission.deniedForever) R.string.perm_go_settings
+                                                        else R.string.perm_grant_one,
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    // Shizuku 授不了（特殊 / 隐私敏感权限）：给看得见的「去设置」，不让人猜。
+                                    !permission.shizukuGrantable -> {
+                                        {
+                                            PressTextButton(onClick = { openSettings(permission) }) {
+                                                Text(text = stringResource(R.string.perm_go_settings))
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        {
+                                            PressTextButton(
+                                                onClick = { grantOne(permission) },
+                                                enabled = !bulkBusy && busy == null,
+                                            ) {
+                                                Text(
+                                                    text = stringResource(
+                                                        if (busy == permission) R.string.privileged_granting
+                                                        else R.string.perm_grant_one,
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
-}
-}
 }

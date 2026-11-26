@@ -59,6 +59,7 @@ import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -138,7 +139,7 @@ fun GlobalGestureZoneEditorScreen(
         return
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = globalZoneLabel(zone, zoneIndex),
+    LunoPage(title = globalZoneLabel(zone, zoneIndex),
 onBack = onBack,
 actions = {
             LunoIconButton(
@@ -326,7 +327,7 @@ fun GlobalGestureTriggerEditorScreen(
         return
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = triggerTitle(trigger),
+    LunoPage(title = triggerTitle(trigger),
 onBack = onBack,
 actions = {
             LunoIconButton(

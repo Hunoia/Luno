@@ -90,12 +90,10 @@ import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.pressClickable
-import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.chunkedGroup
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
@@ -196,7 +194,7 @@ fun ClipboardScreen(
         )
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.clipboard_title),
+    LunoPage(title = stringResource(R.string.clipboard_title),
 onBack = onBack,
 actions = {
             // 常态：选择入口 + 数据菜单；选中态：删除（退出左侧）+ 退出，数据菜单隐藏。
@@ -270,23 +268,22 @@ state = listState) {
         if (settingsTab) {
             // 设置段：只渲染记录设置组（无空态 / 会话 / 内容）。
             item(key = "settings") {
-                group(title = stringResource(R.string.clipboard_settings_group)) {switchRow(
-title = stringResource(R.string.clipboard_record_enabled),
-subtitle = stringResource(R.string.clipboard_record_enabled_hint),
-checked = state.settings.recordEnabled,
-onCheckedChange = { vm.setRecordEnabled(it) },
-
-)
-row(
-title = stringResource(R.string.clipboard_max_entries),
-trailing = {
+                group(title = stringResource(R.string.clipboard_settings_group)) {
+                    switchRow(
+                        title = stringResource(R.string.clipboard_record_enabled),
+                        subtitle = stringResource(R.string.clipboard_record_enabled_hint),
+                        checked = state.settings.recordEnabled,
+                        onCheckedChange = { vm.setRecordEnabled(it) },
+                    )
+                    row(
+                        title = stringResource(R.string.clipboard_max_entries),
+                        trailing = {
                             MaxEntriesControls(
                                 value = state.settings.maxEntries,
                                 onValueChange = { vm.setMaxEntries(it) },
                             )
                         },
-
-)
+                    )
                 }
             }
         } else {

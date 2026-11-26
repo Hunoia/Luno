@@ -30,6 +30,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.NoticeBanner
@@ -127,74 +128,69 @@ fun AccessibilityManagerScreen(
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.a11y_manager_title),
-onBack = onBack,
-sheets = {
+    LunoPage(
+        title = stringResource(R.string.a11y_manager_title),
+        onBack = onBack,
+        sheets = {
             detail?.let { entry ->
                 ServiceDetailSheet(entry = entry, onDismissRequest = { detail = null })
             }
-        }) {
-hunoia.luno.ui.component.page.LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        when {
-            // 文案只写原因，动作只写动词：句子里不再复述按钮要做什么。
-            !shizukuStatus.isReady -> NoticeBanner(
-                message = stringResource(R.string.perm_shizuku_not_running),
-                actionLabel = stringResource(R.string.perm_fix_shizuku),
-                onAction = ::fixShizuku,
-            )
-            !hasWriteSecure -> NoticeBanner(
-                message = stringResource(R.string.perm_write_secure_missing),
-                actionLabel = stringResource(R.string.perm_grant_one),
-                onAction = {
-                    scope.launch {
-                        runCatching { ShizukuManager.ensureWriteSecureSettings() }
-                        refresh()
-                    }
-                },
-            )
-        }
-
-        if (services.isEmpty()) {
-            EmptyState(message = stringResource(R.string.a11y_services_empty))
-        } else {
-            LunoGroup(title = stringResource(R.string.a11y_services_group, services.size)) {
-                services.forEachIndexed { index, entry ->
-                    val icon = rememberPackageIconBitmap(entry.packageName, iconPx)
-                    val stateDesc = stringResource(
-                        if (entry.enabled) R.string.a11y_state_on else R.string.a11y_state_off,
+        },
+    ) {
+        column(bottomContentPadding = FloatingContentBottom) {
+            block {
+                when {
+                    // 文案只写原因，动作只写动词：句子里不再复述按钮要做什么。
+                    !shizukuStatus.isReady -> NoticeBanner(
+                        message = stringResource(R.string.perm_shizuku_not_running),
+                        actionLabel = stringResource(R.string.perm_fix_shizuku),
+                        onAction = ::fixShizuku,
                     )
-                    // 本服务行优先给「关了会被保活写回」的警示，其次才是服务描述。
-                    val subtitle = when {
-                        entry.isOwnService && keepAliveOn ->
-                            stringResource(R.string.a11y_own_service_warning)
-                        entry.description.isNotBlank() -> entry.description
-                        else -> stringResource(R.string.a11y_detail_no_description)
-                    }
-                    LunoSwitchRow(
-                        modifier = Modifier.semantics { stateDescription = stateDesc },
-                        title = entry.label,
-                        subtitle = subtitle,
-                        iconBitmap = icon,
-                        checked = entry.enabled,
-                        // 没有 WRITE_SECURE_SETTINGS 时开关只能看不能动（页面顶部有授权入口）。
-                        enabled = hasWriteSecure && togglingId == null,
-                        onClick = { detail = entry },
-                        onCheckedChange = { target -> toggle(entry, target) },
-                        shape = segmentedShape(index, services.size),
+                    !hasWriteSecure -> NoticeBanner(
+                        message = stringResource(R.string.perm_write_secure_missing),
+                        actionLabel = stringResource(R.string.perm_grant_one),
+                        onAction = {
+                            scope.launch {
+                                runCatching { ShizukuManager.ensureWriteSecureSettings() }
+                                refresh()
+                            }
+                        },
                     )
                 }
             }
-        }
-
+            if (services.isEmpty()) {
+                EmptyState(message = stringResource(R.string.a11y_services_empty))
+            } else {
+                LunoGroup(title = stringResource(R.string.a11y_services_group, services.size)) {
+                    services.forEachIndexed { index, entry ->
+                        val icon = rememberPackageIconBitmap(entry.packageName, iconPx)
+                        val stateDesc = stringResource(
+                            if (entry.enabled) R.string.a11y_state_on else R.string.a11y_state_off,
+                        )
+                        // 本服务行优先给「关了会被保活写回」的警示，其次才是服务描述。
+                        val subtitle = when {
+                            entry.isOwnService && keepAliveOn ->
+                            stringResource(R.string.a11y_own_service_warning)
+                            entry.description.isNotBlank() -> entry.description
+                            else -> stringResource(R.string.a11y_detail_no_description)
+                        }
+                        LunoSwitchRow(
+                            modifier = Modifier.semantics { stateDescription = stateDesc },
+                            title = entry.label,
+                            subtitle = subtitle,
+                            iconBitmap = icon,
+                            checked = entry.enabled,
+                            // 没有 WRITE_SECURE_SETTINGS 时开关只能看不能动（页面顶部有授权入口）。
+                            enabled = hasWriteSecure && togglingId == null,
+                            onClick = { detail = entry },
+                            onCheckedChange = { target -> toggle(entry, target) },
+                            shape = segmentedShape(index, services.size),
+                        )
+                    }
+                }
+            }
         }
     }
-}
-}
 }
 
 /** 服务详情：描述 + 包名 + 组件名（组件名即启停用的 token）。 */

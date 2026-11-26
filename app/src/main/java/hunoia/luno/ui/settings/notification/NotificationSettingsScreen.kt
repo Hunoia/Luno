@@ -30,10 +30,10 @@ import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.ToastPresentation
 import hunoia.luno.gridpanel.reminder.habit.HabitReminderNotifier
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoDropdownRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import kotlinx.coroutines.delay
@@ -140,267 +140,246 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    hunoia.luno.ui.component.page.LunoPage(title = stringResource(R.string.notification_display_settings_title),
-onBack = onBack) {
-hunoia.luno.ui.component.page.LunoPageColumn() {
-    block {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(hunoia.luno.ui.theme.ListSpacing),
-        ) {
-
-        group(title = stringResource(R.string.notification_display_mode_group)) {
-dropdownRow(
-title = stringResource(R.string.notification_display_mode_row),
-subtitle = stringResource(R.string.notification_display_mode_hint),
-options = listOf(
-                    stringResource(R.string.notification_display_mode_standard),
-                    stringResource(R.string.notification_display_mode_live),
-                    stringResource(R.string.notification_display_mode_island),
-                ),
-selectedIndex = display.mode.ordinal,
-onSelect = { index ->
-                    val mode = NotificationMode.entries[index]
-                    update { it.copy(mode = mode) }
-                },
-
-)        }
-
-        LunoGroup(
-            title = stringResource(R.string.notification_display_override_group),
-            subtitle = stringResource(R.string.notification_display_override_hint),
-        ) {
-            NotificationKind.entries.forEachIndexed { index, kind ->
-                val override = display.overrides[kind]
-                LunoDropdownRow(
-                    title = stringResource(
-                        when (kind) {
-                            NotificationKind.HABIT -> R.string.notification_display_kind_habit
-                            NotificationKind.BACKUP -> R.string.notification_display_kind_backup
-                            NotificationKind.TODO -> R.string.notification_display_kind_todo
-                            NotificationKind.RECOGNITION -> R.string.notification_display_kind_recognition
-                        },
-                    ),
+    LunoPage(
+        title = stringResource(R.string.notification_display_settings_title),
+        onBack = onBack,
+    ) {
+        column {
+            group(title = stringResource(R.string.notification_display_mode_group)) {
+                dropdownRow(
+                    title = stringResource(R.string.notification_display_mode_row),
+                    subtitle = stringResource(R.string.notification_display_mode_hint),
                     options = listOf(
-                        stringResource(R.string.notification_display_override_follow),
                         stringResource(R.string.notification_display_mode_standard),
                         stringResource(R.string.notification_display_mode_live),
                         stringResource(R.string.notification_display_mode_island),
                     ),
-                    selectedIndex = override?.let { it.ordinal + 1 } ?: 0,
-                    onSelect = { selected ->
-                        update { current ->
-                            current.copy(
-                                overrides = if (selected == 0) {
-                                    current.overrides - kind
-                                } else {
-                                    current.overrides + (kind to NotificationMode.entries[selected - 1])
-                                },
-                            )
-                        }
+                    selectedIndex = display.mode.ordinal,
+                    onSelect = { index ->
+                        val mode = NotificationMode.entries[index]
+                        update { it.copy(mode = mode) }
                     },
-                    shape = segmentedShape(index, NotificationKind.entries.size),
                 )
             }
-        }
-
-        group(
-            title = stringResource(R.string.toast_presentation_group),
-            subtitle = stringResource(R.string.toast_presentation_hint),
-        ) {
-dropdownRow(
-title = stringResource(R.string.toast_presentation_row),
-options = listOf(
-                    stringResource(R.string.toast_presentation_toast),
-                    stringResource(R.string.toast_presentation_standard),
-                    stringResource(R.string.toast_presentation_live),
-                    stringResource(R.string.toast_presentation_island),
-                    stringResource(R.string.toast_presentation_capsule),
-                ),
-selectedIndex = display.toastPresentation.ordinal,
-onSelect = { index ->
-                    update { it.copy(toastPresentation = ToastPresentation.entries[index]) }
-                },
-
-)        }
-
-        if (islandInUse) {
-            group(title = stringResource(R.string.notification_display_island_group)) {
-switchRow(
-title = stringResource(R.string.notification_display_island_auto_expand),
-subtitle = stringResource(R.string.notification_display_island_auto_expand_hint),
-checked = display.islandAutoExpand,
-onCheckedChange = { checked ->
-                        update { it.copy(islandAutoExpand = checked) }
-                    },
-
-)
-dropdownRow(
-title = stringResource(R.string.notification_display_island_expand_seconds),
-subtitle = stringResource(R.string.notification_display_island_expand_seconds_hint),
-options = listOf(
-                        stringResource(R.string.notification_display_island_expand_3s),
-                        stringResource(R.string.notification_display_island_expand_5s),
-                        stringResource(R.string.notification_display_island_expand_10s),
-                    ),
-selectedIndex = ISLAND_EXPAND_OPTIONS
-                        .indexOf(display.islandExpandSeconds).coerceAtLeast(0),
-onSelect = { index ->
-                        update { it.copy(islandExpandSeconds = ISLAND_EXPAND_OPTIONS[index]) }
-                    },
-
-)
-dropdownRow(
-title = stringResource(R.string.notification_display_island_disconnect),
-subtitle = stringResource(R.string.notification_display_island_disconnect_hint),
-options = ISLAND_DISCONNECT_OPTIONS.map {
-                        stringResource(R.string.notification_display_island_disconnect_value, it)
-                    },
-selectedIndex = ISLAND_DISCONNECT_OPTIONS
-                        .indexOf(display.islandDisconnectMs).coerceAtLeast(0),
-onSelect = { index ->
-                        update { it.copy(islandDisconnectMs = ISLAND_DISCONNECT_OPTIONS[index]) }
-                    },
-
-)
-switchRow(
-title = stringResource(R.string.notification_display_island_outer_glow),
-subtitle = stringResource(R.string.notification_display_island_outer_glow_hint),
-checked = display.islandOuterGlow,
-onCheckedChange = { checked ->
-                        update { it.copy(islandOuterGlow = checked) }
-                    },
-
-)
-switchRow(
-title = stringResource(R.string.notification_display_island_keep_shade),
-subtitle = stringResource(R.string.notification_display_island_keep_shade_hint),
-checked = display.islandKeepShadeNotification,
-onCheckedChange = { checked ->
-                        update { it.copy(islandKeepShadeNotification = checked) }
-                    },
-
-)
-switchRow(
-title = stringResource(R.string.notification_display_island_drag_share),
-subtitle = stringResource(R.string.notification_display_island_drag_share_hint),
-checked = display.islandDragShare,
-onCheckedChange = { checked ->
-                        update { it.copy(islandDragShare = checked) }
-                    },
-
-)
-dropdownRow(
-title = stringResource(R.string.notification_display_island_timeout),
-subtitle = stringResource(R.string.notification_display_island_timeout_hint),
-options = listOf(
-                        stringResource(R.string.notification_display_island_timeout_none),
-                        stringResource(R.string.notification_display_island_timeout_5m),
-                        stringResource(R.string.notification_display_island_timeout_30m),
-                        stringResource(R.string.notification_display_island_timeout_1h),
-                    ),
-selectedIndex = ISLAND_TIMEOUT_OPTIONS.indexOf(display.islandTimeoutSeconds)
-                        .coerceAtLeast(0),
-onSelect = { index ->
-                        update { it.copy(islandTimeoutSeconds = ISLAND_TIMEOUT_OPTIONS[index]) }
-                    },
-
-)            }
-        }
-
-        // 进度类通知的收尾行为：与呈现模式无关（标准 / 实时 / 岛都适用），所以不放在岛分组里。
-        group(title = stringResource(R.string.notification_display_progress_group)) {
-dropdownRow(
-title = stringResource(R.string.notification_display_progress_dismiss),
-subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
-options = PROGRESS_DISMISS_OPTIONS.map {
-                    if (it == 0) {
-                        stringResource(R.string.notification_display_progress_dismiss_none)
-                    } else {
-                        stringResource(R.string.notification_display_progress_dismiss_value, it)
+            block {
+                LunoGroup(
+                    title = stringResource(R.string.notification_display_override_group),
+                    subtitle = stringResource(R.string.notification_display_override_hint),
+                ) {
+                    NotificationKind.entries.forEachIndexed { index, kind ->
+                        val override = display.overrides[kind]
+                        LunoDropdownRow(
+                            title = stringResource(
+                                when (kind) {
+                                    NotificationKind.HABIT -> R.string.notification_display_kind_habit
+                                    NotificationKind.BACKUP -> R.string.notification_display_kind_backup
+                                    NotificationKind.TODO -> R.string.notification_display_kind_todo
+                                    NotificationKind.RECOGNITION -> R.string.notification_display_kind_recognition
+                                },
+                            ),
+                            options = listOf(
+                                stringResource(R.string.notification_display_override_follow),
+                                stringResource(R.string.notification_display_mode_standard),
+                                stringResource(R.string.notification_display_mode_live),
+                                stringResource(R.string.notification_display_mode_island),
+                            ),
+                            selectedIndex = override?.let { it.ordinal + 1 } ?: 0,
+                            onSelect = { selected ->
+                                update { current ->
+                                    current.copy(
+                                        overrides = if (selected == 0) {
+                                            current.overrides - kind
+                                        } else {
+                                            current.overrides + (kind to NotificationMode.entries[selected - 1])
+                                        },
+                                    )
+                                }
+                            },
+                            shape = segmentedShape(index, NotificationKind.entries.size),
+                        )
                     }
-                },
-selectedIndex = PROGRESS_DISMISS_OPTIONS
-                    .indexOf(display.progressDismissSeconds).coerceAtLeast(0),
-onSelect = { index ->
-                    update { it.copy(progressDismissSeconds = PROGRESS_DISMISS_OPTIONS[index]) }
-                },
-
-)        }
-
-        group(title = stringResource(R.string.notification_display_test_group)) {
-row(
-title = stringResource(R.string.notification_display_test_send),
-subtitle = stringResource(R.string.notification_display_test_send_hint),
-onClick = {
-                    scope.launch {
-
-                        sendTestNotification(progress = false)
-                    }
-                },
-
-)
-row(
-title = stringResource(R.string.notification_display_test_progress),
-subtitle = stringResource(R.string.notification_display_test_progress_hint),
-onClick = {
-                    scope.launch {
-                        sendTestNotification(progress = true)
-                    }
-                },
-
-)
-row(
-title = stringResource(R.string.notification_display_test_toast),
-subtitle = stringResource(R.string.notification_display_test_toast_hint),
-onClick = {
-                    scope.launch { sendTestToast() }
-                },
-
-)        }
-
-        // 权限提示：只在对应权限缺失时出现（与悬浮球设置页同模式）；已授权/不适用（旧系统不支持）不显示。
-        val needNotifPerm = !notificationsEnabled
-        val needExactAlarm = !exactAlarmEnabled
-        val needLiveUpdate = liveUpdateSupported && !liveUpdateEnabled
-        if (needNotifPerm || needExactAlarm || needLiveUpdate) {
-            val rowCount = (if (needNotifPerm) 1 else 0) +
-                (if (needExactAlarm) 1 else 0) +
-                (if (needLiveUpdate) 1 else 0)
-            LunoGroup(title = stringResource(R.string.notification_display_perm_group)) {
-                if (needNotifPerm) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.habit_reminder_perm_notification),
-                        subtitle = stringResource(R.string.habit_reminder_perm_notification_off_hint),
-                        shape = segmentedShape(0, rowCount),
-                        onClick = { openAppNotificationSettings(context) },
-                    )
                 }
-                if (needExactAlarm) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.habit_reminder_perm_exact_alarm),
-                        subtitle = stringResource(R.string.habit_reminder_perm_exact_off_hint),
-                        shape = segmentedShape(if (needNotifPerm) 1 else 0, rowCount),
-                        onClick = { openExactAlarmSettings(context) },
+            }
+            group(
+                title = stringResource(R.string.toast_presentation_group),
+                subtitle = stringResource(R.string.toast_presentation_hint),
+            ) {
+                dropdownRow(
+                    title = stringResource(R.string.toast_presentation_row),
+                    options = listOf(
+                        stringResource(R.string.toast_presentation_toast),
+                        stringResource(R.string.toast_presentation_standard),
+                        stringResource(R.string.toast_presentation_live),
+                        stringResource(R.string.toast_presentation_island),
+                        stringResource(R.string.toast_presentation_capsule),
+                    ),
+                    selectedIndex = display.toastPresentation.ordinal,
+                    onSelect = { index ->
+                        update { it.copy(toastPresentation = ToastPresentation.entries[index]) }
+                    },
+                )
+            }
+            if (islandInUse) {
+                group(title = stringResource(R.string.notification_display_island_group)) {
+                    switchRow(
+                        title = stringResource(R.string.notification_display_island_auto_expand),
+                        subtitle = stringResource(R.string.notification_display_island_auto_expand_hint),
+                        checked = display.islandAutoExpand,
+                        onCheckedChange = { checked ->
+                            update { it.copy(islandAutoExpand = checked) }
+                        },
                     )
-                }
-                if (needLiveUpdate) {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.habit_reminder_perm_live_update),
-                        subtitle = stringResource(R.string.habit_reminder_perm_live_off_hint),
-                        shape = segmentedShape(
-                            (if (needNotifPerm) 1 else 0) + (if (needExactAlarm) 1 else 0),
-                            rowCount,
+                    dropdownRow(
+                        title = stringResource(R.string.notification_display_island_expand_seconds),
+                        subtitle = stringResource(R.string.notification_display_island_expand_seconds_hint),
+                        options = listOf(
+                            stringResource(R.string.notification_display_island_expand_3s),
+                            stringResource(R.string.notification_display_island_expand_5s),
+                            stringResource(R.string.notification_display_island_expand_10s),
                         ),
-                        onClick = { openAppNotificationSettings(context) },
+                        selectedIndex = ISLAND_EXPAND_OPTIONS
+                            .indexOf(display.islandExpandSeconds).coerceAtLeast(0),
+                        onSelect = { index ->
+                            update { it.copy(islandExpandSeconds = ISLAND_EXPAND_OPTIONS[index]) }
+                        },
+                    )
+                    dropdownRow(
+                        title = stringResource(R.string.notification_display_island_disconnect),
+                        subtitle = stringResource(R.string.notification_display_island_disconnect_hint),
+                        options = ISLAND_DISCONNECT_OPTIONS.map {
+                            stringResource(R.string.notification_display_island_disconnect_value, it)
+                        },
+                        selectedIndex = ISLAND_DISCONNECT_OPTIONS
+                            .indexOf(display.islandDisconnectMs).coerceAtLeast(0),
+                        onSelect = { index ->
+                            update { it.copy(islandDisconnectMs = ISLAND_DISCONNECT_OPTIONS[index]) }
+                        },
+                    )
+                    switchRow(
+                        title = stringResource(R.string.notification_display_island_outer_glow),
+                        subtitle = stringResource(R.string.notification_display_island_outer_glow_hint),
+                        checked = display.islandOuterGlow,
+                        onCheckedChange = { checked ->
+                            update { it.copy(islandOuterGlow = checked) }
+                        },
+                    )
+                    switchRow(
+                        title = stringResource(R.string.notification_display_island_keep_shade),
+                        subtitle = stringResource(R.string.notification_display_island_keep_shade_hint),
+                        checked = display.islandKeepShadeNotification,
+                        onCheckedChange = { checked ->
+                            update { it.copy(islandKeepShadeNotification = checked) }
+                        },
+                    )
+                    switchRow(
+                        title = stringResource(R.string.notification_display_island_drag_share),
+                        subtitle = stringResource(R.string.notification_display_island_drag_share_hint),
+                        checked = display.islandDragShare,
+                        onCheckedChange = { checked ->
+                            update { it.copy(islandDragShare = checked) }
+                        },
+                    )
+                    dropdownRow(
+                        title = stringResource(R.string.notification_display_island_timeout),
+                        subtitle = stringResource(R.string.notification_display_island_timeout_hint),
+                        options = listOf(
+                            stringResource(R.string.notification_display_island_timeout_none),
+                            stringResource(R.string.notification_display_island_timeout_5m),
+                            stringResource(R.string.notification_display_island_timeout_30m),
+                            stringResource(R.string.notification_display_island_timeout_1h),
+                        ),
+                        selectedIndex = ISLAND_TIMEOUT_OPTIONS.indexOf(display.islandTimeoutSeconds)
+                            .coerceAtLeast(0),
+                        onSelect = { index ->
+                            update { it.copy(islandTimeoutSeconds = ISLAND_TIMEOUT_OPTIONS[index]) }
+                        },
                     )
                 }
             }
-        }
-
+            group(title = stringResource(R.string.notification_display_progress_group)) {
+                dropdownRow(
+                    title = stringResource(R.string.notification_display_progress_dismiss),
+                    subtitle = stringResource(R.string.notification_display_progress_dismiss_hint),
+                    options = PROGRESS_DISMISS_OPTIONS.map {
+                        if (it == 0) {
+                            stringResource(R.string.notification_display_progress_dismiss_none)
+                        } else {
+                            stringResource(R.string.notification_display_progress_dismiss_value, it)
+                        }
+                    },
+                    selectedIndex = PROGRESS_DISMISS_OPTIONS
+                        .indexOf(display.progressDismissSeconds).coerceAtLeast(0),
+                    onSelect = { index ->
+                        update { it.copy(progressDismissSeconds = PROGRESS_DISMISS_OPTIONS[index]) }
+                    },
+                )
+            }
+            group(title = stringResource(R.string.notification_display_test_group)) {
+                row(
+                    title = stringResource(R.string.notification_display_test_send),
+                    subtitle = stringResource(R.string.notification_display_test_send_hint),
+                    onClick = {
+                        scope.launch {
+                            sendTestNotification(progress = false)
+                        }
+                    },
+                )
+                row(
+                    title = stringResource(R.string.notification_display_test_progress),
+                    subtitle = stringResource(R.string.notification_display_test_progress_hint),
+                    onClick = {
+                        scope.launch {
+                            sendTestNotification(progress = true)
+                        }
+                    },
+                )
+                row(
+                    title = stringResource(R.string.notification_display_test_toast),
+                    subtitle = stringResource(R.string.notification_display_test_toast_hint),
+                    onClick = {
+                        scope.launch { sendTestToast() }
+                    },
+                )
+            }
+            val needNotifPerm = !notificationsEnabled
+            val needExactAlarm = !exactAlarmEnabled
+            val needLiveUpdate = liveUpdateSupported && !liveUpdateEnabled
+            if (needNotifPerm || needExactAlarm || needLiveUpdate) {
+                val rowCount = (if (needNotifPerm) 1 else 0) +
+                    (if (needExactAlarm) 1 else 0) +
+                    (if (needLiveUpdate) 1 else 0)
+                LunoGroup(title = stringResource(R.string.notification_display_perm_group)) {
+                    if (needNotifPerm) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.habit_reminder_perm_notification),
+                            subtitle = stringResource(R.string.habit_reminder_perm_notification_off_hint),
+                            shape = segmentedShape(0, rowCount),
+                            onClick = { openAppNotificationSettings(context) },
+                        )
+                    }
+                    if (needExactAlarm) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.habit_reminder_perm_exact_alarm),
+                            subtitle = stringResource(R.string.habit_reminder_perm_exact_off_hint),
+                            shape = segmentedShape(if (needNotifPerm) 1 else 0, rowCount),
+                            onClick = { openExactAlarmSettings(context) },
+                        )
+                    }
+                    if (needLiveUpdate) {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.habit_reminder_perm_live_update),
+                            subtitle = stringResource(R.string.habit_reminder_perm_live_off_hint),
+                            shape = segmentedShape(
+                                (if (needNotifPerm) 1 else 0) + (if (needExactAlarm) 1 else 0),
+                                rowCount,
+                            ),
+                            onClick = { openAppNotificationSettings(context) },
+                        )
+                    }
+                }
+            }
         }
     }
-}
-}
 }
 
 private fun canScheduleExactAlarms(context: Context): Boolean {

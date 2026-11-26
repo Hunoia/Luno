@@ -1,28 +1,16 @@
 package hunoia.luno.ui.home
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,10 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,7 +63,6 @@ import hunoia.luno.gridpanel.habit.HabitListContent
 import hunoia.luno.gridpanel.todo.TodoListContent
 import hunoia.luno.gridpanel.trend.TrendListContent
 import hunoia.luno.ui.navigation.PendingHomeTab
-import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddChart
 import androidx.compose.material.icons.filled.AddTask
@@ -93,9 +80,7 @@ import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.twotone.Home
 import androidx.compose.material.icons.twotone.Settings
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.page.LunoPage
-import hunoia.luno.ui.component.page.LunoPageList
 import hunoia.luno.ui.component.page.LunoTabPager
 import hunoia.luno.ui.settings.action.ActionSettingsTab
 
@@ -473,7 +458,7 @@ fun HomeScreen(
         ) {
             LunoTabPager(tabs = MainTab.entries, selected = mainTab) { tab ->
                 when (tab) {
-                        MainTab.Home -> LunoPageList(state = homeListState) {
+                        MainTab.Home -> list(state = homeListState) {
                             item(key = "runtime_status") {
                                 HomeRuntimeStatusCard(
                                     runtimeStatus = uiState.runtimeStatus,
