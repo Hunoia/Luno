@@ -40,6 +40,7 @@ import hunoia.luno.gridpanel.widget.widgetPreviewOf
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.SmallShape
 import hunoia.luno.ui.component.pressClickable
+import hunoia.luno.ui.theme.subtleSurfaceColor
 
 /**
  * 小部件选择器：每 app 一个分区，分区内横向滚动预览卡（恒单选）。
@@ -88,7 +89,7 @@ internal fun WidgetGroupHeaderRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .clip(SmallShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                .background(subtleSurfaceColor().copy(alpha = 0.6f))
                 .padding(horizontal = 8.dp, vertical = 2.dp),
         )
     }
@@ -109,7 +110,7 @@ internal fun InternalWidgetCard(
             .heightIn(min = 120.dp)
             .pressClickable(onClick = onSelect),
         shape = SmallShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = subtleSurfaceColor().copy(alpha = 0.5f),
     ) {
         Column(
             modifier = Modifier
@@ -170,7 +171,7 @@ internal fun WidgetPreviewCard(
             .heightIn(min = 120.dp)
             .pressClickable(onClick = onSelect),
         shape = SmallShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = subtleSurfaceColor().copy(alpha = 0.5f),
     ) {
         Column(
             modifier = Modifier

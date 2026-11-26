@@ -55,6 +55,19 @@ class UiFrameworkTest {
         Rule("direct-material-card", Regex("""\bCard\s*\(""")) { path ->
             isPageOrSettings(path)
         },
+        // 输入形态统一走 LunoInputRow / LunoCardInput / LunoDialogField；设计模块里的
+        // 搜索框与输入框实现是唯一实现处，不在门禁内。
+        Rule("raw-text-input", Regex("""\b(Outlined)?TextField\s*\(""")) { path ->
+            !path.startsWith(designRoot)
+        },
+        // 容器色只能从主题层的色阶 token 取（page / card / raised / floating / track / subtle）。
+        // 直读 surfaceBright / surfaceContainer* 会在自定义色板下写出「菜单比页面还暗」这类层级反转。
+        Rule(
+            "raw-surface-color",
+            Regex("""colorScheme\.surface(?:Bright|Dim|Container\w*|Variant)\b"""),
+        ) { path ->
+            !path.startsWith("ui/design/src/main/java/hunoia/luno/ui/theme/")
+        },
     )
 
     @Test

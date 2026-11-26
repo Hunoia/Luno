@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoReminderFormat
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -152,7 +153,7 @@ private fun MinuteDial(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
-    val surface = MaterialTheme.colorScheme.surfaceContainerHighest
+    val surface = trackSurfaceColor()
     val dialModifier = Modifier
         .size(220.dp)
         .then(

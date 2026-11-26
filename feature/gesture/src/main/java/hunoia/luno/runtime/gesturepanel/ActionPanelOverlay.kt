@@ -27,6 +27,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gesture.R
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 @Composable
 internal fun ActionPanelBackdrop(
@@ -70,7 +71,7 @@ internal fun SelectedActionPill(
     Surface(
         modifier = modifier,
         shape = containerShape(24.dp),
-        color = if (longPress) accentColor else MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = if (longPress) accentColor else raisedSurfaceColor(),
         shadowElevation = 8.dp,
         tonalElevation = 4.dp,
     ) {

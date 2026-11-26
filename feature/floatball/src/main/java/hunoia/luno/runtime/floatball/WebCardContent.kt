@@ -81,6 +81,8 @@ import hunoia.luno.ui.component.feedback.LunoLinearProgress
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.raisedSurfaceColor
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -302,7 +304,7 @@ internal fun WebCardContent(
         modifier = Modifier.fillMaxSize(),
         shape = LargeShape,
         // 窗口 = 卡片边界（activityFloat 卡同款口径）：阴影会被窗口边界裁掉，只留描边。
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = raisedSurfaceColor(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -414,7 +416,7 @@ internal fun WebCardContent(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            .background(raisedSurfaceColor()),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
@@ -471,7 +473,7 @@ internal fun WebCardContent(
                         .align(Alignment.BottomEnd)
                         .size(ResizeHandleSize)
                         .background(
-                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                            trackSurfaceColor(),
                             CircleShape,
                         )
                         .pointerInput(Unit) {

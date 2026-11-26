@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -17,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.design.R
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.theme.cardSurfaceColor
 
 @Composable
 fun AppSearchBar(
@@ -43,8 +43,8 @@ fun AppSearchBar(
         shape = CapsuleShape,
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedContainerColor = cardSurfaceColor(),
+            unfocusedContainerColor = cardSurfaceColor(),
         ),
         singleLine = true
     )

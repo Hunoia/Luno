@@ -64,6 +64,8 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListRowMinHeight
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.cardSurfaceColor
+import hunoia.luno.ui.theme.subtleSurfaceColor
 
 /**
  * 列表行的唯一实现，三种预设共用：内边距由页面 gutter 或 [LunoGroup] 提供，
@@ -117,7 +119,7 @@ internal fun LunoRowBase(
         } else if (inDividedCard) {
             Color.Transparent
         } else {
-            containerColor ?: colorScheme.surfaceBright
+            containerColor ?: cardSurfaceColor()
         },
         animationSpec = tween(MotionSelection),
         label = "lunoRowBackground",
@@ -219,7 +221,7 @@ internal fun LunoRowBase(
                     // Coil 快速滚动时请求被取消 / 内存缓存逐出，AsyncImage 会短暂处于
                     // Empty（加载中）或 Error 态；无占位则整格渲染空白（冻结管理页长列表
                     // 实测：滚到下面个别图标空白，重滚才恢复）。占位/错误用中性色块兜底。
-                    val iconPlaceholder = ColorPainter(MaterialTheme.colorScheme.surfaceVariant)
+                    val iconPlaceholder = ColorPainter(subtleSurfaceColor())
                     AsyncImage(
                         modifier = Modifier.size(RowIconSize).clip(SmallShape),
                         model = model,
@@ -402,6 +404,8 @@ fun LunoInputRow(
     placeholder: String = "",
     subtitle: String = "",
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** 说明可能是一句话（如「单位只改显示标签」）：允许换行，超过行数才省略。 */
+    subtitleMaxLines: Int = 1,
     isError: Boolean = false,
     singleLine: Boolean = true,
     shape: Shape = LargeShape,
@@ -460,7 +464,7 @@ fun LunoInputRow(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isError) colorScheme.error else subtitleColor,
-                    maxLines = 1,
+                    maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()

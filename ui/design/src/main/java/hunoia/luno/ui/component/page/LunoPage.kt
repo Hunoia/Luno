@@ -1,5 +1,6 @@
 package hunoia.luno.ui.component.page
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.RowScope
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -31,6 +31,7 @@ import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.FloatingTopBar
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.rememberLunoTopBarScrollBehavior
+import hunoia.luno.ui.theme.pageSurfaceColor
 import hunoia.luno.ui.theme.rememberAppHazeState
 
 /**
@@ -43,6 +44,7 @@ import hunoia.luno.ui.theme.rememberAppHazeState
  * 实测值到达后直接覆盖，不做二次动画（IME 已逐帧，见 ui-guidelines §3.2 第 9 条）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun LunoPage(
     title: String,
@@ -94,7 +96,7 @@ fun LunoPage(
         // 顶栏底下，磨砂层底下没有内容可糊。改成 overlay 悬浮后内容从顶栏底下穿过。
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = pageSurfaceColor(),
             contentWindowInsets = WindowInsets(),
         ) { _ ->
             Box(modifier = Modifier.fillMaxSize()) {

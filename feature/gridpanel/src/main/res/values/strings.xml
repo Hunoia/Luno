@@ -244,7 +244,7 @@
     <string name="habit_daily_target">每日次数</string>
     <string name="habit_daily_target_summary">每个应打卡日完成 %1$d 次</string>
     <string name="habit_list_title">习惯</string>
-    <string name="habit_name">习惯名</string>
+    <string name="habit_name">名称</string>
     <string name="habit_name_hint">如：跑步、喝水</string>
     <string name="habit_pick_empty">还没有习惯，请先新建</string>
     <string name="habit_pick_title">选择习惯</string>

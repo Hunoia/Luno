@@ -26,14 +26,14 @@ import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.quickaccess.launchSearchAction
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
 import hunoia.luno.quickaccess.query.toSearchAction
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlinx.coroutines.launch
 
 /** 测试按钮用固定词：能直观看出 %s / %q 是否被正确替换。 */
@@ -188,29 +188,29 @@ fun SearchEngineEditScreen(
             if (addMode) R.string.search_engine_add else R.string.search_engine_edit,
         ),
         onBack = guardedBack,
-        actions = {
-            // 测试放顶栏（与动作库编辑页一致）：模板/目标应用就绪即可试，名称不拦。
-            LunoIconButton(
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.search_engine_test),
-                enabled = editState.testable(targetPackage),
-                onClick = {
-                    val action = editState.buildLaunch(targetPackage).toSearchAction(EDIT_TEST_QUERY)
-                    if (!launchSearchAction(context, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
-                },
-            )
-        },
-        floatingContent = { _ ->
-            // 点击直接保存（无效草稿 toast 提示）；无效态换灰底提示不可保存。
-            LunoFab(
-                onClick = {
-                    if (valid) save() else showToast(R.string.search_engine_invalid_hint)
-                },
-                icon = Icons.Default.Save,
-                contentDescription = stringResource(hunoia.luno.design.R.string.save),
-                containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
+        bottomBar = { hazeState ->
+            LunoActionBar(hazeState) {
+                // 次要操作：模板 / 目标应用就绪即可试，名称不拦（与动作库编辑页同口径）。
+                LunoActionBarItem(
+                    onClick = {
+                        val action = editState.buildLaunch(targetPackage).toSearchAction(EDIT_TEST_QUERY)
+                        if (!launchSearchAction(context, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
+                    },
+                    icon = Icons.Default.PlayArrow,
+                    contentDescription = stringResource(R.string.search_engine_test),
+                    enabled = editState.testable(targetPackage),
+                )
+                // 主操作：点击直接保存（无效草稿 toast 提示）；无效态换灰底提示不可保存。
+                LunoActionBarItem(
+                    onClick = {
+                        if (valid) save() else showToast(R.string.search_engine_invalid_hint)
+                    },
+                    icon = Icons.Default.Save,
+                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
+                    containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
+                    else trackSurfaceColor(),
+                )
+            }
         },
         dialogs = {
             if (showDiscardConfirm) {
@@ -266,7 +266,7 @@ fun SearchEngineEditScreen(
             }
         },
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 EngineEditFields(
                     state = editState,

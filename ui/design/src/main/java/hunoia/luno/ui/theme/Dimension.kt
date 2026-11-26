@@ -61,7 +61,6 @@ val SliderInnerPadding = 16.dp
 /** 滑杆 thumb 宽度：与 M3 Slider 默认 handle 同宽，拖动映射按轨道净宽（总宽 − thumb）换算。 */
 val SliderThumbWidth = 20.dp
 val ContentBottom = 24.dp
-val FloatingContentBottom = 120.dp
 val SheetListMaxHeight = 420.dp
 /**
  * 下拉 / 长按菜单的最大高度：内容超过时菜单内滚动，不为放下更多项而无限加高
@@ -97,7 +96,6 @@ val MediumShape: Shape = DelegatingShape(ShapeRole.CompactMedium)
 /** 列表与卡（行 / 组卡 / 分段组 / 输入框 / 空态 / 横幅）。 */
 val LargeShape: Shape = DelegatingShape(ShapeRole.List)
 /** 悬浮操作按钮：与列表分开成族，圆角可单独调。 */
-val FabShape: Shape = DelegatingShape(ShapeRole.Fab)
 /** 菜单项与 sheet 按钮（48dp 族）。 */
 val MenuShape: Shape = DelegatingShape(ShapeRole.Menu)
 /** 紧凑工具条（标注页，48dp 族）。 */
@@ -318,7 +316,6 @@ const val PanelFadeTailFraction = 0.3f
 const val MotionConfirmCountdown = 1200
 
 // 编辑页底部保存 FAB 的边长（大字体下仍可点，命中区见 MinInteractiveSize）。
-val FabSize = 64.dp
 
 // 标注工具卡（主卡 + 二级卡）默认贴屏边距：底边与左右各一个值。
 // 两条宿主（屏幕标注浮层窗口 / 图片编辑页）共用，宽度按 屏宽 − 2 × 本值 推。

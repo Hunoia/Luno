@@ -9,9 +9,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.ui.component.PressTextButton
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 
 /**

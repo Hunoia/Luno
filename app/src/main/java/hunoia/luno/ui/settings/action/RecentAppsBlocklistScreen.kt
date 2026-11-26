@@ -48,8 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -71,7 +69,7 @@ import hunoia.luno.ui.component.IndexBarSide
 import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
@@ -80,6 +78,7 @@ import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
+import hunoia.luno.ui.component.swallowTouches
 import hunoia.luno.ui.icon.toIconBitmap
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
@@ -300,7 +299,7 @@ Column(
                         } else {
                             sections.forEach { section ->
                                 stickyHeader(key = "app_header_${section.letter}") {
-                                    SheetGroupHeader(section.letter.toString())
+                                    LunoSectionTitle(section.letter.toString())
                                 }
                                 item(key = "app_body_${section.letter}") {
                                     // LunoGroup 自动跟随全局大卡/分割：Segmented 时行各带圆角
@@ -501,15 +500,6 @@ private fun ToolbarNormalContent(
                 Icons.Default.Search,
                 contentDescription = stringResource(R.string.search_app_hint),
             )
-        }
-    }
-}
-
-/** 只吃事件、不做任何事：把落在工具条矩形范围内的触摸从下层列表手里拿回来。 */
-private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
-    awaitPointerEventScope {
-        while (true) {
-            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
         }
     }
 }

@@ -1,6 +1,10 @@
 package hunoia.luno.ui.component.screen
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -8,7 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.ui.component.ListAddFab
+import dev.chrisbanes.haze.HazeState
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.page.LunoPageColumn
@@ -18,7 +24,6 @@ import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.component.TextIcon
 
 /** 面板列表屏的一行：[id] 进编辑页，[title]/[subtitle] 展示。 */
@@ -49,7 +54,7 @@ data class PanelCreateItem(
 
 /**
  * 面板列表屏骨架：网格面板与动作面板共用的合并列表。
- * 行级只管进入属性编辑；新增走右下角 FAB（弹菜单选面板类型），删除在编辑页右上角。
+ * 行级只管进入属性编辑；新增走底部动作底栏（弹菜单选面板类型），删除在编辑页右上角。
  * [header] 渲染在列表顶部（空态时也保留），供调用方挂全局配置入口。
  */
 @Composable
@@ -64,11 +69,15 @@ fun PanelListScreen(
     val listState = rememberLazyListState()
     var showCreateMenu by remember { mutableStateOf(false) }
 
-    val addFab: @Composable () -> Unit = {
-        ListAddFab(
-            onClick = { showCreateMenu = true },
-            contentDescription = createItems.firstOrNull()?.label.orEmpty(),
-            dropdown = {
+    // 底栏只放一个「新建」动作，菜单挂在它的锚点上（与旧 FAB 的下拉同款）。
+    val actionBar: @Composable BoxScope.(HazeState) -> Unit = { hazeState ->
+        LunoActionBar(hazeState) {
+            Box {
+                LunoActionBarItem(
+                    onClick = { showCreateMenu = true },
+                    icon = Icons.Default.Add,
+                    contentDescription = createItems.firstOrNull()?.label.orEmpty(),
+                )
                 LunoDropdownMenu(
                     expanded = showCreateMenu,
                     onDismissRequest = { showCreateMenu = false },
@@ -84,8 +93,8 @@ fun PanelListScreen(
                         )
                     }
                 }
-            },
-        )
+            }
+        }
     }
 
     val totalRows = sections.sumOf { it.rows.size }
@@ -93,9 +102,9 @@ fun PanelListScreen(
         LunoPage(
             title = title,
             onBack = onBack,
-            floatingContent = { addFab() },
+            bottomBar = actionBar,
         ) {
-            LunoPageColumn(bottomContentPadding = FloatingContentBottom) {
+            LunoPageColumn {
                 block {
                     header?.invoke()
                     EmptyState(message = sections.firstOrNull()?.emptyHint.orEmpty())
@@ -108,9 +117,9 @@ fun PanelListScreen(
     LunoPage(
         title = title,
         onBack = onBack,
-        floatingContent = { addFab() },
+        bottomBar = actionBar,
     ) {
-        LunoPageList(state = listState, bottomContentPadding = FloatingContentBottom) {
+        LunoPageList(state = listState) {
             lazy {
         header?.let { h ->
             item(key = "header") { h() }

@@ -36,7 +36,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SectionBadge
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressTextButton
 
@@ -221,7 +220,7 @@ fun PrivilegedPermissionsScreen(
         title = stringResource(R.string.perm_page_title),
         onBack = onBack,
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 LunoGroup {
                     LunoSettingsRow(

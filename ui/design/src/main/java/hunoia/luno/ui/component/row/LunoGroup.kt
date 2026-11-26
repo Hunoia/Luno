@@ -1,24 +1,17 @@
 package hunoia.luno.ui.component.row
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.draw.rotate
 import hunoia.luno.ui.theme.MotionSubtle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +19,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
@@ -37,6 +29,7 @@ import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.cardSurfaceColor
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.groupItemShape
 import hunoia.luno.ui.theme.ListSpacing
@@ -70,41 +63,11 @@ fun segmentedShape(index: Int, count: Int): Shape {
 }
 
 /**
- * 由容器自动计算分段圆角的静态内容组。
- *
- * 子项通过 [SegmentedGroupScope.item] 注册，只有实际执行到的 item 才会计数。
- * 子项接收容器按最终数量计算出的 shape，因此不需要手动维护总数。
- *
- * **依赖选择项 / 开关条件增删行的卡片不要用这个**：容器是一次 Composable 调用，
- * 可能被跳过（param 比较相等时），跳过时 `item` 不会重新注册，表现为
- * 「选择已落盘，但条件行不出现 / 行尾值不刷新」。那种场景用 [segmentedRows] +
- * [SegmentedRows]（注册和 emit 都在调用方的组合里）。
- */
-@Composable
-fun LunoSegmentedGroup(
-    modifier: Modifier = Modifier,
-    contentSpacing: Dp = SegmentedGap,
-    content: @Composable SegmentedGroupScope.() -> Unit,
-) {
-    val scope = SegmentedGroupScope()
-    scope.content()
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        // 大卡分割线风格：行间由分割线分隔，缝归零。
-        verticalArrangement = Arrangement.spacedBy(groupItemSpacing(contentSpacing)),
-    ) {
-        scope.items.forEachIndexed { index, item ->
-            item(segmentedShape(index, scope.items.size))
-        }
-    }
-}
-
-/**
  * 分段行的「裸行」变体（配合 [LunoGroup] 使用）：在调用方的组合里注册行，
  * 再交给 [SegmentedRows] 直接 emit 到当前 `ColumnScope`。
  *
- * 与 [LunoSegmentedGroup] 的差别只在**容器**：这里没有额外一层 Composable，
- * 注册和 emit 都发生在调用方，因此「选择项 / 开关 + 它驱动的条件行」一定同批刷新。
+ * 用在 `group { }` DSL 覆盖不到的地方（夹在自定义内容里、需要跨 Composable 传 rows）。
+ * 注册和 emit 都发生在调用方，因此「选择项 / 开关 + 它驱动的条件行」一定同批刷新；
  * 返回值必须被使用（[SegmentedRows]），所以这层也不会被跳过。
  */
 @Composable
@@ -234,44 +197,18 @@ fun LunoGroup(
     onToggle: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (collapsible && !expanded) 0f else if (collapsible) 180f else 0f,
-        animationSpec = tween(MotionSubtle),
-        label = "groupChevron",
-    )
     Column(modifier = modifier.fillMaxWidth()) {
         if (title.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .padding(
-                        start = PageGutter,
-                        end = PageGutter,
-                        top = CardInnerSpacing,
-                        bottom = titleBottomSpacing,
-                    )
-                    .fillMaxWidth()
-                    .clickable(enabled = collapsible) { onToggle() },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                if (badgeText != null) {
-                    SectionBadge(text = badgeText, error = badgeError)
-                }
-                titleTrailing()
-                if (collapsible) {
-                    Icon(
-                        imageVector = Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.rotate(chevronRotation),
-                    )
-                }
-            }
+            LunoSectionTitle(
+                title = title,
+                badgeText = badgeText,
+                badgeError = badgeError,
+                trailing = titleTrailing,
+                topSpacing = CardInnerSpacing,
+                bottomSpacing = titleBottomSpacing,
+                expanded = if (collapsible) expanded else null,
+                onToggle = if (collapsible) onToggle else null,
+            )
         }
         if (subtitle.isNotEmpty()) {
             Text(
@@ -294,7 +231,7 @@ fun LunoGroup(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(containerShape(ContainerRadius))
-                            .background(MaterialTheme.colorScheme.surfaceBright),
+                            .background(cardSurfaceColor()),
                     ) {
                         content()
                     }

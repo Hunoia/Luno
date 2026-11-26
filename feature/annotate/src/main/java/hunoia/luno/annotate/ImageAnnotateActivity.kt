@@ -74,6 +74,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.theme.AnnotateCardEdgeMargin
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.raisedSurfaceColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -625,7 +626,7 @@ private fun ActionPanel(
                     onClick = {},
                 ),
             shape = LargeShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = raisedSurfaceColor(),
             tonalElevation = 3.dp,
             // 全部去阴影（计划）：模态面板也不留投影，层次靠色差与遮罩。
             shadowElevation = 0.dp,

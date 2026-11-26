@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.GridPanelDragGhost
 import hunoia.luno.ui.overlay.EdgeBarEdge
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.subtleSurfaceColor
 import kotlin.math.roundToInt
 
 /**
@@ -60,7 +61,7 @@ fun GridPanelDragGhostLayer(ghost: GridPanelDragGhost, modifier: Modifier = Modi
                 .alpha(0.94f)
                 .onSizeChanged { size = it },
             shape = containerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            color = subtleSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             // 跟手幽灵不加阴影：它贴着卡片裁形与窗口边界移动，阴影边缘必被切；而且
             // 逐帧重绘阴影要额外离屏层。层级用描边 + 底色差（ui-guidelines §4.6）。

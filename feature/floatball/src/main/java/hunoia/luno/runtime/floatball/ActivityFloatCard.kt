@@ -52,6 +52,7 @@ import hunoia.luno.ui.icon.rememberAppLabel
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.overlaySpec
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 当前界面悬浮卡片：行1「应用名 · Activity 短名」，行2 完整组件名小字。
@@ -110,7 +111,7 @@ internal fun ActivityFloatCard(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = LargeShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = raisedSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(
                 width = 1.dp,

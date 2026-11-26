@@ -78,7 +78,7 @@
     <!-- Action panels (explicit action type internal.actionPanel) global list and editor -->
     <string name="action_panels">Action panels</string>
     <string name="add_action_panel">Add panel</string>
-    <string name="action_panel_name_hint">Panel name</string>
+    <string name="action_panel_name_hint">Name</string>
     <string name="action_panel_items">Panel content</string>
     <string name="action_panel_empty_hint">No panel items yet. After adding, pick "Action panel" on a gesture button to show it.</string>
     <string name="action_panel_item_drag">Drag to reorder</string>
@@ -116,7 +116,6 @@
     <string name="appearance_theme_palette_label">Palette</string>
     <string name="appearance_theme_custom_hint">Custom palettes are managed in Alerts → Palettes</string>
     <string name="appearance_corner_list">Lists and cards</string>
-    <string name="appearance_corner_fab">Action button</string>
     <string name="appearance_corner_menu">Menus and buttons</string>
     <string name="appearance_corner_toolbar">Compact toolbar</string>
     <string name="appearance_corner_compact">Small elements</string>
@@ -130,6 +129,7 @@
     <string name="appearance_top_bar_glass">Top bar glass</string>
     <string name="appearance_floating_glass">Floating glass</string>
     <string name="appearance_glass_blur">Blur radius</string>
+    <string name="appearance_glass_off">Off</string>
     <string name="appearance_glass_alpha">Opacity</string>
     <string name="appearance_glass_shadow">Shadow</string>
     <string name="appearance_shadow_none">None</string>

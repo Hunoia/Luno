@@ -31,6 +31,7 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 两个宿主共用的工具条上方 chrome（审计 P1c 收敛）：
@@ -129,7 +130,7 @@ fun AnnotatePanelCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = LargeShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = raisedSurfaceColor(),
         tonalElevation = 3.dp,
         shadowElevation = 0.dp,
     ) {

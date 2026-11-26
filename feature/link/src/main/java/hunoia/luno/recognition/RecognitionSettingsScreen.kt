@@ -54,7 +54,8 @@ import hunoia.luno.link.LinkTarget
 import hunoia.luno.link.Links
 import hunoia.luno.link.R
 import hunoia.luno.ui.component.DragReorderHandle
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -73,7 +74,6 @@ import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.RowIconSize
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -186,12 +186,14 @@ fun RecognitionSettingsScreen(
 
     LunoPage(title = stringResource(R.string.recognition_title),
 onBack = onBack,
-floatingContent = {
-            LunoFab(
-                onClick = onCreateRule,
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.recognition_rule_add),
-            )
+bottomBar = { hazeState ->
+            LunoActionBar(hazeState) {
+                LunoActionBarItem(
+                    onClick = onCreateRule,
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.recognition_rule_add),
+                )
+            }
         },
 actions = {
             var menuOpen by remember { mutableStateOf(false) }
@@ -278,8 +280,7 @@ dialogs = {
                 )
             }
         }) {
-    list(state = listState,
-bottomContentPadding = FloatingContentBottom) {
+    list(state = listState) {
         lazy {
 
         // 默认浏览器：只在 Luno 不是默认浏览器时才显示入口（已是默认就没必要再引导）。

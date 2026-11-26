@@ -27,7 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -62,7 +62,7 @@ fun ActionLibraryScreen(
                     grouped.forEach { (category, entries) ->
                         stickyHeader(key = "header_${category}") {
                             Box(modifier = Modifier.animateItem()) {
-                                SheetGroupHeader(stringResource(category.displayNameRes))
+                                LunoSectionTitle(stringResource(category.displayNameRes))
                             }
                         }
                         item(key = "group_${category}") {

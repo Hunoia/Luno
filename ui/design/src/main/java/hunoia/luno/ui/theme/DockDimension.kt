@@ -30,6 +30,6 @@ val DockMinTabWidth = 48.dp
 /**
  * 浮层（待办页撤销条等）与停靠栏之间的留白。
  * 浮层底边 inset = 导航栏 inset + `BottomBarPadding` + [DockBallSize] + 本值；
- * 用 `max(FloatingContentBottom, …)` 兜住列表底部留白，避免最后一条被球压住。
+ * 列表底部留白由 `LunoPage` 实测底栏高度回传，避免最后一条被球压住。
  */
 val DockOverlayGap = 12.dp

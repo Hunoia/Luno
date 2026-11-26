@@ -1,4 +1,5 @@
 package hunoia.luno.gesture.settings.button
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
@@ -9,14 +10,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.gesture.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.gesture.R
+import hunoia.luno.ui.component.row.group
+
 @Composable
 fun GestureButtonPhysicalParamsCard(
     gestureButton: GestureButton,
@@ -26,33 +24,31 @@ fun GestureButtonPhysicalParamsCard(
     onVibrationClick: () -> Unit,
     onTriggerDistanceClick: () -> Unit,
 ) {
-    LunoGroup(
-        title = stringResource(id = R.string.physical_params),
-    ) {
-        LunoSegmentedGroup {
-        item { shape -> LunoSettingsRow(
-            onClick = onAngleClick,
+    group(title = stringResource(id = R.string.physical_params)) {
+        row(
             title = stringResource(id = R.string.gesture_angles),
             icon = Icons.Default.Straighten,
-            shape = shape,
-        ) }
-        item { shape -> LunoSettingsRow(
-            onClick = onVibrationClick,
+            onClick = onAngleClick,
+        )
+        row(
             title = stringResource(id = R.string.gesture_button_vibration),
             icon = Icons.Default.Vibration,
-            shape = shape,
-        ) }
-        item { shape -> LunoSettingsRow(
-            onClick = onTriggerDistanceClick,
+            onClick = onVibrationClick,
+        )
+        row(
             title = stringResource(id = R.string.gesture_button_trigger_distance),
             icon = Icons.Default.Settings,
-            shape = shape,
-        ) }
+            onClick = onTriggerDistanceClick,
+        )
         // 与 VM 写入共用同一份夹取，避免滑杆上限与落盘上限分叉。
         val maxWidth = maxGestureButtonWidth(gestureButton)
         val maxHeight = maxGestureButtonHeight(gestureButton)
-        var localBtnWidth by remember(gestureButton.bounds.width) { mutableStateOf(gestureButton.bounds.width.coerceIn(MinGestureButtonLength, maxWidth)) }
-        var localBtnHeight by remember(gestureButton.bounds.height) { mutableStateOf(gestureButton.bounds.height.coerceIn(MinGestureButtonLength, maxHeight)) }
+        var localBtnWidth by remember(gestureButton.bounds.width) {
+            mutableStateOf(gestureButton.bounds.width.coerceIn(MinGestureButtonLength, maxWidth))
+        }
+        var localBtnHeight by remember(gestureButton.bounds.height) {
+            mutableStateOf(gestureButton.bounds.height.coerceIn(MinGestureButtonLength, maxHeight))
+        }
         var localBtnX by remember(gestureButton.bounds.x) { mutableStateOf(gestureButton.bounds.x) }
         var localBtnY by remember(gestureButton.bounds.y) { mutableStateOf(gestureButton.bounds.y) }
         val maxX = (1f - gestureButton.bounds.width).coerceAtLeast(0f)
@@ -61,68 +57,54 @@ fun GestureButtonPhysicalParamsCard(
         val displayedY = localBtnY.coerceIn(0f, maxY)
         val displayedWidth = localBtnWidth.coerceIn(MinGestureButtonLength, maxWidth)
         val displayedHeight = localBtnHeight.coerceIn(MinGestureButtonLength, maxHeight)
-        item { shape -> LunoTextSlider(
+        sliderRow(
             value = displayedX,
             onValueChange = {
                 localBtnX = it
                 vm.onGestureButtonXChange(it)
             },
-            onValueChangeFinished = {
-                vm.onGestureButtonAdjustFinish()
-            },
+            onValueChangeFinished = { vm.onGestureButtonAdjustFinish() },
             text = stringResource(id = R.string.gesture_button_x),
             valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = 0f..maxX,
-            shape = shape,
-        ) }
-        item { shape -> LunoTextSlider(
+        )
+        sliderRow(
             value = displayedY,
             onValueChange = {
                 localBtnY = it
                 vm.onGestureButtonYChange(it)
             },
-            onValueChangeFinished = {
-                vm.onGestureButtonAdjustFinish()
-            },
+            onValueChangeFinished = { vm.onGestureButtonAdjustFinish() },
             text = stringResource(id = R.string.gesture_button_y),
             valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = 0f..maxY,
-            shape = shape,
-        ) }
-        item { shape -> LunoTextSlider(
+        )
+        sliderRow(
             value = displayedWidth,
             onValueChange = {
                 localBtnWidth = it
                 vm.onGestureButtonWidthChange(it)
             },
-            onValueChangeFinished = {
-                vm.onGestureButtonAdjustFinish()
-            },
+            onValueChangeFinished = { vm.onGestureButtonAdjustFinish() },
             text = stringResource(id = R.string.gesture_button_width),
             valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = MinGestureButtonLength..maxWidth,
-            shape = shape,
-        ) }
-        item { shape -> LunoTextSlider(
+        )
+        sliderRow(
             value = displayedHeight,
             onValueChange = {
                 localBtnHeight = it
                 vm.onGestureButtonHeightChange(it)
             },
-            onValueChangeFinished = {
-                vm.onGestureButtonAdjustFinish()
-            },
+            onValueChangeFinished = { vm.onGestureButtonAdjustFinish() },
             text = stringResource(id = R.string.gesture_button_height),
             valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = MinGestureButtonLength..maxHeight,
-            shape = shape,
-        ) }
-        item { shape -> LunoSwitchRow(
-            onCheckedChange = { vm.onGestureButtonMirrorHorizontalChange(it) },
-            checked = mirrorHorizontal,
+        )
+        switchRow(
             title = stringResource(id = R.string.gesture_button_mirror),
-            shape = shape,
-        ) }
-        }
+            checked = mirrorHorizontal,
+            onCheckedChange = { vm.onGestureButtonMirrorHorizontalChange(it) },
+        )
     }
 }

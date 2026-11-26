@@ -1,5 +1,6 @@
 package hunoia.luno.gesture
 
+import android.annotation.SuppressLint
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -310,6 +311,7 @@ class SubGestureState(
         scheduleTimeout()
     }
 
+    @SuppressLint("MissingPermission")
     private fun resolve(
         subGesture: SubGesture,
         direction: Int,

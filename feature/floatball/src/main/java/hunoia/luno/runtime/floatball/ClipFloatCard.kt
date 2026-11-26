@@ -55,6 +55,7 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.overlaySpec
 import hunoia.luno.ui.theme.ShapeExtraSmall
 import hunoia.luno.ui.theme.containerShape
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 剪贴板悬浮卡片。
@@ -125,7 +126,7 @@ internal fun ClipFloatCard(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = LargeShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = raisedSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(
                 width = 1.dp,

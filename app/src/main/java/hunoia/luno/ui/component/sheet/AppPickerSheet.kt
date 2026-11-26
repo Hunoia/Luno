@@ -53,7 +53,7 @@ import hunoia.luno.ui.component.IndexBar
 import hunoia.luno.ui.component.IndexBarEntry
 import hunoia.luno.ui.component.IndexBarMetrics
 import hunoia.luno.ui.component.IndexBarSide
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.rememberIndexBarMetrics
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
@@ -66,7 +66,7 @@ import hunoia.luno.ui.component.SystemAppsMenuButton
  * 应用选择 sheet（单选）：点一行即确认并关闭（[onConfirm] / [onSelectApp]），无底部确认/取消。
  *
  * 列表按拼音字母分节（A–#、节内全拼序），风格跟随最近应用黑名单页：
- * [LunoGroup] 分组 + 吸顶字母头 [SheetGroupHeader]，左右各一条竖向拼音滑杆
+ * [LunoGroup] 分组 + 吸顶字母头 [LunoSectionTitle]，左右各一条竖向拼音滑杆
  * [IndexBar]（参考应用抽屉部件），贴底限高 [SheetIndexBarMaxHeight]、覆盖在列表上
  * 不改变列表间距。
  *
@@ -234,7 +234,7 @@ fun AppPickerSheet(
                             } else {
                                 sections.forEach { section ->
                                     stickyHeader(key = "app_picker_hdr_${section.letter}") {
-                                        SheetGroupHeader(section.letter.toString())
+                                        LunoSectionTitle(section.letter.toString())
                                     }
                                     item(key = "app_picker_body_${section.letter}") {
                                         LunoGroup {

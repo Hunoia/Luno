@@ -17,16 +17,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import hunoia.luno.R
-import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoGroupItem
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.cardSurfaceColor
 import kotlin.math.roundToInt
 
 /**
@@ -47,9 +44,8 @@ internal fun FontScaleControls(
             .padding(bottom = ContentBottom),
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-        LunoGroup(title = stringResource(R.string.font_scale_sheet_group)) {
-            LunoSegmentedGroup {
-                item { shape -> LunoTextSlider(
+        group(title = stringResource(R.string.font_scale_sheet_group)) {
+            sliderRow(
                 value = draft,
                 onValueChange = { draft = it },
                 onValueChangeFinished = {
@@ -62,48 +58,47 @@ internal fun FontScaleControls(
                     stringResource(R.string.font_scale_percent, (it * 100f).roundToInt())
                 },
                 valueRange = 0.5f..2.0f,
-                shape = shape,
-                ) }
-                item { shape -> LunoSettingsRow(
+            )
+            row(
                 title = stringResource(R.string.font_scale_reset),
-                shape = shape,
                 onClick = {
                     draft = if (onCommit(1.0f)) 1.0f else current
                 },
-                ) }
-            }
+            )
         }
 
-        LunoGroup(
+        group(
             title = stringResource(R.string.font_scale_sample_group),
             subtitle = stringResource(R.string.font_scale_sample_hint),
         ) {
-            LunoGroupItem(
-                modifier = Modifier.fillMaxWidth(),
-                shape = segmentedShape(0, 1),
-                color = MaterialTheme.colorScheme.surfaceBright,
-            ) {
-                CompositionLocalProvider(
-                    LocalDensity provides Density(density.density, draft),
+            item { shape ->
+                LunoGroupItem(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = shape,
+                    color = cardSurfaceColor(),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
-                        verticalArrangement = Arrangement.spacedBy(ListItemVerticalPadding),
+                    CompositionLocalProvider(
+                        LocalDensity provides Density(density.density, draft),
                     ) {
-                        Text(
-                            text = stringResource(R.string.font_scale_sample_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = stringResource(R.string.font_scale_sample_body),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
+                            verticalArrangement = Arrangement.spacedBy(ListItemVerticalPadding),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.font_scale_sample_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.font_scale_sample_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                }
                 }
             }
         }
     }
+}

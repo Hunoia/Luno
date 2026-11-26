@@ -10,9 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.group
 
 @Composable
 fun HomeSettingsGroup(
@@ -20,24 +18,20 @@ fun HomeSettingsGroup(
     onAppControlClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LunoGroup(
+    group(
         title = stringResource(R.string.home_section_settings),
         modifier = modifier,
     ) {
-        LunoSegmentedGroup {
-            item { shape -> LunoSettingsRow(
+        row(
             title = stringResource(R.string.clipboard_settings_entry),
             icon = Icons.TwoTone.ContentPaste,
-            shape = shape,
             onClick = onClipboardClick,
-            ) }
-            item { shape -> LunoSettingsRow(
+        )
+        row(
             title = stringResource(R.string.app_control_settings_entry),
             icon = Icons.TwoTone.AcUnit,
-            shape = shape,
             onClick = onAppControlClick,
-            ) }
-        }
+        )
     }
 }
 
@@ -48,29 +42,24 @@ fun DataTransferGroup(
     onLogSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LunoGroup(
+    group(
         title = stringResource(R.string.home_section_data),
         modifier = modifier,
     ) {
-        LunoSegmentedGroup {
-            item { shape -> LunoSettingsRow(
+        row(
             title = stringResource(R.string.backup_settings_entry),
             icon = Icons.TwoTone.SettingsBackupRestore,
-            shape = shape,
             onClick = onBackupSettingsClick,
-            ) }
-            item { shape -> LunoSettingsRow(
+        )
+        row(
             title = stringResource(hunoia.luno.actions.R.string.action_deep_links),
             icon = Icons.TwoTone.Link,
-            shape = shape,
             onClick = onActionSelectClick,
-            ) }
-            item { shape -> LunoSettingsRow(
+        )
+        row(
             title = stringResource(R.string.log_settings_title),
             icon = Icons.TwoTone.BugReport,
-            shape = shape,
             onClick = onLogSettingsClick,
-            ) }
-        }
+        )
     }
 }

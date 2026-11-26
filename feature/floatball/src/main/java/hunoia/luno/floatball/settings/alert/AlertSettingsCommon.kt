@@ -10,10 +10,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -55,6 +53,7 @@ import hunoia.luno.config.model.category
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
 import hunoia.luno.runtime.floatball.alert.engine.AlertPlanFactory
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -406,7 +405,7 @@ private fun FollowPaletteCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(LargeShape)
-            .background(if (selected) scheme.primaryContainer else scheme.surfaceContainerHigh)
+            .background(if (selected) scheme.primaryContainer else trackSurfaceColor())
             .pressClickable(onClick = onClick, role = Role.RadioButton)
             .padding(CardInnerSpacing),
         verticalAlignment = Alignment.CenterVertically,

@@ -68,6 +68,7 @@ import hunoia.luno.ui.theme.MiniWindowWidth
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MotionSelection
 import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.subtleSurfaceColor
 import hunoia.luno.ui.theme.tween
 import kotlin.math.hypot
 import kotlinx.coroutines.flow.filter
@@ -200,7 +201,7 @@ fun ActionPanelMenu(
                                 thisModifier.size(width = width, height = height)
                             }
                             .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                color = subtleSurfaceColor().copy(alpha = 0.5f),
                                 shape = LargeShape
                             )
                     )

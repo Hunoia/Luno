@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,7 +40,8 @@ import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.domain.floatball.FloatBallSettingsCenter
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.PressFilterChip
 import hunoia.luno.ui.component.page.LunoPage
@@ -53,7 +53,7 @@ import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.theme.CapsuleShape
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.cardSurfaceColor
 import kotlinx.coroutines.launch
 
 /** 绑定的目标：动作选择页里的类型（typeId）或动作库条目（entryId），二者互斥。 */
@@ -147,28 +147,30 @@ fun ActionAlertSettingsScreen(onBack: () -> Unit) {
 
     LunoPage(title = stringResource(R.string.action_alert_title),
 onBack = onBack,
-floatingContent = {
-            LunoFab(
-                onClick = {
-                    when {
-                        !actionAlert.enabled -> toast(
-                            resources.getString(R.string.action_alert_preview_disabled),
-                        )
-                        previewPreset == null -> toast(
-                            resources.getString(R.string.action_alert_preview_none),
-                        )
-                        else -> facades.system.previewFloatBallAlertPreset(
-                            context,
-                            previewPreset,
-                            intensityPercent = actionAlert.intensityPercent,
-                            speedPercent = actionAlert.speedPercent,
-                        )
-                    }
-                },
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.action_alert_preview),
-            )
-        },
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = {
+                when {
+                    !actionAlert.enabled -> toast(
+                        resources.getString(R.string.action_alert_preview_disabled),
+                    )
+                    previewPreset == null -> toast(
+                        resources.getString(R.string.action_alert_preview_none),
+                    )
+                    else -> facades.system.previewFloatBallAlertPreset(
+                        context,
+                        previewPreset,
+                        intensityPercent = actionAlert.intensityPercent,
+                        speedPercent = actionAlert.speedPercent,
+                    )
+                }
+            },
+            icon = Icons.Default.PlayArrow,
+            contentDescription = stringResource(R.string.action_alert_preview),
+        )
+    }
+},
 sheets = {
             pickTarget?.let { target ->
                 AlertPresetSelectSheet(
@@ -184,7 +186,7 @@ sheets = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "basic") {
@@ -254,7 +256,7 @@ sheets = {
                     .fillMaxWidth()
                     .height(48.dp),
                 shape = CapsuleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = cardSurfaceColor(),
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LunoSearchField(

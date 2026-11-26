@@ -4,68 +4,54 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.gesture.R
 import hunoia.luno.ui.component.LunoColumn
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.theme.ListSpacing
 
 @Composable
 fun GestureButtonVibrationContent(
     button: GestureButton,
-    vm: GestureButtonSettingsVM
+    vm: GestureButtonSettingsVM,
 ) {
     // 横向边距由 LunoSheet 统一提供，这里只排纵向间距。
     LunoColumn(contentPadding = 0.dp, verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
-        LunoGroup(title = stringResource(R.string.vibration_group_slide)) {
-            LunoSegmentedGroup {
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onSlideVibrateChange(it) },
-                checked = button.slideVibrate,
+        group(title = stringResource(R.string.vibration_group_slide)) {
+            switchRow(
                 title = stringResource(R.string.vibration_slide),
-                shape = shape,
-                ) }
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onLongSlideVibrateChange(it) },
-                checked = button.longSlideVibrate,
+                checked = button.slideVibrate,
+                onCheckedChange = { vm.onSlideVibrateChange(it) },
+            )
+            switchRow(
                 title = stringResource(R.string.vibration_long_slide),
-                shape = shape,
-                ) }
-            }
+                checked = button.longSlideVibrate,
+                onCheckedChange = { vm.onLongSlideVibrateChange(it) },
+            )
         }
-        LunoGroup(title = stringResource(R.string.vibration_group_hold)) {
-            LunoSegmentedGroup {
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onSlideHoldVibrateChange(it) },
-                checked = button.slideHoldVibrate,
+        group(title = stringResource(R.string.vibration_group_hold)) {
+            switchRow(
                 title = stringResource(R.string.vibration_slide_hold),
-                shape = shape,
-                ) }
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onLongSlideHoldVibrateChange(it) },
-                checked = button.longSlideHoldVibrate,
+                checked = button.slideHoldVibrate,
+                onCheckedChange = { vm.onSlideHoldVibrateChange(it) },
+            )
+            switchRow(
                 title = stringResource(R.string.vibration_long_slide_hold),
-                shape = shape,
-                ) }
-            }
+                checked = button.longSlideHoldVibrate,
+                onCheckedChange = { vm.onLongSlideHoldVibrateChange(it) },
+            )
         }
-        LunoGroup(title = stringResource(R.string.vibration_group_tap)) {
-            LunoSegmentedGroup {
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onTapVibrateChange(it) },
-                checked = button.tapVibrate,
+        group(title = stringResource(R.string.vibration_group_tap)) {
+            switchRow(
                 title = stringResource(R.string.vibration_tap),
-                shape = shape,
-                ) }
-                item { shape -> LunoSwitchRow(
-                onCheckedChange = { vm.onLongPressVibrateChange(it) },
-                checked = button.longPressVibrate,
+                checked = button.tapVibrate,
+                onCheckedChange = { vm.onTapVibrateChange(it) },
+            )
+            switchRow(
                 title = stringResource(R.string.vibration_long_press),
-                shape = shape,
-                ) }
-            }
+                checked = button.longPressVibrate,
+                onCheckedChange = { vm.onLongPressVibrateChange(it) },
+            )
         }
     }
 }

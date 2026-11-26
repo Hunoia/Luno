@@ -5,12 +5,12 @@ manual-segmented-shape|app/src/main/java/hunoia/luno/ui/home/components/GestureP
 raw-dp|app/src/main/java/hunoia/luno/ui/home/components/HomeRuntimeStatusCard.kt|3
 direct-material-card|app/src/main/java/hunoia/luno/ui/home/components/HomeRuntimeStatusCard.kt|1
 direct-lazy-column|app/src/main/java/hunoia/luno/ui/ocr/OcrResultActivity.kt|1
+raw-text-input|app/src/main/java/hunoia/luno/ui/ocr/OcrResultActivity.kt|1
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/accessibility/AccessibilityManagerScreen.kt|3
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/AdjustChrome.kt|3
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/AppearanceSettingsScreen.kt|7
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/BoundsAdjustCanvas.kt|11
 raw-font-size|app/src/main/java/hunoia/luno/ui/settings/action/BoundsAdjustCanvas.kt|1
-manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/FontScaleControls.kt|1
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/LogSettingsScreen.kt|2
 manual-segmented-shape|app/src/main/java/hunoia/luno/ui/settings/action/MiniWindowSettingsScreen.kt|2
 raw-dp|app/src/main/java/hunoia/luno/ui/settings/action/PointerAdjustScreen.kt|6
@@ -39,7 +39,6 @@ raw-dp|feature/floatball/src/main/java/hunoia/luno/floatball/settings/alert/Aler
 raw-dp|feature/floatball/src/main/java/hunoia/luno/floatball/settings/alert/AlertPresetSelectSheet.kt|4
 raw-dp|feature/floatball/src/main/java/hunoia/luno/floatball/settings/alert/AlertSettingsCommon.kt|3
 raw-dp|feature/gesture/src/main/java/hunoia/luno/gesture/settings/button/GestureButtonTriggerDistanceContent.kt|1
-manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/button/GestureButtonTriggerDistanceContent.kt|6
 raw-dp|feature/gesture/src/main/java/hunoia/luno/gesture/settings/button/GestureButtonVibrationContent.kt|1
 raw-dp|feature/gesture/src/main/java/hunoia/luno/gesture/settings/global/GlobalGestureZoneEditor.kt|1
 manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/global/GlobalGestureZoneEditor.kt|25
@@ -49,5 +48,5 @@ raw-dp|feature/gesture/src/main/java/hunoia/luno/gesture/settings/subgesture/Sub
 manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityEditScreen.kt|5
 direct-lazy-column|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityEditScreen.kt|4
 manual-segmented-shape|feature/gesture/src/main/java/hunoia/luno/gesture/settings/visibility/ButtonVisibilityScreen.kt|1
-manual-segmented-shape|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/settings/EngineEditFields.kt|4
+raw-text-input|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/panel/QuickSearchBar.kt|1
 manual-segmented-shape|feature/quickaccess/src/main/java/hunoia/luno/quickaccess/settings/SearchSourceSettingsScreen.kt|1

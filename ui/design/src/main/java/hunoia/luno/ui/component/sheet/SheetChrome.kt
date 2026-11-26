@@ -24,6 +24,7 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressButton
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /** 弹层标题行：左右边距由 [LunoSheet] 统一提供，这里只留纵向呼吸空间。 */
 @Composable
@@ -62,7 +63,7 @@ private fun SheetActionButton(
         shape = MenuShape,
         interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = raisedSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
     ) {

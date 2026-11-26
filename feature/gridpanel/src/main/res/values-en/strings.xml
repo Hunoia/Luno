@@ -239,7 +239,7 @@
     <string name="habit_daily_target">Daily target</string>
     <string name="habit_daily_target_summary">%1$d times per due day</string>
     <string name="habit_list_title">Habits</string>
-    <string name="habit_name">Habit name</string>
+    <string name="habit_name">Name</string>
     <string name="habit_name_hint">e.g. Run, drink water</string>
     <string name="habit_pick_empty">No habits yet; create one first</string>
     <string name="habit_pick_title">Select habit</string>

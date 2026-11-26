@@ -15,8 +15,6 @@ import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SurfacePlacementSliders
 import hunoia.luno.ui.component.row.segmentedShape
@@ -76,35 +74,27 @@ fun MiniWindowSettingsScreen(
                     )
                 }
             }
-            block {
-                LunoGroup {
-                    LunoSegmentedGroup {
-                        item { shape -> LunoSettingsRow(
-                                icon = Icons.Default.Crop,
-                                title = stringResource(R.string.mini_window_position_size),
-                                subtitle = stringResource(R.string.mini_window_position_size_hint),
-                                shape = shape,
-                                onClick = onAdjustBounds,
-                            )
+            group {
+                row(
+                    icon = Icons.Default.Crop,
+                    title = stringResource(R.string.mini_window_position_size),
+                    subtitle = stringResource(R.string.mini_window_position_size_hint),
+                    onClick = onAdjustBounds,
+                )
+                switchRow(
+                    title = stringResource(R.string.mini_window_swap_existing),
+                    subtitle = stringResource(R.string.mini_window_swap_existing_hint),
+                    checked = settings.swapExisting,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            TuneConfig.updateAdvanced { current ->
+                                current.withMiniWindowSettings(
+                                    current.miniWindowSettings().copy(swapExisting = enabled)
+                                )
+                            }
                         }
-                        item { shape -> LunoSwitchRow(
-                                title = stringResource(R.string.mini_window_swap_existing),
-                                subtitle = stringResource(R.string.mini_window_swap_existing_hint),
-                                checked = settings.swapExisting,
-                                onCheckedChange = { enabled ->
-                                    scope.launch {
-                                        TuneConfig.updateAdvanced { current ->
-                                            current.withMiniWindowSettings(
-                                                current.miniWindowSettings().copy(swapExisting = enabled)
-                                            )
-                                        }
-                                    }
-                                },
-                                shape = shape,
-                            )
-                        }
-                    }
-                }
+                    },
+                )
             }
             group(title = stringResource(R.string.mini_window_mini_group)) {
                 dropdownRow(

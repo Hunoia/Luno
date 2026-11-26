@@ -63,7 +63,7 @@
 
     <!-- 规则编辑 -->
     <string name="recognition_rule_add_title">新增识别规则</string>
-    <string name="recognition_rule_name">规则名称</string>
+    <string name="recognition_rule_name">名称</string>
     <string name="recognition_rule_name_hint">如 验证码；留空列表显示匹配串</string>
     <string name="recognition_rule_enabled">启用规则</string>
     <string name="recognition_rule_invalid">规则信息不完整，请补全标红项</string>

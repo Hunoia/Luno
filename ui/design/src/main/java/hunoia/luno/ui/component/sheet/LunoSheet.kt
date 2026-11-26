@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import hunoia.luno.ui.theme.DialogScrimAlpha
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetTopShape
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 底部弹层的唯一实现：`skipPartiallyExpanded`、容器色、顶角与入场动画在此定死，
@@ -34,7 +35,7 @@ import hunoia.luno.ui.theme.SheetTopShape
 fun LunoSheet(
     onDismissRequest: () -> Unit,
     showDragHandle: Boolean = false,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor: Color = raisedSurfaceColor(),
     topShape: Shape = SheetTopShape,
     scrollState: OptimizedScrollState = OptimizedScrollState.None,
     horizontalPadding: Dp = PageGutter,

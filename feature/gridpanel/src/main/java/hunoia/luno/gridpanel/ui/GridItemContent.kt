@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.panelTileContainer
 import hunoia.luno.ui.theme.AppIconDecodeSize
+import hunoia.luno.ui.theme.subtleSurfaceColor
 
 /**
  * 网格图标固定解码上限：面板拖拽/缩放只改布局尺寸，不再让 Coil 按每个像素尺寸
@@ -139,7 +140,7 @@ fun WidgetStateOverlay(state: WidgetLoadState, modifier: Modifier = Modifier) {
                 if (failed) {
                     MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    subtleSurfaceColor().copy(alpha = 0.4f)
                 },
                 containerShape(ItemCorner),
             )

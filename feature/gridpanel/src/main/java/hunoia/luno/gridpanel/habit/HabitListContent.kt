@@ -59,6 +59,7 @@ import hunoia.luno.ui.theme.HabitTodayDotSize
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.cardSurfaceColor
 import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 
@@ -378,7 +379,7 @@ private fun HabitCheckButton(
                 Modifier
                     .size(circle)
                     .clip(CircleShape)
-                    .background(scheme.surfaceBright)
+                    .background(cardSurfaceColor())
                     .border(2.dp, scheme.primary.copy(alpha = 0.6f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {

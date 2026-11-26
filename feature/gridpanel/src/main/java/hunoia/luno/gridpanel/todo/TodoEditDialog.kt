@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,12 +69,12 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoReminderFormat
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.input.LunoDialogField
 import hunoia.luno.ui.component.input.WheelColumn
 import hunoia.luno.ui.component.input.wheelNumber
 import hunoia.luno.ui.component.pressClickable
 import hunoia.luno.ui.component.sheet.AnchoredDialog
 import hunoia.luno.ui.component.sheet.AnchoredDialogContent
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionContentIn
@@ -206,15 +205,11 @@ fun TodoEditDialog(
             }
         }
 
-        OutlinedTextField(
+        LunoDialogField(
             value = textValue,
             onValueChange = { textValue = it },
-            singleLine = true,
-            placeholder = { Text(stringResource(R.string.todo_text_hint)) },
-            shape = LargeShape,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
+            placeholder = stringResource(R.string.todo_text_hint),
+            focusRequester = focusRequester,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
         )

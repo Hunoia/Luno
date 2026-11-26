@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
@@ -14,6 +13,7 @@ import androidx.compose.ui.window.PopupProperties
 import hunoia.luno.ui.theme.MenuShape
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.MenuMaxHeight
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 下拉 / 长按菜单的唯一实现（ui-guidelines §4.4）：视觉与尺寸在此定死，调用方只写内容。
@@ -46,7 +46,7 @@ fun LunoDropdownMenu(
         offset = offset,
         scrollState = scrollState,
         properties = properties,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = raisedSurfaceColor(),
         shape = MenuShape,
         tonalElevation = ElevationSmall,
         shadowElevation = 0.dp,

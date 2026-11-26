@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import hunoia.luno.ui.theme.cardSurfaceColor
 
 /**
  * 面板卡片底色：跟随主题的浮层色。
@@ -14,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 val gridPanelCardColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.surfaceContainerHigh
+    get() = cardSurfaceColor()
 
 /** 卡片上的主内容色（图标、文字、手柄）。 */
 val gridPanelOnCardColor: Color

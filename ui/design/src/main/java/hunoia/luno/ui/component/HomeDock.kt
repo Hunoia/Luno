@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -395,17 +394,5 @@ private fun FunctionBall(
             modifier = Modifier.size(BottomBarIconSize),
         )
         menu()
-    }
-}
-
-/**
- * 停靠栏内的空白区域只吃事件、不做任何事：球之间的间隙没有 pointerInput，
- * 触摸会漏到下面的列表行。放在 Main pass 消费，子树里的球与 tab 先处理。
- */
-private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
-    awaitPointerEventScope {
-        while (true) {
-            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
-        }
     }
 }

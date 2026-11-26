@@ -71,6 +71,7 @@ import hunoia.luno.ui.theme.PalettePreviewHeight
 import hunoia.luno.ui.theme.PaletteStripHeight
 import hunoia.luno.ui.theme.PaletteSwatchSize
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.roundToInt
 
 /**
@@ -206,7 +207,7 @@ internal fun PaletteCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(LargeShape)
-            .background(if (selected) scheme.primaryContainer else scheme.surfaceContainerHigh)
+            .background(if (selected) scheme.primaryContainer else trackSurfaceColor())
             .then(
                 if (onClick != null) {
                     Modifier.pressClickable(onClick = onClick, role = Role.Button)
@@ -539,7 +540,7 @@ internal fun PaletteSwatchAdd(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = LargeShape,
             )
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(trackSurfaceColor())
             .pressClickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) {

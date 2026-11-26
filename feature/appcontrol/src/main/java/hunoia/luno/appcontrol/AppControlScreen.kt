@@ -67,7 +67,7 @@ import hunoia.luno.quickaccess.query.AppAvailability
 import hunoia.luno.quickaccess.query.AppDrawerSections
 import hunoia.luno.ui.component.LunoCapsuleSearch
 import hunoia.luno.ui.component.PressIconButton
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.SystemAppsMenuButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
@@ -88,7 +88,6 @@ import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGutter
 import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.DockTabHeight
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut
@@ -175,7 +174,7 @@ actions = {
                 }
             }
         },
-floatingContent = { hazeState ->
+bottomBar = { hazeState ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
                 AppControlToolbar(
                     hazeState = hazeState,
@@ -211,7 +210,7 @@ dialogs = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         if (state.failures.isNotEmpty()) {
@@ -250,7 +249,7 @@ dialogs = {
                 // 字母节头吸顶（同 RecentAppsBlocklistScreen）：分组可扫读，节间留白有了着落。
                 // 冻结计数徽标只放首字母节（A）标题右侧（≥0 始终显示，含 0）。
                 stickyHeader(key = "app_header_${section.letter}") {
-                    SheetGroupHeader(
+                    LunoSectionTitle(
                         title = section.letter.toString(),
                         trailing = {
                             if (sectionIndex == 0) {

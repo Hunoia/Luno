@@ -48,6 +48,7 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.PressFilterChip
+import hunoia.luno.ui.theme.overlayGlassColor
 
 /**
  * 引擎条：有查询词时给快捷换引擎入口；存在可图片分享的引擎时空态也显示
@@ -89,7 +90,7 @@ internal fun QuickSearchEngineBar(
                     },
                     label = { Text(engine.name) },
                     colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
+                        containerColor = overlayGlassColor(),
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
                     ),
                     border = null,
@@ -189,8 +190,8 @@ internal fun QuickSearchField(
         keyboardActions = keyboardActions,
         colors = OutlinedTextFieldDefaults.colors(
             // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
+            focusedContainerColor = overlayGlassColor(),
+            unfocusedContainerColor = overlayGlassColor(),
             focusedBorderColor = ComposeColor.Transparent,
             unfocusedBorderColor = ComposeColor.Transparent,
             cursorColor = MaterialTheme.colorScheme.primary,

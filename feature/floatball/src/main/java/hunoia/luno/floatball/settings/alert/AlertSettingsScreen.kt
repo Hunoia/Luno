@@ -16,7 +16,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -24,7 +25,7 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlinx.coroutines.launch
 
 /**
@@ -57,32 +58,34 @@ fun AlertSettingsScreen(
 
     LunoPage(title = stringResource(R.string.float_ball_alert_settings_title),
 onBack = onBack,
-floatingContent = {
-            LunoFab(
-                onClick = {
-                    if (playable) {
-                        facades.system.previewFloatBallAlert(context)
-                    } else {
-                        toast(
-                            resources.getString(
-                                if (!alert.enabled) {
-                                    R.string.float_ball_alert_preview_disabled
-                                } else {
-                                    R.string.float_ball_alert_preview_none
-                                },
-                            ),
-                        )
-                    }
-                },
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.float_ball_capsule_alert_preview_all),
-                containerColor = if (playable) {
-                    MaterialTheme.colorScheme.primaryContainer
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = {
+                if (playable) {
+                    facades.system.previewFloatBallAlert(context)
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
-            )
-        },
+                    toast(
+                        resources.getString(
+                            if (!alert.enabled) {
+                                R.string.float_ball_alert_preview_disabled
+                            } else {
+                                R.string.float_ball_alert_preview_none
+                            },
+                        ),
+                    )
+                }
+            },
+            icon = Icons.Default.PlayArrow,
+            contentDescription = stringResource(R.string.float_ball_capsule_alert_preview_all),
+            containerColor = if (playable) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                trackSurfaceColor()
+            },
+        )
+    }
+},
 sheets = {
             if (showPresetSheet) {
                 AlertPresetSelectSheet(
@@ -96,7 +99,7 @@ sheets = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "alert") {

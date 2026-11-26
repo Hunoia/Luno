@@ -55,6 +55,7 @@ import hunoia.luno.ui.component.feedback.LunoLoadingIndicator
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.theme.raisedSurfaceColor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -329,7 +330,7 @@ class AnnotateOverlay(
                 ) {
                     Surface(
                         shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        color = raisedSurfaceColor(),
                         tonalElevation = 3.dp,
                         // 无投影：弹出卡与工具卡同一视觉层次。
                         shadowElevation = 0.dp,

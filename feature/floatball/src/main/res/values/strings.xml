@@ -218,7 +218,7 @@
     <string name="float_ball_preset_palette_hint">设了会覆盖所有层的取色；留空则各层各自取色</string>
     <string name="float_ball_preset_palette_follow">跟随各层</string>
     <string name="float_ball_preset_editor_title">编辑预设</string>
-    <string name="float_ball_preset_name">预设名称</string>
+    <string name="float_ball_preset_name">名称</string>
     <string name="float_ball_preset_preview">试播整份</string>
     <string name="float_ball_preset_layers_title">层</string>
     <string name="float_ball_preset_layers_hint">已启用 %1$d / %2$d 层，顺序即绘制顺序</string>
@@ -240,7 +240,8 @@
     <string name="float_ball_layer_add_blank_hint">空白层带一套能直接播的默认参数</string>
     <string name="float_ball_layer_add_blank">添加空白%1$s层</string>
     <string name="float_ball_layer_title">编辑层</string>
-    <string name="float_ball_layer_name">层名称（留空用形态名）</string>
+    <string name="float_ball_layer_name">名称</string>
+    <string name="float_ball_layer_name_hint">留空用形态名</string>
     <string name="float_ball_layer_enabled">启用这一层</string>
     <string name="float_ball_layer_enabled_subtitle">关闭后保留参数，不参与播放</string>
     <string name="float_ball_layer_preview">试播这一层</string>

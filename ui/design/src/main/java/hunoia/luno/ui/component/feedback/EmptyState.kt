@@ -28,7 +28,7 @@ fun EmptyState(
     message: String,
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Outlined.SearchOff,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceBright,
+    containerColor: Color = cardSurfaceColor(),
     /** 引导操作（去授权 / 重试等）：ui-guidelines §4.5 要求空态必须给去向，不留白屏。 */
     action: (@Composable () -> Unit)? = null,
 ) {

@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,11 +30,7 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinLongSlideTriggerDistanc
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSlideTriggerDistance
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.LunoColumn
-import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSegmentedGroup
-import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.theme.DistanceStrokeWidth
 import hunoia.luno.ui.theme.DistanceTrackHeight
 import hunoia.luno.ui.theme.ListSpacing
@@ -105,22 +100,22 @@ fun GestureSlideTriggerDistanceContent(
 
     val content: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
-            LunoGroup(title = stringResource(R.string.trigger_distance_slide_group)) {
-                DistanceTextSlider(
-                    valueDp = slideTriggerDistanceDp,
-                    onValueDpChange = { onSlideTriggerDistanceChange(it.dpToPx()) },
+            group(title = stringResource(R.string.trigger_distance_slide_group)) {
+                sliderRow(
+                    value = slideTriggerDistanceDp,
+                    onValueChange = { onSlideTriggerDistanceChange(it.dpToPx()) },
                     onValueChangeFinished = onValueChangeFinished,
                     text = stringResource(R.string.trigger_slide_distance),
-                    valueRangeDp = dynamicSlideRangeDp,
-                    shape = segmentedShape(0, 2),
+                    valueDisplay = { "${it.roundToInt()}dp" },
+                    valueRange = dynamicSlideRangeDp,
                 )
-                DistanceTextSlider(
-                    valueDp = longSlideTriggerDistanceDp,
-                    onValueDpChange = { onLongSlideTriggerDistanceChange(it.dpToPx()) },
+                sliderRow(
+                    value = longSlideTriggerDistanceDp,
+                    onValueChange = { onLongSlideTriggerDistanceChange(it.dpToPx()) },
                     onValueChangeFinished = onValueChangeFinished,
                     text = stringResource(R.string.trigger_long_slide_distance),
-                    valueRangeDp = dynamicLongSlideRangeDp,
-                    shape = segmentedShape(1, 2),
+                    valueDisplay = { "${it.roundToInt()}dp" },
+                    valueRange = dynamicLongSlideRangeDp,
                 )
             }
 
@@ -130,64 +125,53 @@ fun GestureSlideTriggerDistanceContent(
                 maxDistanceDp = longSlideTriggerDistanceRangeDp.endInclusive,
             )
 
-            val delaySliderCount = 2 +
-                (if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) 1 else 0) +
-                (if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) 1 else 0)
-            var delayIndex = 0
-            LunoGroup(title = stringResource(R.string.trigger_distance_delay_group)) {
+            group(title = stringResource(R.string.trigger_distance_delay_group)) {
                 if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) {
-                    LunoTextSlider(
+                    sliderRow(
                         value = longPressTriggerDelayMs.toFloat(),
                         onValueChange = onLongPressTriggerDelayMsChange,
                         onValueChangeFinished = { onValueChangeFinished?.invoke() },
                         text = stringResource(R.string.trigger_long_press_delay),
                         valueDisplay = { "${it.toLong()}ms" },
                         valueRange = MinLongPressTriggerDelayMs.toFloat()..MaxLongPressTriggerDelayMs.toFloat(),
-                        shape = segmentedShape(delayIndex++, delaySliderCount),
                     )
                 }
                 if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) {
-                    LunoTextSlider(
+                    sliderRow(
                         value = doubleTapTriggerDelayMs.toFloat(),
                         onValueChange = onDoubleTapTriggerDelayMsChange,
                         onValueChangeFinished = { onValueChangeFinished?.invoke() },
                         text = stringResource(R.string.trigger_double_tap_delay),
                         valueDisplay = { "${it.toLong()}ms" },
                         valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
-                        shape = segmentedShape(delayIndex++, delaySliderCount),
                     )
                 }
-                LunoTextSlider(
+                sliderRow(
                     value = slideHoldTriggerDelayMs.toFloat(),
                     onValueChange = onSlideHoldTriggerDelayMsChange,
                     onValueChangeFinished = { onValueChangeFinished?.invoke() },
                     text = stringResource(R.string.trigger_slide_hold_delay),
                     valueDisplay = { "${it.toLong()}ms" },
                     valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
-                    shape = segmentedShape(delayIndex++, delaySliderCount),
                 )
-                LunoTextSlider(
+                sliderRow(
                     value = longSlideHoldTriggerDelayMs.toFloat(),
                     onValueChange = onLongSlideHoldTriggerDelayMsChange,
                     onValueChangeFinished = { onValueChangeFinished?.invoke() },
                     text = stringResource(R.string.trigger_long_slide_hold_delay),
                     valueDisplay = { "${it.toLong()}ms" },
                     valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
-                    shape = segmentedShape(delayIndex, delaySliderCount),
                 )
             }
 
             if (holdFireOnRelease != null && onHoldFireOnReleaseChange != null) {
-                LunoGroup(title = stringResource(R.string.trigger_hold_release_group)) {
-                    LunoSegmentedGroup {
-                        item { shape -> LunoSwitchRow(
-                            onCheckedChange = onHoldFireOnReleaseChange,
-                            checked = holdFireOnRelease,
-                            title = stringResource(R.string.trigger_hold_fire_on_release),
-                            subtitle = stringResource(R.string.trigger_hold_fire_on_release_hint),
-                            shape = shape,
-                        ) }
-                    }
+                group(title = stringResource(R.string.trigger_hold_release_group)) {
+                    switchRow(
+                        title = stringResource(R.string.trigger_hold_fire_on_release),
+                        subtitle = stringResource(R.string.trigger_hold_fire_on_release_hint),
+                        checked = holdFireOnRelease,
+                        onCheckedChange = onHoldFireOnReleaseChange,
+                    )
                 }
             }
         }
@@ -197,26 +181,6 @@ fun GestureSlideTriggerDistanceContent(
     } else {
         content()
     }
-}
-
-@Composable
-private fun DistanceTextSlider(
-    valueDp: Float,
-    onValueDpChange: (Float) -> Unit,
-    onValueChangeFinished: (() -> Unit)?,
-    text: String,
-    valueRangeDp: ClosedFloatingPointRange<Float>,
-    shape: Shape,
-) {
-    LunoTextSlider(
-        value = valueDp,
-        onValueChange = onValueDpChange,
-        onValueChangeFinished = { onValueChangeFinished?.invoke() },
-        text = text,
-        valueDisplay = { "${it.roundToInt()}dp" },
-        valueRange = valueRangeDp,
-        shape = shape,
-    )
 }
 
 /**

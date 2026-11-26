@@ -41,7 +41,6 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.Dispatchers
@@ -137,7 +136,7 @@ fun AccessibilityManagerScreen(
             }
         },
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 when {
                     // 文案只写原因，动作只写动词：句子里不再复述按钮要做什么。

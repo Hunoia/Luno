@@ -32,7 +32,8 @@ import hunoia.luno.config.model.AlertLimits
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -45,7 +46,6 @@ import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.SegmentedGap
@@ -154,23 +154,25 @@ fun AlertPresetEditorScreen(
 
     LunoPage(title = stringResource(R.string.float_ball_preset_editor_title),
 onBack = { leave() },
-floatingContent = {
-            LunoFab(
-                onClick = {
-                    if (current.isPlayable()) {
-                        facades.system.previewFloatBallAlertPreset(context, current)
-                    } else {
-                        Toast.makeText(
-                            context,
-                            resources.getString(R.string.float_ball_preset_empty_preview),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                },
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.float_ball_preset_preview),
-            )
-        },
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = {
+                if (current.isPlayable()) {
+                    facades.system.previewFloatBallAlertPreset(context, current)
+                } else {
+                    Toast.makeText(
+                        context,
+                        resources.getString(R.string.float_ball_preset_empty_preview),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+            icon = Icons.Default.PlayArrow,
+            contentDescription = stringResource(R.string.float_ball_preset_preview),
+        )
+    }
+},
 actions = {
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
@@ -240,7 +242,7 @@ dialogs = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "name") {
@@ -264,7 +266,6 @@ dialogs = {
         }
         item(key = "palette") {
             LunoGroup(
-                title = stringResource(R.string.float_ball_preset_palette),
                 subtitle = stringResource(R.string.float_ball_preset_palette_hint),
             ) {
                 SegmentedRows(
@@ -287,7 +288,6 @@ dialogs = {
         }
         item(key = "policy") {
             LunoGroup(
-                title = stringResource(R.string.float_ball_preset_policy),
                 subtitle = stringResource(R.string.float_ball_preset_policy_hint),
             ) {
                 SegmentedRows(

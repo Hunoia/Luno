@@ -38,9 +38,6 @@ enum class ShapeRole(
     /** 列表与卡：行、组卡、分段组、输入框、空态、横幅。 */
     List(56),
 
-    /** 悬浮操作按钮（56dp 独立族）。 */
-    Fab(56),
-
     /** 菜单项与 sheet 按钮（48dp）。 */
     Menu(48),
 
@@ -191,7 +188,6 @@ object UiAppearance {
 /** 角色 → 所属设置项。 */
 fun UiAppearanceSettings.settingOf(role: ShapeRole): ShapeSetting = when (role) {
     ShapeRole.List -> list
-    ShapeRole.Fab -> fab
     ShapeRole.Menu, ShapeRole.Toolbar, ShapeRole.MenuInner -> menu
     ShapeRole.Compact, ShapeRole.CompactMedium -> compact
     ShapeRole.Sheet, ShapeRole.SheetTop -> sheet

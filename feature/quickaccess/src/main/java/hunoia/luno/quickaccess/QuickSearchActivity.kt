@@ -31,6 +31,7 @@ import hunoia.luno.quickaccess.query.SOURCE_CALC
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.UiAppearance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
@@ -55,6 +56,16 @@ class QuickSearchActivity : ComponentActivity() {
     /** 锁屏立即退场：熄屏后退场动画未必播完，直接 finish 并压掉转场。 */
     private val screenObserver by lazy {
         BroadcastObserver(context = this, onScreenOff = ::closeForLock)
+    }
+
+    /** 窗口级背景模糊：跟随外观设置的模糊 0 档（0 = 关闭）。 */
+    private fun applyGlassBlur() {
+        if (UiAppearance.floatingGlass.blurDp > 0) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.attributes.blurBehindRadius = 80
+        } else {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        }
     }
 
     private fun closeForLock() {
@@ -99,7 +110,7 @@ class QuickSearchActivity : ComponentActivity() {
         if (!hasFocus) return
         // singleTask 复用：requestClose 里摘的 blur 在这里补回，
         // 否则 200ms 内重开的面板没糊。新鲜 onCreate 走默认值，不受影响。
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        applyGlassBlur()
         // 剪贴板读取与入库都走唯一入口 ClipboardCenter（Shizuku 优先 + 自写抑制 + 入库规则），
         // 且必须离开主线程：主线程读剪贴板在部分 ROM 上是 binder 同步等待。
         lifecycleScope.launch {
@@ -133,9 +144,8 @@ class QuickSearchActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         // 全屏背景模糊：Activity 在状态栏下层（BASE_APPLICATION），blur 只糊窗口背后的层，
-        // 状态栏不受影响。
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        window.attributes.blurBehindRadius = 80
+        // 状态栏不受影响。模糊 0 档 = 关闭，窗口级 blur 一起摘（与 Haze 族同一语义）。
+        applyGlassBlur()
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onCreate taskId=$taskId")
         initialQuery.value = intent?.getStringExtra(EXTRA_QUERY).orEmpty()
         if (!shownEventPosted) {

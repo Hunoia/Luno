@@ -30,7 +30,8 @@ import hunoia.luno.config.model.TouchButtonAlertSettings
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -41,7 +42,6 @@ import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
@@ -131,25 +131,27 @@ fun TouchButtonAlertSettingsScreen(
 
     LunoPage(title = stringResource(R.string.button_alert_title),
 onBack = onBack,
-floatingContent = {
-            LunoFab(
-                onClick = {
-                    when {
-                        !alert.enabled -> toast(resources.getString(R.string.button_alert_preview_disabled))
-                        previewPreset == null || !previewPreset.isPlayable() ->
-                            toast(resources.getString(R.string.button_alert_preview_none))
-                        else -> facades.system.previewFloatBallAlertPreset(
-                            context,
-                            previewPreset,
-                            intensityPercent = alert.intensityPercent,
-                            speedPercent = alert.speedPercent,
-                        )
-                    }
-                },
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.button_alert_preview),
-            )
-        },
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = {
+                when {
+                    !alert.enabled -> toast(resources.getString(R.string.button_alert_preview_disabled))
+                    previewPreset == null || !previewPreset.isPlayable() ->
+                        toast(resources.getString(R.string.button_alert_preview_none))
+                    else -> facades.system.previewFloatBallAlertPreset(
+                        context,
+                        previewPreset,
+                        intensityPercent = alert.intensityPercent,
+                        speedPercent = alert.speedPercent,
+                    )
+                }
+            },
+            icon = Icons.Default.PlayArrow,
+            contentDescription = stringResource(R.string.button_alert_preview),
+        )
+    }
+},
 sheets = {
             pickButtonId?.let { buttonId ->
                 AlertPresetSelectSheet(
@@ -193,7 +195,7 @@ sheets = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "effect") {

@@ -104,7 +104,6 @@ import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockGutter
 import hunoia.luno.ui.theme.DockMaxWidth
 import hunoia.luno.ui.theme.DockTabHeight
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.SmallShape
@@ -232,7 +231,7 @@ actions = {
                 )
             }
         },
-floatingContent = { hazeState ->
+bottomBar = { hazeState ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 ClipboardToolbar(
                     hazeState = hazeState,
@@ -261,8 +260,7 @@ dialogs = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom,
-state = listState) {
+    list(state = listState) {
         lazy {
 
         if (settingsTab) {

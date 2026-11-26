@@ -96,7 +96,6 @@
     <string name="search_engine_custom_tabs_desc">Open in an in-app browser tab for a faster experience; falls back to the system browser if the service is unavailable</string>
     <string name="search_engine_open_activity">Jump &amp; inject</string>
     <string name="search_engine_open_activity_desc">Open the target activity or external link, then auto-inject the query</string>
-    <string name="search_engine_activity_target">Jump target</string>
     <string name="search_engine_target_activity">Target activity</string>
     <string name="search_engine_target_activity_hint">com.example.app.MainActivity</string>
     <string name="search_engine_extern_link">External link</string>

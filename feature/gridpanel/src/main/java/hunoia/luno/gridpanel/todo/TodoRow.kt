@@ -59,6 +59,8 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.cardSurfaceColor
+import hunoia.luno.ui.theme.pageSurfaceColor
 import java.time.ZoneId
 import kotlin.math.abs
 
@@ -268,7 +270,7 @@ private fun TodoCardBody(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = LargeShape,
-        color = scheme.surfaceBright,
+        color = cardSurfaceColor(),
     ) {
         Row(
             modifier = Modifier
@@ -396,7 +398,7 @@ fun TodoSectionHeader(
         modifier = modifier
             .fillMaxWidth()
             // 底色包住上留白：吸顶时是一整块实心，不会漏出下面滚过的行。
-            .background(scheme.surfaceContainer)
+            .background(pageSurfaceColor())
             .padding(top = 8.dp, start = PageGutter, end = PageGutter)
             .heightIn(min = if (onClick != null) MinInteractiveSize else 32.dp)
             .then(if (onClick != null) Modifier.pressClickable(onClickLabel = toggleLabel, onClick = onClick) else Modifier),

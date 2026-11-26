@@ -2,6 +2,7 @@ package hunoia.luno.quickaccess.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.quickaccess.R
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.clipboard.ClipboardCenter
@@ -46,12 +48,13 @@ import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.page.LunoPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.DragReorderHandle
-import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.rememberDragReorderState
@@ -63,7 +66,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.chunkedGroup
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
@@ -199,16 +201,18 @@ fun SearchEngineSettingsScreen(
     }
     // 常用引擎预设已删（首装由 DefaultSearchEngines seed）：引擎只有新建与导入两条路，
     // 引擎列表本身就是唯一事实源。
-    val addFab: @Composable () -> Unit = {
-        LunoFab(
-            onClick = { onNavToEdit("") },
-            icon = Icons.Default.Add,
-            contentDescription = stringResource(R.string.search_engine_add),
-        )
+    val actionBar: @Composable BoxScope.(HazeState) -> Unit = { hazeState ->
+        LunoActionBar(hazeState) {
+            LunoActionBarItem(
+                onClick = { onNavToEdit("") },
+                icon = Icons.Default.Add,
+                contentDescription = stringResource(R.string.search_engine_add),
+            )
+        }
     }
     LunoPage(title = stringResource(R.string.search_engine_settings),
 onBack = onBack,
-floatingContent = { addFab() },
+bottomBar = actionBar,
 actions = {
             var menuOpen by remember { mutableStateOf(false) }
             PressIconButton(onClick = { menuOpen = true }) {
@@ -227,7 +231,7 @@ actions = {
                     onClick = {
                         menuOpen = false
                         fileExportLauncher.launch("search-engines.json")
-                    },
+    },
                 )
                 LunoDropdownMenuItem(
                     text = stringResource(R.string.search_engine_import_file),
@@ -317,8 +321,7 @@ dialogs = {
             }
         }) {
     list(state = listState,
-contentSpacing = SegmentedGap,
-bottomContentPadding = FloatingContentBottom) {
+contentSpacing = SegmentedGap) {
         lazy {
 
         chunkedGroup(

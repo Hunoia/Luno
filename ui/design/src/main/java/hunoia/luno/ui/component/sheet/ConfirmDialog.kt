@@ -12,8 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,10 +30,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.design.R
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetListMaxHeight
 import hunoia.luno.ui.component.PressTextButton
+import hunoia.luno.ui.component.input.LunoDialogField
 
 /**
  * 底部确认弹窗：Dialog（遮罩 + 点外部/返回关闭），本体锚在屏幕底部（澎湃OS 样式），
@@ -215,17 +213,13 @@ fun TextInputDialog(
         if (content != null) {
             content()
         }
-        TextField(
+        LunoDialogField(
             value = textValue,
             onValueChange = { textValue = it },
-            label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
+            label = label,
             singleLine = true,
             isError = isError,
-            shape = LargeShape,
-            colors = TextFieldDefaults.tonalColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
+            focusRequester = focusRequester,
             keyboardOptions = keyboardOptions,
             keyboardActions = KeyboardActions(onDone = { submit() }),
         )

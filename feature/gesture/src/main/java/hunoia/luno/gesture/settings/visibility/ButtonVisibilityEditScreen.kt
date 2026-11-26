@@ -342,7 +342,7 @@ sheets = {
         lazy {
 
         item(key = "name") {
-            group(title = stringResource(R.string.button_visibility_name)) {
+            group {
                 inputRow(
                     label = stringResource(R.string.button_visibility_name),
                     value = current.name,

@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import hunoia.luno.ui.theme.trackSurfaceColor
 
 /**
  * 加载 / 进度指示器的唯一出口（ui-guidelines §4.5）。
@@ -34,7 +35,7 @@ fun LunoLinearProgress(
     progress: () -> Float,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    trackColor: Color = trackSurfaceColor(),
 ) {
     LinearWavyProgressIndicator(
         progress = progress,

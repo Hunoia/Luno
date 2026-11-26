@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.theme.ListSpacing
@@ -206,6 +205,7 @@ class LunoGroupScope internal constructor() {
         onValueChange: (String) -> Unit,
         placeholder: String = "",
         subtitle: String = "",
+        subtitleMaxLines: Int = 1,
         subtitleColor: Color? = null,
         isError: Boolean = false,
         singleLine: Boolean = true,
@@ -219,6 +219,7 @@ class LunoGroupScope internal constructor() {
             onValueChange = onValueChange,
             placeholder = placeholder,
             subtitle = subtitle,
+            subtitleMaxLines = subtitleMaxLines,
             subtitleColor = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
             isError = isError,
             singleLine = singleLine,

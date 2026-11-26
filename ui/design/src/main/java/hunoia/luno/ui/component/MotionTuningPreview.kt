@@ -31,6 +31,7 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.LocalMotionProfile
 import hunoia.luno.ui.theme.MotionProfile
 import hunoia.luno.ui.theme.MotionSpec
+import hunoia.luno.ui.theme.cardSurfaceColor
 import hunoia.luno.ui.theme.floatingSpec
 import hunoia.luno.ui.theme.overlaySpec
 import hunoia.luno.ui.theme.PanelAppearScale
@@ -53,7 +54,7 @@ fun MotionTuningPreview(
             modifier = modifier
                 .fillMaxWidth()
                 .clip(LargeShape)
-                .background(MaterialTheme.colorScheme.surfaceBright)
+                .background(cardSurfaceColor())
                 .padding(horizontal = CardInnerSpacing * 2, vertical = CardInnerSpacing * 2),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing * 2),
         ) {

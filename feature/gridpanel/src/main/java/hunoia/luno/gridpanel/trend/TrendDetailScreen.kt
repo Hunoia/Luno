@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,10 +48,10 @@ import hunoia.luno.config.model.trendFormulaValue
 import hunoia.luno.config.model.trendStats
 import hunoia.luno.domain.gridpanel.TrendCenter
 import hunoia.luno.gridpanel.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressFilterChip
-import hunoia.luno.ui.component.PressIconButton
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
@@ -61,11 +60,11 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.toColor
+import hunoia.luno.ui.theme.trackSurfaceColor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -153,23 +152,23 @@ onBack = onBack) {
 
     LunoPage(title = metric.name,
 onBack = onBack,
-actions = {
-            PressIconButton(onClick = { onEditMetric(metric.id) }) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = stringResource(R.string.trend_edit_title),
-                )
-            }
-        },
-floatingContent = {
-            LunoFab(
-                onClick = { showRecord = true },
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.trend_record_add),
-                containerColor = baseColor,
-                contentColor = if (baseColor.luminance() > 0.5f) Color.Black else Color.White,
-            )
-        },
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        // 次要操作：编辑指标；主操作：记一笔（最右，拇指热区）。
+        LunoActionBarItem(
+            onClick = { onEditMetric(metric.id) },
+            icon = Icons.Default.Edit,
+            contentDescription = stringResource(R.string.trend_edit_title),
+        )
+        LunoActionBarItem(
+            onClick = { showRecord = true },
+            icon = Icons.Default.Add,
+            contentDescription = stringResource(R.string.trend_record_add),
+            containerColor = baseColor,
+            contentColor = if (baseColor.luminance() > 0.5f) Color.Black else Color.White,
+        )
+    }
+},
 sheets = {
             if (showRecord) {
                 TrendRecordSheet(
@@ -195,7 +194,7 @@ sheets = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "trend_summary") {
@@ -221,7 +220,7 @@ sheets = {
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface),
             ) {
-                SheetGroupHeader(stringResource(R.string.trend_detail_records))
+                LunoSectionTitle(stringResource(R.string.trend_detail_records))
             }
         }
         if (entries.isEmpty()) {
@@ -412,7 +411,7 @@ private fun TrendStatChip(
 ) {
     Surface(
         shape = CapsuleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+        color = trackSurfaceColor().copy(alpha = 0.6f),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = CardInnerSpacing, vertical = TileInnerPadding),

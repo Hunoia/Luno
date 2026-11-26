@@ -38,8 +38,8 @@ import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.DockBallSize
+import hunoia.luno.ui.theme.DockCapsuleHeight
 import hunoia.luno.ui.theme.DockOverlayGap
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
@@ -74,6 +74,7 @@ import hunoia.luno.actions.library.libraryCategoryOf
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.domain.system.PermissionStateUseCase
+import hunoia.luno.ui.theme.TileInnerPadding
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
@@ -284,7 +285,8 @@ fun HomeScreen(
 
         LunoPage(
             title = stringResource(mainTab.titleRes),
-            bottomBarInitialHeight = FloatingContentBottom - hunoia.luno.ui.theme.ContentBottom,
+            // 首帧兜底：停靠栏实测到之前的近似高度（胶囊 + 内边距 + 底栏留白）。
+            bottomBarInitialHeight = DockCapsuleHeight + TileInnerPadding * 2 + BottomBarPadding,
             actions = {
                 // 记录页的「设置」入口：执行面（今天的打卡 / 待办）与设置分开，管理项进二级页
                 // （ui-guidelines §3.1 模板选择：普通设置页用 LunoPage，不塞进行内）。

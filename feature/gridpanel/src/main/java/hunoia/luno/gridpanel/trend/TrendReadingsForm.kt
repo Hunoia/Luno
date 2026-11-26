@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -20,6 +19,7 @@ import hunoia.luno.config.model.TrendFormulaResult
 import hunoia.luno.config.model.TrendMetric
 import hunoia.luno.config.model.evaluateTrendFormula
 import hunoia.luno.gridpanel.R
+import hunoia.luno.ui.component.input.LunoDialogField
 import hunoia.luno.ui.theme.ListSpacing
 
 /**
@@ -57,14 +57,13 @@ internal fun TrendReadingsForm(
         texts.forEachIndexed { index, text ->
             val isLast = index == rowCount - 1
             val slotLabel = if (showSlotLabel) trendSlotLabel(metric, index) else metric.name
-            OutlinedTextField(
+            LunoDialogField(
                 value = text,
                 onValueChange = { newValue -> onTextChange(index, newValue) },
-                singleLine = true,
-                label = { Text(slotLabel) },
-                trailingIcon = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
-                placeholder = { Text(stringResource(R.string.trend_record_hint)) },
-                shape = MaterialTheme.shapes.large,
+                label = slotLabel,
+                placeholder = stringResource(R.string.trend_record_hint),
+                trailing = metric.unit.takeIf { it.isNotBlank() }?.let { unit -> { Text(unit) } },
+                focusRequester = focusRequesters[index],
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
                     imeAction = if (isLast) ImeAction.Done else ImeAction.Next,
@@ -75,9 +74,6 @@ internal fun TrendReadingsForm(
                         if (!isLast) runCatching { focusRequesters[index + 1].requestFocus() }
                     },
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequesters[index]),
             )
         }
         if (hasTyped && readings == null) {

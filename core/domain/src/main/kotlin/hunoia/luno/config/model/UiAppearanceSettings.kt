@@ -18,8 +18,6 @@ import kotlinx.serialization.Serializable
 data class UiAppearanceSettings(
     /** 列表与卡：行、组卡、分段组、输入框、空态、横幅（原 `LargeShape`）。 */
     val list: ShapeSetting = ShapeSetting(radiusDp = 16),
-    /** 悬浮操作按钮（原 `LargeShape`，56dp 独立族）。 */
-    val fab: ShapeSetting = ShapeSetting(radiusDp = 16),
     /** 菜单项与 sheet 按钮（48dp 族，原 `LargeShape`）。 */
     val menu: ShapeSetting = ShapeSetting(radiusDp = 16),
     /** 紧凑工具条（标注页，抬到 48dp 后与菜单同族）。 */

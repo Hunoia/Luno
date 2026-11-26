@@ -45,7 +45,8 @@ import hunoia.luno.link.Links
 import hunoia.luno.link.R
 import hunoia.luno.runtime.recognition.RecognitionInput
 import hunoia.luno.runtime.recognition.Recognizer
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.page.LunoPage
@@ -61,7 +62,7 @@ import hunoia.luno.ui.component.sheet.AppPickerRequest
 import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -197,14 +198,16 @@ fun RecognitionRuleEditScreen(
                 }
             }
         },
-        floatingContent = { _ ->
-            LunoFab(
-                onClick = { if (valid) save() else showToast(R.string.recognition_rule_invalid) },
-                icon = Icons.Default.Save,
-                contentDescription = stringResource(hunoia.luno.design.R.string.save),
-                containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
+        bottomBar = { hazeState ->
+            LunoActionBar(hazeState) {
+                LunoActionBarItem(
+                    onClick = { if (valid) save() else showToast(R.string.recognition_rule_invalid) },
+                    icon = Icons.Default.Save,
+                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
+                    containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
+                    else trackSurfaceColor(),
+                )
+            }
         },
         dialogs = {
             if (showDeleteConfirm) {
@@ -258,7 +261,7 @@ fun RecognitionRuleEditScreen(
             }
         },
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 LunoGroup {
                     LunoSwitchRow(
@@ -352,17 +355,19 @@ fun RecognitionRuleEditScreen(
                         shape = segmentedShape(0, rows),
                     )
                     when (val m = match) {
-                        is RecognitionMatch.Text -> LunoInputRow(
-                            label = stringResource(R.string.recognition_rule_pattern),
+                        is RecognitionMatch.Text -> LunoCardInput(
                             value = m.pattern,
                             onValueChange = { match = m.copy(pattern = it) },
+                            label = stringResource(R.string.recognition_rule_pattern),
                             placeholder = stringResource(R.string.recognition_rule_pattern_hint),
-                            subtitle = if (regexError) {
+                            supportingText = if (regexError) {
                                 stringResource(R.string.recognition_rule_regex_invalid)
                             } else {
                                 ""
                             },
                             isError = m.pattern.isBlank() || regexError,
+                            singleLine = false,
+                            minLines = 2,
                             shape = segmentedShape(1, rows),
                         )
                         is RecognitionMatch.Link -> {
@@ -381,17 +386,19 @@ fun RecognitionRuleEditScreen(
                                 onSelect = { index -> match = m.copy(matchType = matchOptions[index].first) },
                                 shape = segmentedShape(1, rows),
                             )
-                            LunoInputRow(
-                                label = stringResource(R.string.recognition_rule_pattern),
+                            LunoCardInput(
                                 value = m.pattern,
                                 onValueChange = { match = m.copy(pattern = it) },
+                                label = stringResource(R.string.recognition_rule_pattern),
                                 placeholder = stringResource(R.string.recognition_rule_link_pattern_hint),
-                                subtitle = if (regexError) {
+                                supportingText = if (regexError) {
                                     stringResource(R.string.recognition_rule_regex_invalid)
                                 } else {
                                     ""
                                 },
                                 isError = regexError,
+                                singleLine = false,
+                                minLines = 2,
                                 shape = segmentedShape(2, rows),
                             )
                             LunoSwitchRow(
@@ -636,11 +643,13 @@ fun RecognitionRuleEditScreen(
                             shape = segmentedShape(0, 2),
                             onClick = { showAppPicker = true },
                         )
-                        LunoInputRow(
-                            label = stringResource(R.string.recognition_rule_target_activity),
+                        LunoCardInput(
                             value = linkMatch.targetActivity,
                             onValueChange = { match = linkMatch.copy(targetActivity = it) },
+                            label = stringResource(R.string.recognition_rule_target_activity),
                             placeholder = stringResource(R.string.recognition_rule_target_activity_hint),
+                            singleLine = false,
+                            minLines = 2,
                             shape = segmentedShape(1, 2),
                         )
                     }
@@ -658,6 +667,8 @@ fun RecognitionRuleEditScreen(
                         onValueChange = { match = linkMatch.copy(template = it) },
                         label = stringResource(R.string.recognition_rule_template),
                         placeholder = stringResource(R.string.recognition_rule_template_hint),
+                        singleLine = false,
+                        minLines = 2,
                         shape = segmentedShape(1, 5),
                     )
                     LunoSwitchRow(
@@ -696,14 +707,15 @@ fun RecognitionRuleEditScreen(
             }
             block {
                 LunoGroup(
-                    title = stringResource(R.string.recognition_rule_test),
                     subtitle = stringResource(R.string.recognition_rule_test_hint),
                 ) {
                     val testRows = if (testText.isBlank()) 1 else 2
-                    LunoInputRow(
-                        label = stringResource(R.string.recognition_rule_test),
+                    LunoCardInput(
                         value = testText,
                         onValueChange = { testText = it },
+                        label = stringResource(R.string.recognition_rule_test),
+                        singleLine = false,
+                        minLines = 2,
                         shape = segmentedShape(0, testRows),
                     )
                     val hit = remember(testText, draft) {

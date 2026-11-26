@@ -19,6 +19,12 @@ RULES = [
     ("manual-segmented-shape", re.compile(r"\bsegmentedShape\s*\("), None),
     ("direct-lazy-column", re.compile(r"\bLazyColumn\s*\("), None),
     ("direct-material-card", re.compile(r"\bCard\s*\("), None),
+    ("raw-text-input", re.compile(r"\b(Outlined)?TextField\s*\("), lambda p: not p.startswith("ui/design/src/main/java/")),
+    (
+        "raw-surface-color",
+        re.compile(r"colorScheme\.surface(?:Bright|Dim|Container\w*|Variant)\b"),
+        lambda p: not p.startswith("ui/design/src/main/java/hunoia/luno/ui/theme/"),
+    ),
 ]
 
 
@@ -60,6 +66,8 @@ def main() -> None:
             if rule == "raw-font-size" and not (is_strict(rel) and "/ui/theme/" not in rel):
                 continue
             if rule in {"manual-segmented-shape", "direct-lazy-column", "direct-material-card"} and not is_page_or_settings(rel):
+                continue
+            if rule == "raw-text-input" and rel.startswith("ui/design/src/main/java/"):
                 continue
             count = len(pattern.findall(code))
             if count:

@@ -35,7 +35,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.PressTextButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.page.LunoPageList
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.PageGutter
 import kotlinx.coroutines.delay
@@ -68,7 +68,7 @@ fun TodoListContent(
     modifier: Modifier = Modifier,
     onNewTodo: () -> Unit = {},
     state: LazyListState = rememberLazyListState(),
-    bottomContentPadding: Dp = FloatingContentBottom,
+    bottomContentPadding: Dp = ContentBottom,
     undoBarBottomInset: Dp = 12.dp,
 ) {
     val config by TodoCenter.todoConfig.collectAsStateWithLifecycle(initialValue = TodoCenter.latestTodoConfig())

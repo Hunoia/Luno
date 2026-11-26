@@ -1,9 +1,11 @@
 package hunoia.luno.ui.theme
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,10 @@ fun Modifier.appHazeSource(state: HazeState): Modifier = hazeSource(state)
  * 无 lens/vibrancy/highlight。
  *
  * [progressive] 只羽 blur 强度，[mask] 才羽整个 effect（含底色）。
+ *
+ * **0 档 = 关闭**：外观页的模糊滑杆左端是 0dp，此时**不组合 haze**，改画
+ * [solidBackground] 实色底（不叠 mask）。半透明底离开模糊就是「糊没关、反而更花」，
+ * 所以关闭态必须不透明；实色由调用方给（顶栏按收拢比例淡入、悬浮胶囊恒不透明）。
  */
 fun Modifier.appHazeEffect(
     state: HazeState?,
@@ -51,8 +57,13 @@ fun Modifier.appHazeEffect(
     blurRadius: Dp = HazeBlurRadius,
     progressive: HazeProgressive? = null,
     mask: Brush? = null,
+    solidBackground: Color? = null,
 ): Modifier {
     if (state == null) return this
+    if (blurRadius <= 0.dp) {
+        // 实色条不需要羽化：硬边正是「关掉磨砂」后 M3 顶栏该有的样子。
+        return this.background(solidBackground ?: background)
+    }
     // Haze 2.x：effect 由「输入 + 模糊样式」组成，Backdrop 表示采当前窗口的 source 快照。
     // 样式 scope 里 blurRadius / backgroundColor / progressive / mask 都是函数，
     // 与入参同名，先取到局部值避免调用歧义。
@@ -116,6 +127,7 @@ fun Modifier.glassCapsuleBackground(hazeState: HazeState?): Modifier {
         .appHazeEffect(
             hazeState,
             floatingSurfaceColor().copy(alpha = GlassCapsuleHazeAlpha),
+            solidBackground = floatingSurfaceColor(),
         )
 }
 
@@ -142,28 +154,15 @@ fun topBarMask(): Brush {
 }
 
 /**
- * FlClash `SurfaceLevel` 明暗映射（`prism_ui/surface.dart`）：浮动层（底栏 / 搜索胶囊）
- * 亮色 = `surfaceBright`(card) / 暗色 = `surfaceContainerHigh`(block)。
+ * 容器色阶梯（ui-guidelines §2.2「容器色阶」）：页 → 卡 → 抬升 → 浮层，
+ * 亮暗两套都逐级**提亮**（暗色里提亮 = 抬升），只有 page 跟随主题的 `surface`。所有层级都从主题色板取，不新增色值；页面与 feature 只读 token，不直读
+ * `colorScheme.surface*`（门禁 `raw-surface-color`）。
+ *
+ * 以前菜单用 `surfaceContainerHigh`（亮 92）比页面（94）还暗，下拉看起来是凹进去的：
+ * 抬升层必须是全阶梯最亮，菜单 / 顶栏胶囊 / sheet 都归这一层。
  */
 @Composable
-fun floatingSurfaceColor(): Color =
-    if (isSystemInDarkTheme()) {
-        MaterialTheme.colorScheme.surfaceContainerHigh
-    } else {
-        MaterialTheme.colorScheme.surfaceBright
-    }
-
-/** 抬升层（顶栏）：亮色 = `surfaceBright`(card) / 暗色 = `surfaceContainer`。 */
-@Composable
-fun raisedSurfaceColor(): Color =
-    if (isSystemInDarkTheme()) {
-        MaterialTheme.colorScheme.surfaceContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceBright
-    }
-
-/** 页面底（FlClash `page`）：亮色 = `surfaceContainer` / 暗色 = `surface`。 */
-@Composable
+@ReadOnlyComposable
 fun pageSurfaceColor(): Color =
     if (isSystemInDarkTheme()) {
         MaterialTheme.colorScheme.surface
@@ -171,7 +170,60 @@ fun pageSurfaceColor(): Color =
         MaterialTheme.colorScheme.surfaceContainer
     }
 
+/** 卡片层：组卡 / 行 / 空态 / 卡内输入底。 */
 @Composable
+@ReadOnlyComposable
+fun cardSurfaceColor(): Color =
+    if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
+
+/** 抬升层：顶栏收起底、顶栏图标胶囊、下拉菜单、sheet / dialog。 */
+@Composable
+@ReadOnlyComposable
+fun raisedSurfaceColor(): Color =
+    if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLowest
+    }
+
+/**
+ * 浮层：底栏胶囊 / 搜索胶囊 / 面板底栏。几何与 [raisedSurfaceColor] 同层，
+ * 区别只在玻璃 alpha（[GlassCapsuleHazeAlpha]）与阴影；0 档模糊时用不透明版本。
+ */
+@Composable
+@ReadOnlyComposable
+fun floatingSurfaceColor(): Color = raisedSurfaceColor()
+
+/**
+ * 窗口级玻璃（快速搜索窗、浮卡）的底色：与 [floatingSurfaceColor] 同层。
+ * 模糊开着时按玻璃 alpha 半透明（透出窗口背后），0 档关闭时直接不透明 ——
+ * 半透明 + 不模糊会让窗口变成一层灰雾。
+ */
+@Composable
+@ReadOnlyComposable
+fun overlayGlassColor(): Color =
+    if (HazeBlurRadius > 0.dp) {
+        floatingSurfaceColor().copy(alpha = GlassCapsuleHazeAlpha)
+    } else {
+        floatingSurfaceColor()
+    }
+
+/** 轨道层：进度轨、chip 底、图表网格。 */
+@Composable
+@ReadOnlyComposable
+fun trackSurfaceColor(): Color = MaterialTheme.colorScheme.surfaceContainerHighest
+
+/** 次级层：图标占位、徽标底。 */
+@Composable
+@ReadOnlyComposable
+fun subtleSurfaceColor(): Color = MaterialTheme.colorScheme.surfaceVariant
+
+@Composable
+@ReadOnlyComposable
 fun hazeSurfaceColor(alpha: Float = TopBarHazeAlpha): Color =
     raisedSurfaceColor().copy(alpha = alpha)
 

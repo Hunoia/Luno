@@ -76,6 +76,7 @@ import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.component.input.LunoSlider
 import hunoia.luno.ui.component.PressFilledIconButton
 import hunoia.luno.ui.component.PressIconButton
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 两个宿主共用的工具条内容。宿主只决定它停在哪、是否可拖拽：
@@ -109,7 +110,7 @@ fun AnnotateToolbar(
         Surface(
             modifier = modifier,
             shape = ToolbarShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = raisedSurfaceColor(),
             tonalElevation = 3.dp,
             // 无投影（P：工具卡去阴影），层次靠色差。
             shadowElevation = 0.dp,

@@ -17,6 +17,7 @@ import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ContainerShape
 import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.cardSurfaceColor
 
 /** 行内自绘背景时的横向内边距：与 M3 `ListItem` 一致，行组件与组内条目共用。 */
 internal val RowInnerPadding = 16.dp
@@ -37,7 +38,7 @@ private const val DividedLineAlpha = 0.6f
 fun LunoGroupItem(
     shape: Shape,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.surfaceBright,
+    color: Color = cardSurfaceColor(),
     dividerStartInset: Dp = RowInnerPadding,
     content: @Composable () -> Unit,
 ) {

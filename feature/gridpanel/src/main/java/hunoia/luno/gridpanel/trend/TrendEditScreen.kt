@@ -276,26 +276,23 @@ private fun TrendEditForm(
         },
     ) {
         column(bottomContentPadding = ContentBottom) {
-            block {
-                LunoGroup(title = stringResource(R.string.trend_edit_name)) {
-                    LunoCardInput(
-                        value = name,
-                        onValueChange = { name = it },
-                        placeholder = stringResource(R.string.trend_edit_name_hint),
-                        shape = segmentedShape(0, 1),
-                    )
-                }
+            group {
+                inputRow(
+                    label = stringResource(R.string.trend_edit_name),
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = stringResource(R.string.trend_edit_name_hint),
+                )
             }
-            block {
-                LunoGroup(title = stringResource(R.string.trend_edit_unit)) {
-                    LunoCardInput(
-                        value = unit,
-                        onValueChange = { unit = it },
-                        placeholder = stringResource(R.string.trend_edit_unit_hint),
-                        supportingText = stringResource(R.string.trend_edit_unit_note),
-                        shape = segmentedShape(0, 1),
-                    )
-                }
+            group {
+                inputRow(
+                    label = stringResource(R.string.trend_edit_unit),
+                    value = unit,
+                    onValueChange = { unit = it },
+                    placeholder = stringResource(R.string.trend_edit_unit_hint),
+                    subtitle = stringResource(R.string.trend_edit_unit_note),
+                    subtitleMaxLines = 2,
+                )
             }
             block {
                 LunoGroup(title = stringResource(R.string.trend_edit_decimals)) {
@@ -318,12 +315,11 @@ private fun TrendEditForm(
                     }
                 }
             }
-            block {
-                LunoGroup(title = stringResource(R.string.trend_edit_values)) {
-                    // 多值时才需要给槽位起名；第 1 个槽位也可以命名（旧版从第 2 个才开始，导致图例永远是「值 1」）。
-                    val nameRows = if (valueNames.size > 1) valueNames.size else 0
-                    val totalRows = 1 + nameRows
-                    LunoGroupItem(shape = segmentedShape(0, totalRows)) {
+            group(title = stringResource(R.string.trend_edit_values)) {
+                // 多值时才需要给槽位起名；第 1 个槽位也可以命名（旧版从第 2 个才开始，导致图例永远是「值 1」）。
+                val nameRows = if (valueNames.size > 1) valueNames.size else 0
+                item { shape ->
+                    LunoGroupItem(shape = shape) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -340,17 +336,16 @@ private fun TrendEditForm(
                             }
                         }
                     }
-                    for (index in 0 until nameRows) {
-                        LunoCardInput(
-                            value = valueNames[index],
-                            onValueChange = { newValue ->
-                                valueNames = valueNames.toMutableList().also { it[index] = newValue }
-                            },
-                            label = stringResource(R.string.trend_edit_value_name, index + 1),
-                            placeholder = stringResource(R.string.trend_edit_value_name_hint),
-                            shape = segmentedShape(index + 1, totalRows),
-                        )
-                    }
+                }
+                for (index in 0 until nameRows) {
+                    inputRow(
+                        label = stringResource(R.string.trend_edit_value_name, index + 1),
+                        value = valueNames[index],
+                        onValueChange = { newValue ->
+                            valueNames = valueNames.toMutableList().also { it[index] = newValue }
+                        },
+                        placeholder = stringResource(R.string.trend_edit_value_name_hint),
+                    )
                 }
             }
             block {
@@ -364,6 +359,8 @@ private fun TrendEditForm(
                         value = formula,
                         onValueChange = { formula = it },
                         placeholder = stringResource(R.string.trend_edit_formula_hint),
+                        singleLine = false,
+                        minLines = 3,
                         supportingText = if (formulaIssue == null) {
                             stringResource(R.string.trend_edit_formula_note)
                         } else {
@@ -380,7 +377,7 @@ private fun TrendEditForm(
                     )
                 }
             }
-            group(title = stringResource(R.string.trend_edit_color)) {
+            group {
                 row(
                     title = stringResource(R.string.trend_edit_color),
                     leading = {
@@ -394,20 +391,21 @@ private fun TrendEditForm(
                     onClick = { showColorPicker = true },
                 )
             }
-            block {
-                LunoGroup(title = stringResource(R.string.trend_edit_target)) {
-                    LunoCardInput(
-                        value = targetText,
-                        onValueChange = { targetText = it },
-                        placeholder = stringResource(R.string.trend_edit_target_hint),
-                        supportingText = stringResource(R.string.trend_edit_target_note),
-                        shape = segmentedShape(0, 2),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        trailing = unit.takeIf { it.isNotBlank() }?.let { suffix ->
-                            { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        },
-                    )
-                    LunoGroupItem(shape = segmentedShape(1, 2)) {
+            group {
+                inputRow(
+                    label = stringResource(R.string.trend_edit_target),
+                    value = targetText,
+                    onValueChange = { targetText = it },
+                    placeholder = stringResource(R.string.trend_edit_target_hint),
+                    subtitle = stringResource(R.string.trend_edit_target_note),
+                    subtitleMaxLines = 2,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailing = unit.takeIf { it.isNotBlank() }?.let { suffix ->
+                        { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    },
+                )
+                item { shape ->
+                    LunoGroupItem(shape = shape) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

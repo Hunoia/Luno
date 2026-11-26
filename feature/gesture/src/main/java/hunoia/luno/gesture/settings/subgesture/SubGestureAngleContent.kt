@@ -62,6 +62,7 @@ import hunoia.luno.ui.theme.CanvasThumbRadius
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -150,7 +151,7 @@ private fun DirectionAngleContent(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
+                    color = trackSurfaceColor().copy(alpha = 0.55f),
                     shape = ExtraLargeShape
                 )
                 .border(

@@ -34,7 +34,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.design.R
@@ -137,7 +136,7 @@ fun rememberLunoTopBarScrollBehavior(): LunoTopBarScrollBehavior {
 fun TopBarActionGroup(
     modifier: Modifier = Modifier,
     /** 胶囊底：顶栏随收拢在 `surfaceContainer`(顶栏色) ↔ `surfaceBright`(列表色) 间过渡。 */
-    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    color: Color = raisedSurfaceColor(),
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
@@ -207,6 +206,8 @@ fun TopBar(
                 background = surfaceColor,
                 blurRadius = blurRadius,
                 mask = topBarMask(),
+                // 0 档（关闭模糊）：底色按收拢比例淡入，不透明，不再羽化。
+                solidBackground = raisedSurfaceColor().copy(alpha = fraction),
             ),
     ) {
         Row(

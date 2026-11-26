@@ -53,7 +53,8 @@ import hunoia.luno.config.model.RingStyle
 import hunoia.luno.config.model.WashParams
 import hunoia.luno.config.model.WashShape
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -66,7 +67,7 @@ import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -170,24 +171,26 @@ fun AlertLayerEditorScreen(
 
     LunoPage(title = stringResource(R.string.float_ball_layer_title),
 onBack = { leave() },
-floatingContent = {
-            LunoFab(
-                onClick = {
-                    if (playable) {
-                        previewLayer()
-                    } else {
-                        toast(resources.getString(R.string.float_ball_layer_preview_disabled))
-                    }
-                },
-                icon = Icons.Default.PlayArrow,
-                contentDescription = stringResource(R.string.float_ball_layer_preview),
-                containerColor = if (playable) {
-                    MaterialTheme.colorScheme.primaryContainer
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = {
+                if (playable) {
+                    previewLayer()
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
-            )
-        },
+                    toast(resources.getString(R.string.float_ball_layer_preview_disabled))
+                }
+            },
+            icon = Icons.Default.PlayArrow,
+            contentDescription = stringResource(R.string.float_ball_layer_preview),
+            containerColor = if (playable) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                trackSurfaceColor()
+            },
+        )
+    }
+},
 actions = {
             PressIconButton(onClick = { menuOpen = true }) {
                 Icon(
@@ -273,7 +276,7 @@ dialogs = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "base") {
@@ -314,6 +317,7 @@ dialogs = {
                             value = nameDraft,
                             onValueChange = { nameDraft = it.take(24) },
                             placeholder = stringResource(layer.family.labelRes()),
+                            subtitle = stringResource(R.string.float_ball_layer_name_hint),
                             shape = shape,
                         )
                     }

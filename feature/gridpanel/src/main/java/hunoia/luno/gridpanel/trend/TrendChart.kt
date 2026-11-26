@@ -46,6 +46,7 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ShapeRole
 import hunoia.luno.ui.theme.UiAppearance
 import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.abs
 
 /** 一条折线：一个读数槽位的序列 + 它的颜色。 */
@@ -95,7 +96,7 @@ fun TrendSeriesChart(
     val measurer = rememberTextMeasurer()
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val axisStyle = MaterialTheme.typography.labelSmall.copy(color = onSurfaceVariant)
-    val chipColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val chipColor = trackSurfaceColor()
     val emptyText = stringResource(R.string.trend_detail_no_entries)
     val emptyRangeText = stringResource(R.string.trend_chart_empty_range)
     val targetLabel = stringResource(R.string.trend_chart_target, formatTrendValue(target ?: 0.0, decimals))

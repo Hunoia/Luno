@@ -49,7 +49,6 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.input.LunoTimePicker
 import hunoia.luno.ui.component.input.rememberLunoTimePickerState
 import hunoia.luno.ui.component.page.LunoPage
-import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -303,26 +302,24 @@ fun HabitEditScreen(
         },
     ) {
         column(bottomContentPadding = ContentBottom) {
-            block {
-                LunoGroup(title = stringResource(R.string.habit_name)) {
-                    LunoCardInput(
-                        value = shownName,
-                        onValueChange = { value ->
-                            state.name = value
-                            val needsCreate = state.createdId == null && isNew && value.trim().isNotEmpty()
-                            if (needsCreate) {
-                                // 新建习惯名字首次非空即创建，先落一个稳定 id。
-                                state.createdId = UUID.randomUUID().toString()
-                                state.createdPersisted = false
-                                flushNow()
-                            } else {
-                                scheduleFlush()
-                            }
-                        },
-                        placeholder = stringResource(R.string.habit_name_hint),
-                        shape = segmentedShape(0, 1),
-                    )
-                }
+            group {
+                inputRow(
+                    label = stringResource(R.string.habit_name),
+                    value = shownName,
+                    onValueChange = { value ->
+                        state.name = value
+                        val needsCreate = state.createdId == null && isNew && value.trim().isNotEmpty()
+                        if (needsCreate) {
+                            // 新建习惯名字首次非空即创建，先落一个稳定 id。
+                            state.createdId = UUID.randomUUID().toString()
+                            state.createdPersisted = false
+                            flushNow()
+                        } else {
+                            scheduleFlush()
+                        }
+                    },
+                    placeholder = stringResource(R.string.habit_name_hint),
+                )
             }
             block {
                 LunoGroup {

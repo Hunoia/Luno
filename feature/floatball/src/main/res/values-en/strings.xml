@@ -217,7 +217,7 @@
     <string name="float_ball_preset_palette_hint">Overrides every layer; empty means each layer picks its own</string>
     <string name="float_ball_preset_palette_follow">Follow layers</string>
     <string name="float_ball_preset_editor_title">Edit preset</string>
-    <string name="float_ball_preset_name">Preset name</string>
+    <string name="float_ball_preset_name">Name</string>
     <string name="float_ball_preset_preview">Preview combo</string>
     <string name="float_ball_preset_layers_title">Layers</string>
     <string name="float_ball_preset_layers_hint">%1$d / %2$d enabled; list order is draw order</string>
@@ -239,7 +239,8 @@
     <string name="float_ball_layer_add_blank_hint">A blank layer comes with playable defaults</string>
     <string name="float_ball_layer_add_blank">Add blank %1$s layer</string>
     <string name="float_ball_layer_title">Edit layer</string>
-    <string name="float_ball_layer_name">Layer name (empty = pattern name)</string>
+    <string name="float_ball_layer_name">Name</string>
+    <string name="float_ball_layer_name_hint">Empty = pattern name</string>
     <string name="float_ball_layer_enabled">Enable this layer</string>
     <string name="float_ball_layer_enabled_subtitle">Parameters are kept but not played when off</string>
     <string name="float_ball_layer_preview">Preview this layer</string>

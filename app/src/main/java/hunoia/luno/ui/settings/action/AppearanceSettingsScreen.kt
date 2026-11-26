@@ -211,7 +211,6 @@ private fun ShapeSection(
 ) {
     val groups = listOf(
         Triple(R.string.appearance_corner_list, ShapeRole.List, ui.list),
-        Triple(R.string.appearance_corner_fab, ShapeRole.Fab, ui.fab),
         Triple(R.string.appearance_corner_menu, ShapeRole.Menu, ui.menu),
         Triple(R.string.appearance_corner_toolbar, ShapeRole.Toolbar, ui.toolbar),
         Triple(R.string.appearance_corner_compact, ShapeRole.Compact, ui.compact),
@@ -284,6 +283,9 @@ private fun GlassSection(
     onChange: (UiAppearanceSettings) -> Unit,
 ) {
     group(title = stringResource(R.string.appearance_group_glass)) {
+        // 模糊 0 档就是「关闭」：此时不透明度不再参与渲染（Backdrop 走实色分支），
+        // 滑杆置灰并显示「关闭」，避免用户以为 40% 透明度还有磨砂。
+        val blurOff = stringResource(R.string.appearance_glass_off)
         val topBar = ui.topBarGlass
         var blurDraft by remember(topBar.blurDp) { mutableFloatStateOf(topBar.blurDp.toFloat()) }
         sliderRow(
@@ -294,7 +296,7 @@ private fun GlassSection(
             },
             text = stringResource(R.string.appearance_top_bar_glass) + " · " +
                 stringResource(R.string.appearance_glass_blur),
-            valueDisplay = { "${it.roundToInt()} dp" },
+            valueDisplay = { v -> if (v <= 0f) blurOff else "${v.roundToInt()} dp" },
             valueRange = UiAppearancePresets.BlurDp.first.toFloat()..UiAppearancePresets.BlurDp.last.toFloat(),
             steps = 0,
         )
@@ -305,6 +307,7 @@ private fun GlassSection(
             onValueChangeFinished = {
                 onChange(ui.copy(topBarGlass = topBar.copy(alpha = alphaDraft)))
             },
+            enabled = topBar.blurDp > 0,
             text = stringResource(R.string.appearance_top_bar_glass) + " · " +
                 stringResource(R.string.appearance_glass_alpha),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
@@ -324,7 +327,7 @@ private fun GlassSection(
             },
             text = stringResource(R.string.appearance_floating_glass) + " · " +
                 stringResource(R.string.appearance_glass_blur),
-            valueDisplay = { "${it.roundToInt()} dp" },
+            valueDisplay = { v -> if (v <= 0f) blurOff else "${v.roundToInt()} dp" },
             valueRange = UiAppearancePresets.BlurDp.first.toFloat()..UiAppearancePresets.BlurDp.last.toFloat(),
             steps = 0,
         )
@@ -335,6 +338,7 @@ private fun GlassSection(
             onValueChangeFinished = {
                 onChange(ui.copy(floatingGlass = floating.copy(alpha = floatingAlpha)))
             },
+            enabled = floating.blurDp > 0,
             text = stringResource(R.string.appearance_floating_glass) + " · " +
                 stringResource(R.string.appearance_glass_alpha),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
@@ -406,7 +410,6 @@ private fun SpacingSection(
 private fun UiAppearanceSettings.withRole(role: ShapeRole, next: ShapeSetting): UiAppearanceSettings =
     when (role) {
         ShapeRole.List -> copy(list = next)
-        ShapeRole.Fab -> copy(fab = next)
         ShapeRole.Menu, ShapeRole.Toolbar, ShapeRole.MenuInner -> copy(menu = next)
         ShapeRole.Compact, ShapeRole.CompactMedium -> copy(compact = next)
         ShapeRole.Sheet, ShapeRole.SheetTop -> copy(sheet = next)

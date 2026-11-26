@@ -38,7 +38,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -128,7 +127,7 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
         title = stringResource(R.string.status_bar_icons_title),
         onBack = onBack,
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 when {
                     // 与无障碍管理页共用同一组原因 / 动作文案，页面差异由上下文自己承担。

@@ -78,7 +78,7 @@
     <!-- 动作面板（显式动作类型 internal.actionPanel）全局列表与编辑器 -->
     <string name="action_panels">动作面板</string>
     <string name="add_action_panel">添加面板</string>
-    <string name="action_panel_name_hint">面板名称</string>
+    <string name="action_panel_name_hint">名称</string>
     <string name="action_panel_items">面板内容</string>
     <string name="action_panel_empty_hint">还没有面板项。添加后，触钮动作选「动作面板」即可弹出。</string>
     <string name="action_panel_item_drag">拖动排序</string>
@@ -116,7 +116,6 @@
     <string name="appearance_theme_palette_label">色板</string>
     <string name="appearance_theme_custom_hint">自定义色板在「到达提示 → 调色板」管理</string>
     <string name="appearance_corner_list">列表与卡片</string>
-    <string name="appearance_corner_fab">悬浮按钮</string>
     <string name="appearance_corner_menu">菜单与按钮</string>
     <string name="appearance_corner_toolbar">紧凑工具条</string>
     <string name="appearance_corner_compact">小元件</string>
@@ -130,6 +129,7 @@
     <string name="appearance_top_bar_glass">顶栏玻璃</string>
     <string name="appearance_floating_glass">悬浮玻璃</string>
     <string name="appearance_glass_blur">模糊半径</string>
+    <string name="appearance_glass_off">关闭</string>
     <string name="appearance_glass_alpha">不透明度</string>
     <string name="appearance_glass_shadow">阴影</string>
     <string name="appearance_shadow_none">无</string>

@@ -19,12 +19,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,8 +31,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -96,7 +92,9 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.theme.cardSurfaceColor
 import hunoia.luno.ui.theme.displayNameRes
+import hunoia.luno.ui.theme.raisedSurfaceColor
 import hunoia.luno.ui.theme.resolveColor
 import java.util.Locale
 import kotlin.math.min
@@ -259,7 +257,7 @@ fun ColorPickerBottomSheet(
                             Box(
                                 modifier = Modifier
                                     .clip(LargeShape)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .background(cardSurfaceColor())
                                     .padding(
                                         horizontal = PageGutter,
                                         vertical = ListItemVerticalPadding,
@@ -358,7 +356,7 @@ fun ColorPickerBottomSheet(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .animateContentSize(),
                 shape = SheetTopShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = raisedSurfaceColor(),
             ) {
                 val confirmEnabled = when (selectedTab) {
                     1 -> selectedThemeKey != null

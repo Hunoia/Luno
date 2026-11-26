@@ -11,9 +11,6 @@ import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.FloatingActionButtonElevation
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
@@ -23,9 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import hunoia.luno.ui.theme.FabShape
 import hunoia.luno.ui.theme.CapsuleShape
 
 /**
@@ -127,29 +122,6 @@ fun PressFilledIconButton(
         enabled = enabled,
         shape = shape,
         colors = colors,
-        interactionSource = interactionSource,
-        content = content,
-    )
-}
-
-@Composable
-fun PressFloatingActionButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    shape: Shape = FabShape,
-    containerColor: Color = FloatingActionButtonDefaults.containerColor,
-    contentColor: Color = androidx.compose.material3.contentColorFor(containerColor),
-    elevation: FloatingActionButtonElevation = FloatingActionButtonDefaults.elevation(),
-    content: @Composable () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    FloatingActionButton(
-        onClick = onClick,
-        modifier = modifier.pressScale(interactionSource),
-        shape = shape,
-        containerColor = containerColor,
-        contentColor = contentColor,
-        elevation = elevation,
         interactionSource = interactionSource,
         content = content,
     )

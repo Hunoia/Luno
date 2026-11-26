@@ -1,7 +1,6 @@
 package hunoia.luno.ui.settings.action.panel
 
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -11,8 +10,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +27,8 @@ import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.DragReorderHandle
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -38,11 +36,11 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.*
-import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.PressIconButton
 
@@ -133,13 +131,15 @@ actions = {
                 onClick = { showDeleteConfirm = true },
             )
         },
-floatingContent = {
-            LunoFab(
-                onClick = { onPickItem(ActionSelect(actionPanelId = panelId)) },
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(hunoia.luno.actions.R.string.action_panel_add_item),
-            )
-        },
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = { onPickItem(ActionSelect(actionPanelId = panelId)) },
+            icon = Icons.Default.Add,
+            contentDescription = stringResource(hunoia.luno.actions.R.string.action_panel_add_item),
+        )
+    }
+},
 dialogs = {
             if (showDeleteConfirm) {
                 // 引用数在弹窗打开时现查：引用可能刚在别的页面改过。
@@ -174,29 +174,26 @@ dialogs = {
                 )
             }
         }) {
-    list(state = listState,
-bottomContentPadding = FloatingContentBottom) {
+    list(state = listState) {
         lazy {
 
         item {
-            OutlinedTextField(
-                value = current.name,
-                onValueChange = { name ->
-                    scope.launch {
-                        TuneConfig.updateAction { settings ->
-                            settings.copy(
-                                actionPanels = settings.actionPanels.withPanel(current.copy(name = name))
-                            )
+            LunoGroup(modifier = Modifier.padding(vertical = CardInnerSpacing)) {
+                LunoInputRow(
+                    label = stringResource(R.string.action_panel_name_hint),
+                    value = current.name,
+                    onValueChange = { name ->
+                        scope.launch {
+                            TuneConfig.updateAction { settings ->
+                                settings.copy(
+                                    actionPanels = settings.actionPanels.withPanel(current.copy(name = name))
+                                )
+                            }
                         }
-                    }
-                },
-                label = { Text(stringResource(R.string.action_panel_name_hint)) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = CardInnerSpacing),
-                shape = LargeShape,
-            )
+                    },
+                    shape = containerShape(ContainerRadius),
+                )
+            }
         }
         item {
             LunoGroup(title = stringResource(R.string.action_panel_items)) {

@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.MenuShape
 import hunoia.luno.ui.theme.MinInteractiveSize
-import hunoia.luno.ui.theme.ShapeSmall
 import hunoia.luno.ui.theme.MenuInnerShape
 
 /**

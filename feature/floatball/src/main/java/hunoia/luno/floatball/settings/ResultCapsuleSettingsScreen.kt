@@ -34,7 +34,6 @@ import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
 import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.facade.LocalFacades
-import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 
 /**
@@ -161,8 +160,7 @@ sheets = {
                 )
             }
         }) {
-    list(state = listState,
-bottomContentPadding = FloatingContentBottom) {
+    list(state = listState) {
         lazy {
 
         if (!overlayGranted) {

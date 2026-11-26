@@ -18,7 +18,8 @@ import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.component.LunoFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
@@ -26,7 +27,6 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.gesture.settings.visibility.ButtonVisibilityText.summary
-import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
 
 /** 触钮显隐场景列表：顺序即优先级，最后命中的场景生效。 */
@@ -54,15 +54,16 @@ fun ButtonVisibilityScreen(
 
     LunoPage(title = stringResource(R.string.button_visibility),
 onBack = onBack,
-floatingContent = {
-            LunoFab(
-                onClick = { onEdit(NEW_VISIBILITY_PROFILE_ID) },
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.button_visibility_new),
-            )
-        }) {
-    list(state = rememberLazyListState(),
-bottomContentPadding = FloatingContentBottom) {
+bottomBar = { hazeState ->
+    LunoActionBar(hazeState) {
+        LunoActionBarItem(
+            onClick = { onEdit(NEW_VISIBILITY_PROFILE_ID) },
+            icon = Icons.Default.Add,
+            contentDescription = stringResource(R.string.button_visibility_new),
+        )
+    }
+}) {
+    list(state = rememberLazyListState()) {
         lazy {
 
         // 系统级显隐：应用列表与 Luno 后台（与下方按场景的触钮/悬浮球显隐区分）。
@@ -75,7 +76,7 @@ bottomContentPadding = FloatingContentBottom) {
                     checked = actionSettings.showUILessSystemComponents,
                     onCheckedChange = { enabled ->
                         scope.launch { TuneConfig.updateAction { it.copy(showUILessSystemComponents = enabled) } }
-                    },
+},
                 )
                 switchRow(
                     icon = Icons.Default.Android,

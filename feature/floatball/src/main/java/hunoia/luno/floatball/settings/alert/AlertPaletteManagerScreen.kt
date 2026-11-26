@@ -29,14 +29,14 @@ import hunoia.luno.config.model.rainbowRing
 import hunoia.luno.config.model.removePalette
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.ListAddFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.PageGutter
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -148,11 +148,14 @@ fun AlertPaletteManagerScreen(
 
     LunoPage(title = stringResource(R.string.float_ball_capsule_alert_palette_manage),
 onBack = onBack,
-floatingContent = {
-            ListAddFab(
-                onClick = ::createNew,
-                contentDescription = stringResource(R.string.float_ball_capsule_alert_palette_new),
-            )
+bottomBar = { hazeState ->
+            LunoActionBar(hazeState) {
+                LunoActionBarItem(
+                    onClick = ::createNew,
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.float_ball_capsule_alert_palette_new),
+                )
+            }
         },
 dialogs = {
             val target = deleteTarget
@@ -175,7 +178,7 @@ dialogs = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         // 自定义在上：用户自己的调色板是常用项，内置只作模板来源。

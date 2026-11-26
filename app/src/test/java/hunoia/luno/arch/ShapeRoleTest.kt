@@ -93,11 +93,11 @@ class ShapeRoleTest {
             .associate { it.groupValues[1] to it.groupValues[2].toFloat() }
         // 默认半径：`val list: ShapeSetting = ShapeSetting(radiusDp = 16),` 之类。
         val defaults = Regex(
-            """val\s+(list|fab|menu|toolbar|compact|sheet)\s*:\s*ShapeSetting\s*=\s*ShapeSetting\(radiusDp\s*=\s*(\d+)\)""",
+            """val\s+(list|menu|toolbar|compact|sheet)\s*:\s*ShapeSetting\s*=\s*ShapeSetting\(radiusDp\s*=\s*(\d+)\)""",
         ).findAll(settings).associate { it.groupValues[1] to it.groupValues[2].toFloat() }
 
         assertTrue("UiAppearance.kt 没解析到组件族预算：$budgets", budgets.size >= 6)
-        assertTrue("UiAppearanceSettings.kt 没解析到默认圆角：$defaults", defaults.size == 6)
+        assertTrue("UiAppearanceSettings.kt 没解析到默认圆角：$defaults", defaults.size == 5)
 
         val problems = mutableListOf<String>()
         // 连续曲率 0.48 / 标准圆弧 0。
@@ -105,7 +105,6 @@ class ShapeRoleTest {
             for ((field, radius) in defaults) {
                 val roleName = when (field) {
                     "list" -> "List"
-                    "fab" -> "Fab"
                     "menu" -> "Menu"
                     "toolbar" -> "Toolbar"
                     "compact" -> "Compact"

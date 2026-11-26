@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MoreVert
@@ -29,7 +30,8 @@ import hunoia.luno.config.model.AlertLibraryExport
 import hunoia.luno.config.model.AlertPreset
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.floatball.R
-import hunoia.luno.ui.component.ListAddFab
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.menu.LunoDropdownMenu
 import hunoia.luno.ui.component.menu.LunoDropdownMenuItem
@@ -38,7 +40,6 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.SegmentedRows
 import hunoia.luno.ui.component.row.segmentedRows
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.MarkColorSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -167,11 +168,14 @@ fun AlertPresetLibraryScreen(
 
     LunoPage(title = stringResource(R.string.float_ball_preset_library_title),
 onBack = onBack,
-floatingContent = {
-            ListAddFab(
-                onClick = ::createPreset,
-                contentDescription = stringResource(R.string.float_ball_preset_new),
-            )
+bottomBar = { hazeState ->
+            LunoActionBar(hazeState) {
+                LunoActionBarItem(
+                    onClick = ::createPreset,
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.float_ball_preset_new),
+                )
+            }
         },
 actions = {
             PressIconButton(onClick = { menuOpen = true }) {
@@ -213,7 +217,7 @@ actions = {
                 )
             }
         }) {
-    list(bottomContentPadding = FloatingContentBottom) {
+    list() {
         lazy {
 
         item(key = "filter") {

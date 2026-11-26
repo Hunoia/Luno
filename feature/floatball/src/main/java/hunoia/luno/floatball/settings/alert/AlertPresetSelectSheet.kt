@@ -37,6 +37,7 @@ import hunoia.luno.ui.component.row.segmentedRows
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.raisedSurfaceColor
 
 /**
  * 预设选择 sheet：搜索 + 单行可滚动类别筛选 + 单选（选中即落盘并关闭）。
@@ -74,7 +75,7 @@ internal fun AlertPresetSelectSheet(
                 .fillMaxWidth()
                 .height(48.dp),
             shape = CapsuleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = raisedSurfaceColor(),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 LunoSearchField(

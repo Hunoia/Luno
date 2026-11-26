@@ -145,6 +145,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.panelSpec
+import hunoia.luno.ui.theme.trackSurfaceColor
 import hunoia.luno.ui.theme.tween
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -854,7 +855,7 @@ private fun ImagePane(
             .fillMaxWidth()
             .heightIn(min = 140.dp),
         shape = containerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        color = trackSurfaceColor(),
     ) {
         BoxWithConstraints(
             modifier = Modifier
@@ -1186,7 +1187,7 @@ private fun WordChips(
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primaryContainer
                     } else {
-                        MaterialTheme.colorScheme.surfaceContainerHighest
+                        trackSurfaceColor()
                     },
                     contentColor = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimaryContainer

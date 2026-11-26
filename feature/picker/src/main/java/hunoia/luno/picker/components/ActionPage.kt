@@ -99,7 +99,7 @@ import hunoia.luno.ui.component.row.groupItemSpacing
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedCorners
-import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.component.row.LunoSectionTitle
 import hunoia.luno.ui.component.IndexBarEntry
 import hunoia.luno.ui.component.LetterDial
 import dev.chrisbanes.haze.HazeState
@@ -538,7 +538,7 @@ internal fun ActionPage(
                             grouped.forEach { (category, categoryActions) ->
                                 if (category != ActionCategory.NONE) {
                                     stickyHeader(key = "cat_${category.name}") {
-                                        SheetGroupHeader(stringResource(id = category.displayNameRes))
+                                        LunoSectionTitle(stringResource(id = category.displayNameRes))
                                     }
                                 }
                                 item(key = "cat_body_${category.name}") {
@@ -672,7 +672,7 @@ internal fun ActionPage(
                         if (groupedLibraryEntries.isNotEmpty()) {
                             groupedLibraryEntries.forEach { (category, entries) ->
                                 stickyHeader(key = "lib_cat_${category.name}") {
-                                    SheetGroupHeader(stringResource(id = category.displayNameRes))
+                                    LunoSectionTitle(stringResource(id = category.displayNameRes))
                                 }
                                 item(key = "lib_body_${category.name}") {
                                     LunoGroup {
@@ -693,7 +693,7 @@ internal fun ActionPage(
                             }
                         } else if (filteredLibraryEntries.isNotEmpty()) {
                             stickyHeader(key = "lib_all") {
-                                SheetGroupHeader(stringResource(hunoia.luno.actions.R.string.action_library))
+                                LunoSectionTitle(stringResource(hunoia.luno.actions.R.string.action_library))
                             }
                             item(key = "lib_body_all") {
                                 LunoGroup {
@@ -715,7 +715,7 @@ internal fun ActionPage(
                         // 部件排在动作/动作库之后、字母应用区之前：全局搜索不会一上来就被部件卡占满。
                         if (filteredInternalWidgets.isNotEmpty()) {
                             stickyHeader(key = "widget_internal") {
-                                SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
+                                LunoSectionTitle(stringResource(R.string.grid_panel_internal_widgets))
                             }
                             item(key = "widget_internal_row") {
                                 LunoGroup {
@@ -768,7 +768,7 @@ internal fun ActionPage(
                         }
                         appSections.forEach { section ->
                             stickyHeader(key = "app_header_${section.letter}") {
-                                SheetGroupHeader(section.letter.toString())
+                                LunoSectionTitle(section.letter.toString())
                             }
                             item(key = "app_body_${section.letter}") {
                                 LunoGroup {

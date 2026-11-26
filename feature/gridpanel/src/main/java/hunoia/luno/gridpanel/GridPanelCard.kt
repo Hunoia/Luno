@@ -93,6 +93,9 @@ import hunoia.luno.gridpanel.ui.pageDotCentersPx
 import hunoia.luno.gridpanel.ui.pageDotSlots
 import hunoia.luno.gridpanel.ui.gridPanelCardColor
 import hunoia.luno.bridge.ui.hapticTick
+import hunoia.luno.ui.component.pressClickable
+import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.trackSurfaceColor
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -101,7 +104,6 @@ import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.panel.panelAppear
 import hunoia.luno.ui.theme.PanelAppearSlide
 import hunoia.luno.ui.theme.containerShape
-import hunoia.luno.ui.component.PressFloatingActionButton
 
 
 /** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动。 */
@@ -570,7 +572,7 @@ fun GridPanelCard(
                     .align(Alignment.Center)
                     .zIndex(3f)
                     .clip(shape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f))
+                    .background(trackSurfaceColor().copy(alpha = 0.95f))
                     .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), shape)
                     .padding(horizontal = 14.dp, vertical = 6.dp),
             ) {
@@ -597,16 +599,21 @@ fun GridPanelCard(
             enter = fadeIn(tween(hunoia.luno.ui.theme.MotionCellIn)) + scaleIn(tween(hunoia.luno.ui.theme.MotionCellIn), initialScale = 0.8f),
             exit = fadeOut(tween(hunoia.luno.ui.theme.MotionCellOut)) + scaleOut(tween(hunoia.luno.ui.theme.MotionCellOut), targetScale = 0.8f),
         ) {
-            PressFloatingActionButton(
-                onClick = onAdd,
-                // 加项是全卡唯一主操作，用 primary：内容色是固定浅灰，FAB 再用内容色
-                // 会变成全卡最亮的大白钮；深色方案下 primary 亮、onPrimary 暗，黑卡上看得见。
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+            // 加项是全卡唯一主操作：40dp 胶囊按钮（不是 M3 FAB），
+            // 用 primary 底色 + onPrimary 图标，深色方案下黑卡上看得见。
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(CapsuleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .pressClickable(onClick = onAdd)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(R.string.grid_panel_add_item),
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         }
@@ -747,7 +754,7 @@ private fun PageDropPicker(
     Box(
         modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f))
+            .background(trackSurfaceColor().copy(alpha = 0.95f))
             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), shape)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {

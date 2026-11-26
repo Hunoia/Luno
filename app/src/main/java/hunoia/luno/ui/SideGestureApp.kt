@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,6 +34,7 @@ import androidx.navigation.toRoute
 import hunoia.luno.R
 import hunoia.luno.ui.component.sheet.LunoAppPicker
 import hunoia.luno.ui.theme.MotionNavTransition
+import hunoia.luno.ui.theme.pageSurfaceColor
 import kotlinx.coroutines.launch
 
 import hunoia.luno.picker.ActionSelect
@@ -903,7 +903,7 @@ private inline fun <reified T : Any> NavGraphBuilder.myComposable(
         popExitTransition = popExitTransition,
         sizeTransform = sizeTransform
     ) { navBackStackEntry ->
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Surface(color = pageSurfaceColor()) {
             content(navBackStackEntry)
         }
     }

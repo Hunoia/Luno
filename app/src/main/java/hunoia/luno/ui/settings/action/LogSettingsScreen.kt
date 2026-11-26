@@ -201,7 +201,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                     onClick = { showClearConfirm = true },
                 )
             }
-            group(title = stringResource(R.string.log_settings_preview)) {
+            group {
                 row(
                     title = stringResource(R.string.log_settings_preview),
                     subtitle = stringResource(R.string.log_settings_preview_hint, PREVIEW_LINES),

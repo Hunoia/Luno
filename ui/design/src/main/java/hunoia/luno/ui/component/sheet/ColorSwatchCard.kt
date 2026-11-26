@@ -36,6 +36,7 @@ import hunoia.luno.ui.theme.CanvasStrokeWidth
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.theme.trackSurfaceColor
 
 /** 卡片色块高度：卡片主体，比旧版 36dp 方块大一圈。 */
 private val SwatchBlockHeight = 56.dp
@@ -68,7 +69,7 @@ internal fun ColorSwatchCard(
         modifier = modifier
             .clip(LargeShape)
             .background(
-                if (selected) scheme.primaryContainer else scheme.surfaceContainerHigh,
+                if (selected) scheme.primaryContainer else trackSurfaceColor(),
             )
             .border(
                 width = if (selected) CanvasStrokeWidth else CanvasStrokeWidth / 2,

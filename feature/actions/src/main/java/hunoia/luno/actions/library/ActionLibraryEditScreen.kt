@@ -6,26 +6,24 @@ import hunoia.luno.runtime.dispatch.ActionDispatch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import hunoia.luno.ui.component.LunoActionBar
+import hunoia.luno.ui.component.LunoActionBarItem
 import hunoia.luno.ui.component.page.LunoPage
-import hunoia.luno.ui.theme.FloatingContentBottom
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ElevationSmall
@@ -36,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -63,11 +60,11 @@ import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.runtime.dispatch.ActivityOptions
 import hunoia.luno.core.domain.ActivityOptionItem
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.PressIconButton
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.shizuku.ShizukuFacade
 import hunoia.luno.shizuku.ShellResult
+import hunoia.luno.ui.theme.raisedSurfaceColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,11 +77,8 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.theme.BottomBarPadding
-import hunoia.luno.ui.theme.DockGutter
-import hunoia.luno.ui.theme.DockTabHeight
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.TileInnerPadding
-import hunoia.luno.ui.theme.glassCapsule
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionLibraryEditScreen(
@@ -118,74 +112,53 @@ fun ActionLibraryEditScreen(
             if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
         ),
         onBack = guardedBack,
+        bottomBar = { hazeState ->
+            if (draft != null) {
+                LunoActionBar(hazeState) {
+                    // 次要：试跑（shell 命令直接执行，结果卡浮在底栏上方）；主操作：保存。
+                    LunoActionBarItem(
+                        onClick = {
+                            if (draft.typeId == "shell.custom") {
+                                val command = draft.params["command"]?.scalarText().orEmpty().trim()
+                                when {
+                                    command.isBlank() -> showToast(R.string.action_library_invalid_hint)
+                                    !ShizukuFacade.isReady() -> showToast(R.string.toast_shizuku_required)
+                                    else -> {
+                                        shellRunning = true
+                                        scope.launch {
+                                            shellResult = ShizukuFacade.runShellCommand(command)
+                                            shellRunning = false
+                                        }
+                                    }
+                                }
+                            } else {
+                                scope.launch {
+                                    if (!ActionDispatch.send(draft.toStoredAction())) {
+                                        showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+                                    }
+                                }
+                            }
+                        },
+                        icon = Icons.Default.PlayArrow,
+                        contentDescription = stringResource(R.string.action_library_test),
+                        enabled = draft.isValid && !state.isSaving && !shellRunning,
+                    )
+                    LunoActionBarItem(
+                        onClick = {
+                            if (draft.isValid) {
+                                vm.save(onSaved = onBack)
+                            } else {
+                                showToast(R.string.action_library_invalid_hint)
+                            }
+                        },
+                        icon = Icons.Default.Save,
+                        contentDescription = stringResource(hunoia.luno.design.R.string.save),
+                    )
+                }
+            }
+            },
         floatingContent = { hazeState ->
             if (draft != null) {
-                // 底部玻璃胶囊：靠右、自适应宽，[测试][保存] 两个图标按钮（同冻结页底栏几何）。
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .swallowTouches()
-                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                        .padding(start = DockGutter, end = DockGutter, bottom = BottomBarPadding),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    Column(modifier = Modifier.glassCapsule(hazeState)) {
-                        Row(
-                            modifier = Modifier.height(DockTabHeight),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            PressIconButton(
-                                onClick = {
-                                    // shell 命令在编辑页直接跑一次，把 stdout/stderr 显示在底部面板，
-                                    // 不走分发（分发拿不到结果，只能 toast）。
-                                    if (draft.typeId == "shell.custom") {
-                                        val command = draft.params["command"]?.scalarText().orEmpty().trim()
-                                        when {
-                                            command.isBlank() -> showToast(R.string.action_library_invalid_hint)
-                                            !ShizukuFacade.isReady() -> showToast(R.string.toast_shizuku_required)
-                                            else -> {
-                                                shellRunning = true
-                                                scope.launch {
-                                                    shellResult = ShizukuFacade.runShellCommand(command)
-                                                    shellRunning = false
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        scope.launch {
-                                            if (!ActionDispatch.send(draft.toStoredAction())) {
-                                                // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
-                                                showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
-                                            }
-                                        }
-                                    }
-                                },
-                                enabled = draft.isValid && !state.isSaving && !shellRunning,
-                            ) {
-                                Icon(
-                                    Icons.Default.PlayArrow,
-                                    contentDescription = stringResource(R.string.action_library_test),
-                                )
-                            }
-                            PressIconButton(
-                                onClick = {
-                                    if (draft.isValid) {
-                                        vm.save(onSaved = onBack)
-                                    } else {
-                                        showToast(R.string.action_library_invalid_hint)
-                                    }
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Default.Save,
-                                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
-                                )
-                            }
-                        }
-                    }
-                }
                 if (draft.typeId == "shell.custom" && (shellResult != null || shellRunning)) {
                     ShellResultCard(
                         loading = shellRunning,
@@ -194,11 +167,11 @@ fun ActionLibraryEditScreen(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                        // 底部抬到胶囊上方：胶囊高 = DockTabHeight + 玻璃胶囊内边距，加一段间隙。
+                        // 底部抬到动作底栏上方：底栏高 = BottomBarHeight + 玻璃胶囊内边距，加一段间隙。
                         .padding(
                             start = PageGutter,
                             end = PageGutter,
-                            bottom = BottomBarPadding + DockTabHeight + TileInnerPadding * 2 + ListSpacing,
+                            bottom = BottomBarPadding + BottomBarHeight + TileInnerPadding * 2 + ListSpacing,
                         )
                         .fillMaxWidth(),
                     )
@@ -290,7 +263,7 @@ fun ActionLibraryEditScreen(
             }
         },
     ) {
-        column(bottomContentPadding = FloatingContentBottom) {
+        column() {
             block {
                 when {
                     state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
@@ -298,7 +271,7 @@ fun ActionLibraryEditScreen(
                     LoadingState(message = stringResource(R.string.action_library_loading))
                     else -> {
                         // 名称：页首浮空组，行内形式（标签「名称」+ 值右对齐）。
-                        group(title = stringResource(R.string.action_library_name)) {
+                        group {
                             inputRow(
                                 label = stringResource(R.string.action_library_name),
                                 value = draft.name,
@@ -452,7 +425,7 @@ private fun ShellResultCard(
     Surface(
         modifier = modifier,
         shape = LargeShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = raisedSurfaceColor(),
         tonalElevation = ElevationSmall,
         shadowElevation = ElevationSmall,
     ) {

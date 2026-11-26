@@ -69,15 +69,16 @@ fun ParameterEditor(
         is ParameterDefinition.Text -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             if (definition.twoRow) {
-                // 长内容两行形式：参数名一行、值一行（卡内无边框输入，同链接规则
-                // 编辑页的 exclude / template 用法），不嵌套 OutlinedTextField 盒。
+                // 长内容（Data URI / 快捷方式数据）：多行卡内输入，同链接规则编辑页的
+                // exclude / template 用法；不嵌套 OutlinedTextField 盒。
                 LunoCardInput(
                     value = value,
                     onValueChange = { onParamChange(definition.key, it) },
                     label = definition.label,
                     placeholder = definition.placeholder.orEmpty(),
                     isError = required && value.isBlank(),
-                    singleLine = true,
+                    singleLine = false,
+                    minLines = 2,
                     shape = shape,
                     modifier = modifier.fillMaxWidth(),
                 )

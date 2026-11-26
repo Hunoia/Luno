@@ -31,13 +31,11 @@ import hunoia.luno.quickaccess.R
 import hunoia.luno.quickaccess.query.SearchSourceRegistry
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.group
 import hunoia.luno.ui.component.row.groupItemClip
 import hunoia.luno.ui.component.row.groupItemSpacing
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ListSpacing
@@ -99,25 +97,28 @@ internal fun EngineEditFields(
         EngineIconFields(state)
         OpenModeCard(state)
         if (!state.isShareImage && !state.isActivity) {
-            LunoGroup(
-                title = stringResource(
-                    if (state.isShare) R.string.search_engine_share_template else R.string.search_engine_url,
-                ),
-            ) {
-                LunoCardInput(
-                    value = state.template,
-                    onValueChange = { state.template = it },
-                    placeholder = if (state.isShare) "%q" else "https://www.bing.com/search?q=%s",
-                    // 分享模式常驻 %q 说明；出错 / 撞车时同槽位换文案，高度不跳。
-                    supportingText = when {
-                        state.templateError -> stringResource(R.string.search_engine_url_error)
-                        state.templateDuplicate -> stringResource(R.string.search_engine_template_duplicate)
-                        state.isShare -> stringResource(R.string.search_engine_share_hint)
-                        else -> ""
-                    },
-                    isError = state.templateError || state.templateDuplicate,
-                    shape = segmentedShape(0, 1),
-                )
+            group {
+                item { shape ->
+                    LunoCardInput(
+                        value = state.template,
+                        onValueChange = { state.template = it },
+                        label = stringResource(
+                            if (state.isShare) R.string.search_engine_share_template else R.string.search_engine_url,
+                        ),
+                        placeholder = if (state.isShare) "%q" else "https://www.bing.com/search?q=%s",
+                        // 分享模式常驻 %q 说明；出错 / 撞车时同槽位换文案，高度不跳。
+                        supportingText = when {
+                            state.templateError -> stringResource(R.string.search_engine_url_error)
+                            state.templateDuplicate -> stringResource(R.string.search_engine_template_duplicate)
+                            state.isShare -> stringResource(R.string.search_engine_share_hint)
+                            else -> ""
+                        },
+                        isError = state.templateError || state.templateDuplicate,
+                        singleLine = false,
+                        minLines = 2,
+                        shape = shape,
+                    )
+                }
             }
         }
         // Custom Tabs 打开：仅 Default（无指定包）。App 模式指定了包名，
@@ -172,37 +173,50 @@ internal fun EngineEditFields(
                 )
             }
             if (state.mode == EngineOpenMode.App) {
-                LunoGroup(title = stringResource(R.string.search_engine_fallback)) {
-                    LunoCardInput(
-                        value = state.fallback,
-                        onValueChange = { state.fallback = it },
-                        placeholder = stringResource(R.string.search_engine_fallback_hint),
-                        shape = segmentedShape(0, 1),
-                    )
+                group {
+                    item { shape ->
+                        LunoCardInput(
+                            value = state.fallback,
+                            onValueChange = { state.fallback = it },
+                            label = stringResource(R.string.search_engine_fallback),
+                            placeholder = stringResource(R.string.search_engine_fallback_hint),
+                            singleLine = false,
+                            minLines = 2,
+                            shape = shape,
+                        )
+                    }
                 }
             }
             if (state.isActivity) {
-                LunoGroup(title = stringResource(R.string.search_engine_activity_target)) {
-                    LunoInputRow(
-                        label = stringResource(R.string.search_engine_target_activity),
-                        value = state.targetActivity,
-                        onValueChange = { state.targetActivity = it },
-                        placeholder = stringResource(R.string.search_engine_target_activity_hint),
-                        shape = segmentedShape(0, 2),
-                    )
-                    LunoInputRow(
-                        label = stringResource(R.string.search_engine_extern_link),
-                        value = state.externLink,
-                        onValueChange = { state.externLink = it },
-                        placeholder = "https://…",
-                        subtitle = if (state.activityTargetMissing) {
-                            stringResource(R.string.search_engine_activity_required)
-                        } else {
-                            ""
-                        },
-                        isError = state.activityTargetMissing,
-                        shape = segmentedShape(1, 2),
-                    )
+                group {
+                    item { shape ->
+                        LunoCardInput(
+                            value = state.targetActivity,
+                            onValueChange = { state.targetActivity = it },
+                            label = stringResource(R.string.search_engine_target_activity),
+                            placeholder = stringResource(R.string.search_engine_target_activity_hint),
+                            singleLine = false,
+                            minLines = 2,
+                            shape = shape,
+                        )
+                    }
+                    item { shape ->
+                        LunoCardInput(
+                            value = state.externLink,
+                            onValueChange = { state.externLink = it },
+                            label = stringResource(R.string.search_engine_extern_link),
+                            placeholder = "https://…",
+                            supportingText = if (state.activityTargetMissing) {
+                                stringResource(R.string.search_engine_activity_required)
+                            } else {
+                                ""
+                            },
+                            isError = state.activityTargetMissing,
+                            singleLine = false,
+                            minLines = 2,
+                            shape = shape,
+                        )
+                    }
                 }
                 group(title = stringResource(R.string.search_engine_activity_options)) {
                     switchRow(

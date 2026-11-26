@@ -1,14 +1,11 @@
 package hunoia.luno.ui.settings.action.gridpanel
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,12 +27,14 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.page.LunoPage
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoInputRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.containerShape
 import kotlinx.coroutines.launch
 
 /**
@@ -152,16 +151,14 @@ dialogs = {
         lazy {
 
         item {
-            OutlinedTextField(
-                value = current.name,
-                onValueChange = { name -> update { it.copy(name = name) } },
-                label = { Text(stringResource(R.string.action_panel_name_hint)) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = CardInnerSpacing),
-                shape = LargeShape,
-            )
+            LunoGroup(modifier = Modifier.padding(vertical = CardInnerSpacing)) {
+                LunoInputRow(
+                    label = stringResource(R.string.action_panel_name_hint),
+                    value = current.name,
+                    onValueChange = { name -> update { it.copy(name = name) } },
+                    shape = containerShape(ContainerRadius),
+                )
+            }
         }
         item {
             LunoGroup {
